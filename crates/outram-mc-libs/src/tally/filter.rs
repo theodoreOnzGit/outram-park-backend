@@ -19,7 +19,7 @@
 /// `Vec<Box<dyn Filter>>`, which violated both the "no trait objects" and "no
 /// `Box<T>`" rules and cost the exhaustiveness check that makes adding a filter
 /// safe.
-use super::mesh::RegularMesh;
+use super::mesh::MeshKind;
 use crate::geometry::position::{Direction, Position};
 use crate::particle::particle::ParticleType;
 
@@ -44,6 +44,7 @@ pub trait Filter: Send + Sync {
         None
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Snapshot of particle state passed to filters at scoring time.
 ///
@@ -60,6 +61,10 @@ pub struct FilterEvent {
     pub energy: f64,
     /// Surface crossed (usize::MAX if not a surface-crossing event).
     pub surface_idx: usize,
+    /// Start of the track segment \[cm\], for the filters that need the whole
+    /// segment rather than a representative point —
+    /// [`super::filter_extra::MeshSurfaceFilter`].
+    pub position_last: Position,
     /// Representative spatial position of the event \[cm\] — the streamed
     /// segment's midpoint for the track-length estimator. Used by the spatial
     /// filters ([`MeshFilter`], [`SpatialLegendreFilter`], [`ZernikeFilter`]);
@@ -90,6 +95,75 @@ pub struct FilterEvent {
     /// once, so a tally carrying an [`EnergyFilter`] and an [`EnergyOutFilter`]
     /// bins `(g_in, g_out)` from a single event.
     pub energy_out: Option<f64>,
+
+    // ── Added for GitHub #261 ───────────────────────────────────────────────
+    /// MT number of the event. Consumed by
+    /// [`super::filter_extra::ReactionFilter`]; `0` for an event that is not a
+    /// reaction (a surface crossing, a track-length segment).
+    pub event_mt: i32,
+    /// Number of collisions this particle has had. Consumed by
+    /// [`super::filter_extra::CollisionFilter`], which matches it EXACTLY --
+    /// it is a set of collision numbers, not a range.
+    pub n_collision: u32,
+    /// Cell the particle came **from**, or `None` when it has no previous cell
+    /// (its first event). [`super::filter_extra::CellFromFilter`].
+    pub cell_from: Option<usize>,
+    /// Cell the particle was **born** in.
+    /// [`super::filter_extra::CellBornFilter`].
+    pub cell_born: Option<usize>,
+    /// Material the particle came **from**.
+    /// [`super::filter_extra::MaterialFromFilter`].
+    pub material_from: Option<usize>,
+    /// Particle weight at the event. [`super::filter_extra::WeightFilter`].
+    ///
+    /// ~~**1.0 in analog transport**, which is every run today -- see #258. A
+    /// weight filter is therefore not useful yet~~ **CORRECTED 2026-09-22** —
+    /// #258 landed, so this is now a real varying weight whenever survival
+    /// biasing or weight windows are on, and a weight filter bins something.
+    /// It is still exactly 1.0 on an analog run, which is still the default.
+    /// The field defaults to 1.0 rather than 0.0 so that a filter binning it
+    /// does not silently drop every event against a `[0, 1]` grid.
+    pub weight: f64,
+    /// Cosine between the direction of travel and the **surface normal** at a
+    /// surface crossing, with the normal already flipped to the side the
+    /// particle came from. [`super::filter_extra::MuSurfaceFilter`].
+    ///
+    /// Deliberately separate from [`Self::mu`], which is a SCATTERING cosine at
+    /// a collision. They are different quantities at different events and
+    /// conflating them would tally scattering angles into a surface tally.
+    pub surface_mu: f64,
+
+    // ── Added for GitHub #261, second batch ────────────────────────────────
+    /// Position the particle was **born** at \[cm\].
+    /// [`super::filter_extra::MeshBornFilter`].
+    pub position_born: Position,
+    /// Instance number of [`Self::cell_idx`] within its repeated universe, or
+    /// `None` outside a lattice. [`super::filter_extra::CellInstanceFilter`].
+    pub cell_instance: Option<usize>,
+    /// Nuclide this particle descends from.
+    /// [`super::filter_extra::ParentNuclideFilter`].
+    pub parent_nuclide: Option<usize>,
+    /// Secondaries this collision produced.
+    /// [`super::filter_extra::ParticleProductionFilter`].
+    ///
+    /// A `Vec` on a per-event struct looks expensive and is not: an empty
+    /// `Vec` does not allocate, and every event that is not a
+    /// secondary-producing collision leaves it empty. The alternative — a
+    /// borrowed slice — would need a lifetime parameter on `FilterEvent`,
+    /// which the workspace Rust rules forbid.
+    pub secondaries: Vec<SecondarySite>,
+}
+
+/// One secondary particle emitted by a collision, as
+/// [`super::filter_extra::ParticleProductionFilter`] sees it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SecondarySite {
+    /// What was emitted.
+    pub particle: ParticleType,
+    /// Its birth energy \[eV\].
+    pub energy: f64,
+    /// Its statistical weight.
+    pub weight: f64,
 }
 
 impl Default for FilterEvent {
@@ -107,6 +181,11 @@ impl Default for FilterEvent {
             universe_idx: 0,
             energy: 0.0,
             surface_idx: usize::MAX,
+            position_last: Position {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
             position: Position {
                 x: 0.0,
                 y: 0.0,
@@ -122,11 +201,30 @@ impl Default for FilterEvent {
             particle: ParticleType::Neutron,
             delayed_group: None,
             energy_out: None,
+            event_mt: 0,
+            n_collision: 0,
+            cell_from: None,
+            cell_born: None,
+            material_from: None,
+            position_born: Position {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            cell_instance: None,
+            parent_nuclide: None,
+            secondaries: Vec::new(),
+            // 1.0, not 0.0: analog transport has unit weight, and a weight
+            // filter binning a default event against a [0, 1] grid would
+            // otherwise drop it silently.
+            weight: 1.0,
+            surface_mu: 0.0,
         }
     }
 }
 
 // ── Concrete filters ──────────────────────────────────────────────────────────
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
 ///
@@ -154,6 +252,7 @@ impl Filter for CellFilter {
         self.cell_indices.iter().position(|&c| c == ev.cell_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by material.  Maps to `openmc::MaterialFilter`.
 ///
@@ -174,6 +273,7 @@ impl Filter for MaterialFilter {
             .position(|&m| m == ev.material_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by energy bin (contiguous group boundaries in eV).
 /// Maps to `openmc::EnergyFilter`.
@@ -214,6 +314,7 @@ impl Filter for EnergyFilter {
         Some(idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by **outgoing** (post-collision) energy. Maps to
 /// `openmc::EnergyoutFilter`.
@@ -258,6 +359,7 @@ impl Filter for EnergyOutFilter {
         Some(idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by universe.  Maps to `openmc::UniverseFilter`.
 pub struct UniverseFilter {
@@ -273,6 +375,7 @@ impl Filter for UniverseFilter {
             .position(|&u| u == ev.universe_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by a regular spatial mesh.  Maps to `openmc::MeshFilter`.
 ///
@@ -287,15 +390,23 @@ impl Filter for UniverseFilter {
 /// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) — this
 /// port scores the whole segment into the midpoint's cell, which is exact for a
 /// mesh whose cells are large relative to the mean free path.
+/// **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
+/// [`RegularMesh`]; it is now a [`MeshKind`], so the same filter serves the
+/// regular, rectilinear, cylindrical and spherical meshes. Enum dispatch rather
+/// than a trait object, per the workspace Rust design rule.
+///
+/// A cylindrical mesh filter is what an R-Z power profile actually needs, and
+/// before this it had to be faked through a Cartesian mesh (wrong bin shapes at
+/// the radial edge) or hand-built CSG cells (no mesh filter at all).
 pub struct MeshFilter {
-    pub mesh: RegularMesh,
+    pub mesh: MeshKind,
 }
 impl Filter for MeshFilter {
     fn n_bins(&self) -> usize {
         self.mesh.n_bins()
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.mesh.get_bin(ev.position)
+        self.mesh.bin(ev.position)
     }
 }
 
@@ -311,6 +422,7 @@ pub enum LegendreAxis {
     /// Expand along the z coordinate.
     Z,
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Functional-expansion (Legendre) filter along one Cartesian axis.
 ///
@@ -414,6 +526,7 @@ fn legendre_pn(order: usize, x: f64) -> Vec<f64> {
 }
 
 // ── Filters added 2026-09-16 ─────────────────────────────────────────────────
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by the surface an event crossed. Maps to `openmc::SurfaceFilter`
 /// (`src/tallies/filter_surface.cpp`).
@@ -444,6 +557,7 @@ impl Filter for SurfaceFilter {
             .position(|&s| s == ev.surface_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by the **change-of-direction cosine** of a scatter. Maps to
 /// `openmc::MuFilter` (`src/tallies/filter_mu.cpp`).
@@ -468,6 +582,7 @@ impl Filter for MuFilter {
         bin_in_edges(&self.bounds, ev.mu)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by the particle's **polar and azimuthal angles of travel**. Maps to
 /// `openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
@@ -498,6 +613,7 @@ impl Filter for PolarAzimuthalFilter {
         Some(i_p * self.azimuthal.len().saturating_sub(1) + i_a)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by time since the particle was born. Maps to `openmc::TimeFilter`
 /// (`src/tallies/filter_time.cpp`).
@@ -520,6 +636,7 @@ impl Filter for TimeFilter {
         bin_in_edges(&self.bounds, ev.time)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by particle type. Maps to `openmc::ParticleFilter`
 /// (`src/tallies/filter_particle.cpp`).
@@ -543,6 +660,7 @@ impl Filter for ParticleFilter {
         self.particles.iter().position(|&p| p == ev.particle)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by delayed-neutron precursor group. Maps to
 /// `openmc::DelayedGroupFilter` (`src/tallies/filter_delayedgroup.cpp`).
@@ -560,15 +678,71 @@ pub struct DelayedGroupFilter {
     pub groups: Vec<usize>,
 }
 
+impl DelayedGroupFilter {
+    /// **This filter cannot currently tally anything, and saying so is the
+    /// point of this constructor.** GitHub #262.
+    ///
+    /// # Why it is refused rather than left constructible
+    ///
+    /// Audited 2026-09-22
+    /// (`verification_and_validation/delayed_neutrons/audit_2026_09_22.md`):
+    /// **nothing in this crate ever sets [`FilterEvent::delayed_group`].**
+    /// Every site that assigns `Some(..)` is a test. `physics::fission` folds
+    /// delayed neutrons into the total ν̄ and treats them as prompt — a
+    /// legitimate, clearly-labelled eigenvalue approximation — so no precursor
+    /// group is ever sampled to put on an event.
+    ///
+    /// A filter in that state does not fail. It sees `None` at every event,
+    /// bins nothing, and the tally returns **exactly zero** with no error and
+    /// no empty-result diagnostic.
+    ///
+    /// That is worse than the usual silent-wrong-answer, because **zero is a
+    /// value a physicist might accept**: a delayed-group tally over a
+    /// non-fissile region genuinely should be zero, so the wrong answer is
+    /// indistinguishable from a right one without knowing the geometry.
+    ///
+    /// # When this starts working
+    ///
+    /// When ν̄ is split into prompt and delayed in the transport loop and the
+    /// sampled precursor group is recorded on the event. The data is already
+    /// in the workspace and unused — `njoy-outram-park-fork`'s
+    /// `nuclear_data::delayed` carries MF=1/455 (λ_k, ν̄_d(E)) and MF=5/455
+    /// (abundances, delayed spectra). See #262 scope items 2 and 3. At that
+    /// point this constructor returns `Ok` and the struct's `Filter` impl
+    /// below already does the right thing unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Always, until the above lands. The error names the audit so a caller
+    /// who hits it can read why rather than guess.
+    pub fn new(groups: Vec<usize>) -> Result<Self, String> {
+        Err(format!(
+            "a DelayedGroupFilter over {} group(s) would tally exactly ZERO: nothing in \
+             this crate sets FilterEvent::delayed_group, because physics::fission folds \
+             delayed neutrons into the total nu-bar and treats them as prompt. See \
+             GitHub #262 and \
+             verification_and_validation/delayed_neutrons/audit_2026_09_22.md. \
+             Refused rather than returning a silent zero, which is indistinguishable \
+             from a correct result over a non-fissile region.",
+            groups.len()
+        ))
+    }
+}
+
 impl Filter for DelayedGroupFilter {
     fn n_bins(&self) -> usize {
         self.groups.len()
     }
+    /// Correct as written, and deliberately left alone: the moment
+    /// `delayed_group` is populated by the transport loop this bins properly
+    /// with no change here. What is refused is *constructing* the filter while
+    /// that field is always `None` — see [`Self::new`].
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         let g = ev.delayed_group?;
         self.groups.iter().position(|&x| x == g)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Functional-expansion filter in **Zernike polynomials** over a disc in the
 /// `x`-`y` plane. Maps to `openmc::ZernikeFilter`
@@ -624,6 +798,7 @@ impl Filter for ZernikeFilter {
         Some(zernike_zn(self.order, rho, dy.atan2(dx)))
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Functional-expansion filter in **real spherical harmonics** of the particle's
 /// direction. Maps to `openmc::SphericalHarmonicsFilter`
@@ -805,6 +980,7 @@ fn assoc_legendre(l: usize, m: usize, x: f64) -> f64 {
 /// adding a filter is a compile error at every site that must handle it — the
 /// property `Box<dyn Filter>` cost, and the reason the workspace's design rules
 /// ask for enums here. The [`Filter`] trait stays as the per-struct contract.
+#[derive(Debug, Clone, PartialEq)]
 pub enum FilterKind {
     /// [`CellFilter`].
     Cell(CellFilter),
@@ -836,6 +1012,51 @@ pub enum FilterKind {
     Zernike(ZernikeFilter),
     /// [`SphericalHarmonicsFilter`] — a functional expansion.
     SphericalHarmonics(SphericalHarmonicsFilter),
+    // ── GitHub #261, second batch ──────────────────────────────────────────
+    //
+    // These eight were written into `super::filter_extra` in an earlier
+    // increment and **were not reachable**: they implemented `Filter` but had
+    // no `FilterKind` variant, so no `Tally` could hold one. A filter that
+    // cannot be put on a tally is not a ported filter, whatever its test
+    // coverage says — `every_filter_kind_is_constructible_on_a_tally` now
+    // fails if a variant is ever added without being dispatched here.
+    /// [`super::filter_extra::ReactionFilter`] — by MT, with ENDF summation.
+    Reaction(super::filter_extra::ReactionFilter),
+    /// [`super::filter_extra::CollisionFilter`] — by collision number.
+    Collision(super::filter_extra::CollisionFilter),
+    /// [`super::filter_extra::CellFromFilter`] — the cell the particle left.
+    CellFrom(super::filter_extra::CellFromFilter),
+    /// [`super::filter_extra::CellBornFilter`] — the cell it was born in.
+    CellBorn(super::filter_extra::CellBornFilter),
+    /// [`super::filter_extra::MaterialFromFilter`] — the material it left.
+    MaterialFrom(super::filter_extra::MaterialFromFilter),
+    /// [`super::filter_extra::WeightFilter`] — by statistical weight.
+    Weight(super::filter_extra::WeightFilter),
+    /// [`super::filter_extra::MuSurfaceFilter`] — cosine to a surface normal.
+    MuSurface(super::filter_extra::MuSurfaceFilter),
+    /// [`super::filter_extra::EnergyFunctionFilter`] — a continuous weight in
+    /// energy rather than a binning.
+    EnergyFunction(super::filter_extra::EnergyFunctionFilter),
+    /// [`super::filter_extra::LegendreFilter`] — a functional expansion in the
+    /// scattering cosine; the quantity MGXS generation is built on.
+    Legendre(super::filter_extra::LegendreFilter),
+    /// [`super::filter_extra::MeshBornFilter`].
+    MeshBorn(super::filter_extra::MeshBornFilter),
+    /// [`super::filter_extra::ParentNuclideFilter`].
+    ParentNuclide(super::filter_extra::ParentNuclideFilter),
+    /// [`super::filter_extra::CellInstanceFilter`].
+    CellInstance(super::filter_extra::CellInstanceFilter),
+    /// [`super::filter_extra::MeshMaterialFilter`].
+    MeshMaterial(super::filter_extra::MeshMaterialFilter),
+    /// [`super::filter_extra::ParticleProductionFilter`] — can match one event
+    /// in several bins at once; see its `matches`.
+    ParticleProduction(super::filter_extra::ParticleProductionFilter),
+    /// [`super::filter_extra::MeshSurfaceFilter`] — mesh-face currents; also
+    /// matches one event in several bins.
+    MeshSurface(super::filter_extra::MeshSurfaceFilter),
+    /// [`super::filter_extra::DistribcellFilter`] — one bin per instance of a
+    /// repeated cell. The sixteenth and last of #261's list.
+    Distribcell(super::filter_extra::DistribcellFilter),
 }
 
 impl FilterKind {
@@ -867,7 +1088,60 @@ impl FilterKind {
             FilterKind::SpatialLegendre(_)
                 | FilterKind::Zernike(_)
                 | FilterKind::SphericalHarmonics(_)
+                // GitHub #261: the scattering-cosine expansion. Leaving it out
+                // here would make it silently score nothing — `get_bin`
+                // returns `None` for every expansion filter by design, so the
+                // scoring path would drop every event.
+                | FilterKind::Legendre(_)
         )
+    }
+
+    /// A short, stable name for each variant.
+    ///
+    /// # Why this exists
+    ///
+    /// It is an **exhaustive match with no wildcard**, so adding a variant to
+    /// [`FilterKind`] without touching this function is a compile error. That
+    /// is deliberate: GitHub #261's first increment wrote eight filters into
+    /// `filter_extra` that implemented [`Filter`] and had **no variant here**,
+    /// so no `Tally` could hold one. They had tests, they passed, and they
+    /// were unreachable. This function plus
+    /// `every_filter_kind_is_reachable_and_binnable` is what makes that
+    /// failure mode loud instead of silent.
+    pub fn name(&self) -> &'static str {
+        match self {
+            FilterKind::Cell(_) => "cell",
+            FilterKind::Material(_) => "material",
+            FilterKind::Energy(_) => "energy",
+            FilterKind::EnergyOut(_) => "energyout",
+            FilterKind::Universe(_) => "universe",
+            FilterKind::Mesh(_) => "mesh",
+            FilterKind::Surface(_) => "surface",
+            FilterKind::Mu(_) => "mu",
+            FilterKind::PolarAzimuthal(_) => "polar-azimuthal",
+            FilterKind::Time(_) => "time",
+            FilterKind::Particle(_) => "particle",
+            FilterKind::DelayedGroup(_) => "delayedgroup",
+            FilterKind::SpatialLegendre(_) => "spatiallegendre",
+            FilterKind::Zernike(_) => "zernike",
+            FilterKind::SphericalHarmonics(_) => "sphericalharmonics",
+            FilterKind::Reaction(_) => "reaction",
+            FilterKind::Collision(_) => "collision",
+            FilterKind::CellFrom(_) => "cellfrom",
+            FilterKind::CellBorn(_) => "cellborn",
+            FilterKind::MaterialFrom(_) => "materialfrom",
+            FilterKind::Weight(_) => "weight",
+            FilterKind::MuSurface(_) => "musurface",
+            FilterKind::EnergyFunction(_) => "energyfunction",
+            FilterKind::Legendre(_) => "legendre",
+            FilterKind::MeshBorn(_) => "meshborn",
+            FilterKind::ParentNuclide(_) => "parentnuclide",
+            FilterKind::CellInstance(_) => "cellinstance",
+            FilterKind::MeshMaterial(_) => "meshmaterial",
+            FilterKind::ParticleProduction(_) => "particleproduction",
+            FilterKind::MeshSurface(_) => "meshsurface",
+            FilterKind::Distribcell(_) => "distribcell",
+        }
     }
 
     /// The concrete filter behind this variant, as its trait contract.
@@ -893,6 +1167,22 @@ impl FilterKind {
             FilterKind::SpatialLegendre(f) => f,
             FilterKind::Zernike(f) => f,
             FilterKind::SphericalHarmonics(f) => f,
+            FilterKind::Reaction(f) => f,
+            FilterKind::Collision(f) => f,
+            FilterKind::CellFrom(f) => f,
+            FilterKind::CellBorn(f) => f,
+            FilterKind::MaterialFrom(f) => f,
+            FilterKind::Weight(f) => f,
+            FilterKind::MuSurface(f) => f,
+            FilterKind::EnergyFunction(f) => f,
+            FilterKind::Legendre(f) => f,
+            FilterKind::MeshBorn(f) => f,
+            FilterKind::ParentNuclide(f) => f,
+            FilterKind::CellInstance(f) => f,
+            FilterKind::MeshMaterial(f) => f,
+            FilterKind::ParticleProduction(f) => f,
+            FilterKind::MeshSurface(f) => f,
+            FilterKind::Distribcell(f) => f,
         }
     }
 }

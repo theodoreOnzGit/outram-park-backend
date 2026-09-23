@@ -14,7 +14,7 @@ use super::energy::EnergyDist;
 use super::spatial::SpatialDist;
 
 /// A sampled source particle state.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceSite {
     pub r: Position,
     pub u: Direction,

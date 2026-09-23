@@ -43,3 +43,65 @@ fn from_endf_file_applies_urr_and_dbrc_by_default() {
         "U-238 URR range [{lo:.3e}, {hi:.3e}] eV is not the expected ~20-149 keV"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multigroup scattering anisotropy (GitHub #265)
+// ─────────────────────────────────────────────────────────────────────────────
+
+use outram_mc_libs::physics::physics_mg::{Mgxs, ScatterAngle};
+
+fn two_group_set() -> Mgxs {
+    Mgxs::new(
+        "2g",
+        vec![0.080, 0.180],
+        vec![0.010, 0.080],
+        vec![0.0032, 0.040],
+        vec![0.008, 0.100],
+        vec![1.0, 0.0],
+        vec![0.050, 0.020, 0.000, 0.100],
+    )
+}
+
+/// **A set that carries angular moments must transport with them, with no
+/// further opt-in.**
+///
+/// This is the pattern the workspace rule asks for: construct through the
+/// ordinary path and assert the physics is present. Before #265 the MG kernel
+/// resampled isotropically no matter what the set carried, and nothing in the
+/// crate could tell — a `⟨μ⟩` of 0.3 and a `⟨μ⟩` of 0 transported identically.
+/// On the bare 35 cm cube that difference is worth **−4308 ± 93 pcm**
+/// (`verification_and_validation/mg_anisotropic_scattering/`), so a silent
+/// regression here is not a rounding matter.
+#[test]
+fn mg_scattering_anisotropy_is_applied_by_default_when_the_set_carries_it() {
+    let aniso = two_group_set()
+        .with_legendre_scattering(vec![vec![1.0, 0.3, 0.1, 0.03]; 4])
+        .expect("P3 kernel is samplable");
+
+    match &aniso.scatter_angle {
+        ScatterAngle::Legendre { order, .. } => assert_eq!(*order, 3, "P3 set"),
+        other => panic!(
+            "a set built with Legendre moments reports {other:?}. The moments \
+             were accepted and then discarded — the MG kernel will transport \
+             this P3 set as if it were P0."
+        ),
+    }
+    for g in 0..2 {
+        assert!(
+            (aniso.group_mean_cosine(g) - 0.3).abs() < 1e-12,
+            "group {g} transports <mu> = {} for a kernel declaring 0.3",
+            aniso.group_mean_cosine(g)
+        );
+    }
+
+    // The ablation must be an explicit, visible act — and must actually ablate.
+    let ablated = aniso.clone().without_scatter_anisotropy();
+    assert_eq!(ablated.scatter_angle, ScatterAngle::Isotropic);
+    for g in 0..2 {
+        assert_eq!(ablated.group_mean_cosine(g), 0.0);
+    }
+
+    // A set with no moments is isotropic because it has nothing to apply —
+    // that is a property of the data, not a default that hides physics.
+    assert_eq!(two_group_set().scatter_angle, ScatterAngle::Isotropic);
+}

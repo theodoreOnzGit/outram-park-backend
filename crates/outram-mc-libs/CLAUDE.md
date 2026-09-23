@@ -452,20 +452,27 @@ a translation of it.
 | Transport loop | `src/physics.cpp` | `collision()`, `transport_history_based()` |
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
-| Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`) and MGXS *generation* from CE data (the `njoy-outram-park-fork` track) |
+| Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. ~~Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`)~~ **CORRECTED 2026-09-22 (gh:#265)** — anisotropic MG scattering is ported: `src/physics/scattdata.rs` carries `LegendreKernel` (rejection sampling, upstream's 10 % bounding-box margin and its `f > 0` negativity truncation) and `TabularKernel` (`convert_legendre_to_tabular`, the clamp-and-renormalise path), and `Mgxs::with_legendre_scattering` wires them into `run_keff_mg`. Paired P0-vs-P3 worth on a bare 35 cm cube: **−4371 ± 44 pcm (99.6 σ)** at 128 seeds against **−4200 predicted before the run**, with the zero-leakage control at −1 ± 38 pcm (0.0 σ), and agreement with OpenMC's own MG mode within 1.3 σ on every arm (~~a 32-seed first pass gave −4308 ± 93~~ superseded by the 128-seed run, which it agrees with) — `verification_and_validation/mg_anisotropic_scattering/`. Still absent: MGXS *generation* from CE data (the `njoy-outram-park-fork` track) |
 | Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`); live one-group burnup test vs the `depletion` notebook |
 
 ### Out of scope (will NOT be ported)
 - **ENDF nuclear data parsing** — `src/endf.cpp`, `include/openmc/endf.h`
 - ~~**HDF5 I/O** — cross-section library loading; data arrives pre-loaded~~
-  **CORRECTED 2026-09-22 (maintainer direction)** — HDF5 read *and* write is
-  now **in scope for the workspace**, but it lives in
-  `njoy-outram-park-fork`, "cos it deals with nuclear data" (gh:#270). That
-  crate already depends on the pure-Rust `hdf5-pure` (no system libhdf5, so no
-  C toolchain / Android / wasm problem) and reads with it today; writing does
-  not exist anywhere in the workspace yet. **This crate still takes its data
-  pre-loaded and keeps file I/O out of the transport loop** — see the design
-  decision below.
+  **CORRECTED 2026-09-22 (maintainer direction), and the claim moved again on
+  2026-09-23.** HDF5 read *and* write is in scope **for the workspace**, and
+  lives in `njoy-outram-park-fork`, "cos it deals with nuclear data"
+  (gh:#270) — that crate depends on the pure-Rust `hdf5-pure`, so no C
+  toolchain, Android or wasm problem.
+
+  ~~writing does not exist anywhere in the workspace yet~~ — **that was true
+  when written and is no longer.** `njoy-outram-park-fork::hdf5` now has
+  `mgxs.h5` and nuclide `.h5` writers (both verified by **OpenMC reading them
+  back and transporting**), a `cross_sections.xml` reader, and
+  statepoint/summary/source writers.
+
+  **The part that still holds for this crate:** it takes its data pre-loaded,
+  captures run state (`physics::state_point`) and hands it to that codec at
+  the **run boundary**. Its inner transport loop opens no file.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`

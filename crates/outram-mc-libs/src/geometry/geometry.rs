@@ -463,7 +463,58 @@ impl Geometry {
     /// Mirrors the boundary-condition dispatch in `Particle::cross_surface`
     /// (`src/particle.cpp:659`), reduced to the vacuum/reflective/transmissive
     /// cases this crate implements.
-    pub fn cross_surface(&self, i_surf: usize, r: Position, u: Direction) -> SurfaceCrossing {
+    /// Reject boundary conditions this crate cannot honestly transport, **before**
+    /// a run starts.
+    ///
+    /// # Why this exists (GitHub #259)
+    ///
+    /// Until 2026-09-22 `White` and `Periodic` both fell through to the
+    /// specular-reflection arm of [`Self::cross_surface`] under a comment
+    /// reading *"approximated as reflective (documented gap)"*. That is not an
+    /// approximation in the useful sense: a periodic lattice without mirror
+    /// symmetry -- a rotated hex assembly, a checkerboard, an off-centre rod
+    /// bank -- has a genuinely different answer under the two conditions, and
+    /// the run completed and returned a plausible `k` either way. It is the same
+    /// failure shape as GitHub #187, where a specularly reflective sphere
+    /// conserved impact parameter and produced a flat +39-50 % offset that read
+    /// as a physics result.
+    ///
+    /// `White` is now implemented ([`SurfaceKind::diffuse_reflect`]), so it
+    /// passes. `Periodic` is not, so it is refused here rather than aliased.
+    ///
+    /// # What it does not check
+    ///
+    /// Only the boundary conditions. It is not a geometry validator: it says
+    /// nothing about whether surfaces close a region, whether cells overlap, or
+    /// whether a lattice is filled.
+    ///
+    /// # Errors
+    ///
+    /// Returns the index and a description of the first surface carrying an
+    /// unimplemented boundary condition.
+    pub fn validate_boundary_conditions(&self) -> Result<(), String> {
+        for (i, surf) in self.surfaces.iter().enumerate() {
+            if surf.bc() == BoundaryType::Periodic {
+                return Err(format!(
+                    "surface {i} declares a Periodic boundary condition, which is not \
+                     implemented (GitHub #259). Periodic needs a partner surface and the \
+                     translation or rotation between the pair; `BoundaryType` carries no \
+                     partner. Reflective is NOT a substitute -- the two differ on any \
+                     lattice without mirror symmetry, which is the case periodic exists \
+                     for. Use Reflective only if that is genuinely the problem you mean."
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn cross_surface(
+        &self,
+        i_surf: usize,
+        r: Position,
+        u: Direction,
+        seed: &mut u64,
+    ) -> SurfaceCrossing {
         let surf = &self.surfaces[i_surf];
         match surf.bc() {
             BoundaryType::Vacuum => SurfaceCrossing {
@@ -472,8 +523,53 @@ impl Geometry {
                 alive: false,
                 on_surface: SurfaceToken::NONE,
             },
-            BoundaryType::Reflective | BoundaryType::White | BoundaryType::Periodic => {
-                // White/Periodic are approximated as reflective (documented gap).
+            // ~~"White/Periodic are approximated as reflective (documented
+            // gap)."~~ **CORRECTED 2026-09-22 (GitHub #259).** White is now its
+            // own condition and Periodic is refused rather than aliased. Both
+            // used to fall through to the specular arm and return a plausible
+            // `k` while answering a different problem.
+            BoundaryType::White => {
+                // Upstream applies `diffuse_reflect` to the struck surface and
+                // nothing else (`WhiteBC::handle_particle`,
+                // `src/boundary_condition.cpp:56`). It deliberately does NOT go
+                // through `compose_corner_reflection`: that is this crate's own
+                // fix for SPECULAR corners, where composing the mirror off each
+                // coincident wall is what stops a corner leaking. A cosine
+                // re-emission has no such composition -- the outgoing direction
+                // is already distributed about one normal, and re-diffusing it
+                // off a second wall would sample the wrong distribution rather
+                // than fix anything.
+                let u_new = surf.diffuse_reflect(r, u, seed);
+                let p = nudge_across(surf, r, u, u_new, false);
+                SurfaceCrossing {
+                    r: p,
+                    u: u_new,
+                    alive: true,
+                    on_surface: outgoing_side(surf, r, u_new, i_surf),
+                }
+            }
+            BoundaryType::Periodic => {
+                // A loud failure, on purpose. Periodic needs a PARTNER surface
+                // and a translation or rotation between the two
+                // (`TranslationalPeriodicBC` / `RotationalPeriodicBC`,
+                // `include/openmc/boundary_condition.h:124`, `:141`), and
+                // `BoundaryType` carries no partner today. Until it does there
+                // is no honest behaviour available here: reflecting is a
+                // different problem and so is vacuum.
+                //
+                // [`Geometry::validate_boundary_conditions`] rejects these at
+                // construction so a run cannot reach this point. This arm is the
+                // backstop for a `Geometry` assembled by hand from its public
+                // fields, which the struct's layout allows.
+                panic!(
+                    "surface {i_surf} declares a Periodic boundary condition, which is not \
+                     implemented (GitHub #259). Until 2026-09-22 it was silently aliased to \
+                     Reflective, which answers a DIFFERENT problem on any lattice without \
+                     mirror symmetry. Call Geometry::validate_boundary_conditions() at \
+                     construction to catch this before transport starts."
+                );
+            }
+            BoundaryType::Reflective => {
                 // Compose the reflection off EVERY reflective surface coincident
                 // with `r` (corner/edge handling — see
                 // [`Geometry::compose_corner_reflection`]); for a lone wall this
@@ -549,17 +645,18 @@ impl Geometry {
         coord_level: usize,
         r_global: Position,
         u: Direction,
+        seed: &mut u64,
     ) -> SurfaceCrossing {
         // Root level, or a malformed level index: global IS the local frame.
         if coord_level == 0 || coord_level >= path.levels.len() {
-            return self.cross_surface(i_surf, r_global, u);
+            return self.cross_surface(i_surf, r_global, u, seed);
         }
         // The exact offset carried down by `locate`, NOT `levels[0].r -
         // levels[coord_level].r`. The subtraction form is catastrophic
         // cancellation and its ~1e-16 error is amplified to 1e-9 by the
         // `dot == 0.0` branch in `nudge_across` — see [`Coord::offset`].
         let offset = path.levels[coord_level].offset;
-        let crossed = self.cross_surface(i_surf, r_global - offset, u);
+        let crossed = self.cross_surface(i_surf, r_global - offset, u, seed);
         SurfaceCrossing {
             r: crossed.r + offset,
             ..crossed
@@ -635,10 +732,13 @@ impl Geometry {
             if j == i_surf {
                 continue;
             }
-            if !matches!(
-                surf.bc(),
-                BoundaryType::Reflective | BoundaryType::White | BoundaryType::Periodic
-            ) {
+            // **Reflective only, corrected 2026-09-22 (GitHub #259).** This
+            // composition is the specular corner fix; a White wall does not
+            // compose (see the `White` arm of [`Self::cross_surface`]) and a
+            // Periodic one is refused before transport starts. Including them
+            // here made a corner between a reflective wall and a white one
+            // reflect specularly off both.
+            if !matches!(surf.bc(), BoundaryType::Reflective) {
                 continue;
             }
             // Coincident with the crossing point?
@@ -853,6 +953,7 @@ mod tests {
             0,
             Position::new(1.0, 0.0, 0.0),
             Direction::new(1.0, 0.0, 0.0),
+            &mut 0x5EED_0259_u64,
         );
         assert!(crossed.alive);
         assert!(
@@ -901,6 +1002,7 @@ mod tests {
             0,
             Position::new(5.0, 0.0, 0.0),
             Direction::new(1.0, 0.0, 0.0),
+            &mut 0x5EED_0259_u64,
         );
         assert!(!crossed.alive, "vacuum crossing should kill the particle");
     }
@@ -1000,7 +1102,7 @@ mod tests {
                     let r_hit = Position::new(radius, 0.0, 0.0);
                     let u = Direction::from_unnormalised(radial, tan, 0.0);
 
-                    let crossed = geom.cross_surface(i_surf, r_hit, u);
+                    let crossed = geom.cross_surface(i_surf, r_hit, u, &mut 0x5EED_0259_u64);
                     assert!(crossed.alive, "internal boundary must be transmissive");
 
                     let expect_cell = if outward { cell_out } else { cell_in };
@@ -1047,7 +1149,7 @@ mod tests {
         for tan in [0.0, 1.0, 1.0e3, 1.0e6] {
             let r_hit = Position::new(4.0, 0.0, 0.0);
             let u = Direction::from_unnormalised(1.0, tan, 0.0);
-            let crossed = geom.cross_surface(3, r_hit, u);
+            let crossed = geom.cross_surface(3, r_hit, u, &mut 0x5EED_0259_u64);
             assert!(
                 crossed.alive,
                 "reflective sphere must not kill the particle"

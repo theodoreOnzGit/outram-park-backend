@@ -412,7 +412,7 @@ const FEEDWATER_INTEGRAL_TIME_S: f64 = 25.0;
 /// assertion that catches it, so the range is narrowed here --- which is what
 /// `super::super::physics::tests::no_corner_of_the_command_envelope_crosses_or_clamps`
 /// asks a caller to do rather than loosen its tolerance.
-const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
+pub const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
 
 /// Maximum secondary mass flow \[kg/s\] (**invented** feed-pump capacity), a
 /// generous 3.5x the published nominal flow.
@@ -588,8 +588,13 @@ pub struct SecondaryCommands {
 }
 
 impl Default for SecondaryCommands {
-    /// The plant's design condition: AUTO feedwater at the published 440 degC,
-    /// and the design 7 kPa condenser back-pressure.
+    /// ~~"The plant's design condition: AUTO feedwater at the published
+    /// 440 degC, and the design 7 kPa condenser back-pressure."~~
+    /// **CORRECTED 2026-09-22 -- the feedwater half was false.** This delegates
+    /// to [`FeedwaterCommand::default`], which has been **MANUAL at 10.0 kg/s**
+    /// since the maintainer change of 2026-08-17; that constructor's own doc
+    /// comment records the change, and this one was never updated to match.
+    /// The condenser half is unchanged and still correct: the design 7 kPa.
     fn default() -> Self {
         Self {
             feedwater: FeedwaterCommand::default(),

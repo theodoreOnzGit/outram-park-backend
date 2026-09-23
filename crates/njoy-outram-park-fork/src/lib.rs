@@ -151,6 +151,7 @@ pub mod gpu_wmp;
 /// path. Pure `std` (no `wgpu`), so it builds on every target including Android.
 /// The committed benchmark markdown stays a methodology template; per-machine
 /// timings live in each user's local report.
+pub mod hdf5;
 pub mod perf_report;
 
 mod error;

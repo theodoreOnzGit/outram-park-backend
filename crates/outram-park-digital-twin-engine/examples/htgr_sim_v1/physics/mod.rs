@@ -3200,11 +3200,30 @@ mod tests {
         settle_s: f64,
         initial_condition: Option<(f64, f64)>,
     ) -> Vec<LofcSample> {
+        run_lofc_atws_ablated(duration_s, settle_s, initial_condition, None)
+    }
+
+    /// As [`run_lofc_atws_at`], with the kernel Doppler channel's fuel share
+    /// overridden.
+    ///
+    /// `None` runs the shipped model; `Some(0.0)` reproduces the
+    /// pre-2026-09-22 model exactly, which is what makes this the attribution
+    /// tool for any LOFC change. See
+    /// [`kinetics::KernelDopplerChannel::with_fuel_share`].
+    fn run_lofc_atws_ablated(
+        duration_s: f64,
+        settle_s: f64,
+        initial_condition: Option<(f64, f64)>,
+        fuel_share: Option<f64>,
+    ) -> Vec<LofcSample> {
         use uom::si::mass_rate::kilogram_per_second;
 
         let dt = Time::new::<second>(PLANT_TIMESTEP_S);
         let mut plant = HtgrPlant::new();
         plant.protection.set_enabled(false);
+        if let Some(share) = fuel_share {
+            plant.kinetics.set_kernel_fuel_share(share);
+        }
 
         // Hold the opening commands while the plant settles, so the transient
         // is not launched on top of the startup excursion.
@@ -3279,6 +3298,144 @@ mod tests {
     /// gated.
     ///
     /// **Results: printed by this test; see the run output.**
+    /// **ABLATION: what the kernel Doppler channel is worth in a LOFC ATWS —
+    /// and the attribution of a failure it causes.**
+    ///
+    /// # Why this exists
+    ///
+    /// This workspace requires a calibrated or input-valued parameter to be
+    /// turn-off-able and its contribution measured. The kernel Doppler
+    /// channel's fuel share
+    /// ([`kinetics::KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL`]) is an
+    /// input, so this measures what it is worth on the transient that matters
+    /// most in this simulator — and, because `fuel_share = 0` reproduces the
+    /// pre-2026-09-22 model *exactly*, it is also the tool that attributes any
+    /// LOFC change to that channel or rules it out.
+    ///
+    /// **Methodology.** The real driver
+    /// ([`run_lofc_atws_ablated`]) at both shares — same settle, same
+    /// circulator trip, same 12 s secondary isolation — reporting settled
+    /// power, whether fission reaches 1 % of initial within 600 s, the minimum
+    /// fraction reached, and the peak fuel temperature.
+    ///
+    /// # Results (2026-09-22)
+    ///
+    /// | fuel share | settled `p0` | 1 % reached | min fraction | peak fuel | end fission |
+    /// |---|---|---|---|---|---|
+    /// | **0.0** (pre-2026-09-22) | 0.0896 MW | **383 s** | 0.00109 | 1318.2 K | 0.0001 MW |
+    /// | **shipped (0.7117)** | 3.3652 MW | **NOT REACHED** | 0.13795 | 1213.7 K | 1.0843 MW |
+    ///
+    /// # Interpretation — this channel BREAKS the inherent shutdown, and that
+    /// is recorded rather than hidden
+    ///
+    /// [`lofc_atws_reactor_shuts_itself_down`] fails on the shipped model, and
+    /// this table is why: with the channel on, fission power falls only to
+    /// **13.8 %** of its initial value instead of under 1 %. That test is left
+    /// **failing on purpose** — it is reporting a real defect, and silencing
+    /// it would destroy the only signal that the inherent-shutdown behaviour
+    /// this simulator exists to demonstrate is not being reproduced.
+    ///
+    /// **The mechanism is understood and is not a coding error.** As power
+    /// falls the kernel cools toward the bed, which *removes* Doppler
+    /// absorption and is therefore a **positive** reactivity insertion — real
+    /// physics, and the direction the two-channel split necessarily produces.
+    /// Its magnitude is bounded: the channel saturates at
+    /// `-alpha_D * dT_ref / beta` = `9.963e-5 * 23.45 / 7.26e-3` = **+0.32 $**
+    /// at zero power, and it already sits at **+0.3136 $** at the settled
+    /// condition. So the channel opposes the shutdown by up to a third of a
+    /// dollar, held almost constant across the transient.
+    ///
+    /// **Two things are entangled here and both need a decision.**
+    ///
+    /// 1. **The reference state.** The channel measures the kernel offset from
+    ///    its value at **rated** power, but this simulator settles near
+    ///    3.4 MW. At part load the kernel is permanently cooler than its
+    ///    reference, so the channel contributes a near-constant positive
+    ///    offset rather than a small perturbation about the operating point.
+    ///    The claim on [`kinetics::KernelDopplerChannel`] that the design
+    ///    point is "neutral by construction" is true only at rated power, and
+    ///    is **misleading for the condition this simulator actually opens at**
+    ///    — corrected there.
+    /// 2. **A pre-existing fragility.** `the_opening_rod_position_is_the_critical_one`
+    ///    reports the plant opening **+4.73 $ (+3074 pcm) supercritical** at
+    ///    the shipped rod position of 0.50, against a bisected critical
+    ///    position of 0.6045. That failure is not this branch's — neither the
+    ///    rod worth curve nor `external_reactivity_dollars` is touched by it —
+    ///    and a plant held that far above critical by construction is one
+    ///    where a third of a dollar decides whether a transient terminates.
+    ///
+    /// Note also that the ablated model settles at **0.0896 MW**, which is not
+    /// the **3 MWth** initial condition the HTR-10 LOFC ATWS test was run
+    /// from and which `GUI_INITIAL_ROD_INSERTION` was bisected to reach. The
+    /// shipped model's 3.3652 MW is much closer to it. So the channel is not
+    /// simply "wrong": it moves the operating point *towards* the published
+    /// test condition while moving the shutdown behaviour *away* from it.
+    /// Which of the two constants is at fault is a maintainer decision, not
+    /// one to take by tuning either until the test passes.
+    ///
+    /// **This test asserts only what it can honestly assert**: that the
+    /// ablation is real (the two shares genuinely differ) and that
+    /// `fuel_share = 0` still reproduces inherent shutdown. It deliberately
+    /// does **not** assert the shipped model shuts down, because it does not,
+    /// and that is `lofc_atws_reactor_shuts_itself_down`'s job to report.
+    #[test]
+    fn the_kernel_doppler_channel_is_ablated_on_the_lofc_transient() {
+        let mut rows = Vec::new();
+        for share in [Some(0.0), None] {
+            let trace = run_lofc_atws_ablated(600.0, 200.0, None, share);
+            let p0 = trace[0].fission_power_w;
+            let one_percent = trace
+                .iter()
+                .find(|s| s.fission_power_w <= 0.01 * p0)
+                .map(|s| s.time_s);
+            let min_frac = trace
+                .iter()
+                .map(|s| s.fission_power_w / p0)
+                .fold(f64::INFINITY, f64::min);
+            let peak_fuel = trace
+                .iter()
+                .map(|s| s.fuel_temperature_k)
+                .fold(f64::NEG_INFINITY, f64::max);
+            println!(
+                "fuel_share {:<8}: p0 {:.4} MW, 1% at {}, min fraction {:.5}, peak fuel {:.1} K",
+                match share {
+                    Some(f) => format!("{f:.4}"),
+                    None => "shipped".to_string(),
+                },
+                p0 / 1.0e6,
+                match one_percent {
+                    Some(t) => format!("{t:.0} s"),
+                    None => "NOT REACHED".to_string(),
+                },
+                min_frac,
+                peak_fuel,
+            );
+            rows.push((p0, one_percent, min_frac));
+        }
+
+        let (ablated_p0, ablated_one_percent, ablated_min) = rows[0];
+        let (shipped_p0, _, shipped_min) = rows[1];
+
+        // The ablation must be REAL -- if both shares gave the same answer the
+        // channel would be doing nothing and none of the above would mean
+        // anything.
+        assert!(
+            (shipped_p0 / ablated_p0) > 2.0,
+            "the ablation must actually change the settled power; {ablated_p0:e} vs              {shipped_p0:e} W"
+        );
+        assert!(
+            shipped_min > ablated_min,
+            "the channel opposes the shutdown, so the shipped minimum fraction must be              HIGHER than the ablated one; {shipped_min} vs {ablated_min}"
+        );
+        // The pre-2026-09-22 model must still reproduce inherent shutdown --
+        // if this failed, the regression would be somewhere else entirely and
+        // this whole attribution would be void.
+        assert!(
+            ablated_one_percent.is_some(),
+            "with the channel ablated the reactor must still shut itself down; if it does              not, the LOFC failure is NOT the kernel Doppler channel's and this test's              attribution is wrong"
+        );
+    }
+
     #[test]
     fn lofc_atws_reactor_shuts_itself_down() {
         let trace = run_lofc_atws(600.0, 200.0);

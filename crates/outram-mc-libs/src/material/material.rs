@@ -34,6 +34,18 @@ pub struct MacroXs {
     pub fission: f64,
     /// Fission production ν̄·Σ_f \[cm⁻¹\] — the k-eigenvalue source term.
     pub nu_fission: f64,
+    /// **Delayed** fission production ν̄_d·Σ_f \[cm⁻¹\] (GitHub #262).
+    ///
+    /// Zero for a material whose nuclides carry no ENDF MF=1/455. That zero is
+    /// a statement about the *data*, not a measurement of the delayed
+    /// fraction: `Material::has_delayed_data` distinguishes the two, and a
+    /// kinetics calculation that ignores the distinction would report
+    /// β_eff = 0 for a system whose evaluations simply do not carry MT=455.
+    pub nu_fission_delayed: f64,
+    /// Precursor-decay-weighted delayed production `Σ_k λ_k ν̄_d,k Σ_f`
+    /// \[cm⁻¹ s⁻¹\] — upstream's `SCORE_DECAY_RATE`
+    /// (`src/tallies/tally_scoring.cpp:773`), summed over groups.
+    pub decay_rate: f64,
     /// Absorption Σ_a \[cm⁻¹\] — **radiative capture + fission** (i.e. every
     /// reaction with no neutron in the exit channel, plus fission), aggregated
     /// from each nuclide's [`crate::material::nuclide::MicroXS::absorption`].
@@ -70,8 +82,49 @@ impl Material {
             m.fission += c.atom_density * x.fission;
             m.nu_fission += c.atom_density * x.nu_fission;
             m.absorption += c.atom_density * x.absorption;
+            // Delayed split (GitHub #262). `x.fission` is the microscopic
+            // fission cross section, so the delayed production is
+            // `sigma_f * nu_d(E)` and the decay-rate score weights each
+            // group's share by its own lambda.
+            let nuc = &nuclides[c.nuclide_idx];
+            if x.fission > 0.0 {
+                if let Some(d) = nuc.delayed() {
+                    let nu_d = d.nu_delayed_at(e);
+                    m.nu_fission_delayed += c.atom_density * x.fission * nu_d;
+                    for k in 0..d.n_groups() {
+                        m.decay_rate += c.atom_density
+                            * x.fission
+                            * nu_d
+                            * d.group_fraction(k, e)
+                            * d.lambda[k];
+                    }
+                }
+            }
         }
         m
+    }
+
+    /// **Prompt** fission production ν̄_p·Σ_f \[cm⁻¹\] = `nu_fission −
+    /// nu_fission_delayed`, floored at zero.
+    ///
+    /// See [`crate::material::nuclide::Nuclide::nu_prompt`] for why the floor
+    /// is there and how large it has ever needed to be.
+    pub fn nu_fission_prompt(xs: &MacroXs) -> f64 {
+        (xs.nu_fission - xs.nu_fission_delayed).max(0.0)
+    }
+
+    /// Whether **every** fissionable nuclide in this material carries
+    /// delayed-neutron data.
+    ///
+    /// A kinetics result from a material where this is `false` is missing part
+    /// of its delayed production and the β it produces is a lower bound, not a
+    /// measurement. Exposed so a caller can refuse rather than quietly report
+    /// the smaller number.
+    pub fn has_delayed_data(&self, nuclides: &[Nuclide]) -> bool {
+        self.components.iter().all(|c| {
+            let n = &nuclides[c.nuclide_idx];
+            n.delayed().is_some() || !n.is_fissionable()
+        })
     }
 
     /// Macroscopic total cross section Σ_t(E) \[cm⁻¹\] = Σ_i N_i·σ_t,i(E).

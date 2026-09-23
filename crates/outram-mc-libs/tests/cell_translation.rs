@@ -482,8 +482,16 @@ fn surface_crossing_agrees_under_translation() {
                     r.y + u.v * hb.distance,
                     r.z + u.w * hb.distance,
                 );
-                let ca = translated.cross_surface_in_frame(sa, &pa, ha.coord_level, hit_a, u);
-                let cb = moved.cross_surface_in_frame(sb, &pb, hb.coord_level, hit_b, u);
+                // Each arm gets its OWN copy of the SAME seed. The two are
+                // compared for equality, so they must consume an identical
+                // random stream; sharing one `&mut` would advance it between
+                // the calls and make a White surface (GitHub #259) disagree for
+                // a reason that has nothing to do with the translation this
+                // test is about.
+                let (mut seed_a, mut seed_b) = (0x5EED_0259_u64, 0x5EED_0259_u64);
+                let ca =
+                    translated.cross_surface_in_frame(sa, &pa, ha.coord_level, hit_a, u, &mut seed_a);
+                let cb = moved.cross_surface_in_frame(sb, &pb, hb.coord_level, hit_b, u, &mut seed_b);
                 assert_eq!(
                     ca.alive, cb.alive,
                     "survival differs crossing surface {sa}/{sb} under translation \

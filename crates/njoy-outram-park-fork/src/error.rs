@@ -56,6 +56,16 @@ pub enum NjoyError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// An HDF5 interchange file could not be written, or the data handed to
+    /// the writer was inconsistent (a cross-section vector whose length does
+    /// not match the group structure, an empty library).
+    ///
+    /// Added 2026-09-22 with the write path (GitHub #270). Reading failures
+    /// keep their own variants -- [`Self::WmpData`] for the WMP library -- so a
+    /// read fault and a write fault stay distinguishable.
+    #[error("HDF5 error: {0}")]
+    Hdf5(String),
+
     /// A HIGH-tier data download or its integrity check failed: HTTP error,
     /// network failure, checksum mismatch, or a corrupt cached artifact. Only
     /// produced by the `net-fetch` feature ([`crate::acquire`]).

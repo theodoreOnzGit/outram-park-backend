@@ -210,16 +210,16 @@ impl Default for BurnupSettings {
 }
 
 /// One-group microscopic cross sections \[barn\] for a chain nuclide.
-#[derive(Debug, Clone, Copy, Default)]
-struct OneGroupXs {
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct OneGroupXs {
     /// Fission σ_f \[barn\].
-    fission: f64,
+    pub fission: f64,
     /// Radiative capture σ_(n,γ) = σ_a − σ_f \[barn\].
-    gamma: f64,
+    pub gamma: f64,
     /// Fission production ν̄·σ_f \[barn\] (for the k_inf numerator).
-    nu_fission: f64,
+    pub nu_fission: f64,
     /// Absorption σ_a = capture + fission \[barn\] (for the k_inf denominator).
-    absorption: f64,
+    pub absorption: f64,
 }
 
 /// The inventory and reactor state recorded at one burnup step.
@@ -289,7 +289,7 @@ impl BurnupResult {
 /// does not carry is treated as cross-section-free (all zeros) and noted by the
 /// caller; every `chain_simple` nuclide is in the CORE set, so in practice this
 /// never happens for the default chain.
-fn one_group_cross_sections(chain: &DepletionChain, settings: &BurnupSettings) -> Vec<OneGroupXs> {
+pub fn one_group_cross_sections(chain: &DepletionChain, settings: &BurnupSettings) -> Vec<OneGroupXs> {
     chain
         .nuclide_names()
         .iter()
@@ -434,7 +434,7 @@ fn collapse_one_group(nuc: &Nuclide, settings: &BurnupSettings) -> OneGroupXs {
 /// `P = flux * V * sum_j N_j sigma_f_j Q_j` with `N` in atoms/(barn·cm),
 /// `sigma_f` in barn (so `N sigma_f` is a macroscopic 1/cm), `Q` in joules, and
 /// `V` in cm³. Returns 0.0 if there is no fissile material left.
-fn flux_for_power(
+pub fn flux_for_power(
     names: &[&str],
     densities: &[f64],
     xs: &[OneGroupXs],
@@ -457,7 +457,7 @@ fn flux_for_power(
 
 /// One-group infinite-medium `k_inf = sum(N nu sigma_f) / sum(N sigma_a)` over
 /// the chain nuclides (relative trend indicator — see module fidelity caveats).
-fn k_inf(densities: &[f64], xs: &[OneGroupXs]) -> f64 {
+pub fn k_inf(densities: &[f64], xs: &[OneGroupXs]) -> f64 {
     let mut production = 0.0;
     let mut absorption = 0.0;
     for i in 0..densities.len() {
@@ -473,7 +473,7 @@ fn k_inf(densities: &[f64], xs: &[OneGroupXs]) -> f64 {
 
 /// Build the frozen one-group [`ReactionRates`] for a step from the flux and the
 /// per-nuclide cross sections (`rate[1/s] = flux * sigma[barn] * 1e-24`).
-fn reaction_rates(names: &[&str], flux: f64, xs: &[OneGroupXs]) -> ReactionRates {
+pub fn reaction_rates(names: &[&str], flux: f64, xs: &[OneGroupXs]) -> ReactionRates {
     let mut rates = ReactionRates {
         flux,
         ..ReactionRates::zero()

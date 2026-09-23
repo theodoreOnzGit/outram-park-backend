@@ -19,7 +19,10 @@
 //!
 //! # Scope
 //!
-//! Analog transport (no variance reduction). Fission neutrons are tracked as
+//! ~~Analog transport (no variance reduction).~~ **CORRECTED 2026-09-22
+//! (gh:#258)** — analog by default; `FixedSourceSettings::variance_reduction`
+//! enables survival biasing, roulette and weight windows, which is what a
+//! shielding fixed source needs. Fission neutrons are tracked as
 //! secondaries with a per-source-particle safety cap, so a **sub-critical**
 //! (`k < 1`) or non-multiplying system converges; a super-critical system would
 //! multiply without bound and is capped (and physically meaningless for a fixed
@@ -29,7 +32,7 @@ use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::physics::transport_csg::{transport_history, Site};
+use crate::physics::transport_csg::{transport_history_vr, Site};
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::tally::scoring::flush_batch;
@@ -84,7 +87,9 @@ impl FixedSource {
 }
 
 /// Settings for a fixed-source run.
-#[derive(Debug, Clone, Copy)]
+/// Not `Copy`: since GitHub #258 this carries an optional `Arc` to a weight
+/// window set. Clone it explicitly where a copy was previously implicit.
+#[derive(Debug, Clone)]
 pub struct FixedSourceSettings {
     /// Number of source particles to sample and transport.
     pub n_particles: usize,
@@ -100,11 +105,19 @@ pub struct FixedSourceSettings {
     /// backstop against runaway multiplication if a (mis-specified)
     /// super-critical system is run as a fixed source.
     pub max_secondaries: usize,
+    /// Variance reduction (GitHub #258). The [`Default`] is analog.
+    ///
+    /// A fixed-source shielding run is the case variance reduction exists for:
+    /// analog histories die long before reaching a detector behind a shield,
+    /// so the attenuated tally never converges. That is why this field is here
+    /// and not only on [`crate::physics::keff::KeffSettings`].
+    pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
 }
 
 impl Default for FixedSourceSettings {
     fn default() -> Self {
         Self {
+            variance_reduction: Default::default(),
             n_particles: 10_000,
             n_batches: 20,
             temperature_k: 293.6,
@@ -168,7 +181,36 @@ pub fn run_fixed_source(
     nuclides: &[Nuclide],
     source: &FixedSource,
     settings: &FixedSourceSettings,
+    tally: Option<&mut Tally>,
+) -> FixedSourceResult {
+    run_fixed_source_traced(
+        geom, materials, nuclides, source, settings, tally, None, None, None,
+    )
+}
+
+/// [`run_fixed_source`] with **particle track capture** — GitHub #271.
+///
+/// Every phase-space state of the first `recorder.max_tracks` histories is
+/// recorded. Recording draws no randomness, so this returns exactly the same
+/// result as [`run_fixed_source`] with the same inputs — pinned by
+/// `track_capture_does_not_perturb_the_run`, because a debugging instrument
+/// that changes the thing being debugged is worse than none.
+pub fn run_fixed_source_traced(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source: &FixedSource,
+    settings: &FixedSourceSettings,
     mut tally: Option<&mut Tally>,
+    mut tracks: Option<&mut crate::physics::track_output::TrackRecorder>,
+    mut surface_source: Option<&mut crate::source::extra::SurfaceSource>,
+    // Distribcell offset tables (GitHub #261), for a tally carrying a
+    // `DistribcellFilter` or a `CellInstanceFilter`.
+    //
+    // This is a parameter rather than something the transport derives because
+    // the tables are built PER TARGET CELL, and only the caller knows which
+    // cell its tally is about.
+    distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>,
 ) -> FixedSourceResult {
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
@@ -196,7 +238,7 @@ pub fn run_fixed_source(
                 total_histories += 1;
                 let mut next: Vec<Site> = Vec::new();
                 // k_running = 1.0: analog multiplicity (no eigenvalue normalization).
-                let prod = transport_history(
+                let prod = transport_history_vr(
                     site,
                     geom,
                     materials,
@@ -214,6 +256,10 @@ pub fn run_fixed_source(
                     // tally, a separate feature. Pass the disabled sink.
                     &[],
                     &mut [],
+                    &settings.variance_reduction,
+                    tracks.as_deref_mut(),
+                    surface_source.as_deref_mut(),
+                    distribcell,
                 );
                 production_sum += prod.production;
                 for s in next {
@@ -244,7 +290,7 @@ mod tests {
     use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
     use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
     use crate::geometry::universe::Universe;
-    use crate::tally::filter::{CellFilter, Filter, FilterKind};
+    use crate::tally::filter::{CellFilter, FilterKind};
     use crate::tally::tally::{ScoreType, Tally, TallyBin};
 
     /// A single-cell sphere of radius `r_cm`; `fill` chooses void or a material.

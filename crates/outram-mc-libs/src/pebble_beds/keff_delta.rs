@@ -1289,7 +1289,7 @@ mod tests {
             |_p| Some(0usize),
             &KeffSettings {
                 compute: ComputeType::CpuSingleThread,
-                ..base
+                ..base.clone()
             },
         );
 
@@ -1302,7 +1302,7 @@ mod tests {
             |_p| Some(0usize),
             &KeffSettings {
                 compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)),
-                ..base
+                ..base.clone()
             },
         );
         let par4 = run_keff_delta(
@@ -1313,7 +1313,7 @@ mod tests {
             |_p| Some(0usize),
             &KeffSettings {
                 compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)),
-                ..base
+                ..base.clone()
             },
         );
 

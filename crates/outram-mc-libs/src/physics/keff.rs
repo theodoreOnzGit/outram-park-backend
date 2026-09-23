@@ -41,7 +41,9 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (no implicit capture / weight windows), target at rest. Both
+//! ~~Analog transport (no implicit capture / weight windows)~~ **CORRECTED
+//! 2026-09-22 (gh:#258)** — analog by default, with both available through
+//! `KeffSettings::variance_reduction`. Target at rest. Both
 //! data tiers now model inelastic down-scatter and forward-peaked elastic; they
 //! differ in how finely that physics is resolved:
 //!
@@ -114,7 +116,10 @@ use crate::rng::lcg::{future_seed, prn};
 use crate::mathf::RealMath;
 
 /// Settings for a [`run_keff`] power iteration.
-#[derive(Debug, Clone, Copy)]
+/// Not `Copy`: since GitHub #258 this carries an optional `Arc` to a weight
+/// window set, which is bulk data rather than a scalar setting. Clone it
+/// explicitly where a copy was previously implicit.
+#[derive(Debug, Clone)]
 pub struct KeffSettings {
     /// Neutron histories per generation. More ⇒ lower per-generation noise.
     pub n_particles: usize,
@@ -147,6 +152,30 @@ pub struct KeffSettings {
     ///   no GPU adapter is available. The GPU is `f32` acceleration only; the CPU
     ///   single-thread path stays the trusted reference.
     pub compute: ComputeType,
+    /// Variance reduction for the CSG transport path (GitHub #258).
+    ///
+    /// The [`Default`] is **analog** — survival biasing off, no roulette —
+    /// and that is deliberate. This is not a physics term the data supplies
+    /// (which the workspace rule would require on by default); it is a choice
+    /// of *estimator*, and the analog estimator is the reference every
+    /// recorded V&V number in this crate was measured with. Turning it on is
+    /// a named act, and
+    /// `tests/variance_reduction_is_bit_identical_when_analog.rs` pins that
+    /// leaving it alone changes nothing at all.
+    pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
+    /// **Run until `k` reaches a target precision** rather than for a fixed
+    /// generation count — GitHub #263 scope items 1, 2 and 4.
+    ///
+    /// `None` (the default) runs exactly `n_active` active generations, which
+    /// is what every recorded result in this crate was measured with. With a
+    /// trigger, `n_active` becomes the **maximum**: the run stops early once
+    /// the metric is met, and still stops at `n_active` if it never is.
+    ///
+    /// A trigger cannot make a run go longer than `n_active`. Upstream has a
+    /// separate `n_max_batches` for that; conflating the two here would let a
+    /// tightened threshold silently multiply the cost of a study, which is
+    /// the opposite of what this feature is for.
+    pub keff_trigger: Option<crate::tally::trigger::Trigger>,
 }
 
 impl Default for KeffSettings {
@@ -163,6 +192,8 @@ impl Default for KeffSettings {
             watt_a: 0.988e6,
             watt_b: 2.249e-6,
             compute: ComputeType::CpuSingleThread,
+            variance_reduction: Default::default(),
+            keff_trigger: None,
         }
     }
 }
@@ -176,7 +207,10 @@ impl KeffSettings {
     /// single-thread reference and then the multi-thread backend is
     /// `run_keff(r, &mat, &nuc, &settings.with_compute(ComputeType::CpuSingleThread))`
     /// followed by `run_keff(r, &mat, &nuc, &settings.with_compute(ComputeType::CpuMultiThread))`
-    /// — `KeffSettings` is `Copy`, so `settings` is untouched and can be reused.
+    /// ~~— `KeffSettings` is `Copy`, so `settings` is untouched and can be reused.~~
+    /// **CORRECTED 2026-09-22 (gh:#258)** — it is `Clone`, not `Copy`, since it
+    /// gained an optional `Arc` to a weight-window set. Call it on a clone
+    /// (`settings.clone().with_compute(..)`) where the original is still needed.
     pub fn with_compute(mut self, compute: ComputeType) -> Self {
         self.compute = compute;
         self
@@ -2321,13 +2355,13 @@ mod tests {
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuSingleThread),
+            &base.clone().with_compute(ComputeType::CpuSingleThread),
         );
         let multi = run_keff(
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto)),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto)),
         );
 
         eprintln!(
@@ -2364,7 +2398,7 @@ mod tests {
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::Gpu),
+            &base.clone().with_compute(ComputeType::Gpu),
         );
         eprintln!("k_gpu = {:.5} ± {:.5}", gpu.k_mean, gpu.k_std);
 
@@ -2420,21 +2454,21 @@ mod tests {
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
         )
         .k_mean;
         let one_b = run_keff(
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
         )
         .k_mean;
         let four = run_keff(
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(4))),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(4))),
         )
         .k_mean;
 
@@ -2675,7 +2709,7 @@ mod tests {
 
             for (name, compute) in runs {
                 let t0 = Instant::now();
-                let res = run_keff(radius, &material, &nuclides, &base.with_compute(compute));
+                let res = run_keff(radius, &material, &nuclides, &base.clone().with_compute(compute));
                 let dt = t0.elapsed().as_secs_f64();
                 report.push(PerfRow {
                     batch_size: n_particles,
@@ -2748,7 +2782,7 @@ mod tests {
         for &n in &[10_000usize, 100_000, 1_000_000] {
             let s = KeffSettings {
                 n_particles: n,
-                ..base
+                ..base.clone()
             };
 
             let t0 = Instant::now();

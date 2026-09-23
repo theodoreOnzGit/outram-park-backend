@@ -304,7 +304,9 @@ fn post_processing_statepoint() {
         upper_right: [half, half, zmax],
         dimension: [nx, ny, 1],
     };
-    let filter = MeshFilter { mesh };
+    let filter = MeshFilter {
+        mesh: outram_mc_libs::tally::mesh::MeshKind::Regular(mesh),
+    };
     let n_cells = nx * ny;
     let mut tally = Tally {
         id: 1,

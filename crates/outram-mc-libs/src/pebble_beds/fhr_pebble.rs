@@ -947,7 +947,7 @@ mod tests {
         r = crate::geometry::position::stream(r, u, db.distance);
         if let crate::geometry::geometry::Crossing::Surface(i) = db.crossing {
             assert!(
-                g.cross_surface(i, r, u).alive,
+                g.cross_surface(i, r, u, &mut 0x5EED_0259_u64).alive,
                 "root sphere must be reflective (alive after crossing)"
             );
         } else {

@@ -437,6 +437,7 @@ fn filterkind_dispatch_matches_the_concrete_filters() {
         // below has a secondary to bin and lands in a different group from the
         // incoming energy.
         energy_out: Some(1.0),
+        ..Default::default()
     };
 
     let kinds = vec![

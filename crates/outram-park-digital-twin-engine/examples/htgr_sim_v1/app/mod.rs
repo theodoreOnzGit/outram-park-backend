@@ -939,12 +939,50 @@ mod tests {
     /// # Results (measured 2026-08-17, feedwater default changed from AUTO to
     /// MANUAL)
     ///
-    /// The default snapshot maps to exactly `PlantCommands::default()`: rods
-    /// 0.6035, helium 4.3 kg/s, feedwater **MANUAL at 10.0 kg/s**, condenser
-    /// 7.000 kPa. Flipping `feedwater_manual` to `false` yields
-    /// `Auto { target_steam_temperature: 713.15 K }`. Interpretation: the
-    /// opening frame commands the plant's current default, and the mode
-    /// boolean is read in the right direction.
+    /// ~~"The default snapshot maps to exactly `PlantCommands::default()`:
+    /// rods 0.6035, helium 4.3 kg/s, feedwater **MANUAL at 10.0 kg/s**,
+    /// condenser 7.000 kPa."~~
+    ///
+    /// # CORRECTED 2026-09-22 -- this test had been FAILING, and it was right to
+    ///
+    /// The recorded result above was stale on two counts (rods are 0.50 now,
+    /// not 0.6035), and more importantly **the two sides had genuinely come
+    /// apart**. Measured at `ef6733295`, before the change that found this:
+    ///
+    /// | Field | GUI snapshot | `PlantCommands::default()` |
+    /// |---|---|---|
+    /// | helium flow | 4.3 kg/s | **1.29 kg/s** |
+    /// | feedwater demand | 4.0 kg/s | **10.0 kg/s** |
+    ///
+    /// Neither drift was harmless. `GUI_INITIAL_HELIUM_FLOW_KG_PER_S` is a
+    /// *fraction* of rated (0.30, despite the `KG_PER_S` suffix its own doc
+    /// comment apologises for), so the physics opened at **part load** while
+    /// the GUI opened at **rated** — and that constant's doc says in terms
+    /// that [`crate::physics::GUI_INITIAL_ROD_INSERTION`] "was bisected
+    /// against settled power AT this flow. The two are a matched pair and must
+    /// be changed together." The GUI was opening the bisected rod position at
+    /// the wrong flow, so it did not open at the intended initial condition at
+    /// all. The feedwater demand had simply never been updated when the
+    /// default moved to MANUAL at 10.0 kg/s on 2026-08-17.
+    ///
+    /// **The fix is to delete the second copy, not to re-sync it.** Both
+    /// fields in `HtgrSnapshot::default()` are now *derived* from the physics
+    /// constants they are supposed to mirror, so they cannot drift again —
+    /// which is the workspace rule about two copies of an operating point,
+    /// arriving exactly as advertised.
+    ///
+    /// **Results (2026-09-22, after the fix).** The default snapshot maps to
+    /// exactly `PlantCommands::default()`: rods 0.50, helium **1.29 kg/s**,
+    /// feedwater **MANUAL at 10.0 kg/s**, condenser 7.000 kPa, wind 3.0 m/s
+    /// from 0 deg at hour 12. Flipping `feedwater_manual` to `false` yields
+    /// `Auto { target_steam_temperature: 713.15 K }`.
+    ///
+    /// **Interpretation.** The opening frame commands the plant's current
+    /// default, and the mode boolean is read in the right direction. Note what
+    /// this test bought by comparing the *whole struct* with `PartialEq`: it
+    /// caught a drift in two fields nobody was looking at, and it will catch
+    /// the next one. A field-by-field comparison written for the fields that
+    /// mattered in August would not have.
     #[test]
     fn the_gui_defaults_are_the_plant_command_defaults() {
         let snapshot = HtgrSnapshot::default();

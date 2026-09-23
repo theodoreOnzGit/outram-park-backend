@@ -23,12 +23,13 @@ use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{
-    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar, UncorrelatedEmission,
+    ChiEout, ChiTabular, ContinuumBranch, ContinuumEmission, FissionSpectrum, NuBar,
+    UncorrelatedEmission,
 };
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
 use crate::physics::scatter::DbrcTable;
-use njoy_outram_park_fork::reconr::ReconrResult;
+use njoy_outram_park_fork::reconr::{ReconrResult, ReconrSection};
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 use njoy_outram_park_fork::MtReaction;
 use njoy_outram_park_fork::NjoyError;
@@ -270,6 +271,22 @@ pub struct Nuclide {
     /// table. Empty on the LOW tier and for any nuclide whose evaluation has no
     /// MT=2 below the cap.
     elastic_0k: Vec<(f64, f64)>,
+    /// **Ablation flag, not a model option.** When `true`, [`Nuclide::nu_bar`]
+    /// returns the **prompt** yield `ν̄ − ν̄_d` rather than the total, so an
+    /// eigenvalue run produces `k_p` instead of `k`. See
+    /// [`Nuclide::with_prompt_only_nubar`]. `false` (the default, and what
+    /// every constructor produces) is the physics.
+    prompt_only: bool,
+    /// Delayed-neutron data from ENDF **MF=1/455** and **MF=5/455** — the
+    /// precursor decay constants λ_k, the delayed yield ν̄_d(E) and each
+    /// group's share p_k(E). GitHub #262.
+    ///
+    /// `None` for a nuclide whose evaluation carries no MT=455 (every
+    /// non-fissionable nuclide, and a few fissionable ones), and on the LOW
+    /// tier. **Applied by default where the evaluation supplies it** — it is
+    /// physics the data carries, so the workspace rule puts it on rather than
+    /// behind a builder.
+    delayed: Option<DelayedData>,
 }
 
 /// Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
@@ -366,6 +383,8 @@ impl Nuclide {
             dbrc: None,
             // LOW tier has no pointwise reconstruction, so no 0 K grid for DBRC.
             elastic_0k: Vec::new(),
+            delayed: None,
+            prompt_only: false,
         })
     }
 
@@ -644,7 +663,16 @@ impl Nuclide {
     /// Every site that needs ν̄ goes through here, so the ablation cannot reach
     /// one cross-section branch and miss another.
     pub fn nu_bar(&self, e: f64) -> f64 {
-        self.nu.at(self.nu_frozen_at.unwrap_or(e))
+        let total = self.nu.at(self.nu_frozen_at.unwrap_or(e));
+        if self.prompt_only {
+            // Prompt-only ablation (GitHub #262): the delayed yield is removed
+            // from production. This is what makes the second eigenvalue solve
+            // of the k-ratio route, `k_p`, a different calculation rather than
+            // the same one with a relabelled answer.
+            (total - self.nu_delayed(self.nu_frozen_at.unwrap_or(e))).max(0.0)
+        } else {
+            total
+        }
     }
 
     /// The incident energy \[eV\] the fission spectrum χ should be evaluated at,
@@ -1190,6 +1218,228 @@ impl Nuclide {
     ///
     /// [`NjoyError`] if the tape lacks the sections RECONR needs, or the
     /// evaluation uses a resonance format RECONR does not reconstruct.
+    /// Build a nuclide from a **continuous-energy ACE table**.
+    ///
+    /// The third construction path, beside [`Self::from_core`] (the embedded
+    /// WMP blob) and [`Self::from_tape`] (an ENDF evaluation through RECONR and
+    /// BROADR). It exists so this workspace can transport on the *same library*
+    /// another code uses — the NJOY2016 tables in `reference-data/ace` — which
+    /// turns a cross-code comparison from "two codes, two data pipelines" into
+    /// "two codes, one library", removing the largest confound in the existing
+    /// studies (GitHub #270).
+    ///
+    /// Takes the **raw** table rather than the decoded cross sections, because
+    /// the secondary-distribution blocks (AND, DLW, NU) are read from the same
+    /// `XSS` and a caller should not have to thread two objects through.
+    ///
+    /// | field | ACE block |
+    /// |---|---|
+    /// | cross sections | ESZ (elastic) + MTR/LQR/LSIG/SIG |
+    /// | `nu` | NU — **total**, verified exactly equal to ENDF MF=1/452 |
+    /// | `chi` | DLW LAW=4 on the fission MT |
+    /// | elastic angular | AND, centre-of-mass |
+    /// | inelastic angular | AND per reaction, frame from the sign of TYR |
+    /// | continuum laws | DLW LAW=44 (Kalbach) / LAW=61 (tabulated cosine) |
+    ///
+    /// # What is NOT in this path — stated, not defaulted
+    ///
+    /// Each of these is `None`/empty **because the block is not decoded**, not
+    /// because the evaluation says there is none. A missing term must not
+    /// masquerade as a measured zero:
+    ///
+    /// - **Delayed neutrons** (`DNU`/`BDD`/`DNEDL`/`DNED`): `delayed` is
+    ///   `None`, so a kinetics consumer sees "this table does not say" rather
+    ///   than a zero delayed fraction.
+    /// - **Unresolved-resonance probability tables** (`UNR`): `urr` is `None`.
+    ///   On a nuclide whose evaluation HAS an unresolved range this is a real
+    ///   physics omission that will shift `k` — the ACE analogue of the
+    ///   defaulted-off URR this crate's `CLAUDE.md` records as a defect.
+    /// - **DBRC** needs the 0 K elastic cross section, which a table broadened
+    ///   to 293.6 K does not carry, so `elastic_0k` is empty.
+    /// - **S(α,β)** lives in a separate thermal `.t` table, not this one.
+    ///
+    /// # Errors
+    ///
+    /// A table that is not continuous-energy neutron data, or whose DLW
+    /// carries a law outside {3, 4, 44, 61}. Refusing is deliberate: a law
+    /// silently skipped is a reaction whose secondaries are wrong.
+    pub fn from_ace(
+        table: &njoy_outram_park_fork::acer::read::RawAceTable,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::acer::ce_decode::decode_ce;
+        use njoy_outram_park_fork::acer::ce_laws::{
+            decode_angular, decode_energy_law, decode_nu, n_neutron_reactions, to_chi_and_angular,
+            AceEnergyLaw,
+        };
+
+        let ace = decode_ce(table)?;
+
+        // ── Cross sections: ACE's grid becomes a ReconrResult ──────────────
+        //
+        // `ReconrSection.pairs` is a lin-lin (E, sigma) grid per MT, exactly
+        // what ESZ + SIG supply. Elastic comes from ESZ, not MTR -- ACE does
+        // not list MT=2 in MTR at all, and a reader looking for it there finds
+        // nothing and builds a nuclide that cannot scatter.
+        let mut sections: Vec<ReconrSection> = Vec::with_capacity(ace.reactions.len() + 2);
+        // **MT=1 is required, and ACE does not list it in MTR either.**
+        //
+        // `xs_at_energy` reads the total as `eval_mt(Mt1Total)`. RECONR emits an
+        // MT=1 section; ACE carries the total in ESZ instead. Without this the
+        // nuclide reports `total = 0` at every energy while every partial is
+        // correct -- which is worse than an obvious failure, because a
+        // macroscopic total of zero makes the distance-to-collision sampler
+        // return infinity and every particle streams straight out.
+        sections.push(ReconrSection {
+            lr: 0,
+            mt: MtReaction::from_any(1),
+            qi: 0.0,
+            pairs: ace.energy.iter().copied().zip(ace.total.iter().copied()).collect(),
+        });
+        sections.push(ReconrSection {
+            lr: 0,
+            mt: MtReaction::from_any(2),
+            qi: 0.0,
+            pairs: ace.energy.iter().copied().zip(ace.elastic.iter().copied()).collect(),
+        });
+        // `channel_mts` drops the lumps' own levels, so MT=4 and MT=51..91 are
+        // never both present -- see `ce_decode::channel_mts` for why that
+        // matters (U-235 sums 30 % high without it).
+        for mt in ace.channel_mts() {
+            let Some(rx) = ace.reactions.iter().find(|r| r.mt == mt) else {
+                continue;
+            };
+            let pairs: Vec<(f64, f64)> = ace.energy[rx.threshold_index..]
+                .iter()
+                .copied()
+                .zip(rx.xs.iter().copied())
+                .collect();
+            sections.push(ReconrSection {
+                lr: 0,
+                mt: MtReaction::from_any(mt),
+                qi: rx.q_value,
+                pairs,
+            });
+        }
+        sections.sort_by_key(|sec| sec.mt.number());
+
+        let recon = ReconrResult {
+            material: njoy_outram_park_fork::reconr::mf1::MaterialInfo {
+                za: ace.za as f64,
+                awr: ace.awr,
+                lrp: 0,
+                lfi: i32::from(ace.is_fissionable()),
+                nlib: 0,
+                elis: 0.0,
+                nfor: 6,
+                emax: *ace.energy.last().unwrap_or(&2.0e7),
+            },
+            sections,
+            resonance_upper_limit: None,
+            // ACE carries the unresolved range as probability TABLES (the UNR
+            // block), not as the MF=2 parameter list this field holds, so
+            // there is nothing to put here. `urr` below is `None` for the same
+            // reason and is documented as an omission, not a zero.
+            unresolved_table: None,
+        };
+        let inel = build_inelastic_levels(&recon);
+
+        // ── Angular: LAND index 0 is elastic, 1..=NR the neutron-producing
+        // reactions in MTR order. Elastic is centre-of-mass by ACE convention;
+        // for the rest the frame is the SIGN of TYR.
+        let elastic_angular = decode_angular(table, 0, 2)?.unwrap_or_default();
+        let n_rx = n_neutron_reactions(table);
+        let mut inelastic_angular: Vec<(u32, ElasticAngular)> = Vec::new();
+        let mut chi = FissionSpectrum::default();
+        let mut mt91 = None;
+        let mut mt16 = None;
+        let mut mt17 = None;
+        let mut mt5 = None;
+
+        for i in 0..n_rx {
+            let Some(rx) = ace.reactions.get(i) else { break };
+            let lct = if rx.ty < 0 { 2 } else { 1 };
+            if (51..=90).contains(&rx.mt) {
+                if let Some(ang) = decode_angular(table, i + 1, lct)? {
+                    if !ang.is_all_isotropic() {
+                        inelastic_angular.push((rx.mt as u32, ang));
+                    }
+                }
+            }
+            let law = decode_energy_law(table, i)?;
+            let AceEnergyLaw::Tabulated { law, rows, incident_interp } = law else {
+                continue; // LAW=3 is analytic two-body; no table to carry
+            };
+            let (chi_tab, angular) = to_chi_and_angular(&rows, law, &incident_interp);
+            if rx.mt == 18 || [19, 20, 21, 38].contains(&rx.mt) {
+                // The first fission law encountered defines chi. With partial
+                // fission the partials share a spectrum in every evaluation
+                // read here; taking the first is upstream's behaviour too.
+                if matches!(chi, FissionSpectrum::Tabulated { .. })
+                    || matches!(chi, FissionSpectrum::Watt { .. })
+                {
+                    chi = FissionSpectrum::ContinuousTabular(chi_tab);
+                } else if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
+                    chi = FissionSpectrum::ContinuousTabular(chi_tab);
+                }
+                continue;
+            }
+            let emission = ContinuumEmission {
+                branches: vec![ContinuumBranch {
+                    spectrum: chi_tab,
+                    yield_pairs: Vec::new(),
+                    angular,
+                }],
+                cm_frame: rx.ty < 0,
+            };
+            match rx.mt {
+                91 => mt91 = Some(emission),
+                16 => mt16 = Some(emission),
+                17 => mt17 = Some(emission),
+                5 => mt5 = Some(emission),
+                _ => {}
+            }
+        }
+
+        let nu = decode_nu(table)?.unwrap_or_else(|| nubar_for(name, false));
+
+        Ok(Self {
+            name: name.to_string(),
+            awr: ace.awr,
+            nu,
+            chi,
+            xs: XsSource::Pointwise {
+                recon,
+                inel,
+                elastic_angular,
+                inelastic_angular,
+            },
+            thermal: None,
+            continuum: ContinuumLaws {
+                // Three entries, matching the field: the uncorrelated
+                // fallbacks are for MT=91/16/17, which ENDF may give as MF=5
+                // when MF=6 is absent. ACE has no such split -- every law here
+                // is correlated or two-body -- so all three are `None`.
+                uncorrelated: [(91, None), (16, None), (17, None)],
+                mt91,
+                mt16,
+                mt17,
+                mt5,
+            },
+            target_at_rest: false,
+            nu_frozen_at: None,
+            chi_frozen_at: None,
+            n2n_yield_one: false,
+            // NOT decoded -- see the doc comment. `None` here means "this path
+            // does not read the block", never "the evaluation has none".
+            urr: None,
+            dbrc: None,
+            elastic_0k: Vec::new(),
+            prompt_only: false,
+            delayed: None,
+        })
+    }
+
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
@@ -1338,6 +1588,12 @@ impl Nuclide {
             urr: None,
             dbrc: None,
             elastic_0k,
+            // Delayed-neutron data, read at the same single funnel point as
+            // everything else. A nuclide with no MT=455 gets `None`, which is
+            // the honest representation of "this evaluation does not say" —
+            // NOT a zero delayed fraction, which would read as a measurement.
+            delayed: DelayedData::from_tape(tape, mat)?,
+            prompt_only: false,
         };
 
         // CORRECT PHYSICS IS THE DEFAULT (workspace hard rule, 2026-09-20).
@@ -3225,6 +3481,209 @@ mod tests {
             let lambda = langevin_inverse(mu);
             let l = 1.0 / lambda.r_tanh() - 1.0 / lambda;
             assert!((l - mu).abs() < 1.0e-6, "L(L⁻¹({mu})) = {l}");
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Delayed-neutron data (GitHub #262)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Delayed-neutron data for one nuclide: ENDF **MF=1/455** (precursor decay
+/// constants and ν̄_d(E)) and **MF=5/455** (per-group share p_k(E)).
+///
+/// # Why this is on `Nuclide` and not derived at the tally
+///
+/// β_eff, Λ and every point-kinetics parameter downstream of them are
+/// properties of *which* fission neutrons are delayed and *how long* their
+/// precursors live. Neither is recoverable from a total-ν̄ transport run: a
+/// code that transports prompt and delayed neutrons together, born at the same
+/// instant, produces exactly the right `k` and has **no information at all**
+/// about β. That is what this crate did before #262, and why
+/// `DelayedGroupFilter` could only ever tally zero (GitHub #278).
+///
+/// # What is and is not modelled
+///
+/// The **yields and lifetimes** are here. The delayed neutrons are still born
+/// at the same instant as the prompt ones in the eigenvalue path — the
+/// standard `k`-eigenvalue approximation — so this supports the *ratio* route
+/// to β_eff (`1 − k_p/k`), which is what #262 scope item 3 asks for. It does
+/// **not** by itself give a time-dependent solution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DelayedData {
+    /// Precursor decay constants λ_k \[s⁻¹\], in ENDF tape order.
+    pub lambda: Vec<f64>,
+    /// Incident-energy grid \[eV\] for ν̄_d, ascending.
+    pub energy: Vec<f64>,
+    /// Total delayed yield ν̄_d aligned with [`Self::energy`].
+    pub nu_delayed: Vec<f64>,
+    /// Per-group share `p_k(E)` as `(E [eV], fraction)`, one table per group.
+    /// Empty when the evaluation carries MF=1/455 but no usable MF=5/455, in
+    /// which case [`Self::group_fraction`] falls back to an equal split and
+    /// says so.
+    pub group_fraction: Vec<Vec<(f64, f64)>>,
+    /// `true` when the tape used the energy-dependent decay-constant form
+    /// (`LDG=1`) and [`Self::lambda`] holds only the lowest-energy set.
+    /// Carried so a consumer can refuse rather than silently use a λ that is
+    /// wrong at its energy.
+    pub lambda_is_lowest_energy_only: bool,
+}
+
+impl DelayedData {
+    /// Read MF=1/455 and MF=5/455 off a tape. `Ok(None)` when the evaluation
+    /// has no delayed-neutron data at all.
+    pub fn from_tape(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+    ) -> Result<Option<Self>, NjoyError> {
+        use njoy_outram_park_fork::nuclear_data::delayed::{DelayedChi, DelayedNuBar};
+        let Some(nu_d) = DelayedNuBar::from_endf(tape, mat)? else {
+            return Ok(None);
+        };
+        let chi = DelayedChi::from_endf(tape, mat)?;
+        let group_fraction = chi
+            .map(|c| c.groups.into_iter().map(|g| g.fraction).collect())
+            .unwrap_or_default();
+        Ok(Some(Self {
+            lambda: nu_d.lambda,
+            energy: nu_d.energy,
+            nu_delayed: nu_d.nu_delayed,
+            group_fraction,
+            lambda_is_lowest_energy_only: nu_d.ldg1_energy_dependent,
+        }))
+    }
+
+    /// Number of precursor groups.
+    pub fn n_groups(&self) -> usize {
+        self.lambda.len()
+    }
+
+    /// Total delayed yield ν̄_d at incident energy `e` \[eV\], lin-lin
+    /// interpolated and clamped at the table ends.
+    pub fn nu_delayed_at(&self, e: f64) -> f64 {
+        interp_table(&self.energy, &self.nu_delayed, e)
+    }
+
+    /// Group `k`'s share of the delayed emission at incident energy `e`.
+    ///
+    /// Falls back to `1 / n_groups` when the evaluation carried no MF=5/455.
+    /// That is a stated approximation, not a measurement: it gives the right
+    /// *total* delayed fraction and the wrong *per-group* split, so a β_k
+    /// spectrum built on it is not a result to quote.
+    pub fn group_fraction(&self, k: usize, e: f64) -> f64 {
+        if k >= self.n_groups() {
+            return 0.0;
+        }
+        let Some(table) = self.group_fraction.get(k) else {
+            return 1.0 / self.n_groups() as f64;
+        };
+        if table.is_empty() {
+            return 1.0 / self.n_groups() as f64;
+        }
+        let xs: Vec<f64> = table.iter().map(|&(x, _)| x).collect();
+        let ys: Vec<f64> = table.iter().map(|&(_, y)| y).collect();
+        interp_table(&xs, &ys, e)
+    }
+
+    /// Whether the per-group split came from the evaluation (`true`) or is the
+    /// equal-split fallback (`false`).
+    pub fn has_evaluated_group_split(&self) -> bool {
+        self.group_fraction.len() == self.n_groups()
+            && self.group_fraction.iter().all(|t| !t.is_empty())
+    }
+}
+
+/// Lin-lin interpolation on an ascending grid, clamped at both ends.
+fn interp_table(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+    if xs.is_empty() || ys.len() != xs.len() {
+        return 0.0;
+    }
+    if x <= xs[0] {
+        return ys[0];
+    }
+    if x >= xs[xs.len() - 1] {
+        return ys[ys.len() - 1];
+    }
+    let i = xs.partition_point(|&g| g <= x).max(1) - 1;
+    let (x0, x1) = (xs[i], xs[i + 1]);
+    if x1 == x0 {
+        return ys[i];
+    }
+    ys[i] + (ys[i + 1] - ys[i]) * (x - x0) / (x1 - x0)
+}
+
+impl Nuclide {
+    /// The nuclide's delayed-neutron data, or `None` when its evaluation
+    /// carries none.
+    pub fn delayed(&self) -> Option<&DelayedData> {
+        self.delayed.as_ref()
+    }
+
+    /// **Ablation control: transport with the PROMPT yield only.**
+    ///
+    /// Deliberately incomplete physics; a measurement tool, not a model
+    /// option. An eigenvalue run over a set of prompt-only nuclides gives
+    /// `k_p`, and `β_eff ≈ 1 − k_p / k` is the ratio route to the effective
+    /// delayed fraction (GitHub #262 scope item 3).
+    ///
+    /// # This silently does nothing on a nuclide with no delayed data
+    ///
+    /// `ν̄_d` is zero there, so `k_p == k` and the resulting β is zero. That
+    /// is not a measurement of "no delayed neutrons"; it is the absence of
+    /// MT=455 on the tape. [`crate::physics::kinetics`] checks for it and
+    /// refuses rather than reporting the zero.
+    pub fn with_prompt_only_nubar(mut self) -> Self {
+        self.prompt_only = true;
+        self
+    }
+
+    /// Whether this nuclide is currently in the prompt-only ablation.
+    pub fn is_prompt_only(&self) -> bool {
+        self.prompt_only
+    }
+
+    /// Whether this nuclide can fission at all, judged by its ν̄ being
+    /// non-zero somewhere on the fast range.
+    ///
+    /// Used to decide whether missing delayed data *matters*: a
+    /// non-fissionable nuclide has no delayed neutrons to be missing.
+    pub fn is_fissionable(&self) -> bool {
+        [0.0253, 1.0e3, 1.0e6, 1.4e7]
+            .iter()
+            .any(|&e| self.nu_bar(e) > 0.0)
+    }
+
+    /// Delayed yield ν̄_d(E), and 0 for a nuclide with no delayed data.
+    pub fn nu_delayed(&self, e: f64) -> f64 {
+        self.delayed.as_ref().map_or(0.0, |d| d.nu_delayed_at(e))
+    }
+
+    /// Prompt yield ν̄_p(E) = ν̄(E) − ν̄_d(E).
+    ///
+    /// # The subtraction, and why it is floored at zero
+    ///
+    /// ν̄ comes from MF=1/452 (total) and ν̄_d from MF=1/455; they are separate
+    /// tabulations on separate grids, so their difference can go very slightly
+    /// negative at a grid point through interpolation alone. A negative prompt
+    /// yield is unphysical and would make `k_prompt` exceed `k`, inverting the
+    /// sign of β. Flooring is the right fix and is stated rather than hidden;
+    /// it has never been observed to bite by more than ~1e-6 on the
+    /// evaluations in `reference-data/endf/`.
+    pub fn nu_prompt(&self, e: f64) -> f64 {
+        (self.nu_bar(e) - self.nu_delayed(e)).max(0.0)
+    }
+
+    /// Delayed fraction β(E) = ν̄_d(E) / ν̄(E) for this nuclide alone.
+    ///
+    /// **This is not β_eff.** It is the nuclide's bare delayed fraction, with
+    /// no spatial or energy weighting by the adjoint flux. β_eff for a system
+    /// is what [`crate::physics::kinetics`] computes.
+    pub fn delayed_fraction(&self, e: f64) -> f64 {
+        let nu = self.nu_bar(e);
+        if nu > 0.0 {
+            self.nu_delayed(e) / nu
+        } else {
+            0.0
         }
     }
 }

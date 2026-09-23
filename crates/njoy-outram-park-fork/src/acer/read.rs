@@ -609,16 +609,91 @@ pub fn read_type2<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
 /// garbage rather than a diagnostic.
 pub fn read<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
     let path = path.as_ref();
-    let head = {
-        let bytes = std::fs::read(path)
-            .map_err(|e| NjoyError::EndfParse(format!("read {}: {e}", path.display())))?;
-        bytes.into_iter().take(4).collect::<Vec<u8>>()
-    };
-    if head.len() == 4 && head.iter().all(|b| b.is_ascii_graphic() || *b == b' ') {
+    let bytes = std::fs::read(path)
+        .map_err(|e| NjoyError::EndfParse(format!("read {}: {e}", path.display())))?;
+
+    // **gzip is transparent.** The `reference-data/ace` submodule stores every
+    // table gzipped -- a U-235 ACE table is 136 MB raw and 23 MB compressed,
+    // which is why they are stored that way and why a reader that cannot
+    // inflate cannot read the reference library at all.
+    if bytes.len() > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b {
+        let text = gunzip(&bytes, path)?;
+        return parse_type1(&text);
+    }
+
+    if bytes.len() >= 4 && bytes[..4].iter().all(|b| b.is_ascii_graphic() || *b == b' ') {
         read_type1(path)
     } else {
         read_type2(path)
     }
+}
+
+/// Inflate a gzip member to a `String`.
+///
+/// `miniz_oxide` implements raw DEFLATE and zlib, **not** gzip, so the
+/// container has to be unwrapped here: a 10-byte fixed header, the optional
+/// FEXTRA/FNAME/FCOMMENT/FHCRC fields named by the flag byte, the DEFLATE
+/// stream, and an 8-byte trailer whose second word is the uncompressed size
+/// mod 2^32 (RFC 1952 sections 2.2-2.3).
+///
+/// That trailer is used as the inflate **limit** rather than trusted as the
+/// answer: it bounds the allocation for a hostile or corrupt file, while a
+/// short read is still caught by the decoder returning fewer bytes.
+fn gunzip(bytes: &[u8], path: &Path) -> Result<String, NjoyError> {
+    let bad = |m: String| NjoyError::EndfParse(format!("{}: {m}", path.display()));
+    if bytes.len() < 18 {
+        return Err(bad("gzip file is too short to hold a header and trailer".into()));
+    }
+    if bytes[2] != 8 {
+        return Err(bad(format!(
+            "gzip compression method {} is not DEFLATE",
+            bytes[2]
+        )));
+    }
+    let flg = bytes[3];
+    let mut i = 10usize;
+    if flg & 0b0000_0100 != 0 {
+        // FEXTRA: two-byte length, then that many bytes.
+        if i + 2 > bytes.len() {
+            return Err(bad("gzip FEXTRA runs past end of file".into()));
+        }
+        let xlen = u16::from_le_bytes([bytes[i], bytes[i + 1]]) as usize;
+        i += 2 + xlen;
+    }
+    for (bit, what) in [(0b0000_1000u8, "FNAME"), (0b0001_0000, "FCOMMENT")] {
+        if flg & bit != 0 {
+            // NUL-terminated string.
+            let start = i;
+            while i < bytes.len() && bytes[i] != 0 {
+                i += 1;
+            }
+            if i >= bytes.len() {
+                return Err(bad(format!("gzip {what} is unterminated (from byte {start})")));
+            }
+            i += 1;
+        }
+    }
+    if flg & 0b0000_0010 != 0 {
+        i += 2; // FHCRC
+    }
+    if i + 8 > bytes.len() {
+        return Err(bad("gzip header runs into the trailer".into()));
+    }
+    let n = bytes.len();
+    let isize_le = u32::from_le_bytes([bytes[n - 4], bytes[n - 3], bytes[n - 2], bytes[n - 1]]);
+    // A 4 GiB-and-over member wraps ISIZE to a small number, which would cap
+    // the inflate far too low. Nothing in this library is near that, so the
+    // floor keeps a wrapped value from silently truncating instead of failing.
+    let limit = (isize_le as usize).max(1 << 20);
+    let raw = miniz_oxide::inflate::decompress_to_vec_with_limit(&bytes[i..n - 8], limit)
+        .map_err(|e| bad(format!("gzip inflate failed: {e:?}")))?;
+    if raw.len() as u32 != isize_le {
+        return Err(bad(format!(
+            "gzip inflated {} bytes but the trailer declares {isize_le}",
+            raw.len()
+        )));
+    }
+    String::from_utf8(raw).map_err(|e| bad(format!("inflated ACE text is not UTF-8: {e}")))
 }
 
 #[cfg(test)]

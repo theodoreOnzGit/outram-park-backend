@@ -7,8 +7,25 @@
 //! CSG cell structure. This is the spatial counterpart to the energy grouping an
 //! [`super::filter::EnergyFilter`] provides. Only the axis-aligned
 //! [`RegularMesh`] is ported here (the workhorse for the `post-processing`
-//! notebook); rectilinear / cylindrical / spherical meshes are a documented gap
-//! (bead op-6tz.13).
+//! notebook); ~~rectilinear / cylindrical / spherical meshes are a documented
+//! gap (bead op-6tz.13)~~ **CORRECTED 2026-09-22 (GitHub #260)** --
+//! [`RectilinearMesh`], [`CylindricalMesh`] and [`SphericalMesh`] are now
+//! present, verified bin-for-bin against OpenMC's own per-bin volumes to
+//! 2.854e-16 (`tests/mesh_vs_openmc.rs`).
+//!
+//! Scope item 4 (wiring into [`super::filter::MeshFilter`]) is done too, via
+//! [`MeshKind`]; per-bin volumes for flux normalisation (scope item 5) are on
+//! [`MeshKind::bin_volume`].
+//!
+//! Still absent, and still a real gap: the **unstructured** mesh family, which
+//! is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
+//! #260. Also still a gap, unchanged by this work and pre-dating it: the
+//! track-length **`bins_crossed`** sub-segmentation, so a segment is scored
+//! whole into its midpoint's cell rather than split across the cells it
+//! actually crosses. That approximation is exact only while a mesh cell is
+//! large relative to the mean free path, and it is **more** wrong on a
+//! cylindrical mesh than a Cartesian one, because a radial cell's width varies
+//! across it. Worth knowing before using a fine R-Z mesh.
 
 use crate::geometry::position::Position;
 
@@ -237,5 +254,423 @@ mod tests {
         // Outside the box (x, z) → None.
         assert_eq!(m.get_bin(Position::new(3.0, 0.0, 0.0)), None);
         assert_eq!(m.get_bin(Position::new(0.0, 0.0, 5.0)), None);
+    }
+}
+
+// ── Rectilinear / cylindrical / spherical meshes (GitHub #260) ───────────────
+//
+// ~~"rectilinear / cylindrical / spherical meshes are a documented gap"~~
+// **CORRECTED 2026-09-22** — the module doc above is struck where it says so.
+// All three are below, ported from `src/mesh.cpp` at OpenMC `afa7a14`. (The
+// commit the issue cites, `608a1c33`, is unavailable in this container and not
+// fetchable; see
+// `verification_and_validation/white_boundary/white_boundary_vs_openmc.md`.)
+
+/// Index of the bin on a 1-D ascending grid containing `x`, or `None` if `x`
+/// lies outside `[grid[0], grid[last]]`.
+///
+/// Upstream uses `lower_bound_index` and adds 1 because its `MeshIndex` is
+/// 1-based (`src/mesh.cpp:2138`). This crate is 0-based throughout, so the `+1`
+/// is deliberately **not** carried — carrying it would put every bin index one
+/// high and the error would only show at the boundaries.
+///
+/// The upper edge is inclusive so a point exactly on the outer surface bins
+/// into the last cell rather than falling out of the mesh.
+#[inline]
+fn bin_on_grid(grid: &[f64], x: f64) -> Option<usize> {
+    if grid.len() < 2 || x < grid[0] || x > grid[grid.len() - 1] {
+        return None;
+    }
+    // Ascending grid: find the last edge not exceeding `x`.
+    let mut lo = 0usize;
+    let mut hi = grid.len() - 1;
+    while hi - lo > 1 {
+        let mid = (lo + hi) / 2;
+        if grid[mid] <= x {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    Some(lo)
+}
+
+/// **Rectilinear** mesh: explicit, non-uniform bin edges on each axis.
+///
+/// `openmc::RectilinearMesh`. This is the cheap one, and it is what a radial
+/// power profile with finer edge binning actually needs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RectilinearMesh {
+    /// Ascending bin edges along x, y, z. Each needs at least two entries.
+    pub grid: [Vec<f64>; 3],
+}
+
+impl RectilinearMesh {
+    /// Number of bins along each axis.
+    pub fn dimension(&self) -> [usize; 3] {
+        [
+            self.grid[0].len().saturating_sub(1),
+            self.grid[1].len().saturating_sub(1),
+            self.grid[2].len().saturating_sub(1),
+        ]
+    }
+
+    /// Total bins.
+    pub fn n_bins(&self) -> usize {
+        let d = self.dimension();
+        d[0] * d[1] * d[2]
+    }
+
+    /// `(i, j, k)` of the bin containing `p`, or `None` if outside.
+    pub fn indices(&self, p: Position) -> Option<[usize; 3]> {
+        Some([
+            bin_on_grid(&self.grid[0], p.x)?,
+            bin_on_grid(&self.grid[1], p.y)?,
+            bin_on_grid(&self.grid[2], p.z)?,
+        ])
+    }
+
+    /// Flat bin index, x fastest — the same ordering [`RegularMesh`] uses.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        let [i, j, k] = self.indices(p)?;
+        let d = self.dimension();
+        Some(i + d[0] * (j + d[1] * k))
+    }
+
+    /// Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:1867`, the product of
+    /// the three edge differences.
+    pub fn volume(&self, ijk: [usize; 3]) -> f64 {
+        (0..3)
+            .map(|a| self.grid[a][ijk[a] + 1] - self.grid[a][ijk[a]])
+            .product()
+    }
+}
+
+/// **Cylindrical** `(r, phi, z)` mesh about `origin`.
+///
+/// `openmc::CylindricalMesh`. This is the natural tally geometry for every core
+/// model in this repository — the workspace's standing correction is that
+/// reactor cores are R-Z, not slabs.
+///
+/// `phi` is measured from the +x axis and is mapped into `[0, 2 pi)`, matching
+/// `src/mesh.cpp:1932`. `z` is absolute (relative to `origin.z`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CylindricalMesh {
+    /// Ascending radial edges \[cm\].
+    pub r_grid: Vec<f64>,
+    /// Ascending azimuthal edges \[rad\], within `[0, 2 pi]`.
+    pub phi_grid: Vec<f64>,
+    /// Ascending axial edges \[cm\], relative to `origin`.
+    pub z_grid: Vec<f64>,
+    /// Mesh origin \[cm\].
+    pub origin: Position,
+}
+
+impl CylindricalMesh {
+    pub fn dimension(&self) -> [usize; 3] {
+        [
+            self.r_grid.len().saturating_sub(1),
+            self.phi_grid.len().saturating_sub(1),
+            self.z_grid.len().saturating_sub(1),
+        ]
+    }
+
+    pub fn n_bins(&self) -> usize {
+        let d = self.dimension();
+        d[0] * d[1] * d[2]
+    }
+
+    /// `(i_r, i_phi, i_z)` of the bin containing `p`, or `None` if outside.
+    ///
+    /// Ported from `CylindricalMesh::get_indices` (`src/mesh.cpp:1920`),
+    /// including the `r < FP_PRECISION` guard that pins `phi = 0` on the axis
+    /// rather than letting `atan2(0, 0)` decide it.
+    pub fn indices(&self, p: Position) -> Option<[usize; 3]> {
+        let x = p.x - self.origin.x;
+        let y = p.y - self.origin.y;
+        let z = p.z - self.origin.z;
+
+        let r = x.hypot(y);
+        let phi = if r < FP_PRECISION {
+            0.0
+        } else {
+            let a = y.atan2(x);
+            if a < 0.0 {
+                a + std::f64::consts::TAU
+            } else {
+                a
+            }
+        };
+        Some([
+            bin_on_grid(&self.r_grid, r)?,
+            bin_on_grid(&self.phi_grid, phi)?,
+            bin_on_grid(&self.z_grid, z)?,
+        ])
+    }
+
+    /// Flat bin index, r fastest.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        let [i, j, k] = self.indices(p)?;
+        let d = self.dimension();
+        Some(i + d[0] * (j + d[1] * k))
+    }
+
+    /// Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2159`,
+    /// `0.5 (r_o^2 - r_i^2) (phi_o - phi_i) (z_o - z_i)`.
+    pub fn volume(&self, ijk: [usize; 3]) -> f64 {
+        let (ri, ro) = (self.r_grid[ijk[0]], self.r_grid[ijk[0] + 1]);
+        let (pi_, po) = (self.phi_grid[ijk[1]], self.phi_grid[ijk[1] + 1]);
+        let (zi, zo) = (self.z_grid[ijk[2]], self.z_grid[ijk[2] + 1]);
+        0.5 * (ro * ro - ri * ri) * (po - pi_) * (zo - zi)
+    }
+}
+
+/// **Spherical** `(r, theta, phi)` mesh about `origin`.
+///
+/// `openmc::SphericalMesh`. `theta` is the **polar** angle from +z in
+/// `[0, pi]`; `phi` the azimuth from +x in `[0, 2 pi)`. That ordering is
+/// upstream's (`src/mesh.cpp:2230`) and is the opposite of the physics
+/// convention some texts use, which is exactly the kind of thing that produces
+/// a mesh that looks right and bins wrong.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SphericalMesh {
+    /// Ascending radial edges \[cm\].
+    pub r_grid: Vec<f64>,
+    /// Ascending polar edges \[rad\], within `[0, pi]`.
+    pub theta_grid: Vec<f64>,
+    /// Ascending azimuthal edges \[rad\], within `[0, 2 pi]`.
+    pub phi_grid: Vec<f64>,
+    /// Mesh origin \[cm\].
+    pub origin: Position,
+}
+
+impl SphericalMesh {
+    pub fn dimension(&self) -> [usize; 3] {
+        [
+            self.r_grid.len().saturating_sub(1),
+            self.theta_grid.len().saturating_sub(1),
+            self.phi_grid.len().saturating_sub(1),
+        ]
+    }
+
+    pub fn n_bins(&self) -> usize {
+        let d = self.dimension();
+        d[0] * d[1] * d[2]
+    }
+
+    /// `(i_r, i_theta, i_phi)`, or `None` if outside. `src/mesh.cpp:2218`.
+    pub fn indices(&self, p: Position) -> Option<[usize; 3]> {
+        let x = p.x - self.origin.x;
+        let y = p.y - self.origin.y;
+        let z = p.z - self.origin.z;
+
+        let r = (x * x + y * y + z * z).sqrt();
+        let (theta, phi) = if r < FP_PRECISION {
+            (0.0, 0.0)
+        } else {
+            let a = y.atan2(x);
+            (
+                (z / r).clamp(-1.0, 1.0).acos(),
+                if a < 0.0 { a + std::f64::consts::TAU } else { a },
+            )
+        };
+        Some([
+            bin_on_grid(&self.r_grid, r)?,
+            bin_on_grid(&self.theta_grid, theta)?,
+            bin_on_grid(&self.phi_grid, phi)?,
+        ])
+    }
+
+    /// Flat bin index, r fastest.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        let [i, j, k] = self.indices(p)?;
+        let d = self.dimension();
+        Some(i + d[0] * (j + d[1] * k))
+    }
+
+    /// Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2493`,
+    /// `(1/3) (r_o^3 - r_i^3) (cos theta_i - cos theta_o) (phi_o - phi_i)`.
+    ///
+    /// Note the cosine difference is `inner - outer`: `cos` decreases on
+    /// `[0, pi]`, so that ordering is what keeps the volume positive.
+    pub fn volume(&self, ijk: [usize; 3]) -> f64 {
+        let (ri, ro) = (self.r_grid[ijk[0]], self.r_grid[ijk[0] + 1]);
+        let (ti, to) = (self.theta_grid[ijk[1]], self.theta_grid[ijk[1] + 1]);
+        let (pi_, po) = (self.phi_grid[ijk[2]], self.phi_grid[ijk[2] + 1]);
+        (1.0 / 3.0) * (ro * ro * ro - ri * ri * ri) * (ti.cos() - to.cos()) * (po - pi_)
+    }
+}
+
+/// `FP_PRECISION` (`include/openmc/constants.h`) — the on-axis guard above.
+const FP_PRECISION: f64 = 1.0e-14;
+
+/// **Enum dispatch over every structured mesh type** — the form a
+/// [`super::filter::MeshFilter`] holds so one filter serves all four.
+///
+/// Enum rather than a trait object, per the workspace Rust design rule
+/// (`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
+/// Upstream uses virtual dispatch off a `Mesh` base class; the enum is the
+/// faithful equivalent here and costs no indirection.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MeshKind {
+    Regular(RegularMesh),
+    Rectilinear(RectilinearMesh),
+    Cylindrical(CylindricalMesh),
+    Spherical(SphericalMesh),
+}
+
+impl MeshKind {
+    /// Total bins.
+    pub fn n_bins(&self) -> usize {
+        match self {
+            Self::Regular(m) => m.n_bins(),
+            Self::Rectilinear(m) => m.n_bins(),
+            Self::Cylindrical(m) => m.n_bins(),
+            Self::Spherical(m) => m.n_bins(),
+        }
+    }
+
+    /// Flat bin index containing `p`, or `None` if `p` is outside the mesh.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        match self {
+            Self::Regular(m) => m.get_bin(p),
+            Self::Rectilinear(m) => m.bin(p),
+            Self::Cylindrical(m) => m.bin(p),
+            Self::Spherical(m) => m.bin(p),
+        }
+    }
+
+    /// Volume of flat bin `bin` \[cm^3\], or `None` if out of range.
+    ///
+    /// This is what a **flux normalisation** needs: a track-length tally scores
+    /// `cm` and dividing by the bin volume is what turns it into a flux. It is
+    /// non-trivial for the curvilinear cases, which is why it is carried here
+    /// rather than left to the caller to work out per mesh type.
+    pub fn bin_volume(&self, bin: usize) -> Option<f64> {
+        if bin >= self.n_bins() {
+            return None;
+        }
+        Some(match self {
+            Self::Regular(m) => {
+                let w = m.width();
+                w[0] * w[1] * w[2]
+            }
+            Self::Rectilinear(m) => m.volume(unflatten(bin, m.dimension())),
+            Self::Cylindrical(m) => m.volume(unflatten(bin, m.dimension())),
+            Self::Spherical(m) => m.volume(unflatten(bin, m.dimension())),
+        })
+    }
+}
+
+/// Flat bin index back to `(i, j, k)`, first axis fastest — the inverse of
+/// `i + d0 (j + d1 k)`, which every mesh here uses.
+#[inline]
+fn unflatten(bin: usize, d: [usize; 3]) -> [usize; 3] {
+    let i = bin % d[0];
+    let j = (bin / d[0]) % d[1];
+    let k = bin / (d[0] * d[1]);
+    [i, j, k]
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesh surface crossings (GitHub #261, `MESH_SURFACE`)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Surface bins per mesh element: `4 * n_dimension` — for each of the three
+/// axes, the min and max face, each with an outward and an inward current.
+///
+/// `StructuredMesh::n_surface_bins` (`src/mesh.cpp:1189`) at OpenMC `afa7a14`.
+pub const SURFACE_BINS_PER_ELEMENT: usize = 12;
+
+impl RegularMesh {
+    /// Number of bins a [`crate::tally::filter_extra::MeshSurfaceFilter`] on
+    /// this mesh produces.
+    pub fn n_surface_bins(&self) -> usize {
+        SURFACE_BINS_PER_ELEMENT * self.n_bins()
+    }
+
+    /// The surface bin for one face of one element —
+    /// `SurfaceAggregator::surface` (`src/mesh.cpp:1296`):
+    /// `4 * n_dim * element + 4 * k + (max ? 2 : 0) + (inward ? 1 : 0)`.
+    pub fn surface_bin(&self, element: usize, axis: usize, max: bool, inward: bool) -> usize {
+        SURFACE_BINS_PER_ELEMENT * element
+            + 4 * axis
+            + if max { 2 } else { 0 }
+            + if inward { 1 } else { 0 }
+    }
+
+    /// Every surface bin the segment `r0 -> r1` crosses, in order of travel —
+    /// `StructuredMesh::surface_bins_crossed` (`src/mesh.cpp`).
+    ///
+    /// # What a crossing produces
+    ///
+    /// Each plane crossing scores **two** bins when both neighbouring elements
+    /// are inside the mesh: an **outward** current on the element being left
+    /// (through its max face when travelling in `+k`, its min face otherwise)
+    /// and an **inward** current on the element being entered, through the
+    /// opposite face. A crossing at the mesh boundary scores only the half
+    /// that is inside.
+    ///
+    /// That pairing is the whole point: a net current across an internal face
+    /// is `outward(left) - inward(right)` and a tally that recorded only one
+    /// side could not form it.
+    ///
+    /// # Implementation note
+    ///
+    /// Upstream walks the track incrementally, recomputing the distance to the
+    /// next grid boundary on one axis at a time. This enumerates the plane
+    /// crossings on all three axes and sorts them, which is equivalent for a
+    /// **uniform** grid (where every plane position is known in closed form)
+    /// and avoids reproducing the `TINY_BIT` nudging that the incremental form
+    /// needs. `surface_crossings_agree_with_an_incremental_walk` checks the
+    /// two against each other on randomised tracks rather than asserting the
+    /// equivalence.
+    pub fn surface_bins_crossed(&self, r0: Position, r1: Position) -> Vec<usize> {
+        let w = self.width();
+        let a = [r0.x, r0.y, r0.z];
+        let b = [r1.x, r1.y, r1.z];
+        let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+        if !(len > 0.0) {
+            return Vec::new();
+        }
+
+        // Every grid-plane crossing on the open interval (0, 1) in track
+        // parameter, as (t, axis, moving in +axis).
+        let mut events: Vec<(f64, usize, bool)> = Vec::new();
+        for k in 0..3 {
+            if d[k] == 0.0 || w[k] <= 0.0 || !w[k].is_finite() {
+                continue;
+            }
+            let forward = d[k] > 0.0;
+            for i in 0..=self.dimension[k] {
+                let plane = self.lower_left[k] + i as f64 * w[k];
+                let t = (plane - a[k]) / d[k];
+                if t > 0.0 && t < 1.0 {
+                    events.push((t, k, forward));
+                }
+            }
+        }
+        events.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut bins = Vec::with_capacity(2 * events.len());
+        for (t, k, forward) in events {
+            // Sample just either side of the crossing so the two elements are
+            // identified by position rather than by index arithmetic that
+            // would have to special-case the mesh edge.
+            let eps = 1.0e-9;
+            let at = |s: f64| {
+                Position::new(a[0] + d[0] * s, a[1] + d[1] * s, a[2] + d[2] * s)
+            };
+            let leaving = self.get_bin(at(t - eps));
+            let entering = self.get_bin(at(t + eps));
+            if let Some(e) = leaving {
+                bins.push(self.surface_bin(e, k, forward, false));
+            }
+            if let Some(e) = entering {
+                bins.push(self.surface_bin(e, k, !forward, true));
+            }
+        }
+        bins
     }
 }

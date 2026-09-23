@@ -49,8 +49,17 @@
 //!    target=...>` entries) is **private** — only `name`, `half_life_seconds`,
 //!    `decay_energy_electronvolt`, and `raw_decay_data` (the decay branches) are
 //!    public. So neutron-reaction *targets* cannot be pulled from these libs;
-//!    they come from the hardcoded `chain_simple.xml` transcription instead.
-//!    Only decay constants / decay branches are cross-checkable against the libs.
+//!    ~~they come from the hardcoded `chain_simple.xml` transcription instead.
+//!    Only decay constants / decay branches are cross-checkable against the
+//!    libs.~~ **CORRECTED 2026-09-23** — the first sentence still holds (the
+//!    field is still private, verified on that date), but the conclusion no
+//!    longer does: [`DepletionChain::from_chain_xml`] reads a **depletion chain
+//!    XML file**, targets included, through the codec in
+//!    `njoy-outram-park-fork::hdf5::depletion_chain_xml` (gh:#270). The
+//!    hardcoded transcription remains as [`DepletionChain::simple`] and is now
+//!    *checked against* the file it was transcribed from
+//!    (`tests/depletion_chain_xml_vs_transcription.rs`) rather than being the
+//!    only source of those targets.
 //! 2. **U-235 thermal yields are not in `fission-yields-data` 0.1.4's public
 //!    API.** The per-nuclide accessors (`u235_thermal_fission_yield`, …) live in
 //!    `pub(crate)` modules and are not re-exported by the crate `prelude`; the
@@ -64,6 +73,9 @@
 
 use std::collections::HashMap;
 use std::f64::consts::LN_2;
+
+use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
+use thiserror::Error;
 
 use super::matrix::DepletionMatrix;
 use super::ReactionRates;
@@ -92,9 +104,22 @@ pub enum ReactionKind {
 /// A single radioactive-decay branch: which daughter, and with what probability.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecayBranch {
-    /// Daughter nuclide name (e.g. `"Xe135"`). If it is not a tracked nuclide,
-    /// the branch contributes only removal (the daughter leaves the chain).
-    pub target: String,
+    /// Daughter nuclide name (e.g. `"Xe135"`).
+    ///
+    /// `None` means **no in-chain daughter**, which a real chain file expresses
+    /// two ways: by giving no `target` at all (electron capture in
+    /// `chain_ni.xml`'s Fe-55 record) or by naming the `"nothing"` sentinel.
+    /// Either way the branch contributes only removal. A `Some(name)` that is
+    /// not a tracked nuclide behaves the same — the daughter leaves the chain —
+    /// but says which nuclide it left as, so a reader can tell a truncated chain
+    /// from a decay with genuinely no product in the file.
+    ///
+    /// **CHANGED 2026-09-23** from `String` to `Option<String>` when
+    /// [`DepletionChain::from_chain_xml`] landed. The old type could not
+    /// represent a targetless decay without inventing a placeholder name, and
+    /// it disagreed with [`NeutronReaction::target`], which was already
+    /// optional for exactly this reason.
+    pub target: Option<String>,
     /// Branching ratio (dimensionless, `0..=1`) — the fraction of decays of the
     /// parent that follow this branch.
     pub branching: f64,
@@ -146,19 +171,90 @@ pub struct NuclideData {
     pub fission_q_ev: Option<f64>,
 }
 
+/// Why a channel in a chain file is not represented in the burnup matrix.
+///
+/// A closed set (enum dispatch per the workspace design rules).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum UnmodelledReason {
+    /// The reaction type is outside [`ReactionKind`]'s three channels — the file
+    /// asked for something like `(n,p)` or `(n,3n)`, which this crate's
+    /// one-group operator has no [`super::MicroRate`] field for.
+    ReactionTypeNotModelled,
+    /// The channel splits between products with a branching ratio other than 1,
+    /// which [`NeutronReaction`] cannot express. Applying the full rate to one
+    /// target would produce atoms the file did not specify, so the channel is
+    /// left out entirely and reported instead.
+    BranchedChannel {
+        /// The ratio the file gave.
+        branching_ratio: f64,
+    },
+}
+
+/// One channel a chain file declared and this crate did not carry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnmodelledChannel {
+    /// Which nuclide declared it.
+    pub nuclide: String,
+    /// The reaction `type` string as the file wrote it, e.g. `"(n,p)"`.
+    pub reaction: String,
+    /// Why it was left out.
+    pub reason: UnmodelledReason,
+}
+
+/// What can go wrong turning a parsed chain file into a [`DepletionChain`].
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ChainImportError {
+    /// The codec refused the file. The message is the codec's own.
+    #[error("reading the chain file: {0}")]
+    Codec(String),
+    /// A nuclide tabulates fission yields, but not at the requested energy.
+    /// Interpolating or taking the nearest energy is deliberately not done.
+    #[error(
+        "`{nuclide}` has no fission yields at {wanted_ev} eV; the file tabulates \
+         {tabulated_ev:?} eV. This reader does not interpolate or pick a nearest \
+         energy — ask for one the file carries."
+    )]
+    NoYieldsAtEnergy {
+        /// The nuclide whose yields were wanted.
+        nuclide: String,
+        /// The energy asked for, eV.
+        wanted_ev: f64,
+        /// The energies the file does tabulate, eV.
+        tabulated_ev: Vec<f64>,
+    },
+    /// A nuclide carries fission yields but declares no `"fission"` channel, so
+    /// nothing in the matrix could ever reach them.
+    #[error("`{nuclide}` carries fission yields but declares no fission reaction")]
+    YieldsWithoutFission {
+        /// The nuclide.
+        nuclide: String,
+    },
+}
+
 /// A decay + transmutation chain that assembles a burnup matrix.
 ///
 /// Holds the tracked nuclides in a fixed order (the matrix-row order) plus a
 /// name→index map for O(1) lookup. Construct with [`DepletionChain::simple`]
-/// (fast, hardcoded `chain_simple.xml` transcription) or
+/// (fast, hardcoded `chain_simple.xml` transcription),
 /// [`DepletionChain::simple_from_data`] (pulls the fission-product half-lives
-/// live from the ENDF/B-VIII decay libraries and cross-checks them).
-#[derive(Debug, Clone)]
+/// live from the ENDF/B-VIII decay libraries and cross-checks them), or
+/// [`DepletionChain::from_chain_xml`] (reads a chain file of any size).
+///
+/// `PartialEq` is derived, and compares the nuclide records **exactly**,
+/// `f64`s included. That is deliberate: it is what lets a parsed chain be
+/// checked against the hand transcription of the same file without a tolerance
+/// to argue about.
+#[derive(Debug, Clone, PartialEq)]
 pub struct DepletionChain {
     /// Tracked nuclides, in matrix-row order.
     nuclides: Vec<NuclideData>,
     /// Name → row index, kept in sync with `nuclides`.
     index: HashMap<String, usize>,
+    /// Channels a source chain file declared that this crate's closed
+    /// [`ReactionKind`] set cannot carry — empty for the hardcoded chains, and
+    /// read back with [`DepletionChain::unmodelled_channels`]. Kept rather than
+    /// discarded so a caller can see what a file asked for and did not get.
+    unmodelled: Vec<UnmodelledChannel>,
 }
 
 /// Decay constant `lambda = ln(2) / T_half` in `1/s`, or `0.0` for a stable
@@ -185,7 +281,11 @@ impl DepletionChain {
                 n.name
             );
         }
-        Self { nuclides, index }
+        Self {
+            nuclides,
+            index,
+            unmodelled: Vec::new(),
+        }
     }
 
     /// The OpenMC `chain_simple.xml` regression chain — 9 nuclides, hardcoded.
@@ -233,7 +333,7 @@ impl DepletionChain {
                 name: "I135".to_string(),
                 half_life_seconds: Some(i135_half_life_s),
                 decays: vec![DecayBranch {
-                    target: "Xe135".to_string(),
+                    target: Some("Xe135".to_string()),
                     branching: 1.0,
                 }],
                 reactions: vec![gamma_to("Xe136")],
@@ -245,7 +345,7 @@ impl DepletionChain {
                 name: "Xe135".to_string(),
                 half_life_seconds: Some(xe135_half_life_s),
                 decays: vec![DecayBranch {
-                    target: "Cs135".to_string(),
+                    target: Some("Cs135".to_string()),
                     branching: 1.0,
                 }],
                 reactions: vec![gamma_to("Xe136")],
@@ -427,6 +527,191 @@ impl DepletionChain {
         Self::simple_with_half_lives(i135_half_life, xe135_half_life)
     }
 
+    /// Build a chain by **reading a depletion chain XML file**, rather than from
+    /// a transcription of one.
+    ///
+    /// The codec is
+    /// [`njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml`]
+    /// — nuclear data belongs on the njoy side (gh:#270), and this crate stays
+    /// file-I/O-free. This method is the mapping from that format's records onto
+    /// the closed reaction set [`ReactionKind`] models.
+    ///
+    /// # Why an energy argument
+    ///
+    /// A chain file tabulates fission yields at one or more incident energies
+    /// (thermal, fast, 14 MeV). [`NuclideData`] carries **one** set, because
+    /// [`Self::build_matrix`] is a one-group operator. `fission_energy_ev`
+    /// selects which tabulated set to take, and the energy must be **tabulated
+    /// exactly** — there is deliberately no interpolation and no
+    /// nearest-neighbour fallback. Silently taking a neighbouring energy is the
+    /// substitution that has produced four separate wrong reference values in
+    /// this workspace's V&V history; a caller who wants an interpolated set
+    /// should build one and say so.
+    ///
+    /// # What is NOT carried over, and is reported rather than dropped
+    ///
+    /// [`ReactionKind`] has three variants; OpenMC's chain format keys ~70
+    /// reaction types. Anything else in the file — `(n,p)`, `(n,a)`, `(n,3n)`,
+    /// … — is **not** put in the matrix, and neither is a channel whose
+    /// `branching_ratio` is not 1 (this crate's [`NeutronReaction`] has no
+    /// branching field, so applying the full rate to one target would create
+    /// atoms the file did not specify). Every such channel is recorded and
+    /// readable through [`Self::unmodelled_channels`]. A caller that needs them
+    /// should check that list is empty for its chain rather than assume it.
+    ///
+    /// Decay branches are carried in full, including targetless ones, and so are
+    /// half-lives and fission Q values. Decay radiation sources
+    /// (`<source>` elements) are parsed by the codec but have no home in
+    /// [`NuclideData`]; read them from the [`DepletionChainXml`] directly.
+    ///
+    /// # Errors
+    ///
+    /// A nuclide with fission yields but no `"fission"` channel (which would
+    /// make the yields unreachable), or one whose yields are tabulated but not
+    /// at `fission_energy_ev`.
+    ///
+    /// The converse — a `"fission"` channel with **no** yields — is **not** an
+    /// error. It is a legitimate chain: fission then acts as pure removal, which
+    /// is exactly what a chain written to deplete actinides without tracking
+    /// fission products says, and [`Self::build_matrix`] already treats an empty
+    /// yield list that way.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml;
+    /// use outram_mc_libs::depletion::DepletionChain;
+    /// use std::path::Path;
+    ///
+    /// let xml = DepletionChainXml::read_file(Path::new("chain_simple.xml"))?;
+    /// let chain = DepletionChain::from_chain_xml(&xml, 0.0253)?;
+    /// assert!(chain.unmodelled_channels().is_empty());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn from_chain_xml(
+        xml: &DepletionChainXml,
+        fission_energy_ev: f64,
+    ) -> Result<Self, ChainImportError> {
+        let mut unmodelled = Vec::new();
+        let mut nuclides = Vec::with_capacity(xml.nuclides.len());
+
+        for src in &xml.nuclides {
+            let mut reactions = Vec::new();
+            let mut fission_q_ev = None;
+            // Whether the FILE declares fission, not whether the mapping kept
+            // the channel: a fission channel dropped for a non-unit branching
+            // ratio must not make the nuclide's own yields look unreachable.
+            let file_has_fission = src.reactions.iter().any(|r| r.kind == "fission");
+
+            for r in &src.reactions {
+                let kind = match r.kind.as_str() {
+                    "(n,gamma)" => Some(ReactionKind::Gamma),
+                    "(n,2n)" => Some(ReactionKind::TwoN),
+                    "fission" => Some(ReactionKind::Fission),
+                    _ => None,
+                };
+                let Some(kind) = kind else {
+                    unmodelled.push(UnmodelledChannel {
+                        nuclide: src.name.clone(),
+                        reaction: r.kind.clone(),
+                        reason: UnmodelledReason::ReactionTypeNotModelled,
+                    });
+                    continue;
+                };
+                if r.branching_ratio != 1.0 {
+                    unmodelled.push(UnmodelledChannel {
+                        nuclide: src.name.clone(),
+                        reaction: r.kind.clone(),
+                        reason: UnmodelledReason::BranchedChannel {
+                            branching_ratio: r.branching_ratio,
+                        },
+                    });
+                    continue;
+                }
+                if kind == ReactionKind::Fission {
+                    fission_q_ev = Some(r.q_ev);
+                }
+                reactions.push(NeutronReaction {
+                    kind,
+                    target: r.target.clone(),
+                });
+            }
+
+            // Yields: exactly the tabulated energy, or an error naming what the
+            // file does carry.
+            let fission_yields = if src.fission_yields.is_empty() {
+                Vec::new()
+            } else if !file_has_fission {
+                return Err(ChainImportError::YieldsWithoutFission {
+                    nuclide: src.name.clone(),
+                });
+            } else {
+                match src.yields_at(fission_energy_ev) {
+                    Some(set) => set.yields.clone(),
+                    None => {
+                        return Err(ChainImportError::NoYieldsAtEnergy {
+                            nuclide: src.name.clone(),
+                            wanted_ev: fission_energy_ev,
+                            tabulated_ev: src
+                                .fission_yields
+                                .iter()
+                                .map(|y| y.energy_ev)
+                                .collect(),
+                        })
+                    }
+                }
+            };
+
+            nuclides.push(NuclideData {
+                name: src.name.clone(),
+                half_life_seconds: src.half_life_seconds,
+                decays: src
+                    .decays
+                    .iter()
+                    .map(|d| DecayBranch {
+                        target: d.target.clone(),
+                        branching: d.branching_ratio,
+                    })
+                    .collect(),
+                reactions,
+                fission_yields,
+                fission_q_ev,
+            });
+        }
+
+        let mut chain = Self::from_nuclides(nuclides);
+        chain.unmodelled = unmodelled;
+        Ok(chain)
+    }
+
+    /// Read a chain straight from a file — [`Self::from_chain_xml`] with the
+    /// codec's `read_file` in front of it.
+    ///
+    /// # Errors
+    ///
+    /// Anything the codec refuses (see
+    /// [`DepletionChainXml::parse`](njoy_outram_park_fork::hdf5::depletion_chain_xml::DepletionChainXml::parse)),
+    /// or anything [`Self::from_chain_xml`] refuses.
+    pub fn from_chain_xml_file(
+        path: &std::path::Path,
+        fission_energy_ev: f64,
+    ) -> Result<Self, ChainImportError> {
+        let xml = DepletionChainXml::read_file(path)
+            .map_err(|e| ChainImportError::Codec(format!("{e}")))?;
+        Self::from_chain_xml(&xml, fission_energy_ev)
+    }
+
+    /// Channels a source chain file declared that this crate does not model.
+    ///
+    /// Empty for [`Self::simple`] and [`Self::simple_from_data`], and empty for
+    /// any chain whose reactions are all `(n,gamma)` / `(n,2n)` / `fission` at
+    /// unit branching. **Non-empty is not an error** — it is the honest record
+    /// of what a one-group three-channel operator cannot carry — but a caller
+    /// whose physics depends on a missing channel should treat it as one.
+    pub fn unmodelled_channels(&self) -> &[UnmodelledChannel] {
+        &self.unmodelled
+    }
+
     /// Nuclide names in matrix-row order (the order of matrix rows/columns).
     pub fn nuclide_names(&self) -> Vec<&str> {
         self.nuclides.iter().map(|n| n.name.as_str()).collect()
@@ -440,6 +725,18 @@ impl DepletionChain {
     /// Whether the chain tracks no nuclides.
     pub fn is_empty(&self) -> bool {
         self.nuclides.is_empty()
+    }
+
+    /// The full record for `name`, or `None` if it is not tracked. Read access
+    /// for verification and reporting; build chains through the constructors so
+    /// the internal name→index map stays consistent.
+    pub fn nuclide(&self, name: &str) -> Option<&NuclideData> {
+        self.index_of(name).map(|i| &self.nuclides[i])
+    }
+
+    /// Every nuclide record, in matrix-row order.
+    pub fn nuclides(&self) -> &[NuclideData] {
+        &self.nuclides
     }
 
     /// The matrix row/column index of `name`, or `None` if it is not tracked.
@@ -491,7 +788,7 @@ impl DepletionChain {
             let lambda = decay_constant(nuc.half_life_seconds);
             if lambda != 0.0 {
                 for branch in &nuc.decays {
-                    if let Some(t) = self.index_of(&branch.target) {
+                    if let Some(t) = branch.target.as_deref().and_then(|n| self.index_of(n)) {
                         a.add(t, j, branch.branching * lambda);
                     }
                 }
