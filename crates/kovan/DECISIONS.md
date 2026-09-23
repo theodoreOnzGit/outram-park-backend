@@ -1064,3 +1064,71 @@ alone.
 display, so the egui→arboard→X11/Wayland leg is covered by reading egui-winit's
 source, not by running it. The maintainer should confirm Ctrl+Shift+V into the
 summary box on the desktop.
+
+## Click-to-insert: an unhurried click was a drag, and an opened block started in Normal (2026-09-23, GH issue #282)
+
+**Maintainer, 2026-09-23:** "when i click the page context editor in kvim, i
+expect to go into insert mode. It doesn't do that."
+
+Two causes, both in the click-to-insert behaviour §27 promises, and one of them
+not specific to kvim at all.
+
+### egui calls an unhurried click a drag
+
+`app/kvim_editor.rs`'s `text_area` senses `click_and_drag` and branches
+`drag_started → dragged → drag_stopped → clicked`, with only the last arm
+entering Insert mode. Read in `egui-0.36.1/src/input_state/mod.rs`, a press stops
+being a click as soon as it passes **either** default threshold:
+
+| `egui::Options` | default | what trips it |
+|---|---|---|
+| `max_click_dist` | 6.0 px | a trackpad wobble |
+| `max_click_duration` | 0.8 s | resting on the button |
+
+`is_decidedly_dragging()` then holds, `clicked()` never fires, and the press
+lands in the `drag_started` arm — which enters **Visual** mode. So a deliberate
+click left the editor in Visual, where typing runs Vim commands; a quick, still
+click worked, which is exactly why the failure reads as intermittent rather than
+total.
+
+**Fix:** `end_drag` — a finished drag whose selection is empty (anchor == head)
+was a click, so leave Visual and enter Insert. A drag that did select something
+is untouched, so drag-to-select still works.
+
+**The same threshold broke the read-only preview**, which is the other half of
+the page-context panel: it opens a block on `clicked()`, so an unhurried click on
+a banded block opened nothing at all. A press and release on the *same line* is
+now a click there too; a drag across lines still opens nothing.
+
+### An opened block started in Normal mode with no focus
+
+`PdfReaderState::open_artifact` calls `block_editor.load_text`, and `load_text`
+builds a fresh `Editor::new()` — Normal mode, no keyboard focus. The user has
+already clicked (on a card, or a banded preview line) to get there, so
+`begin_insert` now opens it ready to type and claims focus on the next frame,
+per GH issue #35's own "a single click to bring me into insert mode, not double
+click".
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests` green (622 tests). Four new:
+
+- `a_drag_that_selected_nothing_is_a_click_and_enters_insert_mode`, and its
+  control `a_drag_that_selected_text_stays_in_visual_mode`.
+- `begin_insert_opens_ready_to_type_and_claims_focus_once`, plus an assertion
+  added to `open_artifact_on_a_text_block_loads_the_inline_editor` that the
+  block editor lands in `INSERT`.
+- `a_slow_press_on_the_preview_opens_the_same_line_a_quick_click_does` — driven
+  headless through `egui::Context::run_ui` with synthetic pointer events and a
+  1.5 s hold, asserted *relative* to a quick click at the same position so it
+  does not depend on font metrics or panel layout. **Checked capable of
+  failing:** backing the preview fix out turns it red, and it goes green again
+  when restored.
+
+**Not verified:** no interactive click on a real desktop — the mouse path is
+exercised only through egui's own input state here.
+
+**Left alone deliberately:** the page-context preview stays read-only. Editing a
+schema-sensitive block as raw text is how the fenced TOML gets broken; clicking a
+banded block to open it in the editor is the edit path, as the preview's caption
+says.
