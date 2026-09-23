@@ -32,6 +32,43 @@ is not there. **The geometry was right and the contents were wrong.**
 ~~**`-1592 pcm, sem +/-63`**~~ **`-1231 pcm, sem +/-63`**, seed-to-seed
 `sd 179 pcm`.
 
+> **RE-MEASURED 2026-09-23 after the correct-physics default change — the
+> residual did NOT move.** Every number above was taken with **URR
+> probability tables and DBRC OFF**, which was the default until
+> `f8dbb49512` ("correct physics is the DEFAULT, not an opt-in") turned both
+> ON. The workspace rule is that a changed default obliges a re-measurement
+> of every V&V number that depended on it, so the case was re-run at
+> `870e65f1b7ae`:
+>
+> ```text
+> k_eff = 0.988174 +/- 0.002636    height-matched dk = -1250 +/- 264 pcm
+> ```
+>
+> Against the pooled `-1231 +/- 63 pcm` above that is a shift of **19 pcm**,
+> i.e. **nothing** — far inside the 179 pcm seed-to-seed spread. **Turning on
+> URR and DBRC did not measurably move this benchmark.**
+>
+> **Read that as the weak statement it is.** The new figure is a SINGLE SEED
+> against an 8-seed pool, and the cycle settings differ (2000 x [30 + 70]
+> here against 3000 x [20 + 60] above), so this bounds the movement at a few
+> hundred pcm rather than resolving it. A clean measurement needs both arms
+> pooled at identical settings. What it does rule out is a *large* shift.
+>
+> Note also that the two pre-existing single draws of this same configuration
+> — `0.991372` in the table above and `0.988088` in the library-swap section
+> below — differ from each other by **~330 pcm**. Any comparison against a
+> single one of them is therefore worth less than it looks; compare against
+> the pool.
+>
+> **Determinism, measured in passing and worth keeping.** The re-measurement
+> was run five times: 1 thread and 16 threads, pinned to P-cores and to
+> E-cores, plus once more after `htr10_rmc::materials` was factored out of
+> the example. **All five returned `0.988174 +/- 0.002636`, identical to six
+> decimal places.** This page states elsewhere that thread-count independence
+> is *tested* for `run_keff` and merely *assumed* for `run_keff_csg_hybrid`,
+> which is the driver this case uses — that assumption now has direct
+> evidence behind it.
+
 > **CORRECTED 2026-09-18 — +361 pcm of that residual was the COMPARISON POINT,
 > not the model.** Every number on this page was compared against RMC's
 > **123.576 cm** value, 1.004288, while the model builds a bed

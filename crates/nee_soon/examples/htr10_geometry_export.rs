@@ -41,18 +41,24 @@ use std::path::PathBuf;
 
 use nee_soon::htr10_rmc::bed::HexBedCell;
 use nee_soon::htr10_rmc::core_model::{
-    assemble_explicit_triso, HTR10_AXIAL_REFLECTOR_CM, HTR10_CAVITY_ABOVE_BED_CM,
-    HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM, HTR10_CONUS_HEIGHT_CM,
-    HTR10_COOLANT_INNER_CM, HTR10_COOLANT_OUTER_CM, HTR10_CORE_CAVITY_CM, HTR10_CORE_RADIUS_CM,
+    assemble_explicit_triso, HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM,
+    HTR10_COOLANT_INNER_CM, HTR10_COOLANT_OUTER_CM, HTR10_CORE_RADIUS_CM,
     HTR10_DISCHARGE_TUBE_RADIUS_CM, HTR10_GRAPHITE_OUTER_CM, HTR10_REFLECTOR_OUTER_CM,
     PAPER_FILLING_FRACTION,
 };
+use nee_soon::htr10_rmc::materials::{htr10_material_set, nuclide_name, Htr10MaterialConfig};
 use nee_soon::htr10_rmc::{geometry_closures, heavy_metal_per_ball, table1};
+use outram_mc_libs::geometry::surface::SurfaceKind;
+use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
 use outram_mc_libs::prelude::TrisoSpec;
 
 /// Rings and axial layers of the **reported** case, not the example's own
 /// cheap defaults (8 x 12). The V&V record's quoted results and the timed runs
 /// are both at 14 x 25, so that is what a manuscript table must describe.
+/// Temperature \[K\] every material is built at -- the same value
+/// `htr10_rmc_keff` uses.
+const TEMP_K: f64 = 300.15;
+
 const REPORTED_RINGS: usize = 14;
 const REPORTED_LAYERS: usize = 25;
 
@@ -97,6 +103,18 @@ fn csv_field(s: &str) -> String {
         .replace('%', " pct")
         .replace('&', "and")
         .replace('_', "-")
+        // `^` is LaTeX's superscript and `~` a non-breaking space; `#`, `$`,
+        // `{`, `}` and a backslash are specials too. `slope^2` in the surface
+        // dump reached the typeset table as a bare `^` and produced
+        // "Missing $ inserted" -- caught only by actually compiling the
+        // tables, which is why that check is part of the workflow.
+        .replace('^', "")
+        .replace('~', "-")
+        .replace('#', "no.")
+        .replace('$', "")
+        .replace('{', "(")
+        .replace('}', ")")
+        .replace('\\', "/")
         // A comma inside a field would have to be quoted, and csvsimple
         // SILENTLY DROPS a row whose fields are quoted -- measured: the
         // radial table rendered 2 rows of 8 and the DH table 7 of 22, with
@@ -196,42 +214,70 @@ fn main() {
     }
 
     // ----------------------------------------------------------------- axial
+    //
+    // READ FROM THE ASSEMBLY, not from the named constants.
+    //
+    // The first version of this table listed the five constants that have
+    // names -- conus, bed, cavity, core cavity, axial reflector -- and was
+    // WRONG by omission: it had no row for the 191.8 cm of graphite below the
+    // conus floor, and no total. It described the top half of a model that is
+    // 580 cm tall, so a reader checking axial leakage would have been working
+    // from a reactor that does not exist.
+    //
+    // The model is SYMMETRIC IN EXTENT about z = 0 (the outer reflector
+    // cylinder runs +/- `refl_half_height`) and ASYMMETRIC IN CONTENTS: above
+    // the bed sit the helium cavity then the axial reflector; below it the
+    // conus of dummy pebbles, then solid graphite all the way to the floor.
+    // That asymmetry is the whole point of the table, and only the assembly
+    // knows it.
     let core = assemble_explicit_triso(rings, layers, 0);
     let bed_height = 2.0 * core.bed_half_height;
-    let mut axial = String::from("zone,extentcm,contents,source\n");
-    for (zone, extent, contents, source) in [
+    let mut axial = String::from("zone,ztopcm,zbotcm,extentcm,contents,source\n");
+    for (zone, ztop, zbot, contents, source) in [
         (
-            "conus (sloping bed floor)",
-            HTR10_CONUS_HEIGHT_CM,
-            "DUMMY pebbles only",
-            "Terry et al. (2005) s2 and Fig. 2; TECDOC-1382 Table 2",
+            "axial reflector (above cavity)",
+            core.refl_half_height,
+            core.cavity_top,
+            "graphite; TECDOC zone 22",
+            "Terry et al. (2005); 610 cm model height",
         ),
         (
-            "pebble bed, as built",
-            bed_height,
+            "empty core cavity",
+            core.cavity_top,
+            core.bed_half_height,
+            "helium",
+            "Terry et al. (2005) Fig. 2",
+        ),
+        (
+            "pebble bed as built",
+            core.bed_half_height,
+            -core.bed_half_height,
             "hex lattice; 57:43 fuelled:dummy",
             "realised: layers x lattice height",
         ),
         (
-            "empty cavity above the bed",
-            HTR10_CAVITY_ABOVE_BED_CM,
-            "helium",
-            "Terry et al. (2005) Fig. 2; 221.818 - 123.06 at the benchmark loading",
+            "conus (sloping bed floor)",
+            -core.bed_half_height,
+            core.conus_floor,
+            "DUMMY pebbles only",
+            "Terry et al. (2005) s2",
         ),
         (
-            "core cavity (fixed, conus top to cavity top)",
-            HTR10_CORE_CAVITY_CM,
-            "bed plus void",
-            "Terry et al. (2005) Fig. 2; z = 130.0 to 351.818",
-        ),
-        (
-            "axial reflector above the cavity",
-            HTR10_AXIAL_REFLECTOR_CM,
-            "graphite",
-            "Terry et al. (2005); 610 cm model height",
+            "bottom reflector (below conus)",
+            core.conus_floor,
+            -core.refl_half_height,
+            "graphite; TECDOC zone 22",
+            "assembled: symmetric outer cylinder",
         ),
     ] {
-        axial.push_str(&row(&[zone, &format!("{extent:.3}"), contents, source]));
+        axial.push_str(&row(&[
+            zone,
+            &format!("{ztop:.4}"),
+            &format!("{zbot:.4}"),
+            &format!("{:.4}", ztop - zbot),
+            contents,
+            source,
+        ]));
         axial.push('\n');
     }
 
@@ -457,12 +503,139 @@ fn main() {
         );
     }
 
+    // ------------------------------------------------------- materials
+    //
+    // Built through `htr10_material_set`, the SAME call the eigenvalue example
+    // makes, so this table cannot describe a different material set from the
+    // one k_eff was computed with. Atom densities are atoms/barn-cm.
+    let nuclides = Htr10Nuclides {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        c_free: 3,
+        c_graphite: 4,
+        si28: 5,
+        b10: 6,
+    };
+    let cfg = Htr10MaterialConfig::benchmark_default(TEMP_K);
+    let mats = htr10_material_set(nuclides, cfg);
+    let mut materials = String::from("matindex,matid,material,nuclide,atomdensity,temperaturek\n");
+    for (idx, m) in mats.iter().enumerate() {
+        if m.components.is_empty() {
+            // Helium is deliberately modelled as a void, as the reference's
+            // own model omits it. A blank row is the honest record -- dropping
+            // the material entirely would hide a modelling choice.
+            materials.push_str(&row(&[
+                &format!("{idx}"),
+                &format!("{}", m.id),
+                &m.name,
+                "(none - modelled as void)",
+                "0",
+                &format!("{:.2}", m.temperature),
+            ]));
+            materials.push('\n');
+            continue;
+        }
+        for c in &m.components {
+            materials.push_str(&row(&[
+                &format!("{idx}"),
+                &format!("{}", m.id),
+                &m.name,
+                nuclide_name(nuclides, c.nuclide_idx),
+                &format!("{:.6e}", c.atom_density),
+                &format!("{:.2}", m.temperature),
+            ]));
+            materials.push('\n');
+        }
+    }
+
+    // -------------------------------------------------------- CSG surfaces
+    // `index` would collide with LaTeX's own \index primitive under
+    // csvsimple's `head to column names`, exactly as `value` and `note`
+    // would -- see the header rule at the top of this file.
+    let mut surfaces = String::from("surfaceid,kind,parameters\n");
+    for (i, sk) in core.geometry.surfaces.iter().enumerate() {
+        let (kind, params) = match sk {
+            SurfaceKind::ZPlane(z) => ("z-plane", format!("z0 = {:.4} cm", z.z0)),
+            SurfaceKind::ZCylinder(c) => (
+                "z-cylinder",
+                format!("r = {:.4} cm about ({:.1}; {:.1})", c.r, c.x0, c.y0),
+            ),
+            SurfaceKind::ZCone(c) => (
+                "z-cone",
+                format!("apex z0 = {:.4} cm; slope squared = {:.6}", c.z0, c.r_sq),
+            ),
+            SurfaceKind::Sphere(sp) => ("sphere", format!("r = {:.6} cm", sp.r)),
+            other => ("other", format!("{other:?}")),
+        };
+        surfaces.push_str(&row(&[&format!("{i}"), kind, &params]));
+        surfaces.push('\n');
+    }
+
+    // --------------------------------------------------------- run settings
+    let mut settings = String::from("setting,magnitude,remark\n");
+    for (k, v, note) in [
+        (
+            "histories per cycle",
+            "2000".to_string(),
+            "OUTRAM-HTR10-HISTORIES",
+        ),
+        (
+            "inactive cycles",
+            "30".to_string(),
+            "source convergence; tunable so it can be MEASURED",
+        ),
+        ("active cycles", "70".to_string(), ""),
+        (
+            "seed",
+            "20260917".to_string(),
+            "SINGLE SEED; seed-to-seed sd is 179 pcm",
+        ),
+        (
+            "temperature",
+            format!("{TEMP_K:.2}"),
+            "K; every material built at this",
+        ),
+        (
+            "lattice rings",
+            format!("{rings}"),
+            "a floor; the bed radius is fixed",
+        ),
+        ("axial layers", format!("{layers}"), ""),
+        (
+            "tracking",
+            "hybrid delta / surface".to_string(),
+            "delta-tracked bed inside a surface-tracked reflector",
+        ),
+        (
+            "data library",
+            "ENDF/B-VIII.0".to_string(),
+            "the reference used VII.0; the library term is worth about 1100-1600 pcm",
+        ),
+        (
+            "reflector zone",
+            format!("{}", cfg.reflector_zone),
+            "TECDOC Table 4-3; zone 22 is the OPTIMISTIC bound",
+        ),
+        (
+            "boron reading",
+            "natural".to_string(),
+            "Table 2 ppm read as natural boron; B-10 is 19.9 at pct",
+        ),
+    ] {
+        settings.push_str(&row(&[k, &v, note]));
+        settings.push('\n');
+    }
+
     for (name, body) in [
         ("htr10_geometry_radial.csv", &radial),
         ("htr10_geometry_axial.csv", &axial),
         ("htr10_dh_geometry.csv", &dh),
         ("htr10_lattice_realised.csv", &realised),
         ("htr10_geometry_closures.csv", &closures),
+        ("htr10_materials.csv", &materials),
+        ("htr10_surfaces.csv", &surfaces),
+        ("htr10_settings.csv", &settings),
     ] {
         let path = out.join(name);
         fs::write(&path, body).unwrap_or_else(|e| panic!("cannot write {}: {e}", path.display()));

@@ -54,24 +54,41 @@
 //! multiplies through. What is *not* linear in inventory — the temperature
 //! dependence, which is the whole physics here — is reported exactly.
 //!
-//! **So: nothing in this module may be quoted as a curie figure for HTR-10 or
-//! any other reactor.** It is a release *fraction* model. `RESPONSIBLE_USE.md`
-//! applies with full force: this is an offline educational demonstration and
-//! not a source-term calculation for any real plant.
+//! **So: nothing in this module may be quoted as a source term for HTR-10 or
+//! any other reactor** — including the absolute becquerel column added below,
+//! which carries a fuel-quality input that is not HTR-10's.
+//! `RESPONSIBLE_USE.md` applies with full force: this is an offline
+//! educational demonstration and not a source-term calculation for any real
+//! plant.
 //!
-//! **An HTR-10 inventory is now available as data, and this module still does
-//! not use it.** `reference/htr10_equilibrium_core_inventory.csv` holds the
-//! published equilibrium-core inventory of 22 nuclides — including all five
-//! of [`TRACKED_NUCLIDES`] — transcribed from Liu & Cao (2002), Table 1; its
-//! provenance and access terms are in `reference/References.md`. Wiring it in
-//! would change what this module *reports* (curies rather than a transfer
-//! function) and every recorded number with it, so it is a maintainer's call
-//! and has not been made. The file is noted here so the next reader does not
-//! conclude from the paragraphs above that no inventory exists and go looking
-//! for one. Note also that the deeper objection stands regardless: the
-//! failure fractions below are **not** HTR-10 fuel-qualification data, so a
-//! curie figure would still be the product of one reactor's inventory and
-//! another's fuel quality.
+//! # BOTH bases are now reported (2026-09-23)
+//!
+//! ~~An HTR-10 inventory is now available as data, and this module still does
+//! not use it.~~ **CORRECTED — it is wired in, on the maintainer's
+//! instruction, and both bases are reported side by side:**
+//!
+//! - [`NuclideRelease::activities`] — the **transfer function**, per curie of
+//!   core inventory. Unchanged, and still the primary quantity, because it is
+//!   the part this model actually determines.
+//! - [`NuclideRelease::absolute`] — **absolute** activities in becquerels,
+//!   from `reference/htr10_equilibrium_core_inventory.csv`: the published
+//!   equilibrium-core inventory of 22 nuclides (Liu & Cao 2002, Table 1,
+//!   ORIGEN2 at 80 000 MWd/t), which covers all five of [`TRACKED_NUCLIDES`].
+//!   Provenance and access terms are in `reference/References.md`.
+//!
+//! The absolute arm **re-evaluates the closed form at the real inventory**
+//! rather than multiplying the per-curie answer by it. Scaling would almost
+//! certainly give the same numbers — the linearity argument above is sound —
+//! but re-evaluating needs no such assumption, and
+//! `tests::the_absolute_arm_is_linear_in_inventory` now *checks* the linearity
+//! claim against the two arms instead of asserting it.
+//!
+//! **The deeper objection stands, and is the reason the absolute column is
+//! not a source term.** The failure fractions below are **TRISO-ATOPS
+//! reference values, not HTR-10 fuel-qualification data**, so an absolute
+//! figure is the product of one reactor's inventory and another reactor's
+//! fuel quality. It is linear in both, so it is a defensible order of
+//! magnitude and nothing more.
 //!
 //! # What else is an input rather than a derivation
 //!
@@ -112,6 +129,57 @@ use uom::si::time::second;
 /// against: **one curie** of the nuclide in the core. See the module doc for
 /// why the basis is a unit rather than a real inventory.
 pub const UNIT_INVENTORY_CURIES: f64 = 1.0;
+
+/// The HTR-10 **equilibrium-core fission-product inventory**, as published.
+///
+/// 22 nuclides in becquerels, Table 1 of Liu Yuanzhong and Cao Jianzhu,
+/// *Nuclear Engineering and Design* **218** (2002) 81-90, computed there with
+/// ORIGEN2 at an average burnup of 80 000 MWd/t. Provenance, access terms and
+/// the transcription steps are in `reference/References.md`.
+///
+/// Compiled in rather than read at runtime so the simulator has no data
+/// dependency at startup, and so a missing file is a build error rather than
+/// a silently empty inventory.
+const HTR10_INVENTORY_CSV: &str = include_str!("../reference/htr10_equilibrium_core_inventory.csv");
+
+/// Becquerels per curie — the one place this module converts.
+const BQ_PER_CI: f64 = 3.7e10;
+
+/// Look up a nuclide's published HTR-10 core inventory \[Bq\].
+///
+/// Returns `None` for a nuclide the table does not list, which is the honest
+/// answer: the table is 22 nuclides, not the whole fission-product set, and a
+/// caller asking for one outside it must not be handed a zero that looks like
+/// a measurement.
+#[must_use]
+pub fn htr10_core_inventory_bq(name: &str) -> Option<f64> {
+    HTR10_INVENTORY_CSV
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split_once(','))
+        .find(|(n, _)| n.trim() == name)
+        .and_then(|(_, bq)| bq.trim().parse::<f64>().ok())
+}
+
+/// The six normal-operation outputs on an **absolute** basis, in becquerels.
+///
+/// The mirror of [`NodalActivitiesCurie`], which is per curie of inventory.
+/// Rates are Bq/s; the four pools are Bq.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NodalActivitiesBq {
+    /// Release rate `R` \[Bq/s\].
+    pub release_rate: f64,
+    /// Source rate `S` \[Bq/s\].
+    pub source_rate: f64,
+    /// Graphite activity `G` \[Bq\].
+    pub graphite_activity: f64,
+    /// Circulating activity `C` \[Bq\].
+    pub circulating_activity: f64,
+    /// Plate-out activity `P` \[Bq\].
+    pub plate_out_activity: f64,
+    /// Clean-up / HPS activity \[Bq\].
+    pub clean_up_activity: f64,
+}
 
 /// The nuclides this channel tracks, chosen to cover **all five** TRISO-ATOPS
 /// transport groups rather than to be a list of the most radiologically
@@ -299,7 +367,21 @@ pub struct NuclideRelease {
     /// The six normal-operation outputs, **per curie of core inventory** of
     /// this nuclide. `release_rate` and `source_rate` are per second; the
     /// other four are pool inventories.
+    ///
+    /// This is the **transfer function** — the release physics with the
+    /// inventory divided out — and it stays the primary quantity because it
+    /// is the part this model actually determines.
     pub activities: NodalActivitiesCurie,
+    /// This nuclide's published HTR-10 equilibrium-core inventory \[Bq\], or
+    /// `None` if it is not one of the 22 nuclides Liu and Cao tabulate.
+    pub core_inventory_bq: Option<f64>,
+    /// The same six outputs on an **absolute** basis \[Bq, Bq/s\], obtained by
+    /// re-evaluating the model at the published inventory — `None` when that
+    /// inventory is unknown.
+    ///
+    /// **NOT A SOURCE TERM.** See the module docs: these are one reactor's
+    /// inventory driven through another reactor's fuel-quality data.
+    pub absolute: Option<NodalActivitiesBq>,
 }
 
 /// The TRISO fission-product release channel for the HTGR plant.
@@ -338,9 +420,7 @@ impl TrisoAtopsReleaseChannel {
                 database
                     .iter()
                     .find(|n| n.name == *name)
-                    .unwrap_or_else(|| {
-                        panic!("{name} is not in the TRISO-ATOPS nuclide database")
-                    })
+                    .unwrap_or_else(|| panic!("{name} is not in the TRISO-ATOPS nuclide database"))
                     .clone()
             })
             .collect();
@@ -443,8 +523,8 @@ impl TrisoAtopsReleaseChannel {
                 // is upstream's own `sl` flag, decided here from the data
                 // rather than hardcoded per nuclide, so adding a nuclide to
                 // TRACKED_NUCLIDES cannot silently take the wrong branch.
-                let short_lived = nuclide.half_life.get::<second>()
-                    < Htr10TrisoAtopsInputs::IRRADIATION_TIME_S;
+                let short_lived =
+                    nuclide.half_life.get::<second>() < Htr10TrisoAtopsInputs::IRRADIATION_TIME_S;
                 let activities = normal_operation_node(
                     nuclide,
                     short_lived,
@@ -457,11 +537,43 @@ impl TrisoAtopsReleaseChannel {
                 )
                 .to_curies(nuclide.decay_constant());
 
+                // ABSOLUTE ARM. The published inventory is driven through
+                // the SAME closed form rather than multiplied onto the
+                // per-curie answer. Scaling would have been cheaper and is
+                // very probably identical -- the module doc asserts the model
+                // is linear in inventory -- but re-evaluating needs no such
+                // assumption, and `linear_in_inventory` below now *checks*
+                // the assertion instead of trusting it.
+                let core_inventory_bq = htr10_core_inventory_bq(nuclide.name);
+                let absolute = core_inventory_bq.map(|bq| {
+                    let a = normal_operation_node(
+                        nuclide,
+                        short_lived,
+                        Frequency::new::<hertz>(bq),
+                        self.inputs.fractions,
+                        plant,
+                        node,
+                        self.inputs.hps_enabled,
+                        ParentPools::none(),
+                    )
+                    .to_curies(nuclide.decay_constant());
+                    NodalActivitiesBq {
+                        release_rate: a.release_rate * BQ_PER_CI,
+                        source_rate: a.source_rate * BQ_PER_CI,
+                        graphite_activity: a.graphite_activity * BQ_PER_CI,
+                        circulating_activity: a.circulating_activity * BQ_PER_CI,
+                        plate_out_activity: a.plate_out_activity * BQ_PER_CI,
+                        clean_up_activity: a.clean_up_activity * BQ_PER_CI,
+                    }
+                });
+
                 NuclideRelease {
                     name: nuclide.name,
                     z: nuclide.z,
                     decay_constant: nuclide.decay_constant(),
                     activities,
+                    core_inventory_bq,
+                    absolute,
                 }
             })
             .collect()
@@ -582,9 +694,8 @@ mod tests {
                 < 1e-15
         );
         assert!(
-            (sic
-                - (particle.silicon_carbide_outer_radius - particle.inner_pyc_outer_radius)
-                    .get::<meter>())
+            (sic - (particle.silicon_carbide_outer_radius - particle.inner_pyc_outer_radius)
+                .get::<meter>())
             .abs()
                 < 1e-15
         );
@@ -739,7 +850,9 @@ mod tests {
                  floor; {rates:?}"
             );
             assert!(
-                rates.iter().all(|r| *r > NUMERICAL_FLOOR_CI_PER_S || *r < 1.0e-20),
+                rates
+                    .iter()
+                    .all(|r| *r > NUMERICAL_FLOOR_CI_PER_S || *r < 1.0e-20),
                 "{name}: sub-floor values must be NEGLIGIBLE, not merely small, or the \
                  floor is hiding real release; {rates:?}"
             );
@@ -753,7 +866,10 @@ mod tests {
                 biggest_factor = biggest_factor.max(factor);
             }
             let cells: Vec<String> = rates.iter().map(|r| format!("{r:.4e}")).collect();
-            println!("  {name:<8} {}  (x{factor:.3e} over 900-1600 K)", cells.join("  "));
+            println!(
+                "  {name:<8} {}  (x{factor:.3e} over 900-1600 K)",
+                cells.join("  ")
+            );
         }
 
         println!("\nthe same sweep on the GRAPHITE temperature, kernel held at 1200 K:");
@@ -881,7 +997,10 @@ mod tests {
         let graphite = ThermodynamicTemperature::new::<kelvin>(950.0);
         let kernel = Some(ThermodynamicTemperature::new::<kelvin>(1200.0));
 
-        assert!(ch.update(0.0, kernel, graphite), "the first call must evaluate");
+        assert!(
+            ch.update(0.0, kernel, graphite),
+            "the first call must evaluate"
+        );
         assert_eq!(ch.latest().len(), TRACKED_NUCLIDES.len());
         assert!(
             !ch.update(0.5, kernel, graphite),
@@ -895,12 +1014,107 @@ mod tests {
         // No kernel: no evaluation, and the previous one survives with its own
         // timestamp so the display cannot present it as current.
         let before = ch.last_evaluated_s();
-        assert!(!ch.update(99.0, None, graphite), "a missing kernel must not evaluate");
+        assert!(
+            !ch.update(99.0, None, graphite),
+            "a missing kernel must not evaluate"
+        );
         assert_eq!(
             ch.last_evaluated_s(),
             before,
             "a missing kernel must leave the timestamp alone"
         );
         assert_eq!(ch.latest().len(), TRACKED_NUCLIDES.len());
+    }
+
+    /// **The absolute arm equals the per-curie arm times the inventory.**
+    ///
+    /// The module doc asserts the model is linear in inventory, and the whole
+    /// case for reporting a transfer function rests on that claim. It is
+    /// cheap to check and expensive to be wrong about, so this checks it:
+    /// the absolute arm is evaluated independently, at the published
+    /// inventory, and must reproduce `per-curie x inventory_in_curies`.
+    ///
+    /// If this ever fails, the transfer-function framing is invalid and the
+    /// per-curie numbers must not be scaled by a reader.
+    #[test]
+    fn the_absolute_arm_is_linear_in_inventory() {
+        let ch = TrisoAtopsReleaseChannel::new_htr10();
+        let out = ch.evaluate(
+            0.0,
+            ThermodynamicTemperature::new::<kelvin>(1050.0),
+            ThermodynamicTemperature::new::<kelvin>(950.0),
+        );
+        let mut checked = 0;
+        for r in &out {
+            let (Some(bq), Some(abs)) = (r.core_inventory_bq, r.absolute) else {
+                continue;
+            };
+            let ci = bq / BQ_PER_CI;
+            for (got, per_ci, what) in [
+                (
+                    abs.circulating_activity,
+                    r.activities.circulating_activity,
+                    "C",
+                ),
+                (abs.plate_out_activity, r.activities.plate_out_activity, "P"),
+                (abs.graphite_activity, r.activities.graphite_activity, "G"),
+                (abs.release_rate, r.activities.release_rate, "R"),
+            ] {
+                let expected = per_ci * ci * BQ_PER_CI;
+                if expected == 0.0 {
+                    continue;
+                }
+                let rel = (got - expected).abs() / expected.abs();
+                assert!(
+                    rel < 1e-9,
+                    "{} {}: absolute {:.6e} Bq vs per-curie x inventory {:.6e} Bq \
+                     (rel {:.3e}) -- the model is NOT linear in inventory, and the \
+                     transfer-function framing in the module docs is invalid",
+                    r.name,
+                    what,
+                    got,
+                    expected,
+                    rel
+                );
+            }
+            checked += 1;
+        }
+        assert_eq!(
+            checked, 5,
+            "all five tracked nuclides must be in the published inventory table"
+        );
+    }
+
+    /// Every tracked nuclide must be in the published inventory.
+    ///
+    /// The inventory table is 22 nuclides and [`TRACKED_NUCLIDES`] is five;
+    /// if the two ever drift apart the absolute column silently becomes
+    /// blank for a nuclide the display still shows, which reads as "no
+    /// release" rather than "no data".
+    #[test]
+    fn every_tracked_nuclide_has_a_published_inventory() {
+        for name in TRACKED_NUCLIDES {
+            let bq = htr10_core_inventory_bq(name);
+            assert!(
+                bq.is_some(),
+                "{name} is tracked but absent from htr10_equilibrium_core_inventory.csv"
+            );
+            assert!(bq.unwrap() > 0.0, "{name} has a non-positive inventory");
+        }
+    }
+
+    /// The inventory table parses to the 22 rows the source tabulates.
+    #[test]
+    fn the_published_inventory_has_all_twenty_two_nuclides() {
+        let n = HTR10_INVENTORY_CSV
+            .lines()
+            .skip(1)
+            .filter(|l| !l.trim().is_empty())
+            .count();
+        assert_eq!(n, 22, "Liu and Cao (2002) Table 1 lists 22 nuclides");
+        // Spot-check two ends of the table against the published values.
+        assert_eq!(htr10_core_inventory_bq("Kr-85"), Some(8.75e13));
+        assert_eq!(htr10_core_inventory_bq("Ag-110m"), Some(2.16e12));
+        assert_eq!(htr10_core_inventory_bq("Pu-239"), None);
     }
 }
