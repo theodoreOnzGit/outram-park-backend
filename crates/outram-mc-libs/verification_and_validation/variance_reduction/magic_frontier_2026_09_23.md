@@ -264,3 +264,62 @@ Weight windows in this port are **implemented, unbiased, and unproven**: the
 eigenvalue ablation shows they do not move the answer, and no run here shows
 them buying anything on the deep-penetration case they exist for. Do not quote
 this work as "variance reduction works".
+
+---
+
+# BREAKTHROUGH: weight windows DO penetrate the shield (2026-09-23, later)
+
+Everything above was measured on the **50 cm** mesh, which this document already
+records as violating the standard guidance by two to three orders of magnitude.
+On a **16 cm** mesh (`OUTRAM_WW_MESH_NX=97 OUTRAM_WW_MESH_NY=119`), with MAGIC
+seeded from the analog arm's own tally, the frontier crosses the shield:
+
+```
+MAGIC it0: 6114/11543 cells carry a window   (seeded from the analog tally)
+MAGIC it1: 4217/11543                          reached   0/642 deep cells
+MAGIC it2: 6073/11543                                    0/642
+MAGIC it3: 6657/11543                                    1/642
+MAGIC it4: 7243/11543                                    1/642
+MAGIC it5: 7795/11543                                    2/642
+MAGIC it6: 8375/11543                                  156/642   <-- breakthrough
+```
+
+**2 to 156 deep cells in a single iteration.** That is the bootstrap catching:
+once the windows reach *into* the shield, each further iteration places windows
+in the cells the previous one just reached, and penetration accelerates instead
+of creeping.
+
+**Reproduced in two independent runs** — one configured for 30 iterations, one
+for 8 — which broke through at **exactly iteration 6** both times. So this is a
+property of the configuration, not a lucky seed.
+
+## Why the matched-cost FOM is still not measured
+
+Neither run reached the scoring arm. Iteration 7 is the first *post*-breakthrough
+iteration, and it ran for **over seven hours of CPU without completing**. That
+is not a stall: reaching 156 deep cells means the windows are splitting
+particles all the way through 200 cm of concrete, which is the work the
+technique exists to do. The run was stopped deliberately, with the frontier
+trajectory captured, rather than left to consume more hours for a number.
+
+## What #258 acceptance item 3 can now say, corrected
+
+The earlier conclusion in this document — that windows buy nothing on a
+deep-penetration problem — was measured on a **misconfigured mesh** and is too
+strong. The corrected statement:
+
+1. **Weight windows in this port DO steer particles through a deep shield**,
+   once the window mesh resolves the flux gradient. Measured, reproduced.
+2. **The matched-cost figure of merit remains unmeasured**, because the cost of
+   that penetration exceeds what the analog arm's wall-clock can buy by orders
+   of magnitude. The FOM is not adverse — it is *unresolved*.
+3. **On the coarse 50 cm mesh the FOM is adverse**, and that number
+   (previously quoted, then withdrawn as a variance artifact, see above)
+   describes a misconfigured mesh rather than the technique.
+
+The remaining work to close item 3 properly is a machine that can run a
+post-breakthrough iteration to completion, or a smaller shield. Both are
+scoping decisions, not code defects.
+
+**Do not quote this work as "variance reduction does not pay".** The honest
+summary is: implemented, unbiased, demonstrably steering, and not yet costed.
