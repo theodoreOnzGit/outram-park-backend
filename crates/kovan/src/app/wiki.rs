@@ -259,6 +259,9 @@ impl WikiState {
         egui::Window::new("Ingest Literature")
             .collapsible(false)
             .resizable(false)
+            // #281, the maintainer ingesting the NJOY manual: "the popup
+            // boxes need to be in the centre".
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ui.ctx(), |ui| {
                 ui.label(format!("Title: {}", flow.preview.title));
                 if !flow.preview.authors.is_empty() {
@@ -350,6 +353,7 @@ impl WikiState {
         egui::Window::new(format!("Sort {}", flow.citekey))
             .collapsible(false)
             .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
             .show(ui.ctx(), |ui| {
                 picker_section(
                     ui,

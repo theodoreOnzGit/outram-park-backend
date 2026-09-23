@@ -3453,6 +3453,7 @@ impl PdfReaderState {
                 egui::Window::new("Add connection…")
                     .collapsible(false)
                     .resizable(true)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -3516,6 +3517,7 @@ impl PdfReaderState {
                 egui::Window::new("Connections")
                     .collapsible(false)
                     .resizable(true)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -3567,6 +3569,7 @@ impl PdfReaderState {
                 egui::Window::new("Delete annotation")
                     .collapsible(false)
                     .resizable(false)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         ui.label(format!("Delete {artifact_id:?}?"));
                         ui.label("Sure anot?");

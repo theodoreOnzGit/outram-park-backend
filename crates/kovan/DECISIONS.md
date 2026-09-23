@@ -992,3 +992,75 @@ modules, all passing (2026-09-23):
 buttons' handlers are covered only through `force_pull_in`/`abort_in_progress_in`
 being tested directly. The maintainer should confirm the wording and the button
 order on a real desktop before trusting the destructive branch.
+
+## The kvim editor gets the system clipboard; the ingest dialogs get centred (2026-09-23, GH issues #280, #281)
+
+**Maintainer, 2026-09-23,** ingesting the NJOY manual and wanting to record its
+licence: *"i cannot ctrl-shift-v to paste inside the summary text box"*, and
+*"when i ingest njoy manual, the popup boxes need to be in the centre"*.
+Offered the choice of replacing kvim with a plain `egui::TextEdit`, the
+maintainer kept kvim: *"just use kvim, but make sure my pasting and stuff
+works"*. So the adapter was fixed, not swapped.
+
+### It was never a missing key mapping
+
+`egui-winit` recognises the clipboard chords **itself** and returns before
+emitting any key event:
+
+```rust
+if is_cut_command(..)   { events.push(egui::Event::Cut);         return; }
+if is_copy_command(..)  { events.push(egui::Event::Copy);        return; }
+if is_paste_command(..) { events.push(egui::Event::Paste(text)); return; }
+```
+
+`app/kvim_editor.rs`'s `map_event` handled `Event::Text` and `Event::Key` only,
+so all three fell through its `_ => None` arm and the *focused* editor left them
+unconsumed — every kvim surface in the app, not just the summary box. Reading
+that function first is what turned "add a Ctrl+V binding" into "handle the three
+events egui already hands us"; the chord was arriving perfectly well.
+
+Also read there, and worth keeping: `is_paste_command` is `modifiers.command &&
+key == V` and never inspects shift, so **Ctrl+Shift+V was already producing a
+`Event::Paste`**. Nothing platform-side was missing.
+
+### What the three gestures now do
+
+- **Paste** — inserts **at** the cursor, replacing a Visual selection if one is
+  up. Deliberately not Vim's `p`, which puts *after* the cursor grapheme: the
+  GUI gesture lands where the caret is. `p` itself is unchanged.
+- **Copy** — the Visual selection, or, with nothing selected, the whole cursor
+  line including its newline.
+- **Cut** — copy, then delete: `d` over a selection, `dd` on a line.
+
+The deletions go through kvim's own `d`/`dd` rather than a second
+selection-deleting implementation here, so charwise, linewise and blockwise all
+behave as the engine defines them, the edit is undoable, and the text lands in
+the unnamed register as it always would. `selection_text` is the one place that
+*does* have to distinguish the three granularities, because reading them is not
+something `Editor` exposes — and conflating them is the "classic mistake"
+`Editor::selection`'s own doc warns about.
+
+### Centring (#281)
+
+`setup.rs` already anchored `CENTER_CENTER` and `literature_list.rs`
+`CENTER_TOP`; the six remaining dialogs — "Ingest this PDF?", "Ingest
+Literature", "Sort <citekey>", "Add connection…", "Connections", "Delete
+annotation" — now anchor `CENTER_CENTER` too. All are `collapsible(false)`
+prompts rather than panels, so this makes the app consistent rather than
+special-casing the ingest path.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests` green. Nine new tests on the
+clipboard, all on the pure state (no window, no GPU): the multi-line licence
+paste that prompted this, paste over a selection, paste from Insert mode, an
+empty paste being a no-op, charwise copy including the grapheme under the cursor,
+linewise copy taking whole lines with their newlines, copy/cut of the whole line
+with nothing selected, cut returning what it removed, and `clipboard_action`
+claiming the three events while leaving `Event::Text` and a genuine `<C-v>` key
+alone.
+
+**Not verified:** no interactive paste was performed — this environment has no
+display, so the egui→arboard→X11/Wayland leg is covered by reading egui-winit's
+source, not by running it. The maintainer should confirm Ctrl+Shift+V into the
+summary box on the desktop.

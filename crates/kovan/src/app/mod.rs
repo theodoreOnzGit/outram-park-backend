@@ -768,6 +768,9 @@ impl DigitiseApp {
         egui::Window::new("Ingest this PDF?")
             .collapsible(false)
             .resizable(false)
+            // #281: centred, like "Set up Kovan" — a prompt appears where the
+            // user is looking, not in the top-left corner.
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ctx, |ui| {
                 ui.label(format!("{path} is not in your Kovan library yet."));
                 ui.checkbox(
