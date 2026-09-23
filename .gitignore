@@ -116,3 +116,26 @@ openmc_spectrum.csv
 # that is a published set with a manifest and checksums.
 crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/ace/
 crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/
+
+# ── Generated ACE tables ────────────────────────────────────────────────────
+#
+# `examples/godiva_ace_roundtrip.rs` and `examples/lct008_ace_roundtrip.rs`
+# write ACE with this workspace's own ACER and read it back. These are large --
+# U-235 alone is ~256 MB of Type-1 ASCII, and one Godiva run writes ~550 MB --
+# and they are REPRODUCIBLE from the ENDF tapes, so they are generated output,
+# never repository content. Same convention as
+# `verification_and_validation/openmc_notebook_comparisons/`.
+#
+# The examples write to a per-process temp directory and delete each file after
+# reading it, so nothing should reach the work tree; this is the belt-and-braces
+# rule for when someone points `--out` at the repo instead.
+*.ace
+*.ace.gz
+
+# EXCEPT the committed NJOY2016 oracles. These 8 files are reference DATA, not
+# generated output: they are the Fortran's answer, which this port is compared
+# against, and they cannot be regenerated without NJOY2016. Without this
+# negation a new oracle dropped in here would be silently ignored and the
+# comparison it belongs to would skip rather than fail.
+!reference-data/acer/*.ace
+!reference-data/acer/*.ace.gz
