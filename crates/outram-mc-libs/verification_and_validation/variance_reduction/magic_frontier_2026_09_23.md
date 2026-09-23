@@ -1,4 +1,19 @@
-# MAGIC does not penetrate the shield — a negative result
+# MAGIC and the shield — a negative result, and its CORRECTED diagnosis
+
+> **CORRECTION, same day.** The first version of this document (commit
+> `796d25c72`) blamed the frontier stall on the window arm's 320x per-particle
+> cost making the needed iterations unaffordable. **That attribution was
+> wrong.** MAGIC iterations cost ~10 s each, not hours, because the windows are
+> sparse early on. The actual cause was that MAGIC was being **seeded from a
+> starved 800-particle pass while a 50 000-particle flux tally on the same mesh
+> sat unused in the analog arm**. Since `update_magic` refuses a window
+> wherever `rel_err > threshold`, the starved seed refused the whole frontier by
+> construction. With the analog tally reused (free -- it is already paid for),
+> the frontier advances monotonically instead of oscillating:
+> `689 -> 621 -> 656 -> 675 -> 699 -> 724` of 1178 cells.
+>
+> The cost measurements below stand. The *conclusion drawn from them* did not,
+> and is struck through where it appears.
 
 GitHub **#258**, acceptance item 3 ("a figure of merit improvement reported for
 the shielding case"). Measured 2026-09-23 by
@@ -72,10 +87,16 @@ and it means the frontier can only advance where the generating run already has
 usable statistics. At 800 particles per iteration it never does, so the
 frontier oscillates (558, 641, 631, 657, 656) instead of advancing.
 
-The method's own requirement is therefore more particles per iteration, not
-more iterations. At 0.83 s/particle that is unaffordable here: resolving each
-successive shell across 200 cm of concrete needs iteration sizes that put the
-test into hours.
+~~The method's own requirement is therefore more particles per iteration, not
+more iterations. At 0.83 s/particle that is unaffordable here.~~
+**CORRECTED 2026-09-23** — the generating iterations do *not* run at
+0.83 s/particle; measured, they run at ~25 ms/particle (50.7 s for five
+400-particle iterations), because the window set is sparse while the frontier
+is still near the source. The requirement is **both** better statistics for the
+seed (supplied free by the analog arm's own tally) **and** enough iterations to
+walk the frontier across the shield, and both are affordable. The 0.83 s/particle
+figure belongs to the **scoring** arm, which runs against a fully-populated
+window set, and it was wrongly generalised to the generating iterations.
 
 ## What this does and does not say
 

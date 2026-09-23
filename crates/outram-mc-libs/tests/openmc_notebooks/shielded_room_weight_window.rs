@@ -524,21 +524,46 @@ fn shielded_room_weight_window() {
     let mut ww = WeightWindows::new(m, vec![0.0, 2.0e7], vec![-1.0; n_m], vec![-1.0; n_m])
         .expect("flat window set");
 
-    const MAGIC_ITERATIONS: usize = 6;
-    const MAGIC_PARTICLES: usize = 800;
+    // The frontier advances ~25 cells per iteration at ~10 s per iteration
+    // (measured: 50.7 s for 5, taking 689 -> 724 of 1178 cells). Iterations
+    // are cheap because the windows are sparse early on, so the method's own
+    // requirement -- enough iterations to walk the frontier across the shield
+    // -- is affordable. 24 is set from that measured rate and the 454 cells
+    // remaining, not from what makes the gate pass.
+    const MAGIC_ITERATIONS: usize = 24;
+    const MAGIC_PARTICLES: usize = 400;
     let t_gen0 = Instant::now();
-    for it in 0..MAGIC_ITERATIONS {
-        // Iteration 0 has no windows yet, so it is analog by construction.
-        let vr = if it == 0 {
-            VarianceReduction::default()
-        } else {
-            VarianceReduction::default().with_weight_windows(ww.clone())
-        };
-        // A FRESH tally each iteration. Accumulating across iterations would
-        // pool flux estimates made under different weight windows, which is a
-        // different (and worse-conditioned) estimator than the latest one --
-        // MAGIC uses the most recent iteration's flux shape.
-        let mut gen_tally = flux_tally();
+
+    // **Iteration 0 is the analog arm's own tally, which is already paid for.**
+    //
+    // An earlier version ran a separate 800-particle analog pass to seed MAGIC
+    // and then wondered why the frontier stalled at ~650 of 1178 cells. The
+    // analog arm scores flux on exactly this mesh with 50 000 particles -- 62x
+    // the statistics, already spent, and thrown away. MAGIC refuses a window
+    // wherever `rel_err > threshold`, so seeding it from the starved pass
+    // refused the entire frontier by construction.
+    //
+    // Reusing it costs nothing and is not double-counting: the analog tally is
+    // a forward flux estimate, which is exactly MAGIC's input.
+    {
+        let sum: Vec<f64> = analog_tally.bins.iter().map(|b| b.sum).collect();
+        let sum_sq: Vec<f64> = analog_tally.bins.iter().map(|b| b.sum_sq).collect();
+        ww.update_magic(&sum, &sum_sq, &vec![cell_volume; n_m], N_BATCHES, 1.0, 5.0)
+            .expect("MAGIC from the analog tally");
+        let n_valid = ww.lower.iter().filter(|&&l| l > 0.0).count();
+        println!(
+            "MAGIC it0: {n_valid}/{n_m} cells carry a window (seeded from the \
+             {n_analog}-particle analog tally, no extra cost)"
+        );
+    }
+
+    // Later iterations accumulate: each is an unbiased forward flux estimate,
+    // so pooling them is a weighted average of unbiased estimators, and the
+    // extra statistics are exactly what lets MAGIC resolve the next shell.
+    let mut gen_tally = flux_tally();
+    let mut gen_realizations = 0u64;
+    for it in 1..=MAGIC_ITERATIONS {
+        let vr = VarianceReduction::default().with_weight_windows(ww.clone());
         run_fixed_source(
             &geom,
             &mats,
@@ -547,15 +572,16 @@ fn shielded_room_weight_window() {
             &settings(MAGIC_PARTICLES, 7_919 + it as u64 * 101, vr),
             Some(&mut gen_tally),
         );
+        gen_realizations += N_BATCHES as u64;
         let sum: Vec<f64> = gen_tally.bins.iter().map(|b| b.sum).collect();
         let sum_sq: Vec<f64> = gen_tally.bins.iter().map(|b| b.sum_sq).collect();
-        ww.update_magic(&sum, &sum_sq, &vec![cell_volume; n_m], 10, 1.0, 5.0)
+        ww.update_magic(&sum, &sum_sq, &vec![cell_volume; n_m], gen_realizations as usize, 1.0, 5.0)
             .expect("MAGIC update");
         let n_valid = ww.lower.iter().filter(|&&l| l > 0.0).count();
         let reached = n_scored(&gen_tally, &deep);
         println!(
-            "MAGIC it{it}: {n_valid}/{n_m} cells carry a window, generating run \
-             reached {reached}/{} deep cells",
+            "MAGIC it{it}: {n_valid}/{n_m} cells carry a window, generating runs \
+             have reached {reached}/{} deep cells",
             deep.len()
         );
     }
@@ -624,9 +650,24 @@ fn shielded_room_weight_window() {
         if remaining <= 0.0 {
             break;
         }
+        // **Bounded growth, because every cost estimate here is optimistic.**
+        //
+        // Sizing the next chunk purely from the cost measured so far repeats
+        // the probe mistake this loop was written to remove: the first chunk's
+        // particles are drawn near the source, where windows are dense and
+        // histories die fast, so `per_particle` underestimates a steered
+        // particle. Measured: a 10-particle first chunk sized a 1360-particle
+        // second chunk that ran 1324 s against a 78 s budget -- 17x over.
+        //
+        // Capping growth at 2x the previous chunk bounds the overshoot to
+        // roughly the time already spent, and the estimate improves on every
+        // pass, so the loop converges onto the budget instead of leaping past
+        // it. This is the ordinary adaptive-stepping guard, and the lesson is
+        // that no single extrapolation is safe here -- only a bounded one.
         let per_particle = elapsed / n_ww as f64;
         let want = (0.05 * remaining / per_particle.max(1.0e-9)) as usize;
-        chunk = (want / N_BATCHES).clamp(1, 1_000) * N_BATCHES;
+        let capped = want.min(chunk.saturating_mul(2));
+        chunk = (capped / N_BATCHES).clamp(1, 1_000) * N_BATCHES;
     }
     let t_ww = t0.elapsed().as_secs_f64() + t_generate;
     let ww_deep = n_scored(&ww_tally, &deep);
