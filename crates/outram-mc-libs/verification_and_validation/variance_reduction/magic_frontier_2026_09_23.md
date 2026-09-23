@@ -125,7 +125,37 @@ with the reason naming this document — not because the criterion was moved.
 
 ---
 
-# The figure of merit, measured (#258 acceptance item 3)
+# The figure of merit (#258 acceptance item 3)
+
+> ## ⚠ THE FIRST SET OF NUMBERS BELOW IS WITHDRAWN
+>
+> The FOM ratios first recorded here — **0.011x / 0.007x / 0.011x** — were
+> **artifacts of a catastrophically cancelling variance** and must not be
+> quoted. `TallyBin::rel_std_dev` and `WeightWindows::update_magic` both used
+> `sum_sq/n - mean^2`, which returns a spuriously small (and sometimes
+> negative) variance in exactly the regime a converged bin occupies. Cells were
+> therefore admitted to the figure of merit on a variance that was wrong.
+>
+> Re-run on the fixed binary (`d3c070f9c`, Welford accumulation), same
+> configuration and same seeds:
+>
+> | band | as first recorded | corrected |
+> |---|---|---|
+> | 0–400 cm | FOM 0.011x over 27 cells | **NOT MEASURABLE** |
+> | 400–900 cm | 0.007x over 101 cells | **NOT MEASURABLE** |
+> | 900–1450 cm | 0.011x over 58 cells | **NOT MEASURABLE** |
+>
+> **186 cells went from "resolved" to zero.** The corrected statement is below
+> under *Corrected result*. The withdrawn table is kept struck through rather
+> than deleted, because it was reported to the maintainer and posted on #258,
+> and a silently-replaced number is worse than a visibly corrected one.
+>
+> Found by following the maintainer's pointer to `bedok`'s `98e7c0586`. The
+> analogy was not platform libm — it was the deeper pattern of a cancelling
+> form corrupting a **decision**. Here it corrupted two: which cells received
+> weight windows, and which cells entered the figure of merit.
+
+## ~~First recorded result — WITHDRAWN, see above~~
 
 Measured 2026-09-23 on the run that completes, after MAGIC was seeded from the
 analog tally and the chunk growth was bounded. **Acceptance item 3 is now
@@ -139,11 +169,11 @@ run, 172.9 s total. Deep region: 68 cells beyond 200 cm of concrete.
 
 ## Results
 
-| depth band | FOM ratio (windows / analog) | cells | windows-only |
+| depth band | ~~FOM ratio~~ WITHDRAWN | cells | windows-only |
 |---|---|---|---|
-| 0–400 cm (source side) | **0.011x** (median 0.012, range 0.003–0.032) | 27 | 0 |
-| 400–900 cm (mid-field) | **0.007x** (median 0.006, range 0.000–0.044) | 101 | 0 |
-| 900–1450 cm (far field) | **0.011x** (median 0.009, range 0.001–0.434) | 58 | 0 |
+| 0–400 cm (source side) | ~~0.011x~~ | ~~27~~ | 0 |
+| 400–900 cm (mid-field) | ~~0.007x~~ | ~~101~~ | 0 |
+| 900–1450 cm (far field) | ~~0.011x~~ | ~~58~~ | 0 |
 
 **Weight windows are roughly 100x WORSE than analog by figure of merit on this
 configuration, in every band.** `windows-only 0` in all three bands means they
@@ -190,3 +220,47 @@ proportionally more statistics to populate and was not run here.
 Quoting this as "variance reduction works" would be wrong. The correct
 statement is that the estimator is right and the configuration is wrong, with
 the mesh resolution named as the next thing to test.
+
+
+---
+
+# Corrected result (2026-09-23, on `d3c070f9c` and later)
+
+Analog 50 000 particles in 128.4 s; six MAGIC iterations in 107.8 s leaving
+751/1178 cells windowed; matched-cost window arm 159.8 s. Test **passes**.
+
+```
+UNBIASEDNESS: flux per source particle, analog 1712.43 vs windows 1878.06 (+9.67 %)
+FOM by depth band, rel err <= 0.5 to qualify:
+  0-400 cm    NOT MEASURABLE  (windows-only 0, analog-only  85, neither 219)
+  400-900 cm  NOT MEASURABLE  (windows-only 0, analog-only 268, neither 112)
+  900-1450 cm NOT MEASURABLE  (windows-only 0, analog-only 165, neither 253)
+  beyond 1450 NOT MEASURABLE  (windows-only 0, analog-only   0, neither  76)
+```
+
+## What #258 acceptance item 3 can now say
+
+**The figure of merit is not measurable at matched cost, and that is the
+measurement.** The window arm buys 240 particles where analog buys 50 000, and
+resolves no cell in any band to within 50 % relative error. `windows-only = 0`
+everywhere: there is no cell the windows resolved and analog did not. Weight
+windows **do not pay on this configuration**.
+
+**Unbiasedness holds** — `+9.67 %` on flux per source particle, within the
+25 % gate and consistent with 240-particle statistics, and independently
+`+14 ± 22 pcm` on the eigenvalue problem with the bias bounded at 57 pcm (2 σ).
+The technique is implemented correctly; it is configured wrongly.
+
+**The configuration is known-wrong and the fix is measured but unaffordable.**
+The 50 cm mesh is 5–10 mfp per cell against a window ratio of 5, violating the
+standard guidance by two to three orders of magnitude. Refining to 16 cm
+produced the first penetration of the shield in any run here (2/642 deep cells)
+and cost **21x** more in MAGIC, timing the test out. Both rows of that
+comparison predate the variance fix and would need re-running to be quoted.
+
+## The honest one-line summary
+
+Weight windows in this port are **implemented, unbiased, and unproven**: the
+eigenvalue ablation shows they do not move the answer, and no run here shows
+them buying anything on the deep-penetration case they exist for. Do not quote
+this work as "variance reduction works".
