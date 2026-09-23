@@ -126,7 +126,9 @@ use std::time::Instant;
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use outram_mc_libs::material::nuclide::Nuclide;
+use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::thermal::ThermalScattering;
+use outram_mc_libs::run_diagnostics::{DataSource, RunDiagnostics};
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::htr10::{BoronReading, Htr10Nuclides};
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
@@ -182,6 +184,11 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     c_graphite: 4,
     si28: 5,
     b10: 6,
+    // Appended rather than inserted: slots 0..6 keep their indices so no
+    // existing material silently repoints at a different nuclide.
+    c_sic: 7,
+    si29: 8,
+    si30: 9,
 };
 
 fn env_usize(k: &str, d: usize) -> usize {
@@ -207,7 +214,7 @@ fn env_usize(k: &str, d: usize) -> usize {
 ///   graphite-moderated system this must be worth a large, resolved amount. If
 ///   it came back near zero, the thermal scattering law would not be engaged
 ///   at all, and every thermal result here would be resting on nothing.
-fn nuclides() -> Option<Vec<Nuclide>> {
+fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
     let base =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let u238_file = if std::env::var("OUTRAM_HTR10_U238_JENDL").is_ok() {
@@ -239,15 +246,28 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         eprintln!("  ABLATION: ENDF/B-VII.0 for ALL nuclides (the library the references used)");
         eprintln!("            note: VII.0 carbon is elemental C-nat, not C-12");
     }
-    let load = |n: &str, f: &str| -> Option<Nuclide> {
-        let p = base.join(f);
-        p.exists().then_some(())?;
-        eprint!("  {n:<6} ");
-        let t = Instant::now();
-        let r = Nuclide::from_endf_file(&p, n, TEMP_K, 1.0e-3).ok();
-        eprintln!("{:.1?}", t.elapsed());
-        r
-    };
+    // Every tape is recorded, with its path, whether or not it loaded. A
+    // thermal law that fails to load falls back to free gas and the
+    // eigenvalue simply comes out somewhere else -- the diagnostics file is
+    // what turns that from an invisible substitution into a line of text.
+    macro_rules! load {
+        ($diag:expr, $n:expr, $f:expr) => {{
+            let p = base.join($f);
+            eprint!("  {:<6} ", $n);
+            let t = Instant::now();
+            let r = $diag.time_data(
+                format!("{} cross sections", $n),
+                DataSource::File(p.clone()),
+                format!("{:.2} K, tol 1.0e-3", TEMP_K),
+                || {
+                    p.exists().then_some(())?;
+                    Nuclide::from_endf_file(&p, $n, TEMP_K, 1.0e-3).ok()
+                },
+            );
+            eprintln!("{:.1?}", t.elapsed());
+            r
+        }};
+    }
     let (f_u235, f_u238, f_o16, f_c, f_si28, f_b10, f_tsl) = if endf7 {
         (
             "n-092_U_235-ENDF7.0.endf",
@@ -276,26 +296,134 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     // "reference-data/endf/ not in this checkout" -- so it is selected here
     // rather than hardcoded.
     let tsl_mat = if endf7 { 31 } else { 30 };
-    let sab = ThermalScattering::from_endf_file(
-        base.join(f_tsl).to_str()?,
-        tsl_mat,
-        TEMP_K,
-        "c_Graphite",
-    )
-    .map_err(|e| eprintln!("  thermal scattering load FAILED (mat {tsl_mat}): {e}"))
-    .ok()?;
-    Some(vec![
-        load("U235", f_u235)?,
-        load("U238", f_u238)?,
-        load("O16", f_o16)?,
-        load("C12", f_c)?,
-        if no_sab {
-            load("C12", f_c)?
-        } else {
-            load("C12", f_c)?.with_thermal_scattering(sab)
+    let sab = diag.time_data(
+        "graphite S(a,b)",
+        DataSource::File(base.join(f_tsl)),
+        format!("MAT {tsl_mat}, {TEMP_K:.2} K, c_Graphite"),
+        || {
+            ThermalScattering::from_endf_file(
+                base.join(f_tsl).to_str()?,
+                tsl_mat,
+                TEMP_K,
+                "c_Graphite",
+            )
+            .map_err(|e| eprintln!("  thermal scattering load FAILED (mat {tsl_mat}): {e}"))
+            .ok()
         },
-        load("Si28", f_si28)?,
-        load("B10", f_b10)?,
+    )?;
+    // SiC HAS ITS OWN BOUND THERMAL LAWS, and until 2026-09-23 the model used
+    // neither: its carbon was free gas and its silicon was bare Si-28.
+    // ENDF/B-VIII.0 ships `tsl-CinSiC` (MAT 44) and `tsl-SiinSiC` (MAT 43)
+    // precisely so a SiC coating need not be approximated as a gas.
+    //
+    // These are NOT loaded for the ENDF/B-VII.0 arm: VII.0 has no SiC
+    // thermal evaluation, so that arm keeps free-gas SiC. That is a real
+    // difference between the two libraries rather than an inconsistency, and
+    // it is one more term bundled into the "library" number -- see the
+    // carbon-evaluation note above.
+    let mut sic_sab = |diag: &mut RunDiagnostics, mat: i32, name: &'static str| {
+        let f = if mat == 44 {
+            "tsl-CinSiC.endf"
+        } else {
+            "tsl-SiinSiC.endf"
+        };
+        if endf7 || no_sab {
+            diag.note(format!(
+                "{name} S(a,b) deliberately NOT applied ({}) -- SiC carbon and \
+                 silicon are free gas in this arm",
+                if endf7 {
+                    "ENDF/B-VII.0 has no SiC thermal evaluation"
+                } else {
+                    "NO_SAB ablation"
+                }
+            ));
+            return None;
+        }
+        let p = base.join(f);
+        diag.time_data(
+            format!("{name} S(a,b)"),
+            DataSource::File(p.clone()),
+            format!("MAT {mat}, {TEMP_K:.2} K"),
+            || {
+                if !p.exists() {
+                    eprintln!("  {name}: {f} not in this checkout -- falling back to free gas");
+                    return None;
+                }
+                ThermalScattering::from_endf_file(p.to_str()?, mat, TEMP_K, name)
+                    .map_err(|e| eprintln!("  {name} S(a,b) load FAILED (mat {mat}): {e}"))
+                    .ok()
+            },
+        )
+    };
+    let c_in_sic = sic_sab(diag, 44, "c_SiC");
+    let si_in_sic = sic_sab(diag, 43, "Si_SiC");
+
+    // UO2 HAS BOUND THERMAL LAWS TOO, and the kernel had none at all -- the
+    // fuel was scattering as a free gas, in the one place the thermal flux
+    // and the absorption actually meet. No UO2 tape ships in
+    // `reference-data/endf/`, but both LEAPR decks are committed in
+    // `njoy-outram-park-fork`, so these are GENERATED rather than downloaded:
+    // reproducible from a deck that can be read, with no new binary tapes.
+    //
+    // Generation is not free. That is exactly why this run now separates
+    // nuclear-data time from transport time.
+    let mut uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
+        if endf7 || no_sab {
+            diag.note(format!("{name} S(a,b) deliberately NOT applied"));
+            return None;
+        }
+        eprint!("  {name:<8} LEAPR ");
+        let t = Instant::now();
+        let out = diag.time_data(
+            format!("{name} S(a,b)"),
+            DataSource::GeneratedFromLeaprDeck(material.base().to_string()),
+            format!(
+                "MAT {}, {TEMP_K:.2} K, generated in-process",
+                material.mat()
+            ),
+            || {
+                ThermalScattering::from_leapr(material, TEMP_K, name)
+                    .map_err(|e| eprintln!("  {name} LEAPR generation FAILED: {e}"))
+                    .ok()
+            },
+        );
+        eprintln!("{:.1?}", t.elapsed());
+        out
+    };
+    let u_in_uo2 = uo2_sab(diag, SabMaterial::UInUO2, "U_UO2");
+    let o_in_uo2 = uo2_sab(diag, SabMaterial::OInUO2, "O_UO2");
+    let bind = |n: Nuclide, sab: &Option<ThermalScattering>| match sab {
+        Some(s) => n.with_thermal_scattering(s.clone()),
+        None => n,
+    };
+
+    Some(vec![
+        bind(load!(diag, "U235", f_u235)?, &u_in_uo2),
+        bind(load!(diag, "U238", f_u238)?, &u_in_uo2),
+        bind(load!(diag, "O16", f_o16)?, &o_in_uo2),
+        // 3: free-gas carbon, retained for the NO_SAB ablation arm only.
+        load!(diag, "C12", f_c)?,
+        // 4: graphite-bound carbon.
+        if no_sab {
+            load!(diag, "C12", f_c)?
+        } else {
+            load!(diag, "C12", f_c)?.with_thermal_scattering(sab)
+        },
+        // 5, 8, 9: silicon, split over its three natural isotopes and bound
+        // in SiC. The atom density was always built from silicon's natural
+        // molar mass, so this splits a correct total rather than changing it.
+        bind(load!(diag, "Si28", f_si28)?, &si_in_sic),
+        load!(diag, "B10", f_b10)?,
+        // 7: carbon bound in SiC.
+        bind(load!(diag, "C12", f_c)?, &c_in_sic),
+        bind(
+            load!(diag, "Si29", "n-014_Si_029-ENDF8.0.endf")?,
+            &si_in_sic,
+        ),
+        bind(
+            load!(diag, "Si30", "n-014_Si_030-ENDF8.0.endf")?,
+            &si_in_sic,
+        ),
     ])
 }
 
@@ -310,7 +438,18 @@ fn main() {
     println!("  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector\n");
 
     eprintln!("Reconstructing cross sections:");
-    let Some(nucs) = nuclides() else {
+    // The run's own diagnostic record. Nuclear-data processing and transport
+    // are timed SEPARATELY: they scale with completely different things --
+    // data prep with the nuclide count and the thermal laws asked for,
+    // transport with histories x cycles -- and one combined number makes a
+    // run impossible to reason about.
+    let mut diag = RunDiagnostics::new("htr10-rmc-keff");
+    diag.note(format!(
+        "{histories} histories x [{} inactive + {} active], {rings} rings x {layers} layers",
+        env_usize("OUTRAM_HTR10_INACTIVE", 30),
+        env_usize("OUTRAM_HTR10_ACTIVE", 70)
+    ));
+    let Some(nucs) = nuclides(&mut diag) else {
         println!("SKIP: reference-data/endf/ not in this checkout.");
         return;
     };
@@ -456,21 +595,28 @@ fn main() {
         "  {histories} histories x [{} inactive + {} active]\n",
         settings.n_inactive, settings.n_active
     );
-    let t = Instant::now();
-    let res = run_keff_csg_hybrid(
-        &core.geometry,
-        &mats,
-        &nucs,
-        if surface_only {
-            &[]
-        } else {
-            std::slice::from_ref(&maj)
-        },
-        Some(&entropy_mesh),
-        src,
-        &settings,
-        None,
+    println!(
+        "  nuclear data processed in {:.1} s ({} items)",
+        diag.data_seconds(),
+        diag.data_item_count()
     );
+    let t = Instant::now();
+    let res = diag.time_phase("transport (k-eigenvalue)", || {
+        run_keff_csg_hybrid(
+            &core.geometry,
+            &mats,
+            &nucs,
+            if surface_only {
+                &[]
+            } else {
+                std::slice::from_ref(&maj)
+            },
+            Some(&entropy_mesh),
+            src,
+            &settings,
+            None,
+        )
+    });
     let secs = t.elapsed().as_secs_f64();
 
     // SEED ENSEMBLE (OUTRAM_BENCH_SEEDS, default 1 -- single-seed behaviour and
@@ -619,4 +765,12 @@ fn main() {
     }
     println!("\n  Gate is 500-1000 pcm. This is a REDUCED core ({rings} rings x {layers} layers),");
     println!("  not the 123.576 cm loading, and carries the VIII.0-vs-VII.0 offset.");
+
+    // Data-processing time and transport time, reported separately, and the
+    // full provenance record written to a file. If any data item failed to
+    // load, `print_summary` says so loudly -- a run that silently fell back
+    // to free gas must not be read as if it had not.
+    diag.note(format!("k_eff = {:.6} +/- {:.6}", res.k_mean, res.k_std));
+    diag.print_summary();
+    diag.write_and_report();
 }

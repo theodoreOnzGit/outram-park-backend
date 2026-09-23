@@ -40,6 +40,9 @@ fn nuclides() -> Htr10Nuclides {
         c_graphite: 4,
         si28: 5,
         b10: 6,
+        c_sic: 7,
+        si29: 8,
+        si30: 9,
     }
 }
 
@@ -227,8 +230,41 @@ fn the_atom_densities_match_values_computed_independently_from_table_2() {
     close(density(1, n.c_graphite), 5.515_24e-2, "buffer C (rho 1.1)");
     close(density(2, n.c_graphite), 9.526_32e-2, "IPyC C (rho 1.9)");
     close(density(4, n.c_graphite), 9.526_32e-2, "OPyC C (rho 1.9)");
-    close(density(3, n.si28), 4.776_08e-2, "SiC Si (rho 3.18)");
-    close(density(3, n.c_free), 4.776_08e-2, "SiC C (rho 3.18)");
+    // SiC. Silicon is split over its three natural isotopes as of
+    // 2026-09-23, so the TOTAL is what Table 2 pins down -- checking the
+    // Si-28 slot alone against the total would now fail for the right
+    // reason. Summing is also the stronger check: it verifies the split
+    // CONSERVES silicon, which is the property that can actually go wrong.
+    let si_total = density(3, n.si28) + density(3, n.si29) + density(3, n.si30);
+    close(
+        si_total,
+        4.776_08e-2,
+        "SiC Si, summed over Si-28/29/30 (rho 3.18)",
+    );
+    // and the split itself is by natural abundance
+    close(
+        density(3, n.si28) / si_total,
+        super::SI28_ATOM_FRACTION,
+        "SiC Si-28 atom fraction",
+    );
+    close(
+        density(3, n.si29) / si_total,
+        super::SI29_ATOM_FRACTION,
+        "SiC Si-29 atom fraction",
+    );
+    close(
+        density(3, n.si30) / si_total,
+        super::SI30_ATOM_FRACTION,
+        "SiC Si-30 atom fraction",
+    );
+    // The carbon moved from the free-gas slot to the SiC-bound one; the
+    // density is unchanged, only which nuclide slot carries it.
+    close(density(3, n.c_sic), 4.776_08e-2, "SiC C (rho 3.18)");
+    assert_eq!(
+        density(3, n.c_free),
+        0.0,
+        "SiC carbon must no longer sit in the free-gas slot"
+    );
 
     // graphite matrix and shell, 1.3 ppm natural B
     close(density(5, n.c_graphite), 8.673_97e-2, "matrix C (rho 1.73)");

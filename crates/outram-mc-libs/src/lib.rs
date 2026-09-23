@@ -48,6 +48,11 @@ pub mod gpu;
 /// report from measured benchmark timings. Machine-specific output is written to
 /// a gitignored local path — see [`perf_report`].
 pub mod perf_report;
+/// Per-run diagnostic record: which nuclear-data files a run used, how long
+/// each took to process, and how long transport took — reported separately,
+/// because they scale with different things. Written to the gitignored
+/// local-perf directory. See [`run_diagnostics`].
+pub mod run_diagnostics;
 pub mod vv;
 pub mod prelude;
 
