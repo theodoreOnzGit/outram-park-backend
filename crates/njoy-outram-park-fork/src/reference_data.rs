@@ -354,3 +354,132 @@ pub fn reference_file_or_skip(subdir: &str, file: &str, label: &str) -> Option<P
         ),
     }
 }
+
+// ── The `reference-data/ace` submodule ──────────────────────────────────────
+
+/// Opt **out** of the automatic `git submodule update --init`.
+///
+/// Set to `1`/`true` to make [`ensure_ace_submodule`] report the submodule as
+/// absent rather than fetching it. For an air-gapped machine, or when the
+/// ~102 MB fetch is not wanted in a particular run.
+pub const NO_SUBMODULE_INIT_ENV: &str = "OUTRAM_PARK_NO_SUBMODULE_INIT";
+
+/// A file that exists in the submodule and **only** in the submodule, used to
+/// tell "checked out" from "empty directory".
+///
+/// This is the whole reason the check cannot be `path.exists()`: a plain
+/// `git clone` without `--recurse-submodules` leaves `reference-data/ace` as an
+/// **empty directory rather than an error** (the workspace `CLAUDE.md` says so
+/// explicitly), so every ACE-gated test skips, silently, and a green suite
+/// means nothing was run.
+const ACE_SUBMODULE_SENTINEL: &str = "MANIFEST.tsv";
+
+/// The `reference-data/ace` checkout path, whether or not it is populated.
+pub fn ace_submodule_dir() -> PathBuf {
+    reference_data_dir("ace")
+}
+
+/// Whether the ACE submodule is checked out (not merely present as an empty
+/// mount point).
+pub fn ace_submodule_is_populated() -> bool {
+    ace_submodule_dir().join(ACE_SUBMODULE_SENTINEL).is_file()
+}
+
+/// Ensure `reference-data/ace` is checked out, running
+/// `git submodule update --init` for it if it is not.
+///
+/// Returns `true` when the submodule is usable afterwards.
+///
+/// # Why a test calls this instead of just checking for its file
+///
+/// An un-initialised submodule is an **empty directory, not an error**. Every
+/// data-gated test then takes its skip branch and the suite passes while
+/// verifying nothing. Calling this first turns "silently skipped" into either
+/// "fetched and ran" or "could not fetch, and said why".
+///
+/// # Behaviour
+///
+/// - Already populated: returns `true` immediately, no subprocess.
+/// - Not populated: runs `git submodule update --init -- reference-data/ace`
+///   from the repository root **once per process** (a `Once`, so the parallel
+///   test threads cannot race each other into concurrent clones of the same
+///   ~102 MB repository), then re-checks.
+/// - `OUTRAM_PARK_NO_SUBMODULE_INIT` set: never fetches.
+/// - No git, no network, or not a git checkout (e.g. a crates.io consumer, or
+///   a vendored tarball): returns `false`. That is not an error — it is the
+///   same "no reference data here" the skip path already handles.
+///
+/// Not compiled for wasm32, which has no process spawning.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn ensure_ace_submodule() -> bool {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    if ace_submodule_is_populated() {
+        return true;
+    }
+    if matches!(
+        std::env::var(NO_SUBMODULE_INIT_ENV).as_deref(),
+        Ok("1") | Ok("true") | Ok("TRUE")
+    ) {
+        return false;
+    }
+
+    INIT.call_once(|| {
+        // The repository root is the submodule path's grandparent, since the
+        // submodule is mounted at `reference-data/ace`.
+        let dir = ace_submodule_dir();
+        let Some(root) = dir.parent().and_then(|p| p.parent()) else {
+            return;
+        };
+        if !root.join(".gitmodules").is_file() {
+            return; // not a git checkout of this workspace; nothing to init
+        }
+        eprintln!(
+            "[reference-data] reference-data/ace is not checked out; running \
+             `git submodule update --init` (~102 MB). Set \
+             {NO_SUBMODULE_INIT_ENV}=1 to skip instead."
+        );
+        match std::process::Command::new("git")
+            .current_dir(root)
+            .args(["submodule", "update", "--init", "--", "reference-data/ace"])
+            .status()
+        {
+            Ok(s) if s.success() => {}
+            Ok(s) => eprintln!("[reference-data] submodule init exited with {s}"),
+            Err(e) => eprintln!("[reference-data] could not run git: {e}"),
+        }
+    });
+
+    ace_submodule_is_populated()
+}
+
+/// wasm has no process spawning, so the submodule can only be reported, never
+/// fetched.
+#[cfg(target_arch = "wasm32")]
+pub fn ensure_ace_submodule() -> bool {
+    ace_submodule_is_populated()
+}
+
+/// [`ensure_ace_submodule`] followed by [`reference_file`] under `ace/`, with
+/// the usual skip note when the data is still not there.
+///
+/// This is the accessor an ACE-gated regression test should use: it initialises
+/// the submodule **before** deciding the data is missing, so a fresh clone runs
+/// the test instead of skipping it.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn ace_reference_file_or_skip(rel: &str, label: &str) -> Option<PathBuf> {
+    if ensure_ace_submodule() {
+        let p = ace_submodule_dir().join(rel);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    missing_reference(
+        reference_data_required(),
+        label,
+        rel,
+        &ace_submodule_dir(),
+        "run `git submodule update --init` to fetch reference-data/ace",
+    )
+}
