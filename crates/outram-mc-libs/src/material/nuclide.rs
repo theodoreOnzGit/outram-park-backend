@@ -23,12 +23,13 @@ use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{
-    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar, UncorrelatedEmission,
+    ChiEout, ChiTabular, ContinuumBranch, ContinuumEmission, FissionSpectrum, NuBar,
+    UncorrelatedEmission,
 };
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
 use crate::physics::scatter::DbrcTable;
-use njoy_outram_park_fork::reconr::ReconrResult;
+use njoy_outram_park_fork::reconr::{ReconrResult, ReconrSection};
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 use njoy_outram_park_fork::MtReaction;
 use njoy_outram_park_fork::NjoyError;
@@ -1217,6 +1218,228 @@ impl Nuclide {
     ///
     /// [`NjoyError`] if the tape lacks the sections RECONR needs, or the
     /// evaluation uses a resonance format RECONR does not reconstruct.
+    /// Build a nuclide from a **continuous-energy ACE table**.
+    ///
+    /// The third construction path, beside [`Self::from_core`] (the embedded
+    /// WMP blob) and [`Self::from_tape`] (an ENDF evaluation through RECONR and
+    /// BROADR). It exists so this workspace can transport on the *same library*
+    /// another code uses — the NJOY2016 tables in `reference-data/ace` — which
+    /// turns a cross-code comparison from "two codes, two data pipelines" into
+    /// "two codes, one library", removing the largest confound in the existing
+    /// studies (GitHub #270).
+    ///
+    /// Takes the **raw** table rather than the decoded cross sections, because
+    /// the secondary-distribution blocks (AND, DLW, NU) are read from the same
+    /// `XSS` and a caller should not have to thread two objects through.
+    ///
+    /// | field | ACE block |
+    /// |---|---|
+    /// | cross sections | ESZ (elastic) + MTR/LQR/LSIG/SIG |
+    /// | `nu` | NU — **total**, verified exactly equal to ENDF MF=1/452 |
+    /// | `chi` | DLW LAW=4 on the fission MT |
+    /// | elastic angular | AND, centre-of-mass |
+    /// | inelastic angular | AND per reaction, frame from the sign of TYR |
+    /// | continuum laws | DLW LAW=44 (Kalbach) / LAW=61 (tabulated cosine) |
+    ///
+    /// # What is NOT in this path — stated, not defaulted
+    ///
+    /// Each of these is `None`/empty **because the block is not decoded**, not
+    /// because the evaluation says there is none. A missing term must not
+    /// masquerade as a measured zero:
+    ///
+    /// - **Delayed neutrons** (`DNU`/`BDD`/`DNEDL`/`DNED`): `delayed` is
+    ///   `None`, so a kinetics consumer sees "this table does not say" rather
+    ///   than a zero delayed fraction.
+    /// - **Unresolved-resonance probability tables** (`UNR`): `urr` is `None`.
+    ///   On a nuclide whose evaluation HAS an unresolved range this is a real
+    ///   physics omission that will shift `k` — the ACE analogue of the
+    ///   defaulted-off URR this crate's `CLAUDE.md` records as a defect.
+    /// - **DBRC** needs the 0 K elastic cross section, which a table broadened
+    ///   to 293.6 K does not carry, so `elastic_0k` is empty.
+    /// - **S(α,β)** lives in a separate thermal `.t` table, not this one.
+    ///
+    /// # Errors
+    ///
+    /// A table that is not continuous-energy neutron data, or whose DLW
+    /// carries a law outside {3, 4, 44, 61}. Refusing is deliberate: a law
+    /// silently skipped is a reaction whose secondaries are wrong.
+    pub fn from_ace(
+        table: &njoy_outram_park_fork::acer::read::RawAceTable,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::acer::ce_decode::decode_ce;
+        use njoy_outram_park_fork::acer::ce_laws::{
+            decode_angular, decode_energy_law, decode_nu, n_neutron_reactions, to_chi_and_angular,
+            AceEnergyLaw,
+        };
+
+        let ace = decode_ce(table)?;
+
+        // ── Cross sections: ACE's grid becomes a ReconrResult ──────────────
+        //
+        // `ReconrSection.pairs` is a lin-lin (E, sigma) grid per MT, exactly
+        // what ESZ + SIG supply. Elastic comes from ESZ, not MTR -- ACE does
+        // not list MT=2 in MTR at all, and a reader looking for it there finds
+        // nothing and builds a nuclide that cannot scatter.
+        let mut sections: Vec<ReconrSection> = Vec::with_capacity(ace.reactions.len() + 2);
+        // **MT=1 is required, and ACE does not list it in MTR either.**
+        //
+        // `xs_at_energy` reads the total as `eval_mt(Mt1Total)`. RECONR emits an
+        // MT=1 section; ACE carries the total in ESZ instead. Without this the
+        // nuclide reports `total = 0` at every energy while every partial is
+        // correct -- which is worse than an obvious failure, because a
+        // macroscopic total of zero makes the distance-to-collision sampler
+        // return infinity and every particle streams straight out.
+        sections.push(ReconrSection {
+            lr: 0,
+            mt: MtReaction::from_any(1),
+            qi: 0.0,
+            pairs: ace.energy.iter().copied().zip(ace.total.iter().copied()).collect(),
+        });
+        sections.push(ReconrSection {
+            lr: 0,
+            mt: MtReaction::from_any(2),
+            qi: 0.0,
+            pairs: ace.energy.iter().copied().zip(ace.elastic.iter().copied()).collect(),
+        });
+        // `channel_mts` drops the lumps' own levels, so MT=4 and MT=51..91 are
+        // never both present -- see `ce_decode::channel_mts` for why that
+        // matters (U-235 sums 30 % high without it).
+        for mt in ace.channel_mts() {
+            let Some(rx) = ace.reactions.iter().find(|r| r.mt == mt) else {
+                continue;
+            };
+            let pairs: Vec<(f64, f64)> = ace.energy[rx.threshold_index..]
+                .iter()
+                .copied()
+                .zip(rx.xs.iter().copied())
+                .collect();
+            sections.push(ReconrSection {
+                lr: 0,
+                mt: MtReaction::from_any(mt),
+                qi: rx.q_value,
+                pairs,
+            });
+        }
+        sections.sort_by_key(|sec| sec.mt.number());
+
+        let recon = ReconrResult {
+            material: njoy_outram_park_fork::reconr::mf1::MaterialInfo {
+                za: ace.za as f64,
+                awr: ace.awr,
+                lrp: 0,
+                lfi: i32::from(ace.is_fissionable()),
+                nlib: 0,
+                elis: 0.0,
+                nfor: 6,
+                emax: *ace.energy.last().unwrap_or(&2.0e7),
+            },
+            sections,
+            resonance_upper_limit: None,
+            // ACE carries the unresolved range as probability TABLES (the UNR
+            // block), not as the MF=2 parameter list this field holds, so
+            // there is nothing to put here. `urr` below is `None` for the same
+            // reason and is documented as an omission, not a zero.
+            unresolved_table: None,
+        };
+        let inel = build_inelastic_levels(&recon);
+
+        // ── Angular: LAND index 0 is elastic, 1..=NR the neutron-producing
+        // reactions in MTR order. Elastic is centre-of-mass by ACE convention;
+        // for the rest the frame is the SIGN of TYR.
+        let elastic_angular = decode_angular(table, 0, 2)?.unwrap_or_default();
+        let n_rx = n_neutron_reactions(table);
+        let mut inelastic_angular: Vec<(u32, ElasticAngular)> = Vec::new();
+        let mut chi = FissionSpectrum::default();
+        let mut mt91 = None;
+        let mut mt16 = None;
+        let mut mt17 = None;
+        let mut mt5 = None;
+
+        for i in 0..n_rx {
+            let Some(rx) = ace.reactions.get(i) else { break };
+            let lct = if rx.ty < 0 { 2 } else { 1 };
+            if (51..=90).contains(&rx.mt) {
+                if let Some(ang) = decode_angular(table, i + 1, lct)? {
+                    if !ang.is_all_isotropic() {
+                        inelastic_angular.push((rx.mt as u32, ang));
+                    }
+                }
+            }
+            let law = decode_energy_law(table, i)?;
+            let AceEnergyLaw::Tabulated { law, rows, incident_interp } = law else {
+                continue; // LAW=3 is analytic two-body; no table to carry
+            };
+            let (chi_tab, angular) = to_chi_and_angular(&rows, law, &incident_interp);
+            if rx.mt == 18 || [19, 20, 21, 38].contains(&rx.mt) {
+                // The first fission law encountered defines chi. With partial
+                // fission the partials share a spectrum in every evaluation
+                // read here; taking the first is upstream's behaviour too.
+                if matches!(chi, FissionSpectrum::Tabulated { .. })
+                    || matches!(chi, FissionSpectrum::Watt { .. })
+                {
+                    chi = FissionSpectrum::ContinuousTabular(chi_tab);
+                } else if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
+                    chi = FissionSpectrum::ContinuousTabular(chi_tab);
+                }
+                continue;
+            }
+            let emission = ContinuumEmission {
+                branches: vec![ContinuumBranch {
+                    spectrum: chi_tab,
+                    yield_pairs: Vec::new(),
+                    angular,
+                }],
+                cm_frame: rx.ty < 0,
+            };
+            match rx.mt {
+                91 => mt91 = Some(emission),
+                16 => mt16 = Some(emission),
+                17 => mt17 = Some(emission),
+                5 => mt5 = Some(emission),
+                _ => {}
+            }
+        }
+
+        let nu = decode_nu(table)?.unwrap_or_else(|| nubar_for(name, false));
+
+        Ok(Self {
+            name: name.to_string(),
+            awr: ace.awr,
+            nu,
+            chi,
+            xs: XsSource::Pointwise {
+                recon,
+                inel,
+                elastic_angular,
+                inelastic_angular,
+            },
+            thermal: None,
+            continuum: ContinuumLaws {
+                // Three entries, matching the field: the uncorrelated
+                // fallbacks are for MT=91/16/17, which ENDF may give as MF=5
+                // when MF=6 is absent. ACE has no such split -- every law here
+                // is correlated or two-body -- so all three are `None`.
+                uncorrelated: [(91, None), (16, None), (17, None)],
+                mt91,
+                mt16,
+                mt17,
+                mt5,
+            },
+            target_at_rest: false,
+            nu_frozen_at: None,
+            chi_frozen_at: None,
+            n2n_yield_one: false,
+            // NOT decoded -- see the doc comment. `None` here means "this path
+            // does not read the block", never "the evaluation has none".
+            urr: None,
+            dbrc: None,
+            elastic_0k: Vec::new(),
+            prompt_only: false,
+            delayed: None,
+        })
+    }
+
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
