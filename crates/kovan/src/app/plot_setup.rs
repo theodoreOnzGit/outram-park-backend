@@ -566,19 +566,76 @@ impl PlotSetup {
                 ui.add(egui::TextEdit::singleline(&mut self.x_min).desired_width(90.0));
                 ui.add(egui::TextEdit::singleline(&mut self.x_max).desired_width(90.0));
                 ui.checkbox(&mut self.x_log, "logarithmic");
-                ui.label("");
+                Self::decade_readout(ui, self.x_log, &self.x_min, &self.x_max);
                 ui.end_row();
 
                 ui.label("y axis");
                 ui.add(egui::TextEdit::singleline(&mut self.y_min).desired_width(90.0));
                 ui.add(egui::TextEdit::singleline(&mut self.y_max).desired_width(90.0));
                 ui.checkbox(&mut self.y_log, "logarithmic");
-                ui.label("");
+                Self::decade_readout(ui, self.y_log, &self.y_min, &self.y_max);
                 ui.end_row();
             });
         if self.x_log || self.y_log {
             ui.add_space(4.0);
-            ui.weak("A logarithmic axis is calibrated in log10 space, so both ends must be > 0.");
+            ui.weak(
+                "A logarithmic axis is calibrated in log10 space, so both ends must be > 0. \
+                 Enter the VALUE, not the exponent: the bottom of a 10^-6 gridline is 1e-6, \
+                 and the 10^0 gridline is 1.",
+            );
+        }
+    }
+
+    /// How many decades a logarithmic axis spans, shown beside it.
+    ///
+    /// # Why this is worth a widget
+    ///
+    /// On a log axis people think in powers of ten, and the natural thing to
+    /// type for the `10^0` gridline is `10^0` — which Rust's `f64` parser
+    /// rejects outright, so the only thing that *will* parse is the wrong
+    /// number, `10`. That is exactly what happened to Figs. 6, 7 and 8 of the
+    /// PANAMA report (maintainer, 2026-09-24: "it was supposed to be 1, not
+    /// 10, like 10^0 was what i entered"): three figures digitised over
+    /// **seven** decades where **six** are plotted, stretching every ordinate
+    /// in the log by 7/6.
+    ///
+    /// It went unnoticed because nothing on screen ever said how many decades
+    /// the axis covered, and a wrong-by-one-decade calibration produces a
+    /// perfectly plausible-looking curve. A reader who can see "7 decades"
+    /// against a plot showing six catches it in a second; the residuals took
+    /// a model-free consistency argument across three figures to find.
+    ///
+    /// Shown for the log case only — a linear axis has no decades and the
+    /// readout would be noise.
+    fn decade_readout(ui: &mut egui::Ui, is_log: bool, min: &str, max: &str) {
+        if !is_log {
+            ui.label("");
+            return;
+        }
+        match Self::decades(min, max) {
+            Some(decades) => {
+                ui.weak(format!("{decades:.3} decades")).on_hover_text(
+                    "count the gridlines on the figure: this must match. A \
+                         calibration one decade out still draws a plausible curve.",
+                );
+            }
+            None => {
+                ui.label("");
+            }
+        }
+    }
+
+    /// The decades a logarithmic axis spans, or `None` if the ends are not
+    /// two positive numbers with `max > min`.
+    ///
+    /// Split out from [`Self::decade_readout`] so the arithmetic is testable
+    /// without standing up a `Ui` — the value of this feature is entirely in
+    /// the number being right.
+    fn decades(min: &str, max: &str) -> Option<f64> {
+        let parse = |s: &str| s.trim().parse::<f64>().ok().filter(|v| *v > 0.0);
+        match (parse(min), parse(max)) {
+            (Some(lo), Some(hi)) if hi > lo => Some((hi / lo).log10()),
+            _ => None,
         }
     }
 
@@ -821,5 +878,59 @@ mod tests {
         let b = PlotSetup::begin(None, None, None);
         assert_eq!(b.turn, Quarter::None);
         assert_eq!(b.skew_degrees, 0.0);
+    }
+
+    /// **The readout that would have caught the PANAMA digitisation slip.**
+    ///
+    /// Figs. 6, 7 and 8 plot six decades, `10^-6` to `10^0`. Entering `10`
+    /// for the top gridline instead of `1` gives SEVEN — and a wrong-by-one-
+    /// decade calibration still draws a perfectly plausible curve, which is
+    /// why it went unnoticed until a model-free consistency argument across
+    /// three figures found it.
+    #[test]
+    fn the_decade_count_distinguishes_the_panama_slip() {
+        let correct = PlotSetup::decades("1e-6", "1").expect("both positive");
+        let slipped = PlotSetup::decades("1e-6", "10").expect("both positive");
+        assert!(
+            (correct - 6.0).abs() < 1e-9,
+            "1e-6 to 1 is six decades, got {correct}"
+        );
+        assert!(
+            (slipped - 7.0).abs() < 1e-9,
+            "1e-6 to 10 is seven decades, got {slipped}"
+        );
+        assert!(
+            (slipped - correct - 1.0).abs() < 1e-9,
+            "the slip must read as exactly one decade more"
+        );
+    }
+
+    /// A log axis needs two positive numbers in increasing order; anything
+    /// else shows nothing rather than a misleading figure.
+    #[test]
+    fn the_decade_count_refuses_what_it_cannot_measure() {
+        assert_eq!(PlotSetup::decades("0", "10"), None, "zero has no logarithm");
+        assert_eq!(PlotSetup::decades("-1", "10"), None, "nor does a negative");
+        assert_eq!(PlotSetup::decades("1", "1"), None, "a zero-width axis");
+        assert_eq!(PlotSetup::decades("10", "1"), None, "reversed ends");
+        assert_eq!(PlotSetup::decades("", "10"), None);
+        assert_eq!(PlotSetup::decades("10^0", "10"), None, "^ does not parse");
+    }
+
+    /// Scientific notation is what a log axis is usually typed in, and it
+    /// must parse — `1e-6` is the form the hint text recommends.
+    #[test]
+    fn scientific_notation_parses() {
+        for (lo, hi, want) in [
+            ("1e-6", "1e0", 6.0),
+            ("1E-6", "1E1", 7.0),
+            ("0.001", "1000", 6.0),
+        ] {
+            let got = PlotSetup::decades(lo, hi).expect("parses");
+            assert!(
+                (got - want).abs() < 1e-9,
+                "{lo}..{hi}: got {got}, want {want}"
+            );
+        }
     }
 }
