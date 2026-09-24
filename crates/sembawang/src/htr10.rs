@@ -970,6 +970,89 @@ mod tests {
         );
     }
 
+    /// **Which nuclides carry floored negative release windows — measured per
+    /// nuclide, not inferred from one flag over the whole run.**
+    ///
+    /// Methodology: `accident_release` returns a single
+    /// [`crate::error::Caveats::negative_atom_count_seen`] for the entire run,
+    /// so "which nuclide caused it" cannot be read off a combined result. Run
+    /// the chain **once per nuclide**, on a one-nuclide inventory, and record
+    /// the flag for each. With
+    /// [`crate::accident::release::zero_pools`] the atom-count path cannot fire
+    /// (every subtracted term is zero), so a flag here is necessarily the
+    /// per-window first difference going negative — i.e. a non-monotonic
+    /// cumulative release, which is **floored** and therefore **over-states**
+    /// that nuclide's total.
+    ///
+    /// **Result (2026-09-24): exactly one of the 12 reported nuclides —
+    /// `Ag-110m`.** Kr-85, Xe-131m, Xe-133, Xe-133m, Xe-135, I-131, I-133,
+    /// Sr-89, Sr-90, Cs-134 and Cs-137 are all clean.
+    ///
+    /// That is the model's structure rather than an accident of this
+    /// transient. Silver is the only nuclide routed through
+    /// `breakthrough_model_transient`, whose `−a/(2r)` time-lag term drives the
+    /// release fraction negative — where it is clamped to zero — until
+    /// breakthrough, so only silver's cumulative curie series can fall. The
+    /// measured size of the over-statement is a factor **1.0011** (13 of 30
+    /// windows; windows sum `2.503345e-2 Ci` against a cumulative endpoint of
+    /// `2.500569e-2 Ci`).
+    ///
+    /// **This test exists because the claim was originally made after checking
+    /// four nuclides and generalising.** Four is not twelve, and a structural
+    /// argument that has never been able to fail is not evidence. GitHub #300.
+    #[test]
+    fn only_silver_carries_floored_negative_windows() {
+        let shape = DlofcShape::htr_module_jrc();
+        let transient = shape.transient(SAMPLES, 1, 1).expect("enough samples");
+        let p = panama_over_transient(&shape, t_b(), SAMPLES);
+        let plant = plant_parameters(
+            geometry(),
+            with_panama_accident_increment(
+                np_mhtgr_normal_operation_fractions(),
+                p.accident_increment_final,
+            ),
+        );
+
+        let mut flagged = Vec::new();
+        let mut clean = Vec::new();
+        for entry in htr10_equilibrium_core() {
+            if find_nuclide(entry.nuclide).is_none() {
+                continue;
+            }
+            let one = CoreInventory::new(
+                vec![NuclideInventory::uniform(entry.nuclide, entry.activity, 1)],
+                1,
+                1,
+            );
+            // A nuclide screened out by the half-life test yields no release at
+            // all, so it is not evidence either way and is skipped.
+            let Ok(out) = accident_release(&one, &transient, &plant) else {
+                continue;
+            };
+            if !out.screened_out.is_empty() {
+                continue;
+            }
+            if out.caveats.negative_atom_count_seen {
+                flagged.push(entry.nuclide);
+            } else {
+                clean.push(entry.nuclide);
+            }
+        }
+
+        assert_eq!(
+            flagged,
+            vec!["Ag-110m"],
+            "recorded: silver alone goes negative, because it is the only nuclide routed \
+             through the breakthrough model. Clean: {clean:?}"
+        );
+        assert!(
+            clean.len() >= 10,
+            "the control must actually cover the other nuclides, not skip them; only \
+             {} were exercised: {clean:?}",
+            clean.len()
+        );
+    }
+
     /// **Three of the 22 published nuclides are not modelled, and they are not
     /// silently zero.**
     ///
