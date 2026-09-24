@@ -298,3 +298,63 @@ pub fn run() -> Result<(), crate::NjoyError> {
         "acer driver (physics ported — use the module API)",
     ))
 }
+
+/// Assemble a complete continuous-energy [`AceTable`] from a tape and its
+/// reconstructed, broadened cross sections.
+///
+/// # Why this exists
+///
+/// [`AceTable::from_reconr_full`] takes nine arguments, seven of which are
+/// themselves built by a fixed sequence of calls — elastic angular from MF=4,
+/// `build_emissions` over the partial Q-values, nu-bar, chi, emission spectra,
+/// photon production, KERMA with the energy balance applied, and the NU block.
+/// That sequence was written out **identically** in
+/// `njoy-outram-park-fork/examples/write_ace.rs` and in
+/// `outram-mc-libs/examples/lct008_ace_roundtrip.rs`, and a third copy was
+/// about to be added for the 2026-09-24 LCT-008 timing sweep.
+///
+/// Three hand-copies of an assembly order is how two of them end up subtly
+/// different and nobody notices: the ACE they produce still writes, still
+/// reads, and transports to a slightly different answer. Having one caller
+/// path means a change to the order changes every table this workspace
+/// builds, or none.
+///
+/// `kt_mev` is the ACE temperature in MeV — `8.617333262e-5 * T[K] * 1e-6`.
+/// `suffix` is the ZAID suffix digit (`0` for the usual `.00c`).
+pub fn build_full(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    recon: &crate::reconr::ReconrResult,
+    kt_mev: f64,
+    suffix: u32,
+) -> Result<AceTable, crate::NjoyError> {
+    let angular = match tape.section(mat, 4, 2) {
+        Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
+        None => None,
+    };
+    let partials: Vec<(i32, f64)> = recon
+        .sections
+        .iter()
+        .map(|s| (i32::from(s.mt), s.qi))
+        .collect();
+    let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
+    let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
+    let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
+        .unwrap_or_default();
+    let emission = crate::heatr::build_emission_spectra(tape, mat);
+    let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
+    let kerma = crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
+        .with_energy_balance(&photons, recon);
+    let nu_block = crate::acer::nu::build(tape, mat)?;
+    Ok(AceTable::from_reconr_full(
+        recon,
+        kt_mev,
+        suffix,
+        angular.as_ref(),
+        &emissions,
+        Some(&kerma),
+        nu_block.as_deref(),
+        crate::acer::has_mt19_distributions(tape, mat),
+        crate::acer::photon_blocks::build(tape, mat).as_deref(),
+    ))
+}

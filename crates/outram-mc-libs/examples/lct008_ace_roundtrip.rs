@@ -129,12 +129,9 @@
 //!
 use std::time::{Duration, Instant};
 
-use njoy_outram_park_fork::acer::{angular::parse_elastic_angular, energy::build_emissions, AceTable};
+use njoy_outram_park_fork::acer::AceTable;
 use njoy_outram_park_fork::broadr::broaden_result;
 use njoy_outram_park_fork::endf::tape::Tape;
-use njoy_outram_park_fork::heatr::{build_emission_spectra, Kerma};
-use njoy_outram_park_fork::nuclear_data::secondary::{FissionSpectrum, NuBar};
-use njoy_outram_park_fork::photon::PhotonProduction;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig, ReconrResult};
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -393,33 +390,12 @@ fn main() {
 }
 
 /// Assemble every block a CE ACE table carries, from a broadened `ReconrResult`.
+/// Assemble the ACE table. Thin wrapper over
+/// [`njoy_outram_park_fork::acer::build_full`], which owns the assembly order
+/// so this example, `njoy`'s own `write_ace.rs` and `lct008_keff.rs` cannot
+/// drift apart (the three copies this replaced were identical, and that is
+/// exactly the state in which one quietly stops being).
 fn build_ace(tape: &Tape, mat: i32, recon: &ReconrResult) -> AceTable {
-    let angular = tape
-        .section(mat, 4, 2)
-        .map(|s| parse_elastic_angular(s).expect("MF=4"));
-    let partials: Vec<(i32, f64)> = recon
-        .sections
-        .iter()
-        .map(|s| (i32::from(s.mt), s.qi))
-        .collect();
-    let emissions = build_emissions(tape, mat, recon.material.awr, &partials);
-    let nu = NuBar::from_endf(tape, mat).expect("MF=1").unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(tape, mat)
-        .expect("MF=5")
-        .unwrap_or_default();
-    let emission = build_emission_spectra(tape, mat);
-    let photons = PhotonProduction::from_endf(tape, mat, recon);
-    let kerma = Kerma::from_reconr(recon, &nu, &chi, &emission).with_energy_balance(&photons, recon);
-    let nu_block = njoy_outram_park_fork::acer::nu::build(tape, mat).expect("NU block");
-    AceTable::from_reconr_full(
-        recon,
-        KT_MEV,
-        0,
-        angular.as_ref(),
-        &emissions,
-        Some(&kerma),
-        nu_block.as_deref(),
-        njoy_outram_park_fork::acer::has_mt19_distributions(tape, mat),
-        njoy_outram_park_fork::acer::photon_blocks::build(tape, mat).as_deref(),
-    )
+    njoy_outram_park_fork::acer::build_full(tape, mat, recon, KT_MEV, 0)
+        .expect("assemble ACE")
 }
