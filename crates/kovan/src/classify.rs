@@ -580,6 +580,61 @@ pub fn save_digitised_csv(
             return replace_artifact_body(session, id, csv_body);
         }
     }
+
+    // **Re-saving the same figure OVERWRITES it** (maintainer, 2026-09-24:
+    // "it should save over all existing csv, not add to it. Because there may
+    // have been some errors").
+    //
+    // Without this, `unique_id` suffixes on collision, so saving "Fig. 7"
+    // three times left `fig-7`, `fig-7-2` and `fig-7-3` side by side -- and
+    // the earliest, which is the one a reader meets first, is the one with
+    // the mistake in it. A re-digitisation is a correction, not a second
+    // measurement.
+    //
+    // `replace_id` above only fires when the crop was re-opened from an
+    // existing artifact; this covers the ordinary case of digitising the same
+    // figure again from the PDF.
+    //
+    // Guarded on the kind matching: an annotation that happens to share a
+    // heading with a figure must never be silently replaced by CSV.
+    let base = slugify(heading);
+    if !base.is_empty() {
+        let doc = parse_document(session.markdown());
+        let same_kind = doc.get(&base).is_some_and(|a| a.kind() == kind);
+        if same_kind {
+            // Remove the numbered duplicates this bug already produced, so
+            // "save over all existing csv" is true of a document that has
+            // accumulated them. Only exact `<base>-<n>` ids of the SAME kind
+            // and the SAME heading -- a differently-titled artifact is
+            // someone else's work, whatever its id looks like.
+            let mut stale: Vec<(usize, String)> = doc
+                .artifacts
+                .iter()
+                .filter(|a| {
+                    a.kind() == kind
+                        && a.heading.trim() == heading.trim()
+                        && a.id()
+                            .strip_prefix(&format!("{base}-"))
+                            .is_some_and(|n| n.parse::<u32>().is_ok())
+                })
+                .map(|a| (a.line, a.heading.clone()))
+                .collect();
+            // Highest line first: removing a later block cannot shift an
+            // earlier one's line number.
+            stale.sort_by(|x, y| y.0.cmp(&x.0));
+            if !stale.is_empty() {
+                let mut md = session.markdown().to_string();
+                for (line, head) in stale {
+                    if let Some(next) = crate::artifact::remove_block(&md, line, &head) {
+                        md = next;
+                    }
+                }
+                session.set_markdown(&md);
+            }
+            return replace_artifact_body(session, &base, csv_body);
+        }
+    }
+
     let index = ResearchRecordIndex::from_session(session);
     insert_artifact(
         session,
@@ -1383,6 +1438,148 @@ x,y
         let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
         assert!(parse_document(&text).get("note-a").is_some());
     }
+
+    /// **Re-digitising a figure corrects it; it does not add a second one.**
+    ///
+    /// `unique_id` suffixes on collision, so before this a third save of
+    /// "Fig. 7" left `fig-7`, `fig-7-2` and `fig-7-3` side by side -- and the
+    /// first one, which a reader meets first, held the earliest mistake.
+    #[test]
+    fn re_saving_a_figure_overwrites_it_instead_of_accumulating() {
+        let (_dir, mut session) = open_session();
+
+        for csv in ["x,y\n1,1\n", "x,y\n2,2\n", "x,y\n3,3\n"] {
+            save_digitised_csv(
+                &mut session,
+                ArtifactKind::DigitisedGraph,
+                "Fig. 7",
+                None,
+                None,
+                None,
+                &crate::artifact::render_csv_body(csv),
+            )
+            .expect("saves");
+        }
+
+        let doc = parse_document(session.markdown());
+        let graphs: Vec<_> = doc
+            .artifacts
+            .iter()
+            .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+            .collect();
+        assert_eq!(graphs.len(), 1, "three saves must leave ONE figure");
+        assert_eq!(graphs[0].id(), "fig-7", "and it keeps the unsuffixed id");
+        assert_eq!(
+            graphs[0].csv_export().unwrap(),
+            "x,y\n3,3\n",
+            "the surviving copy is the LATEST, not the first"
+        );
+        assert!(
+            !session.markdown().contains("fig-7-2"),
+            "no suffixed duplicate survives:\n{}",
+            session.markdown()
+        );
+    }
+
+    /// A document that already accumulated duplicates is collapsed on the
+    /// next save -- "save over all existing csv" has to be true of the mess
+    /// the bug already made, not just of new documents.
+    #[test]
+    fn an_already_duplicated_figure_is_collapsed_on_the_next_save() {
+        let (_dir, mut session) = open_session();
+        // Two blocks with the same heading, as the old behaviour produced.
+        // The index is re-derived per insert, as the real callers do -- a
+        // stale snapshot would hand both the same id.
+        for csv in ["x,y\n1,1\n", "x,y\n2,2\n"] {
+            let index = ResearchRecordIndex::from_session(&session);
+            insert_artifact(
+                &mut session,
+                &index,
+                "Fig. 9",
+                ArtifactKind::DigitisedGraph,
+                None,
+                Classification::default(),
+                None,
+                &crate::artifact::render_csv_body(csv),
+            )
+            .expect("inserted");
+        }
+        assert_eq!(
+            parse_document(session.markdown())
+                .artifacts
+                .iter()
+                .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+                .count(),
+            2,
+            "precondition: two duplicates exist"
+        );
+
+        save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 9",
+            None,
+            None,
+            None,
+            &crate::artifact::render_csv_body("x,y\n9,9\n"),
+        )
+        .expect("saves");
+
+        let doc = parse_document(session.markdown());
+        let graphs: Vec<_> = doc
+            .artifacts
+            .iter()
+            .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+            .collect();
+        assert_eq!(graphs.len(), 1, "the duplicates are collapsed");
+        assert_eq!(graphs[0].csv_export().unwrap(), "x,y\n9,9\n");
+    }
+
+    /// An artifact of a DIFFERENT kind that happens to share the heading must
+    /// never be silently replaced by CSV. Someone's annotation is not a stale
+    /// copy of a figure.
+    #[test]
+    fn a_different_kind_sharing_the_heading_is_not_clobbered() {
+        let (_dir, mut session) = open_session();
+        let index = ResearchRecordIndex::from_session(&session);
+        insert_artifact(
+            &mut session,
+            &index,
+            "Fig. 3",
+            ArtifactKind::Annotation,
+            None,
+            Classification::default(),
+            None,
+            "a hand-written note",
+        )
+        .expect("annotation inserted");
+
+        save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 3",
+            None,
+            None,
+            None,
+            &crate::artifact::render_csv_body("x,y\n1,2\n"),
+        )
+        .expect("saves");
+
+        let doc = parse_document(session.markdown());
+        assert!(
+            session.markdown().contains("a hand-written note"),
+            "the annotation must survive untouched"
+        );
+        assert_eq!(
+            doc.artifacts
+                .iter()
+                .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+                .count(),
+            1,
+            "the graph is inserted alongside it, with a suffixed id"
+        );
+    }
+
 }
 
 /// Give `session`'s document its paper header artifact if it has none:
@@ -1655,4 +1852,6 @@ pub fn migrate_legacy_csv_sections(
         migrated += 1;
     }
     Ok(migrated)
+
+
 }
