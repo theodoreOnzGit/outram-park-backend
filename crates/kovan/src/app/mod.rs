@@ -2900,9 +2900,26 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::PlotSetup => {
+                // Upload the crop's texture here as well as in the digitiser:
+                // the form is reached FIRST, so waiting for the digitiser's
+                // own upload would show the operator an empty panel on the
+                // one screen whose questions can only be answered by looking
+                // at the figure.
+                if self.texture.is_none() {
+                    if let Some(raster) = self.raster.as_ref() {
+                        let img = pdf_reader::raster_to_color_image(raster);
+                        self.texture =
+                            Some(ui.ctx().load_texture("plot", img, TextureOptions::NEAREST));
+                    }
+                }
+                let figure = self.raster.as_ref().and_then(|r| {
+                    self.texture.as_ref().map(|t| {
+                        (t.id(), Vec2::new(r.width() as f32, r.height() as f32))
+                    })
+                });
                 let mut outcome = plot_setup::Outcome::Continue;
                 egui::CentralPanel::default().show(ui, |ui| {
-                    outcome = self.plot_setup.ui(ui);
+                    outcome = self.plot_setup.ui(ui, figure);
                 });
                 match outcome {
                     plot_setup::Outcome::Finish => {

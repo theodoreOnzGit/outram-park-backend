@@ -256,8 +256,66 @@ impl PlotSetup {
         ]
     }
 
-    /// Draw the form. Returns what the operator pressed.
-    pub fn ui(&mut self, ui: &mut egui::Ui) -> Outcome {
+    /// Draw the form beside the cropped figure. Returns what the operator
+    /// pressed.
+    ///
+    /// `figure` is the crop's texture and its pixel size. Showing it is not
+    /// decoration: **every answer on stages 2 and 3 is read off the image**
+    /// -- the axis ranges from its tick labels, the axis names and units from
+    /// its axis captions. A form that asks for them without showing the
+    /// figure is asking the operator to remember a picture they were looking
+    /// at a moment ago (maintainer, 2026-09-24).
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        figure: Option<(egui::TextureId, egui::Vec2)>,
+    ) -> Outcome {
+        match figure {
+            Some((texture, size)) => {
+                // The figure takes the larger share and is resizable: reading
+                // a log axis's minor ticks sometimes needs most of the window.
+                let width = (ui.available_width() * 0.55).max(240.0);
+                egui::Panel::left("plot-setup-figure-preview")
+                    .resizable(true)
+                    .default_size(width)
+                    .show(ui, |ui| self.figure_preview(ui, texture, size));
+                self.form_ui(ui)
+            }
+            // No raster (the form reached from somewhere that has no crop):
+            // the form still works, it is just harder to fill in.
+            None => self.form_ui(ui),
+        }
+    }
+
+    /// The cropped figure, scaled to fit the panel width and scrollable when
+    /// the operator resizes past it.
+    fn figure_preview(&mut self, ui: &mut egui::Ui, texture: egui::TextureId, size: egui::Vec2) {
+        ui.horizontal(|ui| {
+            ui.strong("Cropped figure");
+            ui.weak(format!("{} x {} px", size.x as u32, size.y as u32));
+        });
+        ui.separator();
+        egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                // Fit to the panel width, but never enlarge past 1:1 -- a
+                // scanned figure upscaled past its own resolution just looks
+                // blurry and reads no better.
+                let avail = ui.available_width().max(1.0);
+                let scale = (avail / size.x.max(1.0)).min(1.0);
+                let shown = size * scale;
+                let (rect, _) = ui.allocate_exact_size(shown, egui::Sense::hover());
+                ui.painter().image(
+                    texture,
+                    rect,
+                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+            });
+    }
+
+    /// The three-stage form itself.
+    fn form_ui(&mut self, ui: &mut egui::Ui) -> Outcome {
         let mut outcome = Outcome::Continue;
 
         ui.heading(format!(
@@ -583,5 +641,16 @@ mod tests {
         let blank = PlotSetup::begin(None, None, None);
         assert!(blank.figure.is_empty() && blank.page.is_empty());
         assert!(blank.figure_error().is_some());
+    }
+
+    /// The form must work with no raster -- reached from anywhere that has no
+    /// crop, it is only harder to fill in, not broken. Pinning the `None` arm
+    /// keeps the preview optional rather than load-bearing.
+    #[test]
+    fn the_form_does_not_require_a_figure_to_exist() {
+        let s = PlotSetup::begin(Some("Fig. 1".into()), None, None);
+        // Nothing about validity depends on a texture being present.
+        assert!(s.figure_error().is_none());
+        assert_eq!(s.stage, Stage::Figure);
     }
 }
