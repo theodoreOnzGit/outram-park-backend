@@ -145,7 +145,9 @@ use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
-use super::kvim_editor::{CompletionSource, {EditorSignal, KvimEditorState}};
+use super::kvim_editor::{
+    CompletionSource, {EditorSignal, KvimEditorState},
+};
 use super::page_canvas::PageView;
 
 /// Screen-resolution DPI for the continuous canvas's page raster and
@@ -604,7 +606,13 @@ impl AnnotateEditor {
     /// page-context panel must land in Insert mode". Someone who has just
     /// drawn a box around a figure means to write a note, not to navigate an
     /// empty buffer.
-    fn open(page: usize, min: Pos2, max: Pos2, text: &str, editing_existing: Option<usize>) -> Self {
+    fn open(
+        page: usize,
+        min: Pos2,
+        max: Pos2,
+        text: &str,
+        editing_existing: Option<usize>,
+    ) -> Self {
         let mut kvim = KvimEditorState::default();
         kvim.load_text(text);
         kvim.begin_insert();
@@ -3084,9 +3092,7 @@ impl PdfReaderState {
             // Esc belongs to it (kvim's Insert -> Normal), and that editor
             // consumes the event itself. Checking here as well would cancel
             // the box the operator is in the middle of annotating.
-            if self.annotate_editor.is_none()
-                && ui.input(|i| i.key_pressed(egui::Key::Escape))
-            {
+            if self.annotate_editor.is_none() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.cancel_box_drawing();
             }
 
@@ -3151,14 +3157,20 @@ impl PdfReaderState {
             if response.secondary_clicked() {
                 if let Some(screen_pos) = response.interact_pointer_pos() {
                     let click = to_image(screen_pos);
-                    if let Some((min, max)) = self.pending_box {
-                        if click.x >= min.x
-                            && click.x <= max.x
-                            && click.y >= min.y
-                            && click.y <= max.y
-                        {
-                            self.toggle_context_menu(screen_pos, ContextMenuTarget::NewBox);
-                        }
+                    // A pending box captures a right-click only when the
+                    // click lands INSIDE it. It used to capture every
+                    // right-click on the page: the hit test sat inside
+                    // `if let Some(pending)`, so a click outside the box fell
+                    // into an empty branch and the `else if`s below -- an
+                    // existing annotation, a saved artifact -- were
+                    // unreachable for as long as a box stayed pending.
+                    //
+                    // Reported as "right click only works after i press esc"
+                    // (maintainer, 2026-09-24), which is exactly the
+                    // symptom: Esc clears `pending_box`, so the branches
+                    // below become reachable again.
+                    if self.pending_box_contains(click) {
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::NewBox);
                     } else if let Some(i) = self
                         .annotations
                         .get(&page)
@@ -3902,6 +3914,20 @@ impl PdfReaderState {
         });
     }
 
+    /// Whether a right-click at image-space `click` lands inside the
+    /// not-yet-confirmed box, and so belongs to it.
+    ///
+    /// `false` with no pending box, and -- the part that matters -- `false`
+    /// for a click outside one. The hit test used to live inside
+    /// `if let Some(pending)`, so a pending box swallowed **every**
+    /// right-click on the page and the branches for an existing annotation
+    /// or a saved artifact were unreachable until it cleared.
+    fn pending_box_contains(&self, click: Pos2) -> bool {
+        self.pending_box.is_some_and(|(min, max)| {
+            click.x >= min.x && click.x <= max.x && click.y >= min.y && click.y <= max.y
+        })
+    }
+
     /// Abandon any box the operator is drawing or has just drawn.
     ///
     /// Three distinct states, all of which mean "there is a box in flight":
@@ -3959,8 +3985,7 @@ impl PdfReaderState {
             // this panel the buffer IS the note (maintainer, 2026-09-24).
             // `:wq` is `:w` -- saving already closes the editor.
             match signal {
-                Some(EditorSignal::Write)
-                | Some(EditorSignal::WriteThenQuit) => save = true,
+                Some(EditorSignal::Write) | Some(EditorSignal::WriteThenQuit) => save = true,
                 // Both quit forms cancel here. In this panel the buffer IS
                 // the note, so "unsaved changes" is not a reason to refuse --
                 // discarding them is precisely what Cancel means. A real file
@@ -5186,7 +5211,10 @@ t_s,power_mw
         // Released but unconfirmed.
         r.pending_box = Some((Pos2::new(1.0, 2.0), Pos2::new(3.0, 4.0)));
         r.cancel_box_drawing();
-        assert!(r.pending_box.is_none(), "an unconfirmed box must be discarded");
+        assert!(
+            r.pending_box.is_none(),
+            "an unconfirmed box must be discarded"
+        );
 
         // All three at once, and idempotent.
         r.draw_start = Some(Pos2::ZERO);
@@ -5196,7 +5224,6 @@ t_s,power_mw
         r.cancel_box_drawing();
         assert!(r.draw_start.is_none() && r.select_start.is_none() && r.pending_box.is_none());
     }
-
 
     // ------------------------------------------------------------------
     // The annotation note editor is modal (maintainer, 2026-09-24).
@@ -5271,4 +5298,43 @@ t_s,power_mw
         assert_eq!(ed.text(), "note");
     }
 
+    /// A pending box owns a right-click **only** where it actually is.
+    ///
+    /// Reported as "right click only works after i press esc" (maintainer,
+    /// 2026-09-24): Esc clears `pending_box`, which was the only way to make
+    /// right-clicking a saved artifact reachable again. The box must not
+    /// capture clicks outside itself.
+    #[test]
+    fn a_pending_box_only_captures_right_clicks_inside_it() {
+        let mut r = PdfReaderState::default();
+        assert!(
+            !r.pending_box_contains(Pos2::new(50.0, 50.0)),
+            "no pending box captures nothing"
+        );
+
+        r.pending_box = Some((Pos2::new(10.0, 10.0), Pos2::new(20.0, 20.0)));
+        assert!(r.pending_box_contains(Pos2::new(15.0, 15.0)), "inside");
+        assert!(
+            r.pending_box_contains(Pos2::new(10.0, 10.0)),
+            "on the corner"
+        );
+        assert!(
+            r.pending_box_contains(Pos2::new(20.0, 20.0)),
+            "on the far corner"
+        );
+
+        // The regression: these must fall through to the artifact branches.
+        for outside in [
+            Pos2::new(9.0, 15.0),
+            Pos2::new(21.0, 15.0),
+            Pos2::new(15.0, 9.0),
+            Pos2::new(15.0, 21.0),
+            Pos2::new(500.0, 500.0),
+        ] {
+            assert!(
+                !r.pending_box_contains(outside),
+                "{outside:?} is outside the box and must not be captured"
+            );
+        }
+    }
 }
