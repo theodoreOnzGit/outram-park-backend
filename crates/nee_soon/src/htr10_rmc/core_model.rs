@@ -64,17 +64,6 @@ pub const HTR10_COOLANT_INNER_CM: f64 = 140.6;
 /// Outer radius \[cm\] of the cold coolant flow annulus (144.6 + 8.0 / 2).
 pub const HTR10_COOLANT_OUTER_CM: f64 = 148.6;
 
-/// Height \[cm\] of the **empty core cavity above the pebble bed** at the
-/// benchmark's critical loading.
-///
-/// Terry (2005) Fig. 2 / IAEA-TECDOC-1382: the core cavity spans z = 130.0 to
-/// 351.818 (221.818 cm, corroborated against Table 2), and the bed occupies
-/// 123.06 cm of that from the conus top upward. What is left above the bed is
-/// **helium, not graphite** — 221.818 − 123.06 = 98.758 cm of it.
-///
-/// Filling that with reflector graphite (as this model did) returns neutrons
-/// that the real reactor leaks, and is worth thousands of pcm.
-pub const HTR10_CAVITY_ABOVE_BED_CM: f64 = 98.758;
 
 /// Total height \[cm\] of the **core cavity**, conus top to cavity top.
 ///
@@ -82,35 +71,45 @@ pub const HTR10_CAVITY_ABOVE_BED_CM: f64 = 98.758;
 /// **fixed geometry** — it does not depend on how much fuel is loaded.
 pub const HTR10_CORE_CAVITY_CM: f64 = 221.818;
 
-/// Void height \[cm\] above a bed of `bed_full_height` cm, in a FIXED cavity.
+/// Void height \[cm\] above a bed of `bed_full_height` cm.
 ///
-/// # Why this exists
+/// # There is only one treatment, and this is it
 ///
-/// [`HTR10_CAVITY_ABOVE_BED_CM`] is the void at **one** loading — the
-/// benchmark's 123.06 cm — and the model applied it as a constant at every
-/// loading, which silently grows the whole cavity with the bed. The cavity is
-/// fixed; it is the *void* that shrinks as fuel is added.
+/// The core cavity is **fixed hardware** ([`HTR10_CORE_CAVITY_CM`], Terry 2005
+/// Fig. 2: `z = 130.0` to `351.818`). It does not grow when fuel is added — it
+/// is the *void above the bed* that shrinks. So the void is simply whatever
+/// the bed does not occupy.
 ///
-/// That is exact at the benchmark point (`221.818 - 123.06 = 98.758`) and
-/// wrong in a known direction away from it: at lower loading the model has too
-/// little void, so reflector graphite sits where the reactor has helium and
-/// `k` reads HIGH; at higher loading it has too much void and `k` reads LOW.
+/// ## What was here before, and why it is gone
 ///
-/// Measured 2026-09-18 across four loadings (dk vs RMC, height-matched):
-/// `-54` at 102.9 cm, `-1259` at 122.5 cm, `-2194` at 147.0 cm, `-1640` at
-/// 171.5 cm — positive-shifted below the benchmark loading and
-/// negative-shifted above it, as this predicts. **The -54 pcm agreement at
-/// 102.9 cm is two errors cancelling, not correctness.**
+/// ~~The model applied a constant 98.758 cm of void at every loading, behind
+/// an `OUTRAM_HTR10_FIXED_CAVITY=1` opt-in, "so no committed result moves
+/// silently".~~ **REMOVED 2026-09-24 (maintainer direction).** That constant
+/// is the void at **one** loading — the benchmark's 123.06 cm, where
+/// `221.818 - 123.06 = 98.758` — and applying it everywhere silently grows the
+/// whole cavity with the bed.
 ///
-/// Enabled by `OUTRAM_HTR10_FIXED_CAVITY=1`; the default keeps the historical
-/// constant so no committed result moves silently.
+/// It was wrong in a known direction away from that point: at lower loading
+/// the model had too little void, so reflector graphite sat where the reactor
+/// has helium and `k` read HIGH; at higher loading it had too much void and
+/// `k` read LOW. Measured 2026-09-18 across four loadings (dk vs RMC,
+/// height-matched): `-54` at 102.9 cm, `-1259` at 122.5 cm, `-2194` at
+/// 147.0 cm, `-1640` at 171.5 cm — exactly that signature. **The -54 pcm
+/// agreement at 102.9 cm was two errors cancelling, not correctness.**
+///
+/// Keeping the correct treatment behind an opt-in meant nobody passed it and a
+/// loading sweep could be run incoherently with nothing to catch it (gh:#292);
+/// it also violated the workspace rule that correct physics is the default and
+/// an ablation must be the explicit act. Both the flag and the constant are
+/// now deleted, so every caller gets the fixed cavity with no way to opt out.
+///
+/// **This changes results measured under the old default.** Any recorded
+/// number that did not set `OUTRAM_HTR10_FIXED_CAVITY=1` was computed with the
+/// constant void and must be re-measured before it is quoted again; the shift
+/// is ~zero at the benchmark loading and grows with distance from it.
 #[must_use]
 pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 {
-    if std::env::var("OUTRAM_HTR10_FIXED_CAVITY").is_ok() {
-        (HTR10_CORE_CAVITY_CM - bed_full_height_cm).max(0.0)
-    } else {
-        HTR10_CAVITY_ABOVE_BED_CM
-    }
+    (HTR10_CORE_CAVITY_CM - bed_full_height_cm).max(0.0)
 }
 
 /// Axial reflector thickness \[cm\] beyond the core cavity / bed.
