@@ -882,6 +882,14 @@ pub struct PdfReaderState {
     /// reading position lives in this struct and survives regardless of
     /// whether egui still holds state for the scroll area.
     last_drawn_pass: Option<u64>,
+    /// Whether annotation cards show their body preview.
+    ///
+    /// Off collapses every card to a single heading line. With five to seven
+    /// annotations on one page -- routine when indexing a paper -- four lines
+    /// of preview each turns the panel into a scroll hunt, and the heading is
+    /// what you navigate by (maintainer, 2026-09-24). Defaults to on, so the
+    /// panel still explains itself on first use.
+    show_summaries: bool,
     /// A scroll offset to force on the **next** frame — set by a
     /// pointer-anchored zoom (Ctrl+scroll, `+`/`-`) so the document point
     /// under the mouse stays under the mouse. `ScrollArea` applies it before
@@ -1067,6 +1075,16 @@ fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) ->
 /// A short read-only preview of an artifact body for the page-context
 /// panel — the first few non-empty lines, capped, with an ellipsis when
 /// there is more.
+/// Height budget for the annotation-card list in the page-context panel.
+///
+/// Bounded so a page with a dozen annotations cannot push the read-only
+/// preview off the bottom of the panel, which is what happened when both
+/// shared one unbounded scroll area.
+const CONTEXT_LIST_MAX_HEIGHT: f32 = 320.0;
+
+/// Height budget for the read-only markdown preview below the card list.
+const CONTEXT_PREVIEW_MAX_HEIGHT: f32 = 260.0;
+
 fn body_preview(body: &str) -> String {
     const MAX_LINES: usize = 4;
     const MAX_CHARS: usize = 280;
@@ -1130,6 +1148,10 @@ impl PdfReaderState {
         Self {
             hot_reload: HotReload::new(true),
             show_thumbs: true,
+            // On, so the panel explains itself on first use. `derive(Default)`
+            // would give `false` and a new user would meet a column of bare
+            // headings with no hint that a body exists.
+            show_summaries: true,
             ..Self::default()
         }
     }
@@ -2178,94 +2200,146 @@ impl PdfReaderState {
             }
         }
 
-        egui::ScrollArea::vertical()
-            .id_salt("pdf_context_panel_scroll")
-            .show(ui, |ui| {
-                if anchored.is_empty() {
-                    ui.small("nothing saved for this page yet");
+        // TWO SECTIONS, EACH COLLAPSIBLE AND EACH WITH ITS OWN SCROLL
+        // (maintainer, 2026-09-24).
+        //
+        // Both used to live in ONE scroll area, so a page with several
+        // annotations pushed the read-only preview off the bottom and the
+        // only way to reach it was to scroll past every summary. Neither
+        // could be folded away. Now each has a header that remembers its own
+        // open/closed state, and a bounded height so one cannot crowd out
+        // the other.
+        //
+        // Both default to OPEN: collapsing is offered, not imposed, and a
+        // panel that starts empty would hide the very thing it exists to
+        // show. egui persists the choice per header id.
+        let n_anchored = anchored.len();
+        egui::CollapsingHeader::new(if n_anchored == 1 {
+            "Annotations (1)".to_string()
+        } else {
+            format!("Annotations ({n_anchored})")
+        })
+        .id_salt("pdf_context_annotations")
+        .default_open(true)
+        .show(ui, |ui| {
+            // One control for every card, rather than a collapsing header per
+            // card: a per-card header would swallow the single click that opens
+            // a text block for editing.
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.show_summaries, "summaries");
+                if !self.show_summaries {
+                    ui.small("headings only");
                 }
-                for artifact in &anchored {
-                    let id = artifact.id().to_string();
-                    let linked = hovered_block.is_some_and(|h| h.id() == id);
-                    let fill = if linked {
-                        Color32::from_rgba_unmultiplied(255, 230, 60, 40)
-                    } else {
-                        Color32::TRANSPARENT
-                    };
-                    // A text block opens on a single click (GH issue #35
-                    // 2026-09-02: "a single click to bring me into insert mode");
-                    // a digitised table/graph still needs a double-click, since
-                    // opening the digitiser is the heavier action and its card is
-                    // also the canvas-highlight hover target.
-                    let mut open_on_single_click = false;
-                    let inner = egui::Frame::new()
-                        .fill(fill)
-                        .inner_margin(4.0)
-                        .show(ui, |ui| match artifact.kind() {
-                            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                                let icon = if artifact.kind() == ArtifactKind::DigitisedTable {
-                                    "\u{1F4CA}"
-                                } else {
-                                    "\u{1F4C8}"
-                                };
-                                ui.label(format!("{icon} {}", artifact.heading));
-                                if let Some(csv) = artifact.csv_block() {
-                                    // Copy CSV stays here too: reinstated
-                                    // 2026-09-08 on maintainer use — reading
-                                    // a figure's numbers straight out of the
-                                    // reader is convenient enough to earn
-                                    // the button's space.
-                                    draw_csv_preview(ui, csv, &id);
-                                }
-                                ui.small("double-click → go to page · right-click → menu");
-                            }
-                            _ => {
-                                open_on_single_click = true;
-                                ui.label(format!("\u{1F4DD} {}", artifact.heading));
-                                if !artifact.body.trim().is_empty() {
-                                    ui.monospace(body_preview(&artifact.body));
-                                }
-                                ui.small("click → edit · right-click → menu");
-                            }
-                        });
-                    if inner.response.hovered() {
-                        panel_hover = Some(id.clone());
+            });
+            let show_summaries = self.show_summaries;
+            egui::ScrollArea::vertical()
+                .id_salt("pdf_context_panel_scroll")
+                .max_height(CONTEXT_LIST_MAX_HEIGHT)
+                .show(ui, |ui| {
+                    if anchored.is_empty() {
+                        ui.small("nothing saved for this page yet");
                     }
-                    // Right-click anywhere on the card opens the same menu a
-                    // right-click on its canvas box does — every artifact
-                    // gets a dropdown, including the ones with no region to
-                    // click on (maintainer, GH issue #35, 2026-09-08).
-                    if inner.response.secondary_clicked() {
-                        let screen_pos = inner
-                            .response
-                            .interact_pointer_pos()
-                            .unwrap_or_else(|| inner.response.rect.center());
-                        self.toggle_context_menu(
-                            screen_pos,
-                            ContextMenuTarget::SavedArtifact(id.clone()),
-                        );
+                    for artifact in &anchored {
+                        let id = artifact.id().to_string();
+                        let linked = hovered_block.is_some_and(|h| h.id() == id);
+                        let fill = if linked {
+                            Color32::from_rgba_unmultiplied(255, 230, 60, 40)
+                        } else {
+                            Color32::TRANSPARENT
+                        };
+                        // A text block opens on a single click (GH issue #35
+                        // 2026-09-02: "a single click to bring me into insert mode");
+                        // a digitised table/graph still needs a double-click, since
+                        // opening the digitiser is the heavier action and its card is
+                        // also the canvas-highlight hover target.
+                        let mut open_on_single_click = false;
+                        let inner =
+                            egui::Frame::new()
+                                .fill(fill)
+                                .inner_margin(4.0)
+                                .show(ui, |ui| match artifact.kind() {
+                                    ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                                        let icon =
+                                            if artifact.kind() == ArtifactKind::DigitisedTable {
+                                                "\u{1F4CA}"
+                                            } else {
+                                                "\u{1F4C8}"
+                                            };
+                                        ui.label(format!("{icon} {}", artifact.heading));
+                                        if show_summaries {
+                                            if let Some(csv) = artifact.csv_block() {
+                                                // Copy CSV stays here too: reinstated
+                                                // 2026-09-08 on maintainer use — reading
+                                                // a figure's numbers straight out of the
+                                                // reader is convenient enough to earn
+                                                // the button's space.
+                                                draw_csv_preview(ui, csv, &id);
+                                            }
+                                            ui.small(
+                                                "double-click → go to page · right-click → menu",
+                                            );
+                                        }
+                                    }
+                                    _ => {
+                                        open_on_single_click = true;
+                                        ui.label(format!("\u{1F4DD} {}", artifact.heading));
+                                        if show_summaries {
+                                            if !artifact.body.trim().is_empty() {
+                                                ui.monospace(body_preview(&artifact.body));
+                                            }
+                                            ui.small("click → edit · right-click → menu");
+                                        }
+                                    }
+                                });
+                        if inner.response.hovered() {
+                            panel_hover = Some(id.clone());
+                        }
+                        // Right-click anywhere on the card opens the same menu a
+                        // right-click on its canvas box does — every artifact
+                        // gets a dropdown, including the ones with no region to
+                        // click on (maintainer, GH issue #35, 2026-09-08).
+                        if inner.response.secondary_clicked() {
+                            let screen_pos = inner
+                                .response
+                                .interact_pointer_pos()
+                                .unwrap_or_else(|| inner.response.rect.center());
+                            self.toggle_context_menu(
+                                screen_pos,
+                                ContextMenuTarget::SavedArtifact(id.clone()),
+                            );
+                        }
+                        let opened = if open_on_single_click {
+                            inner.response.clicked() || inner.response.double_clicked()
+                        } else {
+                            inner.response.double_clicked()
+                        };
+                        if opened {
+                            open_target = Some(id.clone());
+                        }
+                        if show_summaries {
+                            ui.separator();
+                        }
                     }
-                    let opened = if open_on_single_click {
-                        inner.response.clicked() || inner.response.double_clicked()
-                    } else {
-                        inner.response.double_clicked()
-                    };
-                    if opened {
-                        open_target = Some(id.clone());
-                    }
-                    ui.separator();
-                }
+                });
+        });
 
-                ui.add_space(8.0);
-                ui.strong("Preview (read-only)");
-                if let Some(line) = context_editor.ui_readonly(ui) {
-                    if let Some(a) = artifacts
-                        .iter()
-                        .find(|a| block_span(&editor_text, a).contains(&line))
-                    {
-                        open_target = Some(a.id().to_string());
-                    }
-                }
+        egui::CollapsingHeader::new("Preview (read-only)")
+            .id_salt("pdf_context_preview")
+            .default_open(true)
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("pdf_context_preview_scroll")
+                    .max_height(CONTEXT_PREVIEW_MAX_HEIGHT)
+                    .show(ui, |ui| {
+                        if let Some(line) = context_editor.ui_readonly(ui) {
+                            if let Some(a) = artifacts
+                                .iter()
+                                .find(|a| block_span(&editor_text, a).contains(&line))
+                            {
+                                open_target = Some(a.id().to_string());
+                            }
+                        }
+                    });
             });
 
         self.panel_hover_id = panel_hover;
@@ -4214,7 +4288,13 @@ mod tests {
     fn new_reader_starts_with_hot_reload_on_and_otherwise_default() {
         let r = PdfReaderState::new();
         assert!(r.hot_reload.is_enabled());
-        // `new()` only overrides hot-reload.
+        // `new()` overrides the three flags that start on; everything else
+        // is the derived default.
+        assert!(r.show_thumbs, "thumbnail strip starts visible");
+        assert!(
+            r.show_summaries,
+            "annotation bodies start visible -- collapsing is offered, not imposed"
+        );
         assert!(r.path.is_empty());
         assert!(r.annotations.is_empty());
         assert!(r.search.query.is_empty());
