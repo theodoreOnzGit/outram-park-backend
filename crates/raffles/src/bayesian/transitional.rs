@@ -918,11 +918,7 @@ fn cholesky_scaled(
     // A floor relative to the matrix's own size, so the regularisation is
     // scale-free: a covariance in units of 1e12 needs a bigger nudge than one
     // in units of 1e-12.
-    let base = if trace > 0.0 {
-        trace / d as f64
-    } else {
-        1.0
-    };
+    let base = if trace > 0.0 { trace / d as f64 } else { 1.0 };
 
     let mut jitter = 0.0;
     for attempt in 0..12 {
@@ -1013,19 +1009,16 @@ mod tests {
     /// Twelve observations with mean 2.5, standard deviation 1, used by every
     /// conjugate test below.
     fn data() -> Vec<f64> {
-        vec![
-            2.1, 3.4, 1.9, 2.8, 2.2, 3.1, 2.6, 2.0, 3.0, 2.4, 2.9, 1.6,
-        ]
+        vec![2.1, 3.4, 1.9, 2.8, 2.2, 3.1, 2.6, 2.0, 3.0, 2.4, 2.9, 1.6]
     }
 
     fn conjugate_setup() -> (Vec<f64>, f64, f64, f64, IndependentPrior) {
         let sigma = 1.0;
         let mu_0 = 0.0;
         let tau = 5.0;
-        let prior = IndependentPrior::new(vec![Distribution::Normal(
-            Normal::new(mu_0, tau).unwrap(),
-        )])
-        .unwrap();
+        let prior =
+            IndependentPrior::new(vec![Distribution::Normal(Normal::new(mu_0, tau).unwrap())])
+                .unwrap();
         (data(), sigma, mu_0, tau, prior)
     }
 
@@ -1069,10 +1062,7 @@ mod tests {
         );
 
         assert!((mean - ref_mean).abs() < 0.05, "mean {mean} vs {ref_mean}");
-        assert!(
-            (sd - ref_sd).abs() < 0.15 * ref_sd,
-            "sd {sd} vs {ref_sd}"
-        );
+        assert!((sd - ref_sd).abs() < 0.15 * ref_sd, "sd {sd} vs {ref_sd}");
         assert!(
             (result.ln_evidence - ref_ln_evidence).abs() < 0.5,
             "ln evidence {} vs {ref_ln_evidence}",
@@ -1182,19 +1172,18 @@ mod tests {
     fn evidence_carries_the_occam_factor_of_a_wider_prior() {
         let y = data();
         let sigma = 1.0;
-        let narrow = IndependentPrior::new(vec![Distribution::Normal(
-            Normal::new(0.0, 5.0).unwrap(),
-        )])
-        .unwrap();
-        let wide = IndependentPrior::new(vec![Distribution::Normal(
-            Normal::new(0.0, 50.0).unwrap(),
-        )])
-        .unwrap();
+        let narrow =
+            IndependentPrior::new(vec![Distribution::Normal(Normal::new(0.0, 5.0).unwrap())])
+                .unwrap();
+        let wide =
+            IndependentPrior::new(vec![Distribution::Normal(Normal::new(0.0, 50.0).unwrap())])
+                .unwrap();
 
         let config = TransitionalConfig::temcmc_defaults(3_000, 777).unwrap();
         let narrow_result =
             temcmc(&narrow, conjugate_ln_likelihood(y.clone(), sigma), &config).unwrap();
-        let wide_result = temcmc(&wide, conjugate_ln_likelihood(y.clone(), sigma), &config).unwrap();
+        let wide_result =
+            temcmc(&wide, conjugate_ln_likelihood(y.clone(), sigma), &config).unwrap();
 
         let (_, _, narrow_ref) = conjugate_reference(&y, sigma, 0.0, 5.0);
         let (_, _, wide_ref) = conjugate_reference(&y, sigma, 0.0, 50.0);
@@ -1232,10 +1221,9 @@ mod tests {
     /// (2026-09-16).
     #[test]
     fn a_prior_that_never_overlaps_the_data_is_an_error() {
-        let prior = IndependentPrior::new(vec![Distribution::Normal(
-            Normal::new(0.0, 1.0).unwrap(),
-        )])
-        .unwrap();
+        let prior =
+            IndependentPrior::new(vec![Distribution::Normal(Normal::new(0.0, 1.0).unwrap())])
+                .unwrap();
         let config = TransitionalConfig::tmcmc_defaults(100, 1).unwrap();
         let err = tmcmc(&prior, |_: &[f64]| f64::NEG_INFINITY, &config).unwrap_err();
         assert!(matches!(err, RafflesError::InvalidParameter { .. }));
@@ -1342,8 +1330,10 @@ mod tests {
         let classic = TransitionalConfig::temcmc_defaults(2_000, 20_260_916).unwrap();
         let tmcmc_ii = TransitionalConfig::tmcmc_ii_defaults(2_000, 20_260_916).unwrap();
 
-        for (name, config) in [("CoV = 1 (Ching & Chen)", classic), ("ESS = N/2 (TMCMC-II)", tmcmc_ii)]
-        {
+        for (name, config) in [
+            ("CoV = 1 (Ching & Chen)", classic),
+            ("ESS = N/2 (TMCMC-II)", tmcmc_ii),
+        ] {
             let result =
                 run_transitional(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config)
                     .unwrap();
@@ -1411,9 +1401,11 @@ mod tests {
     /// **Result.** All three rejected (2026-09-16).
     #[test]
     fn a_malformed_tempering_criterion_is_refused() {
-        assert!(TemperingCriterion::WeightCoefficientOfVariation { target: 0.0 }
-            .validate()
-            .is_err());
+        assert!(
+            TemperingCriterion::WeightCoefficientOfVariation { target: 0.0 }
+                .validate()
+                .is_err()
+        );
         assert!(TemperingCriterion::EffectiveSampleSize { fraction: 0.0 }
             .validate()
             .is_err());
@@ -1453,7 +1445,9 @@ mod tests {
     #[test]
     fn effective_sample_size_and_weight_cov_are_the_same_criterion() {
         // A spread of log-likelihoods with real structure, not a flat set.
-        let ln_l: Vec<f64> = (0..500).map(|i| -0.01 * (i as f64 - 250.0).powi(2)).collect();
+        let ln_l: Vec<f64> = (0..500)
+            .map(|i| -0.01 * (i as f64 - 250.0).powi(2))
+            .collect();
         let n = ln_l.len() as f64;
 
         let mut worst = 0.0_f64;
@@ -1738,8 +1732,7 @@ mod tests {
                 let mut config =
                     TransitionalConfig::temcmc_defaults(2_000, 20_260_916 + s).unwrap();
                 config.chain_length = chain_length;
-                let r = temcmc(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config)
-                    .unwrap();
+                let r = temcmc(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config).unwrap();
                 let n = r.samples.len() as f64;
                 let m = r.samples.iter().map(|t| t[0]).sum::<f64>() / n;
                 // Sample sd, matching Octave's std(), so the two columns are
@@ -1776,7 +1769,10 @@ mod tests {
             ] {
                 let se = (ours_sd * ours_sd / 5.0 + theirs_sd * theirs_sd / his_seeds).sqrt();
                 let z = (ours - theirs).abs() / se;
-                println!("  {label}: |ours - his| = {:.6}, {z:.2} standard errors", (ours - theirs).abs());
+                println!(
+                    "  {label}: |ours - his| = {:.6}, {z:.2} standard errors",
+                    (ours - theirs).abs()
+                );
                 if chain_length == 3 {
                     assert!(
                         z < 3.0,

@@ -117,6 +117,11 @@ openmc_spectrum.csv
 crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/ace/
 crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/
 
+# Machine-specific run diagnostics and perf reports. `LOCAL_PERF_DIR` is a
+# RELATIVE path, so a run launched from the workspace root writes here rather
+# than under crates/outram-mc-libs/ where the crate-level rule catches it.
+/verification_and_validation/local_perf/
+
 # ── Generated ACE tables ────────────────────────────────────────────────────
 #
 # `examples/godiva_ace_roundtrip.rs` and `examples/lct008_ace_roundtrip.rs`

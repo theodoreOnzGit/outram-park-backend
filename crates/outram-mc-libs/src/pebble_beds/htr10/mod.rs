@@ -180,18 +180,49 @@ pub struct Htr10Nuclides {
     pub u238: usize,
     /// O-16.
     pub o16: usize,
-    /// Free-gas carbon — the SiC layer only.
+    /// Free-gas carbon — the **ablation arm only**.
+    ///
+    /// Was the SiC layer's carbon until 2026-09-23. It is not that any more:
+    /// SiC has its own bound thermal law and [`Self::c_sic`] carries it. This
+    /// slot survives so `OUTRAM_HTR10_NO_SAB` can still strip every S(alpha,
+    /// beta) and measure what they are worth.
     pub c_free: usize,
     /// Graphite-bound carbon (with S(alpha,beta)) — buffer, PyC, matrix, shell.
     ///
     /// Using free-gas carbon here would misrepresent the thermal spectrum a
     /// graphite-moderated pebble lives in. The distinction is not cosmetic.
     pub c_graphite: usize,
-    /// Si-28.
+    /// Si-28, bound in SiC (with S(alpha,beta)).
     pub si28: usize,
     /// B-10 — the impurity absorber.
     pub b10: usize,
+    /// Carbon bound in **SiC**, with the C-in-SiC S(alpha,beta).
+    ///
+    /// Added 2026-09-23. The SiC coating's carbon had been free-gas, which
+    /// is the same error the doc on [`Self::c_graphite`] warns about one
+    /// layer out: SiC is a crystal, its carbon is bound, and ENDF/B-VIII.0
+    /// ships `tsl-CinSiC` (MAT 44) precisely so it need not be approximated.
+    pub c_sic: usize,
+    /// Si-29, bound in SiC.
+    ///
+    /// Added 2026-09-23. Natural silicon is 92.223 % Si-28, **4.685 % Si-29
+    /// and 3.092 % Si-30**, and the model carried all of it as Si-28. The
+    /// atom density was always computed from silicon's NATURAL molar mass,
+    /// so the total was right and only the isotopic split was missing.
+    pub si29: usize,
+    /// Si-30, bound in SiC. See [`Self::si29`].
+    pub si30: usize,
 }
+
+/// Natural silicon isotopic abundances, atom fractions (IUPAC).
+///
+/// The SiC atom density is built from silicon's natural molar mass, so these
+/// split a total that is already correct rather than changing it.
+pub const SI28_ATOM_FRACTION: f64 = 0.922_23;
+/// See [`SI28_ATOM_FRACTION`].
+pub const SI29_ATOM_FRACTION: f64 = 0.046_85;
+/// See [`SI28_ATOM_FRACTION`].
+pub const SI30_ATOM_FRACTION: f64 = 0.030_92;
 
 /// Atom density \[atoms/b-cm\] from a mass density \[g/cm3\] and a molar mass.
 #[must_use]
@@ -273,7 +304,19 @@ pub fn fuel_pebble_materials(
         ),
         graphite(1, "buffer PyC", RHO_BUFFER),
         graphite(2, "IPyC", RHO_PYC),
-        mat(3, "SiC", &[(n.si28, n_sic), (n.c_free, n_sic)]),
+        // SiC: silicon split over its three natural isotopes, and the carbon
+        // taken as BOUND in SiC rather than free gas. Both were wrong before
+        // 2026-09-23 -- see `Htr10Nuclides::c_sic` and `::si29`.
+        mat(
+            3,
+            "SiC",
+            &[
+                (n.si28, SI28_ATOM_FRACTION * n_sic),
+                (n.si29, SI29_ATOM_FRACTION * n_sic),
+                (n.si30, SI30_ATOM_FRACTION * n_sic),
+                (n.c_sic, n_sic),
+            ],
+        ),
         graphite(4, "OPyC", RHO_PYC),
         graphite(5, "matrix graphite", RHO_GRAPHITE),
         graphite(6, "shell graphite", RHO_GRAPHITE),

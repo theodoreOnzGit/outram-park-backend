@@ -432,6 +432,127 @@ pub fn replace_artifact_body(
     Ok(refreshed.get(id).expect("just replaced").clone())
 }
 
+/// What should happen to one classification path or relation endpoint when a
+/// concept is renamed, moved or deleted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PathChange {
+    /// Not affected by this operation.
+    Keep,
+    /// Now lives at this path.
+    To(String),
+    /// The concept is gone; drop the reference.
+    Remove,
+}
+
+/// Rewrite every concept path a markdown document refers to, returning the
+/// new document, or `None` when nothing referred to anything that changed.
+///
+/// A concept path appears in two places inside an artifact block, and both
+/// are rewritten here:
+///
+/// - its `[classification]` topics and projects;
+/// - a `[relation]` endpoint naming a collection (`collection:<path>`),
+///   which is how a connection from an artifact to a concept is stored.
+///
+/// Wiki links are deliberately **not** touched: `[[target]]` and
+/// `[[target#artifact]]` name a citekey, never a collection
+/// ([`crate::graph::WikiLinkRef`]), so a concept rename cannot invalidate
+/// one.
+///
+/// Each block is re-rendered through the same
+/// [`render_artifact_block`] path [`replace_artifact_body`] uses, so the
+/// `[kovan]` TOML stays exactly as `parse_document` expects and no block is
+/// ever hand-edited as raw text. `modified` is bumped on each block that
+/// actually changes, and only on those.
+///
+/// # Errors
+///
+/// [`ClassifyError::Render`] if re-serialising a block's metadata fails.
+/// The document is returned unchanged in that case — nothing is written
+/// here, so a caller that stops on the error has altered nothing.
+pub fn retarget_document<F>(md: &str, map: F) -> Result<Option<String>, ClassifyError>
+where
+    F: Fn(&str) -> PathChange,
+{
+    // Which collection path, if any, this endpoint names.
+    let endpoint_path = |node: &str| node.strip_prefix("collection:").map(str::to_string);
+
+    let ids: Vec<String> = parse_document(md)
+        .artifacts
+        .iter()
+        .map(|a| a.id().to_string())
+        .collect();
+
+    let mut current = md.to_string();
+    let mut changed_any = false;
+
+    for id in ids {
+        // Re-parse each time: an earlier splice moved every later span.
+        // Documents are small and this is a rare, deliberate operation, so
+        // correctness is worth more here than one pass.
+        let parsed = parse_document(&current);
+        let Some(artifact) = parsed.get(&id) else {
+            continue;
+        };
+        let mut toml = artifact.toml.clone();
+        let mut changed = false;
+
+        for list in [
+            &mut toml.classification.topics,
+            &mut toml.classification.projects,
+        ] {
+            let mut out = Vec::with_capacity(list.len());
+            for path in list.iter() {
+                match map(path) {
+                    PathChange::Keep => out.push(path.clone()),
+                    PathChange::To(q) => {
+                        changed = true;
+                        // A rename can collide with a path already listed.
+                        if !out.contains(&q) {
+                            out.push(q);
+                        }
+                    }
+                    PathChange::Remove => changed = true,
+                }
+            }
+            if out.len() != list.len() || &out != list {
+                *list = out;
+            }
+        }
+
+        if let Some(rel) = toml.relation.as_mut() {
+            for end in [&mut rel.source, &mut rel.target] {
+                if let Some(path) = endpoint_path(end) {
+                    match map(&path) {
+                        PathChange::Keep => {}
+                        PathChange::To(q) => {
+                            *end = format!("collection:{q}");
+                            changed = true;
+                        }
+                        // A relation with a deleted endpoint is dangling;
+                        // the caller drops the whole relation artifact
+                        // rather than leaving half of one, so this is only
+                        // reached for a relation the caller keeps.
+                        PathChange::Remove => changed = true,
+                    }
+                }
+            }
+        }
+
+        if !changed {
+            continue;
+        }
+        toml.kovan.modified = utc_now_iso8601();
+        let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, &artifact.body)
+            .map_err(ClassifyError::Render)?;
+        let span = block_span(&current, artifact);
+        current = splice_lines(&current, span, &rendered);
+        changed_any = true;
+    }
+
+    Ok(changed_any.then_some(current))
+}
+
 /// Save a digitised table/graph's CSV into `session`'s buffer as a
 /// `[kovan]` artifact — the single path both digitiser tabs' "save into
 /// notes" goes through (GH issue #35 2026-09-02: digitised blocks become

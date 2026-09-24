@@ -18,7 +18,31 @@ fn main() {
         "c_Graphite",
     )
     .ok();
-    let (Some(u5), Some(u8), Some(o), Some(cf), Some(cg), Some(si), Some(b)) = (
+    // SiC's carbon and silicon are bound in a crystal, not a free gas.
+    // ENDF/B-VIII.0 ships tsl-CinSiC (MAT 44) and tsl-SiinSiC (MAT 43) so the
+    // coating need not be approximated; a missing law falls back to free gas
+    // rather than dropping the nuclide.
+    let sic_law = |mat_no: i32, file: &str, name: &'static str| -> Option<ThermalScattering> {
+        ThermalScattering::from_endf_file(dir.join(file).to_str()?, mat_no, 293.6, name).ok()
+    };
+    let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
+    let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
+    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
+        Some(t) => n.with_thermal_scattering(t.clone()),
+        None => n,
+    };
+    let (
+        Some(u5),
+        Some(u8),
+        Some(o),
+        Some(cf),
+        Some(cg),
+        Some(si),
+        Some(b),
+        Some(c_sic),
+        Some(si29),
+        Some(si30),
+    ) = (
         l("U235", "n-092_U_235-ENDF8.0.endf"),
         l("U238", "n-092_U_238.endf"),
         l("O16", "n-008_O_016-ENDF8.0.endf"),
@@ -26,6 +50,9 @@ fn main() {
         l("C12", "n-006_C_012-ENDF8.0.endf"),
         l("Si28", "n-014_Si_028-ENDF8.0.endf"),
         l("B10", "n-005_B_010-ENDF8.0.endf"),
+        l("C12", "n-006_C_012-ENDF8.0.endf"),
+        l("Si29", "n-014_Si_029-ENDF8.0.endf"),
+        l("Si30", "n-014_Si_030-ENDF8.0.endf"),
     ) else {
         println!("SKIP: no endf dir");
         return;
@@ -36,8 +63,14 @@ fn main() {
         o,
         cf,
         cg.with_thermal_scattering(sab.unwrap()),
-        si,
+        bind_sic(si, &si_in_sic),
         b,
+        // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
+        // isotopes. The atom density was always built from silicon's natural
+        // molar mass, so this splits a correct total rather than changing it.
+        bind_sic(c_sic, &c_in_sic),
+        bind_sic(si29, &si_in_sic),
+        bind_sic(si30, &si_in_sic),
     ];
     let idx = Htr10Nuclides {
         u235: 0,
@@ -47,6 +80,10 @@ fn main() {
         c_graphite: 4,
         si28: 5,
         b10: 6,
+        // Appended 2026-09-23: slots 0..=6 keep their indices.
+        c_sic: 7,
+        si29: 8,
+        si30: 9,
     };
     let mut mats = fuel_pebble_materials(idx, BoronReading::Natural, 293.6);
     mats.truncate(6);

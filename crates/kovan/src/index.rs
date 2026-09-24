@@ -82,6 +82,79 @@ pub struct PaperEntry {
     pub topics: Vec<String>,
     #[serde(default)]
     pub projects: Vec<String>,
+    /// Collection paths this paper is reachable through because one of its
+    /// **artifacts** is connected to them (#276), rather than because the
+    /// paper itself is filed there.
+    ///
+    /// A paper's own classification says where the *paper* belongs; an
+    /// artifact's connection says where that *finding* belongs. A
+    /// fuel-performance paper whose Figure 3 is a thermal-conductivity
+    /// correlation is legitimately reachable from both topics, and this is
+    /// what carries the second one. Kept **separate** from `topics` and
+    /// `projects` so the distinction survives: filing a figure must never
+    /// read as having refiled the paper, and a view can say *why* a paper
+    /// appears under a topic.
+    #[serde(default)]
+    pub via_artifacts: Vec<String>,
+}
+
+/// Fill each paper's [`PaperEntry::via_artifacts`] from the user's
+/// connections (#276).
+///
+/// A connection whose **source** is an artifact of paper `P` and whose
+/// **target** is a collection means: that finding belongs to that
+/// collection, so `P` is reachable from it. Connections pointing at papers
+/// or at other artifacts are not classifications and are skipped here —
+/// they are relationships between findings, which the graph shows
+/// separately.
+///
+/// Best effort: a library with no connections file simply yields none, which
+/// is the ordinary case and not an error.
+fn attach_artifact_connections(root: &KovanRoot, papers: &mut [PaperEntry]) {
+    use crate::node_id::EntryKind;
+    let relations = crate::relation::connections_all(root);
+    if relations.is_empty() {
+        return;
+    }
+    for paper in papers.iter_mut() {
+        let mut found: Vec<String> = relations
+            .iter()
+            .filter_map(|r| {
+                // Both endpoints are stored as identity *strings*, so they
+                // are parsed rather than matched on shape — a substring test
+                // would confuse `artifact:a2020x#fig3` with a paper whose
+                // citekey merely starts the same way.
+                //
+                // **They are `graph`-style ids** (`paper:…`, `collection:…`,
+                // `artifact:<citekey>#<id>`), which `NodeId::from_graph_id`
+                // reads and `NodeId::parse` does **not**: `parse` expects the
+                // typed `<namespace>:<kind>/<path>` form, so it rejects
+                // `artifact:…` at the namespace and returns `Err`. Using it
+                // here dropped every relation silently and left
+                // `via_artifacts` permanently empty — a connected artifact
+                // changed nothing anywhere (maintainer, 2026-09-22).
+                //
+                // `parse` is still tried second: a target may be a **corpus**
+                // node (`corpus:concept/…`), which only `parse` understands,
+                // now that the connection finder offers the corpus.
+                let read = |id: &str| {
+                    crate::node_id::NodeId::from_graph_id(id)
+                        .or_else(|| crate::node_id::NodeId::parse(id).ok())
+                };
+                let source = read(&r.source)?;
+                let target = read(&r.target)?;
+                let from_this_paper = source.kind == EntryKind::Literature
+                    && source.artifact.is_some()
+                    && source.path == paper.citekey;
+                (from_this_paper && target.kind == EntryKind::Concept).then_some(target.path)
+            })
+            .collect();
+        found.sort();
+        found.dedup();
+        // A path the paper is already filed under directly adds nothing.
+        found.retain(|p| !paper.topics.contains(p) && !paper.projects.contains(p));
+        paper.via_artifacts = found;
+    }
 }
 
 /// One collection node (a topic or project), as recorded in the index.
@@ -136,6 +209,7 @@ impl KnowledgeIndex {
         let mut papers = Vec::new();
         scan_papers(&root.paper_dirs(), &mut papers);
         papers.sort_by(|a, b| a.citekey.cmp(&b.citekey));
+        attach_artifact_connections(root, &mut papers);
 
         Self {
             schema_version: INDEX_SCHEMA_VERSION,
@@ -213,7 +287,12 @@ impl KnowledgeIndex {
         self.papers
             .iter()
             .filter(|p| {
-                p.topics.iter().any(|t| t == path) || p.projects.iter().any(|pr| pr == path)
+                p.topics.iter().any(|t| t == path)
+                    || p.projects.iter().any(|pr| pr == path)
+                    // Reached through one of its artifacts (#276) — the
+                    // paper appears under this topic without being filed
+                    // there itself.
+                    || p.via_artifacts.iter().any(|t| t == path)
             })
             .collect()
     }
@@ -282,6 +361,10 @@ fn scan_papers(dirs: &[std::path::PathBuf], out: &mut Vec<PaperEntry>) {
             access: config.source.map(|s| s.access).unwrap_or_default(),
             topics: config.classification.topics,
             projects: config.classification.projects,
+            // Filled by `attach_artifact_connections` once every paper is
+            // scanned: it reads the library's connections, not this paper's
+            // own `kovan.toml`.
+            via_artifacts: Vec::new(),
         });
     }
 }
@@ -289,6 +372,42 @@ fn scan_papers(dirs: &[std::path::PathBuf], out: &mut Vec<PaperEntry>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A paper is reachable from a topic one of its **artifacts** is
+    /// connected to, without being filed there itself (#276) — the
+    /// "this can add the paper into multiple categories" effect.
+    ///
+    /// The two routes stay distinguishable: `topics` is where the *paper*
+    /// is filed, `via_artifacts` where a *finding* in it points.
+    #[test]
+    fn a_paper_is_reachable_through_its_artifacts_connections() {
+        let index = KnowledgeIndex {
+            papers: vec![PaperEntry {
+                citekey: "ong2026fuel".to_string(),
+                access: Default::default(),
+                topics: vec!["htgrs/fuel".to_string()],
+                projects: Vec::new(),
+                via_artifacts: vec!["materials/thermal-conductivity".to_string()],
+            }],
+            ..Default::default()
+        };
+
+        assert_eq!(index.papers_in("htgrs/fuel").len(), 1, "filed directly");
+        assert_eq!(
+            index.papers_in("materials/thermal-conductivity").len(),
+            1,
+            "reached through an artifact's connection"
+        );
+        assert!(index.papers_in("lwrs").is_empty());
+
+        // Filing a figure must not read as having refiled the paper.
+        let paper = &index.papers[0];
+        assert_eq!(paper.topics, vec!["htgrs/fuel".to_string()]);
+        assert!(
+            !paper.topics.contains(&"materials/thermal-conductivity".to_string()),
+            "an artifact connection is not the paper's own classification"
+        );
+    }
     use crate::entity::{CiteKey, EntityConfig};
     use crate::root::RootConfig;
 

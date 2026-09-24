@@ -47,8 +47,21 @@ impl ConceptKind {
     /// Whether the user may add a subtopic under a concept of this kind.
     /// Corpus topics are read-only; attaching user knowledge to them is a
     /// connection (#252), not a subtopic.
+    /// Whether a **user** subtopic may be added under a concept of this kind.
+    ///
+    /// `CorpusTopic` says yes (maintainer, 2026-09-22, #274) — and this is
+    /// not a hole in the corpus being read-only. The corpus node itself is
+    /// never edited; what is created is a node in the **user's** library,
+    /// parented to the corpus one. That is the overlay epic #247 describes:
+    /// *"opening a personal folder extends the map and never replaces it"*.
+    /// Refusing it left the built-in nuclear-engineering branches — the only
+    /// thing on screen before a folder is opened — with no way to add
+    /// anything, which read as the gesture being broken.
+    ///
+    /// `Unsorted` says no: it is synthetic, has no directory, and exists
+    /// only while unclassified papers do.
     pub fn accepts_subtopics(self) -> bool {
-        matches!(self, Self::Topic | Self::Project)
+        matches!(self, Self::Topic | Self::Project | Self::CorpusTopic)
     }
 }
 
@@ -113,6 +126,10 @@ pub fn concept(index: Option<&KnowledgeIndex>, id: &NodeId) -> Option<RuntimeCon
     match id.namespace {
         Namespace::Corpus => corpus::topic_at(&id.path).map(corpus_concept),
         Namespace::Library => {
+            // A mirrored path is the corpus concept, not a user one.
+            if is_corpus_mirror(&id.path) {
+                return corpus::topic_at(&id.path).map(corpus_concept);
+            }
             let index = index?;
             if let Some(c) = index.collections.iter().find(|c| c.path == id.path) {
                 return Some(library_concept(index, &c.path, c.kind, &c.name));
@@ -134,6 +151,7 @@ pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
             index
                 .children_of("")
                 .into_iter()
+                .filter(|c| !is_corpus_mirror(&c.path))
                 .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
         );
         if needs_unsorted(index) {
@@ -141,6 +159,25 @@ pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
         }
     }
     out
+}
+
+/// Whether a **library** collection path is really just a mirror of a corpus
+/// topic — scaffolding, not a concept of its own.
+///
+/// Nesting a user subtopic under a corpus branch needs that branch to exist
+/// as directories on disk, because `index::scan_collections` will not walk
+/// past a directory with no `kovan.toml`. Those mirrored ancestors are an
+/// implementation detail of the overlay; the **corpus** node already
+/// represents that concept.
+///
+/// Drawing them produced exactly the duplicates the maintainer reported on
+/// 2026-09-22 — "there is a TRISO (corpus) and triso (topic)", "Fuel &
+/// Materials now has a fuse-and-materials" — one dark-green card and one
+/// light-green card for the same idea, differing only in whether the title
+/// had been slugified. A user concept *inside* a mirrored path is not
+/// affected: its own path is not a corpus path, so it still draws.
+pub fn is_corpus_mirror(path: &str) -> bool {
+    corpus::topic_at(path).is_some()
 }
 
 /// The direct sub-concepts of `parent`, or [`top_level`] for `None`.
@@ -152,13 +189,37 @@ pub fn children(index: Option<&KnowledgeIndex>, parent: Option<&NodeId>) -> Vec<
         return Vec::new();
     }
     match parent.namespace {
-        Namespace::Corpus => corpus::children_of(&parent.path)
-            .map(corpus_concept)
-            .collect(),
+        Namespace::Corpus => {
+            // Corpus children first (dark green, immutable), then the user's
+            // own subtopics written under the same path (light green,
+            // editable) — the overlay #247 describes and #274 asked for.
+            //
+            // Without this second half, adding a subtopic under a corpus
+            // topic wrote the entity to disk and drew nothing: the corpus
+            // arm returned only `corpus::children_of`, so the new node had
+            // nowhere to appear (maintainer, 2026-09-22: "i should see a
+            // light green node popping out and linked. I don't see
+            // anything").
+            let mut out: Vec<RuntimeConcept> =
+                corpus::children_of(&parent.path).map(corpus_concept).collect();
+            if let Some(index) = index {
+                out.extend(
+                    index
+                        .children_of(&parent.path)
+                        .into_iter()
+                        // Never the mirrored scaffolding: the corpus card
+                        // beside it already is that concept.
+                        .filter(|c| !is_corpus_mirror(&c.path))
+                        .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
+                );
+            }
+            out
+        }
         Namespace::Library => match index {
             Some(index) => index
                 .children_of(&parent.path)
                 .into_iter()
+                .filter(|c| !is_corpus_mirror(&c.path))
                 .map(|c| library_concept(index, &c.path, c.kind, &c.name))
                 .collect(),
             None => Vec::new(),
@@ -214,7 +275,28 @@ pub fn citations(
 /// concept, or the top from a top-level concept. `None` when already at the
 /// top, where there is nowhere to go.
 pub fn up_one_level(current: Option<&NodeId>) -> Option<Option<NodeId>> {
-    current.map(NodeId::parent_concept)
+    current.map(|id| id.parent_concept().map(|p| canonical_concept(&p)))
+}
+
+/// The identity a concept should actually be addressed by.
+///
+/// A **library** concept whose path is a corpus topic path is mirrored
+/// scaffolding ([`is_corpus_mirror`]); the concept it stands for is the
+/// **corpus** node. Anything navigating by path — going up a level, a
+/// breadcrumb — can land on the mirror, and would then show a light-green
+/// user card where the dark-green corpus card belongs (maintainer,
+/// 2026-09-22: "when i press the up button, i see the light green (topic)
+/// version of the node, rather than the Corpus (dark green)").
+///
+/// Everything else is returned unchanged.
+pub fn canonical_concept(id: &NodeId) -> NodeId {
+    if id.kind == EntryKind::Concept
+        && id.namespace == Namespace::Library
+        && is_corpus_mirror(&id.path)
+    {
+        return NodeId::concept(Namespace::Corpus, &id.path);
+    }
+    id.clone()
 }
 
 /// The breadcrumb from the top to `id`: each ancestor concept and `id`
@@ -230,7 +312,7 @@ pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, S
                 .unwrap_or(&node.path)
                 .to_string()
         });
-        at = node.parent_concept();
+        at = node.parent_concept().map(|p| canonical_concept(&p));
         chain.push((node, title));
     }
     chain.reverse();
@@ -239,6 +321,32 @@ pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, S
 
 #[cfg(test)]
 mod tests {
+    /// Going up from a user concept nested under a mirrored corpus branch
+    /// lands on the **corpus** node, not the light-green mirror standing in
+    /// for it on disk (maintainer, 2026-09-22).
+    #[test]
+    fn up_from_a_mirrored_branch_lands_on_the_corpus_node() {
+        use super::*;
+        let parent = "nuclear-engineering/fuel-and-materials/triso";
+        assert!(corpus::topic_at(parent).is_some(), "fixture assumption");
+
+        let mine = NodeId::concept(Namespace::Library, &format!("{parent}/my-notes"));
+        let up = up_one_level(Some(&mine)).flatten().expect("a parent");
+        assert_eq!(up.path, parent);
+        assert_eq!(
+            up.namespace,
+            Namespace::Corpus,
+            "the mirror must resolve to the corpus concept"
+        );
+
+        // And the card drawn for that mirror is the corpus one.
+        let as_library = NodeId::concept(Namespace::Library, parent);
+        assert_eq!(
+            concept(None, &as_library).map(|c| c.kind),
+            Some(ConceptKind::CorpusTopic)
+        );
+    }
+
     use super::*;
     use crate::entity::{Access, CiteKey, EntityConfig};
     use crate::root::{KovanRoot, RootConfig};
@@ -304,8 +412,16 @@ mod tests {
             ConceptKind::Topic
         );
         assert!(concept(None, &NodeId::concept(Namespace::Corpus, "nope")).is_none());
-        assert!(!ConceptKind::CorpusTopic.accepts_subtopics());
+        // A corpus topic accepts a **user** subtopic (#274, maintainer
+        // 2026-09-22). This assertion was `!…` until then: the corpus node
+        // itself stays immutable, but refusing the gesture left the built-in
+        // branches — all you see before a folder is open — with no way to add
+        // anything. `Unsorted` still refuses: it is synthetic and has no
+        // directory to create anything in.
+        assert!(ConceptKind::CorpusTopic.accepts_subtopics());
         assert!(ConceptKind::Topic.accepts_subtopics());
+        assert!(ConceptKind::Project.accepts_subtopics());
+        assert!(!ConceptKind::Unsorted.accepts_subtopics());
     }
 
     /// Corpus literature appears as citations of the topics it is filed

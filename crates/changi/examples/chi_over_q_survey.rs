@@ -18,6 +18,7 @@
 //! They have never been compared against measured dispersion.
 
 use changi::activity::chi_over_q::{dilution_factors, StabilitySource};
+use changi::puff::climatology::MEAN_WIND_SPEED_M_PER_S;
 use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
 use changi::puff::stability::StabilityClass;
 use uom::si::f64::{Frequency, Length, Time, Velocity};
@@ -29,8 +30,16 @@ use uom::si::velocity::meter_per_second;
 /// Distances to report, metres downwind on the plume centreline.
 const DISTANCES_M: [f64; 8] = [100.0, 200.0, 500.0, 1000.0, 2000.0, 3000.0, 4000.0, 5000.0];
 
-/// Wind speed held constant for the whole run.
-const WIND_SPEED_M_PER_S: f64 = 4.0;
+/// Wind speed held constant for the whole run — Singapore's **mean surface
+/// wind**, about 2 m/s.
+///
+/// Taken from [`changi::puff::climatology`] rather than written as a round
+/// number here, so the figure and its provenance live in one place. It is
+/// roughly half the 4 m/s this example used previously, and light winds give
+/// systematically higher concentrations: less dilution per unit distance, and
+/// a longer transit time for decay to act over. Note also that 2 m/s sits
+/// exactly on a Pasquill band edge — see that module for what that costs.
+const WIND_SPEED_M_PER_S: f64 = MEAN_WIND_SPEED_M_PER_S;
 
 /// Simulation and emission step. `puff_dt` equals it, so one puff is emitted
 /// per step and every travel-time bin is exactly one step wide.

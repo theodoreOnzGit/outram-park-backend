@@ -12,10 +12,11 @@ Apache-2.0).
 
 **Current state: implemented in part, with no human V&V.** Distributions,
 samplers, sensitivity, Bayesian model updating, distances, ABC, imprecise
-probability, model selection, GNNs and surrogates all carry working, tested
-code. All of it is AI-assisted draft material until the maintainer and the
-crate owner have reviewed it, so do not describe any part of it as validated,
-and read "verified" as "checked against a reference by an automated test".
+probability, model selection, fault-tree quantification, GNNs and surrogates
+all carry working, tested code. All of it is AI-assisted draft material until
+the maintainer and the crate owner have reviewed it, so do not describe any
+part of it as validated, and read "verified" as "checked against a reference by
+an automated test".
 
 ---
 
@@ -81,6 +82,191 @@ This restricts the direction of *code* flow only. Reading RAVEN's papers,
 theory manual and documentation and implementing the published algorithms is
 unaffected — and where the algorithm is published, an independent
 implementation from the paper is usually the better route anyway.
+
+### SCRAM is a second upstream, and it is NOT Apache-2.0
+
+`src/scram/` is ported from **[SCRAM](https://github.com/rakhimov/scram)**
+(Olzhas Rakhimov), commit `b85b78940de38996eeffec54d946824bd4280a1c`,
+accessed 2026-09-21. SCRAM is **GPL-3.0-or-later** — the same licence family
+as this crate — so it carries **none** of the one-way constraint the RAVEN
+grant does, and the Apache-2.0 header template below is **wrong** for those
+files. Use the GPL header the existing `src/scram/` files carry.
+
+**Part of `src/scram/` is a port and part deliberately is not, and the
+difference is load-bearing.** Ported, with attribution headers:
+
+| file | upstream |
+|---|---|
+| `probability.rs` | `RareEventCalculator`, `McubCalculator`, `CutSetProbabilityCalculator` |
+| `importance.rs` | `ImportanceAnalyzerBase::Analyze`'s five derived factors |
+| `bdd.rs` (the probability recurrence only) | `ProbabilityAnalyzer<Bdd>::CalculateProbability` |
+| `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus`, `ConvertGraph`, `Apply<kAnd>`, `Apply<kOr>`, `EliminateComplements` |
+| `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
+| `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
+| `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
+| `ccf.rs` | `ccf_group.{h,cc}` — all four common-cause models, `CalculateProbabilities`, the combination reciprocal and `ApplyModel`'s proxy-gate rewrite |
+| `alignment.rs` | `alignment.{h,cc}` and the phase application of `RiskAnalysis::RunAnalysis` — mission-time scaling and `<set-house-event>` |
+| `uncertainty.rs` | `uncertainty_analysis.{h,cc}` — the Monte Carlo loop and every statistic, including the `n/(n-1)` variance correction |
+| `substitution.rs` | `substitution.{h,cc}`, plus `Pdag::ConstructSubstitution` (declarative, a tree rewrite) and `Zbdd::ApplySubstitutions` (non-declarative, a pass over products) |
+
+**Not** ports, each saying so in its own doc instead:
+
+- `mocus.rs` — upstream's MOCUS drives a ZBDD over a preprocessed Boolean
+  graph (`zbdd` + `pdag` + `preprocessor` + `bdd` = 9,076 lines). This is the
+  classical top-down expansion from the literature, kept as an unrelated
+  second opinion now that `zbdd.rs` is the scalable path.
+- The exact top-event probability by cut sets — inclusion-exclusion, not a BDD
+  traversal.
+- The Birnbaum factor — its definition, not a BDD derivative.
+- `bdd.rs`'s diagram construction — Bryant's algorithm from the tree, where
+  upstream builds from a preprocessed `Pdag`.
+- The rest of `fault_tree.rs` — a plain indexed structure, not upstream's
+  `Initializer`/`Model`/`Formula`. `mef.rs` is what builds one from XML.
+- `mef.rs`'s **schema validation**, because there is none. Upstream validates
+  against `share/input.rng` with libxml2 first; this checks only what it needs
+  to build the model. Every construct it does not understand is an error
+  rather than a skip, which is what stands in for the grammar.
+
+**Do not retrofit an attribution header onto any of those.** A header is a
+statement about where a file came from, and the whole value of them is that
+they are *independent* of upstream: two unrelated algorithms agreeing is
+evidence, a translation agreeing with its original is much weaker. That is the
+same rule the paper-derived Bayesian modules follow.
+
+**SCOPE WIDENED AGAIN, 2026-09-22 (maintainer direction):** *everything
+except the GUI* is to be translated, with V&V. That brings XML input, event
+trees, alignments, CCF groups, substitutions, the expression library,
+`define-component` namespaces and the preprocessor **into** scope — all of
+which this file and the README previously recorded as out of it. The memory
+cap stays an exception (the largest Aralia benchmarks remain out), and the
+non-BDD ZBDD constructor was named explicitly.
+
+~~Still to do under that direction: XML input (`initializer`, `xml`), the
+`expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
+`src/scram/expression.rs` and `src/scram/mef.rs`. Still to do:
+event trees and sequences, the preprocessor, `pdag`, and the reporter. Progress is tracked in `docs/scram-port-verification.md`.
+
+~~expressions~~ **CORRECTED 2026-09-22** — `src/scram/expression.rs` landed,
+verified on `HIPPS`, upstream's own model whose every basic event is defined
+by a `<periodic-test>` or `<GLM>` expression and whose probabilities therefore
+appear nowhere as literals.
+
+~~XML input, `<define-component>` private namespaces~~ **CORRECTED
+2026-09-22** — `src/scram/mef.rs` landed. It removed the transcription step
+that stood between upstream's models and the tests: `tests/scram_mef.rs` reads
+upstream's own `.xml` (committed verbatim under
+`reference-data/scram/upstream-input/`), evaluates every basic-event
+probability from the model's own expressions, and checks the cut sets, totals
+and importance factors that follow. **`ThreeMotor/three_motor` is covered end
+to end for the first time** — the model that no route reached, because its
+`<define-component role="private">` declares a second `E1`. Name resolution is
+upstream's `Initializer::GetEntity` rule for rule, and two details it is easy
+to get wrong are asserted separately: a `<define-fault-tree>` **is** a path
+component, and a component's role **inherits** its container's rather than
+defaulting to private.
+
+**A claim this port made about the format was wrong, and is corrected.** An
+earlier `mef.rs` carried machinery for arbitrarily nested formulas. MEF has
+none: `share/input.rng` lets a connective take only an event reference, a
+`<not>` around one event, or a `<constant>`. SCRAM itself rejects a nested
+formula. Do not re-add that machinery.
+
+~~the random deviates (`SmallTree/SmallTree` and `BSCU/BSCU` are the two
+upstream models this costs)~~ **CORRECTED 2026-09-22** — all seven landed, and
+both models read. ~~Only their deterministic `value()` is ported~~ **CORRECTED 2026-09-22** —
+`Expression::sample` and `src/scram/uncertainty.rs` landed together, which is
+the order that made the sampling checkable at all.
+**The random stream differs from upstream's** (one static `std::mt19937`
+there, `outram_mc_libs::rng::lcg` here, reused per the
+search-before-building rule), so this is the **one part of the SCRAM port
+whose verification is statistical rather than exact**. Do not tighten
+`scram_uncertainty`'s tolerances into exact comparisons: they are set by the
+sample sizes, and SCRAM's own 1000 trials dominate every band. Their arrival is also what gave
+`Interval`/`Expression::interval` a purpose — a normal deviate's mean can be a
+good probability while its six-sigma domain is not, and upstream rejects the
+argument on the domain check.
+
+~~CCF groups~~ **CORRECTED 2026-09-22** — `src/scram/ccf.rs` landed, porting
+all four models (beta-factor, MGL, alpha-factor, phi-factor) and
+`ApplyModel`'s proxy-gate rewrite. **They are applied BY DEFAULT**, not behind
+a flag as upstream's `--ccf` is, per the workspace rule that physics the data
+supplies is applied unless a caller ablates it; `MefModel::without_ccf` is the
+visible ablation and both paths are pinned against the corresponding SCRAM
+run. The default is asserted by
+`scram_ccf::ccf_is_applied_by_default_and_the_ablation_is_the_independent_analysis`
+— do not turn it off. Only upstream's `beta-factor` appears in any upstream
+input model, so `models-for-this-port/ccf_models.xml` carries all four.
+
+~~substitutions~~ **CORRECTED 2026-09-22** — `src/scram/substitution.rs`
+landed. Both upstream models are checked end to end, and the work turned up a
+**defect in upstream**: `ImportanceAnalyzer<Bdd>::CalculateMif` omits the
+root-complement negation that `CalculateTotalProbability` applies, so every
+Birnbaum factor of an affected model comes out with the wrong sign. This had
+been recorded as an unexplained 108-event divergence on `Aralia/das9601`;
+`TwoTrain/substitutions` reproduces it on six events, small enough to check by
+hand, and two hand calculations in opposite directions land on this port's
+sign. **Do not "fix" the sign to match SCRAM.**
+
+~~alignments~~ **CORRECTED 2026-09-22** — `src/scram/alignment.rs` landed.
+A model with an alignment has **no single answer**: `MefModel::in_phase`
+returns the model as it stands in one phase and the caller loops, which is
+upstream's own arrangement. Upstream mutates the model and restores it with a
+`scope_guard`; this returns a new model, so two phases cannot interfere.
+
+Still absent, and refused rather than skipped when a model uses them:
+event trees, the trigonometric operators and `<switch>`.
+`<define-extern-function>` is refused **deliberately and permanently** — it
+loads a shared library named by the input file, which the workspace
+`RESPONSIBLE_USE.md` rule on autonomous access forbids.
+
+~~house events~~ **CORRECTED 2026-09-21** — `Arg::Constant` and
+`FaultTreeBuilder::house_event` landed the same day. Upstream's only
+house-event model, `ThreeMotor`, also uses `<define-component>` (private
+namespaces the structure extractor does not model), so a small model was
+written to give the feature real oracle coverage rather than repeat
+`Connective::Null`'s position of shipping unverified.
+
+~~prime implicants~~ **CORRECTED 2026-09-21** — `zbdd::prime_implicants`
+landed the same day, porting `ConvertBddPrimeImplicants` and `Bdd::Consensus`.
+It is what makes a non-coherent answer *exact* rather than conservative.
+Verified against `scram --prime-implicants` on 9 models, 441 implicants, signs
+included. Note upstream itself does not finish `--prime-implicants` on
+`Aralia/das9601` within five minutes — the cost is the algorithm's, not this
+port's.
+
+~~ZBDD~~ **CORRECTED 2026-09-21** — `src/scram/zbdd.rs` landed the same day,
+porting `ConvertBdd`/`Minimize`/`Subsume`. It is how `Aralia/das9601`'s 4,259
+cut sets are verified: `mocus` cannot reach them at any order limit, and the
+ZBDD produces all of them in under a second.
+
+~~BDD~~ **CORRECTED 2026-09-21** — `src/scram/bdd.rs` landed the same day: a
+Bryant-style diagram built straight from the tree, with upstream's probability
+recurrence ported verbatim. It removed the largest limitation the port had —
+exact probability no longer needs cut sets, so it is no longer capped at 20 of
+them. Verified against SCRAM's own BDD on 10 models, including `Aralia/das9601`
+(288 gates, non-coherent, 386,261 nodes) which `mocus` cannot touch.
+
+~~complement elimination (so **non-coherent trees are refused, not
+approximated**)~~ **CORRECTED 2026-09-21** — complement elimination landed the
+same day. `mocus` now expands negated gates through their De Morgan duals,
+drops contradictory partial sets, deletes the complements and re-minimises,
+matching what upstream's `Zbdd::EliminateComplement` does. **The answers mean
+something different, though**: minimal cut sets of a non-coherent tree are
+conservative, so quantifying them is an upper bound, not the probability.
+Measured on the fixture's small non-coherent model, ours is `0.622` against
+SCRAM's exact BDD value of `0.5032` — `+23.6 %`, and correct. Do not "fix"
+that gap.
+
+~~upstream's probability cut-off on products~~ **CORRECTED 2026-09-21** — that
+was listed as absent, wrongly. SCRAM 0.16.2 stores and validates
+`Settings::cut_off_` but **never reads it**: the getter has no callers, and
+`--cut-off 0.5` on a model whose top-event probability is `1.17e-3` discards
+none of its 392 products. There is nothing to port, and truncating by cut-set
+order only is not a divergence. Do not "fix" this by implementing one.
+
+Verification record: [`docs/scram-port-verification.md`](docs/scram-port-verification.md),
+oracle in `reference-data/scram/`. Upstream was **built and run** — nothing in
+that fixture was reasoned out from reading SCRAM's source.
 
 ### Third-party BSD code inside RAVEN
 
@@ -252,6 +438,7 @@ The reference for each family:
 | Sobol indices | The **Ishigami function** — closed-form first-order and total indices at the conventional parameters. Plus an additive linear model (first-order indices sum to 1 and equal the total indices) and the Sobol g-function for a strongly interacting case |
 | Correlation measures | A construction with a known correlation matrix; and a monotone non-linear transform of it, where Spearman is preserved and Pearson is not |
 | Surrogate | Exact reproduction of a polynomial at the matching expansion order; a published test problem with reported error metrics |
+| Fault trees | Upstream **SCRAM built from source and run** on upstream's own input models — cut sets compared set-for-set against SCRAM's products, then totals in all three modes and all five importance factors for every basic event. Fixtures in `reference-data/scram/` |
 
 **Document methodology AND results.** Per the workspace V&V rule, a test whose
 docs say only what it does is incomplete. State the reference, the inputs,
@@ -398,12 +585,36 @@ cargo check --release -p raffles --lib         --features burn --target wasm32-u
 ## Scope boundaries (do not widen without the owner's say-so)
 
 **In scope:** probability distributions, sampling strategies, sensitivity
-measures, surrogate models — the statistical core.
+measures, surrogate models — the statistical core. Plus, since 2026-09-21,
+fault-tree quantification in `src/scram/` (see below).
+
+**`src/scram/` was added at the workspace maintainer's direction, not the crate
+owner's**, and has since grown to a fairly complete fault-tree analysis layer:
+tree construction, cut sets by two routes, prime implicants, a BDD, and the
+quantification and importance measures. It widens this crate well past the
+RAVEN-derived statistical core it was scoped to.
+
+That is a direction call, and by the ownership rule above it is **Adolphus
+Lye's to confirm or reverse**. It is recorded here so it stays visible rather
+than absorbed silently.
+
+**An earlier revision of this file said "do not build further on it, or extend
+it toward cut-set generation, without checking with them first." That is what
+happened anyway**, on the maintainer's explicit instruction to fill in the
+port's remaining gaps — the maintainer being the person who set the SCRAM
+direction in the first place. The instruction is recorded as superseded rather
+than deleted, because the crate owner's review is still outstanding and the
+scope has moved a long way since it was written.
 
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
-run-directory management; input-file / XML parsing; databases; plotting and
-reporting; RAVEN's optimisers; adaptive / model-in-the-loop samplers (they need
-the model-evaluation loop this crate deliberately does not own).
+run-directory management; databases; RAVEN's optimisers; adaptive /
+model-in-the-loop samplers (they need the model-evaluation loop this crate
+deliberately does not own).
+
+~~input-file / XML parsing; plotting and reporting~~ **CORRECTED 2026-09-22**
+— brought into scope for `src/scram/` by the maintainer's "everything except
+the GUI" direction. It remains out of scope for the RAVEN-derived modules,
+where no such instruction was given.
 
 The caller runs their own model and hands RAFFLES arrays of numbers.
 

@@ -268,22 +268,23 @@ impl TorchArchive {
         // other and produced 1 823 408 directed edges on a 1 350-node mesh,
         // with a graph diameter of 1. That is how this case was found.
         const MAX_VERTICES_PER_ELEMENT: usize = 8;
-        let (vertices, elements, vertex_major) =
-            if faces.shape[0] <= MAX_VERTICES_PER_ELEMENT && faces.shape[1] > MAX_VERTICES_PER_ELEMENT {
-                (faces.shape[0], faces.shape[1], true)
-            } else if faces.shape[1] <= MAX_VERTICES_PER_ELEMENT {
-                (faces.shape[1], faces.shape[0], false)
-            } else {
-                return Err(RafflesError::InvalidParameter {
-                    parameter: "face".to_string(),
-                    value: faces.shape[0] as f64,
-                    reason: format!(
-                        "a face tensor of shape {:?} has no side small enough to be \
+        let (vertices, elements, vertex_major) = if faces.shape[0] <= MAX_VERTICES_PER_ELEMENT
+            && faces.shape[1] > MAX_VERTICES_PER_ELEMENT
+        {
+            (faces.shape[0], faces.shape[1], true)
+        } else if faces.shape[1] <= MAX_VERTICES_PER_ELEMENT {
+            (faces.shape[1], faces.shape[0], false)
+        } else {
+            return Err(RafflesError::InvalidParameter {
+                parameter: "face".to_string(),
+                value: faces.shape[0] as f64,
+                reason: format!(
+                    "a face tensor of shape {:?} has no side small enough to be \
                          vertices-per-element (at most {MAX_VERTICES_PER_ELEMENT})",
-                        faces.shape
-                    ),
-                });
-            };
+                    faces.shape
+                ),
+            });
+        };
 
         let at = |vertex: usize, element: usize| -> f64 {
             if vertex_major {
@@ -437,8 +438,7 @@ fn materialise(descriptor: &TensorDescriptor, entries: &[(String, Vec<u8>)]) -> 
             ]),
             Dtype::I64 => {
                 let raw = i64::from_le_bytes([
-                    bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6],
-                    bytes[7],
+                    bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
                 ]);
                 if raw.unsigned_abs() > (1u64 << 53) {
                     return Err(RafflesError::InvalidParameter {
@@ -669,7 +669,8 @@ impl<'a> PickleMachine<'a> {
                 b'c' => {
                     let module = self.read_line()?;
                     let name = self.read_line()?;
-                    self.stack.push(PickleValue::Global(format!("{module} {name}")));
+                    self.stack
+                        .push(PickleValue::Global(format!("{module} {name}")));
                 }
                 // TUPLE / TUPLE2 / TUPLE3
                 b't' => {
@@ -839,7 +840,8 @@ fn storage_from_persistent_id(
 /// container built by a reduce that this reader does not model must not hide
 /// the tensors inside it.
 fn reduce(callable: PickleValue, args: PickleValue) -> PickleValue {
-    let is_rebuild = matches!(&callable, PickleValue::Global(name) if name.contains("_rebuild_tensor"));
+    let is_rebuild =
+        matches!(&callable, PickleValue::Global(name) if name.contains("_rebuild_tensor"));
     let items = match args {
         PickleValue::Tuple(items) => items,
         other => vec![other],
@@ -912,10 +914,7 @@ fn read_zip_entries(bytes: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
         reason,
     };
     let read_u16 = |at: usize| -> Option<u16> {
-        Some(u16::from_le_bytes([
-            *bytes.get(at)?,
-            *bytes.get(at + 1)?,
-        ]))
+        Some(u16::from_le_bytes([*bytes.get(at)?, *bytes.get(at + 1)?]))
     };
     let read_u32 = |at: usize| -> Option<u32> {
         Some(u32::from_le_bytes([
@@ -947,8 +946,10 @@ fn read_zip_entries(bytes: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
         fail("no end-of-central-directory record; the archive is truncated".to_string())
     })?;
 
-    let entry_count = read_u16(eocd + 10).ok_or_else(|| fail("truncated EOCD".to_string()))? as usize;
-    let mut directory = read_u32(eocd + 16).ok_or_else(|| fail("truncated EOCD".to_string()))? as usize;
+    let entry_count =
+        read_u16(eocd + 10).ok_or_else(|| fail("truncated EOCD".to_string()))? as usize;
+    let mut directory =
+        read_u32(eocd + 16).ok_or_else(|| fail("truncated EOCD".to_string()))? as usize;
 
     let mut entries = Vec::with_capacity(entry_count);
     for _ in 0..entry_count {
@@ -1095,7 +1096,7 @@ mod tests {
         p.extend_from_slice(b"torch._utils\n_rebuild_tensor_v2\n");
 
         p.push(b'('); // MARK for the argument tuple
-        // persistent id tuple: ('storage', <Class>, key, 'cpu', numel)
+                      // persistent id tuple: ('storage', <Class>, key, 'cpu', numel)
         p.push(b'(');
         p.push(b'X');
         p.extend_from_slice(&7u32.to_le_bytes());
@@ -1145,9 +1146,7 @@ mod tests {
     /// **Result** (2026-09-16): values `[1, 2, 3, 4, 5, 6]`, shape `[2, 3]`.
     #[test]
     fn a_contiguous_float_tensor_reads_back_exactly() {
-        let storage: Vec<u8> = (1..=6u32)
-            .flat_map(|v| (v as f32).to_le_bytes())
-            .collect();
+        let storage: Vec<u8> = (1..=6u32).flat_map(|v| (v as f32).to_le_bytes()).collect();
         let pickle = tensor_pickle("u", "FloatStorage", "0", &[2, 3], &[3, 1]);
         let archive = TorchArchive::from_bytes(&build_archive(&pickle, &[("0", storage)])).unwrap();
 
@@ -1155,7 +1154,10 @@ mod tests {
         assert_eq!(tensor.shape, vec![2, 3]);
         assert_eq!(tensor.dtype, Dtype::F32);
         assert_eq!(tensor.values, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
-        assert_eq!(tensor.rows().unwrap(), vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]]);
+        assert_eq!(
+            tensor.rows().unwrap(),
+            vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]]
+        );
     }
 
     /// **Methodology — THE TRAP THE MODULE DOCUMENTATION NAMES.** The
@@ -1355,7 +1357,7 @@ mod tests {
             .or_else(|_| archive.tensor("pos").map(|t| t.shape[0]))
             .unwrap();
         // Mesh datasets store elements rather than an edge list; the upstream
-            // converts them on load and so does this.
+        // converts them on load and so does this.
         let (nodes, graph) = match archive.graph(nodes) {
             Ok(graph) => (nodes, graph),
             Err(_) => {
@@ -1392,6 +1394,9 @@ mod tests {
             None,
         )
         .unwrap();
-        println!("  parabolic/elliptic bound from this mesh: {} steps", bound.required);
+        println!(
+            "  parabolic/elliptic bound from this mesh: {} steps",
+            bound.required
+        );
     }
 }

@@ -22,9 +22,10 @@ use super::pdf_reader::CropProvenance;
 /// State for the table digitiser tab.
 pub struct TableDigitiserState {
     crop: Option<PlotRaster>,
-    /// Path to a `.traineddata` OCR model — supplied by the operator; this
-    /// module does not download one (see `table_ocr`'s module doc).
-    model_path: String,
+    /// The `.traineddata` model the last OCR pass used, found by
+    /// [`table_ocr::discover_models`] rather than typed (#287 — "i don't want
+    /// to deal with selecting an OCR model"). `None` until a pass succeeds.
+    model_used: Option<std::path::PathBuf>,
     operator: String,
     table: Option<RecognizedTable>,
     json_out: String,
@@ -47,7 +48,7 @@ impl Default for TableDigitiserState {
     fn default() -> Self {
         Self {
             crop: None,
-            model_path: String::new(),
+            model_used: None,
             // op-n0kz: pre-fill from the OS login name where available,
             // same as the graph digitiser's own "your name" field.
             operator: super::default_operator_name(),
@@ -102,11 +103,21 @@ impl TableDigitiserState {
 
     /// Receive a crop from the PDF reader's "Read table" menu action
     /// (op-hnhp/op-x9qn) — replaces whatever was previously being reviewed.
+    /// The region is recognised **immediately** (#287): the maintainer's
+    /// "when i click read table, the OCR should already be run". No button
+    /// and no model field on the way — arriving at the tab means the table
+    /// and its CSV are already there to correct.
+    ///
+    /// Synchronous, like the button press it replaces: OCR of one cropped
+    /// region is a second or two, and doing it here keeps this tab's state a
+    /// plain value rather than something carrying a pending job. If a
+    /// whole-page crop ever makes that uncomfortable, the job belongs on
+    /// `DigitiseApp::spawn_job`, which already exists for the corpus clones.
     pub fn load_crop(&mut self, raster: PlotRaster, provenance: Option<CropProvenance>) {
         self.crop = Some(raster);
         self.table = None;
         self.crop_provenance = provenance;
-        self.set_status("region loaded — set the OCR model path, then Run OCR");
+        self.run_ocr();
     }
 
     fn operator_name(&self) -> String {
@@ -123,25 +134,83 @@ impl TableDigitiserState {
             self.set_error("no region loaded — crop one from the PDF reader first");
             return;
         };
-        if self.model_path.trim().is_empty() {
-            self.set_error("set the .traineddata model path first");
-            return;
-        }
+        let models = table_ocr::discover_models();
         let image = raster_to_ocr_rgb(raster);
-        match table_ocr::recognize_table(
-            std::path::Path::new(self.model_path.trim()),
-            &image,
-            format!("{} via kovan (gui)", self.operator_name()),
-        ) {
-            Ok(table) => {
-                let n = table.rows.len();
-                self.table = Some(table);
-                self.set_status(format!(
-                    "OCR found {n} line(s) — check every cell, then mark reviewed"
-                ));
+        let operator = format!("{} via kovan (gui)", self.operator_name());
+
+        // Walk the candidates rather than trusting the first: a model being
+        // installed does not mean this recogniser can load it. Measured
+        // 2026-09-23 on the maintainer's machine, `tesseract-data` 4.1.0's
+        // `eng` (network outputs 111, recoder code_range 111) and `afr`
+        // (96, 96) are **both** rejected by `kopitiam-ocr` 0.1.0, which
+        // demands `code_range + 1` — see GH issue #288.
+        let mut used = None;
+        let mut recognised = None;
+        let mut rejected: Vec<String> = Vec::new();
+        for model in &models {
+            match table_ocr::recognize_table(model, &image, operator.clone()) {
+                Ok(table) => {
+                    used = Some(model.clone());
+                    recognised = Some(table);
+                    break;
+                }
+                Err(e) => rejected.push(format!(
+                    "{}: {e}",
+                    model
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| model.display().to_string())
+                )),
             }
-            Err(e) => self.set_error(e.to_string()),
         }
+        self.model_used = used.clone();
+
+        let Some(table) = recognised else {
+            self.set_error(if rejected.is_empty() {
+                let where_it_looked: Vec<String> = table_ocr::model_search_dirs()
+                    .iter()
+                    .map(|d| d.display().to_string())
+                    .collect();
+                format!(
+                    "no OCR model on this machine. Install one (on Arch: \
+                     `sudo pacman -S tesseract-data-eng`), or put a \
+                     `.traineddata` file in one of: {}",
+                    where_it_looked.join(", ")
+                )
+            } else {
+                // Deliberately *not* "install a model": the models are here
+                // and the engine will not load them, so sending the user
+                // after a file they already have would waste their time
+                // (#288).
+                format!(
+                    "found {} OCR model(s), but kovan's OCR engine could not load any of \
+                     them \u{2014} a defect in the engine, not something installing a model \
+                     fixes (GH issue #288). Tried: {}",
+                    rejected.len(),
+                    rejected.join("; ")
+                )
+            });
+            return;
+        };
+
+        let model = used.expect("a recognised table means a model was used");
+        let n = table.rows.len();
+        self.table = Some(table);
+        // Name the model, and say so plainly when it is not the English one:
+        // another language's model reads digits fine but its words will be
+        // worse, and a reader seeing odd text should be able to tell that
+        // from a bad crop (#287).
+        let note = match model.file_name().and_then(|n| n.to_str()) {
+            Some(name) if name == table_ocr::PREFERRED_MODEL => String::new(),
+            Some(name) => format!(
+                " (using {name}, not {} — install the English model for better text)",
+                table_ocr::PREFERRED_MODEL
+            ),
+            None => String::new(),
+        };
+        self.set_status(format!(
+            "OCR found {n} line(s){note} — check every cell, then mark reviewed"
+        ));
     }
 
     /// Any cell edit invalidates a previously recorded review — the plot
@@ -296,10 +365,6 @@ impl TableDigitiserState {
         }
 
         ui.horizontal(|ui| {
-            ui.label("OCR model (.traineddata):");
-            ui.text_edit_singleline(&mut self.model_path);
-        });
-        ui.horizontal(|ui| {
             ui.label("your name*:").on_hover_text(
                 "Recorded as who ran this OCR pass and, later, who reviewed \
                  it. Required. Pre-filled from your OS login name where \
@@ -307,9 +372,33 @@ impl TableDigitiserState {
             );
             ui.text_edit_singleline(&mut self.operator);
         });
-        if ui.button("Run OCR").clicked() {
-            self.run_ocr();
-        }
+        // #287: no model field and no "Run OCR" to press — the pass has
+        // already run by the time this tab is drawn. What is left is the
+        // record of which model did it, and a way to run it again after
+        // changing the operator name or installing a better model.
+        ui.horizontal(|ui| {
+            match &self.model_used {
+                Some(path) => {
+                    ui.small(format!(
+                        "read with {}",
+                        path.file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| path.display().to_string())
+                    ))
+                    .on_hover_text(path.display().to_string());
+                }
+                None => {
+                    ui.small("no OCR model read this region");
+                }
+            }
+            if ui
+                .button("Read again")
+                .on_hover_text("run the OCR pass over this region once more")
+                .clicked()
+            {
+                self.run_ocr();
+            }
+        });
         ui.separator();
 
         if self.table.is_none() {
@@ -322,6 +411,7 @@ impl TableDigitiserState {
         // `self.mark_edited()`/`mark_reviewed()`/`save()`, which need their
         // own `&mut self`, so the table borrow can't live that long.
         let mut edited = false;
+        let mut copied = false;
         egui::ScrollArea::vertical()
             .id_salt("table_ocr_grid")
             .max_height(300.0)
@@ -345,6 +435,40 @@ impl TableDigitiserState {
         if edited {
             self.mark_edited();
         }
+
+        // #287: "i should be able to just see the table and csv extracted".
+        // The CSV is what actually gets saved into the paper and exported, so
+        // it is shown rather than implied by the grid — rendered from the
+        // cells every frame, so it follows the corrections above.
+        let csv = self.table.as_ref().unwrap().to_csv_string();
+        egui::CollapsingHeader::new("CSV")
+            .default_open(true)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.small("exactly what Save and Export write");
+                    if ui.button("Copy").clicked() {
+                        ui.ctx().copy_text(csv.clone());
+                        copied = true;
+                    }
+                });
+                egui::ScrollArea::vertical()
+                    .id_salt("table_ocr_csv")
+                    .max_height(140.0)
+                    .show(ui, |ui| {
+                        // Read-only: the cells above are the editable copy,
+                        // and two editable views of one table would have to
+                        // answer which of them wins.
+                        ui.add(
+                            egui::TextEdit::multiline(&mut csv.as_str())
+                                .font(egui::TextStyle::Monospace)
+                                .desired_width(f32::INFINITY),
+                        );
+                    });
+            });
+        if copied {
+            self.set_status("CSV copied to the clipboard");
+        }
+        ui.separator();
 
         let table = self.table.as_ref().unwrap();
         let review = match &table.review {
@@ -475,6 +599,44 @@ mod tests {
         }
     }
 
+    /// GH issue #287: arriving from "Read table" recognises the region at
+    /// once — "when i click read table, the OCR should already be run".
+    /// There is no "set the model path, then Run OCR" state to sit in.
+    ///
+    /// Asserted without depending on what is installed on the machine running
+    /// the test: either the pass ran (and recorded which model did it), or it
+    /// said why not and what it tried. What must never happen is the old
+    /// prompt.
+    #[test]
+    fn a_loaded_crop_is_read_at_once_rather_than_waiting_for_a_model_path() {
+        let raster =
+            crate::digitiser::raster::PlotRaster::from_rgb_fn(24, 12, |_, _| [255, 255, 255]);
+        let mut state = TableDigitiserState::default();
+        state.load_crop(raster, None);
+
+        assert!(!state.message.is_empty(), "the load said nothing at all");
+        let said = state.message.to_lowercase();
+        assert!(!said.contains("run ocr"), "{}", state.message);
+        assert!(!said.contains("model path"), "{}", state.message);
+
+        match &state.table {
+            Some(_) => assert!(
+                state.model_used.is_some(),
+                "a table was recognised but no model was recorded"
+            ),
+            None => {
+                assert!(state.message_is_error, "{}", state.message);
+                // Actionable either way: it names the directories it searched,
+                // or the model files it tried and could not read.
+                assert!(
+                    said.contains("tessdata") || said.contains("tried"),
+                    "a failure must say what it looked at: {}",
+                    state.message
+                );
+            }
+        }
+    }
+
     /// `op-bd8p`: mirrors the graph digitiser's own fix — an active paper
     /// already tells the table digitiser where to save; no manual project
     /// root/markdown path needed.
@@ -525,6 +687,10 @@ mod tests {
         // GH issue #35, 2026-09-08, and 2026-09-22 (the manual project
         // fields were removed): it names the real fix, ingesting the PDF.
         assert!(state.message_is_error, "{}", state.message);
-        assert!(state.message.contains("ingest this PDF"), "{}", state.message);
+        assert!(
+            state.message.contains("ingest this PDF"),
+            "{}",
+            state.message
+        );
     }
 }

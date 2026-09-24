@@ -229,7 +229,7 @@ fn require_probability(parameter: &str, value: f64) -> Result<()> {
 /// - W. J. Lentz, *Generating Bessel functions in Mie scattering calculations
 ///   using continued fractions*, Appl. Opt. **15** (1976) 668-671 — the
 ///   continued-fraction evaluation scheme used for both incomplete functions.
-mod special {
+pub(crate) mod special {
     /// `sqrt(2 * pi)`, to full `f64` precision.
     pub const SQRT_2PI: f64 = 2.506_628_274_631_000_5;
     /// `sqrt(2)`, to full `f64` precision.

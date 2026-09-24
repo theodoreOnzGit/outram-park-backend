@@ -282,9 +282,7 @@ mod tests {
             result
                 .samples
                 .iter()
-                .filter(|s| {
-                    ((s[0] - centre[0]).powi(2) + (s[1] - centre[1]).powi(2)).sqrt() < 0.15
-                })
+                .filter(|s| ((s[0] - centre[0]).powi(2) + (s[1] - centre[1]).powi(2)).sqrt() < 0.15)
                 .count() as f64
                 / result.samples.len() as f64
         };
@@ -319,8 +317,14 @@ mod tests {
         assert!((spring_force(250.0, -0.02) - 5.0).abs() < 1e-12);
 
         let (l1, l2) = two_by_two_eigenvalues(&[1.0, 0.5]);
-        assert!((l1 - 1.707_106_781_186_547_5).abs() < 1e-12, "lambda_1 {l1}");
-        assert!((l2 - 0.292_893_218_813_452_5).abs() < 1e-12, "lambda_2 {l2}");
+        assert!(
+            (l1 - 1.707_106_781_186_547_5).abs() < 1e-12,
+            "lambda_1 {l1}"
+        );
+        assert!(
+            (l2 - 0.292_893_218_813_452_5).abs() < 1e-12,
+            "lambda_2 {l2}"
+        );
         // Ordering is guaranteed.
         assert!(l1 >= l2);
     }

@@ -30,7 +30,6 @@ use eframe::egui::{
 };
 use egui_file_dialog::FileDialog;
 
-use crate::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
 use crate::entity::EntityConfig;
 use crate::session::PaperSession;
 use crate::digitiser::calibration::{
@@ -40,9 +39,8 @@ use crate::digitiser::dataset::{
     utc_now_iso8601, xy_uncertainty_interval, DigitisedDataset, DigitisedPoint, FigureSource,
     PointOrigin, ReviewInterface, ReviewStatus, DATASET_SCHEMA_VERSION,
 };
-use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
-use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
+use crate::digitiser::trace::CurveSelector;
 
 use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
@@ -197,6 +195,20 @@ enum ClickMode {
     EditPoints,
     /// Double-click adds a hand-placed point (op-8ixa).
     AddPoint,
+    /// Drag draws a stroke along the curve; letting go snaps it onto the
+    /// ink and lays points 2 px apart (#290 — "we won't do auto-trace
+    /// anymore. It will be manual, were i draw a line and it will be snapped
+    /// to the curve after i let go of the mouse").
+    DrawTrace,
+    /// Click, or drag, removes points under the cursor (gh:#277).
+    ///
+    /// Right-click already deletes the nearest marker in **every** mode and
+    /// still does — that is the fast path once you know it exists. The
+    /// trouble is that nothing on screen says so, which leaves a new user no
+    /// way to discover it, and it is one gesture per point when a trace has
+    /// picked up a run of strays along an axis label. A mode you can see,
+    /// select, and then sweep covers both gaps.
+    Erase,
 }
 
 /// Which shape the calibration reference box is (op-vyb9): the original
@@ -249,10 +261,27 @@ struct ActivePaper {
 /// save site keeps the four Markdown-writing paths (Save Document,
 /// annotation save, inline block edit, digitiser CSV) and the `.bib` editor
 /// covered from one place, and also catches an external edit.
+///
+/// **Since GH issue #286 it also drives `refresh_knowledge`.** The maintainer,
+/// 2026-09-23: "i do see these artifacts load when i restart kovan, but i
+/// don't want to have to restart kovan to see those hyperlinks. once i click
+/// save annotations, i should be able to see them on the mindmap as well."
+/// The shared `WorkspaceKnowledge` was rebuilt only on opening a root, on
+/// setup, and after an ingest or a reclassify — so an artifact or a
+/// connection saved in the PDF reader was on disk and in that reader's own
+/// lists, but the Mindmap and the Wiki went on drawing the index they had
+/// read at startup.
+///
+/// The mind map's own files are watched here too, because a connection is
+/// written to them rather than to the active paper: `mindmap.md` for a
+/// relation artifact, `mindmap/connections.toml` for a concept hyperlink
+/// (#285).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct RepoSaveFingerprint {
     paper_md: Option<std::time::SystemTime>,
     bib: Option<std::time::SystemTime>,
+    mindmap_md: Option<std::time::SystemTime>,
+    connections: Option<std::time::SystemTime>,
 }
 
 impl RepoSaveFingerprint {
@@ -261,6 +290,8 @@ impl RepoSaveFingerprint {
         Self {
             paper_md: active.and_then(|a| mtime(a.session.markdown_path())),
             bib: mtime(&root.bibliography_path()),
+            mindmap_md: mtime(&root.mindmap_markdown()),
+            connections: mtime(&root.mindmap_connections()),
         }
     }
 }
@@ -382,8 +413,11 @@ pub struct DigitiseApp {
     y_log: bool,
     // trace tuning
     threshold: u8,
-    step: u32,
-    strategy: TraceStrategy,
+    /// Spacing between points laid along a drawn stroke, in image pixels
+    /// (#290 — "the points will be placed 2 pixels apart", which is the
+    /// default; the slider exists because a dense figure sometimes wants
+    /// coarser).
+    snap_spacing: f64,
     // provenance input
     figure: String,
     document_title: String,
@@ -397,6 +431,10 @@ pub struct DigitiseApp {
     dataset: Option<DigitisedDataset>,
     selected: Option<usize>,
     dragging: Option<usize>,
+    /// The stroke being drawn in [`ClickMode::DrawTrace`], in **image**
+    /// pixels, in the order it was drawn (#290). Empty unless a drag is in
+    /// progress; consumed and cleared when the button comes up.
+    stroke: Vec<(f64, f64)>,
     json_out: String,
     csv_out: String,
     /// An export waiting on a destination: set when an export button is
@@ -485,8 +523,7 @@ impl Default for DigitiseApp {
             x_log: false,
             y_log: false,
             threshold: 128,
-            step: 1,
-            strategy: TraceStrategy::ContinuityNearest,
+            snap_spacing: 2.0,
             figure: String::new(),
             document_title: String::new(),
             document_id: String::new(),
@@ -498,6 +535,7 @@ impl Default for DigitiseApp {
             dataset: None,
             selected: None,
             dragging: None,
+            stroke: Vec::new(),
             json_out: String::new(),
             csv_out: String::new(),
             pending_export: None,
@@ -637,6 +675,29 @@ impl DigitiseApp {
         self.activate_paper_and_navigate(&citekey);
     }
 
+    /// Draw the sort-a-paper dialog, on whichever tab asked for it.
+    ///
+    /// Like the ingest form, this is app-wide rather than owned by the Wiki
+    /// page: a sort started from the Mindmap's "Sort into…" or the PDF
+    /// reader's "Sort & categorise" has to appear where the user is
+    /// (2026-09-22). On a successful save the shared knowledge state is
+    /// rebuilt, since the classification the views draw from has changed.
+    fn sort_form_ui(&mut self, ui: &mut egui::Ui) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
+        // The picker ranks against the shared index, so the dialog only
+        // draws once a workspace is loaded — before that there is nothing to
+        // sort into anyway.
+        let saved = match (self.wiki.as_mut(), self.workspace.as_ref()) {
+            (Some(w), Some(workspace)) => w.classify_form(ui, &root, &workspace.index),
+            _ => false,
+        };
+        if saved {
+            self.refresh_knowledge(&root);
+        }
+    }
+
     /// Ctrl+P opens the literature finder whenever a Kovan folder is open;
     /// a PDF chosen there opens in the reader.
     fn literature_finder_ui(&mut self, ctx: &egui::Context) {
@@ -736,6 +797,9 @@ impl DigitiseApp {
         egui::Window::new("Ingest this PDF?")
             .collapsible(false)
             .resizable(false)
+            // #281: centred, like "Set up Kovan" — a prompt appears where the
+            // user is looking, not in the top-left corner.
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ctx, |ui| {
                 ui.label(format!("{path} is not in your Kovan library yet."));
                 ui.checkbox(
@@ -1032,90 +1096,59 @@ impl DigitiseApp {
     }
 
     /// The automatic pass: trace with the current calibration and tuning.
-    fn auto_trace(&mut self) {
+    /// Turn the stroke just drawn into points on the curve (#290).
+    ///
+    /// The maintainer's replacement for auto-trace: "i draw a line and it
+    /// will be snapped to the curve after i let go of the mouse. the points
+    /// will be placed 2 pixels apart." Every point goes in through
+    /// [`Self::add_point`], the same path a hand-placed marker uses, so
+    /// calibration, ordering and the dataset's review state behave exactly as
+    /// they do for a point placed by double-click.
+    ///
+    /// The stroke is cleared whether or not anything came of it — a stroke
+    /// that found no ink is a gesture the operator can simply repeat, not a
+    /// state to be left in.
+    fn snap_drawn_stroke(&mut self) {
+        let stroke = std::mem::take(&mut self.stroke);
+        if stroke.len() < 2 {
+            return; // a stray click in draw mode, not a stroke
+        }
         let Some(raster) = &self.raster else {
             self.set_error("load an image first");
             return;
         };
-        let cal = match self.calibration() {
-            Ok(c) => c,
+        let config = crate::digitiser::trace::SnapConfig {
+            selector: CurveSelector::DarkestBand {
+                max_luminance: self.threshold,
+            },
+            spacing_px: self.snap_spacing,
+            ..crate::digitiser::trace::SnapConfig::default()
+        };
+        let snapped = match crate::digitiser::trace::snap_stroke(raster, &stroke, &config) {
+            Ok(points) => points,
             Err(e) => {
-                self.set_error(e);
+                self.set_error(e.to_string());
                 return;
             }
         };
-        // Auto-trace's column/row scan is inherently axis-aligned (same
-        // boundary as `auto.rs`'s own automatic detection pipeline — see
-        // its doc comment) — a Parallelogram calibration (op-vyb9) is a
-        // hand-digitisation aid for a skewed photo, not something the
-        // automatic tracer can drive.
-        let PlotCalibration::AxisAligned { x: x_cal, y: y_cal } = cal else {
+        if snapped.is_empty() {
             self.set_error(
-                "Auto-trace needs Rectangle calibration — switch back from Parallelogram, \
-                 or hand-place points instead (double-click on the image)",
+                "nothing under that stroke looked like a curve — draw along the line, \
+                 or raise the ink threshold",
             );
             return;
-        };
-        let source = match self.source(raster) {
-            Ok(s) => s,
-            Err(e) => {
-                self.set_error(e);
-                return;
-            }
-        };
-        let config = AutoDigitiseConfig {
-            x: AxisValueSpec {
-                scale: x_cal.scale,
-                refs: AxisPixelRefs::Explicit {
-                    r1: x_cal.r1,
-                    r2: x_cal.r2,
-                },
-            },
-            y: AxisValueSpec {
-                scale: y_cal.scale,
-                refs: AxisPixelRefs::Explicit {
-                    r1: y_cal.r1,
-                    r2: y_cal.r2,
-                },
-            },
-            detect: DetectConfig::default(),
-            trace: TraceConfig {
-                selector: CurveSelector::DarkestBand {
-                    max_luminance: self.threshold,
-                },
-                strategy: self.strategy,
-                column_step: self.step,
-                inset: 3,
-                max_column_fill: 0.6,
-            },
-        };
-        match auto_digitise(
-            raster,
-            &config,
-            source,
-            self.x_label.clone(),
-            self.y_label.clone(),
-            format!("{} via kovan (gui)", self.operator_name()),
-            utc_now_iso8601(),
-        ) {
-            Ok(d) => {
-                let n = d.points.len();
-                self.dataset = Some(d);
-                self.selected = None;
-                self.mode = ClickMode::EditPoints;
-                if n == 0 {
-                    self.set_error(
-                        "auto pass traced 0 points — check the ink threshold/curve colour, \
-                         and that the reference box actually brackets the curve",
-                    );
-                } else {
-                    self.set_status(format!(
-                        "auto pass traced {n} points — verify, correct, then mark reviewed"
-                    ));
-                }
-            }
-            Err(e) => self.set_error(e.to_string()),
         }
+        if self.dataset.is_none() {
+            self.start_empty();
+        }
+        let n = snapped.len();
+        for p in snapped {
+            self.add_point(p.x_px, p.y_px);
+        }
+        self.set_status(format!(
+            "snapped {n} point(s) onto the curve, {} px apart",
+            self.snap_spacing
+        ));
     }
 
     /// Start an empty dataset from the calibration alone, for figures
@@ -1456,27 +1489,32 @@ impl DigitiseApp {
         ui.checkbox(&mut self.y_log, "y axis logarithmic");
         ui.separator();
 
-        ui.label("2. Automatic pass:");
+        // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
+        // strategy/step controls are gone from this panel (maintainer,
+        // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
+        // `auto.rs` remain for `kovan-cli digitise`, which is a different
+        // surface and was not part of that decision.
+        ui.label("2. Trace the curve:");
         ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
-        ui.add(egui::Slider::new(&mut self.step, 1..=20).text("column step"));
-        ComboBox::from_label("strategy")
-            .selected_text(format!("{:?}", self.strategy))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::ContinuityNearest,
-                    "ContinuityNearest",
-                );
-                ui.selectable_value(&mut self.strategy, TraceStrategy::LargestRun, "LargestRun");
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::ColumnCentroid,
-                    "ColumnCentroid",
-                );
-            });
+        ui.add(
+            egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
+                .text("point spacing (px)")
+                .step_by(1.0),
+        )
+        .on_hover_text("distance between points along the stroke you draw");
         ui.horizontal(|ui| {
-            if ui.button("Auto-trace").clicked() {
-                self.auto_trace();
+            if ui
+                .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
+                .on_hover_text(
+                    "hold the left button and draw along the curve; let go and the \
+                     stroke snaps onto it",
+                )
+                .clicked()
+            {
+                self.mode = ClickMode::DrawTrace;
+                if self.dataset.is_none() {
+                    self.start_empty();
+                }
             }
             if ui.button("Start empty (hand-place)").clicked() {
                 self.start_empty();
@@ -1488,6 +1526,12 @@ impl DigitiseApp {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.mode, ClickMode::EditPoints, "Edit/drag");
             ui.selectable_value(&mut self.mode, ClickMode::AddPoint, "Add points");
+            ui.selectable_value(&mut self.mode, ClickMode::DrawTrace, "\u{270F} Draw trace");
+            ui.selectable_value(&mut self.mode, ClickMode::Erase, "\u{1F9FD} Eraser")
+                .on_hover_text(
+                    "click or drag over points to remove them; right-click still \
+                     removes the nearest point in any mode",
+                );
             if ui.button("Delete selected").clicked() {
                 self.delete_selected();
             }
@@ -1756,6 +1800,51 @@ impl DigitiseApp {
                     }
                 }
             }
+            // Eraser mode (gh:#277): a plain left click removes the nearest
+            // point, and a drag sweeps a run of them out in one gesture.
+            // `dragged()` rather than `drag_started()` so holding the button
+            // down and moving keeps erasing, which is the whole reason the
+            // mode is worth having over the per-point right-click.
+            if self.mode == ClickMode::Erase {
+                // The pointer says which mode is live: an eraser that looks
+                // like the point tool costs someone their trace.
+                response
+                    .clone()
+                    .on_hover_cursor(egui::CursorIcon::NoDrop);
+            }
+            if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let (px, py) = to_image(pos);
+                    if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
+                        self.selected = Some(i);
+                        // The same deletion the right-click uses, so the two
+                        // cannot drift: one path, one set of provenance and
+                        // review-status side effects.
+                        self.delete_selected();
+                    }
+                }
+            }
+            // #290: draw along the curve, let go, and the stroke snaps onto
+            // the ink. `dragged()` rather than `drag_started()` so every
+            // frame of the gesture contributes a vertex — the stroke is the
+            // path the pointer took, not its two ends.
+            if self.mode == ClickMode::DrawTrace {
+                response.clone().on_hover_cursor(egui::CursorIcon::Crosshair);
+                if response.dragged() {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let (px, py) = to_image(pos);
+                        // Skip a repeat of the same pixel: a slow hand emits
+                        // many frames without moving, and they only make the
+                        // polyline longer to resample.
+                        if self.stroke.last() != Some(&(px, py)) {
+                            self.stroke.push((px, py));
+                        }
+                    }
+                }
+                if response.drag_stopped() {
+                    self.snap_drawn_stroke();
+                }
+            }
             // Adding a point is a double left-click (graphReader precedent) —
             // a single click in AddPoint mode is reserved for future
             // click-drag box-select, so it deliberately does not add here.
@@ -1978,6 +2067,21 @@ impl DigitiseApp {
                     }
                     painter.circle_filled(pos, 2.5, colour);
                 }
+            }
+
+            // #290: the stroke as it is being drawn. Without it the gesture
+            // is invisible until the button comes up, and a stroke you
+            // cannot see is one you cannot aim.
+            if self.stroke.len() >= 2 {
+                let path: Vec<Pos2> = self
+                    .stroke
+                    .iter()
+                    .map(|&(px, py)| to_screen(px, py))
+                    .collect();
+                painter.add(egui::Shape::line(
+                    path,
+                    Stroke::new(2.0_f32, Color32::from_rgb(40, 160, 220)),
+                ));
             }
         });
     }
@@ -2321,6 +2425,7 @@ impl eframe::App for DigitiseApp {
         self.poll_background_jobs();
         self.literature_finder_ui(ui.ctx());
         self.ingest_form_ui(ui);
+        self.sort_form_ui(ui);
         self.poll_library_clone();
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);
@@ -2396,7 +2501,6 @@ impl eframe::App for DigitiseApp {
                                     opened_paper = Some(citekey);
                                     knowledge_changed = true;
                                 }
-                                Some(WikiAction::KnowledgeChanged) => knowledge_changed = true,
                                 None => {}
                             }
                         }
@@ -2438,17 +2542,46 @@ impl eframe::App for DigitiseApp {
                     }
                 }
                 let mut opened_paper = None;
+                let mut sort_paper = None;
+                let mut open_setup = false;
+                let mut knowledge_changed = false;
                 let (index, graph) = match self.workspace.as_ref() {
                     Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
                     _ => (None, None),
                 };
                 egui::CentralPanel::default().show(ui, |ui| {
-                    if let Some(MindmapAction::OpenPaper(citekey)) =
-                        self.mindmap.ui(ui, root.as_ref(), index, graph)
-                    {
-                        opened_paper = Some(citekey);
+                    match self.mindmap.ui(ui, root.as_ref(), index, graph) {
+                        Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                        Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
+                        // No Kovan folder yet and the user asked for
+                        // something that needs one: open setup rather than
+                        // leaving the request nowhere.
+                        Some(MindmapAction::OpenSetup) => open_setup = true,
+                        Some(MindmapAction::KnowledgeChanged) => knowledge_changed = true,
+                        None => {}
                     }
                 });
+                if knowledge_changed {
+                    if let Some(root) = root.clone() {
+                        self.refresh_knowledge(&root);
+                    }
+                }
+                if open_setup {
+                    let root = self.home.root().cloned();
+                    self.setup.show_for(root.as_ref());
+                }
+                if let Some(citekey) = sort_paper {
+                    // The dialog is drawn app-wide by `sort_form_ui`, so it
+                    // opens here on the Mindmap rather than sending the user
+                    // to the Wiki.
+                    if self.wiki.is_none() {
+                        self.wiki = Some(wiki::WikiState::new());
+                    }
+                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    {
+                        w.open_sort_flow(citekey, &workspace.index);
+                    }
+                }
                 if let Some(citekey) = opened_paper {
                     // op-sr4n.3: route through the same
                     // activate_paper/view-switch helper Wiki uses,
@@ -2493,6 +2626,7 @@ impl eframe::App for DigitiseApp {
             }
             View::PdfReader => {
                 let mut open_clicked = false;
+                let mut sort_clicked: Option<String> = None;
                 let mut crop_result = None;
                 // op-j178 / GH issue #35 2026-09-02: the page-context panel
                 // renders the *shared* kvim editor (same buffer as the Kvim
@@ -2544,6 +2678,7 @@ impl eframe::App for DigitiseApp {
                     crop_result = self.pdf_reader.ui(
                         ui,
                         || open_clicked = true,
+                        |citekey| sort_clicked = Some(citekey),
                         active_session,
                         &mut self.kvim_editor,
                         completion,
@@ -2551,6 +2686,17 @@ impl eframe::App for DigitiseApp {
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);
+                }
+                // #275: "Sort & categorise" in the reader opens the same
+                // dialog the Wiki and the Mindmap use, over the reader.
+                if let Some(citekey) = sort_clicked {
+                    if self.wiki.is_none() {
+                        self.wiki = Some(wiki::WikiState::new());
+                    }
+                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    {
+                        w.open_sort_flow(citekey, &workspace.index);
+                    }
                 }
                 // op-p17q/op-hnhp: the reader just completed a
                 // crop-then-right-click gesture — load the cropped region
@@ -2697,10 +2843,16 @@ impl eframe::App for DigitiseApp {
         // GH issue #35 2026-09-02: after any save wrote a tracked repo file,
         // auto-refresh the Save Repository tab's git status (it otherwise
         // only re-scans on first open or an explicit Refresh click).
-        if let Some(root) = self.home.root() {
-            let fp = RepoSaveFingerprint::capture(root, self.active_paper.as_ref());
+        if let Some(root) = self.home.root().cloned() {
+            let fp = RepoSaveFingerprint::capture(&root, self.active_paper.as_ref());
             if self.repo_save_fingerprint.is_some_and(|prev| prev != fp) {
                 self.advanced_git.mark_stale();
+                // #286: the same save also changed what the Mindmap, the
+                // Wiki and the completion popups should be showing. Rebuild
+                // the one shared knowledge state here rather than at each
+                // save site — the same reason the git status is marked from
+                // here, and it catches an external edit too.
+                self.refresh_knowledge(&root);
             }
             self.repo_save_fingerprint = Some(fp);
         }
@@ -2752,6 +2904,36 @@ mod tests {
         };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey
+    }
+
+    /// GH issue #286: a connection is written to the mind map's own files,
+    /// not to the active paper, so the save fingerprint has to watch them —
+    /// otherwise nothing tells the app to rebuild the shared knowledge and
+    /// the Mindmap keeps drawing what it read at startup.
+    #[test]
+    fn the_save_fingerprint_notices_a_connection_in_either_mindmap_file() {
+        use crate::node_id::{Namespace, NodeId};
+        let (_dir, root) = make_root();
+
+        let start = RepoSaveFingerprint::capture(&root, None);
+
+        // A relation artifact (what the PDF reader's "Add connection…" writes).
+        std::fs::write(root.mindmap_markdown(), "# mindmap\n").unwrap();
+        let after_relation = RepoSaveFingerprint::capture(&root, None);
+        assert_ne!(start, after_relation, "mindmap.md is not watched");
+
+        // A concept hyperlink (#285).
+        crate::connections::add(
+            &root,
+            &NodeId::concept(Namespace::Library, "njoy"),
+            &NodeId::concept(Namespace::Corpus, "nuclear-data/njoy"),
+        )
+        .unwrap();
+        let after_hyperlink = RepoSaveFingerprint::capture(&root, None);
+        assert_ne!(
+            after_relation, after_hyperlink,
+            "mindmap/connections.toml is not watched"
+        );
     }
 
     /// Opening a paper's own PDF opens the paper (so the page panel shows

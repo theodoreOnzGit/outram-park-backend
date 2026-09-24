@@ -18,6 +18,17 @@
 //! "Advanced…" section underneath, not as the tab's headline. Nothing about
 //! `crate::advanced_git`/`crate::repository`'s own behaviour changed here —
 //! this file is presentation only.
+//!
+//! # One exception to "presentation only": the conflicted-pull prompt
+//!
+//! Since GH issue #279 this file also owns a decision, not just a
+//! rendering: a pull that comes back [`advanced_git::RemoteError::Conflict`]
+//! raises [`ForcePullPrompt`] instead of a red label, and the answer runs
+//! either `advanced_git::force_pull_in` (**destroys every uncommitted and
+//! untracked file in the folder**) or `advanced_git::abort_in_progress_in`.
+//! The git itself still lives in `advanced_git`; what lives here is the
+//! guarantee that neither runs without the user having been shown, in
+//! words, what "yes, can" throws away.
 
 use eframe::egui::{self, Color32};
 
@@ -81,6 +92,27 @@ pub struct AdvancedGitState {
     repos: Vec<RepoPanel>,
     message: String,
     message_is_error: bool,
+    /// A pull Git stopped on a conflict, waiting for the user's answer to
+    /// the "sure anot?" prompt (GH issue #279). `None` the rest of the time.
+    pending_force_pull: Option<ForcePullPrompt>,
+}
+
+/// The pull that just hit a conflict, held while [`AdvancedGitState::force_pull_prompt_ui`]
+/// asks whether to force it through (GH issue #279).
+///
+/// The repository is carried here by value rather than as an index into
+/// [`AdvancedGitState::repos`], because a refresh between raising the prompt
+/// and answering it would renumber that list — and answering "yes, can" is
+/// destructive enough that it must not be able to land on a different
+/// repository than the one the user was shown.
+struct ForcePullPrompt {
+    label: &'static str,
+    dir: PathBuf,
+    remote: String,
+    branch: String,
+    /// Git's own account of the conflict, shown on request rather than by
+    /// default — it is the evidence, not the question.
+    git_says: String,
 }
 
 impl AdvancedGitState {
@@ -243,6 +275,13 @@ impl AdvancedGitState {
                 }
             });
         });
+
+        // Modal, so it is drawn on the context rather than inside the
+        // collapsed "Advanced…" section that raised it — a prompt that can
+        // destroy the folder must not be something the user can scroll away
+        // from without answering (#279).
+        let ctx = ui.ctx().clone();
+        self.force_pull_prompt_ui(&ctx, root);
     }
 
     /// Fetch, pull or push repository `i` against its own remote and branch.
@@ -253,15 +292,145 @@ impl AdvancedGitState {
         let (Some(remote), Some(branch)) = (repo.remote(), repo.branch.as_deref()) else {
             return;
         };
-        let (remote, label) = (remote.name.clone(), repo.label);
+        let (remote, branch, label, dir) = (
+            remote.name.clone(),
+            branch.to_string(),
+            repo.label,
+            repo.dir.clone(),
+        );
         let result = match op {
-            RemoteOp::Fetch => advanced_git::fetch_in(&repo.dir, &remote),
-            RemoteOp::Pull => advanced_git::pull_in(&repo.dir, &remote, branch),
-            RemoteOp::Push => advanced_git::push_in(&repo.dir, &remote, branch),
+            RemoteOp::Fetch => advanced_git::fetch_in(&dir, &remote),
+            RemoteOp::Pull => advanced_git::pull_in(&dir, &remote, &branch),
+            RemoteOp::Push => advanced_git::push_in(&dir, &remote, &branch),
         };
+        self.record(label, dir, remote, branch, op, result);
+    }
+
+    /// File what a remote operation returned: a message, or — for the one
+    /// failure the user can answer (a conflicted pull, #279) — the prompt.
+    ///
+    /// Split out from [`Self::run`] so the branch that decides *between*
+    /// those two is testable without a repository or a running `git`.
+    fn record(
+        &mut self,
+        label: &'static str,
+        dir: PathBuf,
+        remote: String,
+        branch: String,
+        op: RemoteOp,
+        result: Result<String, advanced_git::RemoteError>,
+    ) {
         match result {
             Ok(_) => self.set_status(format!("{label}: {} done", op.verb())),
+            // Only `pull_in` ever produces this, and it is not an error the
+            // user can do nothing about — ask, rather than printing Git's
+            // complaint in red and leaving them stuck.
+            Err(advanced_git::RemoteError::Conflict { output, .. }) => {
+                self.message.clear();
+                self.pending_force_pull = Some(ForcePullPrompt {
+                    label,
+                    dir,
+                    remote,
+                    branch,
+                    git_says: output,
+                });
+            }
             Err(e) => self.set_error(format!("{label}: {e}")),
+        }
+    }
+
+    /// The conflicted-pull prompt (GH issue #279), in the maintainer's own
+    /// words: *"you may have unsaved changes, u sure u want to pull anot?"*,
+    /// answered with **yes, can** or **no, i manage myself**.
+    ///
+    /// - **yes, can** — [`advanced_git::force_pull_in`]: the folder becomes
+    ///   an exact copy of the remote, and everything not saved *and* pushed
+    ///   is destroyed. The dialog says so before the button is reachable;
+    ///   this is the one place in the tab that can lose work.
+    /// - **no, i manage myself** — [`advanced_git::abort_in_progress_in`]:
+    ///   the folder goes back to how it was before Pull was pressed, so
+    ///   declining means the pull simply did not happen. Without this a
+    ///   conflicted merge would be left half-applied in a folder whose
+    ///   owner was never meant to need Git vocabulary (op-wqaw).
+    fn force_pull_prompt_ui(&mut self, ctx: &egui::Context, root: &KovanRoot) {
+        let Some(prompt) = self.pending_force_pull.take() else {
+            return;
+        };
+        let mut force = None;
+        // A real `egui::Modal`, not a `Window`: its backdrop blocks input to
+        // everything behind it, and its `should_close()` (escape, or a click
+        // on the backdrop) is deliberately ignored — a prompt that can
+        // destroy the folder is answered with one of the two buttons or not
+        // at all.
+        egui::Modal::new(egui::Id::new("advanced-git-force-pull"))
+            .show(ctx, |ui| {
+                ui.set_max_width(460.0);
+                ui.heading("Pull anyway?");
+                ui.label(format!("{} — {}", prompt.label, prompt.dir.display()));
+                ui.add_space(4.0);
+                ui.strong("You may have unsaved changes, u sure u want to pull anot?");
+                ui.add_space(4.0);
+                ui.colored_label(
+                    ui.visuals().warn_fg_color,
+                    format!(
+                        "\u{26a0} \"yes, can\" replaces this folder with {}/{}. Anything not \
+                         saved and pushed is gone for good — edits in progress, files you \
+                         added but never saved, and saves that were never pushed.",
+                        prompt.remote, prompt.branch
+                    ),
+                );
+                ui.weak("\"no, i manage myself\" leaves the folder exactly as it was before you pressed Pull.");
+                egui::CollapsingHeader::new("What Git said")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        ui.weak(&prompt.git_says);
+                    });
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    if ui.button("yes, can").clicked() {
+                        force = Some(true);
+                    }
+                    if ui.button("no, i manage myself").clicked() {
+                        force = Some(false);
+                    }
+                });
+            });
+
+        match force {
+            Some(true) => {
+                match advanced_git::force_pull_in(&prompt.dir, &prompt.remote, &prompt.branch) {
+                    // The files on disk were replaced underneath the rest
+                    // of the app, whose index and any open paper were read
+                    // before the pull. Refreshing this tab does not reload
+                    // those, so say so rather than letting a stale Wiki look
+                    // like the pull did not work. (True of an ordinary
+                    // successful pull too — this is the loudest case, not a
+                    // new one.)
+                    Ok(_) => self.set_status(format!(
+                        "{}: pulled by force — the folder now matches {}/{}. Reopen the folder \
+                         from Home so the rest of Kovan reads the new files.",
+                        prompt.label, prompt.remote, prompt.branch
+                    )),
+                    Err(e) => {
+                        self.set_error(format!("{}: could not force the pull: {e}", prompt.label))
+                    }
+                }
+                // The working tree and the history both moved; everything on
+                // this tab is now stale.
+                self.refresh(root);
+            }
+            Some(false) => match advanced_git::abort_in_progress_in(&prompt.dir) {
+                Ok(_) => self.set_status(format!(
+                    "{}: pull cancelled — nothing in the folder was changed",
+                    prompt.label
+                )),
+                Err(e) => self.set_error(format!(
+                    "{}: pull cancelled, but undoing the half-done merge failed: {e}",
+                    prompt.label
+                )),
+            },
+            // Neither button pressed yet — keep asking.
+            None => self.pending_force_pull = Some(prompt),
         }
     }
 }
@@ -301,6 +470,88 @@ mod tests {
                 .collect(),
             branch: Some("main".into()),
         }
+    }
+
+    fn conflict() -> advanced_git::RemoteError {
+        advanced_git::RemoteError::Conflict {
+            command: "git pull origin main".into(),
+            output: "CONFLICT (content): Merge conflict in kovan.toml".into(),
+        }
+    }
+
+    fn state_after(result: Result<String, advanced_git::RemoteError>) -> AdvancedGitState {
+        let mut state = AdvancedGitState::default();
+        state.record(
+            "Kovan folder",
+            PathBuf::from("/tmp/local-kovan-repo"),
+            "origin".into(),
+            "main".into(),
+            RemoteOp::Pull,
+            result,
+        );
+        state
+    }
+
+    /// A conflicted pull raises the prompt instead of a red error message —
+    /// the whole point of GH issue #279: the user is asked, not just told.
+    #[test]
+    fn a_conflicted_pull_raises_the_prompt_and_says_nothing_in_red() {
+        let state = state_after(Err(conflict()));
+        let prompt = state.pending_force_pull.expect("no prompt raised");
+        assert_eq!(prompt.dir, PathBuf::from("/tmp/local-kovan-repo"));
+        assert_eq!(
+            (prompt.remote.as_str(), prompt.branch.as_str()),
+            ("origin", "main")
+        );
+        assert!(prompt.git_says.contains("Merge conflict"));
+        assert!(
+            state.message.is_empty(),
+            "left a stale message under the prompt"
+        );
+    }
+
+    /// Every other failure keeps the old behaviour. A forced pull must not
+    /// be offered as the answer to a typo'd URL or a refused password —
+    /// those are not resolved by destroying the folder.
+    #[test]
+    fn an_ordinary_failure_still_reports_an_error_and_offers_no_forced_pull() {
+        let state = state_after(Err(advanced_git::RemoteError::Failed {
+            command: "git pull origin main".into(),
+            stderr: "fatal: Authentication failed".into(),
+        }));
+        assert!(state.pending_force_pull.is_none());
+        assert!(state.message_is_error);
+        assert!(state.message.contains("Authentication failed"));
+
+        let ok = state_after(Ok(String::new()));
+        assert!(ok.pending_force_pull.is_none());
+        assert!(!ok.message_is_error);
+    }
+
+    /// Drawing the prompt without pressing either button changes nothing
+    /// and keeps asking — a dialog that can destroy the folder must not be
+    /// dismissible by ignoring it. Run headless through `egui::Context`,
+    /// with no window and no GPU.
+    #[test]
+    fn drawing_the_prompt_without_answering_it_neither_pulls_nor_cancels() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        let mut state = state_after(Err(conflict()));
+        // A directory that is not a repository at all: if either branch ran
+        // despite no button being pressed, the git call would fail and land
+        // an error message here.
+        let ctx = egui::Context::default();
+        for _ in 0..2 {
+            let _ = ctx.run_ui(Default::default(), |ctx| {
+                state.force_pull_prompt_ui(ctx, &root);
+            });
+        }
+        assert!(
+            state.pending_force_pull.is_some(),
+            "the prompt vanished unanswered"
+        );
+        assert!(state.message.is_empty(), "something ran: {}", state.message);
     }
 
     /// The panel pushes to `origin`, or to the only remote there is; with

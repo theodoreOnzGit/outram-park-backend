@@ -658,7 +658,10 @@ mod tests {
             .sum::<f64>()
             / 3.0;
         let rel = (lumped - split).abs() / lumped;
-        assert!(rel < 0.02, "lumped {lumped:e} vs split mean {split:e}, rel {rel:e}");
+        assert!(
+            rel < 0.02,
+            "lumped {lumped:e} vs split mean {split:e}, rel {rel:e}"
+        );
     }
 
     /// `Fixed` must actually override the wind-derived class, and a different

@@ -28,9 +28,12 @@
 //! different views when a single application-level state can provide
 //! consistency"). [`WikiState`] now takes the index as a `&KnowledgeIndex`
 //! parameter on every call instead of owning one — [`WikiAction::OpenPaper`]
-//! (a successful ingest) and [`WikiAction::KnowledgeChanged`] (a successful
-//! reclassify) are how it tells `DigitiseApp` a shared rebuild is due;
-//! `DigitiseApp` owns the single rebuild, not this module.
+//! (a successful ingest) is how it tells `DigitiseApp` a shared rebuild is
+//! due; `DigitiseApp` owns the single rebuild, not this module. A successful
+//! **sort** rebuilds the same way, but through `DigitiseApp::sort_form_ui`
+//! rather than a `WikiAction`, because since 2026-09-22 that dialog is drawn
+//! app-wide (the Mindmap and the PDF reader open it too) and so is not the
+//! Wiki page's to report on.
 
 use eframe::egui::{self, Color32};
 
@@ -66,13 +69,6 @@ impl IngestFlow {
     }
 }
 
-fn split_paths(text: &str) -> Vec<String> {
-    text.split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(String::from)
-        .collect()
-}
 
 /// A pending "sort this paper" flow (op-j3ib, GH issue #35's 2026-09-01
 /// 05:33 "if i right click the literature, i want to be able to sort it") —
@@ -81,24 +77,102 @@ fn split_paths(text: &str) -> Vec<String> {
 /// 2026-09-22, #245), prefilled from its current classification.
 struct ClassifyFlow {
     citekey: String,
-    topics_text: String,
-    projects_text: String,
+    /// The topics chosen so far, as classification paths.
+    topics: Vec<String>,
+    /// The projects chosen so far, as classification paths.
+    projects: Vec<String>,
+    /// What is typed in each fuzzy picker (#272).
+    topic_query: String,
+    project_query: String,
     message: String,
 }
 
 impl ClassifyFlow {
     fn new(citekey: String, index: &KnowledgeIndex) -> Self {
-        let (topics_text, projects_text) = index
+        let (topics, projects) = index
             .papers
             .iter()
             .find(|p| p.citekey == citekey)
-            .map(|p| (p.topics.join(", "), p.projects.join(", ")))
+            .map(|p| (p.topics.clone(), p.projects.clone()))
             .unwrap_or_default();
         Self {
             citekey,
-            topics_text,
-            projects_text,
+            // `unsorted` is the *absence* of a classification, not one of
+            // them (`entity::UNSORTED`) — showing it as a chosen topic would
+            // invite keeping it alongside a real one.
+            topics: topics
+                .into_iter()
+                .filter(|t| t != crate::entity::UNSORTED)
+                .collect(),
+            projects,
+            topic_query: String::new(),
+            project_query: String::new(),
             message: String::new(),
+        }
+    }
+}
+
+/// One picker section of the sort dialog: the chosen paths as removable
+/// chips, then a fuzzy search over what exists, then — only when the query
+/// names something genuinely new — an explicit "create" entry.
+///
+/// The create entry is deliberately a **separate, labelled** button rather
+/// than an implicit accept-what-you-typed: the old free-text field could not
+/// tell "I mean the existing topic" from "I typo'd it", and silently created
+/// near-duplicates.
+fn picker_section(
+    ui: &mut egui::Ui,
+    label: &str,
+    kind: crate::entity::EntityKind,
+    chosen: &mut Vec<String>,
+    query: &mut String,
+    index: &KnowledgeIndex,
+) {
+    use crate::collection_picker::{rank, would_create};
+    ui.strong(label);
+    if chosen.is_empty() {
+        ui.weak("none yet");
+    } else {
+        let mut remove = None;
+        ui.horizontal_wrapped(|ui| {
+            for (n, path) in chosen.iter().enumerate() {
+                if ui
+                    .small_button(format!("{path}  \u{2715}"))
+                    .on_hover_text("remove")
+                    .clicked()
+                {
+                    remove = Some(n);
+                }
+            }
+        });
+        if let Some(n) = remove {
+            chosen.remove(n);
+        }
+    }
+    ui.add(
+        egui::TextEdit::singleline(query)
+            .hint_text("type to search\u{2026}")
+            .desired_width(360.0),
+    );
+    for c in rank(index, kind, query, chosen) {
+        if ui
+            .small_button(format!("\u{1F4C1} {}", c.path))
+            .on_hover_text(&c.name)
+            .clicked()
+        {
+            chosen.push(c.path.clone());
+            query.clear();
+        }
+    }
+    if would_create(index, kind, query) {
+        let new_path = query.trim().to_string();
+        if ui
+            .small_button(format!("\u{2795} create {new_path:?}"))
+            .on_hover_text("this path does not exist yet \u{2014} it will be created")
+            .clicked()
+        {
+            chosen.push(new_path);
+            query.clear();
         }
     }
 }
@@ -110,13 +184,10 @@ pub enum WikiAction {
     /// A paper was clicked (or "Ingest & Open" just finished) — the caller
     /// should activate it (op-sr4n, GitHub issue #35's 2026-09-01 "unify
     /// root and active-paper context" comment). Ingesting also changes the
-    /// shared knowledge state, same as [`Self::KnowledgeChanged`] — the
-    /// caller should refresh it here too, not only navigate.
+    /// shared knowledge state — the caller should refresh it here too, not
+    /// only navigate.
     OpenPaper(String),
-    /// A reclassify (op-j3ib) succeeded — the caller should rebuild the
-    /// shared `KnowledgeIndex`/`KnowledgeGraph` (op-dkll) before the next
-    /// frame renders Wiki/Mindmap/Bibliography against it.
-    KnowledgeChanged,
+
 }
 
 pub struct WikiState {
@@ -188,6 +259,9 @@ impl WikiState {
         egui::Window::new("Ingest Literature")
             .collapsible(false)
             .resizable(false)
+            // #281, the maintainer ingesting the NJOY manual: "the popup
+            // boxes need to be in the centre".
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ui.ctx(), |ui| {
                 ui.label(format!("Title: {}", flow.preview.title));
                 if !flow.preview.authors.is_empty() {
@@ -264,7 +338,12 @@ impl WikiState {
     /// error) — same fallback ingestion itself already applies. Returns
     /// `true` the frame a reclassify actually succeeds, so the caller knows
     /// to refresh the shared knowledge state (op-dkll).
-    fn classify_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> bool {
+    pub(super) fn classify_form(
+        &mut self,
+        ui: &mut egui::Ui,
+        root: &KovanRoot,
+        index: &KnowledgeIndex,
+    ) -> bool {
         let Some(flow) = &mut self.classify_flow else {
             return false;
         };
@@ -274,15 +353,26 @@ impl WikiState {
         egui::Window::new(format!("Sort {}", flow.citekey))
             .collapsible(false)
             .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
             .show(ui.ctx(), |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Topics (comma-separated, e.g. htgrs/materials):");
-                    ui.text_edit_singleline(&mut flow.topics_text);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Projects:");
-                    ui.text_edit_singleline(&mut flow.projects_text);
-                });
+                picker_section(
+                    ui,
+                    "Topics",
+                    crate::entity::EntityKind::Topic,
+                    &mut flow.topics,
+                    &mut flow.topic_query,
+                    index,
+                );
+                ui.add_space(6.0);
+                picker_section(
+                    ui,
+                    "Projects",
+                    crate::entity::EntityKind::Project,
+                    &mut flow.projects,
+                    &mut flow.project_query,
+                    index,
+                );
+                ui.add_space(4.0);
                 ui.small("Leave both empty to put it back in Unsorted.");
 
                 if !flow.message.is_empty() {
@@ -302,8 +392,8 @@ impl WikiState {
         let mut changed = false;
         if save_clicked {
             let dir = root.paper_dir(&flow.citekey);
-            let topics = split_paths(&flow.topics_text);
-            let projects = split_paths(&flow.projects_text);
+            let topics = flow.topics.clone();
+            let projects = flow.projects.clone();
             // op-8aq6: create whatever topic/project entities don't exist
             // yet before writing a classification that names them — same
             // fix as ingestion's own, since this form writes the identical
@@ -336,6 +426,18 @@ impl WikiState {
         changed
     }
 
+    /// Open the sort-a-paper flow for `citekey`, prefilled from its current
+    /// classification.
+    ///
+    /// The Wiki owns the flow's state, but every view reaches it: the Wiki's
+    /// own citation menu, the Mindmap's "Sort into…"
+    /// ([`crate::mindmap::MindmapAction::SortPaper`]) and the PDF reader's
+    /// "Sort & categorise" button. The dialog itself is drawn app-wide by
+    /// `DigitiseApp::sort_form_ui`, so it appears on whichever tab asked.
+    pub(super) fn open_sort_flow(&mut self, citekey: String, index: &KnowledgeIndex) {
+        self.classify_flow = Some(ClassifyFlow::new(citekey, index));
+    }
+
     /// Draw the Wiki browser against `index` (the shared `KnowledgeIndex`,
     /// op-dkll — this module no longer keeps its own copy). Returns `Some`
     /// when the caller should act: open a file picker, activate a paper, or
@@ -348,12 +450,11 @@ impl WikiState {
     ) -> Option<WikiAction> {
         let mut action = None;
 
-        // The ingest form is drawn by the app, over every tab
-        // (`DigitiseApp::ingest_form_ui`): started from the PDF reader's
-        // ingest prompt it must show there, not only in the Wiki (2026-09-22).
-        if self.classify_form(ui, root) {
-            action = Some(WikiAction::KnowledgeChanged);
-        }
+        // The ingest form and the sort form are both drawn by the app, over
+        // every tab (`DigitiseApp::ingest_form_ui` / `sort_form_ui`): a sort
+        // started from the Mindmap's "Sort into…" or the PDF reader's
+        // "Sort & categorise" must show *there*, not only in the Wiki
+        // (2026-09-22).
 
         ui.horizontal(|ui| {
             ui.heading(&root.config().library.name);
@@ -486,9 +587,11 @@ fn pick_citation(
     open: &mut Option<String>,
     classify: &mut Option<String>,
 ) {
-    match crate::mindmap::citations_menu(ui, citations, "Reclassify…") {
-        Some(crate::mindmap::CitationPick::Open(k)) => *open = Some(k),
-        Some(crate::mindmap::CitationPick::Secondary(k)) => *classify = Some(k),
+    use crate::mindmap::{CitationAction, CitationPick};
+    match crate::mindmap::citations_menu(ui, citations, &[CitationAction::Reclassify]) {
+        Some(CitationPick::Open(k)) => *open = Some(k),
+        Some(CitationPick::Action(CitationAction::Reclassify, k)) => *classify = Some(k),
+        Some(CitationPick::Action(CitationAction::LiteratureCard, _)) => {}
         None => {}
     }
 }

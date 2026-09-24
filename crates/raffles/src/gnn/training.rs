@@ -281,13 +281,15 @@ pub fn rollout<B: burn::prelude::Backend>(
             .collect();
         let input = Tensor::<B, 2>::from_data(TensorData::new(values, [nodes, width]), device);
         let increment = network.forward(graph, input);
-        let raw: Vec<f32> = increment.into_data().to_vec().map_err(|_| {
-            RafflesError::InvalidParameter {
-                parameter: "rollout".to_string(),
-                value: f64::NAN,
-                reason: "the backend returned a tensor that could not be read back".to_string(),
-            }
-        })?;
+        let raw: Vec<f32> =
+            increment
+                .into_data()
+                .to_vec()
+                .map_err(|_| RafflesError::InvalidParameter {
+                    parameter: "rollout".to_string(),
+                    value: f64::NAN,
+                    reason: "the backend returned a tensor that could not be read back".to_string(),
+                })?;
         for (i, row) in state.iter_mut().enumerate() {
             for (j, value) in row.iter_mut().enumerate() {
                 *value += raw[i * width + j] as f64;
@@ -463,11 +465,8 @@ mod tests {
                     TensorData::new(values, [nodes, 1]),
                     &device(),
                 );
-                let prediction: Vec<f32> = trained
-                    .forward(&graph, input)
-                    .into_data()
-                    .to_vec()
-                    .unwrap();
+                let prediction: Vec<f32> =
+                    trained.forward(&graph, input).into_data().to_vec().unwrap();
                 for (i, target_row) in target.iter().enumerate() {
                     squared += (prediction[i] as f64 - target_row[0]).powi(2);
                     count += 1;
@@ -525,10 +524,8 @@ mod tests {
 
         let features: Vec<Vec<f64>> = (0..21).map(|i| vec![(i as f64) * 0.1]).collect();
         let values: Vec<f32> = features.iter().map(|r| r[0] as f32).collect();
-        let batched_input = Tensor::<TestBackend, 2>::from_data(
-            TensorData::new(values, [21, 1]),
-            &device(),
-        );
+        let batched_input =
+            Tensor::<TestBackend, 2>::from_data(TensorData::new(values, [21, 1]), &device());
         let batched_output: Vec<f32> = network
             .forward(&batched, batched_input)
             .into_data()
@@ -536,13 +533,9 @@ mod tests {
             .unwrap();
 
         for sample in 0..samples {
-            let slice: Vec<f32> = (0..7)
-                .map(|i| features[sample * 7 + i][0] as f32)
-                .collect();
-            let input = Tensor::<TestBackend, 2>::from_data(
-                TensorData::new(slice, [7, 1]),
-                &device(),
-            );
+            let slice: Vec<f32> = (0..7).map(|i| features[sample * 7 + i][0] as f32).collect();
+            let input =
+                Tensor::<TestBackend, 2>::from_data(TensorData::new(slice, [7, 1]), &device());
             let output: Vec<f32> = network.forward(&graph, input).into_data().to_vec().unwrap();
             for i in 0..7 {
                 let difference = (output[i] - batched_output[sample * 7 + i]).abs();
@@ -643,24 +636,12 @@ mod tests {
         let config = MpnnTrainingConfig::default_config();
         let good: Vec<Vec<Vec<f64>>> = vec![(0..5).map(|i| vec![i as f64]).collect()];
 
-        assert!(train::<TestBackend>(
-            network.clone(),
-            &graph,
-            &[],
-            &[],
-            &config,
-            &device()
-        )
-        .is_err());
-        assert!(train::<TestBackend>(
-            network.clone(),
-            &graph,
-            &good,
-            &[],
-            &config,
-            &device()
-        )
-        .is_err());
+        assert!(
+            train::<TestBackend>(network.clone(), &graph, &[], &[], &config, &device()).is_err()
+        );
+        assert!(
+            train::<TestBackend>(network.clone(), &graph, &good, &[], &config, &device()).is_err()
+        );
         let wrong_height: Vec<Vec<Vec<f64>>> = vec![(0..3).map(|i| vec![i as f64]).collect()];
         assert!(train::<TestBackend>(
             network.clone(),
@@ -673,15 +654,9 @@ mod tests {
         .is_err());
         let mut bad = config;
         bad.epochs = 0;
-        assert!(train::<TestBackend>(
-            network.clone(),
-            &graph,
-            &good,
-            &good,
-            &bad,
-            &device()
-        )
-        .is_err());
+        assert!(
+            train::<TestBackend>(network.clone(), &graph, &good, &good, &bad, &device()).is_err()
+        );
 
         assert!(rollout(&network, &graph, &[vec![0.0], vec![1.0]], 3, &device()).is_err());
         assert!(graph.repeat(0).is_err());

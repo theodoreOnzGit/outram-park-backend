@@ -263,11 +263,14 @@ struct ContextMenu {
 #[derive(Debug, Clone)]
 enum ConnectionPopup {
     /// "Add connection..." — a fuzzy target picker (backed by
-    /// [`library_candidates`]) plus a cyclable [`RelationKind`].
+    /// [`library_candidates`]) plus a fuzzy [`RelationKind`] picker.
     Add {
         source: String,
         query: String,
         kind: RelationKind,
+        /// What is typed in the relation-kind picker. Separate from `query`,
+        /// which searches the *target*: the two searches are independent.
+        kind_query: String,
     },
     /// "Edit connections..." / "Delete connection..." — both open the same
     /// view of every [`relation::UserRelation`] touching `node`
@@ -280,6 +283,136 @@ enum ConnectionPopup {
     /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
     /// nothing at all (the dialog is closed, `self` otherwise untouched).
     ConfirmDelete { citekey: String, artifact_id: String },
+}
+
+/// The artifact whose region box is hit at `at`, when several overlap: the
+/// **smallest** containing region wins.
+///
+/// Artifact boxes nest and overlap routinely — a figure inside a section, two
+/// notes over one column — and picking the first (or last) in document order
+/// meant clicking a small box inside a larger one acted on the larger one
+/// (maintainer, 2026-09-22: "it goes to the right paper, but wrong
+/// artifact"). Smallest-wins is what a click on nested boxes means in every
+/// other interface, and it is the only rule that lets a small artifact inside
+/// a big one be reached at all.
+///
+/// Used by the right-click hit test, the hover highlight and single-click
+/// open alike, so the box you see highlighted is the one that acts.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn smallest_hit<'a>(
+    overlays: impl IntoIterator<Item = (&'a Artifact, Rect)>,
+    at: Pos2,
+) -> Option<&'a Artifact> {
+    overlays
+        .into_iter()
+        // Containment has to be tested in screen space: the pointer is a
+        // screen position, and this is the only step that needs the
+        // transform at all.
+        .filter(|(_, r)| r.contains(at))
+        // Everything after it is decided on the artifact's **own**
+        // normalised region, which is exact and does not depend on the
+        // current zoom (maintainer, 2026-09-22).
+        .min_by(|(a, _), (b, _)| {
+            hit_rank(a)
+                .partial_cmp(&hit_rank(b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(art, _)| art)
+}
+
+/// The ordering key [`smallest_hit`] ranks by: normalised area first, then
+/// page, then the region's own corners.
+///
+/// **Area** in page fractions rather than screen pixels — the same number at
+/// any zoom, and comparable across pages of different sizes, which screen
+/// area is not.
+///
+/// **Page and corners** are the tie-break, because an artifact is identified
+/// by its box (maintainer: "the artifact is uniquely identified by its box …
+/// That should be the discriminator between similar artifacts", and "the
+/// page matters too"). Two artifacts of equal area are then ordered by
+/// where they actually are, deterministically, instead of by whichever
+/// happened to be parsed first — the one case the area rule alone could not
+/// separate.
+///
+/// **Id** is the last element, so the order is **total**: no two distinct
+/// artifacts ever compare equal, whatever their geometry. That is deliberate
+/// redundancy (maintainer: "use the ids too … redundancy is good") — the
+/// geometry is what a click means, the id is what cannot collide, and
+/// falling through to it means the answer never depends on parse order.
+///
+/// A missing region sorts last (`INFINITY`). In practice it cannot occur:
+/// the overlays are built *from* regions, so an artifact without one is
+/// never a candidate. It is handled rather than unwrapped because the type
+/// admits it.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn hit_rank(art: &Artifact) -> (f64, u32, f64, f64, f64, f64, &str) {
+    let page = art
+        .toml
+        .source
+        .as_ref()
+        .and_then(|s| s.first_page())
+        .unwrap_or(u32::MAX);
+    let id = art.id();
+    match art.toml.source.as_ref().and_then(|src| src.region) {
+        Some(r) => (
+            (r.x1 - r.x0) * (r.y1 - r.y0),
+            page,
+            r.x0,
+            r.y0,
+            r.x1,
+            r.y1,
+            id,
+        ),
+        None => (f64::INFINITY, page, 0.0, 0.0, 0.0, 0.0, id),
+    }
+}
+
+/// The relation-kind picker: a dropdown whose list is **fuzzy-filtered** by a
+/// search box inside it, like an autocomplete (maintainer, 2026-09-22).
+///
+/// It replaced a single button that cycled [`RelationKind::ALL`] one step per
+/// click. With eight kinds that is up to seven clicks to reach the one you
+/// want, in an order nobody memorises, and the current value is the only one
+/// ever on screen — so you cannot see what the alternatives are. A dropdown
+/// shows them; the search box means you do not have to read all eight.
+///
+/// Ranked through [`crate::fuzzy::fuzzy_score`], the same scorer as the
+/// target search directly beside it and as every other Kovan finder, so the
+/// two halves of this dialog behave identically.
+fn relation_kind_picker(ui: &mut egui::Ui, kind: &mut RelationKind, query: &mut String) {
+    egui::ComboBox::from_id_salt("relation-kind")
+        .selected_text(kind.label())
+        .show_ui(ui, |ui| {
+            ui.add(
+                egui::TextEdit::singleline(query)
+                    .hint_text("filter\u{2026}")
+                    .desired_width(160.0),
+            );
+            let mut ranked: Vec<(i32, RelationKind)> = RelationKind::ALL
+                .into_iter()
+                .filter_map(|k| {
+                    // Match the human label and the wire name both: someone
+                    // who has read a `[relation]` block searches `uses_data`,
+                    // someone who has not searches `uses data`.
+                    let by_label = crate::fuzzy::fuzzy_score(query, k.label());
+                    let by_wire = crate::fuzzy::fuzzy_score(query, k.as_str());
+                    by_label.max(by_wire).map(|s| (s, k))
+                })
+                .collect();
+            // Best first; ties keep `ALL`'s order, since the sort is stable.
+            ranked.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+            if ranked.is_empty() {
+                ui.weak("no matching kind");
+            }
+            for (_, k) in ranked {
+                if ui.selectable_label(*kind == k, k.label()).clicked() {
+                    *kind = k;
+                    query.clear();
+                    ui.close();
+                }
+            }
+        });
 }
 
 /// What one [`MenuEntry`] does when clicked, for the op-30um.3/.6 saved-
@@ -738,6 +871,9 @@ pub struct PdfReaderState {
     /// under the mouse stays under the mouse. `ScrollArea` applies it before
     /// layout and input, so it is exact and one-shot.
     forced_offset: Option<egui::Vec2>,
+    /// An artifact jump asked for before the canvas could satisfy it, to be
+    /// retried once it can. See [`PdfReaderState::go_to_artifact`].
+    pending_jump: Option<Artifact>,
     message: String,
     // annotations — in-memory only, see the module doc comment.
     tool: AnnotationTool,
@@ -947,6 +1083,26 @@ fn first_note_heading_line(md: &str, page: usize) -> Option<usize> {
     None
 }
 
+/// How much of the view an artifact's `[source]` region fills when jumping to
+/// it, as a fraction of the **shorter** screen axis.
+///
+/// `0.5` puts the region in a quadrant of the page — half the width and half
+/// the height — leaving its surroundings visible around it. It was `1.0`, so
+/// the region filled the whole view and you landed with no context at all
+/// (maintainer, 2026-09-22: "a bit annoying"). Raise it toward `1.0` to frame
+/// regions more tightly.
+const REGION_VIEW_FRACTION: f32 = 0.5;
+
+/// Zoom range, shared by the slider, the `+`/`-` keys and the toolbar buttons.
+const ZOOM_RANGE: std::ops::RangeInclusive<f32> = 0.25..=4.0;
+
+/// One zoom step, as a multiplier. `1.25` per press, the same for the `+`/`-`
+/// keys and the toolbar's `-` / `+` buttons so the two cannot drift apart.
+const ZOOM_STEP: f32 = 1.25;
+
+/// The zoom the `Reset` button returns to: the page at its natural size.
+const ZOOM_DEFAULT: f32 = 1.0;
+
 impl PdfReaderState {
     /// A fresh reader — `Read` mode and hot-reload both **on** by default
     /// for a PDF (GitHub issue #30's explicit "hot reload by default in
@@ -982,6 +1138,8 @@ impl PdfReaderState {
         self.scroll_anchor = egui::Vec2::ZERO;
         self.last_viewport = egui::Vec2::ZERO;
         self.forced_offset = None;
+        // Any jump still queued belongs to the document being replaced.
+        self.pending_jump = None;
         self.last_offset = egui::Vec2::ZERO;
         self.thumb_synced = None;
         self.annotations.clear();
@@ -1256,14 +1414,26 @@ impl PdfReaderState {
         };
     }
 
+    /// Whether the canvas knows enough to place a region: pages rasterised
+    /// (so there is a page size) and the viewport measured at least once (so
+    /// there is something to centre within).
+    ///
+    /// Both are cleared by [`Self::reset_interaction_state`] when a document
+    /// opens, and only filled in once the canvas has drawn a frame.
+    fn canvas_ready(&self) -> bool {
+        let px = self.pages.page_size_px();
+        px.x > 0.0 && px.y > 0.0 && self.last_viewport != egui::Vec2::ZERO
+    }
+
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
-    /// region roughly fills the view, centred on it.
+    /// region sits in the middle of the view at
+    /// [`REGION_VIEW_FRACTION`] of it, centred on it.
     ///
     /// The zoom is derived from the region's own extent — a region covering
-    /// a third of the page height is worth ~3x — clamped to the same
-    /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
-    /// no region just navigates, leaving the zoom alone: there is nothing
-    /// to frame.
+    /// a third of the page height is worth ~1.5x at the default fraction —
+    /// clamped to the same `0.25..=4.0` range the zoom slider uses. An
+    /// artifact with a page but no region just navigates, leaving the zoom
+    /// alone: there is nothing to frame.
     ///
     /// **Fixed 2026-09-22:** the zoom was set, but the view only scrolled to
     /// the page's top edge and kept its old horizontal offset, so it showed
@@ -1281,10 +1451,23 @@ impl PdfReaderState {
             self.scroll_request = Some(page);
             return;
         };
+        // Opening a paper clears `pages` and `last_viewport`
+        // (`reset_interaction_state`), so a jump requested in the same
+        // gesture that opens the document has no page size and no viewport
+        // to centre against: the framing silently degenerated to "page 1",
+        // and only a second click — once the canvas had drawn — worked
+        // (maintainer, 2026-09-22). Defer instead, and retry when the canvas
+        // can answer.
+        if !self.canvas_ready() {
+            self.scroll_request = Some(page);
+            self.pending_jump = Some(artifact.clone());
+            return;
+        }
         let w = (region.x1 - region.x0).max(1e-3) as f32;
         let h = (region.y1 - region.y0).max(1e-3) as f32;
         // Fit the larger dimension, so neither axis overflows.
-        self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        self.zoom = (REGION_VIEW_FRACTION / w.max(h))
+            .clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
         match region_centre_offset(
             region,
             page,
@@ -1422,6 +1605,11 @@ impl PdfReaderState {
             ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => None,
             _ => {
                 self.block_editor.load_text(&artifact.body);
+                // The user clicked to get here, so the editor opens ready to
+                // type rather than in Normal mode with no focus — GH issue
+                // #282, and #35's "a single click to bring me into insert
+                // mode, not double click".
+                self.block_editor.begin_insert();
                 self.editing_block_id = Some(artifact.id().to_string());
                 None
             }
@@ -2138,6 +2326,7 @@ impl PdfReaderState {
         &mut self,
         ui: &mut egui::Ui,
         mut on_open_clicked: impl FnMut(),
+        mut on_sort_clicked: impl FnMut(String),
         active_paper: Option<&mut PaperSession>,
         context_editor: &mut KvimEditorState,
         completion: Option<CompletionSource<'_>>,
@@ -2151,8 +2340,30 @@ impl PdfReaderState {
         });
 
         ui.horizontal(|ui| {
-            if ui.button("Open…").clicked() {
+            if ui.button("Open\u{2026}").clicked() {
                 on_open_clicked();
+            }
+            // Reading a paper is when you know where it belongs, so the
+            // sort action lives here rather than only in the Wiki or the
+            // Mindmap (maintainer, 2026-09-22, #275). The dialog itself is
+            // drawn app-wide by `DigitiseApp::sort_form_ui`, so it opens
+            // over the reader.
+            //
+            // Disabled, with the reason on hover, when there is no active
+            // paper: sorting needs a citekey, and a PDF opened straight off
+            // disk has none until it is ingested.
+            let sortable = active_citekey.clone();
+            if ui
+                .add_enabled(sortable.is_some(), egui::Button::new("Sort & categorise"))
+                .on_hover_text("file this paper under topics and projects")
+                .on_disabled_hover_text(
+                    "no active paper \u{2014} ingest this PDF first, or open it from the Wiki",
+                )
+                .clicked()
+            {
+                if let Some(citekey) = sortable {
+                    on_sort_clicked(citekey);
+                }
             }
             ui.label(if self.path.is_empty() {
                 "nothing open"
@@ -2261,8 +2472,37 @@ impl PdfReaderState {
             // case that anchors the zoom on the centre of what is on
             // screen — well-defined and stable. Ctrl+scroll / `+` / `-`
             // over the page anchor on the pointer instead.
-            ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"))
+            ui.add(egui::Slider::new(&mut self.zoom, ZOOM_RANGE).text("zoom"))
                 .on_hover_text("Ctrl+scroll, or + / -, zooms about the pointer");
+            // Beside the slider (maintainer, 2026-09-22). Like the slider,
+            // and unlike Ctrl+scroll, these are pressed with the pointer
+            // *outside* the viewer, so they anchor on the centre of what is
+            // on screen — the canvas's zoom-change handling keeps that point
+            // fixed. Same step as the `+`/`-` keys.
+            if ui
+                .add_enabled(self.zoom > *ZOOM_RANGE.start(), egui::Button::new("−"))
+                .on_hover_text("zoom out one step")
+                .clicked()
+            {
+                self.zoom = (self.zoom / ZOOM_STEP).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+            }
+            if ui
+                .add_enabled(self.zoom < *ZOOM_RANGE.end(), egui::Button::new("+"))
+                .on_hover_text("zoom in one step")
+                .clicked()
+            {
+                self.zoom = (self.zoom * ZOOM_STEP).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+            }
+            if ui
+                .add_enabled(
+                    (self.zoom - ZOOM_DEFAULT).abs() > f32::EPSILON,
+                    egui::Button::new("Reset"),
+                )
+                .on_hover_text("back to 100 %")
+                .clicked()
+            {
+                self.zoom = ZOOM_DEFAULT;
+            }
             ui.separator();
             ui.label("tool:");
             ui.selectable_value(&mut self.tool, AnnotationTool::None, "Pan")
@@ -2271,9 +2511,15 @@ impl PdfReaderState {
             if is_pdf {
                 ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
             }
-            if ui.button("Clear page annotations").clicked() {
-                self.annotations.remove(&self.active_page());
-            }
+            // "Clear page annotations" was removed on 2026-09-22 (maintainer:
+            // "i want the user to right click annotations selectively to
+            // delete"). It wiped every annotation on the page in one click,
+            // with no confirmation and no undo — a destructive action sitting
+            // between two harmless tool toggles. Selective deletion already
+            // exists and is the intended path: right-click an artifact and
+            // choose "Delete annotation…", which confirms first
+            // (`ConnectionPopup::ConfirmDelete`) and cascades properly
+            // through `classify::delete_artifact_cascade`.
             ui.separator();
             ui.label("author:");
             ui.add(egui::TextEdit::singleline(&mut self.author).desired_width(100.0));
@@ -2507,15 +2753,15 @@ impl PdfReaderState {
                 )
             });
             let step = if plus {
-                1.25
+                ZOOM_STEP
             } else if minus {
-                1.0 / 1.25
+                1.0 / ZOOM_STEP
             } else {
                 1.0
             };
             let factor = pinch * step;
             if (factor - 1.0).abs() > 1e-4 {
-                let new_zoom = (zoom * factor).clamp(0.25, 4.0);
+                let new_zoom = (zoom * factor).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
                 if (new_zoom - zoom).abs() > f32::EPSILON {
                     // Anchor on the pointer; if it is outside the viewer
                     // (a `+`/`-` press with the mouse parked elsewhere), on
@@ -2725,17 +2971,15 @@ impl PdfReaderState {
                     {
                         self.toggle_context_menu(screen_pos, ContextMenuTarget::Existing(i));
                     } else if let Some(id) = active_artifacts.as_deref().and_then(|arts| {
-                        artifact_overlays_for_page(
+                        let overlays = artifact_overlays_for_page(
                             arts,
                             page,
                             self.pages.page_size_px(),
                             origin,
                             zoom,
                             GAP,
-                        )
-                        .into_iter()
-                        .find(|(_, r)| r.contains(screen_pos))
-                        .map(|(art, _)| art.id().to_string())
+                        );
+                        smallest_hit(overlays, screen_pos).map(|a| a.id().to_string())
                     }) {
                         // op-30um.3: a saved artifact's own region box —
                         // the full Edit/Add-connection/Edit-connections/
@@ -2811,10 +3055,25 @@ impl PdfReaderState {
             // for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
                 let gui_theme = super::theme::GuiTheme::current(ui.visuals());
+                // Resolve the pointer to ONE artifact before drawing, by the
+                // same smallest-wins rule the right-click uses. Deciding it
+                // inside the loop marked every overlapping box as hit and
+                // let the last one win `open_target` — so the highlight and
+                // the click could disagree, and both could disagree with the
+                // right-click menu.
+                let hovered_id: Option<String> = hover_screen.and_then(|s| {
+                    let overlays: Vec<(&Artifact, Rect)> = want
+                        .clone()
+                        .flat_map(|p| {
+                            artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                        })
+                        .collect();
+                    smallest_hit(overlays, s).map(|a| a.id().to_string())
+                });
                 for p in want.clone() {
                     for (art, r) in artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
                     {
-                        let hit = hover_screen.is_some_and(|s| r.contains(s));
+                        let hit = hovered_id.as_deref() == Some(art.id());
                         if hit {
                             hover_id = Some(art.toml.kovan.created.clone());
                             if opened {
@@ -2893,6 +3152,16 @@ impl PdfReaderState {
         let viewport_size = scroll_out.inner_rect.size();
         if viewport_size.x > 0.0 && viewport_size.y > 0.0 {
             self.last_viewport = viewport_size;
+            // A jump deferred because the canvas was not ready yet: now it
+            // is. Taken before retrying so a jump that still cannot be
+            // satisfied re-arms itself rather than looping within one frame.
+            if let Some(artifact) = self.pending_jump.take() {
+                if self.canvas_ready() {
+                    self.go_to_artifact(&artifact);
+                } else {
+                    self.pending_jump = Some(artifact);
+                }
+            }
         }
         self.last_offset = scroll_out.state.offset;
         self.scroll_anchor = egui::vec2(
@@ -3076,6 +3345,7 @@ impl PdfReaderState {
                                                                 source,
                                                                 query: String::new(),
                                                                 kind: RelationKind::RelatedTo,
+                                                                kind_query: String::new(),
                                                             });
                                                     }
                                                 }
@@ -3183,10 +3453,12 @@ impl PdfReaderState {
                 source,
                 mut query,
                 mut kind,
+                mut kind_query,
             } => {
                 egui::Window::new("Add connection…")
                     .collapsible(false)
                     .resizable(true)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -3199,9 +3471,7 @@ impl PdfReaderState {
                             ui.label("connect");
                             ui.monospace(&source);
                             ui.label("as:");
-                            if ui.button(kind.label()).clicked() {
-                                kind = kind.next();
-                            }
+                            relation_kind_picker(ui, &mut kind, &mut kind_query);
                         });
                         ui.add(
                             egui::TextEdit::singleline(&mut query)
@@ -3240,13 +3510,19 @@ impl PdfReaderState {
                         }
                     });
                 if !close {
-                    self.connection_popup = Some(ConnectionPopup::Add { source, query, kind });
+                    self.connection_popup = Some(ConnectionPopup::Add {
+                        source,
+                        query,
+                        kind,
+                        kind_query,
+                    });
                 }
             }
             ConnectionPopup::Manage { node } => {
                 egui::Window::new("Connections")
                     .collapsible(false)
                     .resizable(true)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -3298,6 +3574,7 @@ impl PdfReaderState {
                 egui::Window::new("Delete annotation")
                     .collapsible(false)
                     .resizable(false)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         ui.label(format!("Delete {artifact_id:?}?"));
                         ui.label("Sure anot?");
@@ -3486,12 +3763,24 @@ impl PdfReaderState {
         let Some(result) = &self.bibtex else { return };
         match result {
             Ok(entry) => {
+                let mut close = false;
                 ui.horizontal(|ui| {
                     ui.label("BibTeX:");
                     if ui.button("\u{1F4CB} Copy").clicked() {
                         ui.ctx().copy_text(entry.clone());
                     }
+                    // Generated BibTeX had no way out but opening another
+                    // document: the panel held the last result for the rest
+                    // of the session, eating canvas height (maintainer,
+                    // 2026-09-22).
+                    if ui.button("Close").clicked() {
+                        close = true;
+                    }
                 });
+                if close {
+                    self.bibtex = None;
+                    return;
+                }
                 let mut scratch = entry.clone();
                 ui.add(
                     egui::TextEdit::multiline(&mut scratch)
@@ -3501,7 +3790,19 @@ impl PdfReaderState {
                 );
             }
             Err(e) => {
-                ui.colored_label(Color32::from_rgb(230, 90, 90), format!("BibTeX: {e}"));
+                let message = format!("BibTeX: {e}");
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    ui.colored_label(Color32::from_rgb(230, 90, 90), &message);
+                    // A failure needs dismissing at least as much as a
+                    // success does.
+                    if ui.button("Close").clicked() {
+                        close = true;
+                    }
+                });
+                if close {
+                    self.bibtex = None;
+                }
             }
         }
     }
@@ -3550,6 +3851,121 @@ mod tests {
             })],
             fonts: Vec::new(),
         }
+    }
+
+    /// A jump asked for before the canvas has drawn is **deferred**, not
+    /// silently downgraded to "page 1".
+    ///
+    /// Opening a paper clears the page cache and the viewport, so an
+    /// artifact clicked in the same gesture that opens the document had
+    /// nothing to centre against — it landed on the first page, and only a
+    /// second click worked (maintainer, 2026-09-22).
+    #[test]
+    fn an_artifact_jump_before_the_canvas_is_ready_is_deferred() {
+        let mut state = PdfReaderState::default();
+        assert!(
+            !state.canvas_ready(),
+            "a fresh reader has no page size and no measured viewport"
+        );
+
+        let artifact = make_artifact(
+            "figure",
+            ArtifactKind::DigitisedGraph,
+            Some(SourceAnchor {
+                page: Some(6),
+                pages: None,
+                region: Some(Region {
+                    x0: 0.1,
+                    y0: 0.2,
+                    x1: 0.5,
+                    y1: 0.6,
+                }),
+            }),
+        );
+        state.go_to_artifact(&artifact);
+
+        assert_eq!(
+            state.pending_jump.as_ref().map(|a| a.id()),
+            Some("figure"),
+            "the jump is queued for when the canvas can satisfy it"
+        );
+        // The page is still requested straight away, so the wait is spent on
+        // the right page rather than the first one.
+        assert_eq!(state.scroll_request, Some(5), "0-based page 6");
+
+        // Opening another document drops a jump into the old one.
+        state.reset_interaction_state();
+        assert!(state.pending_jump.is_none());
+    }
+
+    /// A click inside nested artifact boxes acts on the **smallest** one.
+    ///
+    /// Before this, the right-click took the first region in document order
+    /// and the hover/open path took the last, so a small figure inside a
+    /// larger section region was unreachable and the menu opened on the
+    /// wrong artifact (maintainer, 2026-09-22).
+    #[test]
+    fn nested_artifact_boxes_resolve_to_the_smallest() {
+        let big = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(100.0, 100.0));
+        let small = Rect::from_min_max(Pos2::new(40.0, 40.0), Pos2::new(60.0, 60.0));
+        let anchor = |x0: f64, y0: f64, x1: f64, y1: f64| {
+            Some(SourceAnchor {
+                page: Some(3),
+                pages: None,
+                region: Some(Region { x0, y0, x1, y1 }),
+            })
+        };
+        // The same nesting as the screen rects below, in page fractions.
+        let outer = make_artifact("section", ArtifactKind::Note, anchor(0.0, 0.0, 1.0, 1.0));
+        let inner = make_artifact("figure", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+
+        // Document order deliberately puts the big one first, which is what
+        // the old `find` would have returned.
+        let overlays = vec![(&outer, big), (&inner, small)];
+        assert_eq!(
+            smallest_hit(overlays.clone(), Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            Some("figure"),
+            "inside both, the inner box wins"
+        );
+        assert_eq!(
+            smallest_hit(overlays.clone(), Pos2::new(10.0, 10.0)).map(|a| a.id()),
+            Some("section"),
+            "outside the inner box, the outer one still hits"
+        );
+        assert!(
+            smallest_hit(overlays, Pos2::new(500.0, 500.0)).is_none(),
+            "a click outside every box hits nothing"
+        );
+
+        // Redundancy: two artifacts with *identical* geometry — a duplicated
+        // crop — still resolve deterministically, by id, rather than by
+        // whichever was parsed first. Geometry is what a click means; the id
+        // is what cannot collide.
+        let twin_a = make_artifact("aaa", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let twin_b = make_artifact("zzz", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let forwards = vec![(&twin_a, small), (&twin_b, small)];
+        let backwards = vec![(&twin_b, small), (&twin_a, small)];
+        assert_eq!(
+            smallest_hit(forwards, Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            smallest_hit(backwards, Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            "document order must not decide it"
+        );
+
+        // And the page separates artifacts that are otherwise identical.
+        let p3 = make_artifact("same", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let mut p9 = make_artifact("same", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        if let Some(src) = p9.toml.source.as_mut() {
+            src.page = Some(9);
+        }
+        assert_eq!(
+            smallest_hit(vec![(&p9, small), (&p3, small)], Pos2::new(50.0, 50.0)).map(|a| a
+                .toml
+                .source
+                .as_ref()
+                .and_then(|s| s.page)),
+            Some(Some(3)),
+            "the earlier page wins a geometric tie"
+        );
     }
 
     #[test]
@@ -3789,6 +4205,13 @@ mod tests {
         assert_eq!(state.editing_block_id.as_deref(), Some("graphite-note"));
         assert_eq!(state.block_editor.text(), "the prose body");
         assert_eq!(PdfReaderState::artifact_page(art), Some(2));
+        // #282: the user already clicked to get here, so the editor opens
+        // ready to type rather than in Normal mode.
+        assert_eq!(
+            state.block_editor.mode_label(),
+            "INSERT",
+            "opening a block from the page-context panel must land in Insert mode"
+        );
     }
 
     #[test]

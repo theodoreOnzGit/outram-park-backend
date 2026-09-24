@@ -149,15 +149,31 @@ leaking over a small site with a ring of sensors, what the stability class does
 to the answer, and the one place this port deliberately disagrees with its
 upstream, with the size of that disagreement measured rather than asserted.
 
-Two things in it are worth knowing before using the crate for anything:
+Every condition in it is an illustrative **Singapore** one, from
+`changi::puff::climatology` — CHANGI is named for Changi, and the figures have
+their provenance recorded once, in [`docs/References.md`](docs/References.md),
+rather than as round numbers repeated per example.
 
-- **Stability, not wind speed, is the dominant control.** At the *same* 1.0 m/s,
-  a calm clear night reads ~77x a calm sunny afternoon, because the afternoon's
-  convection dilutes the plume far faster than any horizontal wind does.
-- **Upstream's mass doubling is not a factor of two you can divide out.** The
-  mass doubles exactly, but the two duplicated puffs carry *different* stability
-  classes, so the concentration ratio is geometry-dependent — 1.78 in the
-  example's configuration.
+Three things in it are worth knowing before using the crate for anything:
+
+- **Stability, not wind speed, is the dominant control.** At the *same* 1.0 m/s
+  inter-monsoon wind, a clear night reads ~77x a sunny afternoon, because the
+  afternoon's convection dilutes the plume far faster than any horizontal wind
+  does.
+- **Singapore's mean wind sits exactly on a Pasquill band edge.** The
+  stability table switches at 2 m/s and the mean surface wind *is* about 2 m/s,
+  so the daytime class flips between the ambiguous pair `A/B` and a single `B`
+  across a measurement uncertainty of a few cm/s. At night, every condition
+  below a monsoon surge is ambiguous.
+- **Upstream's mass doubling is not a factor of two you can divide out — or
+  even bound.** The mass doubles exactly, but the two duplicated puffs carry
+  *different* stability classes, so the concentration ratio is
+  geometry-dependent: measured from **1.04 to 3.97** across the Singapore
+  conditions, on both sides of 2.
+
+Because those ambiguous night-time conditions are Singapore's normal state
+rather than a corner case, this port's mass-conserving default is doing real
+work here, not guarding a hypothetical.
 
 ## Verification
 

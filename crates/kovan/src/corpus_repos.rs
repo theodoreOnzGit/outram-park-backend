@@ -148,6 +148,26 @@ pub fn ensure_repo(
     }
 }
 
+/// Clone `url` into `dir`, **with its submodules**.
+///
+/// A Kovan repository keeps its whole literature corpus in submodules, so a
+/// clone that does not recurse lands a folder of empty directories and no
+/// PDFs — which is what a user sees as "nothing was cloned in" (maintainer
+/// report, 2026-09-22).
+///
+/// **A submodule that cannot be fetched does not fail the clone.** Git exits
+/// non-zero from `--recurse-submodules` if *any* submodule fetch fails, and
+/// the ordinary case is a **private** corpus the user has no credentials for
+/// (`literature/proprietary`). The superproject is on disk by then, so this
+/// reports success and leaves the unfetched corpus to [`ensure_corpus`],
+/// which fetches each one separately and reports per-corpus failures the
+/// caller can show. Failing the whole clone here would abort the setup before
+/// the Kovan folder is ever opened.
+///
+/// `GIT_TERMINAL_PROMPT=0` so a private submodule fails fast instead of
+/// blocking the background job on a credential prompt no GUI window can
+/// answer. Configured credential helpers (including GUI askpass) still run —
+/// this disables only Git's own terminal prompt.
 fn clone(url: &str, dir: &Path, branch: Option<&str>) -> Result<(), CorpusRepoError> {
     if !crate::advanced_git::system_git_available() {
         return Err(CorpusRepoError::GitUnavailable);
@@ -156,12 +176,18 @@ fn clone(url: &str, dir: &Path, branch: Option<&str>) -> Result<(), CorpusRepoEr
         std::fs::create_dir_all(parent)?;
     }
     let mut cmd = Command::new("git");
-    cmd.arg("clone");
+    // Local file-path remotes under test: Git refuses them for submodules by
+    // default, and only `-c` reaches the clone Git runs for each submodule.
+    // Same reasoning as `submodule_git`.
+    #[cfg(test)]
+    cmd.args(["-c", "protocol.file.allow=always"]);
+    cmd.arg("clone").arg("--recurse-submodules");
     if let Some(b) = branch {
         cmd.args(["--branch", b]);
     }
+    cmd.env("GIT_TERMINAL_PROMPT", "0");
     let output = cmd.arg(url).arg(dir).output()?;
-    if output.status.success() {
+    if output.status.success() || is_git_repo(dir) {
         Ok(())
     } else {
         Err(CorpusRepoError::Clone {
@@ -338,6 +364,9 @@ fn submodule_git(root: &Path) -> Command {
     let mut cmd = Command::new("git");
     #[cfg(test)]
     cmd.args(["-c", "protocol.file.allow=always"]);
+    // Fail fast rather than block a background job on a credential prompt;
+    // see `clone`.
+    cmd.env("GIT_TERMINAL_PROMPT", "0");
     cmd.arg("-C").arg(root);
     cmd
 }
@@ -647,10 +676,12 @@ mod tests {
         assert_eq!(again.open.unwrap(), RepoState::Existing);
     }
 
-    /// A plain clone of someone's Kovan repository has its corpus submodules
-    /// registered but empty; setting it up fetches them.
+    /// Cloning someone's Kovan repository brings its corpus submodules **with
+    /// it** — `clone` recurses, so the PDFs are there before any setup runs
+    /// (maintainer report 2026-09-22: a non-recursive clone landed a folder of
+    /// empty directories). Setting it up afterwards then finds them present.
     #[test]
-    fn a_cloned_kovan_repository_fetches_its_corpora() {
+    fn a_cloned_kovan_repository_brings_its_corpora_with_it() {
         if !crate::advanced_git::system_git_available() {
             return;
         }
@@ -683,6 +714,61 @@ mod tests {
             RepoState::Cloned
         );
         let cloned = KovanRoot::open(&copy).unwrap();
+        // The clone recursed: the corpus PDFs are already on disk.
+        assert!(
+            cloned
+                .open_corpus_dir()
+                .join("my-open-corpus/b.pdf")
+                .exists()
+        );
+        let setup = ensure_library_corpora_with(&cloned, &standard, "main");
+        assert_eq!(setup.standard.unwrap(), RepoState::Existing);
+        assert_eq!(setup.open.unwrap(), RepoState::Existing);
+    }
+
+    /// The recovery path still works for a repository cloned by some other
+    /// means — `git clone` without `--recurse-submodules`, someone else's
+    /// script, an older Kovan. The corpora are registered but empty, and
+    /// setting the folder up fetches them.
+    #[test]
+    fn a_repository_cloned_without_recursion_still_fetches_its_corpora() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let standard = source_repo(&tmp.path().join("std"), "kovan-standard-open-corpus/a.pdf");
+        let open = source_repo(&tmp.path().join("open"), "my-open-corpus/b.pdf");
+        let lib = tmp.path().join("lib");
+        let mut root = KovanRoot::create(&lib, RootConfig::new("lib", "Lib"), true).unwrap();
+        root.set_corpora(crate::root::CorporaConfig {
+            open_remote: Some(open),
+            proprietary_remote: None,
+        })
+        .unwrap();
+        ensure_library_corpora_with(&root, &standard, "main");
+        for args in [&["add", "-A"][..], &["commit", "-q", "-m", "corpora"]] {
+            let ok = Command::new("git")
+                .arg("-C")
+                .arg(&lib)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        }
+
+        // Deliberately non-recursive, standing in for a clone Kovan did not make.
+        let copy = tmp.path().join("copy");
+        let ok = Command::new("git")
+            .args(["-c", "protocol.file.allow=always", "clone", "-q"])
+            .arg(&lib)
+            .arg(&copy)
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok, "plain clone");
+        let cloned = KovanRoot::open(&copy).unwrap();
         assert!(
             !cloned
                 .open_corpus_dir()
@@ -704,6 +790,53 @@ mod tests {
             crate::advanced_git::current_branch_in(&cloned.open_corpus_dir()).as_deref(),
             Some("main")
         );
+    }
+
+    /// A submodule that cannot be fetched — the ordinary case for a
+    /// **private** corpus the user has no credentials for — must not fail the
+    /// whole clone. The superproject lands, and the unfetched corpus is left
+    /// for `ensure_corpus` to report on its own.
+    #[test]
+    fn an_unreachable_submodule_does_not_fail_the_clone() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let standard = source_repo(&tmp.path().join("std"), "kovan-standard-open-corpus/a.pdf");
+        let secret_dir = tmp.path().join("secret");
+        let secret = source_repo(&secret_dir, "private/c.pdf");
+        let lib = tmp.path().join("lib");
+        let mut root = KovanRoot::create(&lib, RootConfig::new("lib", "Lib"), true).unwrap();
+        root.set_corpora(crate::root::CorporaConfig {
+            open_remote: None,
+            proprietary_remote: Some(secret),
+        })
+        .unwrap();
+        ensure_library_corpora_with(&root, &standard, "main");
+        for args in [&["add", "-A"][..], &["commit", "-q", "-m", "corpora"]] {
+            let ok = Command::new("git")
+                .arg("-C")
+                .arg(&lib)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        }
+        // Make the proprietary corpus unreachable, as a private repository is
+        // to someone without credentials.
+        std::fs::remove_dir_all(&secret_dir).unwrap();
+
+        let copy = tmp.path().join("copy");
+        assert_eq!(
+            ensure_repo(&copy, Some(&lib.to_string_lossy()), None).unwrap(),
+            RepoState::Cloned,
+            "an unfetchable submodule must not fail the clone"
+        );
+        // The superproject is there, which is what lets setup continue.
+        assert!(copy.join("kovan_root.toml").exists());
+        assert!(KovanRoot::open(&copy).is_ok());
     }
 
     /// Ingest goes to the user's own open-corpus folder, never the standard

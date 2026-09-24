@@ -457,13 +457,48 @@ a translation of it.
 
 ### Out of scope (will NOT be ported)
 - **ENDF nuclear data parsing** — `src/endf.cpp`, `include/openmc/endf.h`
-- **HDF5 I/O** — cross-section library loading; data arrives pre-loaded. **RE-WORDED 2026-09-22 (gh:#270)**: still correct *for this crate*, and no longer a statement about the workspace. The codec now exists in `njoy-outram-park-fork::hdf5` — `mgxs.h5` and nuclide `.h5` writers (both verified by OpenMC reading them back and transporting), a `cross_sections.xml` reader, and statepoint/summary/source writers. This crate captures run state (`physics::state_point`) and hands it to that codec at the run boundary; its inner transport loop opens no file.
+- ~~**HDF5 I/O** — cross-section library loading; data arrives pre-loaded~~
+  **CORRECTED 2026-09-22 (maintainer direction), and the claim moved again on
+  2026-09-23.** HDF5 read *and* write is in scope **for the workspace**, and
+  lives in `njoy-outram-park-fork`, "cos it deals with nuclear data"
+  (gh:#270) — that crate depends on the pure-Rust `hdf5-pure`, so no C
+  toolchain, Android or wasm problem.
+
+  ~~writing does not exist anywhere in the workspace yet~~ — **that was true
+  when written and is no longer.** `njoy-outram-park-fork::hdf5` now has
+  `mgxs.h5` and nuclide `.h5` writers (both verified by **OpenMC reading them
+  back and transporting**), a `cross_sections.xml` reader, and
+  statepoint/summary/source writers.
+
+  **The part that still holds for this crate:** it takes its data pre-loaded,
+  captures run state (`physics::state_point`) and hands it to that codec at
+  the **run boundary**. Its inner transport loop opens no file.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
 - **Photon/electron transport** — `src/photon.cpp`
 - **Python/ctypes C API** — `openmc/lib/` Python package
 - **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope)
+
+**Brought INTO scope 2026-09-22 (maintainer direction), tracked under the
+capability-parity epic gh:#257:**
+
+- **Track files, state points and particle restart** — `src/track_output.cpp`,
+  `src/state_point.cpp`, `src/particle_restart.cpp` (gh:#271). This crate
+  captures the run state; the file codec is `njoy-outram-park-fork`'s
+  (gh:#270), so the transport loop still does no file I/O itself.
+- **Geometry plotting** — but **only** as a generated standalone matplotlib
+  Python script (gh:#268). OpenMC's native rasteriser `src/plot.cpp` stays out
+  of scope.
+
+The other gaps that audit found are enhancements to things already in scope, not
+scope changes: variance reduction (#258), the White/Periodic boundary-condition
+defect (#259), curvilinear tally meshes (#260), the 16 missing filters (#261),
+the 11 missing scores including the kinetics group (#262), tally triggers and
+derivatives (#263), source types (#264), anisotropic multigroup scattering
+(#265), depletion integrators and transfer rates (#266), stochastic volume
+calculation (#267), and multi-temperature treatment (#269, P3 — NJOY is the
+standing workaround).
 
 ---
 
@@ -491,6 +526,16 @@ Documented unit conventions (enforced by naming, not types):
 ### No HDF5 dependency in this crate
 Cross-section data is loaded externally and passed in by value or reference.
 This crate is pure algorithmic: no file I/O, no XML, no HDF5.
+
+**REFINED 2026-09-22 (maintainer direction).** This still holds *for the
+transport loop*, and it is why the HDF5 codec was placed in
+`njoy-outram-park-fork` rather than here (gh:#270). What changed is that the
+workspace as a whole now does HDF5 **write** as well as read, and that this
+crate will grow run-state output — track files, state points, particle restart
+(gh:#271). The rule to keep is the seam: this crate produces and consumes
+**structured data at the run boundary**, and something else turns that into
+bytes on disk. `no file I/O in the inner loop` is the invariant; `no HDF5
+anywhere in the workspace` never was one.
 
 ### Neutron-only initially
 Photon and electron physics (`src/photon.cpp`) are deferred.  The `ParticleType`
