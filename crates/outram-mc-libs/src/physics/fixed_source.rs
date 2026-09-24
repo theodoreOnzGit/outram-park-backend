@@ -38,10 +38,19 @@ use crate::rng::lcg::prn;
 use crate::tally::scoring::flush_batch;
 use crate::tally::tally::Tally;
 
-/// An external neutron source for a fixed-source run. Isotropic in direction;
-/// mono-energetic in energy (the common shielding/detector case). Position is
-/// either a point or uniform in an axis-aligned box.
-#[derive(Debug, Clone, Copy)]
+/// An external neutron source for a fixed-source run.
+///
+/// [`Self::Point`] and [`Self::Box`] are isotropic and mono-energetic (the
+/// common shielding/detector case). [`Self::Surface`] replays a recorded
+/// surface crossing bank, which carries its own direction, energy **and
+/// weight**.
+///
+/// **Not `Copy` since GitHub #264**: [`Self::Surface`] holds an `Arc` to a
+/// recorded bank. Per the workspace design rules that is `Arc<T>` for
+/// read-only shared data rather than a lifetime parameter, and it follows
+/// [`FixedSourceSettings`], which gave up `Copy` for the same reason when
+/// weight windows landed.
+#[derive(Debug, Clone)]
 pub enum FixedSource {
     /// Isotropic point source at `r` \[cm\] emitting neutrons of energy
     /// `energy_ev` \[eV\].
@@ -61,26 +70,78 @@ pub enum FixedSource {
         /// Emission energy \[eV\].
         energy_ev: f64,
     },
+    /// **Replay a recorded surface-crossing bank** — stage two of the two-stage
+    /// shielding workflow (GitHub #264).
+    ///
+    /// Each sampled site is a crossing recorded by a previous run at a watched
+    /// surface, with the direction, energy **and weight** it carried when it
+    /// crossed. Nothing is re-sampled: the whole point is that stage two starts
+    /// exactly where stage one left off.
+    ///
+    /// # Normalising stage two
+    ///
+    /// Sampling is **uniform over the `K` recorded crossings**, so `M` replayed
+    /// histories cover `M / K` of the bank and the stage-one-equivalent estimate
+    /// is `tally * K / M`. Read `K` from
+    /// [`SurfaceSource::len`](crate::source::extra::SurfaceSource::len). With
+    /// `M = K` the factor is 1, which is what
+    /// `tests/surface_source_two_stage.rs` runs.
+    ///
+    /// # It panics on an unusable bank, deliberately
+    ///
+    /// An empty bank, or one that hit its cap and **dropped** crossings, makes
+    /// [`SurfaceSource::sample`](crate::source::extra::SurfaceSource::sample)
+    /// return an error, and this variant turns that into a panic carrying the
+    /// full message. A truncated bank is a prefix biased towards whatever the
+    /// first histories did: replaying it yields a systematically wrong second
+    /// stage **that looks converged**, and there is no in-band way to signal
+    /// that from inside the history loop. Failing loudly beats returning a
+    /// plausible wrong number. Check
+    /// [`SurfaceSource::dropped`](crate::source::extra::SurfaceSource::dropped)
+    /// before building this if a soft failure is wanted.
+    Surface(std::sync::Arc<crate::source::extra::SurfaceSource>),
 }
 
 impl FixedSource {
-    /// Sample one source neutron (position + isotropic direction + energy).
-    fn sample(&self, seed: &mut u64) -> Site {
-        let (dx, dy, dz) = isotropic_direction(seed);
-        let u = Direction::new(dx, dy, dz);
-        match *self {
-            FixedSource::Point { r, energy_ev } => Site::new(r, u, energy_ev),
+    /// Sample one source neutron: its birth site and its **birth weight**.
+    ///
+    /// The weight is `1.0` for [`Self::Point`] and [`Self::Box`]; a
+    /// [`Self::Surface`] replay returns the weight the recorded particle
+    /// carried across the surface. Returning it rather than assuming 1.0 is
+    /// what makes a two-stage run answer the same problem as a single-stage
+    /// one — under variance reduction the recorded weights are nowhere near 1,
+    /// and discarding them would rescale stage two's answer silently.
+    fn sample(&self, seed: &mut u64) -> (Site, f64) {
+        match self {
+            FixedSource::Point { r, energy_ev } => {
+                let (dx, dy, dz) = isotropic_direction(seed);
+                (Site::new(*r, Direction::new(dx, dy, dz), *energy_ev), 1.0)
+            }
             FixedSource::Box {
                 lower,
                 upper,
                 energy_ev,
             } => {
+                let (dx, dy, dz) = isotropic_direction(seed);
+                let u = Direction::new(dx, dy, dz);
                 let r = Position::new(
                     lower.x + prn(seed) * (upper.x - lower.x),
                     lower.y + prn(seed) * (upper.y - lower.y),
                     lower.z + prn(seed) * (upper.z - lower.z),
                 );
-                Site::new(r, u, energy_ev)
+                (Site::new(r, u, *energy_ev), 1.0)
+            }
+            FixedSource::Surface(ss) => {
+                // A replay draws no direction or energy of its own: both were
+                // recorded. `sample` consumes exactly one variate to choose
+                // which crossing, so the stream stays predictable.
+                let site = ss
+                    .sample(seed)
+                    .expect("a SurfaceSource used as a source must be replayable");
+                (
+                    Site::new(site.r, site.u, site.e),
+                    site.wgt,
+                )
             }
         }
     }
@@ -232,7 +293,11 @@ pub fn run_fixed_source_traced(
         }
         for _ in 0..this_batch {
             // One source particle and its fission progeny (a private bank).
-            let mut bank = vec![source.sample(&mut seed)];
+            let (birth_site, birth_weight) = source.sample(&mut seed);
+            let mut bank = vec![birth_site];
+            // Only the SOURCE particle carries the replayed weight; its
+            // fission progeny are born at 1 like any other secondary.
+            let mut is_source_particle = true;
             let mut secondaries = 0usize;
             while let Some(site) = bank.pop() {
                 total_histories += 1;
@@ -260,7 +325,11 @@ pub fn run_fixed_source_traced(
                     tracks.as_deref_mut(),
                     surface_source.as_deref_mut(),
                     distribcell,
+                    // Only the source particle carries a replayed weight; a
+                    // fission secondary is born at 1 like any other.
+                    if is_source_particle { birth_weight } else { 1.0 },
                 );
+                is_source_particle = false;
                 production_sum += prod.production;
                 for s in next {
                     if secondaries < settings.max_secondaries {

@@ -507,6 +507,9 @@ pub fn run_keff_csg_seq(
                     None,
                     None,
                     None,
+                    // Eigenvalue path: a fission source particle is born at
+                    // weight 1 by definition of the normalisation.
+                    1.0,
                 );
                 production += outcome.production;
                 virtual_run_total += outcome.virtual_collisions;
@@ -1030,7 +1033,7 @@ pub(crate) fn transport_history(
     debug_assert!(analog.is_analog());
     transport_history_vr(
         site, geom, materials, nuclides, majorants, temp, k_running, next_bank, seed, tally,
-        batch, leak_edges, leak_batch, &analog, None, None, None,
+        batch, leak_edges, leak_batch, &analog, None, None, None, 1.0,
     )
 }
 
@@ -1079,6 +1082,17 @@ pub(crate) fn transport_history_vr(
     // instance is then `None`, which those filters treat as "no match" rather
     // than as instance 0.
     distribcell: Option<&DistribcellOffsets>,
+    // **Birth weight** (GitHub #264). `1.0` for every analog source and for
+    // every fission secondary, which is what this loop assumed unconditionally
+    // before a surface source existed.
+    //
+    // A replayed surface crossing is the exception and the reason this is a
+    // parameter: the recorded particle carried a weight when it crossed, and
+    // starting it at 1.0 would discard exactly the information the recording
+    // exists to preserve. Stage two would then answer a different problem from
+    // stage one, in proportion to how far the weights had drifted from 1 —
+    // which under variance reduction is arbitrarily far.
+    birth_weight: f64,
 ) -> HistoryOutcome {
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
@@ -1137,10 +1151,13 @@ pub(crate) fn transport_history_vr(
     // split in isolation and never iterates.
     let mut stack: Vec<(Site, f64, Option<u64>, WindowState)> = vec![(
         site,
-        1.0,
+        birth_weight,
         None,
         WindowState {
-            weight_born: 1.0,
+            // The window normalisation anchors on the weight the particle was
+            // BORN with, so a replayed crossing must anchor on its recorded
+            // weight too, not on 1.0.
+            weight_born: birth_weight,
             ..WindowState::default()
         },
     )];

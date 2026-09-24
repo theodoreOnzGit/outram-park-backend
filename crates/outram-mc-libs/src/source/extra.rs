@@ -249,6 +249,28 @@ impl SurfaceSource {
         self.crossings.push(c);
     }
 
+    /// How many crossings were recorded.
+    ///
+    /// **A two-stage run needs this, not just the weight.** Replaying `M`
+    /// histories from a bank of `K` crossings samples `M / K` of the bank, so
+    /// the stage-one-equivalent estimate is `tally * K / M`. Without `K` a
+    /// caller cannot form that factor and its stage-two answer is off by an
+    /// unknown scale.
+    pub fn len(&self) -> usize {
+        self.crossings.len()
+    }
+
+    /// Whether nothing was recorded — a bank that cannot be replayed.
+    pub fn is_empty(&self) -> bool {
+        self.crossings.is_empty()
+    }
+
+    /// How many crossings were DROPPED at the cap. Non-zero makes the bank a
+    /// truncated prefix, which [`Self::sample`] refuses.
+    pub fn dropped(&self) -> usize {
+        self.dropped
+    }
+
     /// Total weight recorded.
     ///
     /// **The bookkeeping check a two-stage run needs.** Stage two's answer
