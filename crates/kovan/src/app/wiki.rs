@@ -69,7 +69,6 @@ impl IngestFlow {
     }
 }
 
-
 /// A pending "sort this paper" flow (op-j3ib, GH issue #35's 2026-09-01
 /// 05:33 "if i right click the literature, i want to be able to sort it") —
 /// ~~opened by right-clicking a paper link~~ opened from "Reclassify…" on a
@@ -187,7 +186,6 @@ pub enum WikiAction {
     /// shared knowledge state — the caller should refresh it here too, not
     /// only navigate.
     OpenPaper(String),
-
 }
 
 pub struct WikiState {
@@ -537,6 +535,8 @@ impl WikiState {
                     ConceptKind::Topic => "\u{1F4C1}",
                     ConceptKind::Project => "\u{1F4E6}",
                     ConceptKind::Unsorted => "\u{1F4E5}",
+                    // A clock: this one is about WHEN, not what.
+                    ConceptKind::Recent => "\u{1F551}",
                 };
                 let label = format!("{icon} {}", c.title);
                 let mut text = format!("{label}   \u{1F4C4} {}", cites.len());

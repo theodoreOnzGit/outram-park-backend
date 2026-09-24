@@ -326,6 +326,10 @@ pub struct DigitiseApp {
     /// The PDF reader's list of the open folder's literature, built on
     /// demand and dropped when the folder's knowledge changes.
     literature: Option<literature_list::LiteratureList>,
+    /// Recently opened papers, for the "Recently opened" node beside
+    /// Unsorted. Loaded lazily from `.kovan/recent.toml` on first use and
+    /// rewritten on every open -- local derived state, never committed.
+    recent: Option<crate::recent::RecentPapers>,
     /// The literature fuzzy finder (Ctrl+P).
     literature_finder: literature_list::LiteratureFinder,
     /// The document last opened in the reader, for the list's highlight.
@@ -486,6 +490,7 @@ impl Default for DigitiseApp {
             background_jobs: Vec::new(),
             library_clone: None,
             literature: None,
+            recent: None,
             literature_finder: Default::default(),
             reader_path: None,
             history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
@@ -573,6 +578,18 @@ impl DigitiseApp {
             .cloned()
             .ok_or_else(|| "no Kovan folder open".to_string())?;
         let mut session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
+
+        // Remember it. AFTER `PaperSession::open` succeeded, so a citekey
+        // that cannot be opened never enters the list -- a recents entry that
+        // errors when clicked is worse than no entry.
+        //
+        // A failure to persist is deliberately swallowed: not remembering a
+        // paper must never stop it being opened.
+        let recent = self
+            .recent
+            .get_or_insert_with(|| crate::recent::RecentPapers::load_or_default(&root));
+        recent.record(citekey);
+        let _ = recent.save(&root);
 
         // Maintainer, 2026-09-02: "if the annotations are disordered, order
         // them when opening them." Page-anchored blocks written before
@@ -710,7 +727,11 @@ impl DigitiseApp {
         if !self.literature_finder.open {
             return;
         }
-        if self.literature.as_ref().is_none_or(|l| l.root != root.path()) {
+        if self
+            .literature
+            .as_ref()
+            .is_none_or(|l| l.root != root.path())
+        {
             self.literature = Some(literature_list::LiteratureList::build(&root));
         }
         let chosen = self
@@ -1808,9 +1829,7 @@ impl DigitiseApp {
             if self.mode == ClickMode::Erase {
                 // The pointer says which mode is live: an eraser that looks
                 // like the point tool costs someone their trace.
-                response
-                    .clone()
-                    .on_hover_cursor(egui::CursorIcon::NoDrop);
+                response.clone().on_hover_cursor(egui::CursorIcon::NoDrop);
             }
             if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
                 if let Some(pos) = response.interact_pointer_pos() {
@@ -1829,7 +1848,9 @@ impl DigitiseApp {
             // frame of the gesture contributes a vertex — the stroke is the
             // path the pointer took, not its two ends.
             if self.mode == ClickMode::DrawTrace {
-                response.clone().on_hover_cursor(egui::CursorIcon::Crosshair);
+                response
+                    .clone()
+                    .on_hover_cursor(egui::CursorIcon::Crosshair);
                 if response.dragged() {
                     if let Some(pos) = response.interact_pointer_pos() {
                         let (px, py) = to_image(pos);
@@ -2550,7 +2571,10 @@ impl eframe::App for DigitiseApp {
                     _ => (None, None),
                 };
                 egui::CentralPanel::default().show(ui, |ui| {
-                    match self.mindmap.ui(ui, root.as_ref(), index, graph) {
+                    match self
+                        .mindmap
+                        .ui(ui, root.as_ref(), index, graph, self.recent.as_ref())
+                    {
                         Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
                         Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
                         // No Kovan folder yet and the user asked for
@@ -2577,7 +2601,8 @@ impl eframe::App for DigitiseApp {
                     if self.wiki.is_none() {
                         self.wiki = Some(wiki::WikiState::new());
                     }
-                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    if let (Some(w), Some(workspace)) =
+                        (self.wiki.as_mut(), self.workspace.as_ref())
                     {
                         w.open_sort_flow(citekey, &workspace.index);
                     }
@@ -2693,7 +2718,8 @@ impl eframe::App for DigitiseApp {
                     if self.wiki.is_none() {
                         self.wiki = Some(wiki::WikiState::new());
                     }
-                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    if let (Some(w), Some(workspace)) =
+                        (self.wiki.as_mut(), self.workspace.as_ref())
                     {
                         w.open_sort_flow(citekey, &workspace.index);
                     }

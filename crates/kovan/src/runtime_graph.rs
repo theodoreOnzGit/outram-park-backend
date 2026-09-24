@@ -28,6 +28,15 @@ use std::collections::HashMap;
 /// under (`entity.rs`'s `UNSORTED` topic, which has no directory on disk).
 pub const UNSORTED_PATH: &str = "unsorted";
 
+/// Reserved path of the synthetic **Recently opened** collection.
+///
+/// Like [`UNSORTED_PATH`] it has no directory on disk. Unlike it, its
+/// contents are not a classification at all — they come from
+/// [`crate::recent::RecentPapers`], which is local derived state. It sits at
+/// the same level as Unsorted because it answers the same kind of question:
+/// "where is the paper I was just looking at", not "what is this paper about".
+pub const RECENT_PATH: &str = "recent";
+
 /// What kind of concept a node is, which decides its colour and what may be
 /// done to it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,6 +50,11 @@ pub enum ConceptKind {
     /// The synthetic "Unsorted" collection: has no directory, takes no
     /// subtopics.
     Unsorted,
+    /// The synthetic "Recently opened" collection: has no directory, takes
+    /// no subtopics, and its membership is local state rather than a
+    /// classification — a paper is in it because it was read, not because
+    /// anyone filed it there.
+    Recent,
 }
 
 impl ConceptKind {
@@ -113,6 +127,33 @@ fn unsorted_concept() -> RuntimeConcept {
 /// Whether `index` has unclassified papers but no real `unsorted` topic, so
 /// the synthetic "Unsorted" concept is needed to keep them reachable
 /// (op-sr4n.4: a paper must never disappear for want of a classification).
+/// The synthetic "Recently opened" concept.
+///
+/// `sub_concepts` is 0: it is a leaf that opens an inbox, never a branch.
+///
+/// The title carries no count, matching Unsorted. The count would have to
+/// come from [`crate::recent::RecentPapers`], which is local state rather
+/// than knowledge, and threading it through `concept()`'s five call sites to
+/// put a number in a label is not worth the coupling — the inbox that opens
+/// on click shows the papers themselves.
+fn recent_concept() -> RuntimeConcept {
+    RuntimeConcept {
+        id: NodeId::concept(Namespace::Library, RECENT_PATH),
+        title: "Recently opened".to_string(),
+        kind: ConceptKind::Recent,
+        sub_concepts: 0,
+    }
+}
+
+/// Whether the map should offer "Recently opened" at all.
+///
+/// Only once the library has papers. An empty library has nothing to have
+/// opened, and a node that always drills into nothing is the failure the
+/// Unsorted docs already warn about.
+fn needs_recent(index: &KnowledgeIndex) -> bool {
+    !index.papers.is_empty()
+}
+
 fn needs_unsorted(index: &KnowledgeIndex) -> bool {
     !index.papers_in(UNSORTED_PATH).is_empty()
         && !index.collections.iter().any(|c| c.path == UNSORTED_PATH)
@@ -133,6 +174,9 @@ pub fn concept(index: Option<&KnowledgeIndex>, id: &NodeId) -> Option<RuntimeCon
             let index = index?;
             if let Some(c) = index.collections.iter().find(|c| c.path == id.path) {
                 return Some(library_concept(index, &c.path, c.kind, &c.name));
+            }
+            if id.path == RECENT_PATH && needs_recent(index) {
+                return Some(recent_concept());
             }
             (id.path == UNSORTED_PATH && needs_unsorted(index)).then(unsorted_concept)
         }
@@ -156,6 +200,12 @@ pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
         );
         if needs_unsorted(index) {
             out.push(unsorted_concept());
+        }
+        // Beside Unsorted (maintainer, 2026-09-24): both answer "where is
+        // that paper" rather than "what is it about", and both are leaves
+        // that open an inbox.
+        if needs_recent(index) {
+            out.push(recent_concept());
         }
     }
     out
@@ -200,8 +250,9 @@ pub fn children(index: Option<&KnowledgeIndex>, parent: Option<&NodeId>) -> Vec<
             // nowhere to appear (maintainer, 2026-09-22: "i should see a
             // light green node popping out and linked. I don't see
             // anything").
-            let mut out: Vec<RuntimeConcept> =
-                corpus::children_of(&parent.path).map(corpus_concept).collect();
+            let mut out: Vec<RuntimeConcept> = corpus::children_of(&parent.path)
+                .map(corpus_concept)
+                .collect();
             if let Some(index) = index {
                 out.extend(
                     index
@@ -387,7 +438,19 @@ mod tests {
         let (_d, _r, index) = library();
         let top = top_level(Some(&index));
         let titles: Vec<&str> = top.iter().map(|c| c.title.as_str()).collect();
-        assert_eq!(titles, ["Nuclear Engineering", "HTGRs"]);
+        // "Recently opened" rides along once the library has any papers --
+        // it is a synthetic inbox beside Unsorted, not one of the user's
+        // own concepts, so it is asserted separately from them.
+        assert_eq!(titles, ["Nuclear Engineering", "HTGRs", "Recently opened"]);
+        assert_eq!(
+            top.last().map(|c| c.kind),
+            Some(ConceptKind::Recent),
+            "the recents inbox is last, after the user's concepts"
+        );
+        assert!(
+            !ConceptKind::Recent.accepts_subtopics(),
+            "an inbox takes no subtopics"
+        );
         assert_eq!(top[1].id, NodeId::concept(Namespace::Library, "htgrs"));
         let cites = citations(Some(&index), &HashMap::new(), &top[1].id);
         assert_eq!(cites[0].citekey, "wang2018multiphysics");

@@ -95,6 +95,7 @@ use crate::artifact::ArtifactKind;
 use crate::entity::{EntityConfig, EntityKind};
 use crate::graph::{self, EdgeKind, KnowledgeGraph};
 use crate::index::KnowledgeIndex;
+use crate::index::PaperEntry;
 use crate::research_record::ResearchRecordIndex;
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
@@ -1130,8 +1131,8 @@ impl MindmapState {
     ///
     /// **Projects are light lilac** (maintainer, 2026-09-22) — off the
     /// green axis entirely, because a project is a different *kind* of thing
-    /// from a topic rather than a different owner of one. Unsorted stays
-    /// grey: it is an inbox, not a concept.
+    /// from a topic rather than a different owner of one. Unsorted and
+    /// Recently-opened stay grey-ish: they are inboxes, not concepts.
     fn color_for(kind: crate::runtime_graph::ConceptKind) -> egui::Color32 {
         use crate::runtime_graph::ConceptKind;
         match kind {
@@ -1139,6 +1140,10 @@ impl MindmapState {
             ConceptKind::Topic => egui::Color32::from_rgb(150, 210, 140),
             ConceptKind::Project => egui::Color32::from_rgb(198, 176, 232),
             ConceptKind::Unsorted => egui::Color32::from_gray(150),
+            // A slightly warmer grey than Unsorted: both are inboxes
+            // rather than concepts, and they sit side by side, so they
+            // must read as the same family but not as each other.
+            ConceptKind::Recent => egui::Color32::from_rgb(170, 160, 140),
         }
     }
 
@@ -1152,6 +1157,9 @@ impl MindmapState {
         root: Option<&KovanRoot>,
         index: Option<&KnowledgeIndex>,
         graph: Option<&KnowledgeGraph>,
+        // Local recents, for the "Recently opened" inbox. `None` before a
+        // folder is open, which simply means the node draws nothing.
+        recent: Option<&crate::recent::RecentPapers>,
     ) -> Option<MindmapAction> {
         use crate::mindmap_layout::Point;
         use crate::mindmap_view::{
@@ -1957,6 +1965,14 @@ impl MindmapState {
                 action = Some(MindmapAction::SortPaper(citekey));
             }
         }
+        // A click in Recently opened OPENS the paper rather than filing it:
+        // this inbox is a way back to what you were reading, not a sorting
+        // queue.
+        if let (Some(index), Some(recent), true) = (index, recent, self.showing_recent_inbox()) {
+            if let Some(citekey) = self.recent_inbox_ui(ui, root, index, recent) {
+                action = Some(MindmapAction::OpenPaper(citekey));
+            }
+        }
         if let Some(citekey) = literature_card_for {
             self.selected = Some(graph::paper_node(&citekey));
         }
@@ -2461,6 +2477,49 @@ impl MindmapState {
         filed
     }
 
+    /// Whether the map has been drilled into the synthetic **Recently
+    /// opened** concept.
+    fn showing_recent_inbox(&self) -> bool {
+        self.current.as_ref().is_some_and(|id| {
+            id.path == crate::runtime_graph::RECENT_PATH
+                && id.namespace == crate::node_id::Namespace::Library
+        })
+    }
+
+    /// The **Recently opened** inbox: one box per paper, most recent first.
+    ///
+    /// Shares [`Self::paper_inbox_ui`] with Unsorted rather than repeating
+    /// it. The difference is only the source of the list and the wording:
+    /// Unsorted's membership is the absence of a classification, this one's
+    /// is local state that no one filed.
+    ///
+    /// Returns the citekey to open, if one was clicked.
+    fn recent_inbox_ui(
+        &self,
+        ui: &mut egui::Ui,
+        root: Option<&KovanRoot>,
+        index: &KnowledgeIndex,
+        recent: &crate::recent::RecentPapers,
+    ) -> Option<String> {
+        // Only papers the index still knows about. A citekey left over from
+        // a paper since deleted or renamed would otherwise draw a box that
+        // errors when clicked.
+        let known: Vec<&PaperEntry> = recent
+            .citekeys
+            .iter()
+            .filter_map(|k| index.papers.iter().find(|p| &p.citekey == k))
+            .collect();
+        self.paper_inbox_ui(
+            ui,
+            root,
+            "Recently opened",
+            "nothing opened yet in this library.",
+            &format!("{} recently opened. Click one to open it.", known.len()),
+            &known,
+            false,
+        )
+    }
+
     /// Whether the map has been drilled into the synthetic **Unsorted**
     /// concept, so the inbox is what the user is asking to see.
     fn showing_unsorted_inbox(&self) -> bool {
@@ -2499,24 +2558,57 @@ impl MindmapState {
         index: &KnowledgeIndex,
     ) -> Option<String> {
         let papers = index.papers_in(crate::runtime_graph::UNSORTED_PATH);
-        let mut sort_me = None;
-        egui::Window::new("Unsorted")
+        self.paper_inbox_ui(
+            ui,
+            root,
+            "Unsorted",
+            "nothing unsorted \u{2014} everything is filed.",
+            &format!(
+                "{} paper(s) with no classification. Right-click one to file it.",
+                papers.len()
+            ),
+            &papers,
+            true,
+        )
+    }
+
+    /// One box per paper in a floating window — shared by the **Unsorted**
+    /// and **Recently opened** inboxes.
+    ///
+    /// Both synthetic concepts are leaves that drill into a list of papers,
+    /// and the only differences are the wording and what a click means, so
+    /// they share the drawing rather than growing two copies that diverge.
+    ///
+    /// `sortable` picks the interaction: Unsorted offers "Sort into…" on a
+    /// right-click and returns the citekey to file, while Recently opened
+    /// returns the citekey to open on a plain click — filing a paper you
+    /// merely read is not the gesture that view is for.
+    #[allow(clippy::too_many_arguments)]
+    fn paper_inbox_ui(
+        &self,
+        ui: &mut egui::Ui,
+        root: Option<&KovanRoot>,
+        title: &str,
+        empty_hint: &str,
+        header: &str,
+        papers: &[&PaperEntry],
+        sortable: bool,
+    ) -> Option<String> {
+        let mut chosen = None;
+        egui::Window::new(title)
             .default_width(420.0)
             .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-12.0, 12.0))
             .show(ui.ctx(), |ui| {
                 if papers.is_empty() {
-                    ui.weak("nothing unsorted \u{2014} everything is filed.");
+                    ui.weak(empty_hint);
                     return;
                 }
-                ui.weak(format!(
-                    "{} paper(s) with no classification. Right-click one to file it.",
-                    papers.len()
-                ));
+                ui.weak(header);
                 ui.separator();
                 egui::ScrollArea::vertical()
                     .max_height(420.0)
                     .show(ui, |ui| {
-                        for p in &papers {
+                        for p in papers {
                             // Its own box, so each paper is a distinct
                             // right-click target rather than a row in a list.
                             egui::Frame::group(ui.style()).show(ui, |ui| {
@@ -2532,21 +2624,25 @@ impl MindmapState {
                                 ui.weak(&p.citekey);
                                 let resp = ui.interact(
                                     ui.min_rect(),
-                                    ui.id().with(("unsorted-box", &p.citekey)),
+                                    ui.id().with(("inbox-box", &p.citekey)),
                                     egui::Sense::click(),
                                 );
-                                resp.context_menu(|ui| {
-                                    if ui.button("Sort into\u{2026}").clicked() {
-                                        sort_me = Some(p.citekey.clone());
-                                        ui.close();
-                                    }
-                                });
+                                if sortable {
+                                    resp.context_menu(|ui| {
+                                        if ui.button("Sort into\u{2026}").clicked() {
+                                            chosen = Some(p.citekey.clone());
+                                            ui.close();
+                                        }
+                                    });
+                                } else if resp.clicked() {
+                                    chosen = Some(p.citekey.clone());
+                                }
                             });
                             ui.add_space(4.0);
                         }
                     });
             });
-        sort_me
+        chosen
     }
 
     fn literature_card_ui(
@@ -2817,7 +2913,15 @@ mod tests {
         let (centre, ring) = MindmapState::star_cards(Some(&index), &entries, None);
         assert!(centre.is_none());
         let titles: Vec<&str> = ring.iter().map(|c| c.concept.title.as_str()).collect();
-        assert_eq!(titles, ["Nuclear Engineering", "HTGRs"]);
+        // The synthetic "Recently opened" inbox sits on the ring beside the
+        // user's concepts once the library has papers (2026-09-24). It
+        // carries no citations of its own: its membership is local state,
+        // not a classification, so nothing is filed under it.
+        assert_eq!(titles, ["Nuclear Engineering", "HTGRs", "Recently opened"]);
+        assert!(
+            ring.last().is_some_and(|c| c.citations.is_empty()),
+            "the recents inbox is not a topic papers are filed under"
+        );
         assert_eq!(ring[1].citations.len(), 1);
         assert_eq!(ring[1].concept.sub_concepts, 1);
 

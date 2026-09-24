@@ -77,6 +77,9 @@ pub mod project;
 pub mod relation;
 pub mod repository;
 pub mod research_record;
+/// Recently opened papers — local, derived state in `.kovan/`, surfaced
+/// in the map and the Wiki beside Unsorted. See [`recent`].
+pub mod recent;
 pub mod root;
 pub mod runtime_graph;
 pub mod sync;

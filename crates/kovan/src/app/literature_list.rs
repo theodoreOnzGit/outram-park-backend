@@ -243,7 +243,10 @@ impl LiteratureList {
                                     Some(k) => format!("{}\npaper: {k}", item.path.display()),
                                     None => format!("{}\nnot ingested yet", item.path.display()),
                                 };
-                                if ui.selectable_label(selected, text).on_hover_text(hover).clicked()
+                                if ui
+                                    .selectable_label(selected, text)
+                                    .on_hover_text(hover)
+                                    .clicked()
                                 {
                                     action = Some(LiteratureAction::Open(item.path.clone()));
                                 }
@@ -386,10 +389,26 @@ mod tests {
     fn every_corpus_is_listed_once() {
         let tmp = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(tmp.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        touch(&root.standard_corpus_dir().join("kovan-standard-open-corpus/nrc/a.pdf"));
-        touch(&root.standard_corpus_dir().join("theodore-open-corpus/b.pdf"));
-        touch(&root.open_corpus_dir().join("kovan-standard-open-corpus/nrc/a.pdf"));
-        touch(&root.open_corpus_dir().join("theodore-open-corpus/cc-by/b.pdf"));
+        touch(
+            &root
+                .standard_corpus_dir()
+                .join("kovan-standard-open-corpus/nrc/a.pdf"),
+        );
+        touch(
+            &root
+                .standard_corpus_dir()
+                .join("theodore-open-corpus/b.pdf"),
+        );
+        touch(
+            &root
+                .open_corpus_dir()
+                .join("kovan-standard-open-corpus/nrc/a.pdf"),
+        );
+        touch(
+            &root
+                .open_corpus_dir()
+                .join("theodore-open-corpus/cc-by/b.pdf"),
+        );
         touch(&root.restricted_sources_dir().join("papers/c.pdf"));
         touch(&root.restricted_sources_dir().join(".git/objects/x.pdf"));
         let list = LiteratureList::build(&root);
@@ -401,12 +420,19 @@ mod tests {
         assert_eq!(
             labels,
             vec![
-                ("Standard corpus", vec!["kovan-standard-open-corpus/nrc/a.pdf"]),
+                (
+                    "Standard corpus",
+                    vec!["kovan-standard-open-corpus/nrc/a.pdf"]
+                ),
                 ("Open corpus", vec!["theodore-open-corpus/cc-by/b.pdf"]),
                 ("Proprietary corpus", vec!["papers/c.pdf"]),
             ]
         );
-        assert!(list.groups.iter().flat_map(|g| &g.items).all(|i| i.citekey.is_none()));
+        assert!(list
+            .groups
+            .iter()
+            .flat_map(|g| &g.items)
+            .all(|i| i.citekey.is_none()));
     }
 
     /// The finder ranks by fuzzy score: a file-name substring first, a

@@ -472,7 +472,11 @@ impl KvimEditorState {
     /// selection the user made on purpose.
     fn end_drag(&mut self) {
         self.dragging = false;
-        if self.editor.selection().is_some_and(|(start, end)| start == end) {
+        if self
+            .editor
+            .selection()
+            .is_some_and(|(start, end)| start == end)
+        {
             let _ = self.editor.handle_key(KvimKey::esc());
             let _ = self.editor.handle_key(KvimKey::char('i'));
         }
@@ -1053,15 +1057,19 @@ mod tests {
         let text = drive(
             &mut state,
             vec![
-                Vec::new(),                                  // focus lands
-                Vec::new(),                                  // focus lock applies
-                vec![egui::Event::Text("X".into())],         // type in Insert
-                vec![key(egui::Key::Escape)],                // leave Insert
-                vec![egui::Event::Text("u".into())],         // undo
+                Vec::new(),                          // focus lands
+                Vec::new(),                          // focus lock applies
+                vec![egui::Event::Text("X".into())], // type in Insert
+                vec![key(egui::Key::Escape)],        // leave Insert
+                vec![egui::Event::Text("u".into())], // undo
             ],
         );
 
-        assert_eq!(state.mode_label(), "NORMAL", "Escape did not reach the engine");
+        assert_eq!(
+            state.mode_label(),
+            "NORMAL",
+            "Escape did not reach the engine"
+        );
         assert_eq!(text, "hello\n", "`u` did not undo: {text:?}");
     }
 
@@ -1117,7 +1125,11 @@ mod tests {
 
         assert_eq!(state.editor.mode(), Mode::Insert);
         assert!(!state.dragging);
-        assert_eq!(state.text(), "hello world\n", "no key leaked into the buffer");
+        assert_eq!(
+            state.text(),
+            "hello world\n",
+            "no key leaked into the buffer"
+        );
     }
 
     /// A drag that *did* select something is a real selection and is left
@@ -1141,7 +1153,11 @@ mod tests {
     fn begin_insert_opens_ready_to_type_and_claims_focus_once() {
         let mut state = KvimEditorState::default();
         state.load_text("the prose body\n");
-        assert_eq!(state.editor.mode(), Mode::Normal, "load_text starts in Normal");
+        assert_eq!(
+            state.editor.mode(),
+            Mode::Normal,
+            "load_text starts in Normal"
+        );
 
         state.begin_insert();
 
@@ -1150,7 +1166,11 @@ mod tests {
         // The flag is one-shot: the next paint consumes it.
         assert!(std::mem::take(&mut state.pending_focus));
         assert!(!state.pending_focus);
-        assert_eq!(state.text(), "the prose body\n", "no key leaked into the buffer");
+        assert_eq!(
+            state.text(),
+            "the prose body\n",
+            "no key leaked into the buffer"
+        );
     }
 
     /// Drive the read-only preview headlessly (no window, no GPU) through a
@@ -1205,7 +1225,10 @@ mod tests {
     #[test]
     fn a_slow_press_on_the_preview_opens_the_same_line_a_quick_click_does() {
         let quick = preview_press_release(0.0);
-        assert!(quick.is_some(), "the quick click did not land on the text area");
+        assert!(
+            quick.is_some(),
+            "the quick click did not land on the text area"
+        );
         assert_eq!(
             preview_press_release(1.5),
             quick,
