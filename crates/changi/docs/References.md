@@ -95,3 +95,46 @@ against the primary literature.
 `src/activity/deposition.rs` carries **uncited order-of-magnitude
 placeholders**, as its own documentation states. They are not sourced and must
 not be cited. Tracked separately; not resolved by this file.
+
+## HTR-10 equilibrium-core fission-product inventory
+
+`reference/htr10_equilibrium_core_inventory.csv`, exposed by
+`changi::activity::inventory`. Added 2026-09-24.
+
+| Field | Value |
+|---|---|
+| Source | Liu Yuanzhong and Cao Jianzhu, "Fission product release and its environment impact for normal reactor operations and for relevant accidents" |
+| Publication | *Nuclear Engineering and Design* **218** (2002) 81–90, Elsevier |
+| Affiliation | Institute of Nuclear Energy Technology, Tsinghua University, Beijing |
+| Table | Table 1, "fission product inventories for equilibrium core of HTR-10" |
+| How the source computed it | ORIGEN2, average burnup 80 000 MWd/t |
+| Contents | 22 nuclides, becquerels |
+| Copyright | "© 2002 Elsevier Science B.V. All rights reserved." |
+| Access terms | **Restricted.** No reuse licence is stated in the document. The PDF is held in the maintainer's private literature repository and is **not** redistributable |
+| Date accessed | 2026-09-23 |
+
+### Why the table is reproduced and the document is not
+
+The private corpus's own README draws the line: *"Research knowledge about
+them (citations, notes, connections) may still live in public Kovan
+libraries; the documents and their extracted full text may not."* A cited
+table of 22 published values is `DATA_POLICY.md`'s "public literature data" —
+ordinary scientific citation of a journal article — not the document and not
+its extracted full text. **Do not add the PDF, or bulk extracted text from
+it, to this repository.**
+
+### Not verified here
+
+The values have not been re-checked against the published Table 1 by anyone
+in this repository; the transcription is the maintainer's own, made through
+kovan's annotation tooling on 2026-09-23. No calculation here reproduces
+them.
+
+### An inventory is not a source term
+
+What is *in the core* is not what gets *out*. Converting one to the other
+needs a release fraction covering the fuel, the vessel and the building, and
+this crate supplies none — that is a reactor and containment question, not a
+dispersion one. `changi::activity::inventory` exists so that a caller need
+not invent a starting magnitude, not so that one can be quoted as a release.
+`RESPONSIBLE_USE.md` applies in full.

@@ -71,10 +71,13 @@
 //!   core inventory. Unchanged, and still the primary quantity, because it is
 //!   the part this model actually determines.
 //! - [`NuclideRelease::absolute`] — **absolute** activities in becquerels,
-//!   from `reference/htr10_equilibrium_core_inventory.csv`: the published
+//!   from [`changi::activity::inventory`]: the published
 //!   equilibrium-core inventory of 22 nuclides (Liu & Cao 2002, Table 1,
 //!   ORIGEN2 at 80 000 MWd/t), which covers all five of [`TRACKED_NUCLIDES`].
-//!   Provenance and access terms are in `reference/References.md`.
+//!   Provenance and access terms are in `crates/changi/docs/References.md`.
+//!   The table lives in `changi` rather than here because the dispersion
+//!   channel downstream is its consumer; it was briefly duplicated in this
+//!   example's own `reference/` directory and that copy is gone.
 //!
 //! The absolute arm **re-evaluates the closed form at the real inventory**
 //! rather than multiplying the per-curie answer by it. Scaling would almost
@@ -130,35 +133,22 @@ use uom::si::time::second;
 /// why the basis is a unit rather than a real inventory.
 pub const UNIT_INVENTORY_CURIES: f64 = 1.0;
 
-/// The HTR-10 **equilibrium-core fission-product inventory**, as published.
-///
-/// 22 nuclides in becquerels, Table 1 of Liu Yuanzhong and Cao Jianzhu,
-/// *Nuclear Engineering and Design* **218** (2002) 81-90, computed there with
-/// ORIGEN2 at an average burnup of 80 000 MWd/t. Provenance, access terms and
-/// the transcription steps are in `reference/References.md`.
-///
-/// Compiled in rather than read at runtime so the simulator has no data
-/// dependency at startup, and so a missing file is a build error rather than
-/// a silently empty inventory.
-const HTR10_INVENTORY_CSV: &str = include_str!("../reference/htr10_equilibrium_core_inventory.csv");
-
 /// Becquerels per curie — the one place this module converts.
 const BQ_PER_CI: f64 = 3.7e10;
 
 /// Look up a nuclide's published HTR-10 core inventory \[Bq\].
 ///
-/// Returns `None` for a nuclide the table does not list, which is the honest
-/// answer: the table is 22 nuclides, not the whole fission-product set, and a
-/// caller asking for one outside it must not be handed a zero that looks like
-/// a measurement.
+/// **The table itself lives in `changi`**, not here. It was briefly duplicated
+/// in this example's `reference/` directory; two copies of a published table
+/// is exactly the drift this workspace forbids, and `changi::activity` is the
+/// right home because the dispersion channel downstream is its consumer.
+///
+/// Returns `None` for a nuclide outside the 22 Liu and Cao tabulate — a
+/// caller must not be handed a zero that reads like a measurement.
 #[must_use]
 pub fn htr10_core_inventory_bq(name: &str) -> Option<f64> {
-    HTR10_INVENTORY_CSV
-        .lines()
-        .skip(1)
-        .filter_map(|line| line.split_once(','))
-        .find(|(n, _)| n.trim() == name)
-        .and_then(|(_, bq)| bq.trim().parse::<f64>().ok())
+    changi::activity::inventory::htr10_core_inventory(name)
+        .map(|a| a.get::<uom::si::radioactivity::becquerel>())
 }
 
 /// The six normal-operation outputs on an **absolute** basis, in becquerels.
@@ -1104,13 +1094,12 @@ mod tests {
     }
 
     /// The inventory table parses to the 22 rows the source tabulates.
+    ///
+    /// The table lives in `changi` now; this guards the boundary rather than
+    /// the file, so a change there that dropped rows would surface here.
     #[test]
     fn the_published_inventory_has_all_twenty_two_nuclides() {
-        let n = HTR10_INVENTORY_CSV
-            .lines()
-            .skip(1)
-            .filter(|l| !l.trim().is_empty())
-            .count();
+        let n = changi::activity::inventory::htr10_equilibrium_core().len();
         assert_eq!(n, 22, "Liu and Cao (2002) Table 1 lists 22 nuclides");
         // Spot-check two ends of the table against the published values.
         assert_eq!(htr10_core_inventory_bq("Kr-85"), Some(8.75e13));
