@@ -3,6 +3,15 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
+**The full twelve-height verification suite lives in
+[`docs/htr10-rmc-verification-suite.md`](../../../../docs/htr10-rmc-verification-suite.md)**
+(2026-09-24): every fuel loading the reference tabulates, at 10 000 histories
+x [5 inactive + 135 active], with the eigenvalue curve, the fitted
+height dependence, the separated data/transport timings, the P-core vs E-core
+sweep and the constant-cavity ablation. **This page remains the authority for
+how the model was built and corrected**; that one is the authority for how it
+performs across the loading range.
+
 **Status as of 2026-09-18 (later): the conus was filled with the WRONG
 CONTENTS, and correcting it removes the +3670 pcm overshoot.** `op-5n34`.
 
