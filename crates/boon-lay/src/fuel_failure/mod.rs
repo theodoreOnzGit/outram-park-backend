@@ -22,6 +22,13 @@
 //! it, the SiC layer carries the hoop stress, and the particle fails when that
 //! stress exceeds the SiC strength. PANAMA-I couples three failure populations:
 //!
+
+//! # TRISO coated-particle failure — the PANAMA-I pressure-vessel model
+//!
+//! A TRISO particle is a pressure vessel. Fission gas and CO accumulate inside
+//! it, the SiC layer carries the hoop stress, and the particle fails when that
+//! stress exceeds the SiC strength. PANAMA-I couples three failure populations:
+//!
 //! | Term | Mechanism | Where it comes from |
 //! |---|---|---|
 //! | `φ_o` | as-manufactured defects | not modelled; an input (see [`AS_MANUFACTURED_TARGET`]) |
@@ -75,24 +82,58 @@
 //! **°C** while every Arrhenius term needs **kelvin**, and it never states the
 //! conversion. Using `uom` removes that ambiguity at the boundary — a caller
 //! passes a `ThermodynamicTemperature` and cannot get it wrong.
+//!
+//! # Layout
+//!
+//! One module per equation group, because a single file was already past 700
+//! lines with four of the report's correlations implemented and there are a
+//! dozen more to come:
+//!
+//! | Module | Equations | Page |
+//! |---|---|---|
+//! | [`geometry`] | `r`, `d_o`, `d_act` | -484- |
+//! | [`weibull`] | (1) | -483- |
+//! | [`stress`] | (2) | -484- |
+//! | [`pressure`] | (3) | -484-/-485- |
+//! | [`strength`] | (8a), (8b), (9a), (9b) | -493-/-494- |
+//!
+//! The assembly (`phi_total`) stays here, since it is what binds them.
+//! Everything is re-exported flat, so a caller writes
+//! `boon_lay::fuel_failure::weibull_failure_fraction` and never needs to know
+//! which file it lives in.
+//!
+//! # Units: what the report states, and what it does not
+//!
+//! Three of the report's own symbols are ambiguous or wrong as printed. Each
+//! is resolved (or left open) at the point of use, and the register lives in
+//! `docs/panama-i-units-and-open-questions.md`. In brief:
+//!
+//! | Symbol | Printed | Used here | How settled |
+//! |---|---|---|---|
+//! | `T_B` | degC (-511-) | **kelvin** | Table 1 reproduces 16/16 on kelvin, 0/16 on degC |
+//! | `Gamma` | 10^25 m^-2 EDN | same, as bare `f64` | a `log10` fit is only valid in its own units |
+//! | Eq (3) grouping | bar spans the denominator | `R*T` in the numerator | dimensions; the printed form makes `p` fall with `T` |
+//! | `t_B` | seconds (-511-) | **UNRESOLVED** | Figs 3/7/8 say full-power days |
 
-use uom::si::f64::{
-    Length, MolarVolume, Pressure, Ratio, ThermodynamicTemperature, Velocity, Time, Volume,
+pub mod geometry;
+pub mod pressure;
+pub mod strength;
+pub mod stress;
+pub mod weibull;
+
+pub use geometry::SicLayer;
+pub use pressure::{internal_gas_pressure, GAS_CONSTANT_J_PER_MOL_K, STABLE_FISSION_GAS_YIELD};
+pub use strength::{
+    irradiated_strength, irradiated_weibull_modulus, MIN_TENSILE_STRENGTH_MPA, MIN_WEIBULL_MODULUS,
 };
-use uom::si::molar_volume::cubic_meter_per_mole;
-use uom::si::pressure::pascal;
+pub use stress::{induced_stress, induced_stress_exact};
+pub use weibull::weibull_failure_fraction;
+
+use uom::si::f64::Ratio;
 use uom::si::ratio::ratio;
-use uom::si::thermodynamic_temperature::kelvin;
 
-/// Molar gas constant `R` in J/(mol·K), as printed with Eq (3) on page -485-.
-///
-/// The report's own value, kept rather than substituting a CODATA figure, so
-/// the arithmetic reproduces the source exactly.
-pub const GAS_CONSTANT_J_PER_MOL_K: f64 = 8.3143;
-
-/// Fission yield of the stable fission gases `F_f`, printed with Eq (3)
-/// (page -485-). Dimensionless, atoms per fission.
-pub const STABLE_FISSION_GAS_YIELD: f64 = 0.31;
+/// A failed-particle fraction, dimensionless and in `[0, 1]`.
+pub type FailureFraction = Ratio;
 
 /// The as-manufactured defective fraction `φ_o` used for reactor studies,
 /// `6·10⁻⁵` (page -480-).
@@ -102,184 +143,6 @@ pub const STABLE_FISSION_GAS_YIELD: f64 = 0.31;
 /// It is offered as a named constant, never as a default — which of the two
 /// applies is the caller's modelling decision.
 pub const AS_MANUFACTURED_TARGET: f64 = 6.0e-5;
-
-/// A failed-particle fraction, dimensionless and in `[0, 1]`.
-pub type FailureFraction = Ratio;
-
-/// The SiC layer's geometry, from which Eq (2)'s `r` and `d_o` are derived.
-///
-/// Both radii are to the SiC layer itself — `r_i` its inner surface (the outer
-/// surface of the inner PyC) and `r_a` its outer surface.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SicLayer {
-    /// Inner radius `r_i` of the SiC layer.
-    pub inner_radius: Length,
-    /// Outer radius `r_a` of the SiC layer.
-    pub outer_radius: Length,
-}
-
-impl SicLayer {
-    /// The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)`
-    /// (page -484-).
-    ///
-    /// Note this is a cube-root mean, not the arithmetic mean `(r_a + r_i)/2`.
-    /// The two agree to well under a percent for a real TRISO layer, which is
-    /// precisely why substituting the arithmetic mean would never show up as
-    /// an obvious error — so the printed definition is kept.
-    pub fn mean_radius(&self) -> Length {
-        let ri = self.inner_radius.value;
-        let ra = self.outer_radius.value;
-        Length::new::<uom::si::length::meter>((0.5 * (ra.powi(3) + ri.powi(3))).cbrt())
-    }
-
-    /// The original layer thickness `d_o = r_a − r_i` (page -484-).
-    pub fn initial_thickness(&self) -> Length {
-        self.outer_radius - self.inner_radius
-    }
-
-    /// The **actual** thickness after volume corrosion, `d_act = d_o·(1 − v̇·t)`
-    /// (page -484-).
-    ///
-    /// Returns a non-positive length once `v̇·t ≥ 1`, i.e. once the layer has
-    /// notionally corroded away; callers should treat that as certain failure
-    /// rather than feeding it to [`induced_stress_exact`], which would divide
-    /// by zero or change sign.
-    pub fn actual_thickness(&self, corrosion_rate: Velocity, elapsed: Time) -> Length {
-        let consumed: Ratio = corrosion_rate * elapsed / self.initial_thickness();
-        self.initial_thickness() * (Ratio::new::<ratio>(1.0) - consumed)
-    }
-}
-
-/// **Eq (1)** — the fraction of particles failed by pressure-vessel overstress
-/// (page -483-, attributed to Nabielek 1984).
-///
-/// ```text
-/// φ₁(t,T) = 1 − exp[ −ln2 · (σ_t / σ_o)^m ]
-/// ```
-///
-/// - `induced_stress` — `σ_t`, the SiC hoop stress from the internal gas
-///   pressure ([`induced_stress`]).
-/// - `median_strength` — `σ_o`, the SiC tensile strength **at the end of
-///   irradiation**. See the module docs: because of the `ln2`, this is the
-///   *median* of the strength distribution, not its characteristic value.
-/// - `weibull_modulus` — `m`, dimensionless.
-///
-/// Returns a fraction in `[0, 1]`; it is `0.5` exactly when
-/// `induced_stress == median_strength`, for any `m`.
-pub fn weibull_failure_fraction(
-    induced_stress: Pressure,
-    median_strength: Pressure,
-    weibull_modulus: f64,
-) -> FailureFraction {
-    let sigma_o = median_strength.get::<pascal>();
-    if sigma_o <= 0.0 {
-        // A zero or negative strength is total failure, not a NaN. This is the
-        // limit the thinning and degradation laws walk toward.
-        return Ratio::new::<ratio>(1.0);
-    }
-    let x = (induced_stress.get::<pascal>() / sigma_o).max(0.0);
-    Ratio::new::<ratio>(1.0 - (-std::f64::consts::LN_2 * x.powf(weibull_modulus)).exp())
-}
-
-/// **Eq (2)** — the SiC hoop stress induced by internal gas pressure, in the
-/// report's preferred approximate form (page -484-).
-///
-/// ```text
-/// σ_t = r·p / (2·d_o) · (1 + v̇·t/d_o)      [Pa]
-/// ```
-///
-/// The report gives the exact thin-shell result first
-/// ([`induced_stress_exact`]) and then states that this approximation
-/// "describes the state of affairs more realistically, in particular for small
-/// actual SiC layer thicknesses" — it is the linearisation of the exact form in
-/// `v̇t/d_o`, and unlike the exact form it stays finite as the layer thins.
-/// **This is the one to use**; the exact form is provided for comparison.
-///
-/// Note the model is **thin-shell throughout**. The report contains no
-/// thick-wall (Lamé) formulation, so none is offered here.
-pub fn induced_stress(
-    layer: &SicLayer,
-    pressure: Pressure,
-    corrosion_rate: Velocity,
-    elapsed: Time,
-) -> Pressure {
-    let d_o = layer.initial_thickness();
-    let thinning: Ratio = corrosion_rate * elapsed / d_o;
-    let base: Pressure = layer.mean_radius() * pressure / (2.0 * d_o);
-    base * (Ratio::new::<ratio>(1.0) + thinning)
-}
-
-/// The **exact** thin-shell stress, `σ_t = r·p / (2·d_act)` (page -484-).
-///
-/// Returns `None` once the corroded thickness is non-positive, rather than
-/// returning an infinite or negative stress. [`induced_stress`] is the form the
-/// report actually recommends.
-pub fn induced_stress_exact(
-    layer: &SicLayer,
-    pressure: Pressure,
-    corrosion_rate: Velocity,
-    elapsed: Time,
-) -> Option<Pressure> {
-    let d_act = layer.actual_thickness(corrosion_rate, elapsed);
-    if d_act.value <= 0.0 {
-        return None;
-    }
-    Some(layer.mean_radius() * pressure / (2.0 * d_act))
-}
-
-/// **Eq (3)** — internal gas pressure from the ideal gas law (page -484-).
-///
-/// ```text
-/// p = (F_d·F_f + OPF) · F_b · R · T / [ (V_f/V_k) · V_m ]      [Pa]
-/// ```
-///
-/// - `released_gas_fraction` — `F_d`, the relevant fraction of fission gas
-///   released from the kernel (Eq (4), Allelein 1983 — **not** implemented
-///   here; supply it).
-/// - `stable_gas_yield` — `F_f`, atoms of stable fission gas per fission;
-///   [`STABLE_FISSION_GAS_YIELD`] is the report's 0.31.
-/// - `oxygen_per_fission` — `OPF`, CO-forming oxygen atoms per fission
-///   (Eqs (5a)–(5f) — **not** implemented here; supply it, and see the module
-///   docs on why).
-/// - `burnup` — `F_b`, heavy-metal burnup in FIMA.
-/// - `free_volume` / `kernel_volume` — `V_f` (buffer void) and `V_k`.
-/// - `molar_volume` — `V_m`, the molar volume of the kernel compound
-///   (Eqs (6a)–(6c) — supply it).
-/// - `temperature` — `T`, in kelvin via `uom`.
-///
-/// ## The printed grouping is ambiguous; this is the dimensionally consistent
-/// reading
-///
-/// As printed, the fraction bar appears to span `(V_f/V_k)·R·T/V_m`, which
-/// would give `p ∝ 1/(R·T)` — dimensionally wrong, and it would make pressure
-/// *fall* as the particle heats. Only one grouping is consistent, and it is
-/// also just `p = nRT/V_f` with `n = (F_d·F_f + OPF)·F_b·V_k/V_m`:
-/// `(F_d·F_f+OPF)·F_b` is dimensionless (moles of gas per mole of heavy metal),
-/// `R·T` is Pa·m³/mol, `V_f/V_k` is dimensionless and `V_m` is m³/mol, leaving
-/// **Pa**. That is what is implemented. [`pressure_is_the_ideal_gas_law`]
-/// pins it against `nRT/V` computed independently.
-pub fn internal_gas_pressure(
-    released_gas_fraction: Ratio,
-    stable_gas_yield: Ratio,
-    oxygen_per_fission: Ratio,
-    burnup: Ratio,
-    free_volume: Volume,
-    kernel_volume: Volume,
-    molar_volume: MolarVolume,
-    temperature: ThermodynamicTemperature,
-) -> Pressure {
-    let gas_per_heavy_metal = released_gas_fraction.get::<ratio>()
-        * stable_gas_yield.get::<ratio>()
-        + oxygen_per_fission.get::<ratio>();
-    let void_ratio = free_volume.value / kernel_volume.value;
-    let v_m = molar_volume.get::<cubic_meter_per_mole>();
-    let p = gas_per_heavy_metal
-        * burnup.get::<ratio>()
-        * GAS_CONSTANT_J_PER_MOL_K
-        * temperature.get::<kelvin>()
-        / (void_ratio * v_m);
-    Pressure::new::<pascal>(p)
-}
 
 /// The combination of the three failure populations (page -480-).
 ///
@@ -314,10 +177,13 @@ pub fn total_failure_fraction(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uom::si::length::{meter, micrometer};
+    use uom::si::f64::{Length, MolarVolume, Pressure, Time, Velocity, Volume};
+    use uom::si::length::micrometer;
+    use uom::si::molar_volume::cubic_meter_per_mole;
     use uom::si::pressure::{megapascal, pascal};
     use uom::si::thermodynamic_temperature::degree_celsius;
-    use uom::si::time::{hour, second};
+    use uom::si::f64::ThermodynamicTemperature;
+    use uom::si::time::second;
     use uom::si::velocity::meter_per_second;
     use uom::si::volume::cubic_meter;
 
@@ -325,9 +191,8 @@ mod tests {
         Ratio::new::<ratio>(x)
     }
 
-    /// A representative TRISO SiC layer: 350 µm kernel radius plus buffer and
-    /// inner PyC puts the SiC inner surface near 250 µm, with a 35 µm layer.
-    /// Dimensions only; nothing downstream is calibrated to them.
+    /// A representative TRISO SiC layer: a 35 um shell whose inner surface
+    /// sits at 250 um. Dimensions only; nothing is calibrated to them.
     fn layer() -> SicLayer {
         SicLayer {
             inner_radius: Length::new::<micrometer>(250.0),
@@ -335,172 +200,6 @@ mod tests {
         }
     }
 
-    /// **The `ln2` is the whole point of Eq (1).** At `σ_t = σ_o` the failed
-    /// fraction is exactly one half, for every Weibull modulus — that is what
-    /// makes `σ_o` the MEDIAN strength. A stock Weibull would give 0.632 here.
-    /// If this test ever reads 0.632, someone has "simplified" the `ln2` away.
-    #[test]
-    fn median_is_the_scale_parameter() {
-        let s = Pressure::new::<megapascal>(200.0);
-        for m in [1.0, 2.0, 5.0, 8.0, 15.0] {
-            let phi = weibull_failure_fraction(s, s, m).get::<ratio>();
-            assert!(
-                (phi - 0.5).abs() < 1e-12,
-                "m = {m}: expected exactly 0.5 at sigma_t == sigma_o, got {phi}"
-            );
-        }
-        // And explicitly NOT the characteristic-strength convention.
-        let stock = 1.0 - (-1.0_f64).exp();
-        assert!((0.5 - stock).abs() > 0.1, "the two conventions must differ");
-    }
-
-    /// Failure rises monotonically with stress and saturates at 1, and a
-    /// vanishing stress gives a vanishing failed fraction.
-    #[test]
-    fn failure_is_monotone_in_stress() {
-        let sigma_o = Pressure::new::<megapascal>(200.0);
-        let mut last = -1.0;
-        for mpa in [0.0, 50.0, 100.0, 200.0, 400.0, 800.0] {
-            let phi = weibull_failure_fraction(Pressure::new::<megapascal>(mpa), sigma_o, 8.0)
-                .get::<ratio>();
-            assert!(phi >= last, "not monotone at {mpa} MPa: {phi} < {last}");
-            assert!(
-                (0.0..=1.0).contains(&phi),
-                "out of range at {mpa} MPa: {phi}"
-            );
-            last = phi;
-        }
-        assert_eq!(
-            weibull_failure_fraction(Pressure::new::<pascal>(0.0), sigma_o, 8.0).get::<ratio>(),
-            0.0
-        );
-        assert!(last > 0.999_999, "should saturate well before 4x strength");
-    }
-
-    /// A higher Weibull modulus is a *tighter* strength distribution: below the
-    /// median it must fail fewer particles, above it more. This is the
-    /// qualitative behaviour `m` exists to express, and it is easy to invert by
-    /// a sign slip in the exponent.
-    #[test]
-    fn a_larger_modulus_sharpens_the_transition() {
-        let sigma_o = Pressure::new::<megapascal>(200.0);
-        let below = Pressure::new::<megapascal>(150.0);
-        let above = Pressure::new::<megapascal>(260.0);
-        let (lo_m, hi_m) = (3.0, 12.0);
-        assert!(
-            weibull_failure_fraction(below, sigma_o, hi_m).get::<ratio>()
-                < weibull_failure_fraction(below, sigma_o, lo_m).get::<ratio>(),
-            "a sharper distribution must fail FEWER particles below the median"
-        );
-        assert!(
-            weibull_failure_fraction(above, sigma_o, hi_m).get::<ratio>()
-                > weibull_failure_fraction(above, sigma_o, lo_m).get::<ratio>(),
-            "a sharper distribution must fail MORE particles above the median"
-        );
-    }
-
-    /// `r` is the report's cube-root mean, not the arithmetic mean. The two are
-    /// close for a real layer -- which is exactly why this needs pinning.
-    #[test]
-    fn mean_radius_is_the_cube_root_mean() {
-        let l = layer();
-        let r_cbrt = l.mean_radius().get::<micrometer>();
-        let arithmetic = 0.5 * (250.0 + 285.0);
-        assert!(
-            (r_cbrt - 268.639_995).abs() < 1e-4,
-            "cube-root mean should be ~268.640 um, got {r_cbrt}"
-        );
-        assert!(
-            (r_cbrt - arithmetic).abs() > 0.1,
-            "must not silently be the arithmetic mean ({arithmetic})"
-        );
-        assert!((l.initial_thickness().get::<micrometer>() - 35.0).abs() < 1e-9);
-    }
-
-    /// With no corrosion, Eq (2) and the exact thin-shell form agree exactly;
-    /// as the layer thins they diverge, with the exact form always the larger
-    /// (it divides by the shrinking thickness, the approximation multiplies by
-    /// its linearisation).
-    #[test]
-    fn approximate_and_exact_stress_agree_at_zero_corrosion() {
-        let (l, p) = (layer(), Pressure::new::<megapascal>(30.0));
-        let none = Velocity::new::<meter_per_second>(0.0);
-        let t0 = Time::new::<second>(0.0);
-        let approx = induced_stress(&l, p, none, t0).get::<pascal>();
-        let exact = induced_stress_exact(&l, p, none, t0)
-            .unwrap()
-            .get::<pascal>();
-        assert!((approx - exact).abs() < 1e-6, "{approx} vs {exact}");
-
-        // r*p/(2*d_o) computed independently: 115.1314 MPa.
-        let expected = 268.639_995e-6 * 30.0e6 / (2.0 * 35.0e-6);
-        assert!(
-            (approx - expected).abs() / expected < 1e-3,
-            "{approx} vs {expected}"
-        );
-
-        // Under corrosion the exact form exceeds the approximation.
-        let v = Velocity::new::<meter_per_second>(1.0e-10);
-        let t = Time::new::<hour>(20.0);
-        let a = induced_stress(&l, p, v, t).get::<pascal>();
-        let e = induced_stress_exact(&l, p, v, t).unwrap().get::<pascal>();
-        assert!(
-            e > a,
-            "exact {e} should exceed approximate {a} under thinning"
-        );
-    }
-
-    /// A fully corroded layer has no exact stress to report, and must not come
-    /// back as a negative or infinite one.
-    #[test]
-    fn a_consumed_layer_has_no_exact_stress() {
-        let l = layer();
-        let v = Velocity::new::<meter_per_second>(1.0e-8);
-        let t = Time::new::<hour>(10_000.0);
-        assert!(l.actual_thickness(v, t).get::<meter>() <= 0.0);
-        assert!(induced_stress_exact(&l, Pressure::new::<megapascal>(30.0), v, t).is_none());
-    }
-
-    /// Eq (3) must reduce to `p = nRT/V_f` with `n` the moles of gas released,
-    /// computed here independently of the implementation. This is the check
-    /// that settles the printed grouping ambiguity (see the fn docs).
-    #[test]
-    fn pressure_is_the_ideal_gas_law() {
-        let v_k = Volume::new::<cubic_meter>(1.8e-13); // ~350 um radius kernel
-        let v_f = Volume::new::<cubic_meter>(9.0e-13); // buffer void
-        let v_m = MolarVolume::new::<cubic_meter_per_mole>(2.46e-5); // UO2-ish
-        let t = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
-        let (f_d, f_f, opf, f_b) = (r(0.5), r(STABLE_FISSION_GAS_YIELD), r(0.4), r(0.10));
-
-        let got = internal_gas_pressure(f_d, f_f, opf, f_b, v_f, v_k, v_m, t).get::<pascal>();
-
-        // Independent route: moles of heavy metal, then moles of gas, then nRT/V.
-        let n_hm = v_k.get::<cubic_meter>() / v_m.get::<cubic_meter_per_mole>();
-        let n_gas = (0.5 * STABLE_FISSION_GAS_YIELD + 0.4) * 0.10 * n_hm;
-        let expected =
-            n_gas * GAS_CONSTANT_J_PER_MOL_K * (1600.0 + 273.15) / v_f.get::<cubic_meter>();
-
-        assert!(
-            (got - expected).abs() / expected < 1e-9,
-            "Eq (3) should be nRT/V_f: got {got} Pa, expected {expected} Pa"
-        );
-        // Pressure must RISE with temperature -- the printed grouping would
-        // have it fall, which is how the ambiguity was caught.
-        let hotter = internal_gas_pressure(
-            f_d,
-            f_f,
-            opf,
-            f_b,
-            v_f,
-            v_k,
-            v_m,
-            ThermodynamicTemperature::new::<degree_celsius>(2000.0),
-        );
-        assert!(hotter.get::<pascal>() > got, "pressure must rise with T");
-    }
-
-    /// Survival probabilities multiply, so the combination is symmetric, never
-    /// exceeds 1, and is strictly larger than any single term.
     #[test]
     fn failure_populations_combine_by_survival() {
         let (a, b, c) = (r(6.0e-5), r(0.3), r(0.2));
@@ -530,9 +229,6 @@ mod tests {
         );
     }
 
-    /// The end-to-end chain: geometry + pressure -> stress -> Weibull -> total.
-    /// Values are illustrative, not validated against PANAMA output -- the
-    /// point is that the units compose and the result is a sane fraction.
     #[test]
     fn the_chain_composes_end_to_end() {
         let l = layer();
