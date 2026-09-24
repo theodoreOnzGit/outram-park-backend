@@ -321,7 +321,7 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
     // difference between the two libraries rather than an inconsistency, and
     // it is one more term bundled into the "library" number -- see the
     // carbon-evaluation note above.
-    let mut sic_sab = |diag: &mut RunDiagnostics, mat: i32, name: &'static str| {
+    let sic_sab = |diag: &mut RunDiagnostics, mat: i32, name: &'static str| {
         let f = if mat == 44 {
             "tsl-CinSiC.endf"
         } else {
@@ -367,9 +367,22 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
     //
     // Generation is not free. That is exactly why this run now separates
     // nuclear-data time from transport time.
-    let mut uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
-        if endf7 || no_sab {
-            diag.note(format!("{name} S(a,b) deliberately NOT applied"));
+    //
+    // APPLIED TO BOTH LIBRARY ARMS, unlike the SiC laws above. Until
+    // 2026-09-24 these were withheld from the `OUTRAM_HTR10_ENDF7=1` arm
+    // alongside SiC, but the two cases are not alike: SiC is withheld because
+    // ENDF/B-VII.0 ships no SiC thermal evaluation, whereas these are
+    // GENERATED from LEAPR decks that do not depend on the library version at
+    // all. Withholding them therefore put a difference into the measured
+    // "library term" that is not a library difference -- an artefact of which
+    // arm the code chose to run them in. Both arms now carry them, so the
+    // term prices evaluation differences and the genuinely-absent SiC law,
+    // and nothing else.
+    let uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
+        if no_sab {
+            diag.note(format!(
+                "{name} S(a,b) deliberately NOT applied (NO_SAB ablation)"
+            ));
             return None;
         }
         eprint!("  {name:<8} LEAPR ");
@@ -434,7 +447,15 @@ fn main() {
 
     println!("HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC {RMC_KEFF}");
     println!("=========================================================");
-    println!("  ENDF/B-VIII.0 (references used VII.0 -- offset NOT corrected)");
+    // The library actually in use, not a hardcoded one. Until 2026-09-24 this
+    // line printed "ENDF/B-VIII.0" unconditionally, so an `OUTRAM_HTR10_ENDF7=1`
+    // run announced itself as VIII.0 at the top of its own transcript -- the
+    // one place a reader looks to find out which arm a saved log came from.
+    if std::env::var("OUTRAM_HTR10_ENDF7").is_ok() {
+        println!("  ENDF/B-VII.0 (the library RMC, MCNP, Serpent and HCP used)");
+    } else {
+        println!("  ENDF/B-VIII.0 (references used VII.0 -- offset NOT corrected)");
+    }
     println!("  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector\n");
 
     eprintln!("Reconstructing cross sections:");
