@@ -276,8 +276,21 @@ substantially more than the seam this work added.
    cumulative curie series is non-monotonic. Measured: Ag-110m had **13 of 30
    windows negative**, and the windows sum to 2.503345·10⁻² Ci against a
    cumulative endpoint of 2.500569·10⁻² Ci — **over-stated by a factor 1.0011**.
-   Every other nuclide in the run had zero negative windows. Doc corrected in
-   place with the measured numbers.
+   Doc corrected in place with the measured numbers.
+
+   **Which nuclides are affected was itself measured, after first being
+   generalised — recorded because the sequence matters.** The original claim
+   here ("every other nuclide had zero negative windows") rested on four checks
+   — Kr-85, Cs-137, Sr-90, Ag-110m — plus the structural argument that silver
+   is the only nuclide routed through the breakthrough model. The argument is
+   right and it was still not evidence: four is not twelve, and an argument
+   that has never been able to fail cannot carry a claim written into a caveat
+   other people act on. `only_silver_carries_floored_negative_windows` now runs
+   the chain **once per nuclide** on a one-nuclide inventory, because
+   `accident_release` returns one `Caveats` for a whole run and "which nuclide"
+   cannot be read off a combined result. Result: **exactly one of the twelve,
+   Ag-110m**; Kr-85, Xe-131m, Xe-133, Xe-133m, Xe-135, I-131, I-133, Sr-89,
+   Sr-90, Cs-134 and Cs-137 are all clean.
 2. **`Caveats::booth_transient_floored` is never set by anything.** It is
    documented as reporting the ~1.216·10⁻⁴ Booth floor, but a search of the
    workspace finds writes to it only in that module's own tests, so it is always
