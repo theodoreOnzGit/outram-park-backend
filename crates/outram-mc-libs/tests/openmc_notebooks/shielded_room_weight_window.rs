@@ -499,6 +499,32 @@ fn fom(bin: &TallyBin, n_realizations: u64, t_seconds: f64) -> Option<f64> {
     Some(1.0 / (rel * rel * t_seconds))
 }
 
+/// # Results (2026-09-24) — #258's third acceptance criterion, measured
+///
+/// Analog 50 000 particles / 10 realizations / 136.3 s; windows 26 000 / 260 /
+/// 405.2 s transport + 9.2 s generation. Per-particle cost 2.73 ms against
+/// 15.58 ms, a **5.72x** cost ratio, so **0.175x is the zero-variance-benefit
+/// line** — above it the windows pay, below it they harm.
+///
+/// | band | FOM ratio | cells | vs 0.175 | windows-only |
+/// |---|---|---|---|---|
+/// | 0–400 cm | 0.153x | 105 | slight harm | 5 |
+/// | 400–900 cm | 0.117x | 289 | harm | 10 |
+/// | 900–1450 cm | **0.252x** | 241 | **benefit** (1.44x) | 28 |
+/// | beyond 1450 cm | not measurable | 0 | — | 0 |
+///
+/// **Weight windows do not improve the FOM where the analog arm also resolves,
+/// except in the far field where they cross into genuine benefit. Their real
+/// contribution is the 43 cells the analog arm cannot resolve at all**, where a
+/// ratio is undefined rather than infinite and the count is the result.
+///
+/// Unbiasedness — the gate that can fail — flux per source particle 1712.43
+/// analog against 1750.27 windows, **+2.21 %**, inside the 25 % bound.
+///
+/// Full methodology, the `rel_std_dev` defect that had to be fixed first, the
+/// three wrong ways this arm was bounded and the MAGIC cost pathology:
+/// `verification_and_validation/variance_reduction/fom_2026_09_24.md`.
+///
 /// **LIVE**: the notebook's claim, tested. At matched wall-clock, the
 /// weight-window run must resolve flux in mesh cells the analog run never
 /// reaches.
