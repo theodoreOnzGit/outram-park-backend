@@ -128,31 +128,71 @@ impl Htr10SiteInputs {
     ///
     /// Going from activity circulating in the primary helium to activity in the
     /// atmosphere requires a containment and leakage model: circuit leak rate,
-    /// building retention, filtration, stack release. **This simulator models
-    /// none of it.** HTR-10 has a published design leak rate; it is not in this
-    /// workspace, and inventing one and calling it HTR-10's would be putting an
-    /// unverified number under a reactor's name.
+    /// building retention, filtration, stack release. **This simulator still
+    /// models none of that chain** — what it now has is the first term of it.
     ///
-    /// `1e-7 /s` is a round order-of-magnitude placeholder — roughly 0.9 % of
-    /// the circulating inventory per day — chosen to be *obviously* a round
-    /// number rather than to represent any plant. It is stated here, and
-    /// everything downstream is reported per unit of it, so a reader with a
-    /// real leak rate multiplies through.
+    /// ~~HTR-10 has a published design leak rate; it is not in this workspace,
+    /// and inventing one and calling it HTR-10's would be putting an
+    /// unverified number under a reactor's name. `1e-7 /s` is a round
+    /// order-of-magnitude placeholder — roughly 0.9 % of the circulating
+    /// inventory per day.~~
+    ///
+    /// **CORRECTED 2026-09-24 — the published figure is now in the
+    /// workspace.** Liu and Cao (2002), p. 4: leakage from the primary
+    /// circuit is **about 1 % per day**, which is
+    /// `0.01 / 86400 = 1.1574e-7 /s`. The placeholder was 1e-7, so the
+    /// correction is 16 % and the previous order of magnitude was right —
+    /// which is luck, not vindication: it was a round number chosen to look
+    /// like one.
+    ///
+    /// **What this does NOT become.** A primary-circuit leak rate is not a
+    /// release-to-environment fraction. Between the two sit building
+    /// retention, filtration and the stack, and this simulator models none of
+    /// them — so treating the product of this and an inventory as an
+    /// environmental source term still over-states it by whatever those
+    /// remove. The same paper's Table 5 reports the airborne activity that
+    /// actually reaches the environment; it is **not digitised here**, and
+    /// until it is, this remains a circuit leak and nothing more.
     ///
     /// **`chi/Q` does not depend on this at all** (see the module doc), which
     /// is why `chi/Q` is the quotable output and the concentrations are not.
-    pub const LEAK_FRACTION_PER_S: f64 = 1.0e-7;
+    pub const LEAK_FRACTION_PER_S: f64 = 1.157_4e-7;
 
-    /// Release height \[m\] — **an indicative drawing/modelling input, not a
-    /// published HTR-10 stack height.**
+    /// Release height \[m\] — **the published HTR-10 stack height.**
     ///
-    /// 30 m is a round number of the order of a reactor building. The Gaussian
-    /// puff's ground-level concentration is *strongly* sensitive to it through
-    /// the `exp(-(z-H)^2 / 2 sigma_z^2)` term — a taller release moves the
-    /// ground-level maximum further downwind and lowers it — so this is a
-    /// leading sensitivity, not a detail. Named and held in one place so a
-    /// sweep over it is a one-line change.
-    pub const RELEASE_HEIGHT_M: f64 = 30.0;
+    /// ~~An indicative drawing/modelling input, not a published HTR-10 stack
+    /// height. 30 m is a round number of the order of a reactor building.~~
+    /// **CORRECTED 2026-09-24:** Liu and Cao (2002), p. 5 give a **40 m
+    /// chimney** against a 12 m reactor building, with a 9 m/s outlet
+    /// velocity.
+    ///
+    /// The correction matters more than its size suggests. The Gaussian
+    /// puff's ground-level concentration is *strongly* sensitive to release
+    /// height through `exp(-(z-H)^2 / 2 sigma_z^2)` — a taller release moves
+    /// the ground-level maximum further downwind and lowers it — so 30 -> 40 m
+    /// is a leading sensitivity, not a detail.
+    ///
+    /// **The 9 m/s outlet velocity is recorded and NOT used**: it would drive
+    /// a momentum plume rise, raising the effective release height above the
+    /// physical stack, and this model has no plume-rise term at all. So the
+    /// effective height is under-stated by whatever that rise would be, and
+    /// the ground-level concentration correspondingly over-stated. Stated
+    /// rather than quietly ignored.
+    pub const RELEASE_HEIGHT_M: f64 = 40.0;
+
+    /// Reactor building height \[m\] — Liu and Cao (2002), p. 5.
+    ///
+    /// Recorded for the building-wake question rather than used: a 40 m stack
+    /// against a 12 m building is a ratio of 3.3, comfortably clear of the
+    /// 2.5x rule of thumb below which a plume is entrained into the building
+    /// wake. So neglecting wake effects is defensible here, and this constant
+    /// is what lets a reader check that rather than take it on trust.
+    pub const BUILDING_HEIGHT_M: f64 = 12.0;
+
+    /// Stack outlet velocity \[m/s\] — Liu and Cao (2002), p. 5.
+    ///
+    /// Recorded, not used. See [`Self::RELEASE_HEIGHT_M`] on plume rise.
+    pub const STACK_EXIT_VELOCITY_M_PER_S: f64 = 9.0;
 
     /// Receptor height \[m\]. 1.5 m is the conventional breathing height and is
     /// used here purely as the height at which the air concentration is
@@ -527,9 +567,7 @@ impl AtmosphericDispersionChannel {
                     bearing_deg,
                     distance_m: distance,
                     chi_over_q,
-                    air_bq_s_per_m3: site
-                        .total_air(index)
-                        .becquerel_seconds_per_cubic_meter(),
+                    air_bq_s_per_m3: site.total_air(index).becquerel_seconds_per_cubic_meter(),
                     ground_bq_per_m2: site.total_ground(index).becquerel_per_square_meter(),
                 });
                 index += 1;
@@ -571,7 +609,9 @@ mod tests {
         let mut channel = TrisoAtopsReleaseChannel::new_htr10();
         channel.update(
             0.0,
-            Some(uom::si::f64::ThermodynamicTemperature::new::<kelvin>(kernel_k)),
+            Some(uom::si::f64::ThermodynamicTemperature::new::<kelvin>(
+                kernel_k,
+            )),
             uom::si::f64::ThermodynamicTemperature::new::<kelvin>(950.0),
         );
         channel
@@ -681,8 +721,7 @@ mod tests {
                 .receptors
                 .iter()
                 .find(|r| {
-                    (r.bearing_deg - bearing).abs() < 1e-9
-                        && (r.distance_m - distance).abs() < 1e-9
+                    (r.bearing_deg - bearing).abs() < 1e-9 && (r.distance_m - distance).abs() < 1e-9
                 })
                 .map(|r| r.chi_over_q)
                 .expect("receptor is in the ring")
@@ -807,7 +846,11 @@ mod tests {
         println!(
             "chi/Q worst difference over a source change of x{:.3e}: {worst:.3e} s/m^3\n\
              summed air concentration moved {air_cool:.4e} -> {air_hot:.4e} Bq.s/m^3 per Ci",
-            if air_cool > 0.0 { air_hot / air_cool } else { f64::NAN }
+            if air_cool > 0.0 {
+                air_hot / air_cool
+            } else {
+                f64::NAN
+            }
         );
 
         assert_eq!(
@@ -832,10 +875,7 @@ mod tests {
         let config = channel.run_config();
         let speed = channel.meteorology.speed.get::<meter_per_second>();
         let reach_m = speed * config.puff_duration.get::<second>();
-        let outermost = RECEPTOR_DISTANCES_M
-            .iter()
-            .cloned()
-            .fold(0.0_f64, f64::max);
+        let outermost = RECEPTOR_DISTANCES_M.iter().cloned().fold(0.0_f64, f64::max);
 
         println!(
             "puff reach at {speed} m/s over {} s = {reach_m:.0} m against an outermost \
@@ -860,7 +900,10 @@ mod tests {
         let release = release_at(1200.0);
         let mut channel = AtmosphericDispersionChannel::new();
 
-        assert!(channel.update(0.0, &release), "the first call must evaluate");
+        assert!(
+            channel.update(0.0, &release),
+            "the first call must evaluate"
+        );
         assert!(channel.latest().is_some());
         assert!(
             !channel.update(30.0, &release),
