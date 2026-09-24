@@ -18,6 +18,7 @@ mod literature_list;
 mod nav;
 mod page_canvas;
 mod pdf_reader;
+mod plot_setup;
 mod setup;
 mod table_digitiser;
 mod theme;
@@ -87,6 +88,10 @@ enum View {
     KvimEditor,
     Bibliography,
     TableDigitiser,
+    /// The three-stage form shown between cropping a figure and digitising
+    /// it (maintainer, 2026-09-24) -- see [`plot_setup`]. Answers what the
+    /// caption and axes already say, so the digitiser opens filled in.
+    PlotSetup,
     /// The interactive mindmap (§8, §9, `op-9vo6.21`), built on top of the
     /// `Wiki` view's collection model. **The default since 2026-09-22**
     /// (maintainer brief, epic #247): Kovan always opens on its built-in
@@ -431,6 +436,9 @@ pub struct DigitiseApp {
     x_label: String,
     y_label: String,
     operator: String,
+    /// The three-stage setup form, live only while `view == View::PlotSetup`.
+    /// Held across frames because it is a form; taken when it finishes.
+    plot_setup: plot_setup::PlotSetup,
     // result
     dataset: Option<DigitisedDataset>,
     selected: Option<usize>,
@@ -537,6 +545,7 @@ impl Default for DigitiseApp {
             x_label: "x".to_string(),
             y_label: "y".to_string(),
             operator: default_operator_name(),
+            plot_setup: plot_setup::PlotSetup::default(),
             dataset: None,
             selected: None,
             dragging: None,
@@ -947,6 +956,37 @@ impl DigitiseApp {
     /// silently blanked, since nothing about a crop's raw pixels alone
     /// could tell us which figure it is. Fields stay editable afterwards
     /// either way.
+    /// Copy the three-stage form's answers into the digitiser's own fields.
+    ///
+    /// This is the whole point of the form: everything here is something the
+    /// operator would otherwise have typed into the digitiser panel while
+    /// also doing the pixel work. The reference **values** land in
+    /// `ref_val`; their **pixels** stay unset, because those can only be
+    /// placed against the image.
+    ///
+    /// Provenance fields are only overwritten when the form actually carries
+    /// something, so a blank optional box cannot erase what
+    /// [`Self::load_image_from_raster`] already worked out from the crop and
+    /// the active paper.
+    fn apply_plot_setup(&mut self) {
+        let setup = self.plot_setup.clone();
+        self.figure = setup.figure.trim().to_string();
+        if !setup.document_title.trim().is_empty() {
+            self.document_title = setup.document_title.trim().to_string();
+        }
+        if !setup.page.trim().is_empty() {
+            self.page = setup.page.trim().to_string();
+        }
+        if !setup.notes.trim().is_empty() {
+            self.notes = setup.notes.trim().to_string();
+        }
+        self.ref_val = setup.reference_values();
+        self.x_log = setup.x_log;
+        self.y_log = setup.y_log;
+        self.x_label = setup.x_label.trim().to_string();
+        self.y_label = setup.y_label.trim().to_string();
+    }
+
     pub fn load_image_from_raster(
         &mut self,
         raster: PlotRaster,
@@ -2734,8 +2774,19 @@ impl eframe::App for DigitiseApp {
                 // separate popup/tab was added.
                 match crop_result {
                     Some(pdf_reader::CropResult::Plot(raster, provenance)) => {
+                        // Load the raster first: `load_image_from_raster`
+                        // seeds figure/page/document identity from the crop
+                        // and the active paper, and the form starts from
+                        // whatever it managed to work out rather than asking
+                        // again for what is already known.
                         self.load_image_from_raster(raster, Some(provenance));
-                        self.view = View::Digitiser;
+                        let page = self.page.trim().parse::<u32>().ok();
+                        let figure = (!self.figure.trim().is_empty())
+                            .then(|| self.figure.clone());
+                        let title = (!self.document_title.trim().is_empty())
+                            .then(|| self.document_title.clone());
+                        self.plot_setup = plot_setup::PlotSetup::begin(figure, page, title);
+                        self.view = View::PlotSetup;
                     }
                     Some(pdf_reader::CropResult::Table(raster, provenance)) => {
                         self.table_digitiser.load_crop(raster, Some(provenance));
@@ -2846,6 +2897,25 @@ impl eframe::App for DigitiseApp {
                         self.open_picker(FileDialogTarget::TableCsvExport)
                     }
                     None => {}
+                }
+            }
+            View::PlotSetup => {
+                let mut outcome = plot_setup::Outcome::Continue;
+                egui::CentralPanel::default().show(ui, |ui| {
+                    outcome = self.plot_setup.ui(ui);
+                });
+                match outcome {
+                    plot_setup::Outcome::Finish => {
+                        self.apply_plot_setup();
+                        self.view = View::Digitiser;
+                    }
+                    // Backing out of stage 1 returns to the reader. The
+                    // raster stays loaded rather than being thrown away --
+                    // re-cropping the same figure to correct a typo in the
+                    // form would be a poor trade, and the digitiser is still
+                    // reachable from the nav bar with it in place.
+                    plot_setup::Outcome::Cancel => self.view = View::PdfReader,
+                    plot_setup::Outcome::Continue => {}
                 }
             }
         }
@@ -3511,4 +3581,71 @@ mod tests {
         assert!(app.message_is_error, "{}", app.message);
         assert!(app.message.contains("ingest this PDF"), "{}", app.message);
     }
+
+    /// The point of the three-stage form: after it finishes, the digitiser
+    /// panel is already filled in, so the only work left is the part that
+    /// needs the image.
+    #[test]
+    fn the_setup_form_autofills_the_digitiser_panel() {
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            stage: plot_setup::Stage::Labels,
+            figure: "  Fig. 7 ".into(),
+            document_title: "Verfondern 1990".into(),
+            page: "12".into(),
+            notes: "upper curve".into(),
+            x_min: "0".into(),
+            x_max: "100".into(),
+            y_min: "1".into(),
+            y_max: "1000".into(),
+            x_log: false,
+            y_log: true,
+            x_label: " Time (h) ".into(),
+            y_label: "Activity (Bq)".into(),
+        };
+        app.apply_plot_setup();
+
+        assert_eq!(app.figure, "Fig. 7", "trimmed on the way in");
+        assert_eq!(app.document_title, "Verfondern 1990");
+        assert_eq!(app.page, "12");
+        assert_eq!(app.notes, "upper curve");
+        assert_eq!(
+            app.ref_val,
+            ["0", "100", "1", "1000"].map(String::from),
+            "reference VALUES land in the digitiser's [X1, X2, Y1, Y2] order"
+        );
+        assert!(!app.x_log && app.y_log, "the log flags carry across per axis");
+        assert_eq!(app.x_label, "Time (h)");
+        assert_eq!(app.y_label, "Activity (Bq)");
+    }
+
+    /// A blank optional box must not erase provenance the crop already
+    /// worked out (`load_image_from_raster` fills page and document identity
+    /// from the active paper). Only the figure, the ranges and the labels
+    /// are required, and only those are unconditional.
+    #[test]
+    fn an_empty_optional_field_does_not_erase_what_the_crop_knew() {
+        let mut app = DigitiseApp::default();
+        app.document_title = "from the active paper".into();
+        app.page = "31".into();
+        app.notes = "cropped at 300 dpi".into();
+
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 2".into(),
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "0".into(),
+            y_max: "1".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+
+        assert_eq!(app.document_title, "from the active paper");
+        assert_eq!(app.page, "31");
+        assert_eq!(app.notes, "cropped at 300 dpi");
+        assert_eq!(app.figure, "Fig. 2", "the required field still applies");
+    }
+
 }
