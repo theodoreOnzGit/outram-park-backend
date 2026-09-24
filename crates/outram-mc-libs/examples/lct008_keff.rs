@@ -685,6 +685,12 @@ fn main() {
         n_active,
         temperature_k: TEMP_K,
         compute: ComputeType::CpuMultiThread(Default::default()),
+        // `--seed` makes each invocation an independent draw, so a sweep can
+        // time data and transport per run rather than pooling N seeds inside
+        // one process the way `OUTRAM_BENCH_SEEDS` does (2026-09-24).
+        seed: arg_usize(&args, "--seed")
+            .map(|v| v as u64)
+            .unwrap_or(KeffSettings::default().seed),
         ..KeffSettings::default()
     };
     // The fissionable region is the whole pin array; sample the core cylinder.

@@ -201,7 +201,22 @@ impl Stages {
     }
 }
 
+/// `--flag <usize>` from the command line, if present.
+fn arg_usize(args: &[String], flag: &str) -> Option<usize> {
+    let i = args.iter().position(|a| a == flag)?;
+    args.get(i + 1)?.parse().ok()
+}
+
 fn main() {
+    // Settings are overridable so a sweep can drive this example at a fixed
+    // particle count and one seed per run, rather than the single hard-coded
+    // configuration the parity check alone needed (2026-09-24).
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let n_particles = arg_usize(&args, "--particles").unwrap_or(3000);
+    let n_inactive = arg_usize(&args, "--inactive").unwrap_or(30);
+    let n_active = arg_usize(&args, "--active").unwrap_or(80);
+    let seed_override = arg_usize(&args, "--seed").map(|v| v as u64);
+
     let mut st = Stages::default();
     let wall = Instant::now();
     let scratch = std::env::temp_dir().join(format!("lct008_ace_{}", std::process::id()));
@@ -289,10 +304,11 @@ fn main() {
     };
 
     let settings = KeffSettings {
-        n_particles: 3000,
-        n_inactive: 30,
-        n_active: 80,
+        n_particles,
+        n_inactive,
+        n_active,
         temperature_k: TEMP_K,
+        seed: seed_override.unwrap_or(KeffSettings::default().seed),
         ..KeffSettings::default()
     };
     // Sized so the sphere is comfortably supercritical-to-critical for a
