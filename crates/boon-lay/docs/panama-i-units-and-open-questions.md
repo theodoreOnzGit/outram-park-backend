@@ -114,6 +114,38 @@ measurement papers (Nabielek 1984, Allelein 1983, Benz 1982, Proksch 1982,
 Myers 1977, Horsley 1976, Strigl 1984, Montgomery 1981) would be chased for
 their own stated units.
 
+### The UO₂ `D_S` equation disagrees with the report's own Fig. 2
+
+Page -487- prints two reduced-diffusion correlations and plots both in Fig. 2
+on the same page. The **(Th,U)O₂** one reproduces its curves; the **UO₂** one
+does not reproduce its own.
+
+| `10⁴/T` | figure (dashed curve) | Horsley equation | equation / figure |
+|---|---|---|---|
+| 3.19 | 10⁻⁵·⁶⁹ | 10⁻⁴·⁸⁹ | **6.4×** |
+| 5.59 | 10⁻⁷·³⁴ | 10⁻⁶·⁸⁴ | 3.2× |
+| 7.21 | 10⁻⁸·⁴⁶ | 10⁻⁸·¹⁶ | 2.0× |
+| 8.59 | 10⁻⁹·⁴⁰ | 10⁻⁹·²⁸ | 1.3× |
+
+A blind fit to the plotted curve gives a slope of **−0.6875** against the
+equation's **−0.8116**, so this is a slope disagreement and not an offset — it
+cannot be reconciled by a decade or a units error. The transcription was
+checked directly against the page image: the equation reads
+`log DS = −2.30 − 0.8116·10⁴/T`, as implemented.
+
+`diffusion::reduced_diffusion_coefficient` implements **the equation**, on the
+grounds that for a code reconstruction the equation is the specification and
+the figure is illustrative. The discrepancy is pinned by
+`the_uo2_equation_sits_above_the_figures_dashed_curve` so it cannot be
+silently tuned away.
+
+By contrast the (Th,U)O₂ correlation is **verified**: each of the four solid
+curves recovers its own printed `% FIMA` label from a blind fit (0.0086,
+0.0494, 0.0950, 0.1456 against 0.01, 0.05, 0.10, 0.15), with mean residuals of
+0.013–0.035 in `log₁₀ D_S`.
+
+Fig. 2 digitised by the maintainer, 2026-09-24.
+
 ### Notation defects recorded rather than silently fixed
 
 - **Eq (6b) is used twice** (UO₂ and UCO); the second should be (6c).
@@ -136,6 +168,8 @@ their own stated units.
 | (8a)/(8b) strength | yes | **Table 1, -500-** | **8/8 σ_o** |
 | (9a)/(9b) modulus | yes | **Table 1, -500-** | **8/8 m_o** |
 | φ_total assembly | yes | — | unit tests only |
+| `D_S` (Th,U)O₂, p-487 | yes | **Fig. 2** | 4/4 curves, labels recovered |
+| `D_S` UO₂/UCO, p-487 | yes | **Fig. 2** | **disagrees, 6.4×→1.3×** (see above) |
 | (4), (5a)–(5f), (6a)–(6c), (7), (10b)/(10c), (11)/(12) | **no** | — | inputs, deliberately |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction

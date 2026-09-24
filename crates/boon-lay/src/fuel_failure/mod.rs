@@ -92,6 +92,7 @@
 //! | Module | Equations | Page |
 //! |---|---|---|
 //! | [`geometry`] | `r`, `d_o`, `d_act` | -484- |
+//! | [`diffusion`] | `D_S`, both kernel types | -487- |
 //! | [`weibull`] | (1) | -483- |
 //! | [`stress`] | (2) | -484- |
 //! | [`pressure`] | (3) | -484-/-485- |
@@ -115,12 +116,14 @@
 //! | Eq (3) grouping | bar spans the denominator | `R*T` in the numerator | dimensions; the printed form makes `p` fall with `T` |
 //! | `t_B` | seconds (-511-) | **UNRESOLVED** | Figs 3/7/8 say full-power days |
 
+pub mod diffusion;
 pub mod geometry;
 pub mod pressure;
 pub mod strength;
 pub mod stress;
 pub mod weibull;
 
+pub use diffusion::{reduced_diffusion_coefficient, KernelKind};
 pub use geometry::SicLayer;
 pub use pressure::{internal_gas_pressure, GAS_CONSTANT_J_PER_MOL_K, STABLE_FISSION_GAS_YIELD};
 pub use strength::{
