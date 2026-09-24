@@ -62,8 +62,9 @@
 
 use eframe::egui::{self, Color32, FontId, Pos2, Rect, Sense, Stroke, Vec2};
 use kopitiam_neovim::core::{Mode, Position, Range};
+use kopitiam_neovim::editor::CommandKind;
 use kopitiam_neovim::editor::key::{Key as KvimKey, KeyCode as KvimKeyCode, Modifiers as KvimModifiers};
-use kopitiam_neovim::editor::Editor;
+use kopitiam_neovim::editor::{Editor, EditorResponse};
 
 use crate::autocomplete::{self, Candidate};
 use crate::index::KnowledgeIndex;
@@ -141,6 +142,34 @@ fn detect_trigger(line_text: &str, cursor: Position) -> Option<(Trigger, String)
     None
 }
 
+/// What an ex-command typed in the buffer asked the **host** to do.
+///
+/// kvim deliberately does not perform I/O itself -- `kopitiam_neovim`'s
+/// `EditorResponse::Write` carries the *intent* and leaves the writing to
+/// whoever owns the thing being written (see that crate's `ex` module docs).
+/// Here the owner is the panel hosting the buffer: the page-context editor
+/// writes a paper's markdown, the annotation editor saves one note. Same
+/// keystroke, different meaning of "save", so the host decides.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditorSignal {
+    /// `:w` -- save, stay open.
+    Write,
+    /// `:q` on a clean buffer, or `:q!` -- close.
+    Quit,
+    /// `:q` **refused** because the buffer has unsaved changes.
+    ///
+    /// Vim's answer is "use `:q!`", and for a real file that is right -- the
+    /// page-context editor shows the message and stays open. But the
+    /// annotation panel's buffer *is* the note being written, always dirty by
+    /// the time anyone types `:q`, and there Cancel means exactly "throw this
+    /// away". So the intent is reported and the **host** decides whether
+    /// unsaved changes are a reason to refuse (maintainer, 2026-09-24: ":q
+    /// revokes changes in annotation").
+    QuitUnsaved,
+    /// `:wq` / `:x` -- save, then close.
+    WriteThenQuit,
+}
+
 /// State for one `kopitiam-neovim`-backed editor surface.
 pub struct KvimEditorState {
     editor: Editor,
@@ -168,6 +197,16 @@ pub struct KvimEditorState {
     /// the view to the caret and make wheel-scrolling a focused editor
     /// impossible, the view snapping back the instant you let go.
     last_cursor: Option<Position>,
+    /// The ex-command intent this frame's keys produced, if any, waiting
+    /// for [`Self::ui`] to hand it to the host. Held on the struct rather
+    /// than returned straight out of the key loop because that loop runs
+    /// inside `ui.input_mut`, which cannot yield a value.
+    signal: Option<EditorSignal>,
+    /// The engine's last `EditorResponse::Message` -- `:` command errors
+    /// and feedback (`:s` match counts, "no write since last change").
+    /// Discarding these is why a refused `:q` looked like a key that did
+    /// nothing at all.
+    last_message: Option<String>,
     /// 0-based, end-exclusive line ranges painted with a faint band — every
     /// block anchored to the PDF reader's current page (op-j178: the
     /// page-context panel's read-only preview marks what is double-clickable).
@@ -203,6 +242,8 @@ impl Default for KvimEditorState {
             text_area_origin: Pos2::ZERO,
             pending_scroll_to_line: None,
             last_cursor: None,
+            signal: None,
+            last_message: None,
             anchor_bands: Vec::new(),
             hover_band: None,
             preview_press_line: None,
@@ -291,7 +332,11 @@ impl KvimEditorState {
     /// one-line mode/status bar. `completion`, when given, enables §29/§30's
     /// citation/wiki autocomplete popup — omit it for a scratch buffer with
     /// no library context (e.g. before a Kovan root is open).
-    pub fn ui(&mut self, ui: &mut egui::Ui, completion: Option<CompletionSource<'_>>) {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        completion: Option<CompletionSource<'_>>,
+    ) -> Option<EditorSignal> {
         ui.horizontal(|ui| {
             ui.strong(self.mode_label());
             let pos = self.editor.cursor();
@@ -310,6 +355,61 @@ impl KvimEditorState {
 
         if let Some(source) = completion {
             self.completion_popup_ui(ui, source);
+        }
+        self.command_line_ui(ui);
+        self.signal.take()
+    }
+
+    /// The command line, along the bottom, as vim puts it.
+    ///
+    /// **Reuses the engine's own command line** -- `Editor::command_line`,
+    /// `command_line_kind` and `command_cursor` have existed all along;
+    /// kovan simply never asked. That accessor's own doc comment describes
+    /// this exact failure: "`:` commands were invisible while you typed
+    /// them ... the editor half was right, the renderer half was right, and
+    /// nothing joined them." kovan was the missing half.
+    ///
+    /// When no prompt is open the row shows the engine's last message
+    /// instead, which is the other half of the same problem: a refused `:q`
+    /// ("no write since last change") reported an error that nothing
+    /// displayed, so the key looked dead.
+    fn command_line_ui(&mut self, ui: &mut egui::Ui) {
+        let font = egui::FontId::monospace(CHAR_SIZE);
+        match (self.editor.command_line_kind(), self.editor.command_line()) {
+            (Some(kind), Some(text)) => {
+                let prefix = match kind {
+                    CommandKind::Ex => ':',
+                    CommandKind::SearchForward => '/',
+                    CommandKind::SearchBackward => '?',
+                };
+                // A block caret drawn INTO the string: the row is a label,
+                // not a focused widget, and egui will not paint a caret for
+                // it. `command_cursor` is in graphemes, matching the engine.
+                let cursor = self.editor.command_cursor().unwrap_or(text.chars().count());
+                let mut shown = String::with_capacity(text.len() + 2);
+                shown.push(prefix);
+                for (i, c) in text.chars().enumerate() {
+                    if i == cursor {
+                        shown.push('\u{2588}');
+                    }
+                    shown.push(c);
+                }
+                if cursor >= text.chars().count() {
+                    shown.push('\u{2588}');
+                }
+                ui.separator();
+                ui.label(egui::RichText::new(shown).font(font));
+            }
+            _ => {
+                if let Some(msg) = &self.last_message {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(msg)
+                            .font(font)
+                            .color(egui::Color32::from_rgb(230, 160, 60)),
+                    );
+                }
+            }
         }
     }
 
@@ -454,6 +554,17 @@ impl KvimEditorState {
     /// "a single click to bring me into insert mode, not double click".
     ///
     /// Call it *after* `load_text`, which resets the editor.
+    /// Drive the buffer with vim keys directly, bypassing egui's event
+    /// plumbing. Tests only -- it is how a test asserts that a key *edits*
+    /// rather than being inserted literally, without standing up a `Ui` and a
+    /// focus cycle.
+    #[cfg(test)]
+    pub(crate) fn feed_for_test(&mut self, keys: &str) {
+        for k in kopitiam_neovim::editor::key::parse(keys) {
+            let _ = self.editor.handle_key(k);
+        }
+    }
+
     pub fn begin_insert(&mut self) {
         if self.editor.mode() != Mode::Insert {
             let _ = self.editor.handle_key(KvimKey::esc());
@@ -773,15 +884,52 @@ impl KvimEditorState {
             // still reaching the PDF reader's page-turn shortcuts). A
             // focused text editor owns its keystrokes.
             let editor = &mut self.editor;
+            let mut signal = None;
+            let mut message = None;
             ui.input_mut(|i| {
                 i.events.retain(|event| match map_event(event) {
                     Some(key) => {
-                        let _ = editor.handle_key(key);
+                        // `:w`/`:q`/`:wq` do not write anything here -- the
+                        // engine reports the INTENT and the host performs it
+                        // (see [`EditorSignal`]). Discarding this response,
+                        // as this loop used to, is why `:w` in an annotation
+                        // note silently did nothing.
+                        match editor.handle_key(key) {
+                            Ok(EditorResponse::Write { .. }) => signal = Some(EditorSignal::Write),
+                            Ok(EditorResponse::Quit) | Ok(EditorResponse::QuitAll) => {
+                                signal = Some(EditorSignal::Quit)
+                            }
+                            Ok(EditorResponse::WriteThenQuit { .. }) => {
+                                signal = Some(EditorSignal::WriteThenQuit)
+                            }
+                            Ok(EditorResponse::WriteAll { then_quit }) => {
+                                signal = Some(if then_quit {
+                                    EditorSignal::WriteThenQuit
+                                } else {
+                                    EditorSignal::Write
+                                })
+                            }
+                            Ok(EditorResponse::Message(text)) => message = Some(text),
+                            Err(kopitiam_neovim::Error::UnsavedChanges) => {
+                                signal = Some(EditorSignal::QuitUnsaved);
+                                message = Some(
+                                    "no write since last change (use :q! to discard)".to_string(),
+                                );
+                            }
+                            Err(e) => message = Some(e.to_string()),
+                            _ => {}
+                        }
                         false
                     }
                     None => true,
                 });
             });
+            if signal.is_some() {
+                self.signal = signal;
+            }
+            if message.is_some() {
+                self.last_message = message;
+            }
         }
 
         // **Follow the caret.** Typing past the bottom of the viewport -- or
@@ -1569,5 +1717,152 @@ mod tests {
             state.last_cursor, first,
             "idle frames leave the caret alone, so nothing asks to scroll"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Ex-command intents reach the host (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    /// `:w` must reach the host as [`EditorSignal::Write`]. kvim performs no
+    /// I/O itself, so a discarded response is a `:w` that silently does
+    /// nothing -- which is what used to happen.
+    #[test]
+    fn write_reaches_the_host() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("w".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        assert_eq!(out, Some(EditorSignal::Write));
+    }
+
+    /// `:q` must reach the host as [`EditorSignal::Quit`] so the panel can
+    /// treat it as Cancel.
+    ///
+    /// The buffer is left **unmodified** here: vim refuses a bare `:q` on a
+    /// dirty buffer ("no write since last change"), and that refusal is a
+    /// `Message`, not a `Quit`. See
+    /// [`a_dirty_buffer_refuses_bare_quit_and_says_why`] for that half.
+    #[test]
+    fn quit_reaches_the_host() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("q".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        // `load_text` leaves the engine buffer dirty, which is also the state
+        // a real annotation note is in the moment anyone types `:q`. Vim
+        // refuses a bare `:q` there; the signal reports the refusal so the
+        // host can decide, and the annotation panel takes it as Cancel.
+        assert_eq!(out, Some(EditorSignal::QuitUnsaved));
+        assert!(
+            state
+                .last_message
+                .as_deref()
+                .unwrap_or("")
+                .contains("no write"),
+            "the refusal must be VISIBLE -- discarding it is why :q looked dead"
+        );
+    }
+
+    /// `:wq` collapses to WriteThenQuit, which the annotation panel treats as
+    /// a plain save -- saving there already closes the editor.
+    #[test]
+    fn write_then_quit_reaches_the_host() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("w".into()),
+                egui::Event::Text("q".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        assert_eq!(out, Some(EditorSignal::WriteThenQuit));
+    }
+
+    /// Ordinary typing signals nothing -- the host must not save on every
+    /// keystroke.
+    #[test]
+    fn ordinary_typing_signals_nothing() {
+        let mut state = KvimEditorState::default();
+        state.load_text("");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            "hello"
+                .chars()
+                .map(|c| egui::Event::Text(c.to_string()))
+                .collect(),
+        );
+        assert_eq!(out, None);
+        assert_eq!(state.text(), "hello");
+    }
+
+    /// A signal is consumed once. Leaving it latched would re-save (or
+    /// re-cancel) on the next frame, for as long as the panel stayed open.
+    #[test]
+    fn a_signal_is_delivered_once() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let first = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("w".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        assert_eq!(first, Some(EditorSignal::Write));
+        let second = drive_signal(&mut state, vec![]);
+        assert_eq!(second, None, "the signal must not latch across frames");
+    }
+
+    /// Drive one focused frame-set and return whatever signal `ui` produced.
+    fn drive_signal(state: &mut KvimEditorState, events: Vec<egui::Event>) -> Option<EditorSignal> {
+        let ctx = egui::Context::default();
+        let mut out = None;
+        // Two empty frames first so focus lands and the focus lock applies,
+        // then the frame carrying the keys -- all in one Context, since a
+        // fresh Context loses focus.
+        for (n, ev) in [Vec::new(), Vec::new(), events].into_iter().enumerate() {
+            let input = egui::RawInput {
+                time: Some(n as f64 * 0.1),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events: ev,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    if let Some(sig) = state.ui(ui, None) {
+                        out = Some(sig);
+                    }
+                });
+            });
+        }
+        out
     }
 }

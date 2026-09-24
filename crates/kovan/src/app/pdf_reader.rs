@@ -145,7 +145,7 @@ use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
-use super::kvim_editor::{CompletionSource, KvimEditorState};
+use super::kvim_editor::{CompletionSource, {EditorSignal, KvimEditorState}};
 use super::page_canvas::PageView;
 
 /// Screen-resolution DPI for the continuous canvas's page raster and
@@ -582,10 +582,57 @@ struct AnnotateEditor {
     page: usize,
     min: Pos2,
     max: Pos2,
-    text: String,
+    /// The note's text, held in a **modal** kvim buffer rather than a plain
+    /// `String` behind an `egui::TextEdit` (maintainer, 2026-09-24).
+    ///
+    /// This editor and the page-context panel edit the *same* annotations, and
+    /// until now only one of them was modal: muscle memory built in the
+    /// page-context editor -- `Esc`, `dd`, `ciw`, `u` -- silently typed
+    /// literal characters into an annotation note instead. Two editors for one
+    /// kind of text should not disagree about what `Esc` means.
+    kvim: KvimEditorState,
     /// `Some(i)` when editing annotation `i` on the current page in place;
     /// `None` for a brand-new annotation.
     editing_existing: Option<usize>,
+}
+
+impl AnnotateEditor {
+    /// Open on `text`, landing in **Insert** mode.
+    ///
+    /// Insert rather than Normal is deliberate and matches the page-context
+    /// panel, whose own test states the rule: "opening a block from the
+    /// page-context panel must land in Insert mode". Someone who has just
+    /// drawn a box around a figure means to write a note, not to navigate an
+    /// empty buffer.
+    fn open(page: usize, min: Pos2, max: Pos2, text: &str, editing_existing: Option<usize>) -> Self {
+        let mut kvim = KvimEditorState::default();
+        kvim.load_text(text);
+        kvim.begin_insert();
+        Self {
+            page,
+            min,
+            max,
+            kvim,
+            editing_existing,
+        }
+    }
+
+    /// The note as it currently stands.
+    fn text(&self) -> String {
+        self.kvim.text()
+    }
+
+    /// The editor's current mode, for tests.
+    #[cfg(test)]
+    fn mode_label_for_test(&self) -> &'static str {
+        self.kvim.mode_label()
+    }
+
+    /// Drive the buffer with vim keys directly, bypassing egui, for tests.
+    #[cfg(test)]
+    fn feed_for_test(&mut self, keys: &str) {
+        self.kvim.feed_for_test(keys);
+    }
 }
 
 /// Provenance for a Digitise-graph/Read-table crop (op-p17q/op-hnhp), routed
@@ -1773,12 +1820,13 @@ impl PdfReaderState {
         // A still-open Annotate editor with text in it hasn't hit its own
         // "Save" yet — fold it in so the click doesn't silently drop it.
         if let Some(ed) = self.annotate_editor.take() {
-            if !ed.text.trim().is_empty() {
+            let pending = ed.text();
+            if !pending.trim().is_empty() {
                 let page_px = self.current_page_px();
                 let anns = self.annotations.entry(ed.page).or_default();
                 match ed.editing_existing {
                     Some(i) if i < anns.len() => {
-                        anns[i].text = ed.text;
+                        anns[i].text = pending;
                         anns[i].min = ed.min;
                         anns[i].max = ed.max;
                         anns[i].page_px = page_px;
@@ -1786,7 +1834,7 @@ impl PdfReaderState {
                     _ => anns.push(Annotation {
                         min: ed.min,
                         max: ed.max,
-                        text: ed.text,
+                        text: pending,
                         created_at: utc_now_iso8601(),
                         page_px,
                     }),
@@ -2707,7 +2755,8 @@ impl PdfReaderState {
             self.save_annotations_into_project(active_paper.as_deref_mut(), context_editor);
         }
         self.text_selection_panel(ui);
-        let mut crop_result = self.annotate_editor_panel(ui);
+        let mut crop_result =
+            self.annotate_editor_panel(ui, active_paper.as_deref_mut(), context_editor);
         if let Some(result) = self.figure_prompt_panel(ui) {
             crop_result = Some(result);
         }
@@ -3375,13 +3424,13 @@ impl PdfReaderState {
                         ContextMenuTarget::NewBox => {
                             if ui.button("Annotate").clicked() {
                                 if let Some((min, max)) = self.pending_box {
-                                    self.annotate_editor = Some(AnnotateEditor {
-                                        page: self.active_page(),
+                                    self.annotate_editor = Some(AnnotateEditor::open(
+                                        self.active_page(),
                                         min,
                                         max,
-                                        text: String::new(),
-                                        editing_existing: None,
-                                    });
+                                        "",
+                                        None,
+                                    ));
                                 }
                                 close = true;
                             }
@@ -3423,13 +3472,13 @@ impl PdfReaderState {
                                     .get(&self.active_page())
                                     .and_then(|a| a.get(i))
                                 {
-                                    self.annotate_editor = Some(AnnotateEditor {
-                                        page: self.active_page(),
-                                        min: a.min,
-                                        max: a.max,
-                                        text: a.text.clone(),
-                                        editing_existing: Some(i),
-                                    });
+                                    self.annotate_editor = Some(AnnotateEditor::open(
+                                        self.active_page(),
+                                        a.min,
+                                        a.max,
+                                        &a.text,
+                                        Some(i),
+                                    ));
                                 }
                                 close = true;
                             }
@@ -3873,7 +3922,12 @@ impl PdfReaderState {
     /// same way as `context_menu_ui`, for a single "did anything produce a
     /// crop this frame" return path); an Annotate action never produces a
     /// [`CropResult`].
-    fn annotate_editor_panel(&mut self, ui: &mut egui::Ui) -> Option<CropResult> {
+    fn annotate_editor_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        mut active_paper: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+    ) -> Option<CropResult> {
         let Some(editor) = &mut self.annotate_editor else {
             return None;
         };
@@ -3889,12 +3943,31 @@ impl PdfReaderState {
                 editor.max.x,
                 editor.max.y
             ));
-            ui.add(
-                egui::TextEdit::multiline(&mut editor.text)
-                    .hint_text("note text")
-                    .desired_rows(3)
-                    .desired_width(f32::INFINITY),
+            // The modal editor, sized so it does not eat the canvas: kvim's
+            // `ui` claims all the space it is given, so it is given a bounded
+            // strip rather than the panel's full height.
+            ui.weak("kvim keys — Esc for Normal, i to insert, :w save, :q cancel");
+            let row = ui.text_style_height(&egui::TextStyle::Monospace);
+            let mut signal = None;
+            ui.allocate_ui(
+                egui::vec2(ui.available_width(), (row * 6.0).max(90.0)),
+                |ui| {
+                    signal = editor.kvim.ui(ui, None);
+                },
             );
+            // `:w` and `:q` mean here what the two buttons mean, because in
+            // this panel the buffer IS the note (maintainer, 2026-09-24).
+            // `:wq` is `:w` -- saving already closes the editor.
+            match signal {
+                Some(EditorSignal::Write)
+                | Some(EditorSignal::WriteThenQuit) => save = true,
+                // Both quit forms cancel here. In this panel the buffer IS
+                // the note, so "unsaved changes" is not a reason to refuse --
+                // discarding them is precisely what Cancel means. A real file
+                // (the page-context editor) treats `QuitUnsaved` differently.
+                Some(EditorSignal::Quit) | Some(EditorSignal::QuitUnsaved) => cancel = true,
+                None => {}
+            }
             ui.horizontal(|ui| {
                 if ui.button("Save").clicked() {
                     save = true;
@@ -3910,7 +3983,7 @@ impl PdfReaderState {
             let anns = self.annotations.entry(editor.page).or_default();
             match editor.editing_existing {
                 Some(i) if i < anns.len() => {
-                    anns[i].text = editor.text;
+                    anns[i].text = editor.text();
                     anns[i].min = editor.min;
                     anns[i].max = editor.max;
                     anns[i].page_px = page_px;
@@ -3918,13 +3991,28 @@ impl PdfReaderState {
                 _ => anns.push(Annotation {
                     min: editor.min,
                     max: editor.max,
-                    text: editor.text,
+                    text: editor.text(),
                     created_at: utc_now_iso8601(),
                     page_px,
                 }),
             }
             self.pending_box = None;
+            // **Saving the note persists the annotations.** The separate
+            // "Save annotations" button was a second, easily-forgotten step
+            // for something the operator has already said they want kept
+            // (maintainer, 2026-09-24: "the save annotations button is quite
+            // a hassle"). A note that is saved but not written to the paper's
+            // markdown survives only until the window closes, which is not
+            // what "Save" means anywhere else.
+            //
+            // The editor was `take`n just above, so the fold-in branch at the
+            // top of `save_annotations_into_project` finds nothing pending
+            // and this is a straight write.
+            self.save_annotations_into_project(active_paper.as_deref_mut(), context_editor);
         } else if cancel {
+            // `:q` and Cancel discard the buffer without touching
+            // `self.annotations`, so an edit in progress is reverted rather
+            // than half-applied.
             self.annotate_editor = None;
         }
         None
@@ -5107,6 +5195,64 @@ t_s,power_mw
         r.cancel_box_drawing();
         r.cancel_box_drawing();
         assert!(r.draw_start.is_none() && r.select_start.is_none() && r.pending_box.is_none());
+    }
+
+
+    // ------------------------------------------------------------------
+    // The annotation note editor is modal (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    /// A brand-new note opens in **Insert**, so drawing a box and typing
+    /// works without pressing `i` first -- the same rule the page-context
+    /// panel already follows.
+    #[test]
+    fn a_new_annotation_note_opens_in_insert_mode() {
+        let ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::new(10.0, 10.0), "", None);
+        assert_eq!(ed.mode_label_for_test(), "INSERT");
+        assert_eq!(ed.text(), "", "a new note starts empty");
+    }
+
+    /// Reopening an existing annotation loads its text and is still modal --
+    /// the note is an editable buffer, not a fresh one.
+    #[test]
+    fn reopening_an_annotation_loads_its_text_modally() {
+        let ed = AnnotateEditor::open(
+            3,
+            Pos2::ZERO,
+            Pos2::new(5.0, 5.0),
+            "kernel temperature rise",
+            Some(2),
+        );
+        assert_eq!(ed.text(), "kernel temperature rise");
+        assert_eq!(ed.editing_existing, Some(2));
+        assert_eq!(ed.page, 3, "the page is fixed when the editor opens");
+        assert_eq!(ed.mode_label_for_test(), "INSERT");
+    }
+
+    /// The whole point: vim keys EDIT rather than being typed in literally.
+    /// Before this the note was a plain `egui::TextEdit`, so `Esc` then `dd`
+    /// inserted the characters `d` and `d` into the annotation.
+    #[test]
+    fn vim_keys_edit_the_note_instead_of_being_typed_into_it() {
+        let mut ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::ZERO, "alpha\nbeta\n", None);
+        ed.feed_for_test("<Esc>dd");
+        assert_eq!(
+            ed.text(),
+            "beta\n",
+            "`dd` in Normal mode must delete a line, not insert two letters"
+        );
+        // And `u` undoes it, rather than inserting a `u`.
+        ed.feed_for_test("u");
+        assert_eq!(ed.text(), "alpha\nbeta\n", "`u` must undo");
+    }
+
+    /// Text typed into the modal buffer is what gets saved -- the read path
+    /// goes through `text()`, not a stale `String` field.
+    #[test]
+    fn what_is_typed_is_what_is_saved() {
+        let mut ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::ZERO, "", None);
+        ed.feed_for_test("note");
+        assert_eq!(ed.text(), "note");
     }
 
 }
