@@ -68,6 +68,7 @@
 mod blob;
 mod evaluate;
 mod h5;
+mod h5_write;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -75,6 +76,7 @@ mod types;
 pub use blob::WmpLibrary;
 pub use evaluate::faddeeva;
 pub(crate) use evaluate::{weideman_coeffs, weideman_l};
+pub use h5_write::WMP_VERSION;
 pub use types::{Cf64, WindowedMultipole, WmpReaction, WmpWindow, WmpXs};
 
 /// Boltzmann constant in \[eV/K\] (so `kT` in eV = `K_BOLTZMANN * T[K]`).
