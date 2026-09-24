@@ -165,14 +165,27 @@ impl TallyBin {
         if mean == 0.0 {
             return f64::INFINITY;
         }
-        // Prefer the stable variance when the caller's realization count is the
-        // one this bin actually accumulated, which is the ordinary case (one
-        // score per bin per batch). Where they differ the caller is asking
-        // about a different population, so the raw moments are still the
-        // honest answer and the old path is kept rather than silently
-        // reinterpreted.
+        // **This returns the relative standard error OF THE MEAN**, i.e.
+        // `sqrt(s^2 / n) / mean`, which is what every caller wants and what the
+        // `sum_sq` path below computes: `(sum_sq/n - mean^2)/(n-1)` is
+        // algebraically `s^2/n` exactly, not `s^2`.
+        //
+        // **FIXED 2026-09-24 — this branch was returning `sqrt(s^2)/mean`, i.e.
+        // exactly `sqrt(n)` TOO LARGE.** `Self::variance` is the sample variance
+        // of the realization values; dividing by `n` once more is what turns it
+        // into the variance of their mean, and that step was missing when the
+        // Welford path was added. The two branches therefore computed different
+        // quantities, and the branch taken in the ORDINARY case (one score per
+        // bin per batch, so `count == n_realizations`) was the wrong one.
+        //
+        // The error scales with the realization count, which is how it was
+        // found: a shielding tally at 270 realizations resolved 2 mesh cells
+        // where the same run at 10 realizations resolved 384, because `R` was
+        // inflated by `sqrt(270) = 16.4` against `sqrt(10) = 3.2`. More
+        // statistics made the reported error worse, which no correct estimator
+        // does.
         let variance = if self.count == n_realizations {
-            self.variance()
+            self.variance() / n
         } else {
             (self.sum_sq / n - mean * mean) / (n - 1.0)
         };
@@ -249,19 +262,50 @@ mod bin_variance_tests {
         );
     }
 
-    /// A well-spread bin must be unaffected -- the fix must not move ordinary
-    /// results.
+    /// A well-spread bin must be unaffected -- the stable variance must not move
+    /// ordinary results.
+    ///
+    /// **This test asserted the WRONG VALUE from the day it was written, and its
+    /// own name is what makes that worth recording.** It claimed
+    /// `rel_std_dev == sqrt(2.5)/3`, which is the sample standard deviation over
+    /// the mean; the relative standard error OF THE MEAN is
+    /// `sqrt(2.5/5)/3` -- smaller by `sqrt(5) = 2.236`. So the one test written
+    /// to confirm that adding Welford "did not move ordinary results" instead
+    /// **pinned a 2.236x regression in place**, and the two branches of
+    /// `rel_std_dev` silently computed different quantities for four days.
+    ///
+    /// Both branches are now asserted to agree, which is the check that would
+    /// have caught it: they are two formulas for one quantity, so the test that
+    /// matters is that they return the same number, not that either returns a
+    /// number someone wrote down.
     #[test]
     fn a_well_conditioned_bin_is_unchanged() {
+        let xs = [1.0_f64, 2.0, 3.0, 4.0, 5.0];
         let mut bin = TallyBin::default();
-        for v in [1.0_f64, 2.0, 3.0, 4.0, 5.0] {
+        for v in xs {
             bin.score(v);
         }
+        // Sample variance of the VALUES: sum (x - 3)^2 / 4 = 10/4 = 2.5.
         assert!((bin.variance() - 2.5).abs() < 1.0e-12, "variance {}", bin.variance());
         assert!(!bin.naive_variance_cancelled());
-        // 2.5 / mean(3.0) -> sqrt(2.5)/3
+
+        // Relative standard error of the MEAN: sqrt(s^2 / n) / mean.
+        let n = xs.len() as f64;
+        let want = (2.5_f64 / n).sqrt() / 3.0;
         let rel = bin.rel_std_dev(5);
-        assert!((rel - (2.5_f64).sqrt() / 3.0).abs() < 1.0e-12, "rel {rel}");
+        assert!((rel - want).abs() < 1.0e-12, "rel {rel}, want {want}");
+
+        // **The two branches must agree.** `rel_std_dev` takes the Welford path
+        // when `count == n_realizations` and the `sum_sq` path otherwise; they
+        // are two formulas for one quantity, and asserting they match is what
+        // catches a missing `/ n` in either.
+        let mean = bin.sum / n;
+        let via_sum_sq = ((bin.sum_sq / n - mean * mean) / (n - 1.0)).sqrt() / mean;
+        assert!(
+            (rel - via_sum_sq).abs() < 1.0e-12,
+            "the Welford path gives {rel} and the sum_sq path {via_sum_sq}; they \
+             must be the same quantity"
+        );
     }
 }
 
