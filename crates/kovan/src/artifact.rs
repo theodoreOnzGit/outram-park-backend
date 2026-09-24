@@ -758,6 +758,127 @@ pub fn render_csv_body(csv_data: &str) -> String {
     format!("```csv\n{}\n```\n", csv_data.trim_end())
 }
 
+/// Opens a multi-series digitised-graph body.
+pub const SERIES_START: &str = "### start of data series";
+/// Closes a multi-series digitised-graph body.
+pub const SERIES_END: &str = "### end of series";
+/// Prefix of each series heading; the rest of the line is the series name.
+pub const SERIES_PREFIX: &str = "### Series:";
+
+/// One curve inside a multi-series digitised-graph artifact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeriesBlock {
+    /// The name after `### Series:`, trimmed.
+    pub name: String,
+    /// The CSV between this series' fences, verbatim.
+    pub csv: String,
+}
+
+/// Render several curves as one artifact body (maintainer, 2026-09-24).
+///
+/// ````markdown
+/// ### start of data series
+///
+/// ### Series: 235U thermal
+///
+/// ```csv
+/// x,y
+/// 1,2
+/// ```
+///
+/// ### end of series
+/// ````
+///
+/// # Why `###`, and why this does not disturb anything
+///
+/// [`ARTIFACT_LEVEL`] is 1, so an artifact is a `#` heading and
+/// [`heading_span`] ends its block at the next heading of depth **<= 1**. A
+/// `###` is depth 3, so every series heading sits *inside* the artifact --
+/// the sentinels delimit the series without ever splitting the block that
+/// contains them. CRUD keeps operating on the whole isolated artifact, as it
+/// did before, and the `#`-delimiter isolation it relies on is unchanged.
+///
+/// Each curve stays in its own ```csv fence, so [`Artifact::csv_block`] still
+/// returns a single, ordinary CSV table -- the sentinels sit *outside* the
+/// fences, which is why scanning for a fence finds the data either way.
+pub fn render_multi_series_body(series: &[SeriesBlock]) -> String {
+    if series.is_empty() {
+        return String::new();
+    }
+    let mut out = String::new();
+    out.push_str(SERIES_START);
+    out.push_str("\n\n");
+    for s in series {
+        out.push_str(SERIES_PREFIX);
+        out.push(' ');
+        out.push_str(s.name.trim());
+        out.push_str("\n\n");
+        out.push_str(&render_csv_body(&s.csv));
+        out.push('\n');
+    }
+    out.push_str(SERIES_END);
+    out.push('\n');
+    out
+}
+
+/// Read the curves back out of a multi-series body.
+///
+/// Returns empty for an ordinary single-CSV body, which is how a caller tells
+/// the two apart without a flag: a body with no `### Series:` heading has no
+/// series, and [`Artifact::csv_block`] is the right way to read it.
+///
+/// Tolerant by design, like [`parse_document`]: a series heading whose fence
+/// is missing or unterminated is skipped rather than failing the parse, so
+/// one malformed curve cannot make the other three unreadable.
+pub fn parse_series_blocks(body: &str) -> Vec<SeriesBlock> {
+    let mut out = Vec::new();
+    let lines: Vec<&str> = body.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i].trim_start();
+        let Some(rest) = line.strip_prefix(SERIES_PREFIX) else {
+            i += 1;
+            continue;
+        };
+        let name = rest.trim().to_string();
+        // Find this series' opening fence, stopping at the next series or the
+        // end sentinel so a fence-less heading cannot swallow its neighbour's
+        // data.
+        let mut j = i + 1;
+        let mut csv = None;
+        while j < lines.len() {
+            let l = lines[j].trim_start();
+            if l.starts_with(SERIES_PREFIX) || l.starts_with(SERIES_END) {
+                break;
+            }
+            if l.starts_with("```csv") {
+                let mut k = j + 1;
+                let mut body_lines = Vec::new();
+                let mut closed = false;
+                while k < lines.len() {
+                    if lines[k].trim_start().starts_with("```") {
+                        closed = true;
+                        break;
+                    }
+                    body_lines.push(lines[k]);
+                    k += 1;
+                }
+                if closed {
+                    csv = Some(body_lines.join("\n"));
+                    j = k;
+                }
+                break;
+            }
+            j += 1;
+        }
+        if let Some(csv) = csv {
+            out.push(SeriesBlock { name, csv });
+        }
+        i = j.max(i + 1);
+    }
+    out
+}
+
 /// Wrap `latex` — a BibTeX record or a formula — as a fenced ```latex
 /// block, the schema's third block type alongside ```toml (metadata) and
 /// ```csv (data).

@@ -1,5 +1,11 @@
 # kovan
 
+**KOVAN** — **K**nowledge **O**riented **V**&V **A**nalysis for **N**uclear
+science and engineering.
+
+The startup screen carries this expansion (`src/app/home.rs`); everywhere else
+the plain "KOVAN" is used, per GH issue #35's 2026-09-01 checkpoint §1.
+
 Exactly three binaries in one crate, per the final interface spec on GitHub
 issue #30 (2026-08-21): `kovan` (human-facing GUI — the graph digitiser
 window), `kovan-cli` (agent-facing CLI), `kovan-tui` (human-facing terminal
