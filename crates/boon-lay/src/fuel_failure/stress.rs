@@ -92,6 +92,32 @@ pub fn induced_stress_exact(
     Some(layer.mean_radius() * pressure / (2.0 * d_act))
 }
 
+/// Eq (2) written against a **carried** `FKOR` rather than an elapsed time
+/// (pages -484-, -492-):
+///
+/// ```text
+/// σ_t = r·p·FKOR / (2·d_o)      since d_act = d_o/FKOR
+/// ```
+///
+/// [`induced_stress`] recomputes `v̇·t/d_o` from a single rate and a single
+/// elapsed time, which is only correct for an **isothermal** hold. A varying
+/// temperature history has to carry `FKOR` forward step by step
+/// ([`super::advance_thinning_factor`]), and this is the entry point that
+/// takes it. It is what [`super::history`] uses.
+///
+/// `FKOR` starts at 1 (an uncorroded layer) and rises; values below 1 would
+/// mean a layer that had grown, so they are clamped to 1 rather than
+/// silently producing a stress lower than the uncorroded one.
+pub fn induced_stress_with_thinning_factor(
+    layer: &SicLayer,
+    pressure: Pressure,
+    thinning_factor: Ratio,
+) -> Pressure {
+    let fkor = thinning_factor.get::<ratio>().max(1.0);
+    let d_o = layer.initial_thickness();
+    layer.mean_radius() * pressure * Ratio::new::<ratio>(fkor) / (2.0 * d_o)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

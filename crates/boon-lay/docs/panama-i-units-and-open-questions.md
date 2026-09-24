@@ -105,6 +105,87 @@ internally, so a caller cannot reintroduce the confusion.
 
 Fig. 3 digitised by the maintainer, 2026-09-24.
 
+### `f(τ)` — the grouping in the Booth series. **SETTLED: the whole `1 − exp(…)` is the numerator.**
+
+| | |
+|---|---|
+| **Printed** | the fraction bar spans only `exp(−n²π²τ)/(n⁴π⁴)`, with `(1 −` opening outside it |
+| **Used** | `Σ (1 − exp(−n²π²τ))/(n⁴π⁴)` |
+| **Settled by** | Fig. 1 (-486-), 78 digitised points, plus two analytic limits |
+
+The literal reading has a summand tending to **1**, so the series diverges: a
+1000-term partial sum gives `f(0.1) = −6.0·10⁴` instead of a number in
+`[0, 1]`, and doubling the term count doubles the damage.
+
+| reading | `f(0.1)` | `f(0.5)` | `f(1.9)` |
+|---|---|---|---|
+| literal | −5.99997·10⁴ | −1.19990·10⁴ | −3.1569·10³ |
+| **numerator reading** | **0.56365** | **0.86755** | **0.96491** |
+
+Against Fig. 1 the numerator reading gives mean `|Δf|` = **0.0066** over all
+78 points (median 0.0020, worst 0.047 at `τ = 0.0313` where the curve is
+near-vertical); over the 68 points with `τ ≥ 0.15` it is **0.0028** mean,
+0.018 worst, on an ordinate running 0 to 1.
+
+Two analytic limits the figure cannot supply were also checked, and they fix
+the `6/τ` normalisation that a plausible-looking curve would not:
+`f → 1 − 1/(15τ)` agrees to 4·10⁻¹² at `τ = 10`, and `f → 4√(τ/π) − 3τ/2`
+to 2·10⁻⁷ at `τ = 10⁻⁴`.
+
+**A digitisation note.** Fig. 1's y-axis calibration in the maintainer's
+digitisation labels the upper gridline `500`. A through-origin fit of the
+digitised ordinate against this implementation over `τ ≥ 0.15` gives
+**501.29**, i.e. that gridline is `f = 1` to within 0.26 %; `f = y/500` is
+used. Fig. 1 digitised by the maintainer, 2026-09-24.
+
+### The 1000-summand cap is the binding cut-off, and it limits accuracy below `τ ≈ 10⁻⁵`
+
+Page -485- gives two stopping rules: 1000 summands ("caution!"), or two
+consecutive summands differing by ≤ 10⁻²⁰. The second **never fires first** —
+the summand tends to `1/(n⁴π⁴)`, whose consecutive differences reach 10⁻²⁰
+only near `n ≈ 5.3·10³`. Measured cost of the cap:
+
+| `τ` | 1000-term sum | error |
+|---|---|---|
+| 10⁻² … 10¹ | 0.2107 … 0.9933 | ≤ 2·10⁻⁹ |
+| 10⁻⁴ | 0.02242 | 3·10⁻⁷ |
+| 10⁻⁶ | 0.002276 | ≤ 2·10⁻⁵ |
+| 10⁻⁸ | 6.4·10⁻⁴ | ~4·10⁻⁴ — **larger than the answer** |
+
+The report's algorithm is implemented as printed rather than replaced by the
+rearranged closed form, which is in any case worse for small `τ` (it cancels
+`1/(15τ) ≈ 6.7·10⁶` against itself to produce a number of order 10⁻⁴).
+
+### Eq (12)'s `375` must carry units of m/s
+
+Eq (12) prints `k = (375/d_o)·exp(−556000/(R·T_m))` with `d_o` in metres and
+declares `k` in `s⁻¹`. The only reading that balances is **375 \[m/s\]** — the
+`k_o` of the page -495- Arrhenius as a decomposition front velocity divided by
+the layer it has to eat through. The report never says so.
+`decomposition_rate_constant` therefore takes a `uom` `Length` rather than a
+bare number. Consequence: `k ∝ 1/d_o`, so a 50 µm layer decomposes 30 % more
+slowly than a 35 µm one, and `ζ` scales with it.
+
+### Fig. 7's staging is stated in the text, not inferred
+
+Page -498- states the FRJ2-K11/03 calculation of Fig. 7 includes "the
+preceeding heating phases of 100 h at 1400 °C and 100 h at 1500 °C", with
+1600 °C thereafter to 1000 h. Nothing about the staging was read off the
+curve's slope.
+
+### The p-500 "one order of magnitude" sentence is about Fig. 9, not Fig. 6
+
+Page -500- carries, between Table 1 and Fig. 6, the sentence that the
+difference in particle failure at 1600 °C "is within the range of one order of
+magnitude", with the 2000 °C difference "somewhat greater". Fig. 6's eight
+curves in fact span **4.79 decades** at 248 h, which looks like a
+contradiction. It is not: the sentence continues the paragraph at the foot of
+page -499-, which introduces **Fig. 9** (35 µm against 50 µm SiC at 1600 and
+2000 °C) — and Fig. 9's two curves are about one decade apart at 1600 °C and
+somewhat more at 2000 °C. Recorded here because the page layout makes the
+mis-reading easy, and an earlier draft of this work made it.
+
+
 ---
 
 ## Open
@@ -198,6 +279,160 @@ wrong one. Pinned by `stress::tests::the_two_routes_to_the_stress_agree_exactly`
 `geometry::actual_thickness` was originally written the -484- way and
 corrected 2026-09-24 when Fig. 4 was digitised.
 
+### Fig. 6 recovers ONE common `σ_t` from eight curves — with a residual that is systematic in `m`
+
+Fig. 6 (-500-) is PANAMA's own output for eight SiC varieties at 1600 °C, and
+page -498- states its basis: Table 1's after-irradiation values at
+`T_B = 1000 °C`, `Γ = 1·10²⁵ m⁻² EDN`. `σ_t(t)` is common to all eight, so
+inverting Eq (1) on each curve, `σ_t = σ_o·(−ln(1−φ)/ln2)^(1/m)`, must return
+the same value eight times. That needs **none** of the four inputs the caption
+omits (geometry, `V_k`, `V_f`, `F_b`, `t_B`), because they only set `σ_t`.
+
+**Result, 2026-09-24** (467 digitised points; 121 lie below the figure's
+plotted 10⁻⁶ floor and are excluded):
+
+| quantity | measured |
+|---|---|
+| rank order of the eight curves | **8/8 reproduced** |
+| spread top-to-bottom at 248 h | 4.79 decades |
+| recovered common `σ_t` | 132 MPa (130 h) → 163 MPa (248 h) |
+| relative s.d. across varieties | 9.0 % → 11.2 % |
+| per-curve residual in `log₁₀ φ` at one common `σ_t` | **−0.370 … +0.388**, mean abs **0.232** |
+
+Reproducing the order and the 4.8-decade spread from one stress to ±0.4
+decades is a real success for Eq (1) with Eqs (8a)/(9a). But the residual is
+**monotone in `m_oo`**, not random:
+
+| variety | `m_oo` | residual (decades) |
+|---|---|---|
+| EO 249-251 | 5.0 | −0.370 |
+| HT 150-167 | 6.0 | −0.183 |
+| EO 1674 | 7.0 | +0.034 |
+| ECO 1541 | 6.4 | +0.099 |
+| EO 1607 | 8.0 | +0.222 |
+| EC 1338/1339 | 7.4 | +0.241 |
+| EO 403-405 | 8.4 | +0.319 |
+| EUO 1551 | 8.5 | +0.388 |
+
+Two hypotheses were tested and **neither removes it**:
+
+- **Fluence.** Relative s.d. falls monotonically with `Γ`: 10.1 % at the
+  stated `Γ = 1`, 7.5 % at 0.5, **5.4 % at 0** (i.e. Table 1's measured
+  before-irradiation values used directly), and rises to 17.1 % at `Γ = 2`.
+  But page -498- states Fig. 6's basis is `Γ = 1·10²⁵`, so this is a
+  **disagreement with the figure**, not a licence to change the input. `Γ` was
+  not changed.
+- **The plotted floor.** Restricting to points inside the figure's own
+  10⁻⁶ … 10 axis leaves the trend intact (9.0 → 11.2 % against 9.3 → 11.3 %
+  unrestricted).
+
+Unexplained. Pinned by
+`history::tests::figure_6_recovers_one_common_stress_history`, which asserts
+the trend as well as its size so it cannot pass by being tuned small.
+
+Fig. 6 digitised by the maintainer, 2026-09-24.
+
+### Fig. 7 code-to-code: the staged history reproduces for 300 h, then drifts by 1.9×
+
+Fig. 7 (-501-) has the only complete stated input set in the report —
+`σ_oo = 600 MPa`, `m_oo = 6`, `T_B = 1160 °C`, `t_B = 260 FPD`,
+`F_B = 0.09 FIMA`, `Γ = 0.05·10²⁵ m⁻² EDN`, `η̇(T) ≡ 0` — plus the staging
+from page -498-. The absolute level still needs the unstated geometry, so the
+comparison is on `σ_t` recovered from the report's own `Without Grain Boundary
+Corrosion` curve against this chain's `σ_t`, with **one** free scale (the
+geometry aggregate `r/(2·d_o·(V_f/V_k))`). No physics constant was adjusted.
+
+| window | relative s.d. of `σ_t^PANAMA / σ_t^chain` | max/min |
+|---|---|---|
+| **0–300 h, all three stages** | **4.9 %** | 1.20 |
+| 300–1000 h | 15.4 % | 1.77 |
+| whole run | 21.9 % | 2.17 |
+
+Per stage the ratio is 0.1561 (1400 °C), 0.1473 (1500 °C), 0.1608 (1600 °C,
+first 100 h) — within ±4.5 %. **The staging is reproduced**: `OPF(T)` through
+Eq (5c), `D_S(T)`, `v̇(T)` and Eq (3)'s explicit `T` all land together across
+two step changes.
+
+**Then it drifts.** At 977 h PANAMA's curve implies `σ_t = 282 MPa`; with the
+scale fixed over 0–300 h the chain gives **148 MPa**, a factor **1.90**.
+PANAMA's curve follows `φ ∝ t^3.21` at late times, i.e. `σ_t ∝ t^0.54`,
+whereas in the chain `F_d` has saturated (0.980 at 296 h → 0.9999 at 977 h)
+and `OPF` is constant at fixed temperature, leaving only `FKOR` — worth
+**4 %** over the last 700 h. Something in PANAMA keeps the pressure climbing
+as `√t` after the Booth release is over, and the printed equations do not say
+what.
+
+Diagnostic runs (reported, not adopted): the drift is removed only by taking
+`OPF = 0` **and** `D_S(1600 °C) ≈ 1.6·10⁻¹⁰ s⁻¹`, which is ~1500× below the
+printed `UO₂` value of 2.3·10⁻⁷ and ~9× below the lowest value the
+`(Th,U)O₂` correlation can produce. Neither is consistent with page -487-.
+
+**The kernel is not stated** in Fig. 7's caption. `UO₂` with Eq (5c) is used;
+it is the tightest of four candidates over 0–300 h (5.0 % relative s.d.,
+against 5.7 % for `(Th,U)O₂` at `N = 10`, 6.1 % at `N = 5`, 7.7 % for
+`OPF = 0`), but that is a weak preference and is recorded as one.
+
+### Fig. 7 code-to-data: the measurement lies between PANAMA's two curves
+
+The nine measured ⁸⁵Kr points against the report's own curves, in `log₁₀`:
+
+| comparator | mean | mean abs | worst |
+|---|---|---|---|
+| `Without Grain Boundary Corrosion` (`η̇ ≡ 0`, the caption's case) | **+0.51** | 0.52 | +1.14 (339 h) |
+| `With Grain Boundary Corrosion` | −1.49 | 1.49 | −1.85 (223 h) |
+
+So at 1400–1600 °C PANAMA **under**-predicts FRJ2-K11/03 by half a decade
+with grain-boundary corrosion off, and over-predicts by 1.5 decades with it
+on. This reproduces page -499-'s own reading that the with-corrosion model
+"covers the measured values in a conservative approximation". It is a
+statement about **PANAMA**, not about this implementation — no part of this
+reconstruction enters it.
+
+**Inherited assumption, stated because it is load-bearing:** PANAMA computes a
+particle *failure* fraction and Fig. 7 plots a ⁸⁵Kr *release* fraction on the
+same axis, i.e. the report equates the two. That identification is inherited
+here, not derived. It is the first suspect for any constant offset.
+
+**A digitisation label slip:** the measured series is labelled `90% FIMA`
+where the caption reads `9.0 % FIMA` and `F_B = 0.09`. 0.09 is used.
+
+Fig. 7 digitised by the maintainer, 2026-09-24.
+
+### `φ₂` has no figure to verify it, and Fig. 6 constrains it only negatively
+
+Nothing in the report plots or tabulates the decomposition chain
+(Eqs 11–14b) against `d_o`. What Fig. 6 does settle is that it **cannot** have
+used Eq (14a): at 1600 °C with `d_o = 35 µm`, `ζ(300 h) = 3.6·10⁻³`, and
+Eq (14a) turns that into `φ₂ = 4.9·10⁻³` — a floor above the *top* of a figure
+that runs 2·10⁻⁶ to ~5·10⁻³ and spreads over three decades. Eq (14b) gives
+`1.7·10⁻¹⁴`, invisible. So Fig. 6 used the sphere calibration, or `φ₂` off.
+
+### `η̇·t` for a varying history is this crate's extension
+
+Eq (10b) prints `exp(−η̇·t)` with one rate and one time, i.e. for an
+isothermal hold. `advance_grain_boundary_exposure` accumulates `∫η̇ dt` by
+analogy with Eq (11)'s `∫k dt`. **The report does not state this.** It
+collapses to the printed form when the temperature is constant. The
+alternative — `η̇` at the current temperature times the total elapsed time —
+would retroactively apply the latest temperature to the whole history.
+
+### Eq (4) at `τ_i = 0` is undefined in the report
+
+Eq (4) divides by `τ_i`. `released_gas_fraction` returns **zero** there, on
+the grounds that no irradiation means no inventory (and Eq (3) carries
+`F_b = 0` in the same limit). This crate's convention, not the report's.
+
+### Fig. 9's 50 µm curve sits ABOVE its 35 µm curve
+
+Fig. 9 (-502-) plots a thicker SiC layer as *more* likely to fail, at both
+1600 and 2000 °C. By Eq (2) alone a thicker layer carries less stress at the
+same pressure, and by Eq (12) it decomposes more slowly, so both mechanisms
+point the other way. The likely reconciliation is that the 50 µm variant keeps
+the particle's outer radius and eats into the buffer, cutting `V_f` and
+raising `p` — but the caption states neither the geometry nor `V_f`, so this
+is **not checked**. Fig. 9 is therefore not used as a verification target.
+
+
 ### Notation defects recorded rather than silently fixed
 
 - **Eq (6b) is used twice** (UO₂ and UCO); the second should be (6c).
@@ -205,8 +440,19 @@ corrected 2026-09-24 when Fig. 4 was digitised.
   834/8.02 in Fig. 5 and Table 2. Use 834/8.02 for the reactor reproductions.
 - **Seven load-bearing correlations carry no equation number** and must be
   cited by page.
-- A grouping ambiguity in the Booth `f(τ)` series: the literal reading
-  diverges, the consistent one matches Fig. 1.
+- ~~A grouping ambiguity in the Booth `f(τ)` series: the literal reading
+  diverges, the consistent one matches Fig. 1.~~ **SETTLED 2026-09-24** — see
+  the `f(τ)` entry above; verified against Fig. 1 to 0.0028 mean over
+  `τ ≥ 0.15`.
+- **Eq (6b) is printed twice**, for `UO₂` on -491- and again for `UCO` on
+  -492-; the second must be (6c). Both values are implemented, under
+  `KernelCompound::UraniumOxide` (2.43796·10⁻⁵ m³/mol) and
+  `KernelCompound::UraniumOxycarbide` (2.50654·10⁻⁵ m³/mol). A reader chasing
+  "Eq (6b)" in the report will find two different molar volumes under it.
+- The molar masses of Eqs (6a)–(6c) have **no stated stoichiometry**:
+  0.2672 kg/mol is neither `UO₂` at natural enrichment (0.2700) nor `²³⁵UO₂`
+  (0.2670). Taken as printed; each equation's own printed quotient is
+  reproduced to better than 1 part in 10⁵.
 
 ---
 
@@ -225,7 +471,16 @@ corrected 2026-09-24 when Fig. 4 was digitised.
 | (7) + `v̇`, p-492 | yes | **Fig. 4** | 5/5 curves, **after a decade fix** |
 | (5a) `(Th,U)O₂` OPF | yes | **Fig. 3** | temperature term confirmed |
 | (5b)/(5c)/(5d)/(5e) `UO₂` OPF | yes | **Fig. 3** | 4/4 curves, mean 0.0087 |
-| (4), (6a)–(6c), (10b)/(10c), (11)/(12) | **no** | — | inputs, deliberately |
+| `f(τ)` Booth series, p-485 | yes | **Fig. 1** + two analytic limits | mean 0.0028 (`τ ≥ 0.15`); grouping settled |
+| (4) `F_d` | yes | identity `F_d(τ_i, 0) = f(τ_i)` | exact; **no figure plots `F_d`** |
+| (6a)/(6b)/(6c) `V_m` | yes | each equation's own printed quotient | 3/3 to < 1·10⁻⁵ |
+| (11)/(12) `ζ`, `k` | yes | — | internal only; **no figure or table** |
+| (13)/(14a)/(14b) `φ₂` | yes | **Fig. 6, negatively** | (14a) excluded; (14b) unverified |
+| (10b)/(10c) grain boundary | yes, **off by default** | — | direction only; Figs. 7/8 lack the geometry |
+| driver, §3.1 | yes | report's own step-independence claim (-482-) | 2·10⁻¹² over 1→3000 steps |
+| driver vs **Fig. 6** | — | **Fig. 6** | order 8/8; residual **−0.37…+0.39 decades**, systematic in `m` |
+| driver vs **Fig. 7** (code-to-code) | — | **Fig. 7** | 4.9 % over 0–300 h incl. staging; **drifts to 1.90× by 977 h** |
+| PANAMA vs **Fig. 7** (code-to-data) | — | **Fig. 7**, 9 measured points | **+0.51 decades** (`η̇ ≡ 0`); −1.49 with corrosion |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction
 runs uncalibrated and the disagreement is reported when there is one.

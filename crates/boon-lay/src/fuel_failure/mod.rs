@@ -33,7 +33,7 @@
 //! |---|---|---|
 //! | `φ_o` | as-manufactured defects | not modelled; an input (see [`AS_MANUFACTURED_TARGET`]) |
 //! | `φ₁` | **pressure-vessel overstress** | [`weibull_failure_fraction`], this module |
-//! | `φ₂` | SiC **thermal decomposition** above ~2000 °C | NOT YET IMPLEMENTED — see below |
+//! | `φ₂` | SiC **thermal decomposition** above ~2000 °C | [`decomposition`], Eqs (11)–(14b) |
 //!
 //! combined by [`total_failure_fraction`].
 //!
@@ -48,21 +48,32 @@
 //! | Induced SiC stress, thin shell | (2) | -484- |
 //! | Internal gas pressure, ideal gas | (3) | -484- |
 //! | Failure-population combination | unnumbered | -480- |
+//! | Booth release `f(τ)`, `F_d` | (4) + unnumbered | -485-/-486- |
+//! | Molar volume `V_m` | (6a), (6b), (6c) | -491-/-492- |
+//! | SiC thinning, corrosion rate | (7) | -492- |
+//! | Strength and modulus after irradiation | (8a)–(9b) | -493-/-494- |
+//! | Grain-boundary corrosion, **off by default** | (10b), (10c) | -495- |
+//! | Thermal decomposition | (11)–(14b) | -496-/-497- |
+//! | The time-stepping driver | §3.1 | -482-/-483- |
 //!
-//! **Absent, and taken as INPUTS rather than guessed.** The correlations that
-//! supply `σ_o`, `m`, `OPF` and `F_d` — the fluence degradation laws (8a/8b,
-//! 9a/9b), the oxygen-per-fission fits (5a–5f), the Booth `f(τ)` series, the
-//! `D_S` diffusion correlations and the decomposition kinetics (11/12) — are
-//! **not** in this module. Two have unresolved ambiguities in the source scan
-//! (the `t_B` seconds-vs-full-power-days question on (5b)/(5c), and a grouping
-//! ambiguity in the `f(τ)` series), and the rest have not yet been verified
-//! against the scan by a human.
+//! ~~**Absent, and taken as INPUTS rather than guessed.**~~
+//! **CORRECTED 2026-09-24** — every correlation this table used to list as
+//! absent is now implemented in its own module, and the two ambiguities it
+//! flagged are settled: `t_B` is **seconds** (Fig. 3) and the `f(τ)` series
+//! groups the whole `1 − exp(…)` into the numerator (Fig. 1). What remains an
+//! input is what the *report* leaves to the caller — the particle geometry,
+//! `V_k`, `V_f`, `φ_o`, and the `α`/`β` of Eq (13), which the report says must
+//! be determined by experiment and supplies two fits for.
 //!
-//! This is the deliberate shape, not an unfinished one: the failure **chain**
-//! is exact and testable today, and each correlation can be dropped in behind
-//! the same signature once it is confirmed. A guessed exponent in a correlation
-//! would propagate silently into an absolute pressure and then into a failure
-//! fraction that still *looks* reasonable.
+//! **What is NOT verified, stated plainly.** Eqs (11)–(14b) have no figure or
+//! table in the report to check them against, and Eq (4) has none either
+//! (only the exact identity `F_d(τ_i, 0) = f(τ_i)`). Against Fig. 6 the chain
+//! reproduces the eight-variety ordering 8/8 but carries a residual of
+//! −0.37 … +0.39 decades that runs systematically with `m`; against Fig. 7 it
+//! holds to 4.9 % through all three temperature stages for 300 h and then
+//! drifts to a factor 1.90 by 977 h. Both are recorded with numbers in
+//! `docs/panama-i-units-and-open-questions.md` and pinned by tests in
+//! [`history`].
 //!
 //! ## The `ln2` in Eq (1) is load-bearing — do not reach for a stock Weibull
 //!
@@ -98,7 +109,12 @@
 //! | [`weibull`] | (1) | -483- |
 //! | [`stress`] | (2) | -484- |
 //! | [`pressure`] | (3) | -484-/-485- |
+//! | [`booth`] | `f(τ)`, (4), `τ_i`/`τ_a` | -485-/-486- |
+//! | [`molar_volume`] | (6a), (6b), (6c) | -491-/-492- |
 //! | [`strength`] | (8a), (8b), (9a), (9b) | -493-/-494- |
+//! | [`grain_boundary`] | (10b), (10c) — off by default | -495- |
+//! | [`decomposition`] | (11), (12), (13), (14a), (14b) | -496-/-497- |
+//! | [`history`] | the time-stepping driver, §3.1 | -482-/-483- |
 //!
 //! The assembly (`phi_total`) stays here, since it is what binds them.
 //! Everything is re-exported flat, so a caller writes
@@ -118,18 +134,39 @@
 //! | Eq (3) grouping | bar spans the denominator | `R*T` in the numerator | dimensions; the printed form makes `p` fall with `T` |
 //! | `t_B` | seconds (-511-) | **seconds** | Fig. 3: seconds 0.0087, days 0.277 |
 
+pub mod booth;
 pub mod corrosion;
+pub mod decomposition;
 pub mod diffusion;
 pub mod geometry;
+pub mod grain_boundary;
+pub mod history;
+pub mod molar_volume;
 pub mod oxygen;
 pub mod pressure;
 pub mod strength;
 pub mod stress;
 pub mod weibull;
 
+pub use booth::{
+    booth_release_function, dimensionless_time, released_gas_fraction, MAX_SUMMANDS,
+    SUMMAND_CONVERGENCE,
+};
 pub use corrosion::{advance_thinning_factor, corrosion_rate, thinning_factor};
+pub use decomposition::{
+    advance_action_integral, decomposition_rate_constant, thermal_decomposition_failure_fraction,
+    DecompositionCalibration, DECOMPOSITION_ACTIVATION_J_PER_MOL,
+};
 pub use diffusion::{reduced_diffusion_coefficient, KernelKind};
 pub use geometry::SicLayer;
+pub use grain_boundary::{
+    advance_grain_boundary_exposure, corroded_weibull_modulus, grain_boundary_corrosion_rate,
+    GrainBoundaryCorrosion,
+};
+pub use history::{
+    irradiation_tau, AccidentHistory, AccidentStep, FailureProgress, OxygenSource, ParticleState,
+};
+pub use molar_volume::{molar_volume, KernelCompound};
 pub use oxygen::{
     oxygen_per_fission_thoria, oxygen_per_fission_uco, oxygen_per_fission_uo2, HeatingRegime,
     OPF_MAX,
@@ -138,7 +175,7 @@ pub use pressure::{internal_gas_pressure, GAS_CONSTANT_J_PER_MOL_K, STABLE_FISSI
 pub use strength::{
     irradiated_strength, irradiated_weibull_modulus, MIN_TENSILE_STRENGTH_MPA, MIN_WEIBULL_MODULUS,
 };
-pub use stress::{induced_stress, induced_stress_exact};
+pub use stress::{induced_stress, induced_stress_exact, induced_stress_with_thinning_factor};
 pub use weibull::weibull_failure_fraction;
 
 use uom::si::f64::Ratio;
@@ -170,9 +207,9 @@ pub const AS_MANUFACTURED_TARGET: f64 = 6.0e-5;
 /// - `as_manufactured` — `φ_o`. The report's own runs use `0`; see
 ///   [`AS_MANUFACTURED_TARGET`].
 /// - `pressure_vessel` — `φ₁`, from [`weibull_failure_fraction`].
-/// - `thermal_decomposition` — `φ₂`. **Not implemented in this module** (the
-///   action-integral model, Eqs (11)/(12)); pass `Ratio::new::<ratio>(0.0)` to
-///   model pressure-vessel failure alone, and be aware that doing so is
+/// - `thermal_decomposition` — `φ₂`, from
+///   [`thermal_decomposition_failure_fraction`]. Passing
+///   `Ratio::new::<ratio>(0.0)` models pressure-vessel failure alone, which is
 ///   non-conservative above ~2000 °C, where the report attributes failure
 ///   principally to SiC decomposition.
 pub fn total_failure_fraction(
