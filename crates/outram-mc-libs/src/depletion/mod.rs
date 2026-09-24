@@ -68,6 +68,7 @@ pub use chain::{
     UnmodelledChannel, UnmodelledReason,
 };
 pub use matrix::DepletionMatrix;
+pub use operator::deplete_with;
 
 use std::collections::HashMap;
 

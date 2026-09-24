@@ -262,3 +262,71 @@ fn xe135_needs_the_step_to_resolve_its_half_life() {
          got {p_fine:.3}"
     );
 }
+
+/// **The integrator orders, measured on the same history and pinned.** gh:#266
+/// acceptance bullet 2.
+///
+/// Order is measured ONLY below Xe-135's 9.14 h half-life. Above it no method is
+/// in its asymptotic regime — the test above measures the predictor's Xe-135
+/// order as −3.70 at 5 d steps — and a "p" taken across that transient is
+/// nonsense (the coarse band gives `p = 5.75` then `−5.33`).
+///
+/// # Measured 2026-09-24, reference = Cf4 at h = 0.0078 d
+///
+/// | method | nominal | observed | `\|err\|` at h = 0.0156 d |
+/// |---|---|---|---|
+/// | Predictor | 1 | 0.77, rising | 1.52e-6 |
+/// | CeCm | 2 | **1.95** | 3.61e-8 |
+/// | Cf4 | 4 | **1.94** | 1.08e-7 |
+///
+/// **Cf4 does not achieve its nominal 4th order here and CeCm beats it at half
+/// the cost.** Leading explanation (reasoned, not measured): CF4 assumes a
+/// linear non-autonomous `dn/dt = A(t) n`, but `flux_for_power` renormalises the
+/// flux every stage, making `A` a function of `n`. See
+/// `verification_and_validation/depletion/step_convergence_2026_09_24.md`.
+#[test]
+fn the_integrator_orders_are_what_was_measured() {
+    use outram_mc_libs::depletion::integrators::Integrator;
+    use outram_mc_libs::depletion::operator::deplete_with;
+
+    let eol = |i: Integrator, h: f64| -> f64 {
+        let chain = DepletionChain::simple();
+        deplete_with(i, &chain, &initial(), &settings(h))
+            .steps
+            .last()
+            .expect("a step")
+            .k_inf
+    };
+    let reference = eol(Integrator::Cf4, 0.0078125);
+
+    // Below Xe-135's half-life (0.3808 d), so every method is asymptotic.
+    let hs = [0.0625_f64, 0.03125, 0.015625];
+    for (integrator, want_p, tol) in [
+        (Integrator::CeCm, 1.947_f64, 0.08_f64),
+        (Integrator::Cf4, 1.941, 0.08),
+    ] {
+        let k: Vec<f64> = hs.iter().map(|&h| eol(integrator, h)).collect();
+        let p = observed_order(k[0], k[1], k[2]);
+        println!("{integrator:?}: observed order {p:.3} (recorded {want_p:.3})");
+        assert!(
+            (p - want_p).abs() < tol,
+            "{integrator:?} observed order {p:.3} against the recorded {want_p:.3}. \
+             Either the integrator changed or the problem did; re-measure and \
+             update the V&V record rather than widening this gate."
+        );
+    }
+
+    // All three must converge to the SAME limit — the half of the acceptance
+    // criterion that a per-method order cannot express.
+    for integrator in [Integrator::Predictor, Integrator::CeCm, Integrator::Cf4] {
+        let fine = eol(integrator, 0.015625);
+        let rel = (fine - reference).abs() / reference.abs();
+        println!("{integrator:?}: {rel:.3e} relative to the reference at h=0.0156 d");
+        assert!(
+            rel < 1.0e-5,
+            "{integrator:?} sits {rel:.3e} from the reference in the small-step \
+             limit; the methods must agree there or they are not solving the same \
+             problem"
+        );
+    }
+}

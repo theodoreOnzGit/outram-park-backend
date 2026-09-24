@@ -46,6 +46,7 @@
 //! [`mc_keff_of_actinide_sphere`] to demonstrate the transport path is wired.
 
 use super::chain::DepletionChain;
+use super::integrators::Integrator;
 use super::cram::cram16;
 use super::{MicroRate, ReactionRates};
 use crate::material::material::{Material, NuclideComponent};
@@ -642,6 +643,82 @@ const DEFAULT_GROUP_SUB_POINTS: usize = 8;
 /// transmutation step itself (CRAM) is verified to analytic accuracy in
 /// [`super::cram`], and the inventory *trends* are checked against the notebook
 /// in the `depletion` verification test.
+/// Run a one-group burnup history with a **chosen integrator** — gh:#266.
+///
+/// [`deplete_predictor`] is this with [`Integrator::Predictor`], and is kept as
+/// the name every existing caller and recorded result uses.
+///
+/// # Why this exists separately from `Integrator::step`
+///
+/// [`Integrator::CeCm`] and [`Integrator::Cf4`] landed as single-step methods
+/// over a matrix-rebuild closure and were unit-tested on synthetic matrices —
+/// but **no burnup driver took an `Integrator`**, so their order could not be
+/// measured on a real history. #266's acceptance asks for exactly that
+/// ("the observed order reported as a measured number"), so the pieces existed
+/// and nothing joined them. This joins them.
+///
+/// # The flux is rebuilt at every stage, not held fixed
+///
+/// `rebuild` recomputes the flux from the *stage's own* densities before
+/// building the matrix, which is what makes a higher-order method worth
+/// anything: if the matrix were frozen at begin-of-step, every method would
+/// integrate the same constant-coefficient system and CF4 would be exact for
+/// the wrong reason. [`Integrator::Cf4`]'s own tests pin the constant-matrix
+/// case; this driver is the varying-coefficient one.
+///
+/// # Measured (2026-09-24, 40 d at 1 MW, 3 % UO2, `DepletionChain::simple`)
+///
+/// End-of-life `k_inf` against step size, and the Richardson order over
+/// successive halvings — see
+/// `verification_and_validation/depletion/step_convergence_2026_09_24.md`.
+pub fn deplete_with(
+    integrator: Integrator,
+    chain: &DepletionChain,
+    initial: &[(String, f64)],
+    settings: &BurnupSettings,
+) -> BurnupResult {
+    let names: Vec<&str> = chain.nuclide_names();
+    let xs = one_group_cross_sections(chain, settings);
+
+    let mut densities = vec![0.0_f64; names.len()];
+    for (name, dens) in initial {
+        if let Some(idx) = chain.index_of(name) {
+            densities[idx] = *dens;
+        }
+    }
+
+    let record = |step: usize, time_days: f64, flux: f64, densities: &[f64]| BurnupStep {
+        step,
+        time_days,
+        flux,
+        k_inf: k_inf(densities, &xs),
+        densities: names
+            .iter()
+            .zip(densities)
+            .map(|(n, d)| (n.to_string(), *d))
+            .collect(),
+    };
+
+    let mut steps = Vec::with_capacity(settings.n_steps + 1);
+    steps.push(record(0, 0.0, 0.0, &densities));
+
+    let dt_seconds = settings.step_days * SECONDS_PER_DAY;
+    for step in 1..=settings.n_steps {
+        // Reported flux is the begin-of-step one, which is what
+        // `deplete_predictor` has always recorded; the integrator's internal
+        // stages rebuild their own.
+        let flux0 = flux_for_power(&names, &densities, &xs, settings);
+        densities = integrator.step(&densities, dt_seconds, |n| {
+            let flux = flux_for_power(&names, n, &xs, settings);
+            chain.build_matrix(&reaction_rates(&names, flux, &xs))
+        });
+        let time_days = step as f64 * settings.step_days;
+        steps.push(record(step, time_days, flux0, &densities));
+    }
+
+    BurnupResult { steps }
+}
+
 pub fn deplete_predictor(
     chain: &DepletionChain,
     initial: &[(String, f64)],
