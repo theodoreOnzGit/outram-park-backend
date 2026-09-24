@@ -1509,13 +1509,28 @@ impl DigitiseApp {
         // it gains a leading `series` column (see
         // `DigitisedDataset::many_to_csv_data_only` on why it is long-form
         // and not one column per curve).
+        // One artifact, one ```csv fence per curve, delimited by `###`
+        // sentinels (maintainer, 2026-09-24). A single curve keeps the plain
+        // body it has always had -- byte-identical -- so nothing that reads
+        // an existing artifact changes.
         let series = self.all_series();
-        let csv = if series.len() > 1 {
-            DigitisedDataset::many_to_csv_data_only(&series)
+        let csv_body = if series.len() > 1 {
+            let blocks: Vec<crate::artifact::SeriesBlock> = series
+                .iter()
+                .enumerate()
+                .map(|(i, d)| crate::artifact::SeriesBlock {
+                    name: d
+                        .series
+                        .clone()
+                        .filter(|n| !n.trim().is_empty())
+                        .unwrap_or_else(|| format!("series-{}", i + 1)),
+                    csv: d.to_csv_data_only(),
+                })
+                .collect();
+            crate::artifact::render_multi_series_body(&blocks)
         } else {
-            d.to_csv_data_only()
+            crate::artifact::render_csv_body(&d.to_csv_data_only())
         };
-        let csv_body = crate::artifact::render_csv_body(&csv);
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
         // artifact (so the page-context panel can re-open it), replacing the
