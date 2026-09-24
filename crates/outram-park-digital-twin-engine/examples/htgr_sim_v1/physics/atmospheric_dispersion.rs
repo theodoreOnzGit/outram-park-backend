@@ -381,6 +381,34 @@ impl DispersionResult {
 /// meaningfully change faster than this.
 pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 60.0;
 
+/// How often the Map tab's `chi/Q` **field** is allowed to refresh \[s of
+/// **wall-clock** time\], as distinct from [`DISPERSION_EVALUATION_INTERVAL_S`],
+/// which throttles the receptor ring.
+///
+/// # The field and the ring are on different clocks, for a real reason
+///
+/// [`DISPERSION_EVALUATION_INTERVAL_S`]'s reasoning — that nothing the model
+/// reads can change faster than the release rate, which follows the kernel
+/// temperature, which moves on the bed's ~184 s time constant — is correct
+/// **for the ring**, because the ring's activity columns depend on the
+/// source. It does **not** transfer to the field: `chi/Q` is a dilution
+/// factor that by construction does not depend on the source at all (see the
+/// module doc), only on meteorology and geometry. Its actual input is the
+/// operator's wind slider, which moves as fast as a hand does.
+///
+/// So the field is rate-limited on **wall-clock** time, not plant time: a
+/// paused or fast-forwarded simulation must not change how responsive the map
+/// feels to a hand on the slider. `0.1 s` is the 10 Hz the Map tab targets.
+///
+/// This is purely a **rate limit**, not a schedule — [`AtmosphericDispersionChannel::refresh_field`]
+/// only ever recomputes when the meteorology has actually changed, which is
+/// the overwhelmingly common case (the wind sits still far more often than an
+/// operator is dragging it). A slow field computation is not "fixed" by
+/// coarsening the grid or blocking the caller: it simply refreshes less often
+/// than 10 Hz, with the last field staying on screen until the next one is
+/// ready.
+pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
+
 /// The dispersion channel: fixed site inputs, operator meteorology, and the
 /// most recent result.
 #[derive(Debug, Clone)]
@@ -393,6 +421,10 @@ pub struct AtmosphericDispersionChannel {
     grid_cache: Option<DispersionGrid>,
     /// The meteorology `grid_cache` was computed for.
     grid_meteorology: Option<Meteorology>,
+    /// Wall-clock time [`Self::refresh_field`] last actually recomputed the
+    /// field, for the [`FIELD_REFRESH_INTERVAL_S`] rate limit. Deliberately
+    /// `std::time::Instant`, not plant time -- see that constant's doc.
+    last_field_refresh: Option<std::time::Instant>,
 }
 
 impl AtmosphericDispersionChannel {
@@ -404,8 +436,9 @@ impl AtmosphericDispersionChannel {
             meteorology: Meteorology::default(),
             latest: None,
             last_evaluated_s: None,
-                    grid_cache: None,
+            grid_cache: None,
             grid_meteorology: None,
+            last_field_refresh: None,
         }
     }
 
@@ -451,6 +484,46 @@ impl AtmosphericDispersionChannel {
         self.grid_meteorology = Some(self.meteorology);
         self.latest = Some(result);
         self.last_evaluated_s = Some(sim_time_s);
+        true
+    }
+
+    /// Refresh the map field on its own, faster clock -- see
+    /// [`FIELD_REFRESH_INTERVAL_S`] for why the field and the ring must not
+    /// share a throttle.
+    ///
+    /// Returns `true` if the field was actually recomputed. Two independent
+    /// reasons return `false` without doing any work:
+    ///
+    /// 1. the cached field already matches the current meteorology -- the
+    ///    overwhelmingly common case, since the wind sits still far more often
+    ///    than it moves;
+    /// 2. the meteorology changed, but under [`FIELD_REFRESH_INTERVAL_S`] of
+    ///    wall-clock time has passed since the last refresh -- the rate limit
+    ///    that keeps a dragged slider from triggering a field evaluation on
+    ///    every frame.
+    ///
+    /// Does **not** touch [`Self::update`]'s throttle or its receptor ring:
+    /// the two are deliberately independent clocks.
+    pub fn refresh_field(&mut self) -> bool {
+        if self.grid_is_current_for(&self.meteorology) {
+            return false;
+        }
+        let now = std::time::Instant::now();
+        if let Some(last) = self.last_field_refresh {
+            if now.duration_since(last).as_secs_f64() < FIELD_REFRESH_INTERVAL_S {
+                return false;
+            }
+        }
+
+        let grid = self.compute_field(&self.run_config());
+        self.grid_cache = Some(grid.clone());
+        self.grid_meteorology = Some(self.meteorology);
+        self.last_field_refresh = Some(now);
+        // So a snapshot written before the next `update()` picks up the fresh
+        // field rather than the one `latest` was built with.
+        if let Some(latest) = &mut self.latest {
+            latest.grid = grid;
+        }
         true
     }
 
@@ -523,7 +596,10 @@ impl AtmosphericDispersionChannel {
         // million kernel evaluations -- so it is reused verbatim whenever the
         // meteorology has not changed. `chi/Q` is a dilution factor and does
         // not depend on the source, so a moving release rate cannot change it.
-        let grid = match (&self.grid_cache, self.grid_is_current_for(&self.meteorology)) {
+        let grid = match (
+            &self.grid_cache,
+            self.grid_is_current_for(&self.meteorology),
+        ) {
             (Some(cached), true) => cached.clone(),
             _ => self.compute_field(&config),
         };
@@ -664,9 +740,10 @@ impl AtmosphericDispersionChannel {
                 let travel = speed * age;
                 // Zero travel is upstream's NA path: a puff that has not
                 // moved has no sigma and contributes nothing.
-                if let Some(sig) =
-                    pasquill_gifford_sigmas(self.stability_for_field(), Length::new::<meter>(travel))
-                {
+                if let Some(sig) = pasquill_gifford_sigmas(
+                    self.stability_for_field(),
+                    Length::new::<meter>(travel),
+                ) {
                     states.push(PuffState {
                         x: (u * age) as f32,
                         y: (v * age) as f32,
@@ -701,14 +778,22 @@ impl AtmosphericDispersionChannel {
 
     /// Evaluate the map field.
     ///
-    /// Sums [`Self::field_states`] over the grid on changi's own thread pool
-    /// (`changi::puff::wgsl::field_pooled`), which is the CPU path. The GPU
-    /// path dispatches the same arithmetic as a WGSL kernel through PETIR's
-    /// runner; both exist because `outram-mc-libs/CLAUDE.md`'s GPU policy
-    /// makes the CPU route mandatory and trusted, and here it is also the
-    /// reference the GPU result is checked against.
+    /// Sums [`Self::field_states`] over the grid through
+    /// `changi::puff::wgsl::field_auto`, which dispatches the WGSL kernel on
+    /// the GPU when one is there and falls back to changi's own CPU thread
+    /// pool when it is not. Both paths exist because
+    /// `outram-mc-libs/CLAUDE.md`'s GPU policy makes the CPU route mandatory
+    /// and trusted, and here it is also the reference the GPU result is
+    /// checked against (`field_gpu_agrees_with_the_serial_reference`, 1e-4
+    /// relative).
+    ///
+    /// Measured on the simulator's own 7 260-puff working point (see
+    /// `changi::puff::wgsl`'s timing table, 2026-09-24): **~2.0 ms on the
+    /// GPU, ~15.9 ms pooled on 16 cores, ~136 ms serial.** Either of the
+    /// first two fits inside `PHYSICS_TICK`; the selection is about not
+    /// wasting the budget, not about whether it fits.
     fn compute_field(&self, config: &RunConfig) -> DispersionGrid {
-        use changi::puff::wgsl::{field_pooled, FieldGrid};
+        use changi::puff::wgsl::{field_auto, FieldGrid};
 
         let states = self.field_states(config);
         let grid = FieldGrid {
@@ -717,7 +802,7 @@ impl AtmosphericDispersionChannel {
             source_height_m: self.site.release_height.get::<meter>() as f32,
         };
         DispersionGrid {
-            chi_over_q: field_pooled(&states, &grid)
+            chi_over_q: field_auto(&states, &grid)
                 .into_iter()
                 .map(f64::from)
                 .collect(),
@@ -1190,5 +1275,85 @@ mod tests {
                 peak.bearing_deg
             );
         }
+    }
+
+    /// **The field's own clock is a no-op once it is caught up.** The first
+    /// call on a fresh channel has nothing cached yet and must actually
+    /// compute; an immediate second call, with the meteorology unchanged,
+    /// must not.
+    #[test]
+    fn refresh_field_is_a_no_op_once_the_meteorology_is_cached() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        assert!(
+            channel.refresh_field(),
+            "the first call has nothing cached and must compute"
+        );
+        assert!(
+            !channel.refresh_field(),
+            "an unchanged meteorology must not trigger another computation"
+        );
+    }
+
+    /// **A meteorology change is allowed one refresh, then the rate limit
+    /// holds** -- this is [`FIELD_REFRESH_INTERVAL_S`]'s whole point: a
+    /// dragged slider must not trigger a field evaluation on every frame.
+    #[test]
+    fn changing_the_meteorology_forces_one_refresh_then_the_rate_limit_holds() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        assert!(channel.refresh_field(), "establish the baseline cache");
+
+        channel.set_meteorology(Meteorology {
+            direction_from: Angle::new::<degree>(90.0),
+            ..Meteorology::default()
+        });
+        assert!(
+            channel.refresh_field(),
+            "a changed meteorology must trigger exactly one refresh"
+        );
+        assert!(
+            !channel.refresh_field(),
+            "an immediate second call must be refused by the rate limit"
+        );
+    }
+
+    /// **The rate limit is genuinely time-based, not merely "the cache
+    /// happens to already match".** With a meteorology the cache does NOT
+    /// match, a refresh attempted well inside [`FIELD_REFRESH_INTERVAL_S`] of
+    /// the last one must still be refused; the same call must succeed once
+    /// that interval has genuinely elapsed. This is the branch that actually
+    /// protects the plant loop while an operator drags the wind slider faster
+    /// than 10 Hz.
+    #[test]
+    fn refresh_field_rate_limit_is_time_based_not_cache_based() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        // The cache belongs to a DIFFERENT meteorology from the one now set,
+        // refreshed "just now" -- so `grid_is_current_for` is false and the
+        // only thing that can block this call is the wall-clock gate.
+        channel.grid_meteorology = Some(Meteorology {
+            direction_from: Angle::new::<degree>(45.0),
+            ..Meteorology::default()
+        });
+        channel.last_field_refresh = Some(std::time::Instant::now());
+        assert_ne!(
+            channel.grid_meteorology,
+            Some(channel.meteorology),
+            "the test setup must actually leave the cache stale"
+        );
+        assert!(
+            !channel.refresh_field(),
+            "a refresh inside FIELD_REFRESH_INTERVAL_S must be refused even \
+             though the meteorology does not match the cache"
+        );
+
+        // Once the interval has genuinely elapsed, the same stale cache must
+        // be allowed to refresh.
+        channel.last_field_refresh = Some(
+            std::time::Instant::now()
+                - std::time::Duration::from_secs_f64(FIELD_REFRESH_INTERVAL_S + 0.05),
+        );
+        assert!(
+            channel.refresh_field(),
+            "past the interval, a changed meteorology must be allowed to refresh"
+        );
     }
 }

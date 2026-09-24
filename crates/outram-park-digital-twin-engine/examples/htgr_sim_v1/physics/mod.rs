@@ -783,6 +783,32 @@ pub fn nominal_helium_flow() -> MassRate {
 /// The full plant model: kinetics + pebble-bed core + helium primary loop +
 /// steam secondary loop, plus the running simulation clock.
 pub struct HtgrPlant {
+    /// Whether a **Map tab is on screen**, and so whether the dispersion
+    /// field should be refreshed at map cadence (10 Hz) as well as at
+    /// [`AtmosphericDispersionChannel::update`]'s 60 s physics throttle.
+    ///
+    /// **Off by default, and the GUI is what turns it on**
+    /// ([`Self::with_live_map_field`]). Two independent reasons, either
+    /// sufficient:
+    ///
+    /// 1. **Headless runs must not depend on the wall clock.** The 10 Hz
+    ///    refresh is gated on `std::time::Instant`, so a headless run that
+    ///    took it would produce a trace that depends on how fast the machine
+    ///    is. `headless.rs` asserts `run(&cfg) == run(&cfg)`; this is the
+    ///    field that would break it. A headless run has no map to draw, so it
+    ///    loses nothing.
+    /// 2. **A GUI run has a GPU by construction.** `eframe` does not start
+    ///    without an adapter, so in the only mode that sets this flag the
+    ///    field costs ~2 ms (measured; see `changi::puff::wgsl`'s timing
+    ///    table). That is why this is a mode flag rather than a runtime
+    ///    adapter probe -- probing would ask a question whose answer is
+    ///    already implied by being here at all.
+    ///
+    /// Even the CPU path would fit: 15.9 ms pooled at the simulator's 7 260-
+    /// puff working point, against a 100 ms `PHYSICS_TICK`. The flag is about
+    /// determinism and about not doing work nobody is looking at, not about
+    /// affordability.
+    pub map_field_live: bool,
     /// Reactor kinetics slot (prompt excursion + delayed-neutron bank).
     pub kinetics: HtgrKinetics,
     /// Pebble-bed core -- the graphite thermal inertia between the fission
@@ -834,6 +860,9 @@ impl HtgrPlant {
     pub fn new() -> Self {
         let nominal_power = nominal_thermal_power();
         Self {
+            // Off by default: headless and every test get the deterministic,
+            // no-wall-clock path. `with_live_map_field` is the GUI's opt-in.
+            map_field_live: false,
             kinetics: HtgrKinetics::new_htr10_published(nominal_power),
             core: ReactorModel::default(), // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
             primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
@@ -862,6 +891,23 @@ impl HtgrPlant {
     #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
     pub fn pebble_temperature(&self) -> ThermodynamicTemperature {
         self.core.temperature()
+    }
+
+    /// Turn on the 10 Hz map-field refresh — **the GUI's opt-in**, and the
+    /// only thing that should ever call this.
+    ///
+    /// See [`Self::map_field_live`] for why the discriminator is "is a map on
+    /// screen" rather than "is a GPU present": a run that reaches `eframe`
+    /// has an adapter by construction, and a run that does not has no map to
+    /// refresh and must stay independent of the wall clock.
+    ///
+    /// Deliberately a consuming builder rather than a setter: turning this on
+    /// mid-run would change a plant's timing behaviour partway through a
+    /// trace, which is exactly the kind of state change `headless.rs`'s
+    /// determinism assertion exists to forbid.
+    pub fn with_live_map_field(mut self) -> Self {
+        self.map_field_live = true;
+        self
     }
 
     /// The pebble-bed fidelity tier currently selected. See
@@ -1234,6 +1280,19 @@ impl HtgrPlant {
         if commands.meteorology != self.dispersion.meteorology() {
             self.dispersion.set_meteorology(commands.meteorology);
         }
+        // The map field at 10 Hz, but ONLY when a map is actually on screen.
+        // See `Self::map_field_live` for why this is the right discriminator
+        // and not an adapter probe: a GUI run has a GPU by construction
+        // (eframe would not have started without one), so the field costs
+        // ~2 ms there, while a headless run has no map to refresh and must
+        // stay free of wall-clock-dependent state. `refresh_field` is itself
+        // a rate limit, not a schedule -- it recomputes only when the
+        // meteorology actually changed -- and the field still updates through
+        // `update`'s own 60 s throttle below either way. This gates CADENCE,
+        // never the model: both paths compute the same numbers.
+        if self.map_field_live {
+            self.dispersion.refresh_field();
+        }
         self.dispersion
             .update(self.sim_time.get::<second>(), &self.release);
     }
@@ -1409,6 +1468,32 @@ impl Default for HtgrPlant {
 
 #[cfg(test)]
 mod tests {
+
+    use super::*;
+
+    /// **The map-field refresh must be OFF unless a GUI turned it on.**
+    ///
+    /// `AtmosphericDispersionChannel::refresh_field` is gated on
+    /// `std::time::Instant`, so a plant that takes it produces a trace that
+    /// depends on how fast the host is. `headless.rs` asserts
+    /// `run(&cfg) == run(&cfg)`; this test pins the flag that would break
+    /// that assertion, at the constructor every headless run and every test in
+    /// this file goes through.
+    ///
+    /// The GUI's opt-in is pinned in the same test so the two cannot drift:
+    /// if someone flips the default, one of the two halves fails.
+    #[test]
+    fn the_live_map_field_is_off_by_default_and_only_the_gui_builder_turns_it_on() {
+        assert!(
+            !HtgrPlant::new().map_field_live,
+            "HtgrPlant::new() must not take the wall-clock-gated map refresh; \
+             headless determinism depends on it"
+        );
+        assert!(
+            HtgrPlant::new().with_live_map_field().map_field_live,
+            "with_live_map_field() is the GUI's opt-in and must set the flag"
+        );
+    }
     use super::*;
     use crate::app::state::HtgrSnapshot;
 
@@ -1929,7 +2014,10 @@ mod tests {
             // failed only at 4.
             plant.decay_heat_path = decay_heat_removal::CoreToRccsPath::new_at_steady_state(
                 ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(
-                    plant.core.temperature().get::<uom::si::thermodynamic_temperature::kelvin>()
+                    plant
+                        .core
+                        .temperature()
+                        .get::<uom::si::thermodynamic_temperature::kelvin>()
                         + 150.0,
                 ),
             );
@@ -3143,14 +3231,20 @@ mod tests {
         };
 
         println!("\n=== HTR-10 LOFC ATWS: Xe-135 on vs off ===");
-        println!("initial power        : {:.4} MW (test: 3.315 MW)", without[0].fission_power_w / 1.0e6);
+        println!(
+            "initial power        : {:.4} MW (test: 3.315 MW)",
+            without[0].fission_power_w / 1.0e6
+        );
         println!("rod insertion        : {rod_no_xe:.6} (no Xe), {rod_xe:.6} (with Xe), helium flow {flow_30pct:.3} kg/s");
         println!(
             "equilibrium Xe worth : {} $ (MODEL INPUT, not derived)",
             kinetics::EQUILIBRIUM_XENON_WORTH_DOLLARS
         );
         println!();
-        println!("{:<22} {:>14} {:>14}   {}", "parameter", "without Xe", "with Xe", "measured / published");
+        println!(
+            "{:<22} {:>14} {:>14}   {}",
+            "parameter", "without Xe", "with Xe", "measured / published"
+        );
         println!("{:-<80}", "");
         println!(
             "{:<22} {:>14} {:>14}   {}",
@@ -3175,10 +3269,7 @@ mod tests {
         );
         println!(
             "{:<22} {:>14.0} {:>14.0}   {}",
-            "peak time",
-            pkt_no,
-            pkt_yes,
-            "4400 s test, 4200 s GAMMA+"
+            "peak time", pkt_no, pkt_yes, "4400 s test, 4200 s GAMMA+"
         );
         println!();
         println!(
@@ -3551,7 +3642,10 @@ mod tests {
         let last = trace.last().expect("non-empty");
 
         println!("\n=== HTR-10 LOFC ATWS at the test condition ===");
-        println!("initial fission power : {:.4} MW   (test: 3.0 MW)", p0 / 1.0e6);
+        println!(
+            "initial fission power : {:.4} MW   (test: 3.0 MW)",
+            p0 / 1.0e6
+        );
         match one_percent {
             Some(t) => println!("shutdown to 1 %       : {t:.0} s          (test: 330 s)"),
             None => println!("shutdown to 1 %       : NOT REACHED"),
@@ -3632,7 +3726,9 @@ mod tests {
 
         println!("\n=== HTR-10 3 MWth initial condition: where the bank sits ===");
         println!("beta_eff                      : {beta:.6}");
-        println!("cold clean critical insertion : {cold_clean:.6}  (S-curve vs published bank worth)");
+        println!(
+            "cold clean critical insertion : {cold_clean:.6}  (S-curve vs published bank worth)"
+        );
         println!("simulator opening position    : {opening:.6}");
         println!("insertion holding 3 MWth      : {rod_3mw:.6}  at {flow_30pct:.3} kg/s helium");
         println!("  -> settled power            : {got:.4} MW   (target 3.0000 MW)");
@@ -3647,9 +3743,11 @@ mod tests {
             "the bisection must land within 0.15 MW of 3 MWth, got {got:.4} MW at \
              insertion {rod_3mw:.6}"
         );
-        assert!((0.0..=1.0).contains(&rod_3mw), "insertion must be physical, got {rod_3mw}");
+        assert!(
+            (0.0..=1.0).contains(&rod_3mw),
+            "insertion must be physical, got {rod_3mw}"
+        );
     }
-
 
     /// Settle the plant at a rod position and flow, then report the state it
     /// reaches -- power AND the two temperatures -- sampled along the way so a
@@ -3699,14 +3797,15 @@ mod tests {
     /// not plant behaviour.
     #[test]
     fn report_the_steady_state_bed_temperature_at_the_opening_condition() {
-        let flow = GUI_INITIAL_HELIUM_FLOW_KG_PER_S
-            * nominal_helium_flow().get::<kilogram_per_second>();
-        println!("\n=== settling at insertion {GUI_INITIAL_ROD_INSERTION}, flow {flow:.3} kg/s ===");
+        let flow =
+            GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow().get::<kilogram_per_second>();
+        println!(
+            "\n=== settling at insertion {GUI_INITIAL_ROD_INSERTION}, flow {flow:.3} kg/s ==="
+        );
         let (p, bed, fuel) = settled_state(GUI_INITIAL_ROD_INSERTION, flow, 6000.0);
         println!("\nSTEADY STATE after 6000 s:");
         println!("  power {p:.4} MW   bed {bed:.4} K   fuel {fuel:.4} K");
         println!("  (seed the bed at {bed:.4} K)");
         assert!(p.is_finite() && bed.is_finite());
     }
-
 }
