@@ -418,13 +418,14 @@ impl DigitisedDataset {
         if let Some(t) = &self.trace {
             let _ = writeln!(s, "# engine: {}", t.engine);
         }
-        match &self.review {
-            ReviewStatus::Unreviewed => {
-                let _ = writeln!(s, "# review: UNREVIEWED — points not yet human-verified");
-            }
-            ReviewStatus::Reviewed { by, at, interface } => {
-                let _ = writeln!(s, "# review: reviewed by {by} at {at} via {interface:?}");
-            }
+        // Unreviewed emits NOTHING. The old "UNREVIEWED — points not yet
+        // human-verified" line was stale by the time anyone read it: the
+        // operator places every point by hand against the figure, so there
+        // is no unchecked machine output for the warning to be about
+        // (maintainer, 2026-09-24). A recorded review is still worth
+        // stating, because that carries a name and a date.
+        if let ReviewStatus::Reviewed { by, at, interface } = &self.review {
+            let _ = writeln!(s, "# review: reviewed by {by} at {at} via {interface:?}");
         }
         let _ = writeln!(s, "# per-point uncertainty and origin (auto-traced/hand-placed/hand-corrected) are in the JSON export, not this CSV");
         s.push_str(&self.to_csv_data_only());
@@ -587,14 +588,15 @@ impl DigitisedDataset {
             y_axis,
             digitised_by: Some(no_hash(self.digitised_by.clone())).filter(|d| !d.is_empty()),
             digitised_at: Some(no_hash(self.digitised_at.clone())).filter(|d| !d.is_empty()),
-            review: Some(match &self.review {
-                ReviewStatus::Unreviewed => {
-                    "UNREVIEWED — points not yet human-verified".to_string()
-                }
+            // `None` when unreviewed, so the artifact's `[extraction]`
+            // table simply has no `review` row rather than a stale warning
+            // about machine output that hand-placed points never were.
+            review: match &self.review {
+                ReviewStatus::Unreviewed => None,
                 ReviewStatus::Reviewed { by, at, interface } => {
-                    format!("reviewed by {by} at {at} via {interface:?}")
+                    Some(format!("reviewed by {by} at {at} via {interface:?}"))
                 }
-            }),
+            },
         }
     }
 
@@ -852,10 +854,45 @@ mod tests {
         }
     }
 
+    /// An unreviewed dataset says **nothing** about review.
+    ///
+    /// The CSV used to carry "UNREVIEWED — points not yet human-verified".
+    /// That was stale: every point is placed by hand against the figure, so
+    /// there is no machine output for the warning to be about, and there is
+    /// no AI review step for it to be pending on (maintainer, 2026-09-24).
+    /// A recorded review still prints, because that carries a name and date.
     #[test]
-    fn unreviewed_status_is_stated_in_csv() {
+    fn an_unreviewed_dataset_says_nothing_about_review() {
         let csv = dataset().to_csv_string();
-        assert!(csv.contains("UNREVIEWED"));
+        assert!(
+            !csv.to_uppercase().contains("UNREVIEWED"),
+            "the stale marker must not come back:\n{csv}"
+        );
+        assert!(!csv.contains("# review:"), "no review line at all:\n{csv}");
+
+        // And `[extraction]` has no `review` row either.
+        assert!(dataset()
+            .extraction("manual_digitisation", None)
+            .review
+            .is_none());
+    }
+
+    /// A real review is still stated, with who and when.
+    #[test]
+    fn a_recorded_review_is_still_printed() {
+        let mut d = dataset();
+        d.review = ReviewStatus::Reviewed {
+            by: "teddy0".into(),
+            at: "2026-09-24T00:00:00Z".into(),
+            interface: ReviewInterface::Gui,
+        };
+        let csv = d.to_csv_string();
+        assert!(csv.contains("reviewed by teddy0"), "{csv}");
+        assert!(d
+            .extraction("manual_digitisation", None)
+            .review
+            .expect("recorded")
+            .contains("teddy0"));
     }
 
     /// Maintainer dogfooding feedback, 2026-09-02: per-point uncertainty

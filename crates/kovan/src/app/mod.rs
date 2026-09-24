@@ -422,10 +422,14 @@ pub struct DigitiseApp {
     y_log: bool,
     // trace tuning
     threshold: u8,
-    /// Spacing between points laid along a drawn stroke, in image pixels
-    /// (#290 — "the points will be placed 2 pixels apart", which is the
-    /// default; the slider exists because a dense figure sometimes wants
-    /// coarser).
+    /// Spacing between points laid along a drawn stroke, in image pixels.
+    ///
+    /// ~~2 px, per #290's "the points will be placed 2 pixels apart".~~
+    /// **CORRECTED 2026-09-24** — the default is **10 px** (maintainer).
+    /// 2 px laid down hundreds of points per curve, which is far denser than
+    /// a digitisation needs and made the point list unwieldy to correct by
+    /// hand. The slider still spans 1..=20 for a figure that wants finer or
+    /// coarser.
     snap_spacing: f64,
     // provenance input
     figure: String,
@@ -547,7 +551,7 @@ impl Default for DigitiseApp {
             x_log: false,
             y_log: false,
             threshold: 128,
-            snap_spacing: 2.0,
+            snap_spacing: 10.0,
             figure: String::new(),
             document_title: String::new(),
             document_id: String::new(),
@@ -1454,16 +1458,20 @@ impl DigitiseApp {
         }
         let mut saved = format!("saved {}", self.json_out.trim());
         if !self.csv_out.trim().is_empty() {
-            let series = self.all_series();
             let path = std::path::Path::new(self.csv_out.trim());
-            let result = if series.len() > 1 {
-                // Every curve in one file, rather than the live one only --
-                // exporting a multi-series figure and silently getting one
-                // series would be the worst kind of quiet data loss.
-                std::fs::write(path, DigitisedDataset::many_to_csv_data_only(&series))
-                    .map_err(|e| e.to_string())
-            } else {
-                d.write_csv(path).map_err(|e| e.to_string())
+            // Same rule as the markdown path: the CSV comes from
+            // `all_series()`, never from a possibly-emptied live `dataset`.
+            let result = {
+                let series = self.all_series();
+                match series.len() {
+                    0 => Err("no points traced yet — nothing to export".to_string()),
+                    1 => series[0].write_csv(path).map_err(|e| e.to_string()),
+                    // Every curve in one file: exporting a multi-series
+                    // figure and silently getting one would be the worst
+                    // kind of quiet data loss.
+                    _ => std::fs::write(path, DigitisedDataset::many_to_csv_data_only(&series))
+                        .map_err(|e| e.to_string()),
+                }
             };
             match result {
                 Ok(()) => saved.push_str(&format!(" and {}", self.csv_out.trim())),
@@ -1513,23 +1521,41 @@ impl DigitiseApp {
         // sentinels (maintainer, 2026-09-24). A single curve keeps the plain
         // body it has always had -- byte-identical -- so nothing that reads
         // an existing artifact changes.
-        let series = self.all_series();
-        let csv_body = if series.len() > 1 {
-            let blocks: Vec<crate::artifact::SeriesBlock> = series
-                .iter()
-                .enumerate()
-                .map(|(i, d)| crate::artifact::SeriesBlock {
-                    name: d
-                        .series
-                        .clone()
-                        .filter(|n| !n.trim().is_empty())
-                        .unwrap_or_else(|| format!("series-{}", i + 1)),
-                    csv: d.to_csv_data_only(),
-                })
-                .collect();
-            crate::artifact::render_multi_series_body(&blocks)
-        } else {
-            crate::artifact::render_csv_body(&d.to_csv_data_only())
+        // Read the CSV from `all_series()`, never from the live `dataset`.
+        // Banking a curve moves its points out of `dataset` and leaves that
+        // empty, so the single-series branch used to render the EMPTY live
+        // buffer and save a header row with no data -- reported as "the csv
+        // turns up blank" (maintainer, 2026-09-24).
+        let csv_body = {
+            let series = self.all_series();
+            match series.len() {
+                0 => None,
+                1 => Some(crate::artifact::render_csv_body(
+                    &series[0].to_csv_data_only(),
+                )),
+                _ => {
+                    let blocks: Vec<crate::artifact::SeriesBlock> = series
+                        .iter()
+                        .enumerate()
+                        .map(|(i, d)| crate::artifact::SeriesBlock {
+                            name: d
+                                .series
+                                .clone()
+                                .filter(|n| !n.trim().is_empty())
+                                .unwrap_or_else(|| format!("series-{}", i + 1)),
+                            csv: d.to_csv_data_only(),
+                        })
+                        .collect();
+                    Some(crate::artifact::render_multi_series_body(&blocks))
+                }
+            }
+        };
+        // Saving nothing is an error, not a silent empty artifact. A blank
+        // CSV in a paper's markdown looks like a digitisation that found no
+        // data, which is a very different claim from "not traced yet".
+        let Some(csv_body) = csv_body else {
+            self.set_error("no points traced yet — nothing to save");
+            return;
         };
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
@@ -1914,13 +1940,16 @@ impl DigitiseApp {
             }
         });
         if let Some(d) = &self.dataset {
+            // A review shows only when there IS one. An "UNREVIEWED" badge
+            // was stale: every point here is hand-placed and there is no AI
+            // review step for it to be pending on (maintainer, 2026-09-24).
             let review = match &d.review {
-                ReviewStatus::Unreviewed => "UNREVIEWED".to_string(),
+                ReviewStatus::Unreviewed => String::new(),
                 ReviewStatus::Reviewed { by, at, .. } => {
-                    format!("reviewed by {by} at {at}")
+                    format!(" · reviewed by {by} at {at}")
                 }
             };
-            ui.label(format!("{} points · {review}", d.points.len()));
+            ui.label(format!("{} points{review}", d.points.len()));
             if let Some(i) = self.selected {
                 if let Some(p) = d.points.get(i) {
                     ui.label(format!(
@@ -3984,6 +4013,64 @@ mod tests {
             "a new figure starts with no series"
         );
         assert!(app.series_name.is_empty());
+    }
+
+
+    /// **A banked series must still reach the CSV.**
+    ///
+    /// Banking moves the points out of `dataset` and leaves it empty, so the
+    /// single-series path used to render the EMPTY live buffer -- a header
+    /// row and no data. Reported as "the csv turns up blank" (maintainer,
+    /// 2026-09-24) after digitising a one-curve figure and banking it.
+    #[test]
+    fn a_banked_series_is_what_gets_written_not_the_emptied_live_one() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        app.series_name = "only curve".into();
+        app.finish_series();
+
+        // The state that used to produce a blank CSV: one banked curve, and
+        // a live dataset that is empty.
+        assert_eq!(app.completed_series.len(), 1);
+        assert!(app.dataset.as_ref().expect("live").points.is_empty());
+
+        let series = app.all_series();
+        assert_eq!(series.len(), 1, "the banked curve is the only one");
+        let csv = series[0].to_csv_data_only();
+        assert!(
+            csv.lines().count() > 1,
+            "the CSV must carry data rows, not just a header:\n{csv}"
+        );
+        assert!(csv.contains("1,2"), "the banked point must be present:\n{csv}");
+
+        // And the live (empty) dataset is NOT what would have been written.
+        let live = app.dataset.as_ref().expect("live").to_csv_data_only();
+        assert_eq!(
+            live.lines().count(),
+            1,
+            "precondition: the live buffer really is header-only"
+        );
+    }
+
+    /// With nothing traced at all, saving reports an error rather than
+    /// writing an empty artifact. A blank CSV in a paper's markdown reads as
+    /// "this digitisation found no data", which is a very different claim
+    /// from "not traced yet".
+    #[test]
+    fn saving_with_no_points_is_an_error_not_an_empty_artifact() {
+        let mut app = DigitiseApp::default();
+        let mut d = sample_dataset_for_series();
+        d.points.clear();
+        app.dataset = Some(d);
+        assert!(app.all_series().is_empty());
+
+        app.save_into_project();
+        assert!(app.message_is_error, "must report, not write nothing");
+        assert!(
+            app.message.contains("no points"),
+            "unexpected message: {}",
+            app.message
+        );
     }
 
 }

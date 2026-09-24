@@ -70,10 +70,9 @@ pub fn run(image_arg: Option<String>, startup: Startup) -> Result<(), String> {
                 app.load_image(&path);
             }
             if let Some(dir) = startup.root {
-                if let Err(e) = app.open_root_and_paper(
-                    std::path::Path::new(&dir),
-                    startup.paper.as_deref(),
-                ) {
+                if let Err(e) =
+                    app.open_root_and_paper(std::path::Path::new(&dir), startup.paper.as_deref())
+                {
                     eprintln!("kovan: {e}");
                 }
             }
