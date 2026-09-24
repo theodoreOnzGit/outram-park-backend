@@ -115,6 +115,7 @@
 //! | [`grain_boundary`] | (10b), (10c) — off by default | -495- |
 //! | [`decomposition`] | (11), (12), (13), (14a), (14b) | -496-/-497- |
 //! | [`history`] | the time-stepping driver, §3.1 | -482-/-483- |
+//! | [`htr10`] | HTR-10 applied to the model — an **extrapolation** | — |
 //!
 //! The assembly (`phi_total`) stays here, since it is what binds them.
 //! Everything is re-exported flat, so a caller writes
@@ -141,6 +142,7 @@ pub mod diffusion;
 pub mod geometry;
 pub mod grain_boundary;
 pub mod history;
+pub mod htr10;
 pub mod molar_volume;
 pub mod oxygen;
 pub mod pressure;

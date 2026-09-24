@@ -181,4 +181,46 @@ mod tests {
              must fall faster"
         );
     }
+
+    /// **Eqs (8a)/(9a) reproduce Table 2 as well as Table 1 — 4/4, at a
+    /// different fluence and irradiation temperature.**
+    ///
+    /// Methodology: Table 2 (page -504-) lists `σ_oo/σ_o` and `m_oo/m_o` for
+    /// the HTR-Module and HTR-500 cases, computed at `Γ = 1.4·10²⁵ m⁻² EDN`
+    /// and the average irradiation temperatures it also states — 776 °C and
+    /// 792 °C. Table 1's sixteen values were all at `Γ = 1` and 1000 °C, so
+    /// this exercises the fluence and temperature dependence rather than
+    /// repeating one operating point.
+    ///
+    /// | case | `T_B` | Table 2 `σ_o` | Eq (8a) | Table 2 `m_o` | Eq (9a) |
+    /// |---|---|---|---|---|---|
+    /// | HTR-Module | 776 °C | 756 | **756.1** | 6.93 | **6.932** |
+    /// | HTR-500 | 792 °C | 754 | **754.4** | 6.91 | **6.908** |
+    ///
+    /// Recorded 2026-09-24. It matters beyond being a fourth data point: the
+    /// `m`-dependent residual seen against Fig. 6 was at one stage suspected
+    /// of being a defect in the degradation law, and this is independent
+    /// evidence that the law is right — consistent with that residual turning
+    /// out to be a digitisation artefact.
+    ///
+    /// Uses `σ_oo = 834`, `m_oo = 8.02` (EO 1607 as Fig. 5 and Table 2 give
+    /// it, not Table 1's 850/8.0 — see
+    /// `docs/panama-i-units-and-open-questions.md`).
+    #[test]
+    fn table_2_is_reproduced_at_a_different_fluence() {
+        for (t_b_c, want_sigma, want_m) in [(776.0, 756.0, 6.93), (792.0, 754.0, 6.91)] {
+            let t_b = ThermodynamicTemperature::new::<degree_celsius>(t_b_c);
+            let sigma = irradiated_strength(Pressure::new::<megapascal>(834.0), 1.4, t_b)
+                .get::<megapascal>();
+            let m = irradiated_weibull_modulus(8.02, 1.4, t_b);
+            assert!(
+                (sigma - want_sigma).abs() < 0.5,
+                "T_B = {t_b_c} degC: Eq (8a) gives {sigma:.1} MPa, Table 2 states {want_sigma}"
+            );
+            assert!(
+                (m - want_m).abs() < 0.005,
+                "T_B = {t_b_c} degC: Eq (9a) gives {m:.3}, Table 2 states {want_m}"
+            );
+        }
+    }
 }

@@ -36,7 +36,17 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
     let centre = rect.center();
     let max_radius = size * 0.40;
 
-    painter.rect_filled(rect, 0.0, Color32::from_gray(24));
+    // White ground, not the dark canvas this used to have (maintainer,
+    // 2026-09-24). A map is read against paper, and a dark field makes the
+    // low-concentration sectors -- most of the plot -- the hardest part to
+    // see, which is backwards: the quiet sectors are the reassuring result.
+    painter.rect_filled(rect, 2.0, Color32::WHITE);
+    painter.rect_stroke(
+        rect,
+        2.0,
+        Stroke::new(1.0, Color32::from_gray(180)),
+        egui::StrokeKind::Inside,
+    );
 
     let outermost = s
         .receptors
@@ -49,7 +59,7 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
             Align2::CENTER_CENTER,
             "no dispersion run yet",
             FontId::proportional(11.0),
-            Color32::from_gray(150),
+            Color32::from_gray(120),
         );
         return;
     }
@@ -62,9 +72,35 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
             drawn.push(receptor.distance_m);
         }
     }
+    drawn.sort_by(|a, b| a.partial_cmp(b).expect("finite distances"));
     for distance in &drawn {
         let r = max_radius * (*distance / outermost) as f32;
-        painter.circle_stroke(centre, r, Stroke::new(0.5, Color32::from_gray(70)));
+        painter.circle_stroke(centre, r, Stroke::new(1.0, Color32::from_gray(170)));
+        // Label each ring on its own circle. The rings ARE the distance
+        // scale, so naming them is what turns the plot from a decoration
+        // into something a reader can take a number off.
+        painter.text(
+            Pos2::new(centre.x + r, centre.y - 5.0),
+            Align2::LEFT_BOTTOM,
+            format!("{distance:.0} m"),
+            FontId::proportional(9.0),
+            Color32::from_gray(110),
+        );
+    }
+    // Sector spokes, so the 45-degree resolution is visible rather than
+    // implied by the marker spacing.
+    for sector in 0..8 {
+        let (sx, sy) = bearing_to_plot(45.0 * sector as f64, 1.0);
+        painter.line_segment(
+            [
+                centre,
+                Pos2::new(
+                    centre.x + max_radius * sx as f32,
+                    centre.y - max_radius * sy as f32,
+                ),
+            ],
+            Stroke::new(0.5, Color32::from_gray(225)),
+        );
     }
 
     // The peak sets the shading scale: chi/Q spans orders of magnitude between
@@ -91,7 +127,7 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
         );
         let shade = log_shade(receptor.chi_over_q, peak);
         painter.circle_filled(at, 6.0, shade);
-        painter.circle_stroke(at, 6.0, Stroke::new(0.5, Color32::from_gray(90)));
+        painter.circle_stroke(at, 6.0, Stroke::new(0.8, Color32::from_gray(60)));
     }
 
     // The wind arrow, drawn pointing the way the plume TRAVELS -- the opposite
@@ -103,28 +139,28 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
         centre.x + max_radius * 1.08 * wx as f32,
         centre.y - max_radius * 1.08 * wy as f32,
     );
-    painter.line_segment([centre, tip], Stroke::new(2.0, Color32::from_rgb(120, 190, 255)));
+    painter.line_segment([centre, tip], Stroke::new(2.5, Color32::from_rgb(20, 90, 190)));
     painter.text(
         tip,
         Align2::CENTER_CENTER,
         "plume",
         FontId::proportional(9.0),
-        Color32::from_rgb(160, 210, 255),
+        Color32::from_rgb(20, 90, 190),
     );
 
     painter.text(
         Pos2::new(centre.x, rect.top() + 8.0),
         Align2::CENTER_CENTER,
         "N",
-        FontId::proportional(10.0),
-        Color32::from_gray(170),
+        FontId::proportional(11.0),
+        Color32::from_gray(60),
     );
     painter.text(
         Pos2::new(rect.left() + 4.0, rect.bottom() - 4.0),
         Align2::LEFT_BOTTOM,
         format!("outer ring {outermost:.0} m"),
         FontId::proportional(9.0),
-        Color32::from_gray(150),
+        Color32::from_gray(110),
     );
 }
 
@@ -150,7 +186,10 @@ fn bearing_to_plot(bearing_deg: f64, radius: f64) -> (f64, f64) {
 fn log_shade(value: f64, peak: f64) -> Color32 {
     const DECADES: f64 = 4.0;
     if !(value > 0.0) || !(peak > 0.0) {
-        return Color32::from_gray(45);
+        // Light, not dark: on a white ground the "no value" marker must
+        // recede. The old near-black was correct for the dark canvas and
+        // wrong the moment the background changed.
+        return Color32::from_gray(225);
     }
     let decades_below = (peak / value).log10();
     let fraction = (1.0 - decades_below / DECADES).clamp(0.0, 1.0);

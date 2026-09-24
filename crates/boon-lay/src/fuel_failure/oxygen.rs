@@ -352,4 +352,43 @@ mod tests {
             "zero burnup is zero OPF"
         );
     }
+
+    /// **Eq (5b) reproduces Table 2's tabulated `OPF` at t = 0 — 2/2.**
+    ///
+    /// Methodology: Table 2 (page -504-) states, for the report's own reactor
+    /// cases, an "O atoms/fission at t = 0" computed from the average
+    /// irradiation temperature and duration it also lists. That makes it two
+    /// closed-form checks on Eq (5b) at **reactor** conditions, independent of
+    /// Fig. 3's heating-experiment curves and at a very different `t_B`.
+    ///
+    /// | case | `T_B` | `t_B` | Table 2 | Eq (5b) | |
+    /// |---|---|---|---|---|---|
+    /// | HTR-Module | 776 °C | 15 × 68 = 1020 FPD | 0.00511 | **0.005110** | exact |
+    /// | HTR-500 | 792 °C | 1 × 700 FPD | 0.00316 | **0.003185** | +0.8 % |
+    ///
+    /// This is a third independent confirmation that `t_B` enters in
+    /// **seconds** and `T_B` in **kelvin**: on days the answer is ~10 decades
+    /// out, and on °C taken literally it is far larger still.
+    #[test]
+    fn table_2_oxygen_per_fission_is_reproduced() {
+        for (t_b_c, fpd, want) in [(776.0, 1020.0, 0.005_11), (792.0, 700.0, 0.003_16)] {
+            let got = oxygen_per_fission_uo2(
+                ThermodynamicTemperature::new::<degree_celsius>(t_b_c),
+                Time::new::<day>(fpd),
+                HeatingRegime::BeforeHeating,
+            )
+            .get::<ratio>();
+            assert!(
+                (got / want - 1.0).abs() < 0.01,
+                "T_B = {t_b_c} degC, t_B = {fpd} FPD: Eq (5b) gives {got:.6}, \
+                 Table 2 states {want}"
+            );
+        }
+        // The days reading is excluded here too, by about ten decades.
+        let on_days = -10.08 - 0.85e4 / 1049.15 + 2.0 * 1020f64.log10();
+        assert!(
+            on_days < -10.0,
+            "reading t_B in days puts log OPF at {on_days:.2}, not -2.29"
+        );
+    }
 }

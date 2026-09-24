@@ -278,6 +278,33 @@ impl Htr10TrisoAtopsInputs {
     /// is the second reason the unit-inventory basis is the honest one: a
     /// curie figure would be the product of two numbers this module does not
     /// have.
+    ///
+    /// # Computing `f_inc` with PANAMA-I was tried, and is NOT the answer
+    ///
+    /// `boon_lay::fuel_failure` now reconstructs the PANAMA-I pressure-vessel
+    /// and SiC-decomposition model, and
+    /// `FailureFractions::with_panama_incremental` will wire a computed
+    /// `f_inc` in. **It must not be used here**, and the reason is
+    /// quantitative rather than cautionary: evaluated for HTR-10's published
+    /// geometry and burnup over the whole plausible fuel-temperature band,
+    /// PANAMA's in-service failure fraction under **normal operation** is
+    /// `2.4e-15` at 700 degC, `9.3e-13` at 776 degC and `5.9e-7` at 1000 degC
+    /// — four to thirteen orders of magnitude below the `3e-5` here. See
+    /// `boon_lay::fuel_failure::htr10`.
+    ///
+    /// That is not evidence the placeholder is too high. It is evidence the
+    /// two are **different quantities**: `3e-5` is an as-manufactured defect
+    /// fraction, the same order as PANAMA's own `phi_o` target of `6e-5`,
+    /// which PANAMA takes as an input and does not model. Substituting the
+    /// computed number would divide every activity below by ~1e7 on the
+    /// strength of a model answering a different question. `f_inc` here still
+    /// needs HTR-10 fuel-qualification data.
+    ///
+    /// Where the seam *is* worth having is a **transient**: at 1600 degC for
+    /// 200 h the same calculation gives `3.1e-5`, and above ~2000 degC SiC
+    /// decomposition takes over. Even then it is an extrapolation — PANAMA
+    /// was validated on German TRISO over 1600-2500 degC — and should be
+    /// reported as one.
     pub const TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS: FailureFractions = FailureFractions {
         heavy_metal: 1.0e-5,
         sic: 2.0e-5,

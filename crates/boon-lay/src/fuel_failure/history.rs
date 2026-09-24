@@ -373,6 +373,32 @@ pub struct FailureProgress {
 }
 
 impl FailureProgress {
+    /// The **in-service** failure fraction: `φ₁` and `φ₂` combined, with the
+    /// as-manufactured population excluded.
+    ///
+    /// ```text
+    /// f_inc = 1 − (1 − φ₁)·(1 − φ₂)
+    /// ```
+    ///
+    /// This is the quantity PANAMA actually computes, and it is what
+    /// [`crate::triso_atops_fork::activities::source_terms::FailureFractions`]
+    /// calls `incremental`. [`FailureProgress::total`] differs from it only by
+    /// `φ_o`, which PANAMA takes as an input and does not model.
+    ///
+    /// Both mechanisms are included: a particle whose SiC has thermally
+    /// decomposed is no longer a barrier, so it releases its fission gas for
+    /// the same reason a burst one does. `φ₂` is **not** routed to
+    /// `incremental_sic` — that field is a distinct as-manufactured
+    /// population upstream, not an in-service SiC loss, and mapping one onto
+    /// the other would be inventing a correspondence neither code states.
+    pub fn in_service_failure_fraction(&self) -> FailureFraction {
+        total_failure_fraction(
+            Ratio::new::<ratio>(0.0),
+            self.pressure_vessel,
+            self.thermal_decomposition,
+        )
+    }
+
     /// The state at `t = 0`: an uncorroded layer, no action integral, and
     /// `φ₁` at its end-of-irradiation value.
     ///

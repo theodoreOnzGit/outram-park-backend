@@ -549,18 +549,47 @@ fn draw_secondary_controls(
                 .drag_value_speed(0.01),
         )
         .changed();
-    let direction_changed = ui
-        .add(
-            egui::Slider::new(&mut wind_from, 0.0..=360.0)
-                .text("wind FROM (deg from north)")
-                .drag_value_speed(0.1),
-        )
-        .changed();
+    // Direction steps by ONE SECTOR, not continuously (maintainer,
+    // 2026-09-24). The model evaluates
+    // `atmospheric_dispersion::RECEPTOR_SECTORS` = 8 bearings, 45 degrees
+    // apart, so a control that moved in single degrees would imply a
+    // resolution the receptors do not have -- the plume would appear to
+    // swing while every computed point stayed exactly where it was. Arrows
+    // that land the wind on a sector keep the control and the model at the
+    // same granularity.
+    const SECTOR_DEG: f64 = 360.0 / crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS as f64;
+    let mut direction_changed = false;
+    ui.horizontal(|ui| {
+        ui.label("wind FROM");
+        if ui
+            .button("\u{25C0}")
+            .on_hover_text("one sector anticlockwise")
+            .clicked()
+        {
+            wind_from = (wind_from - SECTOR_DEG).rem_euclid(360.0);
+            direction_changed = true;
+        }
+        ui.add_sized(
+            [96.0, 18.0],
+            egui::Label::new(format!("{:.0}\u{00B0}  {}", wind_from, compass_point(wind_from))),
+        );
+        if ui
+            .button("\u{25B6}")
+            .on_hover_text("one sector clockwise")
+            .clicked()
+        {
+            wind_from = (wind_from + SECTOR_DEG).rem_euclid(360.0);
+            direction_changed = true;
+        }
+        ui.weak(format!("{SECTOR_DEG:.0}\u{00B0} sectors"));
+    });
     ui.small(
         "Meteorological convention: the direction the wind blows FROM. A wind \
          from 0 deg (north) carries the plume SOUTH. Below 0.5 m/s a Gaussian \
          puff model has nothing to advect and the stability lookup is \
-         undefined, so the slider stops there rather than clamping silently.",
+         undefined, so the slider stops there rather than clamping silently. \
+         Direction steps one receptor sector at a time, because that is the \
+         model's own angular resolution.",
     );
 
     if speed_changed || direction_changed {
@@ -569,6 +598,17 @@ fn draw_secondary_controls(
             s.wind_from_deg = wind_from;
         });
     }
+}
+
+/// The compass point a bearing falls in, to eight points.
+///
+/// Eight, matching `RECEPTOR_SECTORS`: naming a bearing "NNE" when the model
+/// cannot resolve finer than 45 degrees would be the same overstatement the
+/// stepped control exists to avoid.
+fn compass_point(bearing_deg: f64) -> &'static str {
+    const POINTS: [&str; 8] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    let idx = ((bearing_deg.rem_euclid(360.0) / 45.0).round() as usize) % 8;
+    POINTS[idx]
 }
 
 /// Schematic panel body.
@@ -1018,4 +1058,56 @@ mod tests {
         let back = in_display_unit(&source, LegendUnit::Kelvin);
         assert_eq!(back, before, "a kelvin display must be the stored values");
     }
+
+    /// The compass label matches the sector the arrows step through, to eight
+    /// points. Naming a bearing "NNE" when the model resolves 45 degrees
+    /// would overstate it in exactly the way the stepped control avoids.
+    #[test]
+    fn the_compass_point_matches_the_sector() {
+        for (deg, want) in [
+            (0.0, "N"),
+            (45.0, "NE"),
+            (90.0, "E"),
+            (135.0, "SE"),
+            (180.0, "S"),
+            (225.0, "SW"),
+            (270.0, "W"),
+            (315.0, "NW"),
+            (360.0, "N"),
+        ] {
+            assert_eq!(compass_point(deg), want, "{deg} deg");
+        }
+    }
+
+    /// Bearings wrap both ways rather than running off the end, which is what
+    /// the arrows rely on at 0 and 360.
+    #[test]
+    fn the_compass_point_wraps_in_both_directions() {
+        assert_eq!(compass_point(-45.0), "NW");
+        assert_eq!(compass_point(-1.0), "N");
+        assert_eq!(compass_point(405.0), "NE");
+        assert_eq!(compass_point(719.0), "N");
+    }
+
+    /// Stepping a full turn in either direction returns to the start, and
+    /// every step lands on a sector the model actually evaluates.
+    #[test]
+    fn stepping_a_full_turn_returns_to_the_start() {
+        const SECTOR: f64 = 360.0 / crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS as f64;
+        let mut deg: f64 = 0.0;
+        for _ in 0..crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS {
+            deg = (deg + SECTOR).rem_euclid(360.0);
+            assert!(
+                (deg / SECTOR).fract().abs() < 1e-9,
+                "{deg} is not on a sector boundary"
+            );
+        }
+        assert!((deg - 0.0).abs() < 1e-9, "clockwise full turn ended at {deg}");
+
+        for _ in 0..crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS {
+            deg = (deg - SECTOR).rem_euclid(360.0);
+        }
+        assert!((deg - 0.0).abs() < 1e-9, "anticlockwise full turn ended at {deg}");
+    }
+
 }

@@ -242,6 +242,34 @@ Fig. 7's factor falls from 1.96 to 1.70, Fig. 8's whole-run relative s.d. from
 19.0 % to 14.3 %. See the entry below.
 
 
+### Table 2 (-504-) is a second closed-form check, at a different fluence and `T_B` — 6/6
+
+Table 2 lists, for the report's own HTR-Module and HTR-500 cases, an average
+irradiation temperature and duration **and** the `OPF`, `σ_o` and `m_o` it
+computed from them. That makes six closed checks at **reactor** conditions,
+independent of Fig. 3's heating curves and of Table 1 (which is all at
+`Γ = 1`, 1000 °C).
+
+| case | `T_B` | `t_B` | quantity | Table 2 | this crate |
+|---|---|---|---|---|---|
+| HTR-Module | 776 °C | 1020 FPD | `OPF(t=0)`, Eq (5b) | 0.00511 | **0.005110** |
+| HTR-500 | 792 °C | 700 FPD | `OPF(t=0)`, Eq (5b) | 0.00316 | **0.003185** (+0.8 %) |
+| HTR-Module | 776 °C | `Γ = 1.4` | `σ_o`, Eq (8a) | 756 | **756.1** |
+| HTR-500 | 792 °C | `Γ = 1.4` | `σ_o`, Eq (8a) | 754 | **754.4** |
+| HTR-Module | 776 °C | `Γ = 1.4` | `m_o`, Eq (9a) | 6.93 | **6.932** |
+| HTR-500 | 792 °C | `Γ = 1.4` | `m_o`, Eq (9a) | 6.91 | **6.908** |
+
+Two things follow. It is a **third** independent confirmation that `t_B` is in
+seconds and `T_B` in kelvin — on days Eq (5b) is ten decades out. And it is
+independent evidence that the Eq (8a)/(9a) degradation law is right at a
+fluence and temperature Table 1 does not cover, which is consistent with the
+Fig. 6 `m`-residual having turned out to be a digitisation artefact rather than
+a defect in the law.
+
+(`σ_oo = 834`, `m_oo = 8.02` — EO 1607 as Fig. 5 and Table 2 give it, not
+Table 1's 850/8.0.)
+
+
 ---
 
 ## Open
@@ -571,6 +599,51 @@ raising `p` — but the caption states neither the geometry nor `V_f`, so this
 is **not checked**. Fig. 9 is therefore not used as a verification target.
 
 
+### HTR-10 applied to PANAMA is an EXTRAPOLATION, and the `f_inc` seam is not what it looked like
+
+`crates/boon-lay/src/fuel_failure/htr10.rs` applies the model to HTR-10, to
+supply `triso_atops_fork`'s `FailureFractions::incremental` (`f_inc`) —
+currently a `3·10⁻⁵` placeholder in `htgr_sim_v1` taken from TRISO-ATOPS'
+constants block for a different fuel line, with release scaling linearly in it.
+
+**PANAMA was built and validated for German TRISO over 1600–2500 °C** (page
+-479-); HTR-10's fuel is German-lineage, so this is defensible by lineage and
+is **not a validated application**. Two inputs are not published for HTR-10 and
+are taken by name from the report's HTR-Module column: `σ_oo/m_oo = 834/8.02`
+(EO 1607, footnote 1 page -503-) and `Γ = 1.4·10²⁵`. `T_B` is an **input** —
+HTR-10 publishes a maximum fuel temperature, not an average. Everything else is
+HTR-10's own or derived from it: the 380/415 µm SiC layer and 250 µm kernel
+(IAEA-TECDOC-1382 pt 2 Table 4-17), `F_b = 0.0851` from 80 000 MWd/t, and
+`t_B = 1080 FPD` from 10 MW over 27 000 × 5 g HM.
+
+**Normal operation: PANAMA must not replace the placeholder.** `φ₁` at the end
+of irradiation is `2.4·10⁻¹⁵` at 700 °C, `9.3·10⁻¹³` at 776 °C, `2.7·10⁻⁹` at
+900 °C and `5.9·10⁻⁷` at 1000 °C — four to thirteen decades below `3·10⁻⁵`.
+The placeholder is the same order as PANAMA's own as-manufactured target
+`φ_o = 6·10⁻⁵` (page -480-), which PANAMA takes as an **input**. The two are
+different quantities, and substituting would divide every reported activity by
+~10⁷.
+
+**Accident: this is where the seam earns its place.** 200 h isothermal,
+`T_B = 776 °C`: `φ_total` = 4.5·10⁻⁹ (1200 °C), 6.8·10⁻⁷ (1400 °C),
+**3.10·10⁻⁵ (1600 °C)**, 4.46·10⁻⁴ (1800 °C), 5.07·10⁻³ (2000 °C), 0.978
+(2200 °C, of which `φ₂` is 0.977). `φ₂` overtaking `φ₁` between 2000 and
+2200 °C matches page -508-.
+
+**The 1600 °C value landing on 3.1·10⁻⁵ beside a 3·10⁻⁵ placeholder is a
+coincidence** of two unrelated quantities, and is pinned in the tests as one.
+
+**Not verified.** The workspace's local literature gives HTR-10's geometry,
+burnup, enrichment and power but **no measured failure fraction, free-uranium
+fraction or release fraction**, so the comparison that would make this a
+validation **could not be made** and is not claimed. The nearest check is the
+report's own statement that HTR-Module depressurised stays below 10⁻⁶ at 200 h
+(page -504-); a flat 200 h at 1600 °C gives 3.1·10⁻⁵ here, an upper bound on a
+transient that only briefly peaks, so the two are not in conflict — but without
+Fig. 10's temperature history it is not a check either. **Digitising Fig. 10
+would make it one.**
+
+
 ### Notation defects recorded rather than silently fixed
 
 - **Eq (6b) is used twice** (UO₂ and UCO); the second should be (6c).
@@ -601,14 +674,14 @@ is **not checked**. Fig. 9 is therefore not used as a verification target.
 | (1) Weibull | yes | — | unit tests only |
 | (2) stress, thin shell | yes | — | unit tests only |
 | (3) gas pressure | yes | independent `nRT/V` | exact |
-| (8a)/(8b) strength | yes | **Table 1, -500-** | **8/8 σ_o** |
-| (9a)/(9b) modulus | yes | **Table 1, -500-** | **8/8 m_o** |
+| (8a)/(8b) strength | yes | **Table 1, -500-**, **Table 2, -504-** | **8/8 σ_o**, plus **2/2** at `Γ = 1.4` |
+| (9a)/(9b) modulus | yes | **Table 1, -500-**, **Table 2, -504-** | **8/8 m_o**, plus **2/2** at `Γ = 1.4` |
 | φ_total assembly | yes | — | unit tests only |
 | `D_S` (Th,U)O₂, p-487 | yes | **Fig. 2** | 4/4 curves, labels recovered |
 | `D_S` UO₂/UCO, p-487 | yes | **Fig. 2** | **disagrees, 6.4×→1.3×** (see above) |
 | (7) + `v̇`, p-492 | yes | **Fig. 4** | 5/5 curves, **after a decade fix** |
 | (5a) `(Th,U)O₂` OPF | yes | **Fig. 3** | temperature term confirmed |
-| (5b)/(5c)/(5d)/(5e) `UO₂` OPF | yes | **Fig. 3** | 4/4 curves, mean 0.0087 |
+| (5b)/(5c)/(5d)/(5e) `UO₂` OPF | yes | **Fig. 3**, **Table 2** | 4/4 curves, mean 0.0087; **2/2 on Table 2** |
 | `f(τ)` Booth series, p-485 | yes | **Fig. 1** + two analytic limits | mean 0.0028 (`τ ≥ 0.15`); grouping settled |
 | (4) `F_d` | yes | identity `F_d(τ_i, 0) = f(τ_i)` | exact; **no figure plots `F_d`** |
 | (6a)/(6b)/(6c) `V_m` | yes | each equation's own printed quotient | 3/3 to < 1·10⁻⁵ |
@@ -622,6 +695,7 @@ is **not checked**. Fig. 9 is therefore not used as a verification target.
 | driver vs **Fig. 8** (code-to-code) | — | **Fig. 8**, isothermal | **19.0 % rel s.d., drifts from the first point** — staging exonerated |
 | PANAMA vs **Fig. 8** (code-to-data) | — | **Fig. 8**, 9 measured points | **+0.24 decades** on the caption's burnup; −1.52 with corrosion |
 | log y-axis of Figs. 6/7/8 | — | three model-free identities | **calibrated over 7 decades where 6 are plotted** |
+| HTR-10 application | yes, [`htr10`] | — | **extrapolation**; no HTR-10 failure data exists locally to check it |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction
 runs uncalibrated and the disagreement is reported when there is one.
