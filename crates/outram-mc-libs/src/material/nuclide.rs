@@ -3686,4 +3686,71 @@ impl Nuclide {
             0.0
         }
     }
+
+    /// Sample whether a fission neutron born at incident energy `e` is
+    /// **delayed**, and from which precursor group — gh:#262.
+    ///
+    /// Returns `None` for a prompt neutron and `Some(k)` for a delayed one from
+    /// 0-based group `k`. `None` is also returned when the evaluation carries no
+    /// MF=1/455 at all, which is the honest answer for *"this evaluation does
+    /// not say"* rather than a claim that the nuclide emits no delayed neutrons.
+    ///
+    /// # Method
+    ///
+    /// Two variates. The first decides delayed vs prompt against
+    /// [`Self::delayed_fraction`] — `nu_d(E) / nu(E)`, the evaluation's own
+    /// `beta` at that energy. The second picks the group from the
+    /// **normalised** `p_k(E)` table by inverse transform.
+    ///
+    /// # Why `p_k` is normalised here rather than trusted
+    ///
+    /// `DelayedData::group_fraction` interpolates each group's table
+    /// independently, so the shares at an arbitrary `E` need not sum to exactly
+    /// 1 — interpolation of six independent curves does not preserve their sum,
+    /// and a tape may carry slightly inconsistent tables. Dividing by the
+    /// realised sum makes the draw a proper distribution at every energy. The
+    /// alternative — comparing a cumulative against a raw sum below 1 — silently
+    /// biases the last group, which is the one a naive inverse transform hands
+    /// the leftover probability to.
+    ///
+    /// A non-positive sum means the tables carry nothing usable at this energy;
+    /// the neutron is then reported prompt rather than assigned to an arbitrary
+    /// group, because "which group" has no answer there.
+    ///
+    /// # What this does NOT do
+    ///
+    /// * It does **not** change the emission spectrum. A delayed neutron is
+    ///   still born from the prompt `chi` — MF=5/455's delayed spectra are read
+    ///   but not sampled here. Delayed spectra are softer, so a `beta_eff`
+    ///   computed through transport with this approximation carries that error.
+    /// * Nothing in the transport loop calls this yet. `Site` has no field for a
+    ///   precursor group (59 `Site {…}` literals across the crate), so carrying
+    ///   the tag across generations — which is what IFP's `beta_eff` needs — is a
+    ///   separate change. This is the sampler, verified on its own.
+    pub fn sample_delayed_group(&self, e: f64, seed: &mut u64) -> Option<usize> {
+        let d = self.delayed()?;
+        let beta = self.delayed_fraction(e);
+        if beta <= 0.0 || crate::rng::lcg::prn(seed) >= beta {
+            return None;
+        }
+        let n = d.n_groups();
+        if n == 0 {
+            return None;
+        }
+        let shares: Vec<f64> = (0..n).map(|k| d.group_fraction(k, e).max(0.0)).collect();
+        let sum: f64 = shares.iter().sum();
+        if sum <= 0.0 {
+            return None;
+        }
+        let xi = crate::rng::lcg::prn(seed) * sum;
+        let mut acc = 0.0;
+        for (k, s) in shares.iter().enumerate() {
+            acc += s;
+            if xi < acc {
+                return Some(k);
+            }
+        }
+        // Round-off at the top of the cumulative: the last group owns it.
+        Some(n - 1)
+    }
 }
