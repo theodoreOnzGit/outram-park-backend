@@ -220,8 +220,14 @@ mod tests {
             DepositionGroup::Aerosol,
             "Te travels like a halogen but deposits like an aerosol"
         );
-        assert_eq!(DepositionGroup::from_atomic_number(53), DepositionGroup::Halogen);
-        assert_eq!(DepositionGroup::from_atomic_number(35), DepositionGroup::Halogen);
+        assert_eq!(
+            DepositionGroup::from_atomic_number(53),
+            DepositionGroup::Halogen
+        );
+        assert_eq!(
+            DepositionGroup::from_atomic_number(35),
+            DepositionGroup::Halogen
+        );
     }
 
     #[test]
@@ -234,8 +240,14 @@ mod tests {
             );
         }
         // Kr and Xe are the two that matter for a reactor source term.
-        assert_eq!(DepositionGroup::from_atomic_number(36), DepositionGroup::NobleGas);
-        assert_eq!(DepositionGroup::from_atomic_number(54), DepositionGroup::NobleGas);
+        assert_eq!(
+            DepositionGroup::from_atomic_number(36),
+            DepositionGroup::NobleGas
+        );
+        assert_eq!(
+            DepositionGroup::from_atomic_number(54),
+            DepositionGroup::NobleGas
+        );
     }
 
     #[test]

@@ -103,19 +103,11 @@ pub mod puff;
 /// The workspace "human interface layer" rule asks that a Rust developer be able
 /// to drive a crate with rust-analyzer alone; this is the entry point for that.
 pub mod prelude {
-    pub use crate::activity::chi_over_q::{
-        dilution_factors, DilutionFactors, StabilitySource,
-    };
-    pub use crate::activity::deposition::{
-        dry_deposition, DepositionGroup, DryDepositionVelocity,
-    };
+    pub use crate::activity::chi_over_q::{dilution_factors, DilutionFactors, StabilitySource};
+    pub use crate::activity::deposition::{dry_deposition, DepositionGroup, DryDepositionVelocity};
     pub use crate::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
-    pub use crate::activity::survey::{
-        survey, DepositionVelocities, NuclideTotals, SiteSurvey,
-    };
-    pub use crate::activity::units::{
-        DilutionFactor, GroundDeposition, TimeIntegratedAirConcentration,
-    };
+    pub use crate::activity::survey::{survey, DepositionVelocities, NuclideTotals, SiteSurvey};
+    pub use crate::activity::units::{DilutionFactor, GroundDeposition, TimeIntegratedAirConcentration};
     pub use crate::flexpart::aerosol::{part0, AerosolBins};
     pub use crate::flexpart::constants;
     pub use crate::flexpart::decay::{

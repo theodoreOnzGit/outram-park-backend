@@ -245,7 +245,11 @@ fn splitting_the_release_across_windows_conserves_the_total() {
     ];
     let three = survey(
         &SourceTerm::new(
-            vec![window(0.0, 200.0), window(200.0, 400.0), window(400.0, 600.0)],
+            vec![
+                window(0.0, 200.0),
+                window(200.0, 400.0),
+                window(400.0, 600.0),
+            ],
             vec![NuclideRelease {
                 label: "Kr-88".to_string(),
                 decay_constant: lambda,
