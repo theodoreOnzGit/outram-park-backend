@@ -186,6 +186,62 @@ somewhat more at 2000 °C. Recorded here because the page layout makes the
 mis-reading easy, and an earlier draft of this work made it.
 
 
+### The log y-axis of Figs. 6, 7 and 8 is calibrated over SEVEN decades where SIX are plotted
+
+**Found 2026-09-24, and it resolves one of the two open disagreements.**
+
+All three figures label `10⁰` at their top gridline and `10⁻⁶` at the bottom,
+six decades. All three digitisations carry an upper calibration point entered
+as **`10`**:
+
+| figure | `y_axis` calibration as recorded |
+|---|---|
+| Fig. 6 | `px 410.10 = 0.000001 , px 88.03 = 10` |
+| Fig. 7 | `px 418.65 = 0.000001 , px 35.40 = 10` |
+| Fig. 8 | `px 393.20 = 0.000001 , px 15.04 = 10` |
+
+If the upper point sits on the `10⁰` gridline, every digitised ordinate is
+stretched in the log by **7/6**, and the true value is recovered by
+`log₁₀φ_true = −6 + (6/7)·(log₁₀φ_reported + 6)`.
+
+**Three independent tests pick out exactly that factor**, two of which use no
+model at all:
+
+| test | as digitised | at `k = 6/7` |
+|---|---|---|
+| Fig. 8: the two PANAMA curves differ only by Eq (10b), so they must invert to **one** `σ_t` | `σ_with/σ_without` = **1.505**, rel s.d. 0.133 | **1.014**, rel s.d. 0.051 |
+| Fig. 7: the same identity, over its 1600 °C stage | **1.535** | **1.000** |
+| Fig. 6: eight varieties must invert to **one** `σ_t` | rel s.d. **10.0 %**, residual +23 % … −10 % | rel s.d. **1.4 %**, residual ±2 % |
+
+Free-fitting the factor rather than assuming it gives **0.855** (Fig. 8) and
+**0.875** (Fig. 7) against `6/7 = 0.857`.
+
+**Two consequences, in opposite directions.**
+
+1. **Eqs (10b)/(10c) are VERIFIED** — the grain-boundary law connects the
+   report's own two curves on both Fig. 7 and Fig. 8 once the axis is read
+   correctly. This group was recorded above as having no external check at
+   all; it now has one. ~~Not verified against any output of the report.~~
+   **CORRECTED 2026-09-24.**
+2. **Every residual quoted against Figs. 6, 7 and 8 as digitised is an upper
+   bound**, roughly 17 % too wide in the log.
+
+**Nothing has been corrected in the data, and nothing should be.** Deflating
+the digitised points would erase the evidence that diagnosed this. The fix is
+to **re-digitise** with the axis calibrated on the plotted decades (kovan's
+parallelogram calibration and reference grid). Until then both readings are
+reported side by side, and the tests assert both.
+
+A related slip, same shape, already recorded above: Fig. 1's upper calibration
+point is entered as `500` where the gridline is `f = 1` (the fitted scale came
+out 501.29). The pattern is an upper calibration point placed on the top
+gridline and given the *next* round value.
+
+**What it does NOT explain.** The Fig. 7/8 late-time drift survives:
+Fig. 7's factor falls from 1.96 to 1.70, Fig. 8's whole-run relative s.d. from
+19.0 % to 14.3 %. See the entry below.
+
+
 ---
 
 ## Open
@@ -300,8 +356,15 @@ plotted 10⁻⁶ floor and are excluded):
 | per-curve residual in `log₁₀ φ` at one common `σ_t` | **−0.370 … +0.388**, mean abs **0.232** |
 
 Reproducing the order and the 4.8-decade spread from one stress to ±0.4
-decades is a real success for Eq (1) with Eqs (8a)/(9a). But the residual is
-**monotone in `m_oo`**, not random:
+decades is a real success for Eq (1) with Eqs (8a)/(9a). ~~But the residual is
+**monotone in `m_oo`**, not random~~ — **RESOLVED 2026-09-24: the `m`-trend is
+a digitisation artefact, not physics.** Under the `6/7` log-axis reading
+established in the Settled section above, the eight varieties collapse onto one
+`σ_t` at **1.4 % relative s.d.** with residuals of ±2 %, and the trend
+disappears. Eq (1) with Eqs (8a)/(9a) at the report's stated `Γ = 1·10²⁵` and
+`T_B = 1000 °C` reproduces Fig. 6. The as-digitised trend is recorded below
+because it is what the evidence looked like before the calibration was
+diagnosed:
 
 | variety | `m_oo` | residual (decades) |
 |---|---|---|
@@ -314,19 +377,23 @@ decades is a real success for Eq (1) with Eqs (8a)/(9a). But the residual is
 | EO 403-405 | 8.4 | +0.319 |
 | EUO 1551 | 8.5 | +0.388 |
 
-Two hypotheses were tested and **neither removes it**:
+Three hypotheses were tested. The third is the answer:
 
 - **Fluence.** Relative s.d. falls monotonically with `Γ`: 10.1 % at the
-  stated `Γ = 1`, 7.5 % at 0.5, **5.4 % at 0** (i.e. Table 1's measured
-  before-irradiation values used directly), and rises to 17.1 % at `Γ = 2`.
-  But page -498- states Fig. 6's basis is `Γ = 1·10²⁵`, so this is a
-  **disagreement with the figure**, not a licence to change the input. `Γ` was
-  not changed.
-- **The plotted floor.** Restricting to points inside the figure's own
-  10⁻⁶ … 10 axis leaves the trend intact (9.0 → 11.2 % against 9.3 → 11.3 %
-  unrestricted).
+  stated `Γ = 1`, 5.4 % at 0. But page -498- states Fig. 6's basis is
+  `Γ = 1·10²⁵`. `Γ` was not changed, and this turned out to be the wrong
+  hypothesis — the deflated data reproduces the figure **at** `Γ = 1`.
+- **The plotted floor.** Restricting to points inside the figure's own axis
+  leaves the trend intact. Not it either.
+- **The log-axis calibration.** `k = 6/7` removes the trend entirely
+  (10.0 % → 1.4 %). This is it, and two other figures confirm the same factor
+  by a model-free identity.
 
-Unexplained. Pinned by
+Worth recording as a process point: the first hypothesis would have "fixed"
+the residual by setting `Γ = 0`, which the report's own text excludes, and it
+was rejected for that reason rather than adopted because it improved the
+number. Had it been adopted, the real cause would never have been found.
+Pinned by
 `history::tests::figure_6_recovers_one_common_stress_history`, which asserts
 the trend as well as its size so it cannot pass by being tuned small.
 
@@ -397,6 +464,77 @@ here, not derived. It is the first suspect for any constant offset.
 where the caption reads `9.0 % FIMA` and `F_B = 0.09`. 0.09 is used.
 
 Fig. 7 digitised by the maintainer, 2026-09-24.
+
+### Fig. 8 (AVR GO 2): the late-time drift REAPPEARS isothermally — the driver's staging is exonerated
+
+Fig. 8 is the second validation case and the discriminating one for the drift
+recorded above: `σ_oo = 600 MPa`, `m_oo = 6`, `T_B = 950 °C`, `t_B = 500 FPD`,
+`F_B = 0.082 FIMA`, `Γ = 0.6·10²⁵ m⁻² EDN`, `η̇ ≡ 0`, **isothermal at
+1600 °C**. No stages, so a drift here cannot be the driver mishandling stage
+changes.
+
+**It reappears, and worse.** Over 74 digitised points the ratio
+`σ_t^PANAMA/σ_t^chain` rises **monotonically from the very first point** —
+0.189 at 14.6 h to 0.447 at 967 h, relative s.d. **19.0 %**, max/min 2.37.
+There is no flat window at all, where Fig. 7 held to 4.9 % for 300 h. Under
+the `6/7` axis reading it falls to 14.3 % and max/min 1.91 — reduced, not
+removed.
+
+So Fig. 7's flat first 300 h now looks like the rising temperature masking the
+same shortfall, rather than agreement. Both curves run as `σ_t ∝ t^0.52`
+(Fig. 8) and `t^0.54` (Fig. 7) late, while the chain has only `FKOR` left once
+`F_d` saturates — 4.2 % from 244 h to 967 h here.
+
+Two one-parameter diagnostics were run (**reported, not adopted**; neither has
+independent support and each contradicts a figure that does):
+
+| free parameter | best value | printed / figure value | residual |
+|---|---|---|---|
+| Weibull modulus `m` | 12.0 (10.3 under `6/7`) | **5.57** from Eq (9a) | 0.9 % over 74 points |
+| corrosion pre-factor | ≈ 1.1·10⁻⁶ | **5.87·10⁻⁸** (Fig. 4, 483 points) | 4.5 % |
+
+Both are just two ways of saying the same thing: `σ_t` must grow about twice
+as much as the printed chain allows. `D_S` is **not** among them — see the
+bound below.
+
+### Fig. 8 identifies the kernel: the `UO₂` oxygen correlation is excluded
+
+At fixed temperature `σ_t ∝ (F_d·F_f + OPF)·FKOR` and `F_d ∈ [0,1]`, so the
+**largest** growth the chain can produce between two times is
+`(F_f + OPF)/OPF` times the `FKOR` ratio. That ceiling depends on `OPF` alone
+— not on `D_S`, not on `τ_i`, not on the geometry.
+
+| `OPF` source at 1600 °C | `OPF` | ceiling | Fig. 8 requires | |
+|---|---|---|---|---|
+| Eq (5c), `UO₂`, `T_B = 950 °C`, `t_B = 500 FPD` | 0.157 | **3.14×** | 4.50× (3.63× under `6/7`) | **excluded** |
+| Eq (5a), `(Th,U)O₂`, `N = 5` | 0.036 | 10.2× | 4.50× | ok |
+
+`N = 5` is the report's own AVR value (Eq 5a's symbol note), and GO 2 is an
+AVR fuel element, so this is a **positive identification from the figure's own
+output** rather than a preference. Contrast Fig. 7, where `UO₂` is only a weak
+5.0 %-vs-5.7 % preference and the bound is not violated.
+
+### Fig. 8 code-to-data: PANAMA is not conservative at 1600 °C with `η̇ ≡ 0`
+
+| comparator | n | mean | mean abs | worst |
+|---|---|---|---|---|
+| `without` corrosion, the caption's 70/26 at 8.2 % FIMA | 4 | **+0.24** | 0.43 | +0.47 |
+| `without` corrosion, all three burnups | 9 | **+0.45** | 0.53 | +1.15 |
+| `with` corrosion, all three burnups | 9 | −1.52 | 1.52 | −2.74 |
+
+(`log₁₀` of measured over curve; under the `6/7` reading the 70/26 mean is
++0.20 and mean abs 0.37.)
+
+This matters more than Fig. 7's equivalent. Page -479- claims good agreement
+**1600–2500 °C** and concedes over-conservatism below it, so Fig. 7's 1400 and
+1500 °C stages had an excuse. Fig. 8 is isothermal at 1600 °C and has none:
+the `η̇ ≡ 0` case sits **below** the data on the caption's own burnup, and the
+70/26 residual changes sign by 302 h — the model crosses the data rather than
+tracking it. The 70/7 and 70/15 series at 7.1–7.2 % FIMA are reported as
+spread, not as comparators; the PANAMA curve is drawn for 0.082.
+
+Fig. 8 digitised by the maintainer, 2026-09-24.
+
 
 ### `φ₂` has no figure to verify it, and Fig. 6 constrains it only negatively
 
@@ -476,11 +614,14 @@ is **not checked**. Fig. 9 is therefore not used as a verification target.
 | (6a)/(6b)/(6c) `V_m` | yes | each equation's own printed quotient | 3/3 to < 1·10⁻⁵ |
 | (11)/(12) `ζ`, `k` | yes | — | internal only; **no figure or table** |
 | (13)/(14a)/(14b) `φ₂` | yes | **Fig. 6, negatively** | (14a) excluded; (14b) unverified |
-| (10b)/(10c) grain boundary | yes, **off by default** | — | direction only; Figs. 7/8 lack the geometry |
+| (10b)/(10c) grain boundary | yes, **off by default** | **Figs. 7 and 8, two-curve identity** | `σ_with/σ_without` = 1.014 (Fig. 8), 1.000 (Fig. 7) under the `6/7` axis reading |
 | driver, §3.1 | yes | report's own step-independence claim (-482-) | 2·10⁻¹² over 1→3000 steps |
-| driver vs **Fig. 6** | — | **Fig. 6** | order 8/8; residual **−0.37…+0.39 decades**, systematic in `m` |
+| driver vs **Fig. 6** | — | **Fig. 6** | order 8/8; **1.4 % on one `σ_t`** under the `6/7` axis reading (10.0 % as digitised) |
 | driver vs **Fig. 7** (code-to-code) | — | **Fig. 7** | 4.9 % over 0–300 h incl. staging; **drifts to 1.90× by 977 h** |
 | PANAMA vs **Fig. 7** (code-to-data) | — | **Fig. 7**, 9 measured points | **+0.51 decades** (`η̇ ≡ 0`); −1.49 with corrosion |
+| driver vs **Fig. 8** (code-to-code) | — | **Fig. 8**, isothermal | **19.0 % rel s.d., drifts from the first point** — staging exonerated |
+| PANAMA vs **Fig. 8** (code-to-data) | — | **Fig. 8**, 9 measured points | **+0.24 decades** on the caption's burnup; −1.52 with corrosion |
+| log y-axis of Figs. 6/7/8 | — | three model-free identities | **calibrated over 7 decades where 6 are plotted** |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction
 runs uncalibrated and the disagreement is reported when there is one.

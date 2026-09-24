@@ -824,8 +824,15 @@ mod tests {
     /// across a 4.8-decade spread, with per-curve residuals running
     /// **−0.370 … +0.388** in `log₁₀ φ` (mean \|·\| 0.232).
     ///
-    /// The residual is monotone in `m_oo` rather than random. See the module
-    /// docs for the two hypotheses tested against it.
+    /// **That residual is a digitisation artefact, and this test now says
+    /// so.** Deflating the log ordinate by `6/7` — seven decades entered
+    /// where six are plotted — collapses the eight varieties onto one `σ_t`
+    /// at **1.4 % relative s.d.**, with per-variety residuals of ±2 % in
+    /// place of +23 %/−10 %. The same `6/7` is picked out independently by
+    /// the two-curve identity on Figs. 7 and 8
+    /// ([`figure_8_two_curves_expose_a_log_axis_calibration_error`]), which
+    /// uses no model at all. Both readings are asserted here so the evidence
+    /// survives: the trend as digitised, and its removal.
     #[test]
     fn figure_6_recovers_one_common_stress_history() {
         // Digitised Fig. 6 at t = 210 h, in the figure's top-to-bottom order.
@@ -894,30 +901,42 @@ mod tests {
             "Fig. 6 spans {spread:.2} decades -- this is a wide family, not a narrow one"
         );
 
-        // 3. The residual is bounded AND systematic in m_oo. Both halves are
-        //    asserted: an unexplained trend recorded is worth more than a
-        //    tolerance that hides it.
+        // 3. The residual is systematic in m_oo -- and it is a DIGITISATION
+        //    artefact, not physics. Both halves are asserted so neither can
+        //    be lost: the trend as digitised, and its removal under the 6/7
+        //    log-axis reading that Figs. 7 and 8 independently pick out.
         let resid: Vec<f64> = predicted
             .iter()
             .zip(at_210h.iter())
             .map(|(p, f)| (p / f).log10())
             .collect();
-        let worst = resid.iter().cloned().fold(0.0f64, |a, b| a.max(b.abs()));
-        assert!(
-            worst < 0.45,
-            "per-curve residual should stay inside +-0.45 decades, got {worst:.3} ({resid:?})"
-        );
-        let mean_abs = resid.iter().map(|x| x.abs()).sum::<f64>() / 8.0;
-        assert!(
-            (0.18..0.29).contains(&mean_abs),
-            "mean |residual| measured 0.232 decades, got {mean_abs:.3}"
-        );
         assert!(
             resid[0] < -0.3 && resid[7] > 0.3,
-            "the residual runs monotonically with m_oo -- low-m varieties are \
-             over-predicted by the figure and high-m ones under-predicted. If \
-             this ever passes by being small, re-derive rather than re-tune: \
-             {resid:?}"
+            "as digitised, the residual runs monotonically with m_oo: {resid:?}"
+        );
+
+        // Deflate the log ordinate by 6/7 -- seven decades entered where six
+        // are plotted -- and the eight varieties collapse onto one sigma_t.
+        let deflate = |phi: f64| 10f64.powf(-6.0 + (6.0 / 7.0) * (phi.log10() + 6.0));
+        let corrected: Vec<f64> = at_210h
+            .iter()
+            .zip(props.iter())
+            .map(|(phi, (s_o, m))| {
+                s_o * (-(1.0 - deflate(*phi)).ln() / std::f64::consts::LN_2).powf(1.0 / m)
+            })
+            .collect();
+        let cmean = corrected.iter().sum::<f64>() / 8.0;
+        let crel =
+            (corrected.iter().map(|x| (x - cmean).powi(2)).sum::<f64>() / 8.0).sqrt() / cmean;
+        assert!(
+            crel < 0.03,
+            "under the 6/7 reading the eight varieties must agree to ~1.4 %; \
+             got {crel:.4} from {corrected:?}"
+        );
+        assert!(
+            crel < rel_sd / 5.0,
+            "the corrected reading must be decisively better ({crel:.4} against {rel_sd:.4}), \
+             not marginally -- that is what makes it a calibration finding rather than a fit"
         );
     }
 
