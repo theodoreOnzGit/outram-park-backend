@@ -1080,10 +1080,11 @@ fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) ->
 /// Bounded so a page with a dozen annotations cannot push the read-only
 /// preview off the bottom of the panel, which is what happened when both
 /// shared one unbounded scroll area.
+///
+/// **This is the only cap.** The preview below is deliberately unbounded --
+/// it is the working surface, and capping the summaries is precisely how it
+/// gets its room.
 const CONTEXT_LIST_MAX_HEIGHT: f32 = 320.0;
-
-/// Height budget for the read-only markdown preview below the card list.
-const CONTEXT_PREVIEW_MAX_HEIGHT: f32 = 260.0;
 
 fn body_preview(body: &str) -> String {
     const MAX_LINES: usize = 4;
@@ -2327,9 +2328,17 @@ impl PdfReaderState {
             .id_salt("pdf_context_preview")
             .default_open(true)
             .show(ui, |ui| {
+                // DELIBERATELY UNCAPPED (maintainer, 2026-09-24: "preview
+                // shouldn't be capped, let it run, this is impt"). The
+                // preview is the working surface -- it is the document, and
+                // reading it is the point of the panel. It takes whatever
+                // height is left and scrolls inside that.
+                //
+                // The card list above IS capped, and that is what protects
+                // this: bounding the summaries is how the preview gets room,
+                // so the cap belongs there and not here.
                 egui::ScrollArea::vertical()
                     .id_salt("pdf_context_preview_scroll")
-                    .max_height(CONTEXT_PREVIEW_MAX_HEIGHT)
                     .show(ui, |ui| {
                         if let Some(line) = context_editor.ui_readonly(ui) {
                             if let Some(a) = artifacts
