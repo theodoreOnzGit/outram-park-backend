@@ -121,13 +121,59 @@ extents, so splitting the flat array recovers `(breakpoints, interpolation)`
 unambiguously. #303 is therefore not blocked by what blocks #304 — which is
 worth stating explicitly, because the two issues are otherwise mirror halves.
 
+## Row 1: the reader reproduces the reference library's cross sections exactly
+
+`outram-mc-libs/tests/band_xs_from_hdf5_reader.rs` recomputes, **in Rust and
+in-process**, the band-averaged cross-section oracle that
+`band_averaged_xs_vs_openmc.rs` had been carrying as `const` arrays transcribed
+from `band_xs_oracle.py` (h5py + numpy). Same six bands, same `dE/E` lethargy
+weight, same 4000-point trapezoid.
+
+| nuclide | worst \|diff\| across all bands and channels |
+|---|---|
+| U-235 | **0.001 %** |
+| U-238 | **0.166 %** |
+
+Every `sum` column agrees to **0.000 %**. U-238's 0.166 % worst case is on
+**fission at 7.8e−5 barn** — a channel essentially closed in that band, where a
+tiny absolute difference is a large relative one; the next largest is 0.118 %,
+also U-238 fission, and nothing else exceeds 0.007 %.
+
+So the reader assembles cross sections off a real fissile nuclide's file
+**identically** to an independent tool. Combined with
+`band_averaged_xs_vs_openmc.rs`, which already compares those same oracle
+numbers against this workspace's ENDF reconstruction, acceptance row 1's
+substance is met: the HDF5-read cross sections and the ENDF-reconstructed ones
+are compared, on the right instrument.
+
+**Why band-averaged and not pointwise**, restated because it matters: a
+pointwise comparison of two independently generated energy grids inside
+resonances is dominated by grid placement rather than physics, and the sibling
+test's own docs decline to chase it for that reason. The lethargy average needs
+no flux, so it also cannot be contaminated by the flux difference such
+comparisons are usually reached for.
+
+**Why this is worth having beyond row 1.** A transcribed oracle is a real weak
+point, and this workspace has been bitten by one: `transport_decomposition.py`
+read angular tables at the bracketing index instead of interpolating, biasing
+`<mu_el>` to 0.2740 against a true 0.2645 — the **fourth** appearance of the
+nearest-point trap and the first in our own script. A number that reaches a
+test through a script and a human is a number nothing re-derives. Now something
+does.
+
+The existing test is deliberately **not** modified: it carries a careful
+argument about which instrument is meaningful in the resolved-resonance region,
+and rewiring its oracle is a separate change from showing the oracle can be
+re-derived.
+
 ## What is NOT done
 
-- **`xs_at_energy` is not yet compared against the ENDF-reconstructed
-  nuclide.** The reader returns cross sections on the file's own grid; the
-  comparison needs a `ReadNuclide -> outram_mc_libs::Nuclide` conversion, which
-  belongs in `outram-mc-libs` (this crate cannot depend on it). Acceptance
-  row 1 is blocked on that conversion, not on the reader.
+- **A `ReadNuclide -> outram_mc_libs::Nuclide` conversion**, which is what
+  *transporting* from a read library needs (as opposed to comparing cross
+  sections off one, which row 1 asks for and which is done above).
+  `XsSource` has two variants, `Core` and `Pointwise`, and `Pointwise` wraps a
+  `ReconrResult`; a third variant touches the transport hot path in a mature
+  crate, so it is named here as its own increment rather than started.
 - **Secondary distributions are identified but not decoded.** The reader
   records each product's law `type` and particle, which is what the coverage
   assertions need, but does not yet unpack the `(3, n)` / `(5, n)` tables into
