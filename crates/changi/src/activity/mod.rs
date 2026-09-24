@@ -71,6 +71,7 @@
 /// A published HTR-10 core inventory, so a source term can be built from
 /// measured magnitudes rather than round illustrative numbers. An inventory
 /// is NOT a source term -- see the module docs.
+pub mod decay_transfer;
 pub mod inventory;
 pub mod chi_over_q;
 pub mod deposition;
