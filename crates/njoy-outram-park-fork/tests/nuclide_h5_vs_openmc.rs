@@ -271,3 +271,130 @@ fn rx_at(n: &njoy_outram_park_fork::hdf5::nuclide_read::ReadNuclide, mt: i32, e:
     let i = e.partition_point(|&v| v <= at).saturating_sub(1);
     full[i]
 }
+
+/// **Reproducer for an upstream OpenMC robustness defect**, written from
+/// entirely *conventional* data — GitHub #306.
+///
+/// The segfault found while verifying #304 was first triggered by a cross
+/// section that **stepped** from 0 to 1 barn at a `level` law's threshold, which
+/// real evaluations do not do. That alone would make it garbage-in rather than a
+/// defect. This test emits a file that breaks **no** convention:
+///
+/// - the threshold sits exactly on a grid point;
+/// - the cross section is exactly zero there and rises smoothly above it;
+/// - the grid starts at 1 keV, which is legal and common (a fast-only library
+///   need not extend to 1e-5 eV).
+///
+/// The last point is what makes the window visible rather than rare.
+/// `LevelInelastic::sample` returns `mass_ratio * (E - threshold)` unclamped, so
+/// a collision just above the threshold emits a neutron far below the library's
+/// minimum energy. OpenMC's neutron `energy_cutoff` defaults to **0.0**
+/// (`src/settings.cpp:114`), so `physics.cpp:81` kills a *negative* energy but
+/// **not** a positive sub-minimum one — and `Material::calculate_neutron_xs`
+/// then computes
+///
+/// ```cpp
+/// int i_grid = std::log(p.E() / data::energy_min[neutron]) / simulation::log_spacing;
+/// ```
+///
+/// (`src/material.cpp:832`) which is **negative** for `E < energy_min` and is
+/// used to index the cross-section arrays without a bounds check.
+///
+/// This test only **writes** the file; running OpenMC on it is the reproducer
+/// step, documented in
+/// `verification_and_validation/nuclide_h5_fissile/openmc_inputs/`. It is
+/// `#[ignore]`d because its product is an input to a crash, not an assertion.
+#[test]
+#[ignore = "emits a reproducer file for an upstream segfault; run explicitly"]
+fn emit_sub_minimum_level_emission_reproducer() {
+    use njoy_outram_park_fork::hdf5::nuclide_laws::{
+        AngleDistribution, AngleEnergy, EnergyDist, Product,
+    };
+    use njoy_outram_park_fork::hdf5::nuclide_write::{write_nuclide, NuclideData, ReactionData};
+
+    // A fast-only grid: 1 keV to 20 MeV. Entirely legal, and it puts the
+    // library minimum four decades above where the level law can emit.
+    let n_pts = 200usize;
+    let mut energy: Vec<f64> = (0..n_pts)
+        .map(|i| {
+            let (lo, hi) = (1.0e3_f64.ln(), 2.0e7_f64.ln());
+            (lo + (hi - lo) * i as f64 / (n_pts - 1) as f64).exp()
+        })
+        .collect();
+
+    let awr = 55.0; // roughly iron, so the mass ratio is unremarkable
+    let q = -1.0e5_f64;
+    let threshold = q.abs() * (awr + 1.0) / awr;
+    let ti = energy.iter().position(|&x| x > threshold).unwrap();
+    energy.insert(ti, threshold);
+    let n = energy.len();
+    let (lo, hi) = (energy[0], energy[n - 1]);
+
+    // MT=51: exactly zero at the threshold, rising SMOOTHLY above it, which is
+    // what every real evaluation does.
+    let mut inel = vec![0.0; n];
+    for (i, v) in inel.iter_mut().enumerate().skip(ti + 1) {
+        let x = (i - ti) as f64 / (n - ti) as f64;
+        *v = 2.0 * x; // linear rise from zero
+    }
+
+    let d = NuclideData {
+        name: "LvMin".into(),
+        z: 26,
+        a: 56,
+        metastable: 0,
+        atomic_weight_ratio: awr,
+        temperature: "294K".into(),
+        kt_ev: 2.5301e-2,
+        energy: energy.clone(),
+        reactions: vec![
+            ReactionData::elastic(
+                vec![5.0; n],
+                AngleDistribution::isotropic(vec![lo, hi]),
+                lo,
+                hi,
+            )
+            .unwrap(),
+            ReactionData::capture(1.0e6, vec![0.1; n]),
+            ReactionData::from_full_grid(
+                51,
+                q,
+                true,
+                &inel,
+                vec![Product::prompt_neutron(
+                    AngleEnergy::Uncorrelated {
+                        angle: Some(AngleDistribution::isotropic(vec![threshold, hi])),
+                        energy: Some(EnergyDist::Level {
+                            threshold,
+                            mass_ratio: (awr / (awr + 1.0)).powi(2),
+                        }),
+                    },
+                    threshold,
+                    hi,
+                )
+                .unwrap()],
+            ),
+        ],
+        total_nu: None,
+        urr: vec![],
+    };
+
+    let out = std::env::var("OUTRAM_REPRO_DIR").unwrap_or_else(|_| {
+        std::env::temp_dir()
+            .join("njoy_level_repro")
+            .to_string_lossy()
+            .into_owned()
+    });
+    std::fs::create_dir_all(&out).unwrap();
+    let p = std::path::Path::new(&out).join("LvMin.h5");
+    write_nuclide(&p, &d).expect("this file breaks no convention, so it must write");
+    println!(
+        "wrote {} -- grid {:.3e}..{:.3e} eV ({n} pts), MT=51 threshold {threshold:.6} eV \
+         at index {ti}, xs zero there and rising linearly.\n\
+         A collision just above the threshold emits \
+         mass_ratio*(E - threshold) << 1 keV, i.e. BELOW the library minimum.",
+        p.display(),
+        lo,
+        hi
+    );
+}

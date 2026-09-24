@@ -39,6 +39,28 @@
 //! elastic and capture as before. Plus ν̄ (`total_nu`) and the unresolved
 //! resonance probability tables (`urr`).
 //!
+//! # WRITE GRIDS THAT REACH THERMAL when a threshold scattering law is present
+//!
+//! A `level` law emits `mass_ratio * (E - threshold)`, which just above the
+//! threshold is arbitrarily close to zero — so it can always land below a
+//! library's own minimum energy. **OpenMC transports such a particle without
+//! complaint and indexes its cross-section grid with a negative index**
+//! (`src/material.cpp:832`, no bounds check; the neutron `energy_cutoff`
+//! defaults to 0.0 so nothing kills it). Measured 2026-09-24 on a 1 keV–20 MeV
+//! grid with an otherwise entirely conventional MT=51: **4.9 % of the flux fell
+//! below the library minimum** and the run exited 0 with tallies written, having
+//! read ~1860–9300 array elements from before the start of the array. With a
+//! cross section that steps at the threshold instead, the same path
+//! **segfaults**.
+//!
+//! That is an upstream defect (GitHub #306) and production libraries do not
+//! trigger it, because ENDF-derived grids reach 1e-5 eV. The consequence for a
+//! *caller of this writer* is simply: **let the energy grid reach thermal**. It
+//! is documented rather than enforced because the crisp invariant — the
+//! emission range must lie inside the grid — is unsatisfiable for a `level` law
+//! at any positive grid minimum, and a fuzzy "probably low enough" check would
+//! be worse than saying so plainly.
+//!
 //! **What is still refused, and why it is a dependency limit rather than a
 //! port gap:** `continuous`, `correlated` and `kalbach-mann` each store their
 //! incident-grid interpolation as a **rank-2** attribute, which `hdf5-pure`

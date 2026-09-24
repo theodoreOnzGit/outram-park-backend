@@ -149,7 +149,8 @@ Measured on upstream's `U235.h5`:
 A cross section that **steps** from 0 to a finite value at the threshold makes
 `mass_ratio * (E - threshold)` land arbitrarily close to zero at a finite rate.
 
-**And OpenMC has no guard for a particle below the library's minimum energy.**
+**And OpenMC has no guard for a particle below the library's minimum energy —
+which is an upstream defect in its own right, filed as GitHub #306.**
 `src/material.cpp:833` computes the logarithmic grid index as
 
 ```cpp
@@ -227,3 +228,97 @@ The converged `k ± sigma` under a reflective boundary is still running at the
 time of writing; the first-generation `1.99854` against the analytic `2.0` and
 the file's own `k_inf = 2.000000` are what is recorded above, and nothing
 further should be quoted until the run lands.
+
+
+## The upstream defect this exposed, investigated properly (GitHub #306)
+
+The segfault above was first triggered by a cross section that **stepped** at a
+`level` threshold, which no real evaluation does — so on its own it would be
+garbage-in rather than a defect. It is worth knowing which, so the question was
+settled rather than assumed.
+
+### The mechanism, three lines of C++
+
+1. `LevelInelastic::sample` is **unclamped** (`src/distribution_energy.cpp`):
+   `return mass_ratio_ * (E - threshold_);` — arbitrarily small positive just
+   above the threshold, with no check against the library's range.
+2. The neutron **energy cutoff does not catch it**:
+   `settings::energy_cutoff` defaults to `{0.0, 1000.0, 0.0, 0.0}`
+   (`src/settings.cpp:114`), so `physics.cpp:81` kills a *negative* energy but
+   not a positive one below `data::energy_min`.
+3. `Material::calculate_neutron_xs` computes
+   `int i_grid = std::log(p.E() / data::energy_min[neutron]) / simulation::log_spacing;`
+   (`src/material.cpp:832`) and indexes the cross-section arrays with it, with
+   **no bounds check**. For `E < energy_min` it is negative.
+
+With `energy_min = 1 keV`, `E_max = 20 MeV` and the default `n_log_bins = 8000`
+(`log_spacing = 1.2379e-3`): `i_grid` is **−1860** at 100 eV, **−5580** at 1 eV,
+**−9300** at 0.01 eV.
+
+### Measured on data that breaks no convention
+
+A second file was built specifically to remove the step from the argument: the
+threshold **exactly** on a grid point, the cross section **exactly zero** there
+rising **smoothly**, and a grid spanning **1 keV – 20 MeV** — a legal and common
+fast-only range. Fixed source, 100k particles, sampled just above the
+101818 eV threshold.
+
+**OpenMC did not crash**, and that is the bad news. Flux straddling the library
+minimum:
+
+```text
+LIBRARY MINIMUM = 1e3 eV
+  1.000e-03 - 1.000e-01 : flux  3.97315e-03 +/- 2.764e-03  <-- BELOW minimum
+  1.000e-01 - 1.000e+01 : flux  1.74574e-01 +/- 3.305e-02  <-- BELOW minimum
+  1.000e+01 - 1.000e+02 : flux  8.52391e-01 +/- 2.745e-02  <-- BELOW minimum
+  1.000e+02 - 9.990e+02 : flux  4.66914e+00 +/- 4.092e-02  <-- BELOW minimum
+  1.000e+03 - 1.000e+04 : flux  2.19479e+01 +/- 7.005e-02
+  1.000e+04 - 1.000e+05 : flux  7.45799e+01 +/- 1.893e-01
+  1.000e+05 - 2.000e+07 : flux  1.46654e+01 +/- 3.256e-02
+```
+
+**~4.9 % of the total flux (5.70 of 116.8) is below the library's minimum**,
+every particle of it transported with a negative cross-section index. Exit 0,
+tallies written, nothing in the output to suggest anything was wrong.
+
+### Two manifestations of one undefined behaviour
+
+| how often the window is hit | what happens |
+|---|---|
+| often (a step at the threshold) | **SIGSEGV**, exit 139 |
+| occasionally (smooth rise, fast-only grid) | **no error**; ~1860–9300 elements read from before the array and used as cross sections |
+
+Whether it faults depends only on whether the address is mapped. **The quiet
+case is the dangerous one** — it yields a plausible answer with no warning and
+no `fatal_error`, which would corrupt a cross-code comparison invisibly.
+
+### The verdict, with its qualification
+
+It is a defect on narrow, defensible ground: OpenMC accepts a library,
+transports particles outside the range that library describes, and indexes an
+array with the resulting negative index. Any one of three guards would prevent
+it and none is present — refuse or warn on such a library, kill particles below
+`energy_min`, or clamp `i_grid`. OpenMC uses `fatal_error` freely for bad data
+elsewhere, so the silence is inconsistent with its own conventions.
+
+**The qualification travels with the finding: production libraries do not
+trigger it.** ENDF/B-VIII.0-derived libraries reach 1e-5 eV, so the sub-minimum
+window is effectively empty. This has not been corrupting anyone's results, and
+it does not affect any cross-code number in this repository — every library used
+here has a full-range grid. It bites data that is *legal but unusual*, which is
+exactly the class this workspace now generates.
+
+### What it constrains on our side
+
+**Our writer should emit grids that reach thermal (1e-5 eV) for any nuclide
+carrying a threshold scattering law.** A fast-only library we write would be
+transported with silently wrong cross sections below its own minimum. That is a
+caveat on `hdf5::nuclide_write` rather than a bug in it, and it is recorded in
+that module's docs rather than enforced, because the crisp invariant ("the
+emission range must lie inside the grid") is unsatisfiable for a `level` law at
+any positive grid minimum — the law can emit arbitrarily close to zero. A fuzzy
+"probably low enough" check would be worse than the documented caveat.
+
+Reproducer: `tests/nuclide_h5_vs_openmc.rs::emit_sub_minimum_level_emission_reproducer`
+(`#[ignore]`d), with the OpenMC deck and the flux-tally driver in
+`openmc_inputs/repro_sub_minimum_level*.py`.
