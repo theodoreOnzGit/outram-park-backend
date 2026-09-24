@@ -3025,6 +3025,22 @@ impl PdfReaderState {
             let to_image = move |pos: Pos2| -> Pos2 { ((pos - page_origin) / zoom).to_pos2() };
             let to_screen = move |p: Pos2| -> Pos2 { page_origin + p.to_vec2() * zoom };
 
+            // **Esc abandons a box** (maintainer, 2026-09-24). Two things
+            // need clearing and they are different states: `draw_start` is a
+            // drag still in progress, `pending_box` a box already released
+            // but not yet turned into an annotation or a crop. Before this,
+            // the only way out of a mis-drawn box was to draw another one.
+            //
+            // Guarded on the annotate editor being closed: while it is open
+            // Esc belongs to it (kvim's Insert -> Normal), and that editor
+            // consumes the event itself. Checking here as well would cancel
+            // the box the operator is in the middle of annotating.
+            if self.annotate_editor.is_none()
+                && ui.input(|i| i.key_pressed(egui::Key::Escape))
+            {
+                self.cancel_box_drawing();
+            }
+
             // --- drawing a new box ---
             if self.tool == AnnotationTool::DrawBox {
                 if response.drag_started_by(egui::PointerButton::Primary) {
@@ -3835,6 +3851,19 @@ impl PdfReaderState {
                 }
             });
         });
+    }
+
+    /// Abandon any box the operator is drawing or has just drawn.
+    ///
+    /// Three distinct states, all of which mean "there is a box in flight":
+    /// `draw_start` is a primary-button drag still down, `select_start` the
+    /// same for the text-selection tool, and `pending_box` a box already
+    /// released but not yet turned into an annotation or a crop. Esc clears
+    /// all three, because from the operator's side they are one thing.
+    fn cancel_box_drawing(&mut self) {
+        self.draw_start = None;
+        self.select_start = None;
+        self.pending_box = None;
     }
 
     /// The Annotate text editor, shown as a panel under the toolbar while
@@ -5047,4 +5076,37 @@ t_s,power_mw
             classify::CascadeError::ArtifactNotFound { .. }
         ));
     }
+
+    /// Esc must abandon a box, whether the drag is still down or the box has
+    /// already been released and is waiting to be confirmed. Before this
+    /// there was no way out of a mis-drawn box but to draw another one
+    /// (maintainer, 2026-09-24).
+    #[test]
+    fn escape_cancels_a_box_in_every_in_flight_state() {
+        let mut r = PdfReaderState::default();
+
+        // Mid-drag, box tool.
+        r.draw_start = Some(Pos2::new(10.0, 10.0));
+        r.cancel_box_drawing();
+        assert!(r.draw_start.is_none(), "a drag in progress must be dropped");
+
+        // Mid-drag, text-selection tool.
+        r.select_start = Some(Pos2::new(5.0, 5.0));
+        r.cancel_box_drawing();
+        assert!(r.select_start.is_none(), "a text drag must be dropped too");
+
+        // Released but unconfirmed.
+        r.pending_box = Some((Pos2::new(1.0, 2.0), Pos2::new(3.0, 4.0)));
+        r.cancel_box_drawing();
+        assert!(r.pending_box.is_none(), "an unconfirmed box must be discarded");
+
+        // All three at once, and idempotent.
+        r.draw_start = Some(Pos2::ZERO);
+        r.select_start = Some(Pos2::ZERO);
+        r.pending_box = Some((Pos2::ZERO, Pos2::ZERO));
+        r.cancel_box_drawing();
+        r.cancel_box_drawing();
+        assert!(r.draw_start.is_none() && r.select_start.is_none() && r.pending_box.is_none());
+    }
+
 }
