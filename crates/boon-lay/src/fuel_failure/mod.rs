@@ -94,6 +94,7 @@
 //! | [`geometry`] | `r`, `d_o`, `d_act` | -484- |
 //! | [`diffusion`] | `D_S`, both kernel types | -487- |
 //! | [`corrosion`] | (7), `FKOR`, the `v̇` Arrhenius | -492- |
+//! | [`oxygen`] | (5a)–(5f), `OPF` | -488-/-489- |
 //! | [`weibull`] | (1) | -483- |
 //! | [`stress`] | (2) | -484- |
 //! | [`pressure`] | (3) | -484-/-485- |
@@ -115,11 +116,12 @@
 //! | `T_B` | degC (-511-) | **kelvin** | Table 1 reproduces 16/16 on kelvin, 0/16 on degC |
 //! | `Gamma` | 10^25 m^-2 EDN | same, as bare `f64` | a `log10` fit is only valid in its own units |
 //! | Eq (3) grouping | bar spans the denominator | `R*T` in the numerator | dimensions; the printed form makes `p` fall with `T` |
-//! | `t_B` | seconds (-511-) | **UNRESOLVED** | Figs 3/7/8 say full-power days |
+//! | `t_B` | seconds (-511-) | **seconds** | Fig. 3: seconds 0.0087, days 0.277 |
 
 pub mod corrosion;
 pub mod diffusion;
 pub mod geometry;
+pub mod oxygen;
 pub mod pressure;
 pub mod strength;
 pub mod stress;
@@ -128,6 +130,10 @@ pub mod weibull;
 pub use corrosion::{advance_thinning_factor, corrosion_rate, thinning_factor};
 pub use diffusion::{reduced_diffusion_coefficient, KernelKind};
 pub use geometry::SicLayer;
+pub use oxygen::{
+    oxygen_per_fission_thoria, oxygen_per_fission_uco, oxygen_per_fission_uo2, HeatingRegime,
+    OPF_MAX,
+};
 pub use pressure::{internal_gas_pressure, GAS_CONSTANT_J_PER_MOL_K, STABLE_FISSION_GAS_YIELD};
 pub use strength::{
     irradiated_strength, irradiated_weibull_modulus, MIN_TENSILE_STRENGTH_MPA, MIN_WEIBULL_MODULUS,

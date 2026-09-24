@@ -78,33 +78,36 @@ the other misplaces the strength scale by `(ln2)^(1/m)`, about 4 % at `m = 8`,
 in a direction that flatters the answer and raises no error. Pinned by
 `weibull::tests::median_is_the_scale_parameter`.
 
----
-
-## Open
-
-### `t_B` — irradiation time. **UNRESOLVED, and it blocks the pressure path.**
+### `t_B` — irradiation time. **SETTLED: seconds.**
 
 | | |
 |---|---|
 | **Printed** | `[s]` (symbol list, -511-) |
-| **Contradicted by** | Fig. 3's curve labels (`1000 d`, `500 d`); Fig. 7's caption (`260 FPD`); Fig. 8's caption (`500 FPD`) |
-| **Status** | three independent places say full-power days, one says seconds |
+| **Apparently contradicted by** | Fig. 3's curve labels (`1000 d`); Figs. 7/8's captions (`260 FPD`, `500 FPD`); the validity range on -488- ("66 and 550 full power days") |
+| **Settled by** | Fig. 3, reproduced to 0.0087 in `OPF` on seconds and 0.277 on days |
 
-`t_B` enters Eqs (5b)/(5c), the UO₂ oxygen-per-fission correlations. `OPF`
-feeds Eq (3) directly, so this sets the **absolute internal pressure** and
-therefore everything downstream of it. The extraction also records that the
-`−10.08` intercept gives implausible `OPF` on *either* reading, so the
-discrepancy may not be units alone.
+This was the last blocking question, and the most strongly discriminated one
+in the report: Eqs (5b)/(5c) carry `2·log t_B`, so seconds-vs-days moves
+`log OPF` by about **9.9 decades**.
 
-**Not guessed.** Eqs (5a)–(5f) are deliberately not implemented; `OPF` is an
-**input** to `pressure::internal_gas_pressure`. A wrong exponent here would
-propagate into a plausible-looking absolute pressure and a failure fraction
-that still reads as reasonable.
+| reading | mean abs error in `OPF` |
+|---|---|
+| **seconds** | **0.0087** |
+| days | 0.277 — `OPF` collapses to ~0 everywhere |
 
-**How to settle it.** Digitise Fig. 3 (`-488-`), evaluate Eq (5b) with `t_B`
-in days and in seconds for one labelled curve, and see which reproduces it.
-Table 2's "O atoms/fission at t=0" (0.00511 / 0.00316) is a second,
-independent numeric check.
+Four digitised `UO₂` curves, `T_B` 900–1100 °C, `t_B` 500–1000 d.
+
+**The symbol list was right and the three "contradictions" were not.** A curve
+*titled* `1000 °C, 1000 d` and a validity range quoted in full-power days are
+both human-readable descriptions of the experiment; the *formula* takes
+seconds. `oxygen_per_fission_uo2` takes a `uom` `Time` and converts
+internally, so a caller cannot reintroduce the confusion.
+
+Fig. 3 digitised by the maintainer, 2026-09-24.
+
+---
+
+## Open
 
 ### Missing page -510- (§7, References)
 
@@ -220,7 +223,9 @@ corrected 2026-09-24 when Fig. 4 was digitised.
 | `D_S` (Th,U)O₂, p-487 | yes | **Fig. 2** | 4/4 curves, labels recovered |
 | `D_S` UO₂/UCO, p-487 | yes | **Fig. 2** | **disagrees, 6.4×→1.3×** (see above) |
 | (7) + `v̇`, p-492 | yes | **Fig. 4** | 5/5 curves, **after a decade fix** |
-| (4), (5a)–(5f), (6a)–(6c), (10b)/(10c), (11)/(12) | **no** | — | inputs, deliberately |
+| (5a) `(Th,U)O₂` OPF | yes | **Fig. 3** | temperature term confirmed |
+| (5b)/(5c)/(5d)/(5e) `UO₂` OPF | yes | **Fig. 3** | 4/4 curves, mean 0.0087 |
+| (4), (6a)–(6c), (10b)/(10c), (11)/(12) | **no** | — | inputs, deliberately |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction
 runs uncalibrated and the disagreement is reported when there is one.
