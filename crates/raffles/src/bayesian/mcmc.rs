@@ -351,7 +351,10 @@ impl EnsembleMove {
                 let z = self.draw_stretch(seed);
                 let mut proposal = Vec::with_capacity(d);
                 for i in 0..d {
-                    proposal.push(population[j].theta[i] + z * (population[k].theta[i] - population[j].theta[i]));
+                    proposal.push(
+                        population[j].theta[i]
+                            + z * (population[k].theta[i] - population[j].theta[i]),
+                    );
                 }
 
                 let ln_target_proposal = {
@@ -369,8 +372,8 @@ impl EnsembleMove {
                 } else if population[k].ln_target == f64::NEG_INFINITY {
                     true
                 } else {
-                    let ln_q = (d as f64 - 1.0) * z.ln() + ln_target_proposal
-                        - population[k].ln_target;
+                    let ln_q =
+                        (d as f64 - 1.0) * z.ln() + ln_target_proposal - population[k].ln_target;
                     ln_q >= 0.0 || u.ln() < ln_q
                 };
 
@@ -461,12 +464,9 @@ mod tests {
 
         let acceptance = accepted as f64 / (burn_in + kept) as f64;
 
-
         let (mx, sx) = mean_and_sd(&x);
 
-
         let (my, sy) = mean_and_sd(&y);
-
 
         println!("MH standard normal: mean_x {mx:.5} sd_x {sx:.5} mean_y {my:.5} sd_y {sy:.5} acceptance {acceptance:.4}");
         assert!(
@@ -518,12 +518,9 @@ mod tests {
 
         let acceptance = accepted as f64 / (sweeps * population.len()) as f64;
 
-
         let (mx, sx) = mean_and_sd(&x);
 
-
         let (my, sy) = mean_and_sd(&y);
-
 
         println!("ensemble standard normal: mean_x {mx:.5} sd_x {sx:.5} mean_y {my:.5} sd_y {sy:.5} acceptance {acceptance:.4}");
         assert!(
@@ -605,7 +602,9 @@ mod tests {
             / (x.len() as f64 - 1.0);
         let correlation = covariance / (sd_x * sd_y);
 
-        println!("ensemble anisotropic: sd_x {sd_x:.6e} sd_y {sd_y:.6e} correlation {correlation:.5}");
+        println!(
+            "ensemble anisotropic: sd_x {sd_x:.6e} sd_y {sd_y:.6e} correlation {correlation:.5}"
+        );
         assert!(
             (correlation - 0.99).abs() < 0.05,
             "ensemble correlation {correlation}"

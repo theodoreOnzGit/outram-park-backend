@@ -120,17 +120,17 @@ verbatim and edit the fields — is in this crate's `CLAUDE.md`.
 
 No RAVEN source has been ported into this crate yet. The RAVEN-facing modules
 are still module boundaries, licensing and provenance only. Other parts of the
-crate are implemented; see the two upstreams recorded below.
+crate are implemented; see the three upstreams recorded below.
 
 
 OTHER UPSTREAMS — GPL-3.0, NOT COVERED BY THE APACHE-2.0 GRANT ABOVE
 ====================================================================
 
-RAFFLES has taken in work from two upstreams besides RAVEN. Both are GPL-3.0,
-the same licence as this crate, so neither carries the one-way restriction the
-Apache-2.0 grant above does. The Apache-2.0 licence text in
-LICENSE-APACHE-RAVEN does NOT apply to either — check which upstream a file
-comes from before writing its attribution header.
+RAFFLES has taken in work from three upstreams besides RAVEN. All three are
+GPL-3.0, the same licence as this crate, so none carries the one-way
+restriction the Apache-2.0 grant above does. The Apache-2.0 licence text in
+LICENSE-APACHE-RAVEN does NOT apply to any of them — check which upstream a
+file comes from before writing its attribution header.
 
 1. Physics-guided-MPNN
    ------------------------------------------------------------------------
@@ -176,6 +176,154 @@ comes from before writing its attribution header.
    repositories. Do not add one retroactively — an attribution header is a
    statement about where a file came from, not a courtesy.
 
+3. SCRAM
+   ------------------------------------------------------------------------
+   Project:          SCRAM (a probabilistic risk analysis tool)
+   Author:           Olzhas Rakhimov
+   Upstream repo:    https://github.com/rakhimov/scram
+   Licence:          GPL-3.0-or-later (LICENSE file present in the repository)
+   Copyright:        Copyright (C) 2014-2018 Olzhas Rakhimov
+   Commit ported
+   from:             b85b78940de38996eeffec54d946824bd4280a1c (2019-07-03)
+   Version reported: SCRAM 0.16.2
+   Date accessed:    2026-09-21
+
+   Ported into:      src/scram/probability.rs, src/scram/importance.rs,
+                     src/scram/zbdd.rs, src/scram/expression.rs,
+                     src/scram/mef.rs, the probability recurrence of
+                     src/scram/bdd.rs, and the Connective TAXONOMY ONLY of
+                     src/scram/fault_tree.rs.
+   Those files carry their own per-file attribution headers naming the
+   upstream file. src/scram/mod.rs is the module doc and re-export surface and
+   carries the same header.
+
+   WHAT WAS PORTED is the fault-tree QUANTIFICATION layer: the rare-event and
+   MCUB approximations, the per-cut-set product, the five derived importance
+   factors of `ImportanceAnalyzerBase::Analyze`, and `pdag.h`'s eight-variant
+   `Connective` enum.
+
+   WHAT IS IN THE MODULE BUT IS **NOT** A PORT, each saying so in its own
+   doc rather than carrying an attribution header:
+
+     - src/scram/mocus.rs. Upstream's MOCUS is a driver over a ZBDD operating
+       on a preprocessed Boolean graph (zbdd + pdag + preprocessor + bdd =
+       9,076 lines), none of which is ported. This is the classical top-down
+       MOCUS expansion from the published literature (Fussell & Vesely 1972;
+       cf. Rauzy 1993), verified AGAINST upstream's reported products.
+     - The exact top-event probability: inclusion-exclusion where upstream
+       traverses a BDD.
+     - The Birnbaum importance factor: its definition, where upstream
+       differentiates the BDD.
+     - The rest of src/scram/fault_tree.rs: a plain indexed structure a
+       caller builds in Rust. src/scram/mef.rs is what builds one from an
+       input model.
+     - RelaxNG schema validation. Upstream validates every document against
+       share/input.rng with libxml2 before reading it; src/scram/mef.rs does
+       not, and says so. Its structure checks are narrower than the grammar.
+
+   STILL ABSENT: the preprocessor, event trees, and the reporter.
+
+   ALIGNMENTS ARE present, in src/scram/alignment.rs, porting alignment.{h,cc}
+   and the phase application of RiskAnalysis::RunAnalysis: a phase scales the
+   mission time by its fraction and applies its <set-house-event>
+   instructions. Upstream mutates the model and restores it with a
+   scope_guard; MefModel::in_phase returns a new model instead.
+
+   UNCERTAINTY ANALYSIS IS present, in src/scram/uncertainty.rs, porting
+   uncertainty_analysis.{h,cc}: the Monte Carlo loop, the [0,1] clamp on a
+   sampled probability, and every statistic including the n/(n-1) variance
+   correction and the exp(1.96 sigma) error factor. Expression::sample ports
+   Expression::Sample and each deviate's DoSample. THE RANDOM STREAM DIFFERS
+   -- upstream uses one static std::mt19937, this uses the workspace's
+   outram_mc_libs::rng::lcg -- so results agree in distribution and never
+   sample for sample, and the verification is statistical. Upstream's
+   histogram BIN EDGES are not reproduced (they come from boost::accumulators'
+   density accumulator and are not documented as reproducible); the quantiles
+   here are exact order statistics where upstream estimates them online.
+
+   SUBSTITUTIONS ARE present, in src/scram/substitution.rs, porting
+   substitution.{h,cc} together with Pdag::ConstructSubstitution (declarative
+   substitutions, a tree rewrite) and Zbdd::ApplySubstitutions
+   (non-declarative ones, a pass over the generated products).
+
+   COMMON-CAUSE FAILURE GROUPS ARE present, in src/scram/ccf.rs, porting
+   ccf_group.{h,cc}: all four models (beta-factor, MGL, alpha-factor,
+   phi-factor), their CalculateProbabilities formulas, the combination
+   reciprocal, and ApplyModel's proxy-gate rewrite with CcfEvent::MakeName's
+   bracketed naming. THIS PORT APPLIES THEM BY DEFAULT, where upstream
+   applies them only under `scram --ccf`; MefModel::without_ccf is the
+   explicit ablation and both paths are verified against the corresponding
+   upstream run. Each construct src/scram/mef.rs does not read is REFUSED
+   with a reason rather than skipped.
+
+   <define-extern-function> is refused DELIBERATELY AND PERMANENTLY: it loads
+   a shared library named by the input file, which the workspace
+   RESPONSIBLE_USE.md rule on autonomous access to systems forbids. This is a
+   decision, not a gap.
+
+   XML INPUT IS present, in src/scram/mef.rs, porting Initializer, xml,
+   element, model, fault_tree and event -- the Model Exchange Format reader,
+   including Initializer::GetEntity/GetEvent name resolution, mef::Id/Role
+   public-and-private naming with <define-component> namespaces, <xi:include>,
+   and Pdag::ConstructComplexGate's rewrites of <iff>, <imply> and
+   <cardinality> into the eight analysis connectives. It uses the pure-Rust
+   xml-rs pull parser rather than libxml2, so Android and wasm stay clean.
+
+   THE EXPRESSION LIBRARY IS present, in src/scram/expression.rs, porting
+   p_exp/p_exp2, the exponential, GLM, Weibull and periodic-test models, the
+   numeric, Boolean and conditional operators, and all seven random deviates
+   of src/expression/random_deviate.{h,cc} together with the Interval domain
+   type. Only each deviate's DETERMINISTIC value() is ported; Expression::
+   Sample() and each DoSample() land with the uncertainty analysis, whose
+   `scram --uncertainty` output is the only oracle for them. The
+   trigonometric operators and Switch are not ported, and appear in no
+   upstream input model.
+
+   HOUSE EVENTS are present, as Arg::Constant -- conditions fixed for the
+   analysis rather than sampled, which the MEF writes as
+   <constant value="true"/>.
+
+   PRIME IMPLICANTS are present, in src/scram/zbdd.rs, porting
+   Zbdd::ConvertBddPrimeImplicants together with Bdd::Consensus (which is
+   Apply<kAnd> on an if-then-else node's two branches). Upstream's module
+   handling and its EliminateComplements are not ported.
+
+   A ZBDD IS present, in src/scram/zbdd.rs, porting Zbdd::ConvertBdd,
+   Zbdd::Minimize and Zbdd::Subsume with attribution. Upstream's module
+   handling, its ConvertBddPrimeImplicants path and its EliminateComplements
+   are not ported.
+
+   A BDD IS present, in src/scram/bdd.rs. Its probability recurrence is
+   ported from ProbabilityAnalyzer<Bdd>::CalculateProbability and carries the
+   attribution header; the diagram construction around it is not a port --
+   upstream builds from a preprocessed Pdag, this builds from the tree
+   directly by Bryant's standard algorithm.
+
+   NON-COHERENT trees ARE handled: negated gates expand through their De
+   Morgan duals, contradictory partial sets are dropped, and the complements
+   are deleted and the result re-minimised -- which is what upstream's
+   Zbdd::EliminateComplement plus Zbdd::Minimize do. Their minimal cut sets
+   are conservative by definition, so quantifying them bounds the top-event
+   probability from above rather than computing it.
+
+   NOT absent, despite appearances: upstream's product probability cut-off.
+   SCRAM 0.16.2 stores and validates `Settings::cut_off_` but never reads it
+   (its getter has no callers), so no product is discarded by probability and
+   there is nothing to port. Measured, not inferred -- see
+   docs/scram-port-verification.md.
+
+   UPSTREAM INPUT MODELS ARE REDISTRIBUTED, unchanged, under
+   reference-data/scram/upstream-input/ -- fifteen .xml files from upstream's
+   own input/ directory at the commit above. SCRAM is GPL-3.0-or-later and
+   this repository is GPL-3.0-only, so the copy is same-licence. They are
+   there so that the tests can read the models themselves rather than a
+   transcription of them. reference-data/ is outside crates/ and so is never
+   part of a published crate tarball.
+
+   VERIFICATION: upstream was built from source and run; the oracles are in
+   reference-data/scram/ with their own README, and the full record is in
+   docs/scram-port-verification.md.
+
 
 INDEPENDENCE / TRADEMARK
 ========================
@@ -185,6 +333,10 @@ release of RAVEN, and is not endorsed by or affiliated with RAVEN, Idaho
 National Laboratory, Battelle Energy Alliance, LLC, or the U.S. Department of
 Energy. "RAVEN" is used only to identify the upstream work being ported. See
 the workspace `TRADEMARKS.md`.
+
+The same holds for the other upstreams: RAFFLES is not SCRAM, is not a release
+of SCRAM, and is not endorsed by or affiliated with SCRAM or Olzhas Rakhimov.
+"SCRAM" is used only to identify the upstream work being ported.
 
 
 INTENDED USE

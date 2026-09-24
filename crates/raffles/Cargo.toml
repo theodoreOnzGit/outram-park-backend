@@ -85,9 +85,27 @@ outram-mc-libs.workspace = true
 # `burn-ndarray` — no `std` — and that the `wgpu` in the tree comes from
 # outram-mc-libs/njoy, not from burn.
 burn = { workspace = true, optional = true }
+# MODEL EXCHANGE FORMAT INPUT (src/scram/mef.rs). A pull parser, driven
+# directly: MEF's expression elements are an open set and the same element
+# name means different things by arity, so a serde-derived deserialiser does
+# not fit. Already in the lock
+# file as serde-xml-rs's own dependency, so it adds nothing to the build, and
+# it is pure Rust — no libxml2, unlike upstream — so Android and wasm stay
+# clean.
+xml-rs.workspace = true
 
 [features]
-default = []
+default = ["long-tests"]
+# Tests that take minutes rather than seconds. ON BY DEFAULT, per the
+# workspace `long-tests` rule: a slow check that nobody runs is not a check.
+# `cargo quick-test` turns it off for the edit-compile loop, and a skipped
+# test still reports as `ignored` rather than vanishing.
+#
+# Presently one test: the graph-route ZBDD on `Aralia/das9601`, measured at
+# 240 s on 2026-09-22. That cost is the absence of upstream's preprocessor --
+# its module decomposition, not its order pruning, is what makes the same
+# route fast there.
+long-tests = []
 # Neural-network surrogates and graph neural networks via burn (no_std + alloc,
 # ndarray backend + autodiff). Consumed by `surrogate::neural`, `gnn::mpnn` and
 # `gnn::training`; everything else in the crate builds without it, which is why

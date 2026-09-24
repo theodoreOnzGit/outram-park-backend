@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<!--
+Written for RAFFLES' SCRAM port, NOT taken from upstream's input/ suite.
+
+Upstream's only model with house events is ThreeMotor, and that one also uses
+<define-component>, whose private namespaces the structure extractor does not
+model and refuses rather than guess at. So house-event support would otherwise
+have shipped with no oracle coverage at all, which is the position
+Connective::Null was left in and should not be repeated.
+
+SCRAM is still the oracle: the expected answers come from running the compiled
+binary on this file. Only the question is ours.
+
+The model exercises both values and both polarities of their effect:
+
+  live   = AND(a, KT_ON)       KT_ON is true,  so this reduces to {a}
+  dead   = AND(b, KT_OFF)      KT_OFF is false, so this is impossible
+  either = OR(c, KT_OFF)       a false house event in an OR reduces to {c}
+  top    = OR(live, dead, either)
+
+So the minimal cut sets should be {a} and {c}; `b` should appear in none, and
+no house event should appear in any.
+-->
+<opsa-mef>
+  <define-fault-tree name="house_events_small">
+    <define-gate name="top">
+      <or>
+        <gate name="live"/>
+        <gate name="dead"/>
+        <gate name="either"/>
+      </or>
+    </define-gate>
+    <define-gate name="live">
+      <and>
+        <basic-event name="a"/>
+        <house-event name="KT_ON"/>
+      </and>
+    </define-gate>
+    <define-gate name="dead">
+      <and>
+        <basic-event name="b"/>
+        <house-event name="KT_OFF"/>
+      </and>
+    </define-gate>
+    <define-gate name="either">
+      <or>
+        <basic-event name="c"/>
+        <house-event name="KT_OFF"/>
+      </or>
+    </define-gate>
+    <define-basic-event name="a"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="b"><float value="0.2"/></define-basic-event>
+    <define-basic-event name="c"><float value="0.3"/></define-basic-event>
+    <define-house-event name="KT_ON"><constant value="true"/></define-house-event>
+    <define-house-event name="KT_OFF"><constant value="false"/></define-house-event>
+  </define-fault-tree>
+</opsa-mef>

@@ -50,7 +50,6 @@
 //! says the surrogate is fit for a particular physical purpose. That is the
 //! caller's V&V, on the caller's data.
 
-
 use burn::nn::loss::{MseLoss, Reduction};
 use burn::optim::{AdamConfig, GradientsParams, Optimizer};
 use burn::prelude::Backend;
@@ -275,13 +274,15 @@ impl<B: Backend> NeuralSurrogate<B> {
         let values: Vec<f32> = scaled.iter().map(|v| *v as f32).collect();
         let input = Tensor::<B, 2>::from_data(TensorData::new(values, [1, x.len()]), &device);
         let output = self.network.forward(input);
-        let raw: Vec<f32> = output.into_data().to_vec().map_err(|_| {
-            RafflesError::InvalidParameter {
-                parameter: "prediction".to_string(),
-                value: f64::NAN,
-                reason: "the backend returned a tensor that could not be read back".to_string(),
-            }
-        })?;
+        let raw: Vec<f32> =
+            output
+                .into_data()
+                .to_vec()
+                .map_err(|_| RafflesError::InvalidParameter {
+                    parameter: "prediction".to_string(),
+                    value: f64::NAN,
+                    reason: "the backend returned a tensor that could not be read back".to_string(),
+                })?;
         let as_f64: Vec<f64> = raw.into_iter().map(|v| v as f64).collect();
         Ok(self.output_scaler.invert(&as_f64))
     }
@@ -446,7 +447,11 @@ pub fn train<B: AutodiffBackend>(
     for _ in 0..config.epochs {
         let prediction = network.forward(x.clone());
         let loss = loss_fn.forward(prediction, y.clone(), Reduction::Mean);
-        let value: Vec<f32> = loss.clone().into_data().to_vec().unwrap_or_else(|_| vec![f32::NAN]);
+        let value: Vec<f32> = loss
+            .clone()
+            .into_data()
+            .to_vec()
+            .unwrap_or_else(|_| vec![f32::NAN]);
         loss_history.push(value.first().copied().unwrap_or(f32::NAN) as f64);
 
         let gradients = GradientsParams::from_grads(loss.backward(), &network);
@@ -501,7 +506,12 @@ mod tests {
     #[test]
     fn training_reduces_the_loss() {
         let mut seed = stream_seed(20_260_916, 0);
-        let (inputs, outputs) = sample(400, 2, |v| (3.0 * v[0]).sin() * (2.0 * v[1]).cos(), &mut seed);
+        let (inputs, outputs) = sample(
+            400,
+            2,
+            |v| (3.0 * v[0]).sin() * (2.0 * v[1]).cos(),
+            &mut seed,
+        );
         let config = TrainingConfig::default_for(1);
         let (_, report) = train::<TestBackend>(&inputs, &outputs, &config, &device()).unwrap();
         println!(
@@ -646,20 +656,12 @@ mod tests {
 
         assert!(train::<TestBackend>(&[], &[], &config, &device).is_err());
         assert!(train::<TestBackend>(&inputs, &[vec![0.0]], &config, &device).is_err());
-        assert!(train::<TestBackend>(
-            &[vec![0.0], vec![1.0, 2.0]],
-            &outputs,
-            &config,
-            &device
-        )
-        .is_err());
-        assert!(train::<TestBackend>(
-            &[vec![f64::NAN], vec![1.0]],
-            &outputs,
-            &config,
-            &device
-        )
-        .is_err());
+        assert!(
+            train::<TestBackend>(&[vec![0.0], vec![1.0, 2.0]], &outputs, &config, &device).is_err()
+        );
+        assert!(
+            train::<TestBackend>(&[vec![f64::NAN], vec![1.0]], &outputs, &config, &device).is_err()
+        );
 
         let mut bad = config;
         bad.epochs = 0;
