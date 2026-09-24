@@ -19,6 +19,28 @@
 //!    **bit-identical** cross sections through both entry points, at
 //!    energies inside and outside the unresolved range.
 //!
+//! # A premise of this file was superseded, and it had been failing since
+//!
+//! **CORRECTED 2026-09-24.** Two of the three tests here asserted that
+//! `Nuclide::from_endf_file` returns a nuclide with **no** URR tables ("the
+//! default must be infinitely dilute"). Four days after this file was written,
+//! the 2026-09-20 maintainer direction — *correct physics is the DEFAULT
+//! SETTING, not an opt-in* — made the opposite true, and `f8dbb4951`
+//! implemented it. So those two tests were asserting the very defect that
+//! commit removed, and had failed on every full-suite run since.
+//!
+//! `f8dbb4951` added `tests/correct_physics_is_default.rs` to pin the new
+//! default but did not update this file. That is the defect, and it is exactly
+//! what the direction's own instruction "**when a default changes, RE-MEASURE
+//! every V&V number that depended on it**" exists to catch.
+//!
+//! **The fix is not to relax the assertions.** The dilute arm is now obtained
+//! by explicit ablation (`without_urr_probability_tables`), which is what the
+//! direction says an ablation must be, and every behavioural assertion below is
+//! unchanged. The file is stronger for it: the property it exists to protect is
+//! now checked on the output of the ablation hook studies actually use, rather
+//! than on a default that no longer has that shape.
+//!
 //! # Results (2026-09-16, ENDF/B-VIII.0 U-238 at 293.6 K)
 //!
 //! Printed by the tests. The table generator itself is verified against
@@ -52,10 +74,40 @@ const RESOLVED_PROBE_EV: f64 = 1.0e3;
 /// Outside it, above the range.
 const FAST_PROBE_EV: f64 = 2.0e6;
 
-fn u238_plain() -> Option<(Tape, Nuclide)> {
+/// U-238 with URR self-shielding **explicitly ablated** — the dilute arm.
+///
+/// # Why this ablates rather than just reconstructing
+///
+/// **CORRECTED 2026-09-24.** This helper used to return
+/// `Nuclide::from_endf_file` directly and the tests asserted that what came
+/// back carried *no* tables, on the reasoning that "the default must be
+/// infinitely dilute". That reasoning was **superseded four days after this
+/// file was written**: the maintainer direction of 2026-09-20 ("correct physics
+/// is the DEFAULT SETTING, not an opt-in", root `CLAUDE.md`) requires
+/// `from_endf_file` to apply URR and DBRC unless a caller explicitly ablates
+/// them, and `f8dbb4951` made it do so. `tests/correct_physics_is_default.rs`
+/// pins that default.
+///
+/// So the two assertions in this file that read the default as dilute were
+/// asserting the **pre-2026-09-20 defect**, and had been failing since that
+/// commit. The fix is not to relax them — it is to obtain the dilute arm the
+/// way the direction says an ablation must be obtained: as an explicit, visible
+/// act. Every behavioural assertion in this file is unchanged, and the file is
+/// now *stronger*, because the property it exists to protect (no tables ⇒ no
+/// RNG draw, and `xs_at_energy_urr` is the identity) is now checked on the
+/// output of `without_urr_probability_tables` — the path studies actually use.
+///
+/// The default-built tables are discarded here, which wastes the PURR run
+/// `from_endf_file` does at production settings. That is the price of testing
+/// the ablation and is why this file takes ~2 minutes.
+fn u238_dilute() -> Option<(Tape, Nuclide)> {
     let p = reference_endf_or_skip("n-092_U_238.endf", "U-238 (URR ptable control)")?;
     let tape = Tape::read_file(&p).expect("U-238 tape parses");
-    let nuc = Nuclide::from_endf_file(&p, "U238", TEMP_K, 1.0e-3).expect("U-238 reconstructs");
+    let nuc = Nuclide::from_endf_file(&p, "U238", TEMP_K, 1.0e-3)
+        .expect("U-238 reconstructs")
+        // Correct physics is the default (gh: the 2026-09-20 direction), so the
+        // dilute arm has to say so out loud.
+        .without_urr_probability_tables();
     Some((tape, nuc))
 }
 
@@ -63,15 +115,18 @@ fn u238_plain() -> Option<(Tape, Nuclide)> {
 /// and they are self-shielding FACTORS, because U-238 is `LSSF = 1`.
 #[test]
 fn urr_tables_attach_and_carry_lssf1_self_shielding_factors() {
-    let Some((tape, plain)) = u238_plain() else {
+    let Some((tape, plain)) = u238_dilute() else {
         return;
     };
 
-    // 1: there was nothing there before.
+    // 1: the ablated arm genuinely has nothing. NOT a statement about the
+    // default, which is correctly ON since 2026-09-20 — a statement that
+    // `without_urr_probability_tables` works, without which the 'without' arm
+    // of every study is not what it claims.
     assert!(
         !plain.has_urr_probability_tables(),
-        "a freshly reconstructed nuclide already reports URR tables; the default must be \
-         infinitely dilute, or the 'without' arm of every study is not what it claims."
+        "the ABLATED nuclide still reports URR tables, so without_urr_probability_tables is a \
+         no-op and the 'without' arm of every study is not what it claims."
     );
     assert!(!plain.needs_urr_draw(URR_PROBE_EV));
 
@@ -146,7 +201,7 @@ fn urr_tables_attach_and_carry_lssf1_self_shielding_factors() {
 /// recorded eigenvalue would move for no physical reason.
 #[test]
 fn a_nuclide_without_urr_tables_is_bit_identical_through_both_paths() {
-    let Some((_tape, plain)) = u238_plain() else {
+    let Some((_tape, plain)) = u238_dilute() else {
         return;
     };
     for &e in &[
@@ -159,7 +214,7 @@ fn a_nuclide_without_urr_tables_is_bit_identical_through_both_paths() {
     ] {
         assert!(
             !plain.needs_urr_draw(e),
-            "a nuclide with no tables asked for a URR draw at {e:.3e} eV; the kernels gate on \
+            "an ABLATED nuclide asked for a URR draw at {e:.3e} eV; the kernels gate on \
              this, so every RNG stream in the crate would shift."
         );
         let a = plain.xs_at_energy(e, TEMP_K);
@@ -191,7 +246,7 @@ fn a_nuclide_without_urr_tables_is_bit_identical_through_both_paths() {
 /// The ablation removes the tables and only the tables.
 #[test]
 fn the_urr_ablation_removes_exactly_the_tables() {
-    let Some((tape, plain)) = u238_plain() else {
+    let Some((tape, plain)) = u238_dilute() else {
         return;
     };
     let shielded = plain
@@ -208,21 +263,24 @@ fn the_urr_ablation_removes_exactly_the_tables() {
     );
     assert!(!ablated.needs_urr_draw(URR_PROBE_EV));
 
-    // The ablated arm must match a nuclide that never had tables, bit for bit.
+    // Ablating twice must land in the same place as ablating once, bit for bit
+    // — `plain` here is itself the ablated arm (see `u238_dilute`), so this
+    // checks that building tables on top of it and removing them again leaves
+    // no trace.
     for &e in &[RESOLVED_PROBE_EV, URR_PROBE_EV, FAST_PROBE_EV] {
         let a = plain.xs_at_energy(e, TEMP_K);
         let b = ablated.xs_at_energy(e, TEMP_K);
         assert_eq!(
             a.total.to_bits(),
             b.total.to_bits(),
-            "at {e:.3e} eV the ablated nuclide's total ({}) differs from one that never had \
-             tables ({}); building and removing tables must leave no trace.",
+            "at {e:.3e} eV the re-ablated nuclide's total ({}) differs from the dilute arm \
+             ({}); building tables and removing them must leave no trace.",
             b.total,
             a.total
         );
     }
     println!(
         "without_urr_probability_tables: tables present -> absent, and the result is \
-         bit-identical to a nuclide that never had them"
+         bit-identical to the dilute arm"
     );
 }

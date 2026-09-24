@@ -87,6 +87,33 @@ on every test run".
 The committed copy is separately asserted **byte-identical** to the OpenMC
 checkout's file, so it cannot drift from its origin without a failure.
 
+### Cross-code: OpenMC's own parser, on the same files
+
+`openmc.deplete.Chain.from_xml` is the format's reference implementation and
+needs no cross-section library, so — unlike almost every comparison in this
+crate — it could be **run here** rather than cited from a stored number.
+`openmc_inputs/dump_chain.py` walks OpenMC's parsed `Chain` and writes one flat
+record per nuclide, decay branch, reaction channel, fission yield and decay
+source, **every float as its IEEE-754 bit pattern**: Python's `repr` and Rust's
+`Display` both round-trip but spell the same value differently
+(`6.14271e-05` vs `0.0000614271`), so comparing bits takes formatting out of
+the comparison entirely. `tests/depletion_chain_xml_vs_openmc.rs` builds the
+same dump from this reader and diffs line for line, with no tolerance.
+
+**Measured 2026-09-24, OpenMC `0.1.dev1+gafa7a14ac`:**
+
+| file | nuclides | records | disagreements |
+|---|---|---|---|
+| `chain_simple.xml` | 9 | 36 | **0** |
+| `chain_simple_decay.xml` | 11 | 43 | **0** |
+| `chain_ni.xml` | 21 | 97 | **0** |
+
+176 records over 41 nuclides, exactly equal. What that covers: half-lives and
+the stable case, `decay_energy` and its `0.0` default, the `"nothing"` sentinel
+*and* genuinely targetless decays, branching ratios and their defaults, reaction
+Q values, fission's forced-`None` target, multi-product yields, and which
+particles each nuclide sources.
+
 ### The format's awkward corners, exercised
 
 The real files carry several things a reader written from the example alone
@@ -212,9 +239,15 @@ reader can see what changed and when.
    `build_matrix` assembles number-density rates and has nowhere to put a photon
    spectrum. A decay-heat or shielding consumer would read them from
    `DepletionChainXml` directly.
-4. **Agreement with the transcription is not agreement with OpenMC's own
+4. ~~**Agreement with the transcription is not agreement with OpenMC's own
    parse.** Both sides here are ours. What is verified is that the reader and
    the transcription agree, and that the reader follows the rules
    `nuclide.py` states. Running OpenMC's `Chain.from_xml` on the same file and
    diffing the two structures would be a stronger check and has **not** been
-   done.
+   done.~~ **CORRECTED 2026-09-24 — this was written before the check was
+   attempted, and it has since been done.** See "Cross-code" above: 176 records
+   over 41 nuclides, three files, **0 disagreements** against
+   `openmc.deplete.Chain.from_xml`. The concern the paragraph raised was the
+   right one; it is now answered rather than outstanding. What remains true is
+   the narrower point: the agreement is on **parsing**, not physics — neither
+   side is checked against the evaluated data the chain summarises.

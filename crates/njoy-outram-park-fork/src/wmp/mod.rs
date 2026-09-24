@@ -31,23 +31,27 @@
 //! analytically, so it serves both OUTRAM PARK priorities:
 //!
 //! 1. **U-238 (n,γ) Doppler** — σ(E, T) is a closed-form evaluation of the pole
-//!    sum via the Faddeeva function [`faddeeva`]; no per-temperature pointwise
+//!    sum via the Faddeeva function [`crate::wmp::faddeeva`]; no per-temperature pointwise
 //!    library. Compared against njoy's own BROADR kernel and an OpenMC `.h5`.
 //! 2. **Bare-sphere Keff** — the cross-section magnitudes; ν̄/χ come from
 //!    [`crate::nuclear_data::secondary`].
 //!
 //! # Status
 //!
-//! The evaluator ([`WindowedMultipole::evaluate`]) and the analytic Doppler
-//! kernel ([`faddeeva`]) are **implemented** and unit-tested; they are faithful
+//! The evaluator ([`crate::wmp::WindowedMultipole::evaluate`]) and the analytic Doppler
+//! kernel ([`crate::wmp::faddeeva`]) are **implemented** and unit-tested; they are faithful
 //! re-implementations of OpenMC `WindowedMultipole::evaluate` / `faddeeva`.
-//! [`WindowedMultipole::load_h5`] reads real `WMP_Library` HDF5 files
-//! (pure-Rust `hdf5-pure`, always available) — see `tests/wmp_u238.rs`. The embedded, zero-dependency
-//! shipping path — [`WindowedMultipole::to_blob`] (offline bake) and
-//! [`WindowedMultipole::from_blob`] (runtime decode) of the pure-Rust **WMPB v1**
+//! [`crate::wmp::WindowedMultipole::load_h5`] reads real `WMP_Library` HDF5 files
+//! (pure-Rust `hdf5-pure`, always available) — see `tests/wmp_u238.rs` — and
+//! since 2026-09-24 [`crate::wmp::WindowedMultipole::write_h5`] **writes** them (gh:#270),
+//! verified both by an exact round trip and by **OpenMC itself reading the
+//! result** and agreeing on sigma(E, T) to 1.2e-12 relative
+//! (`tests/wmp_h5_write_round_trip.rs`, `tests/wmp_h5_vs_openmc.rs`). The embedded, zero-dependency
+//! shipping path — [`crate::wmp::WindowedMultipole::to_blob`] (offline bake) and
+//! [`crate::wmp::WindowedMultipole::from_blob`] (runtime decode) of the pure-Rust **WMPB v1**
 //! format — is **implemented and round-trip tested**. The curated **CORE**
 //! 125-nuclide set is baked into `src/data/wmp_core.wmpl` and always embedded,
-//! exposed offline via [`WmpLibrary::core`] (no feature gate — it ships in every
+//! exposed offline via [`crate::wmp::WmpLibrary::core`] (no feature gate — it ships in every
 //! build); re-bake it with the `bake_wmp` example. See
 //! `docs/wmp-nuclide-manifest.md`.
 //!
@@ -55,19 +59,23 @@
 //!
 //! Split by responsibility (crate file-size rule, `docs/porting-plan.md` §5):
 //!
-//! - `types.rs` — [`Cf64`], [`WmpXs`], [`WmpReaction`], [`WmpWindow`], and the
+//! - `types.rs` — [`crate::wmp::Cf64`], [`crate::wmp::WmpXs`], [`crate::wmp::WmpReaction`], [`crate::wmp::WmpWindow`], and the
 //!   [`WindowedMultipole`] data record.
 //! - `evaluate.rs` — the Doppler-broadened evaluator
-//!   ([`WindowedMultipole::evaluate`]) and its numerics: [`faddeeva`], the
+//!   ([`crate::wmp::WindowedMultipole::evaluate`]) and its numerics: [`crate::wmp::faddeeva`], the
 //!   Weideman rational approximation, and the broadened curve-fit polynomial.
-//! - `h5.rs` — [`WindowedMultipole::load_h5`] (MIT `WMP_Library` HDF5 reader).
+//! - `h5.rs` — [`crate::wmp::WindowedMultipole::load_h5`] (MIT `WMP_Library` HDF5 reader).
+//! - `h5_write.rs` — [`crate::wmp::WindowedMultipole::write_h5`], its inverse, plus the
+//!   [`crate::wmp::WMP_VERSION`] the format stamps. Kept beside the reader so the two
+//!   cannot drift unnoticed.
 //! - `blob.rs` — the pure-Rust **WMPB**/**WMPL** embedded formats
-//!   ([`WindowedMultipole::to_blob`] / [`WindowedMultipole::from_blob`],
-//!   [`WmpLibrary`]).
+//!   ([`crate::wmp::WindowedMultipole::to_blob`] / [`crate::wmp::WindowedMultipole::from_blob`],
+//!   [`crate::wmp::WmpLibrary`]).
 
 mod blob;
 mod evaluate;
 mod h5;
+mod h5_write;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -75,6 +83,7 @@ mod types;
 pub use blob::WmpLibrary;
 pub use evaluate::faddeeva;
 pub(crate) use evaluate::{weideman_coeffs, weideman_l};
+pub use h5_write::WMP_VERSION;
 pub use types::{Cf64, WindowedMultipole, WmpReaction, WmpWindow, WmpXs};
 
 /// Boltzmann constant in \[eV/K\] (so `kT` in eV = `K_BOLTZMANN * T[K]`).
