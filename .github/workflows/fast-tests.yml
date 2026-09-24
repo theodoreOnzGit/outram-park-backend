@@ -110,6 +110,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The crate selector diffs against the merge base; a shallow clone
+          # has no merge base and the diff would select everything.
+          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -133,8 +137,49 @@ jobs:
       # If a BLAS install step ever reappears here, something has regressed
       # back into the default graph — fix the dependency, not this file.
 
+      # ── Crate selection (2026-09-24, maintainer direction) ──────────────
+      #
+      # `cargo quick-test` over all 43 crates runs ~190 test binaries in
+      # series. `kovan-cli affected` narrows that to the crates a push can
+      # actually reach: the ones it edited, CLOSED OVER REVERSE DEPENDENCIES
+      # so a change to `njoy-outram-park-fork` still tests `outram-mc-libs`
+      # and everything downstream of it.
+      #
+      # Measured on real commits from this branch's history:
+      #   a kovan-only change      ->  1 crate   (was 43)
+      #   a nee_soon examples fix  ->  2 crates
+      #   a njoy write-path commit -> 10 crates  (njoy is deep; this is the
+      #                                           worst realistic case)
+      #
+      # IT FAILS SAFE. Any changed path outside `crates/<member>/` selects the
+      # WHOLE workspace and the selector prints no `-p` at all — which is
+      # exactly what an unqualified `cargo quick-test` means, so the step
+      # below is correct either way without branching. The root `Cargo.toml`
+      # (where every version lives), `Cargo.lock`, the toolchain file, this
+      # workflow, and anything new and unrecognised all take that path.
+      #
+      # `fetch-depth: 0` above is required: the selector diffs against the
+      # merge base, which a shallow clone does not have.
+      #
+      # THIS IS NOT THE WHOLE FIX. This file's own measurement (see the
+      # timeout comment) puts ~21 min on the build and 77.7 min on the tests,
+      # summed over 190 binaries in series. Selection cuts both, but the
+      # remaining serial test time is still serial. Splitting the survivors
+      # across a matrix — the fix this file already recommends — is
+      # complementary and still worth doing.
+      - name: Which crates does this change affect?
+        id: affected
+        shell: bash
+        run: |
+          cargo run --release -q -p kovan --bin kovan-cli -- \
+            affected --base "${{ github.event.before || 'origin/develop' }}" \
+            --format cargo-args > affected.txt || echo > affected.txt
+          echo "args=$(cat affected.txt)" >> "$GITHUB_OUTPUT"
+          echo "selected: $(cat affected.txt || echo '(whole workspace)')"
+
       - name: Fast tests (long tests excluded)
-        run: cargo quick-test
+        shell: bash
+        run: cargo quick-test ${{ steps.affected.outputs.args }}
 
   # ── Compile-only platforms ─────────────────────────────────────────────────
   android:

@@ -129,6 +129,21 @@ enum Command {
         #[arg(long, value_enum)]
         lang: LangArg,
     },
+    /// Which workspace crates a diff affects, closed over reverse
+    /// dependencies — the CI crate selector. Prints `-p a -p b`, or nothing
+    /// at all when the whole workspace is selected, so a caller can splice
+    /// the output onto a `cargo` command unconditionally.
+    Affected {
+        /// The ref to diff against, e.g. `origin/develop` or a merge SHA.
+        #[arg(long)]
+        base: String,
+        /// Workspace root (default: discovered).
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// `cargo-args` (default) or `list`.
+        #[arg(long, default_value = "cargo-args")]
+        format: String,
+    },
     /// List the numerical-method codegen catalogue.
     Methods,
     /// Bundle the workspace's API docs into a flat, upload-ready set of files
@@ -439,6 +454,18 @@ fn run(command: Command) -> Result<(), String> {
             pattern,
         } => commands::search::run(path, root, kind, &pattern),
         Command::Scan { root, lang } => commands::scan::run(root, lang),
+        Command::Affected { base, root, format } => {
+            // Reuse the existing discovery so this works from any
+            // subdirectory, same as every other command here.
+            let (root, how) = commands::workspace::resolve(root.as_deref())
+                .map_err(|e| e.to_string())?;
+            eprintln!("workspace: {} ({how})", root.display());
+            let format = match format.as_str() {
+                "list" => commands::affected::Format::List,
+                _ => commands::affected::Format::CargoArgs,
+            };
+            commands::affected::run(&root, &base, format).map_err(|e| e.to_string())
+        }
         Command::Methods => {
             commands::methods::run();
             Ok(())
