@@ -60,6 +60,14 @@ pub mod gpu;
 /// fractions. See `docs/triso-atops-fork.md` and the module-level docs.
 pub mod triso_atops_fork;
 
+/// TRISO coated-particle **failure** fractions — an independent Rust
+/// implementation of the published PANAMA-I pressure-vessel model (Verfondern
+/// & Nabielek, Jülich HTA-IB-03/90, 1990). Supplies what
+/// [`triso_atops_fork`]'s `FailureFractions` currently takes as a
+/// hand-entered number. See the module docs for what is implemented and what
+/// is deliberately left as an input.
+pub mod fuel_failure;
+
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. See the module docs.
 #[cfg(target_arch = "wasm32")]
