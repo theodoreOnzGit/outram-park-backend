@@ -162,6 +162,12 @@ pub struct KvimEditorState {
     /// snapping back (op-j178: the PDF reader's page-context panel jumping
     /// to an artifact's heading).
     pending_scroll_to_line: Option<usize>,
+    /// Where the caret was at the end of the previous frame, so
+    /// [`Self::text_area`] can tell a caret that **moved** from one merely
+    /// sitting still. Only a move scrolls -- following every frame would pin
+    /// the view to the caret and make wheel-scrolling a focused editor
+    /// impossible, the view snapping back the instant you let go.
+    last_cursor: Option<Position>,
     /// 0-based, end-exclusive line ranges painted with a faint band — every
     /// block anchored to the PDF reader's current page (op-j178: the
     /// page-context panel's read-only preview marks what is double-clickable).
@@ -196,6 +202,7 @@ impl Default for KvimEditorState {
             dragging: false,
             text_area_origin: Pos2::ZERO,
             pending_scroll_to_line: None,
+            last_cursor: None,
             anchor_bands: Vec::new(),
             hover_band: None,
             preview_press_line: None,
@@ -775,6 +782,29 @@ impl KvimEditorState {
                     None => true,
                 });
             });
+        }
+
+        // **Follow the caret.** Typing past the bottom of the viewport -- or
+        // moving with `j`/`G`/`n` -- used to leave it off-screen: this is a
+        // custom-painted area rather than an `egui::TextEdit`, so the
+        // surrounding `ScrollArea` has no idea where the caret is
+        // (maintainer, 2026-09-24: "when i go to the next line, the scrollbar
+        // should auto go down").
+        //
+        // `Align::None` scrolls the MINIMUM distance to bring the row into
+        // view, so a caret already on screen does not recentre the text under
+        // the reader's eyes -- the view moves only when it has to.
+        let caret = self.editor.cursor();
+        if self.last_cursor != Some(caret) {
+            self.last_cursor = Some(caret);
+            let target = Rect::from_min_size(
+                Pos2::new(
+                    rect.min.x + caret.col as f32 * char_width,
+                    rect.min.y + caret.line as f32 * line_height,
+                ),
+                Vec2::new(char_width.max(1.0), line_height),
+            );
+            ui.scroll_to_rect(target, None);
         }
 
         self.paint(ui, rect, char_width, line_height, line_count, &response);
@@ -1458,5 +1488,86 @@ mod tests {
             },
         };
         assert_eq!(map_event(&ctrl_d), Some(KvimKey::ctrl('d')));
+    }
+
+    // ------------------------------------------------------------------
+    // Caret-follow scrolling (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    /// The editor must know where the caret is after a frame, because that is
+    /// what the ScrollArea is asked to follow. A custom-painted text area gets
+    /// none of this for free the way `egui::TextEdit` would.
+    #[test]
+    fn a_frame_records_where_the_caret_is() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\n");
+        assert_eq!(state.last_cursor, None, "nothing recorded before a frame");
+        drive(&mut state, vec![vec![]]);
+        assert_eq!(
+            state.last_cursor,
+            Some(state.editor.cursor()),
+            "after a frame the recorded caret is the live one"
+        );
+    }
+
+    /// Moving down a line must change the recorded caret -- that difference is
+    /// precisely the signal that triggers a scroll. If this stops changing,
+    /// the view silently stops following.
+    #[test]
+    fn moving_to_the_next_line_moves_the_recorded_caret() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\nfour\n");
+        state.begin_insert();
+        // All frames in ONE `drive`: it builds a fresh `egui::Context` per
+        // call, so focus does not survive across calls.
+        drive(
+            &mut state,
+            vec![
+                Vec::new(),                          // focus lands
+                Vec::new(),                          // focus lock applies
+                vec![key(egui::Key::Escape)],        // to Normal
+                vec![egui::Event::Text("j".into())], // down one line
+            ],
+        );
+        assert_eq!(
+            state.last_cursor.expect("recorded").line,
+            1,
+            "j must move down a line, and that move must be recorded"
+        );
+    }
+
+    /// Typing a newline in Insert mode moves the caret down -- the exact
+    /// reported case ("when i go to the next line, the scrollbar should auto
+    /// go down").
+    #[test]
+    fn a_newline_in_insert_mode_advances_the_recorded_caret() {
+        let mut state = KvimEditorState::default();
+        state.load_text("");
+        state.begin_insert();
+        drive(
+            &mut state,
+            vec![Vec::new(), Vec::new(), vec![key(egui::Key::Enter)]],
+        );
+        assert_eq!(
+            state.last_cursor.expect("recorded").line,
+            1,
+            "Enter in Insert mode must advance the recorded caret a line"
+        );
+    }
+
+    /// An idle frame must NOT re-trigger a scroll, or the view would be pinned
+    /// to the caret and wheel-scrolling a focused editor would snap straight
+    /// back. The caret is unchanged across consecutive idle frames.
+    #[test]
+    fn an_idle_frame_does_not_move_the_caret() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\n");
+        drive(&mut state, vec![vec![]]);
+        let first = state.last_cursor;
+        drive(&mut state, vec![vec![], vec![]]);
+        assert_eq!(
+            state.last_cursor, first,
+            "idle frames leave the caret alone, so nothing asks to scroll"
+        );
     }
 }
