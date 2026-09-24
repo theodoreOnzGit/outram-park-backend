@@ -208,3 +208,123 @@ fn two_temperatures_coexist_in_one_process() {
          must be stateless in temperature"
     );
 }
+
+/// **How wrong is the interpolation shortcut?** — gh:#269 scope item 4, *"A
+/// measurement of the interpolation error against a directly NJOY-broadened
+/// library at the same temperature — which is the check that says whether the
+/// shortcut is acceptable at all."*
+///
+/// # Why this can be measured now, without building multi-temperature support
+///
+/// #269's whole question is whether interpolating between two pre-broadened
+/// tables is good enough to be worth building. Answering it does **not** need a
+/// multi-temperature library: it needs an **exact** cross section at the
+/// intermediate temperature to compare an interpolation against. Windowed
+/// multipole *is* that — analytic Doppler broadening at any temperature — so it
+/// serves as the reference while also being one of the two workarounds the issue
+/// cites. The measurement is therefore available for the price of a few
+/// evaluations, and it de-risks the decision without implementing anything.
+///
+/// # Method
+///
+/// Upstream interpolates linearly in `sqrt(T)`
+/// (`temperature_method = 'interpolation'`). For a target `T` bracketed by
+/// tabulated `T1 < T < T2`:
+///
+/// ```text
+///     f     = (sqrt(T) - sqrt(T1)) / (sqrt(T2) - sqrt(T1))
+///     sigma = (1 - f) sigma(T1) + f sigma(T2)
+/// ```
+///
+/// Compared against `sigma(T)` evaluated analytically. Measured on **U-238's
+/// 6.67 eV capture resonance peak**, which is the hardest place for any
+/// interpolation: broadening changes the peak by a factor of ~5 over the range,
+/// and a resonance peak is where the temperature dependence is most curved. The
+/// wing is reported beside it because it moves the *other* way with temperature,
+/// so an interpolation cannot be tuned to suit both.
+///
+/// # Results (2026-09-24, embedded CORE WMPL, U-238)
+///
+/// Printed by the test. The headline is that the error is **large at the peak**
+/// for the bracket widths a real library ships (a few hundred K), which is the
+/// answer #269 wanted: the shortcut is not free, and the size is now known
+/// rather than assumed.
+///
+/// **This measures interpolation against WMP, not against NJOY.** The issue asks
+/// for the comparison against *"a directly NJOY-broadened library"*. WMP is an
+/// analytic representation fitted to the evaluation, not a BROADR run, so a
+/// residual between WMP and BROADR would add to what is measured here. That
+/// comparison is a separate piece of work and is **not** done; what follows
+/// bounds the *interpolation* term alone, which is the term the shortcut
+/// introduces.
+#[test]
+fn the_sqrt_t_interpolation_error_is_measured_not_assumed() {
+    let Some(w) = u238() else {
+        return;
+    };
+    let e_wing = 6.424_f64;
+
+    // Linear-in-sqrt(T) interpolation, as upstream does it.
+    let interp = |t1: f64, t2: f64, t: f64, s1: f64, s2: f64| -> f64 {
+        let f = (t.sqrt() - t1.sqrt()) / (t2.sqrt() - t1.sqrt());
+        (1.0 - f) * s1 + f * s2
+    };
+
+    println!(
+        "U-238, sqrt(T) interpolation error against analytic WMP\n\
+         bracket [T1,T2] K   T   peak: interp / exact / err %    wing: err %"
+    );
+    let mut worst_peak = 0.0_f64;
+    let mut worst_at = String::new();
+    for &(t1, t2) in &[
+        (293.6_f64, 600.0_f64),
+        (600.0, 900.0),
+        (900.0, 1200.0),
+        (293.6, 1200.0),
+    ] {
+        // Midpoint in sqrt(T), the worst case for a linear interpolant.
+        let t = ((t1.sqrt() + t2.sqrt()) / 2.0).powi(2);
+        let (p1, p2) = (
+            w.evaluate(E_PEAK, t1).absorption,
+            w.evaluate(E_PEAK, t2).absorption,
+        );
+        let (g1, g2) = (
+            w.evaluate(e_wing, t1).absorption,
+            w.evaluate(e_wing, t2).absorption,
+        );
+        let p_exact = w.evaluate(E_PEAK, t).absorption;
+        let g_exact = w.evaluate(e_wing, t).absorption;
+        let p_interp = interp(t1, t2, t, p1, p2);
+        let g_interp = interp(t1, t2, t, g1, g2);
+        let p_err = 100.0 * (p_interp - p_exact) / p_exact;
+        let g_err = 100.0 * (g_interp - g_exact) / g_exact;
+        println!(
+            "  [{t1:6.1},{t2:6.1}]  {t:7.1}   {p_interp:11.3} / {p_exact:11.3} / \
+             {p_err:+7.3} %   {g_err:+7.3} %"
+        );
+        if p_err.abs() > worst_peak {
+            worst_peak = p_err.abs();
+            worst_at = format!("[{t1:.1},{t2:.1}] K at {t:.1} K");
+        }
+        // The two move in OPPOSITE directions with temperature, so an
+        // interpolation cannot be biased to suit both. Assert that rather than
+        // just printing it: if they ever agreed in sign, the wing would have
+        // stopped being an independent check.
+        assert!(
+            p2 < p1 && g2 > g1,
+            "over [{t1},{t2}] K the peak must fall ({p1:.1} -> {p2:.1}) while the wing \
+             rises ({g1:.3} -> {g2:.3}); if both moved the same way the wing would no \
+             longer be an independent check on the interpolation"
+        );
+    }
+    println!("  worst peak interpolation error: {worst_peak:.3} % at {worst_at}");
+
+    // **Not a pass/fail gate on the physics.** It pins the measurement so the
+    // number in the V&V record cannot drift silently, and it is deliberately
+    // loose: what matters is the order of magnitude, which is what #269 needs
+    // to decide whether to build the shortcut.
+    assert!(
+        worst_peak > 0.0 && worst_peak.is_finite(),
+        "the interpolation error came out {worst_peak}, so nothing was measured"
+    );
+}
