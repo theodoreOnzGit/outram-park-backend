@@ -228,10 +228,49 @@ the maintainer.
   four reactions, three law types, ν̄, and a threshold channel) and **not met
   literally** (`SynF` is synthetic, not a real evaluation).
 
-The converged `k ± sigma` under a reflective boundary is still running at the
-time of writing; the first-generation `1.99854` against the analytic `2.0` and
-the file's own `k_inf = 2.000000` are what is recorded above, and nothing
-further should be quoted until the run lands.
+### The converged `k ± sigma` was NOT obtained, and why that is a finding
+
+Three attempts, each abandoned, and the reason is the Watt law rather than
+anything about the file:
+
+| arm | what was removed | outcome |
+|---|---|---|
+| full nuclide | nothing | ~1 min/generation; abandoned after ~10 generations |
+| elastic zeroed | MT=2 | 42 min, no statepoint; MT=51 still slows neutrons |
+| fission + capture only | MT=2 and MT=51 | still over the time budget |
+
+**The cause is the `u = 0` Watt restriction energy**, already recorded above.
+`WattEnergy::sample` rejects until `E_out <= E - u`, so the expected number of
+draws goes as `1 / P(Watt <= E)`, which **diverges** as the incident energy
+falls. Removing the scattering channels does not fix it, because the Watt
+spectrum's own low-energy tail keeps seeding fission chains whose next fission
+needs a draw below ~10 keV — a heavy tail in which a handful of particles
+dominate the entire runtime.
+
+**What was deliberately NOT done.** Setting an `energy_neutron` cutoff would
+bound the cost immediately, and it was rejected: with flat cross sections every
+energy contributes identically to `k_inf`, so killing the low-energy neutrons
+deletes real fission events and **biases `k` downward**. That is moving the
+instrument to obtain a result, which this workspace does not do. The measurement
+was abandoned instead.
+
+**What is recorded, and is enough for the claim being made:**
+
+- `k = 1.99854` on the first generation at 2000 particles, against the analytic
+  **2.0** — a real measurement by OpenMC on a file this crate wrote;
+- `k_inf = 2.000000` recomputed from the written file's own `nu`, `sigma_f` and
+  `sigma_c`, read back by this crate's reader;
+- generation values fluctuating about 2.0 with no drift across several runs
+  (`1.81909, 2.15667, 1.80305, 2.04425, 2.05177, 2.00976, 1.89340, ...`).
+
+The claim these support is **"OpenMC reads and transports a fissile nuclide this
+crate wrote, and the answer is the analytic one"**. They do not support a
+statement about agreement at the sub-percent level, and none is made.
+
+**And the failure is itself evidence for the scope decision.** A thermal-capable
+fissile nuclide needs a tabulated `continuous` χ, not a Watt law — which is
+exactly the law the rank-2 attribute limit blocks. The slow run is the same
+finding arriving from a third direction.
 
 
 ## The upstream defect this exposed (GitHub #306)
