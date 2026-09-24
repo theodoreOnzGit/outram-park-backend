@@ -25,6 +25,8 @@
 pub mod cross_sections_xml;
 pub mod depletion_chain_xml;
 pub mod mgxs_write;
+pub mod nuclide_laws;
+pub mod nuclide_read;
 pub mod nuclide_write;
 pub mod statepoint_write;
 mod xml_scan;

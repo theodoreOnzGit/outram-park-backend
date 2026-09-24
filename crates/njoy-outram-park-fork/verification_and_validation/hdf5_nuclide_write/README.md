@@ -79,11 +79,32 @@ source energy gives before the neutrons leak out.
 own reader accepts it, its own transport solver runs with it, and the values
 it recovers are the values written.
 
-**Not established.** A `k` comparison, because this writer covers **elastic
+~~**Not established.** A `k` comparison, because this writer covers **elastic
 and capture only** (see the module docs for why: fission, inelastic and (n,xn)
 need the correlated energy-angle laws of `openmc/data/`, which are not
 ported). A scattering-plus-capture nuclide cannot sustain an eigenvalue
-problem. `write_nuclide` **refuses** an MT it cannot express rather than
+problem.~~ **CORRECTED 2026-09-24 (GitHub #304).** The elastic-and-capture
+limit is gone: the writer now takes an arbitrary MT through the law hierarchy
+in `hdf5::nuclide_laws`, and **OpenMC has transported a fissile nuclide this
+crate wrote**, against an analytic `k_inf = 2.0`. See
+[`../nuclide_h5_fissile/fissile_write_2026_09_24.md`](../nuclide_h5_fissile/fissile_write_2026_09_24.md).
+
+The part of the old claim that still holds is narrower and has a different
+cause: a **real U-235** still cannot be written, because its continuum products
+need the `continuous` and `correlated` laws, whose incident-grid interpolation
+is a **rank-2 HDF5 attribute** that `hdf5-pure` 0.20.1 cannot emit. That is a
+dependency limit, not an unported law — the payload and its packing are
+implemented and tested.
+
+**And this record's own verification could not have caught the limit it
+described.** It was built on `Syn1`, a *synthetic* nuclide with two reactions,
+both with `threshold_idx = 0`. That hid three separate format defects at once
+(the threshold convention, the `level` law's grid-point requirement, and the
+zero-at-threshold requirement), each of which needed OpenMC transporting a
+fissile nuclide to surface — one of them by **segfaulting**. The fissile record
+above documents all three.
+
+`write_nuclide` still **refuses** what it cannot express rather than
 emitting a file missing a reaction, which would transport a different nuclide
 from the one described and give a `k` wrong by an amount nothing reports.
 
