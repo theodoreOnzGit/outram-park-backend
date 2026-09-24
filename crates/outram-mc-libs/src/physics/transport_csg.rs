@@ -111,6 +111,19 @@ pub(crate) struct Site {
     pub(crate) r: Position,
     pub(crate) u: Direction,
     pub(crate) e: f64,
+    /// **Delayed-neutron precursor group this neutron was born from** (gh:#262),
+    /// 0-based, or `None` for a prompt neutron.
+    ///
+    /// Carried on the site rather than recomputed because it is a property of
+    /// the *birth*, and the thing that needs it — a `DelayedGroupFilter` tally,
+    /// or IFP's lineage — reads it a generation later when the sampling context
+    /// is long gone.
+    ///
+    /// A secondary that is not a fission neutron (a scatter product, an (n,2n)
+    /// partner, a weight-window split daughter) **inherits** its parent's value:
+    /// it is the same chain of descent, and the quantity is "which precursor did
+    /// this lineage come from", not "was this particular emission delayed".
+    pub(crate) delayed_group: Option<usize>,
 }
 
 /// Flight time over `d` cm at energy `e` eV \[s\].
@@ -136,7 +149,27 @@ fn flight_time(d: f64, e: f64) -> f64 {
 impl Site {
     /// A source/fission neutron at position `r`, direction `u`, energy `e` \[eV\].
     pub(crate) fn new(r: Position, u: Direction, e: f64) -> Site {
-        Site { r, u, e }
+        Site {
+            r,
+            u,
+            e,
+            delayed_group: None,
+        }
+    }
+
+    /// A fission neutron born from precursor group `g` (`None` = prompt).
+    pub(crate) fn new_from_fission(
+        r: Position,
+        u: Direction,
+        e: f64,
+        delayed_group: Option<usize>,
+    ) -> Site {
+        Site {
+            r,
+            u,
+            e,
+            delayed_group,
+        }
     }
 }
 
@@ -449,7 +482,14 @@ pub fn run_keff_csg_seq(
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
-            source.push(Site { r, u, e: 2.0e6 });
+            source.push(Site {
+                r,
+                u,
+                e: 2.0e6,
+                // The synthetic first-generation source is prompt: it has no
+                // fission ancestor to have come from.
+                delayed_group: None,
+            });
         }
     }
 
@@ -736,7 +776,14 @@ pub fn run_keff_csg_par(
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
-            source.push(Site { r, u, e: 2.0e6 });
+            source.push(Site {
+                r,
+                u,
+                e: 2.0e6,
+                // The synthetic first-generation source is prompt: it has no
+                // fission ancestor to have come from.
+                delayed_group: None,
+            });
         }
     }
 
@@ -1149,6 +1196,23 @@ pub(crate) fn transport_history_vr(
     // and negligible below, and it is the same helper the `InverseVelocity`
     // score already uses, so the two cannot disagree with each other.
     let mut time_s = 0.0_f64;
+    // **Sampled on a SEPARATE stream, by jump-ahead**
+    // (gh:#262). Drawing the precursor group from the
+    // main stream would consume two variates per
+    // fission neutron and shift every downstream draw,
+    // moving EVERY recorded eigenvalue in this crate
+    // for no physical reason. `future_seed` gives a
+    // disjoint sub-stream -- the same mechanism a
+    // weight-window split child uses, and the same
+    // `op-rbo` lesson: a quoted sigma only means
+    // something if the streams behind it are
+    // independent.
+    //
+    // The sub-stream is derived ONCE per fission and
+    // advanced by each draw, so the `n` neutrons of one
+    // fission get independent groups rather than `n`
+    // copies of the same one.
+    let mut delayed_seed = crate::rng::lcg::future_seed(DELAYED_STRIDE, *seed);
     let mut neg_dist: u64 = 0;
     let mut neg_level: u64 = 0;
     let mut neg_worst = 0.0_f64;
@@ -1161,6 +1225,11 @@ pub(crate) fn transport_history_vr(
     /// split child is as independent of its parent as two source particles
     /// are of each other.
     const SPLIT_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
+    /// Jump-ahead distance for the delayed-group sub-stream. A different
+    /// multiple of the per-particle stride from `SPLIT_STRIDE`, so a split
+    /// child's stream and the delayed-group stream of the same history cannot
+    /// land on each other.
+    const DELAYED_STRIDE: u64 = 3 * crate::rng::lcg::DEFAULT_STRIDE;
     let mut production = 0.0;
     // (site, weight, optional own RNG stream). `None` continues the shared
     // stream, which is what every secondary before #258 did and is what keeps
@@ -1216,6 +1285,11 @@ pub(crate) fn transport_history_vr(
 
     while let Some((start, start_wgt, own_seed, start_ww, start_time)) = stack.pop() {
         time_s = start_time;
+        // **The precursor group this particle descends from** (gh:#262). Every
+        // secondary it produces that is NOT a fission neutron inherits this:
+        // the quantity is "which precursor did this lineage come from", not
+        // "was this particular emission delayed".
+        let my_group = start.delayed_group;
         // A split child transports on its own stream; everything else
         // continues the shared one, exactly as before #258.
         let mut owned_seed = own_seed.unwrap_or(0);
@@ -1316,7 +1390,12 @@ pub(crate) fn transport_history_vr(
                                     child_seed =
                                         crate::rng::lcg::future_seed(SPLIT_STRIDE, child_seed);
                                     stack.push((
-                                        Site { r, u, e },
+                                        Site {
+                                            r,
+                                            u,
+                                            e,
+                                            delayed_group: my_group,
+                                        },
                                         weight,
                                         Some(child_seed),
                                         // `apply` has already charged this
@@ -1661,6 +1740,8 @@ pub(crate) fn transport_history_vr(
                                 r,
                                 u: Direction::new(dx, dy, dz),
                                 e: e_born,
+                                delayed_group: nuc
+                                    .sample_delayed_group(e, &mut delayed_seed),
                             });
                         }
                     }
@@ -1731,6 +1812,8 @@ pub(crate) fn transport_history_vr(
                             r,
                             u: Direction::new(dx, dy, dz),
                             e: e_born,
+                            delayed_group: nuc
+                                .sample_delayed_group(e, &mut delayed_seed),
                         });
                     }
                     track!(TrackEvent::Fission, cell_idx, Some(m));
@@ -1796,6 +1879,7 @@ pub(crate) fn transport_history_vr(
                                 r,
                                 u: sec_u2,
                                 e: sec_e2,
+                                delayed_group: my_group,
                             },
                             w,
                             None,
@@ -1848,7 +1932,18 @@ pub(crate) fn transport_history_vr(
                             (e2, u2)
                         };
                         if nuc.emits_n2n_secondary() {
-                            stack.push((Site { r, u: su, e: se }, w, None, ww_state, time_s));
+                            stack.push((
+                                Site {
+                                    r,
+                                    u: su,
+                                    e: se,
+                                    delayed_group: my_group,
+                                },
+                                w,
+                                None,
+                                ww_state,
+                                time_s,
+                            ));
                             if let Some(t) = tally {
                                 score_scatter_matrix(
                                     batch,
@@ -1896,7 +1991,18 @@ pub(crate) fn transport_history_vr(
                         break;
                     }
                     for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
-                        stack.push((Site { r, u: *su, e: *se }, w, None, ww_state, time_s));
+                        stack.push((
+                            Site {
+                                r,
+                                u: *su,
+                                e: *se,
+                                delayed_group: my_group,
+                            },
+                            w,
+                            None,
+                            ww_state,
+                            time_s,
+                        ));
                         if let Some(t) = tally {
                             score_scatter_matrix(
                                 batch,
