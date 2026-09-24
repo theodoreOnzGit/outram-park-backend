@@ -1166,7 +1166,11 @@ fn load_via_ace(name: &str, file: &str, scratch: &std::path::Path) -> Nuclide {
     let raw = njoy_outram_park_fork::acer::read::read(&out)
         .unwrap_or_else(|e| panic!("read ACE({name}): {e}"));
     let n = Nuclide::from_ace(&raw, name).unwrap_or_else(|e| panic!("from_ace({name}): {e}"));
-    let _ = std::fs::remove_file(&out);
+    // `OUTRAM_KEEP_ACE=1` leaves the file behind so another code can read it.
+    // Off by default because this tier writes well over a gigabyte per run.
+    if std::env::var("OUTRAM_KEEP_ACE").is_err() {
+        let _ = std::fs::remove_file(&out);
+    }
     eprintln!("{:.1?}  ({:.0} MB written, read back, removed)", t0.elapsed(), bytes as f64 / 1.0e6);
     n
 }
