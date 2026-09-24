@@ -3,17 +3,38 @@
 //! **The Gaussian puff field as a GPU kernel**, plus its `f32` CPU mirror and
 //! a dedicated CPU thread pool.
 //!
-//! The Map tab wants a 64 x 64 field refreshed at **10 Hz**. That is about
-//! 30 million kernel evaluations a second:
+//! The Map tab wants a 64 x 64 field refreshed at **10 Hz**. At
+//! `htgr_sim_v1`'s own working point -- 7 260 puffs, from emitting every 10 s
+//! over a 1 200 s run -- that is ~30 million kernel evaluations per field.
 //!
-//! | path | measured shape | 10 Hz? |
-//! |---|---|---|
-//! | one CPU core | ~2.2 s per field | no, 22x over |
-//! | [`field_pooled`] on 16 cores | ~140 ms | marginal |
-//! | GPU via [`GAUSSIAN_PUFF_FIELD`] | single-digit ms | yes |
+//! **Measured 2026-09-24**, 16 logical cores, one adapter present, by
+//! `cargo run --release -p changi --example field_timing [--features gpu]`
+//! (median of 5 after a warm-up, the simulator's own 64x64 grid over
+//! +/-1250 m at 50 m):
 //!
-//! so the GPU path is the one that meets the requirement and the pooled CPU
-//! path is the fallback. **Both must exist**: `outram-mc-libs/CLAUDE.md`'s GPU
+//! | path | 1 000 puffs | **7 260 puffs** | 20 000 puffs | 50 000 puffs |
+//! |---|---|---|---|---|
+//! | [`field_serial`], one core | 18.7 ms | **136 ms** | 369 ms | 890 ms |
+//! | [`field_pooled`], 16 cores | 2.3 ms | **15.9 ms** | 43.0 ms | 104 ms |
+//! | [`field_gpu`] | 0.57 ms | **1.98 ms** | 12.8 ms | 11.6 ms |
+//!
+//! So at the working point the pooled CPU path takes **~16 ms**, comfortably
+//! inside both 10 Hz (100 ms) and `htgr_sim_v1`'s `PHYSICS_TICK`. The GPU is
+//! ~8x faster again and is what one would reach for at 20 000+ puffs, but it
+//! is **not** required to meet the 10 Hz target.
+//!
+//! > ~~"one CPU core ~2.2 s per field; [`field_pooled`] on 16 cores ~140 ms,
+//! > marginal; GPU single-digit ms -- so the GPU path is the one that meets
+//! > the requirement and the pooled CPU path is the fallback."~~
+//! > **CORRECTED 2026-09-24.** The pooled row was wrong by ~9x: 140 ms is
+//! > close to the *serial* cost at the working point (136 ms), not the pooled
+//! > one (15.9 ms), so the table appears to have recorded a one-core timing in
+//! > the sixteen-core row. The correction matters because that row was the
+//! > sole argument for treating a map refresh as unaffordable inside a physics
+//! > tick, and it is not. The old numbers carried no reproducible instrument;
+//! > `examples/field_timing.rs` now is one.
+//!
+//! **Both paths must exist regardless**: `outram-mc-libs/CLAUDE.md`'s GPU
 //! policy is a hard rule across this workspace -- CI must never fail for want
 //! of a GPU, detection is at run time, and the CPU path stays mandatory and
 //! trusted. Here the CPU path is also the *reference*: it is what the GPU
@@ -49,6 +70,10 @@
 //! [`super::concentration::gaussian_puff_concentration`] path, which is the
 //! one carrying the analytical verification.
 
+// Used by `pool()` (native/Android) and `gpu_context()` (native/Android,
+// `gpu` feature) -- both absent on `wasm32-unknown-unknown`, so the import
+// is gated the same way rather than left to warn as unused there.
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::OnceLock;
 
 /// The WGSL source. Declares `changi_puff_field` and
@@ -152,8 +177,8 @@ pub fn contribution(state: &PuffState, easting: f32, northing: f32, height_m: f3
     let dy = northing - state.y;
     let horizontal = (-0.5 * (dx * dx + dy * dy) / sy2).exp();
 
-    let vertical = (-0.5 * height_m * height_m / sz2).exp()
-        + (-0.5 * height_m * height_m / sz2).exp();
+    let vertical =
+        (-0.5 * height_m * height_m / sz2).exp() + (-0.5 * height_m * height_m / sz2).exp();
 
     let amplitude = state.weight / (TWO_PI_THREE_HALVES * sy2 * state.sigma_z);
     amplitude * horizontal * vertical
@@ -191,6 +216,10 @@ pub fn field_serial(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
 /// pool is precisely the case where sharing one hurts: whichever grabs the
 /// workers first stalls the other, and the symptom is a stuttering map or a
 /// stuttering plant, depending on scheduling. One named pool, sized once.
+///
+/// **Native and Android only.** `wasm32-unknown-unknown` has no OS threads;
+/// see [`field_pooled`]'s `wasm32` arm below.
+#[cfg(not(target_arch = "wasm32"))]
 fn pool() -> &'static rayon::ThreadPool {
     static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
     POOL.get_or_init(|| {
@@ -207,6 +236,7 @@ fn pool() -> &'static rayon::ThreadPool {
 /// **rows**, not cells: a row is 64 contributions-sums of identical cost, so
 /// the chunks are even and large enough that the scheduling overhead
 /// disappears against the work.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
     use rayon::prelude::*;
     if grid.is_empty() {
@@ -222,6 +252,149 @@ pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
             })
             .collect()
     })
+}
+
+/// The whole field, computed serially -- the `wasm32-unknown-unknown` arm of
+/// [`field_pooled`].
+///
+/// `wasm32-unknown-unknown` has no OS threads, so `rayon` is not even a
+/// dependency on this target (`Cargo.toml`'s `[target.'cfg(not(target_arch =
+/// "wasm32"))'.dependencies]`), matching the constraint `boon-lay` already
+/// solved for its own rayon usage (`crates/boon-lay/Cargo.toml`, bead
+/// `op-okqo.1`): rayon-core needs real threads to run, not merely to compile.
+/// The honest way to keep one source tree building for this target is to let
+/// the parallel path degrade to its already-existing sequential twin,
+/// [`field_serial`], rather than fake concurrency that is not there.
+///
+/// This is exact, not an approximation: the per-cell work is embarrassingly
+/// parallel with no cross-cell state and no dependence on worker count --
+/// `the_pooled_field_is_bit_identical_to_the_serial_one` pins that on the
+/// native target, so `field_pooled` and `field_serial` are already known to
+/// agree bit for bit before this target ever calls either.
+#[cfg(target_arch = "wasm32")]
+pub fn field_pooled(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
+    field_serial(states, grid)
+}
+
+/// changi's cached GPU probe, so a field refreshing at 10 Hz does not
+/// re-probe the adapter every call. Probing is expensive; the result cannot
+/// change over a process's lifetime, so one probe per process is correct.
+///
+/// `None` means "no usable adapter" and is not an error -- exactly
+/// [`petir::wgsl::gpu::GpuContext::probe`]'s own contract.
+#[cfg(all(
+    feature = "gpu",
+    not(target_os = "android"),
+    not(target_arch = "wasm32")
+))]
+fn gpu_context() -> Option<&'static petir::wgsl::gpu::GpuContext> {
+    static CONTEXT: OnceLock<Option<petir::wgsl::gpu::GpuContext>> = OnceLock::new();
+    CONTEXT
+        .get_or_init(petir::wgsl::gpu::GpuContext::probe)
+        .as_ref()
+}
+
+/// The whole field, dispatched as a WGSL kernel through PETIR's runner.
+///
+/// changi owns no `wgpu` plumbing of its own -- see the module doc on why:
+/// [`GAUSSIAN_PUFF_FIELD`] declares functions in PETIR's own convention and
+/// [`petir::wgsl::gpu::GpuContext::eval_map`] supplies the entry point, the
+/// bind-group layout and the buffer plumbing.
+///
+/// Returns `None` when there is no usable adapter, or when `eval_map` itself
+/// returns `None` (an empty grid). **Never panics**, and never falls back to
+/// the CPU path itself -- [`field_auto`] is what selects between the two.
+#[cfg(all(
+    feature = "gpu",
+    not(target_os = "android"),
+    not(target_arch = "wasm32")
+))]
+pub fn field_gpu(states: &[PuffState], grid: &FieldGrid) -> Option<Vec<f32>> {
+    use petir::wgsl::gpu::KernelParams;
+
+    let gpu = gpu_context()?;
+
+    let data = pack_states(states);
+    let probe: Vec<f32> = (0..grid.len()).map(|i| i as f32).collect();
+    let params = KernelParams {
+        n: data.len() as u32,
+        m: states.len() as u32,
+        k: grid.cells as u32,
+        a: grid.half_width_m,
+        b: grid.source_height_m,
+        ..Default::default()
+    };
+
+    gpu.eval_map(
+        &[GAUSSIAN_PUFF_FIELD],
+        "changi_puff_field(x, params.k, params.m, params.a, params.b)",
+        &data,
+        &probe,
+        params,
+    )
+}
+
+/// The field, GPU-accelerated when the `gpu` feature is on and a usable
+/// adapter is found, falling back to [`field_pooled`] otherwise.
+///
+/// This is what a caller should reach for. With the `gpu` feature off this
+/// compiles down to [`field_pooled`] alone, with no `cfg` visible at the call
+/// site. The CPU path is not a stopgap: `outram-mc-libs/CLAUDE.md`'s GPU
+/// policy makes it mandatory and trusted, and here it is also the reference
+/// the GPU result is checked against -- see [`field_serial`] and the
+/// GPU-vs-CPU comparison test below.
+pub fn field_auto(states: &[PuffState], grid: &FieldGrid) -> Vec<f32> {
+    #[cfg(all(
+        feature = "gpu",
+        not(target_os = "android"),
+        not(target_arch = "wasm32")
+    ))]
+    {
+        if let Some(field) = field_gpu(states, grid) {
+            return field;
+        }
+    }
+    field_pooled(states, grid)
+}
+
+/// Whether [`field_auto`] will actually take the GPU path on this host.
+///
+/// # Why a caller needs to ask
+///
+/// [`field_auto`] always returns the right answer, but not at the same
+/// *cost*: the CPU path is measured in this module's doc at ~140 ms on 16
+/// cores and ~2.2 s on one, for the 64x64 grid. A caller on a real-time
+/// budget -- `htgr_sim_v1`'s physics thread has 100 ms per tick -- therefore
+/// cannot afford to call [`field_auto`] at map cadence unless the GPU path is
+/// genuinely available, and "is the `gpu` feature on" is not the same
+/// question: the feature can be on with no usable adapter behind it.
+///
+/// This probes the adapter (once, cached in [`gpu_context`]) rather than
+/// reporting the feature flag, so it answers what the caller actually needs
+/// to know. `false` with the feature off, `false` with the feature on and no
+/// adapter, `false` on Android and wasm where `petir::wgsl::gpu` is itself
+/// gated out.
+///
+/// This is a scheduling hint and nothing more. It must never select a
+/// different *model*: both paths compute the same field, and
+/// `field_gpu_agrees_with_the_serial_reference` pins that to 1e-4 relative.
+pub fn has_gpu_field() -> bool {
+    #[cfg(all(
+        feature = "gpu",
+        not(target_os = "android"),
+        not(target_arch = "wasm32")
+    ))]
+    {
+        return gpu_context().is_some();
+    }
+    #[cfg(not(all(
+        feature = "gpu",
+        not(target_os = "android"),
+        not(target_arch = "wasm32")
+    )))]
+    {
+        false
+    }
 }
 
 #[cfg(test)]
@@ -254,8 +427,7 @@ mod tests {
     #[test]
     fn the_f32_mirror_agrees_with_the_f64_kernel() {
         let (class, distance, height) = (StabilityClass::D, 500.0, 40.0);
-        let sig = pasquill_gifford_sigmas(class, Length::new::<meter>(distance))
-            .expect("sigmas");
+        let sig = pasquill_gifford_sigmas(class, Length::new::<meter>(distance)).expect("sigmas");
         let state = PuffState {
             x: 0.0,
             y: 0.0,
@@ -339,8 +511,20 @@ mod tests {
     #[test]
     fn states_pack_at_the_shader_stride() {
         let states = [
-            PuffState { x: 1.0, y: 2.0, sigma_y: 3.0, sigma_z: 4.0, weight: 5.0 },
-            PuffState { x: 6.0, y: 7.0, sigma_y: 8.0, sigma_z: 9.0, weight: 10.0 },
+            PuffState {
+                x: 1.0,
+                y: 2.0,
+                sigma_y: 3.0,
+                sigma_z: 4.0,
+                weight: 5.0,
+            },
+            PuffState {
+                x: 6.0,
+                y: 7.0,
+                sigma_y: 8.0,
+                sigma_z: 9.0,
+                weight: 10.0,
+            },
         ];
         let packed = pack_states(&states);
         assert_eq!(packed.len(), states.len() * STATE_STRIDE);
@@ -367,13 +551,98 @@ mod tests {
     /// both happen before the first dispersion run.
     #[test]
     fn the_degenerate_cases_are_empty_not_panics() {
-        let empty_grid = FieldGrid { cells: 0, half_width_m: 1000.0, source_height_m: 40.0 };
+        let empty_grid = FieldGrid {
+            cells: 0,
+            half_width_m: 1000.0,
+            source_height_m: 40.0,
+        };
         assert!(field_serial(&[], &empty_grid).is_empty());
         assert!(field_pooled(&[], &empty_grid).is_empty());
 
         let g = grid();
         let no_states = field_pooled(&[], &g);
         assert_eq!(no_states.len(), g.len());
-        assert!(no_states.iter().all(|v| *v == 0.0), "no puffs is a zero field");
+        assert!(
+            no_states.iter().all(|v| *v == 0.0),
+            "no puffs is a zero field"
+        );
+    }
+
+    /// **GPU-vs-CPU agreement.** `field_gpu` must reproduce [`field_serial`]
+    /// -- not `field_pooled` -- to the `f32` budget, on any adapter this
+    /// happens to run on.
+    ///
+    /// `field_serial` is deliberately the reference here rather than the
+    /// pooled path: a scheduling bug in changi's own thread pool must not be
+    /// able to mask a shader bug by agreeing with a CPU path that shares the
+    /// same defect. `the_pooled_field_is_bit_identical_to_the_serial_one`
+    /// separately pins pooled against serial.
+    ///
+    /// **Skips cleanly with no adapter** -- per `outram-mc-libs/CLAUDE.md`'s
+    /// GPU policy, detection is at run time and CI must never fail for want
+    /// of a GPU. This is not hypothetical here: `gpu` is off by default, so
+    /// even a machine with a GPU only reaches this path under
+    /// `--features gpu`.
+    #[cfg(all(
+        feature = "gpu",
+        not(target_os = "android"),
+        not(target_arch = "wasm32")
+    ))]
+    #[test]
+    fn field_gpu_agrees_with_the_serial_reference() {
+        let g = grid();
+        let states: Vec<PuffState> = (0..40)
+            .map(|i| PuffState {
+                x: i as f32 * 12.0,
+                y: (i as f32 * 7.0).sin() * 80.0,
+                sigma_y: 30.0 + i as f32 * 2.0,
+                sigma_z: 20.0 + i as f32,
+                weight: 1.0,
+            })
+            .collect();
+
+        let Some(gpu) = field_gpu(&states, &g) else {
+            eprintln!("SKIP field_gpu_agrees_with_the_serial_reference: no GPU adapter");
+            return;
+        };
+        let serial = field_serial(&states, &g);
+        assert_eq!(gpu.len(), serial.len());
+
+        let mut worst = 0.0_f32;
+        for (a, b) in gpu.iter().zip(serial.iter()) {
+            let tolerance = b.abs() * 1e-4 + 1e-30;
+            worst = worst.max((a - b).abs());
+            assert!(
+                (a - b).abs() <= tolerance,
+                "GPU field disagrees with field_serial: {a:e} vs {b:e}"
+            );
+        }
+        eprintln!("field_gpu vs field_serial: worst absolute difference {worst:e}");
+    }
+
+    /// **The default build's behaviour is pinned.** With the `gpu` feature
+    /// off, [`field_auto`] must be exactly [`field_pooled`] -- no `cfg`
+    /// leakage, no silent behaviour change for the overwhelming majority of
+    /// builds that never enable `gpu`.
+    #[cfg(not(feature = "gpu"))]
+    #[test]
+    fn field_auto_is_field_pooled_with_the_feature_off() {
+        let g = grid();
+        let states: Vec<PuffState> = (0..40)
+            .map(|i| PuffState {
+                x: i as f32 * 12.0,
+                y: (i as f32 * 7.0).sin() * 80.0,
+                sigma_y: 30.0 + i as f32 * 2.0,
+                sigma_z: 20.0 + i as f32,
+                weight: 1.0,
+            })
+            .collect();
+
+        let auto = field_auto(&states, &g);
+        let pooled = field_pooled(&states, &g);
+        assert_eq!(
+            auto, pooled,
+            "field_auto must equal field_pooled with `gpu` off"
+        );
     }
 }
