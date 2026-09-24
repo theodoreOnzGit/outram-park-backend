@@ -15,6 +15,12 @@
 //! Reading already existed in `crate::wmp::h5` and
 //! `crate::nuclear_data::secondary`. **Writing did not exist anywhere in the
 //! workspace** before this module.
+//!
+//! **Not every writer lives here, though.** `WMP_Library` write is
+//! `crate::wmp::h5_write` (a private module; its method is [`crate::wmp::WindowedMultipole::write_h5`]), beside its reader: a reader and writer of one
+//! format are the pair most likely to drift, and the round-trip test that stops
+//! them drifting has to see both. The formats in this module had no
+//! pre-existing reader, which is why their writers are here.
 
 pub mod cross_sections_xml;
 pub mod depletion_chain_xml;
