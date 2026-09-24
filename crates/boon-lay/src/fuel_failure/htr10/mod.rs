@@ -118,6 +118,9 @@
 //! in conflict — but without Fig. 10's temperature history it is not a check
 //! either. Digitising Fig. 10 would make it one.
 
+pub mod qualification;
+// pub mod sweep; -- added in the next commit
+
 use uom::si::f64::{Length, Pressure, Ratio, ThermodynamicTemperature, Time, Volume};
 use uom::si::length::micrometer;
 use uom::si::pressure::megapascal;
@@ -219,8 +222,33 @@ pub fn free_volume() -> Volume {
 /// [`STAND_IN_FLUENCE_E25_PER_M2`] — read their docs before quoting any
 /// number this produces.
 pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState {
-    let burnup = Ratio::new::<ratio>(BURNUP_FIMA);
-    let t_b_time = Time::new::<day>(RESIDENCE_FULL_POWER_DAYS);
+    particle_with(
+        irradiation_temperature,
+        Ratio::new::<ratio>(BURNUP_FIMA),
+        Time::new::<day>(RESIDENCE_FULL_POWER_DAYS),
+        STAND_IN_FLUENCE_E25_PER_M2,
+    )
+}
+
+/// The same particle with `F_b`, `t_B` and `Γ` opened up, for sweeping the
+/// inputs that HTR-10 does not publish or that a sensitivity study needs.
+///
+/// [`particle`] is this with HTR-10's own derived burnup and residence and the
+/// HTR-Module fluence stand-in. Everything else — geometry, kernel compound,
+/// `σ_oo`/`m_oo` — is held at the values [`particle`] uses, because those are
+/// either HTR-10's own or are swept elsewhere.
+///
+/// **Sweeping `Γ` is a sensitivity, not a calibration.** Eqs (8a)/(9a) make
+/// both `σ_o` and `m` fall with fluence, so a larger `Γ` weakens the particle
+/// and raises `φ₁`. The range worth exploring is the one the report's own
+/// cases span (Table 2), not whatever range makes an answer come out right.
+pub fn particle_with(
+    irradiation_temperature: ThermodynamicTemperature,
+    burnup: Ratio,
+    irradiation_time: Time,
+    fluence_e25_per_m2: f64,
+) -> ParticleState {
+    let t_b_time = irradiation_time;
     ParticleState {
         layer: sic_layer(),
         compound: KernelCompound::UraniumOxide,
@@ -237,12 +265,12 @@ pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleSt
         ),
         median_strength: irradiated_strength(
             Pressure::new::<megapascal>(STAND_IN_STRENGTH_MPA),
-            STAND_IN_FLUENCE_E25_PER_M2,
+            fluence_e25_per_m2,
             irradiation_temperature,
         ),
         weibull_modulus: irradiated_weibull_modulus(
             STAND_IN_WEIBULL_MODULUS,
-            STAND_IN_FLUENCE_E25_PER_M2,
+            fluence_e25_per_m2,
             irradiation_temperature,
         ),
         oxygen: OxygenSource::UraniumOxide {
@@ -274,16 +302,32 @@ pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleSt
 pub fn end_of_irradiation_failure(
     irradiation_temperature: ThermodynamicTemperature,
 ) -> super::FailureFraction {
+    end_of_irradiation_failure_for(
+        &particle(irradiation_temperature),
+        irradiation_temperature,
+        Time::new::<day>(RESIDENCE_FULL_POWER_DAYS),
+    )
+}
+
+/// [`end_of_irradiation_failure`] for an arbitrary [`ParticleState`] — the
+/// form the sweeps need, since they vary `F_b`, `t_B` and `Γ`.
+///
+/// `irradiation_time` must be the same `t_B` the particle was built with:
+/// Eq (5b)'s `OPF` needs it and [`ParticleState`] does not carry it.
+pub fn end_of_irradiation_failure_for(
+    p: &ParticleState,
+    irradiation_temperature: ThermodynamicTemperature,
+    irradiation_time: Time,
+) -> super::FailureFraction {
     use super::booth::released_gas_fraction;
     use super::oxygen::{oxygen_per_fission_uo2, HeatingRegime};
     use super::pressure::internal_gas_pressure;
     use super::stress::induced_stress_with_thinning_factor;
     use super::weibull::weibull_failure_fraction;
 
-    let p = particle(irradiation_temperature);
     let opf = oxygen_per_fission_uo2(
         irradiation_temperature,
-        Time::new::<day>(RESIDENCE_FULL_POWER_DAYS),
+        irradiation_time,
         HeatingRegime::BeforeHeating,
     );
     let f_d = released_gas_fraction(p.dimensionless_irradiation_time, Ratio::new::<ratio>(0.0));
