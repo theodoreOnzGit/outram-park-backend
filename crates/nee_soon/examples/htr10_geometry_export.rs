@@ -516,6 +516,10 @@ fn main() {
         c_graphite: 4,
         si28: 5,
         b10: 6,
+        // Appended 2026-09-23: slots 0..=6 keep their indices.
+        c_sic: 7,
+        si29: 8,
+        si30: 9,
     };
     let cfg = Htr10MaterialConfig::benchmark_default(TEMP_K);
     let mats = htr10_material_set(nuclides, cfg);

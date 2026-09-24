@@ -85,6 +85,11 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     c_graphite: 4,
     si28: 5,
     b10: 6,
+    // Appended 2026-09-23: slots 0..=6 keep their indices so no
+    // existing material silently repoints at a different nuclide.
+    c_sic: 7,
+    si29: 8,
+    si30: 9,
 };
 
 fn env_usize(key: &str, default: usize) -> usize {
@@ -105,14 +110,33 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         "c_Graphite",
     )
     .ok()?;
+    // SiC's carbon and silicon are bound in a crystal, not a free gas.
+    // ENDF/B-VIII.0 ships tsl-CinSiC (MAT 44) and tsl-SiinSiC (MAT 43) so
+    // the coating need not be approximated; a missing law falls back to
+    // free gas rather than dropping the nuclide.
+    let sic_law = |mat_no: i32, file: &str, name: &'static str| -> Option<ThermalScattering> {
+        ThermalScattering::from_endf_file(dir.join(file).to_str()?, mat_no, TEMP_K, name).ok()
+    };
+    let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
+    let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
+    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
+        Some(t) => n.with_thermal_scattering(t.clone()),
+        None => n,
+    };
     Some(vec![
         load("U235", "n-092_U_235-ENDF8.0.endf")?,
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
+        bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
+        // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
+        // isotopes. The atom density was always built from silicon's natural
+        // molar mass, so this splits a correct total rather than changing it.
+        bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
+        bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
+        bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
     ])
 }
 
