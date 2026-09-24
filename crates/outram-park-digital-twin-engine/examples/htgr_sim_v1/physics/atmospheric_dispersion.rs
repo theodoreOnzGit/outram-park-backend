@@ -187,11 +187,13 @@ impl Htr10SiteInputs {
     /// 2.5x rule of thumb below which a plume is entrained into the building
     /// wake. So neglecting wake effects is defensible here, and this constant
     /// is what lets a reader check that rather than take it on trust.
+    #[allow(dead_code)] // recorded provenance, deliberately unused -- see above
     pub const BUILDING_HEIGHT_M: f64 = 12.0;
 
     /// Stack outlet velocity \[m/s\] — Liu and Cao (2002), p. 5.
     ///
     /// Recorded, not used. See [`Self::RELEASE_HEIGHT_M`] on plume rise.
+    #[allow(dead_code)] // recorded provenance, deliberately unused -- see above
     pub const STACK_EXIT_VELOCITY_M_PER_S: f64 = 9.0;
 
     /// Receptor height \[m\]. 1.5 m is the conventional breathing height and is
@@ -287,6 +289,7 @@ pub struct DispersionResult {
 impl DispersionResult {
     /// The highest `chi/Q` over all receptors — the plume centreline at the
     /// closest ring, in practice.
+    #[allow(dead_code)] // part of the result's public surface; no caller in this example yet
     pub fn peak_chi_over_q(&self) -> f64 {
         self.receptors
             .iter()
