@@ -282,7 +282,10 @@ enum ConnectionPopup {
     /// verbatim: "Sure anot? [No] [Yes]". `Yes` calls
     /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
     /// nothing at all (the dialog is closed, `self` otherwise untouched).
-    ConfirmDelete { citekey: String, artifact_id: String },
+    ConfirmDelete {
+        citekey: String,
+        artifact_id: String,
+    },
 }
 
 /// The artifact whose region box is hit at `at`, when several overlap: the
@@ -631,7 +634,6 @@ pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<R
     Region::from_pixels((min.x, min.y), (max.x, max.y), w, h)
 }
 
-
 /// Blocks whose `[source]` anchor cannot be shown where it belongs: a
 /// drawn kind (annotation, digitised graph or table) anchored to a page
 /// with no region, or one whose region is out of range or degenerate. Such
@@ -644,7 +646,9 @@ fn malformed_blocks(artifacts: &[Artifact]) -> Vec<(&Artifact, &'static str)> {
         .filter(|a| {
             matches!(
                 a.kind(),
-                ArtifactKind::Annotation | ArtifactKind::DigitisedGraph | ArtifactKind::DigitisedTable
+                ArtifactKind::Annotation
+                    | ArtifactKind::DigitisedGraph
+                    | ArtifactKind::DigitisedTable
             )
         })
         .filter_map(|a| {
@@ -761,7 +765,10 @@ pub(super) fn artifact_overlays_for_page<'a>(
 /// draw — pulled out of [`PdfReaderState::connection_popup_ui`]'s "Manage"
 /// list rendering so the source/target direction logic is unit-testable
 /// without an `egui::Ui` (op-30um.3).
-pub(super) fn relation_other_end<'a>(rel: &'a relation::UserRelation, node: &str) -> (&'static str, &'a str) {
+pub(super) fn relation_other_end<'a>(
+    rel: &'a relation::UserRelation,
+    node: &str,
+) -> (&'static str, &'a str) {
     if rel.source == node {
         ("→", &rel.target)
     } else {
@@ -866,6 +873,15 @@ pub struct PdfReaderState {
     /// The `ScrollArea`'s actual offset last frame, so a vertical-only page
     /// jump can leave the horizontal scroll where the operator put it.
     last_offset: egui::Vec2,
+    /// The egui pass this reader last drew on, so a **re-entry** can be told
+    /// from an ordinary frame.
+    ///
+    /// Switching to the Mindmap and back leaves a gap in this number. On the
+    /// frame after such a gap the scroll offset is restored from
+    /// [`Self::last_offset`] rather than trusted to egui's memory, so the
+    /// reading position lives in this struct and survives regardless of
+    /// whether egui still holds state for the scroll area.
+    last_drawn_pass: Option<u64>,
     /// A scroll offset to force on the **next** frame — set by a
     /// pointer-anchored zoom (Ctrl+scroll, `+`/`-`) so the document point
     /// under the mouse stays under the mouse. `ScrollArea` applies it before
@@ -1141,6 +1157,7 @@ impl PdfReaderState {
         // Any jump still queued belongs to the document being replaced.
         self.pending_jump = None;
         self.last_offset = egui::Vec2::ZERO;
+        self.last_drawn_pass = None;
         self.thumb_synced = None;
         self.annotations.clear();
         self.draw_start = None;
@@ -1466,8 +1483,7 @@ impl PdfReaderState {
         let w = (region.x1 - region.x0).max(1e-3) as f32;
         let h = (region.y1 - region.y0).max(1e-3) as f32;
         // Fit the larger dimension, so neither axis overflows.
-        self.zoom = (REGION_VIEW_FRACTION / w.max(h))
-            .clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+        self.zoom = (REGION_VIEW_FRACTION / w.max(h)).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
         match region_centre_offset(
             region,
             page,
@@ -2224,7 +2240,10 @@ impl PdfReaderState {
                             .response
                             .interact_pointer_pos()
                             .unwrap_or_else(|| inner.response.rect.center());
-                        self.toggle_context_menu(screen_pos, ContextMenuTarget::SavedArtifact(id.clone()));
+                        self.toggle_context_menu(
+                            screen_pos,
+                            ContextMenuTarget::SavedArtifact(id.clone()),
+                        );
                     }
                     let opened = if open_on_single_click {
                         inner.response.clicked() || inner.response.double_clicked()
@@ -2665,7 +2684,29 @@ impl PdfReaderState {
         let stride = self.pages.page_stride(zoom, GAP);
         let content = self.pages.content_size(n, zoom, GAP);
         let zoom_changed = self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON;
-        let mut area = egui::ScrollArea::both();
+        // STABLE ID, or the reader forgets the page on every view switch.
+        //
+        // Without an `id_salt` a `ScrollArea` derives its id from its place in
+        // the widget tree. Leaving the PDF Reader for the Mindmap and coming
+        // back rebuilds a different `CentralPanel`, so the derived id differs,
+        // egui finds no stored state for it and starts at offset 0 -- the
+        // reader lands on page 1 however far in the user had read. The three
+        // other scroll areas in this file (`pdf_thumb_strip`,
+        // `pdf_block_editor_scroll`, `pdf_context_panel_scroll`) already carry
+        // one; this one was missed.
+        //
+        // `last_offset` tracked the true position the whole time (it is
+        // written from `scroll_out.state.offset` every frame and cleared only
+        // by `reset_interaction_state` when a NEW document is opened). Nothing
+        // consulted it, so the information was there and thrown away.
+        let pass = ui.ctx().cumulative_pass_nr();
+        // A gap means this reader was not drawn last pass, i.e. another view
+        // was showing. Zero offset needs no restoring, and a fresh document
+        // has already been zeroed by `reset_interaction_state`.
+        let reentered = self.last_drawn_pass.is_some_and(|last| pass > last + 1)
+            && self.last_offset != egui::Vec2::ZERO;
+        self.last_drawn_pass = Some(pass);
+        let mut area = egui::ScrollArea::both().id_salt("pdf_page_column");
         if let Some(target) = self.scroll_request.take() {
             // An explicit page jump (Prev/Next, `j`/`k`, Ctrl+D/U, a search
             // hit, a thumbnail click, or opening a block from the panel).
@@ -2681,6 +2722,12 @@ impl PdfReaderState {
             ));
         } else if let Some(off) = self.forced_offset.take() {
             area = area.scroll_offset(off);
+        } else if reentered {
+            // Back from another view (Mindmap, Digitiser, Kvim...). Put the
+            // reader where it was rather than wherever the scroll area
+            // happens to start. Ordered AFTER the explicit-jump branches so
+            // a jump requested from the view being left still wins.
+            area = area.scroll_offset(self.last_offset);
         } else if zoom_changed {
             let target_y = (self.scroll_anchor.y * stride - self.last_viewport.y * 0.5).max(0.0);
             let target_x = (self.scroll_anchor.x * content.x - self.last_viewport.x * 0.5).max(0.0);
@@ -3071,7 +3118,8 @@ impl PdfReaderState {
                     smallest_hit(overlays, s).map(|a| a.id().to_string())
                 });
                 for p in want.clone() {
-                    for (art, r) in artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                    for (art, r) in
+                        artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
                     {
                         let hit = hovered_id.as_deref() == Some(art.id());
                         if hit {
@@ -3316,9 +3364,11 @@ impl PdfReaderState {
                             match &artifact {
                                 Some(art) => {
                                     let has_page = Self::artifact_page(art).is_some();
-                                    for entry in
-                                        saved_artifact_menu_entries(art.kind(), have_library, has_page)
-                                    {
+                                    for entry in saved_artifact_menu_entries(
+                                        art.kind(),
+                                        have_library,
+                                        has_page,
+                                    ) {
                                         if ui
                                             .add_enabled(
                                                 entry.enabled,
@@ -3405,8 +3455,7 @@ impl PdfReaderState {
         // own corner — treating any button here would make the menu close
         // itself the instant it appeared. Secondary clicks are the toggle
         // gesture and are handled at the call sites.
-        let clicked_outside = ctx
-            .input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
+        let clicked_outside = ctx.input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
             && !ctx.input(|i| {
                 i.pointer
                     .interact_pos()
@@ -3544,15 +3593,23 @@ impl PdfReaderState {
                                     .on_hover_text("click to cycle the relation kind")
                                     .clicked()
                                 {
-                                    if let Err(e) =
-                                        relation::edit_connection(root, index, &rel.id, None, Some(rel.kind.next()))
-                                    {
-                                        self.connection_message = format!("could not edit connection: {e}");
+                                    if let Err(e) = relation::edit_connection(
+                                        root,
+                                        index,
+                                        &rel.id,
+                                        None,
+                                        Some(rel.kind.next()),
+                                    ) {
+                                        self.connection_message =
+                                            format!("could not edit connection: {e}");
                                     }
                                 }
                                 if ui.button("Delete").clicked() {
-                                    if let Err(e) = relation::delete_connection(root, index, &rel.id) {
-                                        self.connection_message = format!("could not delete connection: {e}");
+                                    if let Err(e) =
+                                        relation::delete_connection(root, index, &rel.id)
+                                    {
+                                        self.connection_message =
+                                            format!("could not delete connection: {e}");
                                     }
                                 }
                             });
@@ -3570,7 +3627,10 @@ impl PdfReaderState {
                     self.connection_popup = Some(ConnectionPopup::Manage { node });
                 }
             }
-            ConnectionPopup::ConfirmDelete { citekey, artifact_id } => {
+            ConnectionPopup::ConfirmDelete {
+                citekey,
+                artifact_id,
+            } => {
                 egui::Window::new("Delete annotation")
                     .collapsible(false)
                     .resizable(false)
@@ -3632,7 +3692,10 @@ impl PdfReaderState {
                         });
                     });
                 if !close {
-                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete { citekey, artifact_id });
+                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete {
+                        citekey,
+                        artifact_id,
+                    });
                 }
             }
         }
@@ -3898,6 +3961,60 @@ mod tests {
         assert!(state.pending_jump.is_none());
     }
 
+    /// **The reader keeps its place across a view switch.**
+    ///
+    /// Leaving the PDF Reader for the Mindmap and coming back reset the
+    /// document to page 1, however far in the user had read (maintainer,
+    /// 2026-09-24). Two causes, both fixed:
+    ///
+    /// 1. the page `ScrollArea` carried no `id_salt`, so egui derived its id
+    ///    from the widget tree; a different `CentralPanel` on the way back
+    ///    meant a different id, no stored state, and offset zero;
+    /// 2. nothing consulted `last_offset`, which had held the true position
+    ///    the whole time.
+    ///
+    /// This pins the second, which is the one that lives in this struct: a
+    /// gap in the pass counter is a re-entry, and a re-entry restores.
+    #[test]
+    fn a_view_switch_is_told_from_an_ordinary_frame() {
+        let reentered = |last: Option<u64>, pass: u64, off: egui::Vec2| {
+            last.is_some_and(|l| pass > l + 1) && off != egui::Vec2::ZERO
+        };
+        let somewhere = egui::vec2(0.0, 900.0);
+
+        // Consecutive passes are ordinary frames -- never restore, or the
+        // user could not scroll at all.
+        assert!(!reentered(Some(41), 42, somewhere), "consecutive frame");
+        // A gap is a view switch.
+        assert!(reentered(Some(41), 60, somewhere), "returned after a gap");
+        // The very first draw has nothing to restore to.
+        assert!(!reentered(None, 7, somewhere), "first draw");
+        // At the top of the document there is nothing to restore.
+        assert!(
+            !reentered(Some(41), 60, egui::Vec2::ZERO),
+            "already at the top"
+        );
+    }
+
+    /// Opening a document forgets the previous one's position.
+    ///
+    /// The restore above must not carry one paper's scroll offset into the
+    /// next paper opened.
+    #[test]
+    fn opening_a_document_clears_the_remembered_position() {
+        let mut state = PdfReaderState::default();
+        state.last_offset = egui::vec2(0.0, 1234.0);
+        state.last_drawn_pass = Some(99);
+
+        state.reset_interaction_state();
+
+        assert_eq!(state.last_offset, egui::Vec2::ZERO);
+        assert_eq!(
+            state.last_drawn_pass, None,
+            "a new document must not be restored to the old one's offset"
+        );
+    }
+
     /// A click inside nested artifact boxes acts on the **smallest** one.
     ///
     /// Before this, the right-click took the first region in document order
@@ -4025,7 +4142,12 @@ mod tests {
     fn going_to_a_region_centres_it() {
         let page_px = egui::vec2(1000.0, 1400.0);
         let viewport = egui::vec2(400.0, 300.0);
-        let region = Region { x0: 0.6, y0: 0.7, x1: 0.9, y1: 0.9 };
+        let region = Region {
+            x0: 0.6,
+            y0: 0.7,
+            x1: 0.9,
+            y1: 0.9,
+        };
         let zoom = 2.0;
         let off = region_centre_offset(region, 1, page_px, zoom, viewport).unwrap();
         // Centre of the box in content coordinates.
@@ -4036,7 +4158,10 @@ mod tests {
         let drawn = region_to_screen_rect(region, 1, page_px, Pos2::ZERO - off, zoom, GAP).unwrap();
         assert!((drawn.center() - (viewport * 0.5).to_pos2()).length() < 1e-3);
         // Unmeasured canvas: no offset.
-        assert_eq!(region_centre_offset(region, 1, page_px, zoom, egui::Vec2::ZERO), None);
+        assert_eq!(
+            region_centre_offset(region, 1, page_px, zoom, egui::Vec2::ZERO),
+            None
+        );
     }
 
     /// A drawn annotation saved with no region (the 2026-09-22 bug) is
@@ -4050,7 +4175,11 @@ mod tests {
             )
         };
         let md = [
-            block("boxed", "annotation", "page = 3\nregion = [0.1, 0.1, 0.5, 0.5]"),
+            block(
+                "boxed",
+                "annotation",
+                "page = 3\nregion = [0.1, 0.1, 0.5, 0.5]",
+            ),
             block("boxless", "annotation", "page = 3"),
             block("page-note", "note", "page = 4"),
         ]
@@ -4282,7 +4411,7 @@ mod tests {
                 classification: Classification::default(),
                 extraction: None,
                 relation: None,
-            connections: Vec::new(),
+                connections: Vec::new(),
             },
             body: String::new(),
         }
@@ -4352,15 +4481,10 @@ mod tests {
             x1: 0.9,
             y1: 0.9,
         };
-        assert!(region_to_screen_rect(
-            region,
-            0,
-            egui::vec2(0.0, 400.0),
-            Pos2::ZERO,
-            1.0,
-            16.0
-        )
-        .is_none());
+        assert!(
+            region_to_screen_rect(region, 0, egui::vec2(0.0, 400.0), Pos2::ZERO, 1.0, 16.0)
+                .is_none()
+        );
     }
 
     #[test]
@@ -4417,7 +4541,8 @@ t_s,power_mw
         let page_px = egui::vec2(600.0, 800.0);
         let (zoom, gap) = (1.0_f32, 16.0_f32);
         // page 3 in the artifact (1-based) is index 2 (0-based).
-        let overlays = artifact_overlays_for_page(&doc.artifacts, 2, page_px, Pos2::ZERO, zoom, gap);
+        let overlays =
+            artifact_overlays_for_page(&doc.artifacts, 2, page_px, Pos2::ZERO, zoom, gap);
         assert_eq!(
             overlays.len(),
             2,
@@ -4604,11 +4729,18 @@ t_s,power_mw
             // Exactly one entry can ever invoke the delete cascade — a
             // menu structurally cannot dispatch it twice from one click.
             assert_eq!(
-                actions.iter().filter(|a| **a == MenuAction::DeleteArtifact).count(),
+                actions
+                    .iter()
+                    .filter(|a| **a == MenuAction::DeleteArtifact)
+                    .count(),
                 1,
                 "{kind:?}"
             );
-            assert_eq!(entries.last().unwrap().label, "Delete annotation…", "{kind:?}");
+            assert_eq!(
+                entries.last().unwrap().label,
+                "Delete annotation…",
+                "{kind:?}"
+            );
             // Grouped as [navigation] | [edit] | [connections] | [delete]:
             // a separator closing each group, none elsewhere.
             let separators: Vec<bool> = entries.iter().map(|e| e.separator_after).collect();
@@ -4676,7 +4808,10 @@ t_s,power_mw
         };
         assert_eq!(label_for(ArtifactKind::Note), "Edit annotation");
         assert_eq!(label_for(ArtifactKind::Annotation), "Edit annotation");
-        assert_eq!(label_for(ArtifactKind::SourceReference), "Edit source reference");
+        assert_eq!(
+            label_for(ArtifactKind::SourceReference),
+            "Edit source reference"
+        );
         assert_eq!(label_for(ArtifactKind::Formula), "Edit formula");
         assert_eq!(label_for(ArtifactKind::DigitisedTable), "Edit table");
         assert_eq!(label_for(ArtifactKind::DigitisedGraph), "Edit digitisation");
@@ -4709,9 +4844,12 @@ t_s,power_mw
 
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
-            .save_paper(&root.paper_dir("src"))
-            .unwrap();
+        crate::entity::EntityConfig::paper(
+            crate::entity::CiteKey::parse("src").unwrap(),
+            Access::Open,
+        )
+        .save_paper(&root.paper_dir("src"))
+        .unwrap();
         let mut session = PaperSession::open(&root, "src").unwrap();
         let index = ResearchRecordIndex::from_session(&session);
         classify::insert_artifact(
@@ -4734,7 +4872,10 @@ t_s,power_mw
         let _entries = saved_artifact_menu_entries(ArtifactKind::Note, true, true);
 
         let after = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
-        assert_eq!(before, after, "composing the menu must not touch the paper's file");
+        assert_eq!(
+            before, after,
+            "composing the menu must not touch the paper's file"
+        );
     }
 
     /// A separate check, at the domain level `saved_artifact_menu_entries`
@@ -4773,9 +4914,12 @@ t_s,power_mw
 
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
-            .save_paper(&root.paper_dir("src"))
-            .unwrap();
+        crate::entity::EntityConfig::paper(
+            crate::entity::CiteKey::parse("src").unwrap(),
+            Access::Open,
+        )
+        .save_paper(&root.paper_dir("src"))
+        .unwrap();
         let mut session = PaperSession::open(&root, "src").unwrap();
         let index = ResearchRecordIndex::from_session(&session);
         let artifact = classify::insert_artifact(
@@ -4809,6 +4953,9 @@ t_s,power_mw
         // silently repeating the deletion.
         let err =
             classify::delete_artifact_cascade(&root, &index, "src", &artifact_id).unwrap_err();
-        assert!(matches!(err, classify::CascadeError::ArtifactNotFound { .. }));
+        assert!(matches!(
+            err,
+            classify::CascadeError::ArtifactNotFound { .. }
+        ));
     }
 }
