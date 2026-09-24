@@ -436,6 +436,17 @@ pub struct DigitiseApp {
     x_label: String,
     y_label: String,
     operator: String,
+    /// Series already finished on **this** figure, in the order they were
+    /// completed. The one being traced now is `dataset`; these are its
+    /// predecessors, and they share its calibration, source and axis labels
+    /// because they are curves on the same pair of axes.
+    ///
+    /// A `Vec` beside the live `Option` rather than replacing it: every
+    /// existing edit path (add/move/delete a point, review, undo) acts on
+    /// "the dataset being worked on", and that stays exactly one.
+    completed_series: Vec<DigitisedDataset>,
+    /// Name for the series currently being traced, e.g. `"235U thermal"`.
+    series_name: String,
     /// The three-stage setup form, live only while `view == View::PlotSetup`.
     /// Held across frames because it is a form; taken when it finishes.
     plot_setup: plot_setup::PlotSetup,
@@ -545,6 +556,8 @@ impl Default for DigitiseApp {
             x_label: "x".to_string(),
             y_label: "y".to_string(),
             operator: default_operator_name(),
+            completed_series: Vec::new(),
+            series_name: String::new(),
             plot_setup: plot_setup::PlotSetup::default(),
             dataset: None,
             selected: None,
@@ -1046,6 +1059,10 @@ impl DigitiseApp {
         self.raster = Some(raster);
         self.texture = None; // re-uploaded next frame
         self.dataset = None;
+        // A new image is a new figure; its predecessors' series belong to the
+        // old one and must not follow it across.
+        self.completed_series.clear();
+        self.series_name.clear();
         self.selected = None;
         self.ref_dragging = None;
         self.ref_dragging_corner = None;
@@ -1243,11 +1260,84 @@ impl DigitiseApp {
             digitised_at: utc_now_iso8601(),
             trace: None,
             review: ReviewStatus::Unreviewed,
+            series: (!self.series_name.trim().is_empty())
+                .then(|| self.series_name.trim().to_string()),
             points: Vec::new(),
         });
         self.selected = None;
         self.mode = ClickMode::AddPoint;
         self.set_status("empty dataset started — click to place points");
+    }
+
+    /// Bank the series being traced and start the next one on the same axes.
+    ///
+    /// The new series inherits calibration, source and axis labels: they are
+    /// properties of the *figure*, and re-deriving them would let two curves
+    /// off one plot disagree about where its axes are. Only the points and
+    /// the name are new.
+    ///
+    /// Refuses an unnamed series once there is more than one, and refuses a
+    /// duplicate name. Two columns both called `""` -- or both called
+    /// `"1600 degC"` -- are not something a reader can take apart later, and
+    /// the export is the only place it would surface.
+    fn finish_series(&mut self) {
+        let Some(current) = self.dataset.clone() else {
+            self.set_error("no series in progress");
+            return;
+        };
+        if current.points.is_empty() {
+            self.set_error("this series has no points yet");
+            return;
+        }
+        let name = self.series_name.trim().to_string();
+        if name.is_empty() {
+            self.set_error("name this series before adding another");
+            return;
+        }
+        if self
+            .completed_series
+            .iter()
+            .any(|d| d.series.as_deref() == Some(name.as_str()))
+        {
+            self.set_error(format!("a series called {name:?} is already on this figure"));
+            return;
+        }
+
+        let mut banked = current.clone();
+        banked.series = Some(name);
+        self.completed_series.push(banked);
+
+        // The next series: same figure, same axes, no points.
+        let mut next = current;
+        next.series = None;
+        next.points.clear();
+        next.review = ReviewStatus::Unreviewed;
+        next.trace = None;
+        next.digitised_at = utc_now_iso8601();
+        self.dataset = Some(next);
+        self.series_name.clear();
+        self.selected = None;
+        self.mode = ClickMode::AddPoint;
+        self.set_status(format!(
+            "series banked ({} on this figure) — name and trace the next",
+            self.completed_series.len()
+        ));
+    }
+
+    /// Every series on this figure: the finished ones, then the one in
+    /// progress if it has any points.
+    ///
+    /// This is what the exporters and the canvas both read, so "what is on
+    /// this figure" is answered in one place rather than each caller
+    /// remembering that the live dataset is not in `completed_series`.
+    fn all_series(&self) -> Vec<&DigitisedDataset> {
+        let mut out: Vec<&DigitisedDataset> = self.completed_series.iter().collect();
+        if let Some(d) = &self.dataset {
+            if !d.points.is_empty() {
+                out.push(d);
+            }
+        }
+        out
     }
 
     /// Any edit invalidates a recorded review.
@@ -1364,7 +1454,18 @@ impl DigitiseApp {
         }
         let mut saved = format!("saved {}", self.json_out.trim());
         if !self.csv_out.trim().is_empty() {
-            match d.write_csv(std::path::Path::new(self.csv_out.trim())) {
+            let series = self.all_series();
+            let path = std::path::Path::new(self.csv_out.trim());
+            let result = if series.len() > 1 {
+                // Every curve in one file, rather than the live one only --
+                // exporting a multi-series figure and silently getting one
+                // series would be the worst kind of quiet data loss.
+                std::fs::write(path, DigitisedDataset::many_to_csv_data_only(&series))
+                    .map_err(|e| e.to_string())
+            } else {
+                d.write_csv(path).map_err(|e| e.to_string())
+            };
+            match result {
                 Ok(()) => saved.push_str(&format!(" and {}", self.csv_out.trim())),
                 Err(e) => {
                     self.set_error(format!("json saved, csv failed: {e}"));
@@ -1403,7 +1504,18 @@ impl DigitiseApp {
             title
         }
         .to_string();
-        let csv_body = crate::artifact::render_csv_body(&d.to_csv_data_only());
+        // One artifact carries every series on the figure. With a single
+        // curve this is byte-identical to what it always wrote; with several
+        // it gains a leading `series` column (see
+        // `DigitisedDataset::many_to_csv_data_only` on why it is long-form
+        // and not one column per curve).
+        let series = self.all_series();
+        let csv = if series.len() > 1 {
+            DigitisedDataset::many_to_csv_data_only(&series)
+        } else {
+            d.to_csv_data_only()
+        };
+        let csv_body = crate::artifact::render_csv_body(&csv);
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
         // artifact (so the page-context panel can re-open it), replacing the
@@ -1603,6 +1715,51 @@ impl DigitiseApp {
         ui.small(
             "double-click adds a marker (Add points mode) · right-click removes the nearest one",
         );
+        ui.separator();
+
+        // A figure routinely carries several curves against one pair of axes
+        // (maintainer, 2026-09-24). They share calibration, source and labels
+        // -- only the points and the name differ -- so banking one and
+        // starting the next keeps all of that rather than re-deriving it.
+        ui.label("Series on this figure:");
+        ui.horizontal(|ui| {
+            ui.label("name");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.series_name)
+                    .hint_text("e.g. 235U thermal")
+                    .desired_width(160.0),
+            );
+            if ui
+                .button("\u{2795} Bank & start next")
+                .on_hover_text(
+                    "store this curve under its name and begin another on the same axes",
+                )
+                .clicked()
+            {
+                self.finish_series();
+            }
+        });
+        if !self.completed_series.is_empty() {
+            let names: Vec<&str> = self
+                .completed_series
+                .iter()
+                .map(|d| d.series.as_deref().unwrap_or("(unnamed)"))
+                .collect();
+            ui.horizontal_wrapped(|ui| {
+                ui.weak(format!("banked ({}):", names.len()));
+                ui.weak(names.join(", "));
+            });
+            if ui
+                .button("\u{21A9} Drop last banked series")
+                .on_hover_text("remove the most recently banked curve from this figure")
+                .clicked()
+            {
+                if let Some(d) = self.completed_series.pop() {
+                    let name = d.series.clone().unwrap_or_default();
+                    self.set_status(format!("dropped series {name:?}"));
+                }
+            }
+        }
         ui.separator();
 
         ui.label("4. Provenance (required to export):");
@@ -3663,6 +3820,155 @@ mod tests {
         assert_eq!(app.page, "31");
         assert_eq!(app.notes, "cropped at 300 dpi");
         assert_eq!(app.figure, "Fig. 2", "the required field still applies");
+    }
+
+
+    /// A minimal dataset with points, for the series tests.
+    fn sample_dataset_for_series() -> DigitisedDataset {
+        use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale};
+        let axis = |v0: f64, v1: f64| {
+            AxisCalibration::new(
+                AxisScale::Linear,
+                AxisRef { pixel: 0.0, value: v0 },
+                AxisRef { pixel: 100.0, value: v1 },
+            )
+            .expect("valid axis")
+        };
+        DigitisedDataset {
+            schema_version: DATASET_SCHEMA_VERSION,
+            source: FigureSource::new("Fig. 1").expect("figure"),
+            calibration: PlotCalibration::AxisAligned {
+                x: axis(0.0, 10.0),
+                y: axis(0.0, 20.0),
+            },
+            x_label: "time (s)".into(),
+            y_label: "power (%)".into(),
+            digitised_by: "unit test".into(),
+            digitised_at: "2026-09-24T00:00:00Z".into(),
+            trace: None,
+            review: ReviewStatus::Unreviewed,
+            series: None,
+            points: vec![DigitisedPoint {
+                x: 1.0,
+                y: 2.0,
+                x_px: Some(10.0),
+                y_px: Some(20.0),
+                x_minus: 0.0,
+                x_plus: 0.0,
+                y_minus: 0.0,
+                y_plus: 0.0,
+                origin: PointOrigin::HandPlaced {
+                    by: "unit test".into(),
+                },
+            }],
+        }
+    }
+
+    /// Banking a series keeps the figure's calibration, source and axis
+    /// labels and starts a fresh curve. Re-deriving them would let two
+    /// curves off one plot disagree about where its axes are.
+    #[test]
+    fn banking_a_series_keeps_the_figure_and_clears_the_points() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        let before = app.dataset.clone().expect("set above");
+        app.series_name = "235U thermal".into();
+
+        app.finish_series();
+
+        assert_eq!(app.completed_series.len(), 1);
+        let banked = &app.completed_series[0];
+        assert_eq!(banked.series.as_deref(), Some("235U thermal"));
+        assert_eq!(banked.points.len(), before.points.len(), "points are kept");
+
+        let next = app.dataset.as_ref().expect("a next series is started");
+        assert!(next.points.is_empty(), "the next curve starts empty");
+        assert_eq!(next.series, None, "and unnamed, awaiting its own name");
+        assert_eq!(next.calibration, before.calibration, "same axes");
+        assert_eq!(next.source, before.source, "same figure");
+        assert_eq!(next.x_label, before.x_label);
+        assert!(app.series_name.is_empty(), "the name box is cleared");
+    }
+
+    /// An unnamed or duplicate series is refused: the export is the only
+    /// place it would surface, and two columns both called "1600 degC" are
+    /// not something a reader can take apart afterwards.
+    #[test]
+    fn a_series_must_be_named_and_unique() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+
+        app.series_name = "   ".into();
+        app.finish_series();
+        assert!(app.completed_series.is_empty(), "unnamed is refused");
+        assert!(app.message_is_error);
+
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1);
+
+        // Same name again.
+        app.dataset.as_mut().expect("live").points =
+            app.completed_series[0].points.clone();
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1, "a duplicate name is refused");
+        assert!(app.message_is_error);
+    }
+
+    /// An empty curve cannot be banked -- it would export as a named series
+    /// with no rows, which reads as "we measured nothing" rather than "we
+    /// forgot to trace it".
+    #[test]
+    fn an_empty_series_cannot_be_banked() {
+        let mut app = DigitiseApp::default();
+        let mut d = sample_dataset_for_series();
+        d.points.clear();
+        app.dataset = Some(d);
+        app.series_name = "A".into();
+        app.finish_series();
+        assert!(app.completed_series.is_empty());
+        assert!(app.message_is_error);
+    }
+
+    /// `all_series` is the single answer to "what is on this figure": the
+    /// banked curves plus the live one, and the live one only once it has
+    /// points.
+    #[test]
+    fn all_series_counts_the_live_curve_only_once_it_has_points() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        assert_eq!(app.all_series().len(), 1, "a live curve with points counts");
+
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(
+            app.all_series().len(),
+            1,
+            "after banking, the fresh empty curve does not count"
+        );
+
+        app.dataset.as_mut().expect("live").points =
+            app.completed_series[0].points.clone();
+        assert_eq!(app.all_series().len(), 2, "banked + live-with-points");
+    }
+
+    /// Loading a different image is a different figure; its predecessors'
+    /// series must not follow it across.
+    #[test]
+    fn a_new_image_clears_the_banked_series() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1);
+
+        app.set_raster(PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]), String::new());
+        assert!(
+            app.completed_series.is_empty(),
+            "a new figure starts with no series"
+        );
+        assert!(app.series_name.is_empty());
     }
 
 }
