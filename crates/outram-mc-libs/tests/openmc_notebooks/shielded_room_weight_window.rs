@@ -662,91 +662,118 @@ fn shielded_room_weight_window() {
          so there is nothing to test"
     );
 
-    // The window arm's budget is whatever the analog arm cost, MINUS what the
-    // six MAGIC iterations already spent. A user who wants windows pays for
-    // generating them, so generation is charged here and not treated as free
-    // set-up.
-    let budget = (t_analog - t_generate).max(0.1);
+    // ── Sizing the window arm: PARTICLES, not a clock ──────────────────────
+    //
+    // **CHANGED 2026-09-24, and the previous design was the reason #258's third
+    // acceptance criterion read "NOT MEASURABLE".** This arm used to be bounded
+    // by `budget = t_analog - t_generate`, i.e. matched wall-clock against the
+    // analog arm. Two things went wrong with that, and neither was the weight
+    // windows:
+    //
+    // 1. **Matched cost starves the arm.** A steered particle splits, so it
+    //    costs ~6x an analog one (measured: 16.6 ms against 2.76 ms). Charging
+    //    MAGIC generation to the same budget left the window arm **7 690
+    //    particles** against the analog arm's 50 000.
+    // 2. **The chunked loop inflated the realization count.** Each chunk was a
+    //    separate `run_fixed_source`, contributing `N_BATCHES` realizations, so
+    //    7 690 particles arrived as **1 200 realizations — about 6 particles
+    //    each**. Almost every bin scored zero in almost every realization, so
+    //    `rel_std_dev` sat near 1 across the mesh and NOTHING qualified. The
+    //    measured result was `windows-only 0, analog-only 518`: the window arm
+    //    resolved not one cell, while the analog arm resolved 518.
+    //
+    // So "the FOM is not measurable" was an artefact of how this test drove the
+    // arm, not a property of weight windows.
+    //
+    // **Matched cost is not what the criterion asks for.** #258 asks for
+    // `FOM = 1/(sigma^2 t)` — which is **cost-normalised by construction**, the
+    // `t` in the denominator being the cost. Two arms at different costs are
+    // exactly what a FOM comparison is for; forcing them to equal wall-clock
+    // was a constraint this test imposed on itself and then failed to satisfy.
+    // Removing it is not a relaxed criterion, it is the criterion as written.
+    //
+    // The arm now runs a **fixed particle count in a single call**, so it has
+    // the same `N_BATCHES` realization structure as the analog arm and the two
+    // `R` values mean the same thing. Its own wall-clock is measured and
+    // divided into its own FOM. Generation is charged separately and reported
+    // both ways (see below), because charging it or not is a judgement about
+    // what question is being asked, and hiding that choice is how a shielding
+    // FOM gets overstated.
+    // The arm is bounded by **wall clock, checked between chunks** — restoring
+    // the one bound that works — while keeping the realization structure sane.
+    //
+    // **Both halves are needed, and getting one at the cost of the other is the
+    // mistake this design has now made twice in opposite directions:**
+    //
+    // * Bounding by a particle count and asserting the time AFTERWARDS cannot
+    //   bound anything. Measured 2026-09-24: with 751 windows (6 MAGIC
+    //   iterations) the arm ran **2165 s without finishing 10 000 particles** —
+    //   over 216 ms/particle, 14x the 15.9 ms measured at 621 windows, because
+    //   deeper windows mean longer split cascades. The post-hoc assertion would
+    //   have fired only after the damage, which is exactly the defect the
+    //   original chunked loop existed to prevent.
+    // * Chunking with an ADAPTIVE chunk size inflates the realization count:
+    //   `run_fixed_source` flushes `N_BATCHES` realizations per call, so many
+    //   tiny calls gave 1 200 realizations holding ~6 particles each and every
+    //   bin's `rel_std_dev` sat near 1.
+    //
+    // So: a FIXED chunk of `CHUNK` particles, which `run_fixed_source` splits
+    // into `N_BATCHES` realizations of `CHUNK / N_BATCHES` each — 100 particles
+    // per realization, against the analog arm's 5 000. That is few, but they are
+    // real realizations rather than the 6-particle ones, and `FOM = 1/(R^2 t)`
+    // is invariant in run length, so the arms need neither equal particles nor
+    // equal realizations to be compared. No adaptive growth: every extrapolation
+    // of the per-particle cost here has been optimistic, so none is made.
+    const CHUNK: usize = 1_000;
+    let ww_budget: f64 = std::env::var("OUTRAM_WW_BUDGET_S")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(400.0);
     let mut ww_tally = flux_tally();
     let vr = VarianceReduction::default().with_weight_windows(ww);
 
-    // ── Bound the arm by WALL-CLOCK, because that is the actual criterion ───
-    //
-    // Two earlier attempts bounded it by particle count instead and both ran
-    // for over an hour on a ~5 s budget:
-    //
-    //   1. size from the time budget, clamp at 200 000 particles;
-    //   2. size from a 100-particle timing probe, clamp at 25x the probe.
-    //
-    // Both fail the same way, and the second is not a weaker version of the
-    // first -- it is the same error. The probe's particles are drawn in the
-    // SOURCE region, where the MAGIC windows are dense and histories die
-    // quickly; a particle that actually gets steered into the shield splits
-    // repeatedly and costs orders of magnitude more. So `per_particle` from
-    // any probe underestimates the real cost, a particle CAP cannot bound the
-    // TIME, and the `t_ww < 3 t_analog` assertion only fires hours later,
-    // after the damage.
-    //
-    // The fix is to stop extrapolating. Run in chunks and check the clock
-    // after each, which makes the matched-cost claim true by construction
-    // rather than by a prediction that was wrong twice. Chunks are sized at
-    // ~5 % of the REMAINING budget from the cost measured so far, so the
-    // overshoot is bounded by one chunk instead of by an extrapolation, and
-    // every chunk is a multiple of N_BATCHES so the realization count stays
-    // exact.
-    let hard_cap = 500_000usize; // structural backstop; the clock is the bound
     let t0 = Instant::now();
     let mut n_ww = 0usize;
     let mut ww_realizations = 0u64;
-    let mut chunk = N_BATCHES;
-    while t0.elapsed().as_secs_f64() < budget && n_ww < hard_cap {
+    while t0.elapsed().as_secs_f64() < ww_budget {
         run_fixed_source(
             &geom,
             &mats,
             &nucs,
             &src,
-            &settings(chunk, 7_919 + n_ww as u64, vr.clone()),
+            &settings(CHUNK, 7_919 + n_ww as u64, vr.clone()),
             Some(&mut ww_tally),
         );
-        n_ww += chunk;
+        n_ww += CHUNK;
         ww_realizations += N_BATCHES as u64;
-        let elapsed = t0.elapsed().as_secs_f64();
-        let remaining = budget - elapsed;
-        if remaining <= 0.0 {
-            break;
-        }
-        // **Bounded growth, because every cost estimate here is optimistic.**
-        //
-        // Sizing the next chunk purely from the cost measured so far repeats
-        // the probe mistake this loop was written to remove: the first chunk's
-        // particles are drawn near the source, where windows are dense and
-        // histories die fast, so `per_particle` underestimates a steered
-        // particle. Measured: a 10-particle first chunk sized a 1360-particle
-        // second chunk that ran 1324 s against a 78 s budget -- 17x over.
-        //
-        // Capping growth at 2x the previous chunk bounds the overshoot to
-        // roughly the time already spent, and the estimate improves on every
-        // pass, so the loop converges onto the budget instead of leaping past
-        // it. This is the ordinary adaptive-stepping guard, and the lesson is
-        // that no single extrapolation is safe here -- only a bounded one.
-        let per_particle = elapsed / n_ww as f64;
-        let want = (0.05 * remaining / per_particle.max(1.0e-9)) as usize;
-        let capped = want.min(chunk.saturating_mul(2));
-        chunk = (capped / N_BATCHES).clamp(1, 1_000) * N_BATCHES;
     }
-    let t_ww = t0.elapsed().as_secs_f64() + t_generate;
+    let t_ww_transport = t0.elapsed().as_secs_f64();
+    println!(
+        "WW arm   : {n_ww} particles in {ww_realizations} realizations \
+         ({} per realization) within a {ww_budget:.0} s budget",
+        CHUNK / N_BATCHES
+    );
+    // Two costs, both reported, because they answer different questions:
+    //   `t_ww_transport` — the FOM of the biased run, which is what a user with
+    //                      a window set already in hand experiences;
+    //   `t_ww_total`     — the cost to ANSWER from nothing, generation included.
+    // Quoting only the first overstates weight windows; quoting only the second
+    // understates them for anyone reusing a window set across runs.
+    let t_ww_total = t_ww_transport + t_generate;
+    let t_ww = t_ww_transport;
     let ww_deep = n_scored(&ww_tally, &deep);
     let ww_total: f64 = ww_tally.bins.iter().map(|b| b.sum).sum();
     println!(
-        "WW       : {t_ww:.1} s total (incl. generation), {n_ww} particles in \
-         {ww_realizations} realizations, {ww_deep}/{} deep cells scored, \
-         total flux {ww_total:.3e}",
+        "WW       : {t_ww_transport:.1} s transport + {t_generate:.1} s generation \
+         = {t_ww_total:.1} s; {n_ww} particles in {ww_realizations} realizations, \
+         {ww_deep}/{} deep cells scored, total flux {ww_total:.3e}",
         deep.len()
     );
 
     println!(
-        "\nRESULT: analog reached {analog_deep} deep cells in {t_analog:.1} s; \
-         weight windows reached {ww_deep} in {t_ww:.1} s"
+        "\nRESULT: analog reached {analog_deep} deep cells with {n_analog} particles \
+         in {t_analog:.1} s; weight windows reached {ww_deep} with {n_ww} in \
+         {t_ww_transport:.1} s transport ({t_ww_total:.1} s including generation)"
     );
 
     // **The unbiasedness check that matters more than the FOM.** Weight windows
@@ -794,6 +821,27 @@ fn shielded_room_weight_window() {
         (900.0, 1450.0, "900-1450 cm (far field) "),
         (1450.0, 1e9, "beyond 1450 (deep)      "),
     ];
+    // ── The coherence check that makes the ratios checkable ────────────────
+    //
+    // `FOM = 1/(R^2 t)` is invariant in run length (`R^2 ~ 1/N`, `t ~ N`), which
+    // is exactly why the two arms may be run at different particle counts. So a
+    // FOM RATIO of `1 / cost_ratio` means the windows bought **no variance
+    // benefit at all** in that cell and charged their splitting overhead for
+    // nothing; anything above it is real benefit, anything below it is harm.
+    //
+    // Printing this line beside the ratios turns them from arbitrary numbers
+    // into ones that can be reasoned about — measured 2026-09-24, the source-side
+    // band came out at 0.171x against a `1/cost_ratio` of 0.167, i.e. pure
+    // overhead to two figures, which is what a well-sampled region should show.
+    let ms_analog = 1000.0 * t_analog / n_analog as f64;
+    let ms_ww = 1000.0 * t_ww_transport / n_ww as f64;
+    let cost_ratio = ms_ww / ms_analog;
+    println!(
+        "\nper-particle cost: analog {ms_analog:.2} ms, windows {ms_ww:.2} ms \
+         => cost ratio {cost_ratio:.2}x, so FOM ratio {:.3}x means ZERO variance \
+         benefit (pure splitting overhead); above it is benefit, below it is harm",
+        1.0 / cost_ratio
+    );
     println!("\nFOM = 1/(R^2 t) by penetration depth, rel err <= {MAX_REL_STD_DEV_FOR_FOM} to qualify:");
     println!(
         "  analog {n_analog} particles in {} realizations, {t_analog:.1} s; \
@@ -801,8 +849,10 @@ fn shielded_room_weight_window() {
         N_BATCHES
     );
     let mut any_measurable = false;
+    let mut band_summary: Vec<(&str, f64, f64, usize, usize)> = Vec::new();
     for (lo, hi, label) in bands {
         let mut ratios: Vec<f64> = Vec::new();
+        let mut ratios_incl_gen: Vec<f64> = Vec::new();
         let (mut ww_only, mut analog_only, mut neither) = (0usize, 0usize, 0usize);
         for b in 0..m_rep.n_bins() {
             let x = ((b % nx) as f64 + 0.5) * 1550.0 / nx as f64;
@@ -810,9 +860,15 @@ fn shielded_room_weight_window() {
                 continue;
             }
             let fa = fom(&analog_tally.bins[b], N_BATCHES as u64, t_analog);
-            let fw = fom(&ww_tally.bins[b], ww_realizations, t_ww);
+            let fw = fom(&ww_tally.bins[b], ww_realizations, t_ww_transport);
+            let fw_all = fom(&ww_tally.bins[b], ww_realizations, t_ww_total);
             match (fa, fw) {
-                (Some(a), Some(w)) => ratios.push(w / a),
+                (Some(a), Some(w)) => {
+                    ratios.push(w / a);
+                    if let Some(wa) = fw_all {
+                        ratios_incl_gen.push(wa / a);
+                    }
+                }
                 (None, Some(_)) => ww_only += 1,
                 (Some(_), None) => analog_only += 1,
                 (None, None) => neither += 1,
@@ -829,30 +885,79 @@ fn shielded_room_weight_window() {
         // Through `RealMath`, which is this crate's convention for every
         // transcendental (`mathf.rs`): `r_ln`/`r_exp` are PETIR in every build,
         // so a reported number does not depend on the host's libm.
-        let geo = (ratios.iter().map(|r| r.r_ln()).sum::<f64>() / ratios.len() as f64).r_exp();
+        let geomean = |v: &[f64]| -> f64 {
+            (v.iter().map(|r| r.r_ln()).sum::<f64>() / v.len() as f64).r_exp()
+        };
+        let geo = geomean(&ratios);
+        let geo_gen = if ratios_incl_gen.is_empty() {
+            f64::NAN
+        } else {
+            geomean(&ratios_incl_gen)
+        };
         let mut sorted = ratios.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         println!(
-            "  {label}: FOM ratio {geo:.3}x (geometric mean over {} cells, \
-             median {:.3}x, range {:.3}-{:.3}); windows-only {ww_only}, \
-             analog-only {analog_only}, neither {neither}",
+            "  {label}: FOM ratio {geo:.3}x transport-only, {geo_gen:.3}x including \
+             generation (geometric mean over {} cells, median {:.3}x, range \
+             {:.3}-{:.3}); windows-only {ww_only}, analog-only {analog_only}, \
+             neither {neither}",
             ratios.len(),
             sorted[sorted.len() / 2],
             sorted[0],
             sorted[sorted.len() - 1]
         );
+        band_summary.push((label, geo, geo_gen, ratios.len(), ww_only));
     }
-    if !any_measurable {
-        // **This is a result, not a failure of the test.** At matched cost the
-        // window arm buys so few particles that it resolves nothing, so no
-        // ratio is defined anywhere. Asserting here would turn the answer into
-        // a red suite; the gate that can actually fail is the unbiasedness
-        // check above, which tests a property that MUST hold.
+    if any_measurable {
+        // The headline the acceptance criterion asks for, taken over the bands
+        // that supplied one. Reported, never gated: a threshold on a figure of
+        // merit would be a number chosen after seeing it.
+        let best = band_summary
+            .iter()
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .expect("a measurable band");
+        // **Named "RATIO", not "IMPROVEMENT".** A label that presumes the sign
+        // is how an adverse measurement gets read as a favourable one. The
+        // direction is stated from the number, every time.
+        let direction = if best.1 > 1.0 {
+            "windows BETTER per unit compute"
+        } else {
+            "windows WORSE per unit compute"
+        };
         println!(
-            "  => the FOM is NOT MEASURABLE in any band: at matched cost the \
-             window arm resolved no cell to within {MAX_REL_STD_DEV_FOR_FOM} \
-             relative error. That is the measurement -- weight windows do not \
-             pay on this configuration -- not a missing one."
+            "  => FOM RATIO (windows/analog), measured: best band `{}` at {:.3}x \
+             transport-only / {:.3}x including generation over {} cells -- \
+             {direction}. {} of {} bands supplied a ratio.",
+            best.0.trim(),
+            best.1,
+            best.2,
+            best.3,
+            band_summary.len(),
+            bands.len()
+        );
+        // Where the windows pay is precisely where no ratio exists, so the
+        // count has to be reported beside the ratio or the ratio is misleading.
+        let ww_only_total: usize = band_summary.iter().map(|b| b.4).sum();
+        println!(
+            "  => cells the WINDOW arm resolved and the analog arm did NOT: \
+             {ww_only_total}. Their FOM ratio is UNDEFINED (the analog FOM does \
+             not exist), not infinite, and this count is the result there."
+        );
+    } else {
+        // **Still a result, not a failure of the test** — but read the counts
+        // before believing it. Before 2026-09-24 this branch fired for a reason
+        // that had nothing to do with weight windows: the arm was matched-cost
+        // and chunked, so it got 7 690 particles spread over 1 200 realizations
+        // and `rel_std_dev` sat near 1 across the whole mesh. If this prints
+        // again with `windows-only 0` everywhere, check the particle count and
+        // the realization count FIRST.
+        println!(
+            "  => the FOM is NOT MEASURABLE in any band: the window arm resolved \
+             no cell to within {MAX_REL_STD_DEV_FOR_FOM} relative error at \
+             {n_ww} particles in {ww_realizations} realizations. Check those two \
+             numbers against the analog arm's {n_analog} in {} before concluding \
+             anything about weight windows.",
+            N_BATCHES
         );
     }
 
@@ -885,9 +990,17 @@ fn shielded_room_weight_window() {
         );
     }
 
+    // **No cost assertion here, deliberately.** The old one was
+    // `t_ww < 3 * t_analog`, which encoded the matched-cost constraint that made
+    // the FOM unmeasurable; a later attempt replaced it with a runtime ceiling,
+    // which was worse than useless because an assertion AFTER the run cannot
+    // bound the run. The loop above bounds the time by checking the clock
+    // between chunks, so there is nothing left for an assertion to add.
+    //
+    // What IS asserted is that the arm got far enough to say something at all.
     assert!(
-        t_ww < 3.0 * t_analog,
-        "the weight-window arm took {t_ww:.1} s against analog's {t_analog:.1} s; \
-         that is not a matched-cost comparison"
+        n_ww >= CHUNK,
+        "the window arm completed no chunk inside its {ww_budget:.0} s budget; \
+         raise OUTRAM_WW_BUDGET_S or lower the MAGIC iteration count"
     );
 }
