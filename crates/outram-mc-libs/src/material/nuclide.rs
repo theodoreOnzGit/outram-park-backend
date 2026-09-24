@@ -1804,6 +1804,46 @@ impl Nuclide {
         base
     }
 
+    /// **Total microscopic cross section only** — the hot path.
+    ///
+    /// # Why this exists
+    ///
+    /// [`xs_at_energy`](Self::xs_at_energy) fills every channel eagerly. On the
+    /// `Pointwise` tier that is **~46 separate grid evaluations** for U-235 or
+    /// U-238: MT=1, MT=2, MT=18, all 40 inelastic levels, MT=16, MT=17, MT=5
+    /// and the MT=27 absorption. The transport loop's *flight-distance* step
+    /// (`transport_csg.rs`, `materials[m].macro_xs(..).total`) reads exactly
+    /// one of those and discards the rest, once per nuclide per sample.
+    ///
+    /// Above the S(α,β) cutoff the total is simply **MT=1**, already tabulated
+    /// — so the other 45 evaluations are pure waste there. This returns that
+    /// one number.
+    ///
+    /// # It is not a shortcut through the physics
+    ///
+    /// Below the cutoff the bound-atom law *replaces* the elastic channel and
+    /// the total is **rebuilt** as `absorption + inelastic + n2n + σ_sab`
+    /// (see [`xs_at_energy`](Self::xs_at_energy)). There is no cheaper correct
+    /// answer there, so this falls back to the full evaluation and returns its
+    /// total. The value is identical either way — this changes only how much
+    /// work is done to reach it, never what it is.
+    pub fn total_at_energy(&self, e: f64, temp_k: f64) -> f64 {
+        // The bound-atom override needs channels the fast path does not
+        // compute, so defer to the full evaluation whenever it is in play.
+        if let Some(th) = &self.thermal {
+            if th.total_xs(e) > 0.0 {
+                return self.xs_at_energy(e, temp_k).total;
+            }
+        }
+        match &self.xs {
+            XsSource::Pointwise { recon, .. } => recon.eval_mt(MtReaction::Mt1Total, e),
+            // The LOW tier already carries a tabulated total; its `MicroXS`
+            // construction is a handful of field copies, not 46 searches, so
+            // there is nothing to gain from a separate path.
+            _ => self.base_xs_at_energy(e, temp_k).total,
+        }
+    }
+
     /// Microscopic cross sections **before** any S(α,β) thermal override — the
     /// raw free-gas / CE evaluation from the underlying [`XsSource`]. Split out so
     /// [`xs_at_energy`](Self::xs_at_energy) can layer the bound-atom thermal
