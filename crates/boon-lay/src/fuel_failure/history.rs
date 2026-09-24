@@ -570,6 +570,7 @@ mod tests {
     use uom::si::time::{day, hour};
     use uom::si::volume::cubic_meter;
 
+    use crate::fuel_failure::grain_boundary::grain_boundary_corrosion_rate;
     use crate::fuel_failure::strength::{irradiated_strength, irradiated_weibull_modulus};
 
     /// Table 1 (page -500-), "before irradiation" columns — the eight SiC
@@ -1083,6 +1084,414 @@ mod tests {
         // And the "without" curve is the closer one, which is what makes the
         // with-corrosion variant "conservative" in the report's sense.
         assert!(mean(&without).abs() < mean(&with).abs());
+    }
+
+    /// AVR GO 2 as Fig. 8's caption states it (page -501-): `σ_oo = 600 MPa`,
+    /// `m_oo = 6`, `T_B = 950 degC`, `t_B = 500 FPD`, `F_B = 0.082 FIMA`,
+    /// `Γ = 0.6·10²⁵ m⁻² EDN`, `η̇(T) ≡ 0`, isothermal at 1600 degC.
+    ///
+    /// **The kernel is `(Th,U)O₂` with `N = 5`**, and unlike Fig. 7 that is
+    /// not a weak preference — three independent reasons agree:
+    /// the report's own Eq (5a) note gives `N = 5` for **AVR**; GO 2 is an
+    /// AVR fuel element; and the `UO₂` correlation is **excluded** by the
+    /// growth bound in
+    /// [`figure_8_excludes_the_uranium_oxide_oxygen_correlation`].
+    ///
+    /// Geometry is again not stated and again cancels: every Fig. 8
+    /// assertion is on a ratio.
+    fn avr_go2_particle() -> ParticleState {
+        let t_b = ThermodynamicTemperature::new::<degree_celsius>(950.0);
+        let t_b_time = Time::new::<day>(500.0);
+        let gamma = 0.6;
+        let burnup = Ratio::new::<ratio>(0.082);
+        ParticleState {
+            layer: SicLayer {
+                inner_radius: Length::new::<micrometer>(250.0),
+                outer_radius: Length::new::<micrometer>(285.0),
+            },
+            compound: KernelCompound::ThoriumUraniumOxide,
+            diffusion_kernel: KernelKind::ThoriumUraniumOxide,
+            kernel_volume: Volume::new::<cubic_meter>(9.0e-13),
+            free_volume: Volume::new::<cubic_meter>(1.8e-13),
+            burnup,
+            stable_gas_yield: Ratio::new::<ratio>(super::super::STABLE_FISSION_GAS_YIELD),
+            dimensionless_irradiation_time: irradiation_tau(
+                KernelKind::ThoriumUraniumOxide,
+                t_b,
+                t_b_time,
+                burnup,
+            ),
+            median_strength: irradiated_strength(Pressure::new::<megapascal>(600.0), gamma, t_b),
+            weibull_modulus: irradiated_weibull_modulus(6.0, gamma, t_b),
+            oxygen: OxygenSource::ThoriumUraniumOxide {
+                thorium_to_u235: 5.0,
+                burnup,
+            },
+            decomposition: DecompositionCalibration::ParticlesInSphere,
+            grain_boundary: GrainBoundaryCorrosion::Disabled,
+            as_manufactured: zero(),
+        }
+    }
+
+    fn avr_go2_stress_at(t_h: f64) -> Pressure {
+        let mut h = AccidentHistory::new(avr_go2_particle(), zero());
+        let t = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
+        let p = h.run_isothermal(t, Time::new::<hour>(t_h), (t_h.ceil() as usize).max(1));
+        induced_stress_with_thinning_factor(
+            &h.particle().layer,
+            h.pressure_at(Time::new::<hour>(t_h), t),
+            p.thinning_factor,
+        )
+    }
+
+    /// Invert Eq (1): the `σ_t` a digitised failure fraction implies.
+    fn stress_implied_by(phi: f64, sigma_o: Pressure, m: f64) -> f64 {
+        sigma_o.get::<megapascal>() * (-(1.0 - phi).ln() / std::f64::consts::LN_2).powf(1.0 / m)
+    }
+
+    /// **Fig. 8 (page -501-): the Fig. 7 drift REAPPEARS under a purely
+    /// isothermal history — so the driver's staging is exonerated.**
+    ///
+    /// Methodology: AVR GO 2, isothermal 1600 degC to 1000 h, caption inputs,
+    /// compared against the report's own `without Grain Boundary Corrosion`
+    /// curve on the ratio `σ_t^PANAMA / σ_t^chain` with one free geometry
+    /// scale. This is the discriminating run for gh:#295's second
+    /// disagreement: Fig. 7 was staged 1400/1500/1600 degC, so a drift there
+    /// could have been the driver mishandling stage changes. Fig. 8 has no
+    /// stages.
+    ///
+    /// Results, 2026-09-24 (74 digitised points): the ratio rises
+    /// **monotonically from the first point** — 0.189 at 14.6 h to 0.447 at
+    /// 967 h, relative s.d. **19.0 %** over the whole run, max/min 2.37.
+    /// There is **no flat window at all**, where Fig. 7 held to 4.9 % for its
+    /// first 300 h. The drift is therefore not a staging artefact; if
+    /// anything Fig. 7's flat early window now looks like the rising
+    /// temperature masking the same shortfall.
+    ///
+    /// Both PANAMA curves go as `σ_t ∝ t^0.52` (Fig. 8) and `t^0.54`
+    /// (Fig. 7) at late times, while the chain has only `FKOR` left once
+    /// `F_d` saturates — 4.2 % from 244 h to 967 h here.
+    ///
+    /// **Digitisation caveat.** Fig. 8's y-axis calibration is very likely
+    /// stretched by 7/6 (see
+    /// [`figure_8_two_curves_expose_a_log_axis_calibration_error`]).
+    /// Deflating the log ordinate by that factor reduces the disagreement
+    /// from 19.0 % to **14.3 %** and max/min from 2.37 to 1.91 — it does
+    /// **not** remove it. No correction is applied to the data here; the
+    /// reduced figure is quoted so the reader knows how much of the
+    /// disagreement the calibration could at most account for.
+    #[test]
+    fn figure_8_isothermal_drift_reappears() {
+        // Digitised "without Grain Boundary Corrosion", (t h, release fraction).
+        let panama: [(f64, f64); 9] = [
+            (14.6, 2.126e-6),
+            (46.5, 9.056e-6),
+            (91.2, 2.466e-5),
+            (148.6, 6.298e-5),
+            (244.4, 1.752e-4),
+            (291.7, 2.683e-4),
+            (490.9, 1.072e-3),
+            (700.3, 3.046e-3),
+            (954.4, 8.654e-3),
+        ];
+        let p = avr_go2_particle();
+        let ratios: Vec<f64> = panama
+            .iter()
+            .map(|(t, phi)| {
+                stress_implied_by(*phi, p.median_strength, p.weibull_modulus)
+                    / avr_go2_stress_at(*t).get::<megapascal>()
+            })
+            .collect();
+
+        // Monotone from the very first point -- no plateau, unlike Fig. 7.
+        for i in 1..ratios.len() {
+            assert!(
+                ratios[i] > ratios[i - 1],
+                "the ratio must rise throughout: {ratios:?}"
+            );
+        }
+        let drift = ratios[ratios.len() - 1] / ratios[0];
+        assert!(
+            (2.0..2.8).contains(&drift),
+            "isothermal Fig. 8 drifts by ~2.4x over 14.6-954 h; got {drift:.2}"
+        );
+
+        // And there is no 300 h window that holds the way Fig. 7's did.
+        let early: Vec<f64> = panama
+            .iter()
+            .zip(ratios.iter())
+            .filter(|((t, _), _)| *t <= 302.0)
+            .map(|(_, r)| *r)
+            .collect();
+        let mean = early.iter().sum::<f64>() / early.len() as f64;
+        let rel_sd = (early.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / early.len() as f64)
+            .sqrt()
+            / mean;
+        assert!(
+            rel_sd > 0.10,
+            "Fig. 7's first 300 h held to 4.9 %; Fig. 8's does not ({rel_sd:.4}). \
+             That asymmetry is the finding -- do not tune it away."
+        );
+
+        // The cause is the same as Fig. 7's: FKOR is all that is left.
+        let fkor_ratio = {
+            let mut h = AccidentHistory::new(p, zero());
+            let t = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
+            let late = h
+                .run_isothermal(t, Time::new::<hour>(967.0), 967)
+                .thinning_factor
+                .get::<ratio>();
+            let mut h2 = AccidentHistory::new(p, zero());
+            let early = h2
+                .run_isothermal(t, Time::new::<hour>(244.0), 244)
+                .thinning_factor
+                .get::<ratio>();
+            late / early
+        };
+        assert!(
+            fkor_ratio < 1.05,
+            "FKOR is worth {:.1} % over the last 720 h",
+            100.0 * (fkor_ratio - 1.0)
+        );
+    }
+
+    /// **Fig. 8's two PANAMA curves expose a log-axis calibration error —
+    /// and, once it is accounted for, VERIFY Eqs (10b)/(10c).**
+    ///
+    /// Methodology: the `with` and `without Grain Boundary Corrosion` curves
+    /// are the same calculation with and without Eq (10b), so inverting
+    /// Eq (1) on each — using `m_o` for one and `m_o·(0.44 + 0.56·e^(−η̇t))`
+    /// with `η̇` from Eq (10c) for the other — **must return one `σ_t(t)`**.
+    /// No geometry, no free scale, no part of the chain: this uses only the
+    /// digitised curves and Eqs (1)/(10b)/(10c).
+    ///
+    /// Result, 2026-09-24: taken as digitised, the two disagree badly —
+    /// `σ_t^with / σ_t^without` runs 1.24 → 1.81, mean **1.505**. But the
+    /// disagreement is exactly what a **stretched log ordinate** produces,
+    /// and solving for the stretch gives `k = 0.855` on Fig. 8 and `0.875` on
+    /// Fig. 7, against `6/7 = 0.857`. At `k = 6/7` the two curves agree to a
+    /// mean ratio of **1.014** (Fig. 8) and **1.000** (Fig. 7).
+    ///
+    /// `6/7` is the signature of an axis calibrated as **seven decades where
+    /// six are plotted**: both figures label `10⁰` at the top gridline, and
+    /// both digitisations carry an upper calibration point entered as `10`.
+    ///
+    /// Two things follow, and they matter in opposite directions:
+    ///
+    /// - **Eqs (10b)/(10c) are verified** — the first external check this
+    ///   crate has on them, and previously recorded as impossible. The
+    ///   grain-boundary law connects the report's own two curves.
+    /// - **Figs. 7 and 8's digitised ordinates are ~17 % too wide in the
+    ///   log**, so every residual quoted against them is an upper bound.
+    ///
+    /// **Nothing is corrected here.** Deflating the data would erase the
+    /// evidence; the right fix is to re-digitise with the axis calibrated on
+    /// the plotted decades. What this test pins is the *size* of the effect,
+    /// so later work knows how much precision the digitisation supports.
+    #[test]
+    fn figure_8_two_curves_expose_a_log_axis_calibration_error() {
+        // (t h, without corrosion, with corrosion), interpolated from the
+        // two digitised curves at common times.
+        let pairs: [(f64, f64, f64); 8] = [
+            (30.0, 4.791e-6, 9.953e-5),
+            (60.0, 1.301e-5, 7.914e-4),
+            (100.0, 2.857e-5, 3.717e-3),
+            (200.0, 1.106e-4, 2.686e-2),
+            (300.0, 2.767e-4, 6.207e-2),
+            (500.0, 1.122e-3, 1.286e-1),
+            (700.0, 3.039e-3, 2.105e-1),
+            (900.0, 7.025e-3, 3.250e-1),
+        ];
+        let p = avr_go2_particle();
+        let hot = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
+
+        let ratio_at = |k: f64| -> f64 {
+            let deflate = |phi: f64| 10f64.powf(-6.0 + k * (phi.log10() + 6.0));
+            let mut acc = 0.0;
+            for (t_h, no_gb, gb) in pairs {
+                let exposure: Ratio = grain_boundary_corrosion_rate(hot) * Time::new::<hour>(t_h);
+                let m_gb = corroded_weibull_modulus(p.weibull_modulus, exposure);
+                let a = stress_implied_by(deflate(no_gb), p.median_strength, p.weibull_modulus);
+                let b = stress_implied_by(deflate(gb), p.median_strength, m_gb);
+                acc += b / a;
+            }
+            acc / pairs.len() as f64
+        };
+
+        // As digitised: a 50 % disagreement where the identity demands 0 %.
+        let raw = ratio_at(1.0);
+        assert!(
+            (1.4..1.65).contains(&raw),
+            "taken as digitised the two curves disagree by ~1.5x, got {raw:.3}"
+        );
+
+        // Deflating by 6/7 -- seven decades entered for six plotted -- closes it.
+        let corrected = ratio_at(6.0 / 7.0);
+        assert!(
+            (corrected - 1.0).abs() < 0.05,
+            "at k = 6/7 Eqs (10b)/(10c) must connect the two curves; got {corrected:.4}"
+        );
+        assert!(
+            (corrected - 1.0).abs() < (raw - 1.0).abs() / 5.0,
+            "the calibration reading must be decisively better, not marginally"
+        );
+    }
+
+    /// **Fig. 8 EXCLUDES the `UO₂` oxygen correlation for AVR GO 2 — by a
+    /// bound that no value of `D_S` can escape.**
+    ///
+    /// Methodology: at fixed temperature, `σ_t ∝ (F_d·F_f + OPF)·FKOR`, and
+    /// `F_d` is a fraction. So the **largest** growth in `σ_t` the chain can
+    /// produce between any two times is `(F_f + OPF)/OPF` times the `FKOR`
+    /// ratio, attained only if `F_d` runs the whole way from 0 to 1. That
+    /// ceiling depends on `OPF` alone — not on `D_S`, not on `τ_i`, not on
+    /// the geometry.
+    ///
+    /// Result, 2026-09-24: Fig. 8's curve requires `σ_t` to grow **4.50×**
+    /// between 14.6 h and 967 h. With Eq (5c)'s `UO₂` value
+    /// (`OPF = 0.157` at 1600 degC for `T_B = 950 degC`, `t_B = 500 FPD`) the
+    /// ceiling is **3.14×** — violated. With Eq (5a) for `(Th,U)O₂` at the
+    /// report's own AVR value `N = 5` (`OPF = 0.036`) the ceiling is 10.2×,
+    /// which is not.
+    ///
+    /// The exclusion survives the calibration caveat: under the `k = 6/7`
+    /// reading the required growth falls to 3.63×, still above 3.14×.
+    ///
+    /// This is a **positive identification of the kernel from the figure's
+    /// own output**, and it agrees with AVR GO 2 being a thorium fuel
+    /// element. It is also a reminder that the ceiling is low: PANAMA's
+    /// pressure cannot grow without bound once the oxygen term is present.
+    #[test]
+    fn figure_8_excludes_the_uranium_oxide_oxygen_correlation() {
+        let p = avr_go2_particle();
+        let first = stress_implied_by(2.126e-6, p.median_strength, p.weibull_modulus);
+        let last = stress_implied_by(9.23e-3, p.median_strength, p.weibull_modulus);
+        let required = last / first;
+        assert!(
+            (4.3..4.7).contains(&required),
+            "Fig. 8 requires sigma_t to grow ~4.5x, got {required:.2}"
+        );
+
+        let hot = ThermodynamicTemperature::new::<degree_celsius>(1600.0);
+        let fkor_ratio = {
+            let mut a = AccidentHistory::new(p, zero());
+            let mut b = AccidentHistory::new(p, zero());
+            a.run_isothermal(hot, Time::new::<hour>(967.0), 967)
+                .thinning_factor
+                .get::<ratio>()
+                / b.run_isothermal(hot, Time::new::<hour>(14.6), 15)
+                    .thinning_factor
+                    .get::<ratio>()
+        };
+        let ceiling = |opf: Ratio| {
+            let o = opf.get::<ratio>();
+            (super::super::STABLE_FISSION_GAS_YIELD + o) / o * fkor_ratio
+        };
+
+        let uo2 = OxygenSource::UraniumOxide {
+            irradiation_temperature: ThermodynamicTemperature::new::<degree_celsius>(950.0),
+            irradiation_time: Time::new::<day>(500.0),
+        }
+        .oxygen_per_fission(hot);
+        assert!(
+            ceiling(uo2) < required,
+            "the UO2 correlation caps sigma_t growth at {:.2}x, below the {required:.2}x \
+             Fig. 8 needs -- no D_S can rescue it",
+            ceiling(uo2)
+        );
+        // Even on the k = 6/7 calibration reading, which shrinks the demand.
+        assert!(ceiling(uo2) < required.powf(6.0 / 7.0));
+
+        let thoria = p.oxygen.oxygen_per_fission(hot);
+        assert!(
+            ceiling(thoria) > required * 2.0,
+            "the (Th,U)O2 correlation leaves ample headroom ({:.1}x)",
+            ceiling(thoria)
+        );
+    }
+
+    /// **Fig. 8, code-to-data: PANAMA again under-predicts with `η̇ ≡ 0` and
+    /// over-predicts with it on — inside its own claimed valid range.**
+    ///
+    /// Methodology: the measured AVR GO 2 points against the report's own two
+    /// curves, in `log₁₀`. No geometry and no part of this implementation
+    /// enter. The caption's case is **70/26 at 8.2 % FIMA**, which is the
+    /// burnup the PANAMA curve is drawn for; 70/7 (7.2 %) and 70/15 (7.1 %)
+    /// are the same experiment at other burnups and are reported as spread.
+    ///
+    /// Results, 2026-09-24:
+    ///
+    /// | comparator | n | mean | mean \|·\| | worst |
+    /// |---|---|---|---|---|
+    /// | `without` corrosion, 70/26 only | 4 | **+0.24** | 0.43 | +0.47 |
+    /// | `without` corrosion, all burnups | 9 | **+0.45** | 0.53 | +1.15 |
+    /// | `with` corrosion, all burnups | 9 | −1.52 | 1.52 | −2.74 |
+    ///
+    /// This matters more than Fig. 7's equivalent: page -479- claims good
+    /// agreement **1600–2500 degC** and concedes over-conservatism below it,
+    /// so Fig. 7's 1400/1500 degC stages had an excuse and Fig. 8, isothermal
+    /// at 1600 degC, has none. The `η̇ ≡ 0` case is **not** conservative
+    /// here — it sits below the data by a quarter of a decade on the
+    /// caption's own burnup, and the 70/26 residual changes sign at 302 h.
+    ///
+    /// Under the `k = 6/7` calibration reading the 70/26 mean becomes +0.20
+    /// and the mean \|·\| 0.37; the conclusion does not change.
+    #[test]
+    fn figure_8_brackets_the_measurement() {
+        // (t h, measured, PANAMA without gb, PANAMA with gb)
+        let caption_case: [(f64, f64, f64, f64); 4] = [
+            (22.5, 1.011e-5, 3.399e-6, 4.386e-5),
+            (53.6, 3.109e-5, 1.104e-5, 5.631e-4),
+            (101.9, 7.633e-5, 2.951e-5, 3.927e-3),
+            (301.9, 1.126e-4, 2.786e-4, 6.250e-2),
+        ];
+        let other_burnups: [(f64, f64, f64, f64); 5] = [
+            (87.0, 8.459e-5, 2.264e-5, 2.467e-3),
+            (156.8, 1.449e-4, 6.915e-5, 1.413e-2),
+            (200.0, 2.258e-4, 1.107e-4, 2.687e-2),
+            (35.8, 3.127e-5, 6.178e-6, 1.615e-4),
+            (140.5, 7.917e-4, 5.584e-5, 1.045e-2),
+        ];
+        let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
+
+        let caption_without: Vec<f64> = caption_case
+            .iter()
+            .map(|(_, m, no_gb, _)| (m / no_gb).log10())
+            .collect();
+        assert!(
+            (0.15..0.35).contains(&mean(&caption_without)),
+            "70/26 against the eta_dot = 0 curve measured +0.24 decades, got {:.3}",
+            mean(&caption_without)
+        );
+        // The residual changes sign inside the measured window -- the model
+        // crosses the data rather than tracking it.
+        assert!(
+            caption_without[0] > 0.0 && caption_without[3] < 0.0,
+            "the 70/26 residual changes sign by 302 h: {caption_without:?}"
+        );
+
+        let all: Vec<f64> = caption_case
+            .iter()
+            .chain(other_burnups.iter())
+            .map(|(_, m, no_gb, _)| (m / no_gb).log10())
+            .collect();
+        let all_with: Vec<f64> = caption_case
+            .iter()
+            .chain(other_burnups.iter())
+            .map(|(_, m, _, gb)| (m / gb).log10())
+            .collect();
+        assert!(
+            (0.35..0.55).contains(&mean(&all)),
+            "all nine points: +0.45 decades expected, got {:.3}",
+            mean(&all)
+        );
+        assert!(
+            (-1.65..-1.40).contains(&mean(&all_with)),
+            "with corrosion the over-prediction measured -1.52 decades, got {:.3}",
+            mean(&all_with)
+        );
+        // Same picture as Fig. 7: the data lies between, nearer "without".
+        assert!(mean(&all).abs() < mean(&all_with).abs());
     }
 
     /// The chain composes and the reported rates are the differences the
