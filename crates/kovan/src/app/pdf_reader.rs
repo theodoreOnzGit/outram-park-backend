@@ -5246,6 +5246,22 @@ t_s,power_mw
         assert_eq!(ed.text(), "alpha\nbeta\n", "`u` must undo");
     }
 
+    /// **The engine-level backspace fix reaches the GUI.** kovan takes
+    /// `kopitiam-neovim` from crates.io, so a fix landing in that repo is not
+    /// in kovan's build until the pin moves -- this asserts the behaviour
+    /// through the published crate rather than trusting the version number.
+    /// Before 0.2.5, joining "ab" and "cd" gave "acd".
+    #[test]
+    fn joining_lines_in_a_note_does_not_eat_a_character() {
+        let mut ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::ZERO, "ab\ncd", None);
+        ed.feed_for_test("<Esc>ji<BS>");
+        assert_eq!(
+            ed.text(),
+            "abcd",
+            "backspace at column 0 must join without losing a character"
+        );
+    }
+
     /// Text typed into the modal buffer is what gets saved -- the read path
     /// goes through `text()`, not a stale `String` field.
     #[test]

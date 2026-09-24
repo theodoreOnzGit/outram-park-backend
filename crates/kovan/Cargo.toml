@@ -216,7 +216,11 @@ sha2.workspace = true
 # GitHub issue #30's final interface spec, whose stated reason for wanting
 # exactly `kovan`/`kovan-cli`/`kovan-tui` was Android usability.
 ratatui.workspace = true
-kopitiam-neovim = "0.2.4"
+# 0.2.5 (2026-09-24): insert-mode Backspace at column 0 joined the lines and
+# silently ate one character of the note with the newline ("ab" + "cd" gave
+# "acd"). kovan's annotation editor and page-context panel are both this
+# engine, so the defect was reachable from the GUI on every line join.
+kopitiam-neovim = "0.2.5"
 
 # The `gui` feature's egui/eframe stack, desktop-only: target-gated off
 # Android on top of being behind the feature, so an Android build of this

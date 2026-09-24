@@ -5099,9 +5099,9 @@ dependencies = [
 
 [[package]]
 name = "kopitiam-neovim"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ead8bbceca61cf14b09b912d200ed2f7b8ddbe608328773b4f4746f6091935"
+checksum = "534182fd47ef4aae6439c445861dfca8ee77fc80355d1dbce792add76d4d552c"
 dependencies = [
  "anyhow",
  "crossterm 0.29.0",
