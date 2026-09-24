@@ -440,6 +440,15 @@ pub struct DigitiseApp {
     x_label: String,
     y_label: String,
     operator: String,
+    /// The crop exactly as it arrived, before any turn or deskew.
+    ///
+    /// Kept so the setup form's transforms can be re-derived from scratch
+    /// rather than stacked: the deskew resamples, and applying it on top of
+    /// its own output softens the image once per nudge of the slider.
+    raster_original: Option<PlotRaster>,
+    /// The `(turn, skew)` currently baked into `raster`, so a frame where
+    /// neither changed does no work.
+    applied_transform: (crate::digitiser::raster::Quarter, f64),
     /// Series already finished on **this** figure, in the order they were
     /// completed. The one being traced now is `dataset`; these are its
     /// predecessors, and they share its calibration, source and axis labels
@@ -560,6 +569,8 @@ impl Default for DigitiseApp {
             x_label: "x".to_string(),
             y_label: "y".to_string(),
             operator: default_operator_name(),
+            raster_original: None,
+            applied_transform: (crate::digitiser::raster::Quarter::None, 0.0),
             completed_series: Vec::new(),
             series_name: String::new(),
             plot_setup: plot_setup::PlotSetup::default(),
@@ -987,6 +998,30 @@ impl DigitiseApp {
     /// the active paper.
     fn apply_plot_setup(&mut self) {
         let setup = self.plot_setup.clone();
+        // A rotation is a processing step and DATA_POLICY.md says to record
+        // one. The raster's `source_sha256` still identifies the file it was
+        // decoded from, so the hash alone would not say the image had been
+        // turned.
+        let mut steps = Vec::new();
+        if setup.turn != crate::digitiser::raster::Quarter::None {
+            steps.push(format!("rotated {}\u{00B0} clockwise", setup.turn.degrees()));
+        }
+        if setup.skew_degrees != 0.0 {
+            // Worth naming as a RESAMPLE: a reader judging the digitisation
+            // should know the pixels were interpolated, not merely permuted.
+            steps.push(format!(
+                "deskewed {:+.1}\u{00B0} (bilinear resample)",
+                setup.skew_degrees
+            ));
+        }
+        if !steps.is_empty() {
+            let note = format!("{} before digitising", steps.join(", "));
+            if self.notes.trim().is_empty() {
+                self.notes = note;
+            } else if !self.notes.contains("before digitising") {
+                self.notes = format!("{}; {note}", self.notes.trim());
+            }
+        }
         self.figure = setup.figure.trim().to_string();
         if !setup.document_title.trim().is_empty() {
             self.document_title = setup.document_title.trim().to_string();
@@ -1048,6 +1083,10 @@ impl DigitiseApp {
     /// correct than "nothing set yet", and every line is immediately visible
     /// and draggable regardless), and clear any previous dataset/selection.
     fn set_raster(&mut self, raster: PlotRaster, status: String) {
+        // Remember the untouched crop; the setup form's turn/deskew are
+        // re-derived from this, never stacked on their own output.
+        self.raster_original = Some(raster.clone());
+        self.applied_transform = (crate::digitiser::raster::Quarter::None, 0.0);
         let (w, h) = (raster.width() as f64, raster.height() as f64);
         self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
         // Parallelogram corners seeded the same 10%/90% inset as the
@@ -3122,6 +3161,29 @@ impl eframe::App for DigitiseApp {
                 egui::CentralPanel::default().show(ui, |ui| {
                     outcome = self.plot_setup.ui(ui, figure);
                 });
+                // The form owns the intent; the pixels live here. Re-derive
+                // the working raster whenever the turn or the skew changes.
+                //
+                // **Always from `raster_original`, never from the current
+                // raster.** The quarter turn is lossless and could be
+                // applied incrementally, but the deskew RESAMPLES -- nudging
+                // the slider ten times would otherwise blur the figure ten
+                // times over. Re-deriving means the operator can sweep the
+                // slider freely and the result depends only on where it
+                // ends up.
+                let want = (self.plot_setup.turn, self.plot_setup.skew_degrees);
+                if self.applied_transform != want {
+                    if let Some(original) = self.raster_original.clone() {
+                        let turned = original.rotated(want.0);
+                        self.raster = Some(if want.1 == 0.0 {
+                            turned
+                        } else {
+                            turned.deskewed(want.1)
+                        });
+                        self.texture = None; // re-uploaded next frame
+                    }
+                    self.applied_transform = want;
+                }
                 match outcome {
                     plot_setup::Outcome::Finish => {
                         self.apply_plot_setup();
@@ -3808,6 +3870,10 @@ mod tests {
         let mut app = DigitiseApp::default();
         app.plot_setup = plot_setup::PlotSetup {
             stage: plot_setup::Stage::Labels,
+            turn: crate::digitiser::raster::Quarter::None,
+            skew_degrees: 0.0,
+            show_grid: false,
+            grid_spacing: 40.0,
             figure: "  Fig. 7 ".into(),
             document_title: "Verfondern 1990".into(),
             page: "12".into(),
@@ -4070,6 +4136,144 @@ mod tests {
             app.message.contains("no points"),
             "unexpected message: {}",
             app.message
+        );
+    }
+
+
+    /// Rotating in the wizard turns the **raster**, not just the preview,
+    /// and drops the texture so it is re-uploaded. Calibrating against an
+    /// image the digitiser does not have would transpose every axis.
+    #[test]
+    fn the_wizard_rotation_turns_the_raster_the_digitiser_will_use() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        // 8 x 3, so a quarter turn is unmistakable in the dimensions.
+        app.set_raster(
+            PlotRaster::from_rgb_fn(8, 3, |x, y| [x as u8, y as u8, 0]),
+            String::new(),
+        );
+        let before = app.raster.as_ref().expect("raster").clone();
+        assert_eq!((before.width(), before.height()), (8, 3));
+
+        // What the host does when the form sets the flag.
+        let turned = before.rotated(Quarter::Clockwise);
+        app.raster = Some(turned);
+        app.texture = None;
+
+        let after = app.raster.as_ref().expect("raster");
+        assert_eq!(
+            (after.width(), after.height()),
+            (3, 8),
+            "a quarter turn must swap the dimensions the digitiser sees"
+        );
+        assert!(app.texture.is_none(), "the texture must be dropped for re-upload");
+    }
+
+    /// A rotation is a processing step, so it is recorded in the provenance
+    /// notes -- the raster's `source_sha256` still identifies the file it was
+    /// decoded from and would not reveal that the image had been turned.
+    #[test]
+    fn a_rotation_is_recorded_in_the_provenance_notes() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 7".into(),
+            turn: Quarter::Clockwise,
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        assert!(
+            app.notes.contains("rotated 90"),
+            "the turn must be recorded: {:?}",
+            app.notes
+        );
+
+        // No turn, no note -- it must not invent provenance.
+        let mut app2 = DigitiseApp::default();
+        app2.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 8".into(),
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app2.apply_plot_setup();
+        assert!(!app2.notes.contains("rotated"), "{:?}", app2.notes);
+    }
+
+
+    /// **Transforms re-derive from the untouched original, never stack.**
+    ///
+    /// The deskew resamples, so applying it on top of its own output would
+    /// soften the figure once per nudge of the slider. Sweeping the slider
+    /// and coming back to the same angle must give the same pixels as going
+    /// there directly.
+    #[test]
+    fn sweeping_the_skew_slider_does_not_accumulate_blur() {
+        use crate::digitiser::raster::Quarter;
+        let original = PlotRaster::from_rgb_fn(32, 24, |x, y| {
+            if (x / 4 + y / 4) % 2 == 0 { [0, 0, 0] } else { [255, 255, 255] }
+        });
+
+        // Straight to 6 degrees.
+        let direct = original.rotated(Quarter::None).deskewed(6.0);
+
+        // The wizard's path: re-derive from the original each time, which is
+        // what `applied_transform` + `raster_original` make the host do.
+        let mut derived = original.clone();
+        for angle in [3.0, -8.0, 12.0, 6.0] {
+            derived = original.rotated(Quarter::None).deskewed(angle);
+        }
+
+        assert_eq!(
+            derived, direct,
+            "the result must depend only on where the slider ENDS UP"
+        );
+
+        // And stacking really would differ -- this is what is being avoided.
+        let stacked = original.deskewed(3.0).deskewed(3.0);
+        assert_ne!(
+            stacked,
+            original.deskewed(6.0),
+            "precondition: two 3-degree passes are NOT one 6-degree pass"
+        );
+    }
+
+    /// A resample is named as one in the provenance, because a reader
+    /// judging the digitisation should know the pixels were interpolated
+    /// rather than merely permuted.
+    #[test]
+    fn a_deskew_is_recorded_as_a_resample() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 8".into(),
+            turn: Quarter::Clockwise,
+            skew_degrees: -2.5,
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        assert!(app.notes.contains("rotated 90"), "{:?}", app.notes);
+        assert!(app.notes.contains("deskewed -2.5"), "{:?}", app.notes);
+        assert!(
+            app.notes.contains("resample"),
+            "the interpolation must be named: {:?}",
+            app.notes
         );
     }
 

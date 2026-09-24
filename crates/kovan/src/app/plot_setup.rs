@@ -37,6 +37,8 @@
 
 use eframe::egui;
 
+use crate::digitiser::raster::{PlotRaster, Quarter};
+
 /// Which stage of the form is showing.
 ///
 /// Ordered, and the order is the point — the figure identifies what is being
@@ -110,10 +112,19 @@ pub enum Outcome {
 /// is typed; parsing happens at the boundary, where
 /// [`Self::range_error`] reports it. This is the same choice the digitiser's
 /// own `ref_val` makes, and it is why the two can be copied across directly.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PlotSetup {
     /// Which stage is showing.
     pub stage: Stage,
+    /// Quarter-turn applied to the crop before digitising.
+    ///
+    /// Scanned reports set a wide plot sideways on the page often enough
+    /// that it is worth a button (maintainer, 2026-09-24: "the last 3 plots
+    /// are rotated 90 degrees"). Digitising a sideways figure would transpose
+    /// every axis -- the calibration entered against the wrong axis and every
+    /// exported point swapped -- so this is fixed here, before any of that is
+    /// entered, rather than left for the operator to compensate for mentally.
+    pub turn: Quarter,
     // --- stage 1 ---
     /// Figure designation as printed, e.g. `"Fig. 7"`. Required.
     pub figure: String,
@@ -141,6 +152,52 @@ pub struct PlotSetup {
     pub x_label: String,
     /// y-axis label as printed, units included.
     pub y_label: String,
+    /// Whether to overlay a true-horizontal/vertical grid on the preview.
+    ///
+    /// Judging a 2-degree skew by eye against nothing is hopeless; against a
+    /// straight line it is easy. The grid is drawn in **screen space**, so
+    /// its lines are exactly horizontal and vertical whatever the image is
+    /// doing — which is the point, since the figure's own axes are what is
+    /// being compared to them.
+    pub show_grid: bool,
+    /// Grid spacing in screen pixels.
+    pub grid_spacing: f32,
+    /// Fine deskew in degrees, positive clockwise, for a scan that went
+    /// through the feeder crooked. Clamped to
+    /// ±[`PlotRaster::MAX_DESKEW_DEGREES`].
+    ///
+    /// Unlike [`Self::turn`] this **resamples**, so the host re-derives it
+    /// from the untouched original every time rather than applying it on
+    /// top of the last result — otherwise nudging the slider ten times
+    /// would blur the figure ten times over.
+    pub skew_degrees: f64,
+}
+
+/// Hand-written rather than derived: a derived `Default` would leave
+/// `grid_spacing` at 0.0, which the painter clamps to a mesh so dense it is
+/// useless. Every other field's zero value is the right one.
+impl Default for PlotSetup {
+    fn default() -> Self {
+        Self {
+            stage: Stage::default(),
+            turn: Quarter::default(),
+            show_grid: false,
+            grid_spacing: 40.0,
+            skew_degrees: 0.0,
+            figure: String::new(),
+            document_title: String::new(),
+            page: String::new(),
+            notes: String::new(),
+            x_min: String::new(),
+            x_max: String::new(),
+            y_min: String::new(),
+            y_max: String::new(),
+            x_log: false,
+            y_log: false,
+            x_label: String::new(),
+            y_label: String::new(),
+        }
+    }
 }
 
 impl PlotSetup {
@@ -293,7 +350,52 @@ impl PlotSetup {
         ui.horizontal(|ui| {
             ui.strong("Cropped figure");
             ui.weak(format!("{} x {} px", size.x as u32, size.y as u32));
+            if ui
+                .button("\u{21BB} Rotate")
+                .on_hover_text("quarter-turn clockwise, for a figure printed sideways")
+                .clicked()
+            {
+                self.turn = self.turn.next_clockwise();
+            }
+            if self.turn != Quarter::None {
+                ui.weak(format!("{}\u{00B0}", self.turn.degrees()));
+            }
         });
+        ui.horizontal(|ui| {
+            ui.label("skew");
+            ui.add(
+                egui::Slider::new(
+                    &mut self.skew_degrees,
+                    -PlotRaster::MAX_DESKEW_DEGREES..=PlotRaster::MAX_DESKEW_DEGREES,
+                )
+                .suffix("\u{00B0}")
+                .step_by(0.1),
+            )
+            .on_hover_text(
+                "straighten a crooked scan. This RESAMPLES the image, unlike the \
+                 quarter turns — for the most accurate result on a badly skewed \
+                 plot, leave this at 0 and use the Parallelogram calibration in \
+                 the digitiser instead, which corrects skew without touching a \
+                 single pixel.",
+            );
+            if self.skew_degrees != 0.0 && ui.small_button("reset").clicked() {
+                self.skew_degrees = 0.0;
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut self.show_grid, "grid")
+                .on_hover_text("true horizontal/vertical lines to judge the skew against");
+            if self.show_grid {
+                ui.add(
+                    egui::Slider::new(&mut self.grid_spacing, 10.0..=120.0)
+                        .text("spacing")
+                        .step_by(1.0),
+                );
+            }
+        });
+        if self.skew_degrees != 0.0 {
+            ui.weak("resampled — the Parallelogram calibration corrects skew losslessly");
+        }
         ui.separator();
         egui::ScrollArea::both()
             .auto_shrink([false, false])
@@ -305,13 +407,47 @@ impl PlotSetup {
                 let scale = (avail / size.x.max(1.0)).min(1.0);
                 let shown = size * scale;
                 let (rect, _) = ui.allocate_exact_size(shown, egui::Sense::hover());
-                ui.painter().image(
+                let painter = ui.painter_at(rect);
+                painter.image(
                     texture,
                     rect,
                     egui::Rect::from_min_max(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0)),
                     egui::Color32::WHITE,
                 );
+                if self.show_grid {
+                    Self::paint_grid(&painter, rect, self.grid_spacing);
+                }
             });
+    }
+
+    /// Draw the reference grid over `rect`.
+    ///
+    /// Translucent, and every fourth line is stronger — a uniform mesh is
+    /// hard to track across a busy figure, whereas a coarse line every few
+    /// gives the eye something to follow along a plot axis. Drawn **after**
+    /// the image so it is visible over dark ink, and clipped to the image so
+    /// it cannot spill into the form.
+    fn paint_grid(painter: &egui::Painter, rect: egui::Rect, spacing: f32) {
+        let spacing = spacing.max(4.0);
+        let fine = egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(0, 170, 255, 70));
+        let bold = egui::Stroke::new(1.0, egui::Color32::from_rgba_unmultiplied(0, 170, 255, 150));
+
+        let mut i = 0;
+        let mut x = rect.min.x;
+        while x <= rect.max.x {
+            let s = if i % 4 == 0 { bold } else { fine };
+            painter.line_segment([egui::pos2(x, rect.min.y), egui::pos2(x, rect.max.y)], s);
+            x += spacing;
+            i += 1;
+        }
+        let mut j = 0;
+        let mut y = rect.min.y;
+        while y <= rect.max.y {
+            let s = if j % 4 == 0 { bold } else { fine };
+            painter.line_segment([egui::pos2(rect.min.x, y), egui::pos2(rect.max.x, y)], s);
+            y += spacing;
+            j += 1;
+        }
     }
 
     /// The three-stage form itself.
@@ -479,6 +615,10 @@ mod tests {
     fn filled() -> PlotSetup {
         PlotSetup {
             stage: Stage::Figure,
+            turn: Quarter::None,
+            skew_degrees: 0.0,
+            show_grid: false,
+            grid_spacing: 40.0,
             figure: "Fig. 7".into(),
             document_title: "Verfondern 1990".into(),
             page: "12".into(),
@@ -652,5 +792,34 @@ mod tests {
         // Nothing about validity depends on a texture being present.
         assert!(s.figure_error().is_none());
         assert_eq!(s.stage, Stage::Figure);
+    }
+
+    /// The grid must start at a usable spacing. A derived `Default` would
+    /// leave it at 0.0, which the painter clamps to a 4 px mesh -- dense
+    /// enough to obscure the figure it exists to help judge.
+    #[test]
+    fn the_grid_defaults_to_a_usable_spacing() {
+        let s = PlotSetup::default();
+        assert!(!s.show_grid, "off until asked for");
+        assert!(
+            (20.0..=80.0).contains(&s.grid_spacing),
+            "grid spacing {} is not a usable default",
+            s.grid_spacing
+        );
+        // `begin` inherits it rather than resetting to zero.
+        let b = PlotSetup::begin(Some("Fig. 8".into()), None, None);
+        assert_eq!(b.grid_spacing, s.grid_spacing);
+    }
+
+    /// The deskew starts at zero: a wizard that silently rotated a figure
+    /// the operator had not asked to rotate would be worse than no feature.
+    #[test]
+    fn the_transforms_start_as_no_ops() {
+        let s = PlotSetup::default();
+        assert_eq!(s.turn, Quarter::None);
+        assert_eq!(s.skew_degrees, 0.0);
+        let b = PlotSetup::begin(None, None, None);
+        assert_eq!(b.turn, Quarter::None);
+        assert_eq!(b.skew_degrees, 0.0);
     }
 }
