@@ -146,6 +146,55 @@ curves recovers its own printed `% FIMA` label from a blind fit (0.0086,
 
 Fig. 2 digitised by the maintainer, 2026-09-24.
 
+### The corrosion-rate pre-factor is a decade out — Fig. 4 proves it
+
+Page -492- prints `v̇ = 5.87·10⁻⁷ · exp(−179500/(R·T))` and Fig. 4 on the
+facing page plots Eq (7) with it, for `d_o = 35 µm`, at five isothermal
+temperatures. The printed value does not reproduce that figure.
+
+| pre-factor | mean abs error in `d_act/d_o` | worst |
+|---|---|---|
+| `5.87e-7` as printed | 0.12 – 0.51 per curve | 0.51 |
+| **`5.87e-8`** | **0.0055** | 0.0142 |
+
+483 digitised points across all five curves, on an axis running 0 to 1. One
+factor of ten reconciles five curves over a 1000 °C span, so this is a typo
+and not a modelling difference. `corrosion::FIGURE_PREFACTOR` is the default;
+`PRINTED_PREFACTOR` is exposed so the discrepancy stays reproducible.
+
+Fitting `v̇` freely from the figure gives an activation energy of
+**160.8 kJ/mol** against the printed 179.5 — but with the pre-factor corrected
+the *printed* activation energy fits every curve, so the free fit was
+absorbing the decade rather than finding a different energy.
+
+**Note the different resolution from the `D_S` case above.** There the
+equation was preferred over the figure; here the figure is preferred over the
+equation. The difference is that `D_S`'s two disagreed in *slope*, with no
+single parameter reconciling them, whereas this is one constant.
+
+### Eq (7) contradicts the `d_act` implied on page -484-, and Eq (7) is right
+
+Page -484- writes the exact stress as `r·p / (2·d_o·(1 − v̇·t))`, implying
+`d_act = d_o·(1 − v̇·t)`. That is **dimensionally inconsistent** — `v̇·t` is a
+length, so `1 − v̇·t` subtracts metres from a pure number — and it contradicts
+Eq (7) on page -492-:
+
+```
+d_act = d_o / (1 + v̇·t/d_o)
+```
+
+which is dimensionally sound and is what Fig. 4 plots. Eq (7) is implemented.
+
+**A consequence worth stating.** Substituting Eq (7) into `σ_t = r·p/(2·d_act)`
+gives `r·p·(1 + v̇t/d_o)/(2·d_o)` — which is **Eq (2) exactly**. So the
+report's description of Eq (2) as an approximation that "describes the state
+of affairs more realistically" understates it: given Eq (7), Eq (2) is not an
+approximation at all. What it approximates is the -484- form, which is the
+wrong one. Pinned by `stress::tests::the_two_routes_to_the_stress_agree_exactly`.
+
+`geometry::actual_thickness` was originally written the -484- way and
+corrected 2026-09-24 when Fig. 4 was digitised.
+
 ### Notation defects recorded rather than silently fixed
 
 - **Eq (6b) is used twice** (UO₂ and UCO); the second should be (6c).
@@ -170,7 +219,8 @@ Fig. 2 digitised by the maintainer, 2026-09-24.
 | φ_total assembly | yes | — | unit tests only |
 | `D_S` (Th,U)O₂, p-487 | yes | **Fig. 2** | 4/4 curves, labels recovered |
 | `D_S` UO₂/UCO, p-487 | yes | **Fig. 2** | **disagrees, 6.4×→1.3×** (see above) |
-| (4), (5a)–(5f), (6a)–(6c), (7), (10b)/(10c), (11)/(12) | **no** | — | inputs, deliberately |
+| (7) + `v̇`, p-492 | yes | **Fig. 4** | 5/5 curves, **after a decade fix** |
+| (4), (5a)–(5f), (6a)–(6c), (10b)/(10c), (11)/(12) | **no** | — | inputs, deliberately |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction
 runs uncalibrated and the disagreement is reported when there is one.

@@ -59,11 +59,26 @@ pub fn induced_stress(
     base * (Ratio::new::<ratio>(1.0) + thinning)
 }
 
-/// The **exact** thin-shell stress, `σ_t = r·p / (2·d_act)` (page -484-).
+/// The thin-shell stress written through the thickness, `σ_t = r·p/(2·d_act)`
+/// with `d_act` from Eq (7) (pages -484- and -492-).
 ///
-/// Returns `None` once the corroded thickness is non-positive, rather than
-/// returning an infinite or negative stress. [`induced_stress`] is the form the
-/// report actually recommends.
+/// ## This EQUALS [`induced_stress`]; it is not an alternative to it
+///
+/// Substituting Eq (7)'s `d_act = d_o/(1 + v̇t/d_o)` gives
+/// `σ_t = r·p·(1 + v̇t/d_o)/(2·d_o)`, which is Eq (2) **exactly**. The
+/// report's description of Eq (2) as an approximation that "describes the
+/// state of affairs more realistically" therefore understates it: given
+/// Eq (7), Eq (2) is not an approximation at all.
+///
+/// What Eq (2) approximates is the *other* form printed on page -484-,
+/// `d_act = d_o·(1 − v̇·t)`, which is dimensionally inconsistent and
+/// contradicts Eq (7). See [`SicLayer::actual_thickness`].
+///
+/// Kept as its own function because computing the stress by two routes and
+/// asserting they agree is a real check on the algebra —
+/// `tests::the_two_routes_to_the_stress_agree_exactly`. `None` only if the
+/// thickness is non-positive, which Eq (7) cannot produce; it guards against
+/// a caller supplying a negative rate.
 pub fn induced_stress_exact(
     layer: &SicLayer,
     pressure: Pressure,
@@ -81,7 +96,7 @@ pub fn induced_stress_exact(
 mod tests {
     use super::*;
     use uom::si::f64::{Length, Pressure};
-    use uom::si::length::{meter, micrometer};
+    use uom::si::length::micrometer;
     use uom::si::pressure::{megapascal, pascal};
     use uom::si::time::{hour, second};
     use uom::si::velocity::meter_per_second;
@@ -95,41 +110,74 @@ mod tests {
         }
     }
 
+    /// **The two routes to the stress are the same expression.**
+    ///
+    /// Eq (2) is `r·p/(2·d_o)·(1 + v̇t/d_o)`; going through Eq (7)'s
+    /// thickness gives `r·p/(2·d_act)` with `d_act = d_o/(1 + v̇t/d_o)`.
+    /// Those are algebraically identical, so they must agree to floating
+    /// point -- not "closely". If this ever drifts, one of the two has been
+    /// changed without the other.
+    ///
+    /// This test replaced one asserting the exact form should EXCEED the
+    /// approximate under thinning, which was true only of the dimensionally
+    /// inconsistent `d_o·(1 − v̇·t)` on page -484-. See
+    /// [`SicLayer::actual_thickness`].
     #[test]
-    fn approximate_and_exact_stress_agree_at_zero_corrosion() {
+    fn the_two_routes_to_the_stress_agree_exactly() {
         let (l, p) = (layer(), Pressure::new::<megapascal>(30.0));
-        let none = Velocity::new::<meter_per_second>(0.0);
-        let t0 = Time::new::<second>(0.0);
-        let approx = induced_stress(&l, p, none, t0).get::<pascal>();
-        let exact = induced_stress_exact(&l, p, none, t0)
-            .unwrap()
-            .get::<pascal>();
-        assert!((approx - exact).abs() < 1e-6, "{approx} vs {exact}");
+        let v = Velocity::new::<meter_per_second>(5.0e-11);
+        for hours in [0.0, 1.0, 50.0, 300.0, 5000.0] {
+            let t = Time::new::<hour>(hours);
+            let a = induced_stress(&l, p, v, t).get::<pascal>();
+            let e = induced_stress_exact(&l, p, v, t)
+                .expect("Eq (7) is always positive")
+                .get::<pascal>();
+            assert!(
+                (a - e).abs() / a < 1e-12,
+                "at {hours} h: Eq (2) {a} vs r*p/(2*d_act) {e}"
+            );
+        }
+    }
 
-        // r*p/(2*d_o) computed independently: 115.1314 MPa.
-        let expected = 268.639_995e-6 * 30.0e6 / (2.0 * 35.0e-6);
+    /// With no corrosion the stress is the plain thin-shell result, computed
+    /// here independently: r*p/(2*d_o) with r the cube-root mean.
+    #[test]
+    fn with_no_corrosion_it_is_the_plain_thin_shell_stress() {
+        let (l, p) = (layer(), Pressure::new::<megapascal>(30.0));
+        let got = induced_stress(
+            &l,
+            p,
+            Velocity::new::<meter_per_second>(0.0),
+            Time::new::<second>(0.0),
+        )
+        .get::<pascal>();
+        let expected = 268.639_995e-6 * 30.0e6 / (2.0 * 35.0e-6); // 115.1314 MPa
         assert!(
-            (approx - expected).abs() / expected < 1e-3,
-            "{approx} vs {expected}"
-        );
-
-        // Under corrosion the exact form exceeds the approximation.
-        let v = Velocity::new::<meter_per_second>(1.0e-10);
-        let t = Time::new::<hour>(20.0);
-        let a = induced_stress(&l, p, v, t).get::<pascal>();
-        let e = induced_stress_exact(&l, p, v, t).unwrap().get::<pascal>();
-        assert!(
-            e > a,
-            "exact {e} should exceed approximate {a} under thinning"
+            (got - expected).abs() / expected < 1e-3,
+            "{got} vs {expected}"
         );
     }
 
+    /// Stress rises as the layer thins, without bound and without ever
+    /// changing sign. Eq (7) thins asymptotically toward zero thickness, so
+    /// there is no time at which the stress is undefined -- which is exactly
+    /// what the page -484- form got wrong (it crosses zero and goes
+    /// negative).
     #[test]
-    fn a_consumed_layer_has_no_exact_stress() {
-        let l = layer();
-        let v = Velocity::new::<meter_per_second>(1.0e-8);
-        let t = Time::new::<hour>(10_000.0);
-        assert!(l.actual_thickness(v, t).get::<meter>() <= 0.0);
-        assert!(induced_stress_exact(&l, Pressure::new::<megapascal>(30.0), v, t).is_none());
+    fn stress_rises_monotonically_as_the_layer_thins() {
+        let (l, p) = (layer(), Pressure::new::<megapascal>(30.0));
+        let v = Velocity::new::<meter_per_second>(1.0e-10);
+        let mut last = 0.0;
+        for hours in [0.0, 10.0, 100.0, 1000.0, 100_000.0] {
+            let s = induced_stress(&l, p, v, Time::new::<hour>(hours)).get::<pascal>();
+            assert!(s > last, "stress must rise: {s} after {last}");
+            assert!(s.is_finite(), "and stay finite");
+            last = s;
+        }
+        // The thickness never reaches zero, so the stress never blows up.
+        let far = l
+            .actual_thickness(v, Time::new::<hour>(1.0e9))
+            .get::<micrometer>();
+        assert!(far > 0.0, "Eq (7) thins asymptotically, never past zero");
     }
 }

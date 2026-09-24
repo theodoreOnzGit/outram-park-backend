@@ -62,16 +62,31 @@ impl SicLayer {
         self.outer_radius - self.inner_radius
     }
 
-    /// The **actual** thickness after volume corrosion, `d_act = d_o·(1 − v̇·t)`
-    /// (page -484-).
+    /// **Eq (7)** — the actual thickness after volume corrosion (page -492-):
     ///
-    /// Returns a non-positive length once `v̇·t ≥ 1`, i.e. once the layer has
-    /// notionally corroded away; callers should treat that as certain failure
-    /// rather than feeding it to [`induced_stress_exact`], which would divide
-    /// by zero or change sign.
+    /// ```text
+    /// d_act = d_o / (1 + v̇·t/d_o)
+    /// ```
+    ///
+    /// ## Not the form printed on page -484-
+    ///
+    /// Page -484- writes the exact stress as `r·p / (2·d_o·(1 − v̇·t))`,
+    /// implying `d_act = d_o·(1 − v̇·t)`. That form is **dimensionally
+    /// inconsistent** — `v̇·t` is a length, so `1 − v̇·t` subtracts metres
+    /// from a pure number — and it contradicts Eq (7) on page -492-, which is
+    /// dimensionally sound and is what Fig. 4 plots. Eq (7) is implemented.
+    ///
+    /// This was originally written the -484- way and corrected on 2026-09-24
+    /// when Fig. 4 was digitised: see
+    /// `docs/panama-i-units-and-open-questions.md`.
+    ///
+    /// Always positive and monotonically decreasing — unlike the -484- form,
+    /// which goes negative once `v̇·t > 1 m`. A layer thins asymptotically
+    /// toward zero here, which is the physically right behaviour.
     pub fn actual_thickness(&self, corrosion_rate: Velocity, elapsed: Time) -> Length {
-        let consumed: Ratio = corrosion_rate * elapsed / self.initial_thickness();
-        self.initial_thickness() * (Ratio::new::<ratio>(1.0) - consumed)
+        let d_o = self.initial_thickness();
+        let fkor: Ratio = Ratio::new::<ratio>(1.0) + corrosion_rate * elapsed / d_o;
+        d_o / fkor
     }
 }
 
