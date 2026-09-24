@@ -255,3 +255,58 @@ fn the_clock_never_runs_backwards() {
     assert!(steps > 0, "no consecutive states to compare");
     println!("{steps} consecutive state pairs, clock monotone throughout");
 }
+
+/// **A `PolarAzimuthalFilter` on a track-length tally now bins on the real
+/// direction** — gh:#261.
+///
+/// Before the flight direction was threaded, `FilterEvent::direction` was
+/// defaulted for every track-length event, so this filter put all of them in
+/// one bin. The check is structural and does not need a reference: an
+/// **isotropic** point source in a void ball must spread its track length
+/// **evenly over equal solid angle**, so equal-width bins in `cos(theta)` must
+/// each receive the same share within statistics. A filter stuck on a default
+/// direction puts 100 % in one bin and 0 % in the rest, which no amount of
+/// statistics explains.
+#[test]
+fn a_polar_filter_on_a_track_length_tally_sees_the_real_direction() {
+    use outram_mc_libs::tally::filter::PolarAzimuthalFilter;
+
+    const N_POLAR: usize = 4;
+    let edges: Vec<f64> = (0..=N_POLAR)
+        .map(|i| -1.0 + 2.0 * i as f64 / N_POLAR as f64)
+        .collect();
+    let mut tally = Tally {
+        id: 2,
+        name: "polar flux".into(),
+        filters: vec![FilterKind::PolarAzimuthal(PolarAzimuthalFilter {
+            polar: edges,
+            // One azimuthal bin: this test is about the polar axis.
+            azimuthal: vec![-std::f64::consts::PI, std::f64::consts::PI],
+        })],
+        scores: vec![ScoreType::Flux],
+        bins: vec![TallyBin::default(); N_POLAR],
+    };
+    let geom = void_ball();
+    let src = FixedSource::Point {
+        r: Position::ZERO,
+        energy_ev: E0,
+    };
+    run_fixed_source(&geom, &[], &[], &src, &settings(20_000), Some(&mut tally));
+
+    let total: f64 = tally.bins.iter().map(|b| b.sum).sum();
+    assert!(total > 0.0, "the polar-filtered tally scored nothing");
+    let shares: Vec<f64> = tally.bins.iter().map(|b| b.sum / total).collect();
+    println!("polar cos(theta) shares over {N_POLAR} equal bins: {shares:?}");
+
+    // Equal solid angle per equal-width cos(theta) bin, so each must hold ~1/N.
+    let want = 1.0 / N_POLAR as f64;
+    for (i, s) in shares.iter().enumerate() {
+        assert!(
+            (s - want).abs() < 0.02,
+            "polar bin {i} holds {:.4} of the track length against {want:.4} expected \
+             for an isotropic source. A share of 1.0 in one bin means the filter is \
+             still binning on a defaulted direction.",
+            s
+        );
+    }
+}

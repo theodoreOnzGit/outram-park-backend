@@ -24,8 +24,9 @@
 //! follow-up) would additionally score along free-flight segments.
 
 use super::filter::{FilterEvent, FilterKind};
+use crate::particle::particle::ParticleType;
 use super::tally::{ScoreType, Tally, TallyBin};
-use crate::geometry::position::Position;
+use crate::geometry::position::{Direction, Position};
 use crate::material::material::MacroXs;
 
 /// Recoverable energy per fission `Q` \[J\] — the constant multiplier of the
@@ -255,6 +256,10 @@ pub fn score_track_length(
     // rather than defaulting it means a future caller has to decide, instead of
     // silently inheriting a wrong zero.
     time: f64,
+    // **Flight direction along this segment** (gh:#261). `PolarAzimuthalFilter`
+    // bins on it, and before this it was defaulted, so such a filter put every
+    // track-length event in one bin — the same defect `time` had.
+    direction: Direction,
 ) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
@@ -267,18 +272,27 @@ pub fn score_track_length(
         surface_idx: usize::MAX,
         position,
         cell_instance,
-        // **Time is now threaded** (gh:#262). ~~The track-length estimator's
-        // caller does not yet thread the angle, time or particle type
-        // through.~~ **CORRECTED 2026-09-24** — `time` is a parameter and the
-        // transport loop supplies a real clock; the note below still holds for
-        // `mu` and `particle`.
+        // ~~The track-length estimator's caller does not yet thread the angle,
+        // time or particle type through.~~ **CORRECTED 2026-09-24 (gh:#262,
+        // gh:#261)** — `time` and `direction` are now parameters, and
+        // `particle` is set below. Only `mu` is still defaulted, and that one is
+        // a deliberate distinction rather than an omission; see its note.
         time,
-        // The angle and particle type are still not threaded.
-        // `..Default::default()` records that honestly: an angular or particle
-        // filter on a track-length tally would bin every event identically
-        // rather than silently producing plausible-looking structure.
-        // `filter_bin` is where that would be caught if it mattered -- see the
-        // note on `FilterEvent::default`.
+        direction,
+        // This crate transports neutrons only (`ParticleType` reserves the
+        // other slots; `physics::photon` is out of scope). Set explicitly so a
+        // `ParticleFilter` on a track-length tally bins correctly instead of
+        // inheriting a default, and so the day a second particle type exists
+        // this line is a compile-time reminder rather than a silent
+        // mislabelling.
+        particle: ParticleType::Neutron,
+        // **`mu` stays defaulted, and that is correct.** It is the
+        // change-of-direction cosine of a SCATTERING event — a collision
+        // quantity. A flight segment has a direction (threaded above) but no
+        // scattering cosine, so there is nothing to thread: `MuFilter` belongs
+        // on the collision estimator, where it is supplied. Defaulting an
+        // undefined quantity is not the same failure as defaulting an available
+        // one, which is what `time` and `direction` were.
         ..Default::default()
     };
 

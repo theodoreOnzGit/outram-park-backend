@@ -1508,6 +1508,7 @@ pub(crate) fn transport_history_vr(
                             // Clock at the START of this segment: the flight
                             // has not been added yet at this point.
                             time_s,
+                            u,
                         );
                     }
                     // ── Delta tracking: COLLISION estimator ────────────────
@@ -1569,6 +1570,7 @@ pub(crate) fn transport_history_vr(
                                         w,
                                         cell_instance,
                                         time_s,
+                                        u,
                                     );
                                 }
                             }
