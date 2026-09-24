@@ -71,6 +71,24 @@
 //! Production ENDF-derived libraries trip neither: they are exactly zero at
 //! every threshold and reach 1e-5 eV.
 //!
+//! # ACCEPTED LIMITATION: this writer is NOT at parity with OpenMC (2026-09-24)
+//!
+//! **Maintainer decision.** The rank-2 attribute limit below is **left standing
+//! as a known non-parity item**, not worked around. The reasoning: this
+//! workspace's own routes into transport are **reading ACE** and **generating
+//! its own data** from ENDF, both of which work and are verified — so writing a
+//! complete OpenMC library is a convenience for cross-code studies rather than
+//! a capability anything depends on.
+//!
+//! What that decision costs, stated so nobody rediscovers it: a **real U-235
+//! cannot be written**, therefore OpenMC cannot be run on a library this
+//! workspace produced for any case with continuum secondary neutrons. The
+//! cross-code comparisons keep their existing confound of two codes reading two
+//! data pipelines. That is the price, and it was accepted knowingly.
+//!
+//! Do **not** "fix" this by writing the attribute flat — see below for why that
+//! is a trap rather than a compromise.
+//!
 //! **What is still refused, and why it is a dependency limit rather than a
 //! port gap:** `continuous`, `correlated` and `kalbach-mann` each store their
 //! incident-grid interpolation as a **rank-2** attribute, which `hdf5-pure`

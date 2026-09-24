@@ -190,6 +190,39 @@ give MT=18 a **tabulated `continuous`** χ rather than a Watt law — which is
 exactly the law the dependency limit below blocks. The Watt law is correct and
 faithfully written; it is simply a poor χ for a thermal-capable nuclide.
 
+## ACCEPTED as a known non-parity item — maintainer decision, 2026-09-24
+
+The rank-2 attribute limit below is **left standing**, not worked around. The
+maintainer's reasoning: the workspace's own routes into transport are **reading
+ACE** and **generating its own data** from ENDF, both verified, so writing a
+complete OpenMC library is a convenience for cross-code work rather than a
+capability anything depends on.
+
+The accepted cost, recorded so it is not rediscovered as a surprise: a **real
+U-235 cannot be written**, so OpenMC cannot be run on a library this workspace
+produced for any case with continuum secondary neutrons, and the cross-code
+studies keep their existing "two codes, two data pipelines" confound.
+
+**This crate is therefore NOT at HDF5-write parity with OpenMC, by choice.**
+
+Checked before accepting, so the decision rests on evidence rather than on the
+capabilities being assumed present:
+
+- `Nuclide::from_ace` exists (`nuclide.rs:1266`) and is gated by
+  `tests/nuclide_from_ace_vs_endf.rs`; U-235's thermal cross sections land
+  inside 3 % of the accepted 585 / 681 / 698 b.
+- `lct008_ace_roundtrip.rs` records `k` agreeing between the ACE and ENDF routes
+  at **0.78 sigma** on the same geometry, settings and seed.
+- `reference-data/ace/MANIFEST.tsv` shows this port's own ACER output for U-235
+  (`njoy-outram-park-fork`, 0 K, RECONR+ACER) beside NJOY2016's.
+
+**And one gap in the accepted fallback, found by that check and filed as #307:**
+`from_ace` sets `urr: None, dbrc: None`, so the ACE route omits unresolved
+resonance self-shielding and DBRC while the ENDF route has both ON by default.
+The two routes carry different physics. That also means the 0.78 sigma above was
+measured with the asymmetry in place and should not yet be cited as route
+equivalence.
+
 ## What is NOT done, and why
 
 **A complete, real U-235 cannot yet be written.** Its neutron products need the
