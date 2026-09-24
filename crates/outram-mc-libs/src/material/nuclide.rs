@@ -1824,15 +1824,40 @@ impl Nuclide {
     /// Below the cutoff the bound-atom law *replaces* the elastic channel and
     /// the total is **rebuilt** as `absorption + inelastic + n2n + σ_sab`
     /// (see [`xs_at_energy`](Self::xs_at_energy)). There is no cheaper correct
-    /// answer there, so this falls back to the full evaluation and returns its
-    /// total. The value is identical either way — this changes only how much
-    /// work is done to reach it, never what it is.
+    /// answer there, so this does the full evaluation. The value is identical
+    /// either way — this changes only how much work is done to reach it, never
+    /// what it is.
+    ///
+    /// # It is NOT unresolved-resonance aware
+    ///
+    /// [`xs_at_energy_urr`](Self::xs_at_energy_urr) samples a probability-table
+    /// band and **replaces** the total; this returns the infinitely-dilute one,
+    /// exactly as `xs_at_energy` does. That matches what
+    /// [`Material::macro_xs_total`](crate::material::material::Material::macro_xs_total)
+    /// has always returned, so nothing changed here — but it means that with
+    /// URR tables attached the flight-distance path and the collision path use
+    /// **different totals** in the unresolved range. That predates this
+    /// function and is dormant while URR defaults off; do not reach for this
+    /// as "the" total in a URR-aware context without fixing that first.
     pub fn total_at_energy(&self, e: f64, temp_k: f64) -> f64 {
         // The bound-atom override needs channels the fast path does not
-        // compute, so defer to the full evaluation whenever it is in play.
+        // compute, so the full evaluation is unavoidable when it is in play.
+        //
+        // The rebuild is spelled out rather than delegated to
+        // `xs_at_energy`, which would evaluate `th.total_xs(e)` a SECOND time
+        // — once in this guard and once inside. A thermal moderator is hit on
+        // most collisions in a water lattice, so that duplicate S(a,b)
+        // interpolation is paid in the hottest place there is.
+        //
+        // It must stay in lockstep with `xs_at_energy`'s own rebuild.
+        // `tests/total_fast_path_matches_full.rs` asserts the two are exactly
+        // equal, including through the cutoff, so a drift fails immediately
+        // rather than shifting k quietly.
         if let Some(th) = &self.thermal {
-            if th.total_xs(e) > 0.0 {
-                return self.xs_at_energy(e, temp_k).total;
+            let sab = th.total_xs(e);
+            if sab > 0.0 {
+                let x = self.base_xs_at_energy(e, temp_k);
+                return x.absorption + x.inelastic + x.n2n + sab;
             }
         }
         match &self.xs {
