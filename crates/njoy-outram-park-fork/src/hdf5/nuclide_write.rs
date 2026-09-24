@@ -39,27 +39,37 @@
 //! elastic and capture as before. Plus ν̄ (`total_nu`) and the unresolved
 //! resonance probability tables (`urr`).
 //!
-//! # WRITE GRIDS THAT REACH THERMAL when a threshold scattering law is present
+//! # TWO THINGS A THRESHOLD SCATTERING LAW DEMANDS OF THE CALLER
 //!
-//! A `level` law emits `mass_ratio * (E - threshold)`, which just above the
-//! threshold is arbitrarily close to zero — so it can always land below a
-//! library's own minimum energy. **OpenMC transports such a particle without
-//! complaint and indexes its cross-section grid with a negative index**
-//! (`src/material.cpp:832`, no bounds check; the neutron `energy_cutoff`
-//! defaults to 0.0 so nothing kills it). Measured 2026-09-24 on a 1 keV–20 MeV
-//! grid with an otherwise entirely conventional MT=51: **4.9 % of the flux fell
-//! below the library minimum** and the run exited 0 with tallies written, having
-//! read ~1860–9300 array elements from before the start of the array. With a
-//! cross section that steps at the threshold instead, the same path
-//! **segfaults**.
+//! **Never emit a finite cross section AT a `level` threshold** (enforced
+//! below), and **let the energy grid reach thermal** (documented, not
+//! enforced). Both come from the same upstream defect, GitHub #306.
 //!
-//! That is an upstream defect (GitHub #306) and production libraries do not
-//! trigger it, because ENDF-derived grids reach 1e-5 eV. The consequence for a
-//! *caller of this writer* is simply: **let the energy grid reach thermal**. It
-//! is documented rather than enforced because the crisp invariant — the
-//! emission range must lie inside the grid — is unsatisfiable for a `level` law
-//! at any positive grid minimum, and a fuzzy "probably low enough" check would
-//! be worse than saying so plainly.
+//! A finite cross section at the threshold is the dangerous one. OpenMC
+//! interpolates between grid points, so it makes the MT non-zero *below* the
+//! kinematic threshold; `LevelInelastic::sample` then returns a **negative**
+//! centre-of-mass energy unclamped, the CM→lab conversion takes
+//! `std::sqrt(E_in * E_cm)` of a negative product (`src/physics.cpp:1170`) and
+//! yields **NaN**, and `Nuclide::calculate_xs` guards its energy range with
+//! `<` and `>` — which **NaN fails on both sides** — so it falls through to a
+//! binary search that indexes the log grid with `int(log(NaN))`. Measured
+//! 2026-09-24: **SIGSEGV**, confirmed by gdb, and confirmed again by a
+//! lab-frame control that skips the `sqrt` and exits 0 on the same file.
+//!
+//! A grid that stops above thermal is the milder one: a `level` law emits
+//! arbitrarily close to zero just above its threshold, and OpenMC transports
+//! such a particle by **extrapolating** below the table with a negative
+//! interpolation factor rather than refusing. Measured on a 1 keV–20 MeV grid,
+//! **4.9 % of the flux** fell below the library minimum and was transported
+//! that way. With flat cross sections that extrapolation is exact, so it was
+//! not an error there — but on a structured cross section it would not be
+//! defensible, and nothing warns. It is documented rather than enforced
+//! because the crisp invariant (the emission range lies inside the grid) is
+//! unsatisfiable for a `level` law at *any* positive grid minimum, and a fuzzy
+//! "probably low enough" check would be worse than saying so plainly.
+//!
+//! Production ENDF-derived libraries trip neither: they are exactly zero at
+//! every threshold and reach 1e-5 eV.
 //!
 //! **What is still refused, and why it is a dependency limit rather than a
 //! port gap:** `continuous`, `correlated` and `kalbach-mann` each store their
