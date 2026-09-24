@@ -451,17 +451,68 @@ mod tests {
     /// was fixed before the run: the predicted ratio from `φ₁ ∝ F_b^m`,
     /// `(14/11)^8 ≈ 6.8`, and a monotone rise.
     ///
-    /// Results, 2026-09-24 — `φ₁` at 300 h: **9.55·10⁻¹⁰** (4 %),
+    /// ~~Results, 2026-09-24 — `φ₁` at 300 h: **9.55·10⁻¹⁰** (4 %),
     /// **5.48·10⁻⁵** (8.51 %, HTR-10), **1.02·10⁻⁴** (9 %), **1.39·10⁻³**
     /// (11 %), **1.54·10⁻²** (14 %). The 14 %/11 % ratio is **11.1×** against
-    /// 6.8 predicted — the excess is the `F_b` dependence of `D_S` (page -487-),
-    /// which the `F_b^m` argument omitted.
+    /// 6.8 predicted.~~ **CORRECTED 2026-09-24 — those are an earlier run's
+    /// numbers and the code does not produce them.** The figures below are what
+    /// this test prints, and they agree with [`super`]'s own §4 table (which is
+    /// right) to every digit it quotes:
+    ///
+    /// | `F_b` | stale doc above | **measured** | [`super`]'s §4 table |
+    /// |---|---|---|---|
+    /// | 4 % FIMA | 9.55·10⁻¹⁰ | **2.347·10⁻⁷** | 2.35·10⁻⁷ |
+    /// | 8.51 % (HTR-10) | 5.48·10⁻⁵ | **4.397·10⁻⁵** | 4.40·10⁻⁵ |
+    /// | 9 % FIMA | 1.02·10⁻⁴ | **6.482·10⁻⁵** | 6.48·10⁻⁵ |
+    /// | 11 % FIMA | 1.39·10⁻³ | **2.605·10⁻⁴** | 2.60·10⁻⁴ |
+    /// | 14 % FIMA | 1.54·10⁻² | **1.385·10⁻³** | 1.39·10⁻³ |
+    /// | 14 %/11 % | 11.1× | **5.32×** | 5.32× |
+    ///
+    /// The 14 %/11 % ratio of **5.32×** against 6.8 predicted is explained in
+    /// [`super`]'s §4: `m = 8.02` is the *unirradiated* modulus, and Eq (9a)
+    /// degrades it to `m = 6.932` at `T_B = 776 °C`, which is the value PANAMA
+    /// actually applies.
+    ///
+    /// **And the stale text's attribution of the excess to "the `F_b`
+    /// dependence of `D_S`" is wrong — measured 2026-09-24.** `φ₁` here is a
+    /// *pure* power law `∝ F_b^m` at `m = 6.932`, over a factor-3.5 range in
+    /// burnup, with `D_S` contributing nothing detectable to any ratio:
+    ///
+    /// | burnup step | `(F_b2/F_b1)^6.932` | measured ratio | error |
+    /// |---|---|---|---|
+    /// | 4 % → 8.51 % | 187.410 | 187.361 | 0.026 % |
+    /// | 9 % → 11 % | 4.01906 | 4.01842 | 0.016 % |
+    /// | 11 % → 14 % | 5.32139 | 5.31797 | 0.064 % |
+    ///
+    /// Three steps agreeing to four significant figures is not a coincidence,
+    /// and it is what makes assertion 3 below unachievable rather than merely
+    /// unmet: a decade between the 9 % sphere and the 11 % compact would need
+    /// `(11/9)^m = 10`, i.e. `m = 11.5`, which is neither modulus in the model.
+    ///
+    /// **THIS TEST FAILS, and the stale numbers are why it was written to
+    /// pass.** Assertion 3 requires the 4–9 % spherical band to sit at least a
+    /// decade below the 11 % compact. On the stale figures that ratio is
+    /// `1.39·10⁻³ / 1.02·10⁻⁴ = 13.6×` and passes; **on what the code produces
+    /// it is `2.605·10⁻⁴ / 6.482·10⁻⁵ = 4.02×` and fails.** So the assertion
+    /// encodes a claim taken from numbers the model no longer gives.
+    ///
+    /// **The assertion is deliberately NOT relaxed here.** `qualification.rs`
+    /// is byte-identical to `origin/develop`, whose own commit
+    /// (`51b37182`) says in its title that it ships "ONE FAILING TEST, left
+    /// failing" — this is that test, and whether the right answer is a weaker
+    /// bound or a defect in the `F_b` chain is the maintainer's call, not a
+    /// threshold to move. Only the stale doc above is corrected, because a
+    /// wrong recorded measurement is a false statement whichever way the
+    /// assertion is eventually settled. GitHub #301.
     ///
     /// Interpretation: PANAMA reproduces the *ordering* the experiment
-    /// reports, and over-predicts its *level* by one to two decades at 11 %
-    /// FIMA, where the experiment saw no failure at all in a population of
-    /// order 10⁴–10⁵ particles. See this module's docs for the three
-    /// candidates and why none was adopted. **Nothing was tuned.**
+    /// reports, and over-predicts its *level* at 11 % FIMA, where the
+    /// experiment saw no failure at all in a population of order 10⁴–10⁵
+    /// particles. For the size of that over-prediction read [`super`]'s §4,
+    /// which is measured against the current numbers and says **2.6× to 26×**
+    /// against the inferred `10⁻⁵`–`10⁻⁴` bound — half a decade to 1.4
+    /// decades. See this module's docs for the three candidates that could
+    /// carry it and why none was adopted. **Nothing was tuned.**
     #[test]
     fn the_burnup_ordering_at_1600c_matches_and_the_level_does_not() {
         let hold = Time::new::<hour>(300.0);
