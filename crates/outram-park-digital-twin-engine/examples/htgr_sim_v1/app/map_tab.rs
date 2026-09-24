@@ -12,7 +12,7 @@
 //! **per curie of core inventory**. See
 //! [`crate::physics::atmospheric_dispersion`].
 
-use egui::{Align2, Color32, FontId, Pos2, Sense, Stroke, Ui, Vec2};
+use egui::{Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Ui, Vec2};
 
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 
@@ -72,10 +72,53 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
             drawn.push(receptor.distance_m);
         }
     }
+    // --- the evaluated field, one filled square per grid cell ---
+    //
+    // Painted FIRST so the rings, spokes and receptor markers sit on top of
+    // it. Every cell is a real evaluation of the puff model at that cell's
+    // coordinates (see `atmospheric_dispersion::GRID_CELLS`), so this is a
+    // readout at 4096 points, not an interpolation between 24 -- which is
+    // what the rose's own docs rule out.
+    if s.dispersion_grid_cells > 0 && !s.dispersion_grid.is_empty() {
+        let n = s.dispersion_grid_cells;
+        // The grid spans +/- half_width in metres; the plot spans max_radius
+        // in pixels for `outermost` metres. Scale so the two agree.
+        let grid_px = max_radius * (s.dispersion_grid_half_width_m / outermost) as f32;
+        let cell_px = 2.0 * grid_px / n as f32;
+        let field_peak = s
+            .dispersion_grid
+            .iter()
+            .copied()
+            .fold(0.0_f32, f32::max) as f64;
+
+        for row in 0..n {
+            for column in 0..n {
+                let Some(value) = s.dispersion_grid.get(row * n + column) else {
+                    continue;
+                };
+                let value = *value as f64;
+                if !(value > 0.0) {
+                    continue;
+                }
+                // North-up rows: row 0 is the northernmost, i.e. the TOP of
+                // the screen, so the row index runs straight down.
+                let x0 = centre.x - grid_px + column as f32 * cell_px;
+                let y0 = centre.y - grid_px + row as f32 * cell_px;
+                let cell = Rect::from_min_size(
+                    Pos2::new(x0, y0),
+                    // A hair of overlap, so the grid reads as a field rather
+                    // than as a mesh of separated tiles.
+                    Vec2::new(cell_px + 0.5, cell_px + 0.5),
+                );
+                painter.rect_filled(cell, 0.0, log_shade(value, field_peak));
+            }
+        }
+    }
+
     drawn.sort_by(|a, b| a.partial_cmp(b).expect("finite distances"));
     for distance in &drawn {
         let r = max_radius * (*distance / outermost) as f32;
-        painter.circle_stroke(centre, r, Stroke::new(1.0, Color32::from_gray(170)));
+        painter.circle_stroke(centre, r, Stroke::new(1.0, Color32::from_black_alpha(90)));
         // Label each ring on its own circle. The rings ARE the distance
         // scale, so naming them is what turns the plot from a decoration
         // into something a reader can take a number off.
@@ -99,7 +142,7 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
                     centre.y - max_radius * sy as f32,
                 ),
             ],
-            Stroke::new(0.5, Color32::from_gray(225)),
+            Stroke::new(0.5, Color32::from_black_alpha(40)),
         );
     }
 

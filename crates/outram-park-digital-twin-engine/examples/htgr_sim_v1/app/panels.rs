@@ -549,47 +549,33 @@ fn draw_secondary_controls(
                 .drag_value_speed(0.01),
         )
         .changed();
-    // Direction steps by ONE SECTOR, not continuously (maintainer,
-    // 2026-09-24). The model evaluates
-    // `atmospheric_dispersion::RECEPTOR_SECTORS` = 8 bearings, 45 degrees
-    // apart, so a control that moved in single degrees would imply a
-    // resolution the receptors do not have -- the plume would appear to
-    // swing while every computed point stayed exactly where it was. Arrows
-    // that land the wind on a sector keep the control and the model at the
-    // same granularity.
-    const SECTOR_DEG: f64 = 360.0 / crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS as f64;
-    let mut direction_changed = false;
+    // A CONTINUOUS slider, restored 2026-09-24. It was briefly stepped to the
+    // receptor sectors, on the reasoning that a finer control would imply a
+    // resolution the 8 evaluated bearings did not have. The Map tab now paints
+    // an evaluated field on a 64 x 64 grid, so the angular resolution is the
+    // grid, not the ring -- the plume really does swing continuously, and the
+    // control should too.
+    let direction_changed = ui
+        .add(
+            egui::Slider::new(&mut wind_from, 0.0..=360.0)
+                .text("wind FROM (deg from north)")
+                .suffix("\u{00B0}")
+                .drag_value_speed(0.1),
+        )
+        .changed();
     ui.horizontal(|ui| {
-        ui.label("wind FROM");
-        if ui
-            .button("\u{25C0}")
-            .on_hover_text("one sector anticlockwise")
-            .clicked()
-        {
-            wind_from = (wind_from - SECTOR_DEG).rem_euclid(360.0);
-            direction_changed = true;
-        }
-        ui.add_sized(
-            [96.0, 18.0],
-            egui::Label::new(format!("{:.0}\u{00B0}  {}", wind_from, compass_point(wind_from))),
-        );
-        if ui
-            .button("\u{25B6}")
-            .on_hover_text("one sector clockwise")
-            .clicked()
-        {
-            wind_from = (wind_from + SECTOR_DEG).rem_euclid(360.0);
-            direction_changed = true;
-        }
-        ui.weak(format!("{SECTOR_DEG:.0}\u{00B0} sectors"));
+        ui.weak(format!(
+            "blowing towards {:.0}\u{00B0} ({})",
+            (wind_from + 180.0).rem_euclid(360.0),
+            compass_point((wind_from + 180.0).rem_euclid(360.0))
+        ));
     });
+
     ui.small(
         "Meteorological convention: the direction the wind blows FROM. A wind \
          from 0 deg (north) carries the plume SOUTH. Below 0.5 m/s a Gaussian \
          puff model has nothing to advect and the stability lookup is \
-         undefined, so the slider stops there rather than clamping silently. \
-         Direction steps one receptor sector at a time, because that is the \
-         model's own angular resolution.",
+         undefined, so the slider stops there rather than clamping silently.",
     );
 
     if speed_changed || direction_changed {

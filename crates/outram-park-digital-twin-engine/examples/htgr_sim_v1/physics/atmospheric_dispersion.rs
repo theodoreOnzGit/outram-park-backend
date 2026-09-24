@@ -76,6 +76,7 @@ use changi::activity::chi_over_q::{dilution_factors, DilutionFactors, StabilityS
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use changi::activity::survey::{survey, DepositionVelocities, SiteSurvey};
+use changi::puff::dispersion::pasquill_gifford_sigmas;
 use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
 use changi::puff::stability::StabilityClass;
 use changi::puff::wind::{wind_vector_convert, WindComponents};
@@ -106,6 +107,65 @@ pub const RECEPTOR_SECTORS: usize = 8;
 /// kept because it is the one a site boundary would be near, and it is
 /// labelled rather than dropped.
 pub const RECEPTOR_DISTANCES_M: [f64; 3] = [100.0, 500.0, 1000.0];
+
+/// Cells across the dispersion grid, per side.
+///
+/// The Map tab paints one square per cell, so this is the map's own
+/// resolution. 64 gives a 5 px cell on a ~320 px map, which is what the
+/// maintainer asked for (2026-09-24).
+///
+/// # This is an EVALUATED field, not a contour plot
+///
+/// The rose's doc rejects a contour plot because it would interpolate between
+/// the receptors -- "a picture of a plume rather than a readout of one". A
+/// grid does not have that problem: **every cell is a real evaluation of the
+/// same puff model at that cell's own coordinates**, with nothing drawn
+/// between them. The objection was to interpolation, not to resolution.
+///
+/// 64 x 64 = 4096 evaluations per refresh, against the ring's 24. That rides
+/// on [`AtmosphericDispersionChannel::update`]'s existing throttle rather
+/// than running per frame.
+pub const GRID_CELLS: usize = 64;
+
+/// Half-width of the grid, metres: it spans `+/- GRID_HALF_WIDTH_M` about the
+/// release point on both axes.
+///
+/// 1250 m is 1.25x the outermost receptor ring (1000 m), which is exactly
+/// what the square map panel shows: the rings are drawn to `0.40 * size` and
+/// the panel's half-width is `0.50 * size`. So the field fills the white box
+/// corner to corner instead of leaving a blank margin outside the outer ring
+/// (maintainer, 2026-09-24).
+pub const GRID_HALF_WIDTH_M: f64 = 1250.0;
+
+/// An evaluated `chi/Q` field on a square grid centred on the release point.
+///
+/// Row-major, `GRID_CELLS * GRID_CELLS` entries, **north-up**: row 0 is the
+/// northernmost row, so it can be painted straight down the screen without
+/// the caller having to remember to flip it.
+#[derive(Debug, Clone)]
+pub struct DispersionGrid {
+    /// `chi/Q` \[s/m^3\] per cell, row-major, north-up.
+    pub chi_over_q: Vec<f64>,
+    /// Half-width of the covered square \[m\].
+    pub half_width_m: f64,
+    /// Cells per side.
+    pub cells: usize,
+}
+
+impl DispersionGrid {
+    /// The largest `chi/Q` in the field, for scaling a colour ramp.
+    pub fn peak(&self) -> f64 {
+        self.chi_over_q.iter().copied().fold(0.0_f64, f64::max)
+    }
+
+    /// `chi/Q` at `(column, row)`, or `None` outside the grid.
+    pub fn at(&self, column: usize, row: usize) -> Option<f64> {
+        if column >= self.cells || row >= self.cells {
+            return None;
+        }
+        self.chi_over_q.get(row * self.cells + column).copied()
+    }
+}
 
 /// Total receptors: one per sector per distance.
 pub const RECEPTOR_COUNT: usize = RECEPTOR_SECTORS * RECEPTOR_DISTANCES_M.len();
@@ -284,6 +344,12 @@ pub struct DispersionResult {
     pub stability: Option<StabilityClass>,
     /// Plant time the evaluation was taken at \[s\].
     pub evaluated_at_s: f64,
+    /// The evaluated `chi/Q` field the Map tab paints, one value per cell.
+    ///
+    /// Every cell is a real evaluation of the same puff model at that cell's
+    /// coordinates -- see [`GRID_CELLS`] on why that is not the contour plot
+    /// the rose's docs reject.
+    pub grid: DispersionGrid,
 }
 
 impl DispersionResult {
@@ -323,6 +389,10 @@ pub struct AtmosphericDispersionChannel {
     meteorology: Meteorology,
     latest: Option<DispersionResult>,
     last_evaluated_s: Option<f64>,
+    /// The last computed map field, reused while the meteorology is unchanged.
+    grid_cache: Option<DispersionGrid>,
+    /// The meteorology `grid_cache` was computed for.
+    grid_meteorology: Option<Meteorology>,
 }
 
 impl AtmosphericDispersionChannel {
@@ -334,6 +404,8 @@ impl AtmosphericDispersionChannel {
             meteorology: Meteorology::default(),
             latest: None,
             last_evaluated_s: None,
+                    grid_cache: None,
+            grid_meteorology: None,
         }
     }
 
@@ -372,9 +444,33 @@ impl AtmosphericDispersionChannel {
         if !due {
             return false;
         }
-        self.latest = Some(self.evaluate(sim_time_s, release));
+        let result = self.evaluate(sim_time_s, release);
+        // Remember the field and the meteorology it belongs to, so the next
+        // tick reuses it instead of recomputing an identical one.
+        self.grid_cache = Some(result.grid.clone());
+        self.grid_meteorology = Some(self.meteorology);
+        self.latest = Some(result);
         self.last_evaluated_s = Some(sim_time_s);
         true
+    }
+
+    /// The meteorology the cached grid was computed for, so it is recomputed
+    /// only when the wind or stability actually changes.
+    ///
+    /// **`chi/Q` does not depend on the source** -- that is the whole point of
+    /// a dilution factor, and this module's docs say so. The field therefore
+    /// changes only when the *meteorology* does, never because the release
+    /// rate moved. Without this the grid would be recomputed on every
+    /// [`DISPERSION_EVALUATION_INTERVAL_S`] tick, at ~30 million kernel
+    /// evaluations a time, to produce a field identical to the last one.
+    fn grid_is_current_for(&self, met: &Meteorology) -> bool {
+        let Some(previous) = &self.grid_meteorology else {
+            return false;
+        };
+        previous.speed == met.speed
+            && previous.direction_from == met.direction_from
+            && previous.hour == met.hour
+            && previous.stability == met.stability
     }
 
     /// Run the puff model once, ignoring the throttle. Pure with respect to
@@ -422,6 +518,16 @@ impl AtmosphericDispersionChannel {
             self.meteorology.stability,
         );
 
+        // The map's field: the same puff run, evaluated on a square grid at
+        // ground level. 4096 receptors against the ring's 24 -- roughly 30
+        // million kernel evaluations -- so it is reused verbatim whenever the
+        // meteorology has not changed. `chi/Q` is a dilution factor and does
+        // not depend on the source, so a moving release rate cannot change it.
+        let grid = match (&self.grid_cache, self.grid_is_current_for(&self.meteorology)) {
+            (Some(cached), true) => cached.clone(),
+            _ => self.compute_field(&config),
+        };
+
         let source_term = self.source_term(release, config.duration);
         let site = survey(
             &source_term,
@@ -431,6 +537,7 @@ impl AtmosphericDispersionChannel {
         );
 
         DispersionResult {
+            grid,
             receptors: self.collect(&air, &site),
             stability: match self.meteorology.stability {
                 StabilitySource::Fixed(c) => Some(c),
@@ -509,6 +616,114 @@ impl AtmosphericDispersionChannel {
             }
         }
         receptors
+    }
+
+    /// The flattened puff states the map field sums over.
+    ///
+    /// # Built analytically, not by running the simulator again
+    ///
+    /// For a **constant** wind -- which is what this simulator has, and says
+    /// so -- a puff's whole history is closed form: a puff emitted at `t_j`
+    /// is, at time `t_k`, at `(u, v) * (t_k - t_j)` with dispersion set by
+    /// the distance `|U| * (t_k - t_j)` it has travelled. So the 7200 states
+    /// the field sums over can be written down directly.
+    ///
+    /// That matters because the alternative was handing 4096 grid receptors
+    /// to `dilution_factors`, which re-walks every puff at every step for
+    /// every receptor: ~30 million kernel evaluations inside a routine built
+    /// for two dozen. Here the expensive per-puff work -- the branchy
+    /// Pasquill-Gifford table walk -- happens **once per state** rather than
+    /// once per (state, cell), which is 4096 times less of it, and what
+    /// crosses to the GPU is pure arithmetic.
+    ///
+    /// Weights are per **unit release rate**, so the field is a `chi/Q`
+    /// dilution factor: independent of the source, exactly as the receptor
+    /// ring's `chi/Q` is, and comparable between nuclides.
+    fn field_states(&self, config: &RunConfig) -> Vec<changi::puff::wgsl::PuffState> {
+        use changi::puff::wgsl::PuffState;
+
+        let components =
+            wind_vector_convert(self.meteorology.speed, self.meteorology.direction_from);
+        let (u, v) = (
+            components.u.get::<meter_per_second>(),
+            components.v.get::<meter_per_second>(),
+        );
+        let speed = (u * u + v * v).sqrt();
+
+        let dt = config.sim_dt.get::<second>();
+        let puff_dt = config.puff_dt.get::<second>();
+        let duration = config.duration.get::<second>();
+        let steps = (duration / dt).floor() as usize;
+
+        let mut states = Vec::new();
+        for step in 0..steps {
+            let now = step as f64 * dt;
+            let mut emission = 0.0_f64;
+            while emission <= now {
+                let age = now - emission;
+                let travel = speed * age;
+                // Zero travel is upstream's NA path: a puff that has not
+                // moved has no sigma and contributes nothing.
+                if let Some(sig) =
+                    pasquill_gifford_sigmas(self.stability_for_field(), Length::new::<meter>(travel))
+                {
+                    states.push(PuffState {
+                        x: (u * age) as f32,
+                        y: (v * age) as f32,
+                        sigma_y: sig.sigma_y.get::<meter>() as f32,
+                        sigma_z: sig.sigma_z.get::<meter>() as f32,
+                        // Unit release RATE integrated over this step, so the
+                        // sum is `chi/Q` in s/m^3.
+                        weight: dt as f32,
+                    });
+                }
+                emission += puff_dt;
+            }
+        }
+        states
+    }
+
+    /// The stability class the field uses.
+    ///
+    /// The wind is constant over a run, so a class derived per puff is the
+    /// same for every puff and resolving it once is exact rather than an
+    /// approximation.
+    fn stability_for_field(&self) -> StabilityClass {
+        match self.meteorology.stability {
+            StabilitySource::Fixed(c) => c,
+            StabilitySource::FromWind => changi::puff::stability::stability_class(
+                Some(self.meteorology.speed),
+                self.meteorology.hour,
+            )
+            .primary(),
+        }
+    }
+
+    /// Evaluate the map field.
+    ///
+    /// Sums [`Self::field_states`] over the grid on changi's own thread pool
+    /// (`changi::puff::wgsl::field_pooled`), which is the CPU path. The GPU
+    /// path dispatches the same arithmetic as a WGSL kernel through PETIR's
+    /// runner; both exist because `outram-mc-libs/CLAUDE.md`'s GPU policy
+    /// makes the CPU route mandatory and trusted, and here it is also the
+    /// reference the GPU result is checked against.
+    fn compute_field(&self, config: &RunConfig) -> DispersionGrid {
+        use changi::puff::wgsl::{field_pooled, FieldGrid};
+
+        let states = self.field_states(config);
+        let grid = FieldGrid {
+            cells: GRID_CELLS,
+            half_width_m: GRID_HALF_WIDTH_M as f32,
+            source_height_m: self.site.release_height.get::<meter>() as f32,
+        };
+        DispersionGrid {
+            chi_over_q: field_pooled(&states, &grid)
+                .into_iter()
+                .map(f64::from)
+                .collect(),
+            half_width_m: GRID_HALF_WIDTH_M,
+            cells: GRID_CELLS,
+        }
     }
 
     /// Build the released source term from the release channel's circulating

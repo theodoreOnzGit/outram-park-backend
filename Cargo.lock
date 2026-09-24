@@ -1414,6 +1414,7 @@ version = "0.0.0"
 dependencies = [
  "approx",
  "petir",
+ "rayon",
  "uom 0.38.0",
 ]
 

@@ -1300,6 +1300,13 @@ impl HtgrPlant {
                 slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
                 slot.ground_bq_per_m2 = r.ground_bq_per_m2;
             }
+            // Reuse the allocation across ticks: the grid is a fixed size and
+            // this runs on every write.
+            s.dispersion_grid.clear();
+            s.dispersion_grid
+                .extend(result.grid.chi_over_q.iter().map(|v| *v as f32));
+            s.dispersion_grid_cells = result.grid.cells;
+            s.dispersion_grid_half_width_m = result.grid.half_width_m;
         }
 
         for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {

@@ -13,6 +13,10 @@ exclude = ["docs", "upstream_source/*", "dev/*"]
 
 [dependencies]
 uom   = { workspace = true }
+# rayon: the Gaussian puff field's own thread pool (see `puff::wgsl::pool`).
+# The map refreshes at 10 Hz beside a physics loop, and sharing the global
+# pool means whichever grabs the workers first stalls the other.
+rayon = { workspace = true }
 # petir supplies the numerics. Its erf/erfc are GSL-derived and carry their own
 # test suite, so `part0` uses them rather than porting FLEXPART's erf.f90 --
 # the workspace "reuse before porting, port before writing" rule.
