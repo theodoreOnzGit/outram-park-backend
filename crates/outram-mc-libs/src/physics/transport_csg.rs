@@ -113,6 +113,26 @@ pub(crate) struct Site {
     pub(crate) e: f64,
 }
 
+/// Flight time over `d` cm at energy `e` eV \[s\].
+///
+/// `d / v(E)` with `v` from [`crate::tally::scoring::neutron_speed_cm_per_s`] —
+/// the same helper the `InverseVelocity` score uses, so a time filter and a
+/// `1/v` tally cannot disagree about the speed. Non-relativistic: 1.1 % low in
+/// `v` at 20 MeV, negligible below.
+///
+/// Returns `0.0` at zero or negative energy rather than dividing by zero. A
+/// particle at `E = 0` has no speed, so no time can elapse for it; the
+/// alternative is an infinity that propagates into every downstream bin.
+#[inline]
+fn flight_time(d: f64, e: f64) -> f64 {
+    let v = crate::tally::scoring::neutron_speed_cm_per_s(e);
+    if v > 0.0 {
+        d / v
+    } else {
+        0.0
+    }
+}
+
 impl Site {
     /// A source/fission neutron at position `r`, direction `u`, energy `e` \[eV\].
     pub(crate) fn new(r: Position, u: Direction, e: f64) -> Site {
@@ -1109,6 +1129,26 @@ pub(crate) fn transport_history_vr(
     let mut stuck_path_cm = 0.0_f64;
     let mut stuck_last_e = 0.0_f64;
     let mut path_cm = 0.0_f64;
+    // ── The particle clock (gh:#262, gh:#261) ──────────────────────────────
+    //
+    // **Time since this particle was born, in seconds.** Accumulated as
+    // `d / v(E)` on every flight segment, both the collision branch and the
+    // boundary branch — a clock advanced on only one of them would run slow by
+    // however much of the path crossed surfaces, which on a lattice is most of
+    // it.
+    //
+    // Before this the crate had no clock at all: `FilterEvent::time` and
+    // `TrackState::time` were both hardcoded `0.0`, so a `TimeFilter` binned
+    // every event into whichever bin contains zero and a track file reported
+    // every state at t = 0. `scoring.rs` said so in its own comment rather than
+    // leaving it to be discovered, which is why this is a gap being closed and
+    // not a bug being fixed.
+    //
+    // `v(E)` is [`crate::tally::scoring::neutron_speed_cm_per_s`], which is
+    // **non-relativistic** — `sqrt(2E/m)`. That is 1.1 % low in `v` at 20 MeV
+    // and negligible below, and it is the same helper the `InverseVelocity`
+    // score already uses, so the two cannot disagree with each other.
+    let mut time_s = 0.0_f64;
     let mut neg_dist: u64 = 0;
     let mut neg_level: u64 = 0;
     let mut neg_worst = 0.0_f64;
@@ -1149,7 +1189,12 @@ pub(crate) fn transport_history_vr(
     // 64-second budget, having produced no result three times over. The
     // per-split conservation test passed throughout, because it exercises one
     // split in isolation and never iterates.
-    let mut stack: Vec<(Site, f64, Option<u64>, WindowState)> = vec![(
+    // The fifth element is the particle's BIRTH TIME \[s\]. A split daughter or a
+    // secondary must resume from the clock reading at which it was created, not
+    // from wherever its sibling's history happened to finish — carrying it on the
+    // stack is the same reason `WindowState` is carried here rather than
+    // recreated per pop.
+    let mut stack: Vec<(Site, f64, Option<u64>, WindowState, f64)> = vec![(
         site,
         birth_weight,
         None,
@@ -1160,6 +1205,8 @@ pub(crate) fn transport_history_vr(
             weight_born: birth_weight,
             ..WindowState::default()
         },
+        // The source particle is born at t = 0 of its own history.
+        0.0,
     )];
 
     // Safety cap on events per history: a particle in a purely-scattering
@@ -1167,7 +1214,8 @@ pub(crate) fn transport_history_vr(
     // 100k events is far beyond any physical history (mean ~tens of collisions).
     const MAX_EVENTS: u32 = 100_000;
 
-    while let Some((start, start_wgt, own_seed, start_ww)) = stack.pop() {
+    while let Some((start, start_wgt, own_seed, start_ww, start_time)) = stack.pop() {
+        time_s = start_time;
         // A split child transports on its own stream; everything else
         // continues the shared one, exactly as before #258.
         let mut owned_seed = own_seed.unwrap_or(0);
@@ -1204,7 +1252,7 @@ pub(crate) fn transport_history_vr(
                     r,
                     u,
                     energy: e,
-                    time: 0.0,
+                    time: time_s,
                     weight: w,
                     cell: usize::MAX,
                     material: None,
@@ -1225,7 +1273,7 @@ pub(crate) fn transport_history_vr(
                         r,
                         u,
                         energy: e,
-                        time: 0.0,
+                        time: time_s,
                         weight: w,
                         cell: $cell,
                         material: $material,
@@ -1278,6 +1326,10 @@ pub(crate) fn transport_history_vr(
                                         // bounded and the window they see is
                                         // the window the parent saw.
                                         ww_state,
+                                        // A split daughter is the SAME particle
+                                        // continuing, so its clock is the
+                                        // parent's reading, not zero.
+                                        time_s,
                                     ));
                                 }
                                 w = weight;
@@ -1453,6 +1505,9 @@ pub(crate) fn transport_history_vr(
                         score_track_length(
                             batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
                             mxs.as_ref(), w, cell_instance,
+                            // Clock at the START of this segment: the flight
+                            // has not been added yet at this point.
+                            time_s,
                         );
                     }
                     // ── Delta tracking: COLLISION estimator ────────────────
@@ -1513,6 +1568,7 @@ pub(crate) fn transport_history_vr(
                                         Some(&mxs),
                                         w,
                                         cell_instance,
+                                        time_s,
                                     );
                                 }
                             }
@@ -1524,6 +1580,7 @@ pub(crate) fn transport_history_vr(
             if d_col < d_bound.distance {
                 collisions += 1;
                 // ── Collision ──────────────────────────────────────────────
+                time_s += flight_time(d_col, e);
                 r = stream(r, u, d_col);
                 on_surface = SurfaceToken::NONE;
                 // The material the DISPATCH resolved, not the one `locate`
@@ -1739,7 +1796,11 @@ pub(crate) fn transport_history_vr(
                                 e: sec_e2,
                             },
                             w,
-                            None, ww_state,
+                            None,
+                            ww_state,
+                            // An (n,2n) second neutron is created here, so its
+                            // clock starts at the collision time.
+                            time_s,
                         ));
                     }
                     // Multiplicity counts: this is a NU-scatter matrix, so every
@@ -1785,7 +1846,7 @@ pub(crate) fn transport_history_vr(
                             (e2, u2)
                         };
                         if nuc.emits_n2n_secondary() {
-                            stack.push((Site { r, u: su, e: se }, w, None, ww_state));
+                            stack.push((Site { r, u: su, e: se }, w, None, ww_state, time_s));
                             if let Some(t) = tally {
                                 score_scatter_matrix(
                                     batch,
@@ -1833,7 +1894,7 @@ pub(crate) fn transport_history_vr(
                         break;
                     }
                     for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
-                        stack.push((Site { r, u: *su, e: *se }, w, None, ww_state));
+                        stack.push((Site { r, u: *su, e: *se }, w, None, ww_state, time_s));
                         if let Some(t) = tally {
                             score_scatter_matrix(
                                 batch,
@@ -1910,6 +1971,7 @@ pub(crate) fn transport_history_vr(
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
                 path_cm += d_bound.distance;
+                time_s += flight_time(d_bound.distance, e);
                 r = stream(r, u, d_bound.distance);
                 match d_bound.crossing {
                     Crossing::Surface(i_surf) => {

@@ -246,6 +246,15 @@ pub fn score_track_length(
     // `None` where the caller has no distribcell tables, which is every
     // caller that does not ask for a per-instance tally.
     cell_instance: Option<usize>,
+    // **Time since the particle was born \[s\]** (gh:#262, gh:#261), taken at
+    // the START of the segment being scored. `TimeFilter` bins on it.
+    //
+    // Before the transport loop carried a clock this was hardcoded `0.0` here,
+    // so a `TimeFilter` put every event in whichever bin contains zero — a
+    // filter that compiled, ran, and measured nothing. Passing it explicitly
+    // rather than defaulting it means a future caller has to decide, instead of
+    // silently inheriting a wrong zero.
+    time: f64,
 ) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
@@ -258,12 +267,18 @@ pub fn score_track_length(
         surface_idx: usize::MAX,
         position,
         cell_instance,
-        // The track-length estimator's caller does not yet thread the angle,
-        // time or particle type through. `..Default::default()` records that
-        // honestly: an angular, time or particle filter on a track-length tally
-        // would bin every event identically rather than silently producing
-        // plausible-looking structure. `filter_bin` is where that would be
-        // caught if it mattered -- see the note on `FilterEvent::default`.
+        // **Time is now threaded** (gh:#262). ~~The track-length estimator's
+        // caller does not yet thread the angle, time or particle type
+        // through.~~ **CORRECTED 2026-09-24** — `time` is a parameter and the
+        // transport loop supplies a real clock; the note below still holds for
+        // `mu` and `particle`.
+        time,
+        // The angle and particle type are still not threaded.
+        // `..Default::default()` records that honestly: an angular or particle
+        // filter on a track-length tally would bin every event identically
+        // rather than silently producing plausible-looking structure.
+        // `filter_bin` is where that would be caught if it mattered -- see the
+        // note on `FilterEvent::default`.
         ..Default::default()
     };
 
