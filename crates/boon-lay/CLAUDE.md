@@ -86,6 +86,12 @@ src/
       transient.rs                        ← accident variants: booth_transient, breakthrough_transient, rf_graph
     activities/mod.rs                     ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented (`coolant_activity.rs`, `source_terms.rs`), code-to-code verified
     normal_operation/mod.rs               ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented; `normal_operation_node` agrees with upstream to 3.1e-11
+  fuel_failure/                           ← **boon-lay fuel failure**: TRISO particle failure from the PANAMA-I formulas (NOT the PANAMA code)
+    mod.rs                                ← naming rule, model overview, total_failure_fraction
+    weibull / stress / pressure / booth / oxygen / molar_volume / corrosion / strength /
+    grain_boundary / decomposition / diffusion / geometry .rs  ← one module per equation group
+    history.rs                            ← accident time-stepping driver (AccidentHistory)
+    htr10/                                ← HTR-10 application (an extrapolation) + German-lineage qualification data
 ```
 
 ## triso_atops_fork — Eulerian TRISO release (fork of INL TRISO-ATOPS)
@@ -103,6 +109,18 @@ a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq).~~ **CORRECTED
 implemented and covered by `docs/triso-atops-code-to-code.md` (two passes). Full details,
 Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
+
+## fuel_failure — boon-lay fuel failure (NOT PANAMA)
+
+**Name it "boon-lay fuel failure", never "PANAMA", when you mean this code or
+its output.** It is boon-lay's own Rust implementation of the formulas in the
+PANAMA-I report (Verfondern & Nabielek, HTA-IB-03/90), coded agentically from
+the printed equations. This project does not have the PANAMA source code.
+"PANAMA-I" means only the report and the results it prints. So a sentence like
+"PANAMA gives 1.2e-12 for HTR-10" is wrong twice: PANAMA was never run on
+HTR-10, and the number is boon-lay fuel failure's. The naming rule is set out
+in full in `src/fuel_failure/mod.rs`; the units register and open questions are
+in `docs/panama-i-units-and-open-questions.md`, named for the report it audits.
 ---
 
 ## Test coverage notes

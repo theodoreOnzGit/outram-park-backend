@@ -7,9 +7,14 @@ under Accident Conditions*, Forschungszentrum Jülich, HTA-IB-03/90,
 
 The report is restricted literature. Only its **equations, constants and
 units** are recorded here, with citation, as scientific facts. The document
-itself is not in this repository. Implementation is an independent Rust
-reconstruction from the published equations; the PANAMA Fortran is
-closed-source and was never consulted.
+itself is not in this repository.
+
+The implementation is **boon-lay fuel failure** (`src/fuel_failure/`): boon-lay's
+own Rust code, coded agentically from the published equations. It is **not
+PANAMA**. The PANAMA Fortran is closed-source, this project does not have it,
+and it was never consulted. In this file, "PANAMA" and "the report" mean the
+document and the results it prints. Numbers this project computed are boon-lay
+fuel failure's.
 
 This file exists because the report's own symbol list (page -511-) is
 **incomplete or wrong** about several units, in ways that change answers

@@ -60,9 +60,11 @@ pub mod gpu;
 /// fractions. See `docs/triso-atops-fork.md` and the module-level docs.
 pub mod triso_atops_fork;
 
-/// TRISO coated-particle **failure** fractions — an independent Rust
-/// implementation of the published PANAMA-I pressure-vessel model (Verfondern
-/// & Nabielek, Jülich HTA-IB-03/90, 1990). Supplies what
+/// **boon-lay fuel failure** — TRISO coated-particle failure fractions. This
+/// is boon-lay's own model: a Rust implementation of the *formulas* published
+/// in the PANAMA-I report (Verfondern & Nabielek, Jülich HTA-IB-03/90, 1990),
+/// coded agentically by an AI coding agent. It is **not** the PANAMA code, whose
+/// source this project does not have; see the module docs on naming. Supplies what
 /// [`triso_atops_fork`]'s `FailureFractions` currently takes as a
 /// hand-entered number. See the module docs for what is implemented and what
 /// is deliberately left as an input.

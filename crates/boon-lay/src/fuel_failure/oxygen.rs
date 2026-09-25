@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 //
-// PANAMA-I reimplementation — provenance
-// --------------------------------------
+// boon-lay fuel failure — provenance
+// ----------------------------------
 // Reference : Verfondern, K. & Nabielek, H., "The Mathematical Basis of the
 //             PANAMA-I Code for Modeling Pressure Vessel Failure of TRISO
 //             Coated Particles under Accident Conditions",
@@ -12,16 +12,12 @@
 //             with citation, as scientific facts. No prose, figure or page of
 //             that document is copied into this repository, and the PDF is not
 //             tracked here. See DATA_POLICY.md.
-// Nature    : an independent Rust implementation of the published model, not a
-//             port of the PANAMA Fortran (which is closed-source and was never
-//             consulted).
-
-//! # TRISO coated-particle failure — the PANAMA-I pressure-vessel model
-//!
-//! A TRISO particle is a pressure vessel. Fission gas and CO accumulate inside
-//! it, the SiC layer carries the hoop stress, and the particle fails when that
-//! stress exceeds the SiC strength. PANAMA-I couples three failure populations:
-//!
+// Nature    : boon-lay fuel failure is boon-lay's own model: a Rust
+//             implementation of the PANAMA-I FORMULAS, coded agentically (by an
+//             AI coding agent, then reviewed) from the published equations. It
+//             is not the PANAMA code and not a port of the PANAMA Fortran
+//             (closed-source, never consulted); call it "boon-lay fuel failure",
+//             and keep "PANAMA-I" for the report and its own printed results.
 
 //! **Eqs (5a)–(5f)** — the number of oxygen atoms released per fission,
 //! `OPF` (pages -488- to -491-).

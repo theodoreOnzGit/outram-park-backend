@@ -17,11 +17,13 @@
 //! **What can be compared against, and what cannot — the fuel-qualification
 //! question, answered.**
 //!
-//! [`super`] applies PANAMA-I to HTR-10 and says plainly that no HTR-10
-//! measured failure fraction exists in reach. That remains true and is
-//! recorded below. What *was* found, on 2026-09-24, is that the **fuel line
-//! HTR-10's fuel descends from** has open, quantitative qualification data
-//! sitting in this workspace's own open corpus — and it had not been used.
+//! [`super`] applies boon-lay fuel failure (the PANAMA-I formulas) to HTR-10
+//! and says plainly that no HTR-10 measured failure fraction exists in reach.
+//! That remains true and is recorded below. (Every `φ₁` below is boon-lay fuel
+//! failure's, not the PANAMA code's.) What *was* found, on 2026-09-24, is
+//! that the **fuel line HTR-10's fuel descends from** has open, quantitative
+//! qualification data sitting in this workspace's own open corpus — and it
+//! had not been used.
 //!
 //! # 1. HTR-10 itself: nothing. Confirmed, twice, and not worked around.
 //!
@@ -55,7 +57,7 @@
 //! already in this workspace — carries the German LEU UO₂ TRISO qualification
 //! record. Two things make it relevant rather than merely adjacent:
 //!
-//! 1. **PANAMA was built for exactly this fuel.** HTA-IB-03/90's cases are
+//! 1. **The PANAMA-I model was built for exactly this fuel.** HTA-IB-03/90's cases are
 //!    HTR-Module, HTR-500, FRJ2-K11/03 and AVR GO 2. These are the same
 //!    campaigns.
 //! 2. **The lineage is stated in the source, not inferred here.** Page 38:
@@ -70,8 +72,8 @@
 //!
 //! # 3. What this settles about `φ_o`, and about `htgr_sim_v1`'s placeholder
 //!
-//! PANAMA does **not** model `φ_o`, the as-manufactured defective fraction; it
-//! is an input (page -480-), and the report offers `6·10⁻⁵` as a target value.
+//! The PANAMA-I equations do **not** model `φ_o`, the as-manufactured
+//! defective fraction; it is an input (page -480-), and the report offers `6·10⁻⁵` as a target value.
 //! [`BURN_LEACH_DEFECT_FRACTIONS`] is the measured population that number is
 //! standing for: **8·10⁻⁶ to 49·10⁻⁶ expected, 20·10⁻⁶ to 64·10⁻⁶ at the
 //! one-sided upper 95 % limit**, over 2.2 million particles burn-leached.
@@ -106,10 +108,10 @@
 //!
 //! **Caveat stated before the result, because it bounds what the check is
 //! worth:** the 11 %/14 % pair are *compacts* (prismatic fuel), not spheres;
-//! Figure 21's spherical elements are 4–9 % FIMA. PANAMA has no fuel-form
-//! parameter, so the check is on the **burnup dependence of the pressure-
-//! vessel mechanism**, which is fuel-form-independent in the model, and not on
-//! the compacts as such.
+//! Figure 21's spherical elements are 4–9 % FIMA. The PANAMA-I equations have
+//! no fuel-form parameter, so the check is on the **burnup dependence of the
+//! pressure-vessel mechanism**, which is fuel-form-independent in the model,
+//! and not on the compacts as such.
 //!
 //! **Prediction, stated before measuring** (2026-09-24): `F_b` enters Eq (3)
 //! linearly, so `σ_t ∝ F_b` and Eq (1) gives `φ₁ ∝ F_b^m`. Going 11 % → 14 %
@@ -134,8 +136,8 @@
 //! measurement is **5.32×**, so on its face the prediction missed by 28 %.
 //!
 //! It did not. `m = 8.02` is the **unirradiated** modulus; Eq (9a) degrades it,
-//! and at `T_B = 776 °C` with `Γ = 1.4·10²⁵` the modulus PANAMA actually
-//! applies is **`m = 6.932`** (and `σ_o = 756.1 MPa`, down from 834). Then
+//! and at `T_B = 776 °C` with `Γ = 1.4·10²⁵` the modulus boon-lay fuel
+//! failure actually applies is **`m = 6.932`** (and `σ_o = 756.1 MPa`, down from 834). Then
 //!
 //! ```text
 //! (14/11)^6.932 = 5.32
@@ -160,11 +162,11 @@
 //!    source's five burnups and the 11 % → 14 % step is the steep one.
 //! 2. **The spherical record is consistent.** A KÜFA test on a few spherical
 //!    elements examines order `10⁴`–`10⁵` particles, so "no single particle
-//!    failure" bounds `φ₁ ≲ 10⁻⁵`–`10⁻⁴`. PANAMA gives `2.3·10⁻⁷ … 6.5·10⁻⁵`
-//!    over 4–9 % FIMA — **at or below that bound throughout**. HTR-10's own
+//!    failure" bounds `φ₁ ≲ 10⁻⁵`–`10⁻⁴`. boon-lay fuel failure gives
+//!    `2.3·10⁻⁷ … 6.5·10⁻⁵` over 4–9 % FIMA — **at or below that bound throughout**. HTR-10's own
 //!    8.51 % FIMA lands at `4.4·10⁻⁵`, inside it.
-//! 3. **The 11 % compact disagrees, mildly.** PANAMA gives `2.6·10⁻⁴` where
-//!    no failure was seen; against a `10⁻⁵`–`10⁻⁴` bound that is an
+//! 3. **The 11 % compact disagrees, mildly.** boon-lay fuel failure gives
+//!    `2.6·10⁻⁴` where no failure was seen; against a `10⁻⁵`–`10⁻⁴` bound that is an
 //!    over-prediction of **2.6× to 26×**, i.e. roughly half a decade to 1.4
 //!    decades. The 14 % compact, at `1.4·10⁻³`, is above the bound and the
 //!    source reports failure there — so the model and the experiment agree on
@@ -184,7 +186,7 @@
 //!   about a decade less failure, which alone would close it;
 //! - the `Γ = 1.4·10²⁵` fluence stand-in weakens the SiC through Eqs (8a)/(9a),
 //!   and the compacts' own fluence is not stated;
-//! - PANAMA is a *conservative design* model, and over-predicting failure is
+//! - PANAMA-I is a *conservative design* model, and over-predicting failure is
 //!   the direction a safety code is built to err in.
 //!
 //! **No input was changed to close this.** The disagreement is the finding,
@@ -216,8 +218,8 @@ pub struct BurnLeachRow {
 ///
 /// This is *measured* as-manufactured fuel quality for the production line
 /// HTR-10's fuel descends from, over **2 202 200 particles** in total. It is
-/// the physical population that PANAMA's `φ_o` input stands for, and PANAMA
-/// itself does not compute it.
+/// the physical population that the PANAMA-I equations' `φ_o` input stands
+/// for, and boon-lay fuel failure itself does not compute it.
 ///
 /// **What it does to any answer:** `φ_o` enters only through
 /// `φ_total = 1 − (1−φ_o)(1−φ₁)(1−φ₂)`, so while every term is small the
@@ -457,8 +459,8 @@ mod tests {
     /// 6.8 predicted — the excess is the `F_b` dependence of `D_S` (page -487-),
     /// which the `F_b^m` argument omitted.
     ///
-    /// Interpretation: PANAMA reproduces the *ordering* the experiment
-    /// reports, and over-predicts its *level* by one to two decades at 11 %
+    /// Interpretation: boon-lay fuel failure reproduces the *ordering* the
+    /// experiment reports, and over-predicts its *level* by one to two decades at 11 %
     /// FIMA, where the experiment saw no failure at all in a population of
     /// order 10⁴–10⁵ particles. See this module's docs for the three
     /// candidates and why none was adopted. **Nothing was tuned.**
@@ -477,7 +479,7 @@ mod tests {
         let compact_failed = phi(KUFA_COMPACT_FAILURE_FIMA);
 
         println!(
-            "\n=== PANAMA phi_1, 300 h at 1600 degC, T_B = 776 degC ===\n\
+            "\n=== boon-lay fuel failure phi_1, 300 h at 1600 degC, T_B = 776 degC ===\n\
              4.00 % FIMA (sphere, low) : {sphere_lo:e}\n\
              8.51 % FIMA (HTR-10)      : {htr10:e}\n\
              9.00 % FIMA (sphere, high): {sphere_hi:e}\n\
@@ -506,12 +508,12 @@ mod tests {
 
         // 4. THE DISAGREEMENT, pinned so it cannot be quietly closed. The
         //    experiment saw NO failure at 11 % FIMA in ~1e4-1e5 particles, so
-        //    phi_1 <= ~1e-4 there. PANAMA gives more than that. If a future
+        //    phi_1 <= ~1e-4 there. boon-lay fuel failure gives more than that. If a future
         //    change makes this assertion fail, the level has moved and the
         //    module docs must be re-measured and rewritten -- not deleted.
         assert!(
             compact_clean > 1.0e-4,
-            "PANAMA over-predicts the 11 % FIMA compact against the reported \
+            "boon-lay fuel failure over-predicts the 11 % FIMA compact against the reported \
              'no particle failure'; this test records that gap at {compact_clean:e}. \
              If it now sits below 1e-4 the disagreement has closed and the reason \
              must be found and written down"

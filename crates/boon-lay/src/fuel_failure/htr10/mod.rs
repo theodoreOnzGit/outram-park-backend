@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 //
-// PANAMA-I reimplementation — provenance
-// --------------------------------------
+// boon-lay fuel failure — provenance
+// ----------------------------------
 // Reference : Verfondern, K. & Nabielek, H., "The Mathematical Basis of the
 //             PANAMA-I Code for Modeling Pressure Vessel Failure of TRISO
 //             Coated Particles under Accident Conditions",
@@ -13,8 +13,14 @@
 // HTR-10    : geometry and design data from IAEA-TECDOC-1382 part 2 (public)
 //             and JAERI-Conf 96-010 (public), cited inline. No proprietary or
 //             operational data is used; see DATA_POLICY.md.
+// Nature    : boon-lay fuel failure (see `super`) — boon-lay's own, agentically
+//             coded implementation of the PANAMA-I formulas, NOT the PANAMA
+//             code, whose source this project does not have.
 
-//! **HTR-10 applied to PANAMA-I — an EXTRAPOLATION, reported as one.**
+//! **HTR-10 applied to boon-lay fuel failure (the PANAMA-I formulas) — an
+//! EXTRAPOLATION, reported as one.** Every number in this module is computed by
+//! boon-lay fuel failure, not by PANAMA: the PANAMA code was never run on
+//! HTR-10, and this project does not have its source.
 //!
 //! PANAMA-I was built and validated for **German** TRISO: its reactor cases
 //! are HTR-Module and HTR-500, its heating experiments are FRJ2-K11/03 and
@@ -48,12 +54,12 @@
 //! HTR-10's fuel. Picking a Table 1 variety and calling it HTR-10 without
 //! saying so would be putting one reactor's fuel quality under another's name.
 //!
-//! # Result 1 — normal operation: PANAMA must NOT replace the `f_inc` placeholder
+//! # Result 1 — normal operation: boon-lay fuel failure must NOT replace the `f_inc` placeholder
 //!
 //! `htgr_sim_v1`'s `TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS` carries
 //! `f_inc = 3·10⁻⁵`, documented there as a TRISO-ATOPS reference value rather
 //! than HTR-10 data, and release scales linearly in it. The obvious move is to
-//! compute `f_inc` with PANAMA instead. **That would be wrong, and by a very
+//! compute `f_inc` with boon-lay fuel failure instead. **That would be wrong, and by a very
 //! large margin.**
 //!
 //! `φ₁` at the end of irradiation, over the whole plausible fuel-temperature
@@ -72,17 +78,18 @@
 //! every activity `htgr_sim_v1` reports by about 10⁷.
 //!
 //! **The placeholder is not a pressure-vessel number, and that is the point.**
-//! `3·10⁻⁵` is the same order as PANAMA's own as-manufactured target
-//! `φ_o = 6·10⁻⁵` (page -480-) — a *manufacturing and irradiation* defect
-//! population, which PANAMA takes as an **input** and does not model. The
-//! right conclusion is the one already written in that module: `f_inc` there
-//! needs HTR-10 fuel-qualification data, not a better model. PANAMA cannot
-//! supply it and this crate must not pretend otherwise.
+//! `3·10⁻⁵` is the same order as the PANAMA-I report's own as-manufactured
+//! target `φ_o = 6·10⁻⁵` (page -480-) — a *manufacturing and irradiation*
+//! defect population, which the PANAMA-I equations take as an **input** and do
+//! not model. The right conclusion is the one already written in that module:
+//! `f_inc` there needs HTR-10 fuel-qualification data, not a better model.
+//! boon-lay fuel failure cannot supply it and this crate must not pretend
+//! otherwise.
 //!
 //! # Result 2 — accident: this is where the seam is worth having
 //!
-//! Under accident conditions, which is what PANAMA is *for*, the number stops
-//! being negligible. 200 h isothermal, `T_B = 776 °C`, measured 2026-09-24:
+//! Under accident conditions, which is what the PANAMA-I equations are *for*,
+//! the number stops being negligible. 200 h isothermal, `T_B = 776 °C`, measured 2026-09-24:
 //!
 //! | accident `T` | `F_d` | `FKOR` | `σ_t` | `φ₁` | `φ₂` (14b) |
 //! |---|---|---|---|---|---|
@@ -208,14 +215,14 @@ pub fn free_volume() -> Volume {
     )
 }
 
-/// The HTR-10 particle as PANAMA-I sees it, at a stated irradiation
-/// temperature.
+/// The HTR-10 particle as boon-lay fuel failure sees it, at a stated
+/// irradiation temperature.
 ///
 /// - `irradiation_temperature` — `T_B`. **An input**: HTR-10 publishes a
 ///   *maximum* fuel temperature (JAERI-Conf 96-010 states a 700 °C margin to
-///   the 1600 °C limit) but no average, and PANAMA's `T_B` is an average. The
-///   report's HTR-Module average of **776 °C** (Table 2) is the nearest
-///   published figure for a comparable core and is what
+///   the 1600 °C limit) but no average, and the PANAMA-I equations' `T_B`
+///   is an average. The report's HTR-Module average of **776 °C** (Table 2)
+///   is the nearest published figure for a comparable core and is what
 ///   [`tests`] sweeps around; it is not HTR-10's.
 ///
 /// Uses [`STAND_IN_STRENGTH_MPA`], [`STAND_IN_WEIBULL_MODULUS`] and
@@ -283,9 +290,9 @@ pub fn particle_with(
     }
 }
 
-/// `φ₁` at the **end of irradiation** — the value PANAMA assigns to `t = 0`
-/// of an accident (page -482-), and the one that matters for normal
-/// operation.
+/// `φ₁` at the **end of irradiation** — the value the PANAMA-I report
+/// assigns to `t = 0` of an accident (page -482-), and the one that matters
+/// for normal operation.
 ///
 /// # Why this is not an accident step of length zero
 ///
@@ -399,8 +406,8 @@ mod tests {
         );
     }
 
-    /// **PANAMA must NOT replace `htgr_sim_v1`'s `f_inc = 3·10⁻⁵` for normal
-    /// operation.**
+    /// **boon-lay fuel failure must NOT replace `htgr_sim_v1`'s
+    /// `f_inc = 3·10⁻⁵` for normal operation.**
     ///
     /// Methodology: evaluate `φ₁` at the end of irradiation across the whole
     /// plausible HTR-10 fuel-temperature band, since `T_B` is an input.
@@ -411,8 +418,8 @@ mod tests {
     ///
     /// The conclusion is **not** that the placeholder is too high. It is that
     /// the two are different quantities: `3·10⁻⁵` is an as-manufactured defect
-    /// fraction, the same order as PANAMA's own `φ_o` target of `6·10⁻⁵`
-    /// (page -480-), which PANAMA takes as an **input** and does not model.
+    /// fraction, the same order as the PANAMA-I report's own `φ_o` target of
+    /// `6·10⁻⁵` (page -480-), which the equations take as an **input** and do not model.
     /// Substituting the computed value would divide every activity
     /// `htgr_sim_v1` reports by about 10⁷ on the strength of a model that is
     /// not answering that question.
@@ -462,7 +469,7 @@ mod tests {
     /// that thermal decomposition governs above ~2000 °C. That is the one
     /// qualitative claim in this test that the report itself makes.
     #[test]
-    fn the_accident_sweep_is_where_panama_has_something_to_say() {
+    fn the_accident_sweep_is_where_fuel_failure_has_something_to_say() {
         let run = |accident_c: f64| {
             let p = particle(t_b(776.0));
             let mut h = AccidentHistory::new(p, Ratio::new::<ratio>(0.0));
