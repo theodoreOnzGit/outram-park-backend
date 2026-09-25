@@ -207,8 +207,16 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   lattice does not have.~~ **MODELLED 2026-09-18 (`op-5n34`) -- and the stated
   blocker did not exist.** See "The conus" below. It is worth **+4578 +/- 158 pcm** and
   **OVERSHOOTS**: the model goes from -909 pcm to roughly +3.5k pcm.
-- **The bottom is modelled symmetrically** with the top rather than as conus +
-  discharge tube.
+- ~~**The bottom is modelled symmetrically** with the top rather than as conus +
+  discharge tube.~~ **FIXED on develop (`d619b2e77e`, 2026-09-25); this line was
+  stale and is corrected here.** Both assembly functions now place `refl_bottom`
+  from the reactor — `HTR10_BOTTOM_REFLECTOR_CM = 610.0 - 388.764` below the
+  conus floor — rather than mirroring the top. The conus and discharge tube were
+  already modelled (see "The conus" above); what was left was the *extent*, which
+  the mirror made loading-dependent: 192.4 cm of bottom graphite at the benchmark
+  loading but only 114.0 cm at the tallest, in a model 581 cm tall rather than
+  610. **Every result recorded on this page before that commit used the mirrored
+  bottom.**
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
   homogenised with their borings.
 - **Control rods themselves** are absent; the benchmark arm is rods-out.
