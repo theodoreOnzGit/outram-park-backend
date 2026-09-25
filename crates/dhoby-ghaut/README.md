@@ -17,6 +17,10 @@ the solver crates never have to carry it. It adds no physics of its own: a
 studio that needs a quantity the solver crates do not expose gets it added
 there.
 
+Its **low-fidelity counterpart is [DOVER](../dover/README.md)** (maintainer,
+2026-09-25), which fills the same role over low-fidelity models. DOVER is an
+empty skeleton for now.
+
 ## What is here
 
 **The library is a placeholder.** Its only public item is the `EXPANSION`

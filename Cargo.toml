@@ -125,8 +125,8 @@ members = [
     # that edge is deliberately not declared until something calls into it.
     "crates/redhill",
     # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
-    # EMPTY SKELETON (2026-09-25, maintainer direction): scope not yet decided,
-    # no code, no deps. Do not infer a scope from the name.
+    # The low-fidelity counterpart of dhoby-ghaut (maintainer, 2026-09-25).
+    # EMPTY SKELETON: details undecided, no code, no deps.
     "crates/dover",
 ]
 

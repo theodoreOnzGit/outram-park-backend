@@ -36,7 +36,8 @@ BOON LAY's backronym, also set 2026-09-21: **BO**mbardment of neutrons **O**n
 **N**uclides with **L**agrangian transport **a**nd transmutation **Y**ields.
 DOVER's backronym, set 2026-09-25: **D**eck-based **O**pen-source
 **V**isualisation **E**ngine for **R**eactors (crate `dover`, an empty
-skeleton; no domain assigned, scope to be decided).
+skeleton; no domain assigned). Its role, also set 2026-09-25: the
+**low-fidelity equivalent of DHOBY GHAUT**; the details are undecided.
 
 Neutronics, fuel performance, CFD, meshing, KOVAN and the remaining crates are
 not yet assigned a domain. That is deliberate: the seven names above cover

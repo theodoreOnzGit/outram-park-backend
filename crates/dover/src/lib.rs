@@ -3,12 +3,26 @@
 //! **DOVER** — ***D**eck-based **O**pen-source **V**isualisation **E**ngine for
 //! **R**eactors*.
 //!
-//! # STATUS: EMPTY SKELETON. The scope is not yet decided. Nothing is implemented.
+//! # Role: the low-fidelity counterpart of DHOBY GHAUT
+//!
+//! **DOVER is the low-fidelity equivalent of `dhoby-ghaut`** (maintainer,
+//! 2026-09-25). DHOBY GHAUT is the GUI home that drives the *high-fidelity*
+//! solvers; DOVER plays the same role at *low fidelity*, visualising reactors
+//! from input decks. Which low-fidelity models it drives, what a deck is, and
+//! whether it carries a windowing GUI are **not yet decided**.
+//!
+//! **Direction (2026-09-25, tentative):** input decks are perhaps TOML files,
+//! read and written by a schema-checked reader, and DOVER runs steady-state
+//! simulations like DWSIM as well as dynamic ones. Reuse
+//! `outram-park-fork-dwsim-libs` (flowsheet, flowsheet solver, dynamics) and
+//! `chem-eng-real-time-process-control-simulator` rather than duplicate them.
+//! See the README.
+//!
+//! # STATUS: EMPTY SKELETON. Nothing is implemented.
 //!
 //! Created 2026-09-25 at the maintainer's direction as an empty member crate.
-//! The name points towards visualisation driven by input decks, but **the
-//! scope is still to be decided**: no deck format, no visualisation engine and
-//! no physics exist here, and none should be inferred from the name.
+//! No deck format, no visualisation engine and no physics exist here, and none
+//! should be inferred from the name or the role above.
 //!
 //! This crate has no dependencies, no public items and no behaviour. **Do not
 //! describe it as providing anything**, and do not cite it as the home of any
