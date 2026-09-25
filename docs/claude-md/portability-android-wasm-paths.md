@@ -49,12 +49,14 @@ change. Tracking: the **`op-zfr` "Android support" epic**.
 ## WebAssembly (`wasm32-unknown-unknown`) — supported target, with a hard caveat
 
 **Every in-scope crate's library must compile for `wasm32-unknown-unknown`, and
-a gate enforces it.** Added 2026-09-04. **37 of the 43 members are in scope; 6 are deliberately
+a gate enforces it.** Added 2026-09-04. **38 of the 44 members are in scope; 6 are deliberately
 excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics`,
 `bedok` and `outram-blender`, each with its reason in the script.
 **CORRECTED 2026-09-21** — this file had said "34 of 40", stale on both
 numbers; verified against `scripts/check-wasm.sh` and the workspace member
-list. Run `scripts/check-wasm.sh` (the gate;
+list. **Updated 2026-09-25** — 37 of 43 became 38 of 44 when `dover` was
+added; the script derives its member list from `crates/*/Cargo.toml`, so it
+gates `dover` without being edited. Run `scripts/check-wasm.sh` (the gate;
 `-v` shows first error lines); install the target once with
 `rustup target add wasm32-unknown-unknown`.
 

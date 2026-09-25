@@ -124,6 +124,10 @@ members = [
     # EXISTING outram-park-fork-pflotran rather than write a new solver, but
     # that edge is deliberately not declared until something calls into it.
     "crates/redhill",
+    # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
+    # EMPTY SKELETON (2026-09-25, maintainer direction): scope not yet decided,
+    # no code, no deps. Do not infer a scope from the name.
+    "crates/dover",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
