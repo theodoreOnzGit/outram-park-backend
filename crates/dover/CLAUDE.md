@@ -91,7 +91,7 @@ chemistry and the deck; it does not reimplement a reactor.
    solvable at all. Reverting to a conditioned value was the fix; raising
    `max_iter` to 100 000 was not.
 
-### Open against `outram-park-fork-dwsim-libs` (not fixed here)
+### Open against `outram-park-fork-dwsim-libs` (GitHub issue #324, not fixed here)
 
 `Cstr::solve`'s damped Newton, on a step that no damping improves, **takes the
 full step anyway** — unbounded, so it can drive a molar flow negative into the
@@ -101,7 +101,9 @@ Upstream bounds its own step to consuming at most 80 % of any compound present
 the limit was written and measured, and **reverted**: on the badly-posed system
 it made convergence *worse*, and changing a mature crate's numerics on the
 strength of a case that turned out to be DOVER's own modelling error is not
-justified. Reported for the maintainer rather than patched from here.
+justified. Reported as **GitHub issue #324** rather than patched from here; that
+issue carries the full measurement table, including the prototype variants that
+were tried and what each scored, so the work is not repeated blind.
 
 ## Maturity of this model
 
