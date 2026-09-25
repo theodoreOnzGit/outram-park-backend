@@ -1,5 +1,11 @@
 # TUAS
 
+**T**hermo-hydraulic **U**niphase **A**dvection and Convection **S**olver for
+Salt Flows. Source: the title of the peer-reviewed TUAS paper (Ong, Xiao &
+Peterson 2025, doi:10.1016/j.jandt.2025.03.006, cited below), repeated in this
+crate's `CLAUDE.md`. The name is also that of the Tuas industrial region in
+Singapore.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 

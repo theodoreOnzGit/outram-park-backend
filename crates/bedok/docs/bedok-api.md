@@ -8,6 +8,12 @@
 
 **BEDOK** — 3-D nodal-diffusion neutronics coupled to thermal hydraulics.
 
+**B**road-scope **E**nvironment for **D**ual-phase advanced reactor
+**O**peration simulation **K**it (BEDOK) — backronym set by the maintainer
+on 2026-09-25. The name is also established by its publication, Than, Y. R.,
+& Xiao, S. (2026), *BEDOK: An In-House Numerical Reactor Simulator Effort in
+Singapore*, Energy Engineering, 123(9); cite that paper for the method.
+
 A Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation, ported
 from the `main_exec_diff3d_standalone` snapshot.
 
@@ -487,6 +493,7 @@ state is retained, reproducing the reference's `catch`.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -501,7 +508,7 @@ state is retained, reproducing the reference's `catch`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -617,6 +624,7 @@ pub struct ChannelReport {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -630,7 +638,7 @@ pub struct ChannelReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -938,6 +946,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -947,7 +956,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1168,6 +1177,7 @@ pub struct Array2<T> {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1182,7 +1192,7 @@ pub struct Array2<T> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1337,6 +1347,7 @@ pub struct Array3<T> {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1351,7 +1362,7 @@ pub struct Array3<T> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1491,6 +1502,7 @@ pub struct Array4<T> {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1505,7 +1517,7 @@ pub struct Array4<T> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1626,6 +1638,7 @@ pub struct Triplet {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1640,7 +1653,7 @@ pub struct Triplet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1833,6 +1846,7 @@ pub struct SparseMatrix {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -1846,7 +1860,7 @@ pub struct SparseMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1987,11 +2001,12 @@ error.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2361,6 +2376,7 @@ The outer iteration cap was reached.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2375,7 +2391,7 @@ The outer iteration cap was reached.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2501,6 +2517,7 @@ pub struct ThSnapshot {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2515,7 +2532,7 @@ pub struct ThSnapshot {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2654,6 +2671,7 @@ pub struct CoupledOutput {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -2667,7 +2685,7 @@ pub struct CoupledOutput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3009,6 +3027,7 @@ the wall heat flux zeroed.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3023,7 +3042,7 @@ the wall heat flux zeroed.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3143,6 +3162,7 @@ pub struct RodReport {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -3156,7 +3176,7 @@ pub struct RodReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3409,6 +3429,7 @@ pub enum CoordinateMode {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3423,7 +3444,7 @@ pub enum CoordinateMode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3673,6 +3694,7 @@ pub struct Params {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -3686,7 +3708,7 @@ pub struct Params {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3850,6 +3872,7 @@ reference; do not select it for new work.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3864,7 +3887,7 @@ reference; do not select it for new work.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4027,6 +4050,7 @@ reproduced as written. Overpredicts the critical heat flux.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4041,7 +4065,7 @@ reproduced as written. Overpredicts the critical heat flux.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4193,6 +4217,7 @@ Can only ever return a channel on the lattice diagonal.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4207,7 +4232,7 @@ Can only ever return a channel on the lattice diagonal.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4381,6 +4406,7 @@ T9/T13, reproduced as written.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4395,7 +4421,7 @@ T9/T13, reproduced as written.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4581,6 +4607,7 @@ noticed.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4595,7 +4622,7 @@ noticed.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4760,6 +4787,7 @@ reproduced as written.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4774,7 +4802,7 @@ reproduced as written.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4939,6 +4967,7 @@ pub struct Geometry {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -4952,7 +4981,7 @@ pub struct Geometry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5124,6 +5153,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5138,7 +5168,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5302,6 +5332,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5316,7 +5347,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5439,6 +5470,7 @@ pub struct FuelParams {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5452,7 +5484,7 @@ pub struct FuelParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5597,6 +5629,7 @@ pub struct FuelGeometry {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5610,7 +5643,7 @@ pub struct FuelGeometry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5731,6 +5764,7 @@ pub struct AxisField {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5744,7 +5778,7 @@ pub struct AxisField {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5893,6 +5927,7 @@ pub enum BoundaryCondition {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5907,7 +5942,7 @@ pub enum BoundaryCondition {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6073,6 +6108,7 @@ pub struct Coolant {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6086,7 +6122,7 @@ pub struct Coolant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6229,6 +6265,7 @@ density mismatch — a spurious reactivity step at `t = 0`.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -6243,7 +6280,7 @@ density mismatch — a spurious reactivity step at `t = 0`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6371,6 +6408,7 @@ Decreasing `z` — the inlet is at `zhi`. The reference's `flowdir == -1`.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -6385,7 +6423,7 @@ Decreasing `z` — the inlet is at `zhi`. The reference's `flowdir == -1`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6525,6 +6563,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6538,7 +6577,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6686,6 +6725,7 @@ pub struct Th {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6699,7 +6739,7 @@ pub struct Th {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6858,6 +6898,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -6872,7 +6913,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7005,6 +7046,7 @@ and described in the reference as the legacy scheme.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7019,7 +7061,7 @@ and described in the reference as the legacy scheme.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7153,6 +7195,7 @@ the nearly singular prompt operator.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7167,7 +7210,7 @@ the nearly singular prompt operator.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7295,6 +7338,7 @@ pub struct SigmaValues {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7308,7 +7352,7 @@ pub struct SigmaValues {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7440,6 +7484,7 @@ pub struct Sigma {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7453,7 +7498,7 @@ pub struct Sigma {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7783,6 +7828,7 @@ pub struct A3 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7796,7 +7842,7 @@ pub struct A3 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7915,6 +7961,7 @@ pub struct Expansion {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7928,7 +7975,7 @@ pub struct Expansion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8162,6 +8209,7 @@ pub struct A1 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8175,7 +8223,7 @@ pub struct A1 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8441,6 +8489,7 @@ pub struct AxisCoeffs {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8454,7 +8503,7 @@ pub struct AxisCoeffs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8570,6 +8619,7 @@ pub struct Coeffs {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8583,7 +8633,7 @@ pub struct Coeffs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8764,6 +8814,7 @@ pub struct Buckling {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8777,7 +8828,7 @@ pub struct Buckling {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8919,6 +8970,7 @@ pub struct BucklingCache {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8932,7 +8984,7 @@ pub struct BucklingCache {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9205,6 +9257,7 @@ pub struct SaNodal {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -9218,7 +9271,7 @@ pub struct SaNodal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9455,6 +9508,7 @@ pub struct Leakage {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -9468,7 +9522,7 @@ pub struct Leakage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9854,6 +9908,7 @@ Mode 2 — the `(2n+1)` grid carrying cell edges as well as centres.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9868,7 +9923,7 @@ Mode 2 — the `(2n+1)` grid carrying cell edges as well as centres.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10491,6 +10546,7 @@ pub struct BoronOutput {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -10504,7 +10560,7 @@ pub struct BoronOutput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10623,6 +10679,7 @@ pub struct ColdSolveVerdict {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -10636,7 +10693,7 @@ pub struct ColdSolveVerdict {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10833,6 +10890,7 @@ The iteration count passed [`MAX_ITER`].
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10847,7 +10905,7 @@ The iteration count passed [`MAX_ITER`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10982,6 +11040,7 @@ pub struct Diagnostics {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -10995,7 +11054,7 @@ pub struct Diagnostics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11124,6 +11183,7 @@ pub struct DiffusionOutput {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -11137,7 +11197,7 @@ pub struct DiffusionOutput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11421,6 +11481,7 @@ so the iteration is not yet in its asymptotic regime.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -11435,7 +11496,7 @@ so the iteration is not yet in its asymptotic regime.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11675,6 +11736,7 @@ operator. The reference dumps diagnostics to the console here.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -11689,7 +11751,7 @@ operator. The reference dumps diagnostics to the console here.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12321,6 +12383,7 @@ pub struct Case2d {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12335,7 +12398,7 @@ pub struct Case2d {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13855,6 +13918,7 @@ pub struct GradD {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -13868,7 +13932,7 @@ pub struct GradD {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14212,6 +14276,7 @@ Mode 2 — the `(2n+1)` half-index grid.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14226,7 +14291,7 @@ Mode 2 — the `(2n+1)` half-index grid.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14653,6 +14718,7 @@ so a caller reading `time.len()` sees where it actually stopped.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14667,7 +14733,7 @@ so a caller reading `time.len()` sees where it actually stopped.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14819,6 +14885,7 @@ pub struct TransientOutput {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -14832,7 +14899,7 @@ pub struct TransientOutput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15814,6 +15881,7 @@ pub struct ScaledPower {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -15827,7 +15895,7 @@ pub struct ScaledPower {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16032,6 +16100,7 @@ The iteration count passed [`MAX_ITER`].
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -16046,7 +16115,7 @@ The iteration count passed [`MAX_ITER`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16186,6 +16255,7 @@ pub struct Diagnostics {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16199,7 +16269,7 @@ pub struct Diagnostics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16334,6 +16404,7 @@ pub struct SaNodalOutput {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16347,7 +16418,7 @@ pub struct SaNodalOutput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16641,6 +16712,7 @@ pub struct DeltaSigmaValues {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16654,7 +16726,7 @@ pub struct DeltaSigmaValues {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16917,6 +16989,7 @@ pub struct FeedbackTables {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16930,7 +17003,7 @@ pub struct FeedbackTables {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17044,6 +17117,7 @@ pub struct RodFraction {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -17057,7 +17131,7 @@ pub struct RodFraction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17324,6 +17398,7 @@ pub struct MixtureState {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -17337,7 +17412,7 @@ pub struct MixtureState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17744,6 +17819,7 @@ pub struct Chf {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -17757,7 +17833,7 @@ pub struct Chf {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18005,6 +18081,7 @@ pub struct HottestChannel {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -18019,7 +18096,7 @@ pub struct HottestChannel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

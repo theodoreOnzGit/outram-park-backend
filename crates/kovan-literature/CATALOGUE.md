@@ -9,7 +9,7 @@ by hand at every librarian pass; last full pass **2026-08-11**.
 on GitHub will meet it. It is deliberately *not* the crate `README.md` — a
 crate README carries code-facing duties (crate description, the maintainer's
 Bookkeeping-status sign-off block) that do not belong in a library catalogue.
-(The crate currently has no `README.md`; writing one is tracked in `op-1lti`.)
+~~(The crate currently has no `README.md`; writing one is tracked in `op-1lti`.)~~ **CORRECTED 2026-09-25** — `README.md` now exists (GitHub issue #221); it points here for the document index.
 
 ## How the archive works
 

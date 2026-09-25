@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.1
 
 **Format Version:** 61
 
@@ -44,9 +44,14 @@ Content lives on disk next to this crate (`docs/kovan.md`, "Storage Layout"):
   both git and the published crate. See [`storage::generated_dir_for`].
 
 Three distribution tiers follow from that split: generated **open BibTeX** is
-committed *and* published to crates.io; open PDFs and generated open Markdown
-are committed but **not** published (licence scope and size); everything
+committed *and* published to crates.io; ~~open PDFs and~~ generated open Markdown
+~~are~~ is committed but **not** published (licence scope and size); everything
 proprietary is neither.
+**CORRECTED 2026-09-25** — no PDF is tracked under this crate any more
+(`git ls-files crates/kovan-literature` lists none outside the submodule).
+Since 2026-09-22 open PDFs live in the `reactor-literature/` Git submodule
+and `open/` holds only metadata JSON and some Markdown; see `CLAUDE.md` and
+`CATALOGUE.md`.
 
 ## What is real vs. best-effort
 
@@ -60,8 +65,10 @@ proprietary is neither.
   Images stored under other filters are reported-skipped, not re-encoded.
 
 **The graph digitiser moved to the `kovan` crate on 2026-08-21** (was
-`[crate::digitiser]`, now `kovan::digitiser`; binaries `kovan-digitise`,
-`kovan-digitise-tui`, `kovan-gui`) — see that crate's `NOTICE`. It moved
+`[crate::digitiser]`, now `kovan::digitiser`; binaries ~~`kovan-digitise`,
+`kovan-digitise-tui`, `kovan-gui`~~ **CORRECTED 2026-09-25** — `kovan`
+(GUI), `kovan-cli digitise` and `kovan-tui`, the only three `[[bin]]`
+targets in `crates/kovan/Cargo.toml`) — see that crate's `NOTICE`. It moved
 so it can depend on `kopitiam-pdf` (AGPL-3.0-only, GitHub issue #30's
 PDF-native digitising) without pulling this crate — used well beyond the
 GUI — into that relicense. This crate stays GPL-3.0-only and carries no
@@ -364,7 +371,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

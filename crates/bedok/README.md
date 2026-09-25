@@ -1,5 +1,10 @@
 # BEDOK
 
+**B**road-scope **E**nvironment for **D**ual-phase advanced reactor
+**O**peration simulation **K**it (BEDOK). Backronym set by the maintainer on
+2026-09-25; it adds to the published name (see "Citing BEDOK" below) and does
+not replace that citation.
+
 3-D nodal-diffusion neutronics coupled to thermal hydraulics — the fidelity
 band **above 1-D neutronics and below CFD**.
 
