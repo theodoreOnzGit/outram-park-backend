@@ -108,7 +108,9 @@
 use std::time::Instant;
 
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat, HTR10_CORE_CAVITY_CM};
-use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+use nee_soon::htr10_rmc::materials::{
+    htr10_material_set, Htr10MaterialConfig, RodMetalNuclides, ROD_METAL_TAPES_ENDF8,
+};
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::geometry::position::Position;
@@ -351,7 +353,7 @@ fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         None => n,
     };
 
-    Some(vec![
+    let mut v = vec![
         bind(load!(diag, "U235", "n-092_U_235-ENDF8.0.endf")?, &u_in_uo2),
         bind(load!(diag, "U238", "n-092_U_238.endf")?, &u_in_uo2),
         bind(load!(diag, "O16", "n-008_O_016-ENDF8.0.endf")?, &o_in_uo2),
@@ -377,7 +379,12 @@ fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
             &si_in_sic,
         ),
         load!(diag, "B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
-    ])
+    ];
+    // 11..: the withdrawn control rods' steel and iron (2026-09-25), free gas.
+    for (name, file) in ROD_METAL_TAPES_ENDF8 {
+        v.push(load!(diag, name, file)?);
+    }
+    Some(v)
 }
 
 fn run_case(spec: &CaseSpec) {
@@ -412,6 +419,7 @@ fn run_case(spec: &CaseSpec) {
     );
     let mats = htr10_material_set(
         NUC,
+        RodMetalNuclides::contiguous(11),
         Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron: spec.boron,

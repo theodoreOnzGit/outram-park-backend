@@ -466,7 +466,7 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         None => n,
     };
 
-    Some(vec![
+    let mut v = vec![
         bind(load!(diag, "U235", f_u235)?, &u_in_uo2),
         bind(load!(diag, "U238", f_u238)?, &u_in_uo2),
         bind(load!(diag, "O16", f_o16)?, &o_in_uo2),
@@ -489,7 +489,26 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         bind(load!(diag, "Si30", f_si30)?, &si_in_sic),
         // 10: B-11 (gh:#311). No thermal law: a trace scatterer in graphite.
         load!(diag, "B11", f_b11)?,
-    ])
+    ];
+    // 11..: the withdrawn control rods' sleeve steel and joint iron
+    // (2026-09-25), free gas, in `RodMetalNuclides::contiguous(11)` order.
+    //
+    // ENDF/B-VIII.0 only: the checkout has no VII.0 tapes for Fe, Cr, Ni, Mn
+    // or Ti. So the VII.0 arm takes these from VIII.0 -- for the rod metal
+    // alone, a few grams of steel 11 cm above the cavity -- and says so. That
+    // is a mixed-library arm, recorded here rather than hidden.
+    if endf7 {
+        diag.note(
+            "rod-metal nuclides (Fe, Cr, Ni, Mn, Ti, free Si) are ENDF/B-VIII.0 in \
+             this ENDF/B-VII.0 arm: no VII.0 tapes for them in reference-data/endf"
+                .to_string(),
+        );
+        eprintln!("  NOTE: rod-metal nuclides from ENDF/B-VIII.0 in the VII.0 arm");
+    }
+    for (name, file) in nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8 {
+        v.push(load!(diag, name, file)?);
+    }
+    Some(v)
 }
 
 fn main() {
@@ -556,6 +575,7 @@ fn main() {
     );
     let mats = nee_soon::htr10_rmc::materials::htr10_material_set(
         NUC,
+        nee_soon::htr10_rmc::materials::RodMetalNuclides::contiguous(11),
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron,

@@ -476,8 +476,61 @@ pub struct TwoBallBed {
     pub eligible_balls: usize,
     /// Of which fuelled.
     pub fuel_balls: usize,
+    /// The discharge tube below the conus, and with it Li's whole-ball
+    /// rejection, or `None` (see [`DischargeTube`]).
+    pub tube: Option<DischargeTube>,
+    /// Balls removed by the rejection rule (0 without a tube).
+    pub rejected_balls: usize,
     a_fuel: Vec<bool>,
     b_fuel: Vec<bool>,
+    a_present: Vec<bool>,
+    b_present: Vec<bool>,
+}
+
+/// **The fuel discharge tube, filled with whole graphite balls, and the
+/// rejection rule at the cone and tube surfaces.**
+///
+/// Li, Yu & Wei (2014), section on the RMC model: the cone region and the
+/// discharge tube hold graphite balls only, arranged in the same hexagonal
+/// geometry, and balls that intersect the cone or discharge-tube surface are
+/// rejected. So a ball there is either wholly inside and kept, or removed, and
+/// the space it would have taken is helium. The balls are all dummies (Terry
+/// et al. 2005, section 2).
+///
+/// The container is the conus frustum (bed radius at the bed floor down to
+/// `radius` at the conus floor) on top of a cylinder of `radius`, `depth`
+/// deep. A ball is rejected when it crosses the cone, the tube wall or the
+/// tube bottom. The bottom is where the model ends (TECDOC-1382 p. 242 gives
+/// the tube to z = 6100 mm, the model bottom); rejecting there too keeps every
+/// ball whole, as the rule intends.
+///
+/// **What this does NOT reject:** balls crossing the bed's side wall
+/// (r = 90 cm) above the conus. Li says only that the array's outer boundary is
+/// the side reflector's inner surface, not whether wall-crossing balls are cut
+/// or removed. Those keep the CSG cut (the treatment before this), and the
+/// choice is the maintainer's.
+///
+/// `None` in [`TwoBallBed::new_with_tube`] (the `OUTRAM_HTR10_HOMOG_TUBE`
+/// ablation) builds no tube balls and applies no rejection: the cone then cuts
+/// partial balls, as it did before 2026-09-25.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DischargeTube {
+    /// Tube radius \[cm\] (25 cm, TECDOC-1382 p. 242).
+    pub radius: f64,
+    /// Tube depth below the conus floor \[cm\], i.e. to the model bottom.
+    pub depth: f64,
+}
+
+/// Distance from `(px, pz)` to the segment `a`-`b` in the meridional plane.
+fn segment_distance(px: f64, pz: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
+    let (dx, dz) = (b[0] - a[0], b[1] - a[1]);
+    let l2 = dx * dx + dz * dz;
+    let t = if l2 > 0.0 {
+        (((px - a[0]) * dx + (pz - a[1]) * dz) / l2).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    (px - a[0] - t * dx).hypot(pz - a[1] - t * dz)
 }
 
 impl TwoBallBed {
@@ -500,14 +553,32 @@ impl TwoBallBed {
         bed_radius: f64,
         assignment: FuelAssignment,
     ) -> Self {
+        Self::new_with_tube(cell, n_rings, n_axial, conus_height, bed_radius, None, assignment)
+    }
+
+    /// Build the bed, with the discharge tube below the conus and Li's
+    /// whole-ball rejection when `tube` is `Some` (see [`DischargeTube`]).
+    /// Otherwise as [`Self::new`].
+    #[must_use]
+    pub fn new_with_tube(
+        cell: HexBedCell,
+        n_rings: usize,
+        n_axial: usize,
+        conus_height: f64,
+        bed_radius: f64,
+        tube: Option<DischargeTube>,
+        assignment: FuelAssignment,
+    ) -> Self {
         let h = cell.height;
         let bed_top = 0.25 * h * n_axial as f64;
         let bed_bottom = -bed_top;
         let conus_floor = bed_bottom - conus_height;
+        let deepest = conus_floor - tube.map_or(0.0, |t| t.depth);
         // Faces (A layers) at bed_bottom + h/4 + m h. One margin level below
-        // the conus floor and above the bed top, so no face can coincide with
-        // either plane and the `outer` universe is never reached in the bed.
-        let m_lo = ((conus_floor - bed_bottom - 0.25 * h) / h).floor() as i64 - 1;
+        // the deepest ball region and above the bed top, so no face can
+        // coincide with either plane and the `outer` universe is never
+        // reached in the bed.
+        let m_lo = ((deepest - bed_bottom - 0.25 * h) / h).floor() as i64 - 1;
         let m_hi = ((bed_top - bed_bottom - 0.25 * h) / h).ceil() as i64 + 1;
         let n_levels = (m_hi - m_lo) as usize;
         let z_bottom = bed_bottom + 0.25 * h + m_lo as f64 * h;
@@ -524,11 +595,87 @@ impl TwoBallBed {
             assignment,
             eligible_balls: 0,
             fuel_balls: 0,
+            tube,
+            rejected_balls: 0,
             a_fuel: vec![false; w * w * (n_levels + 1)],
             b_fuel: vec![false; w * w * n_levels],
+            a_present: vec![true; w * w * (n_levels + 1)],
+            b_present: vec![true; w * w * n_levels],
         };
+        bed.reject();
         bed.assign();
         bed
+    }
+
+    /// Distance \[cm\] from a point to the boundary of the conus-and-tube
+    /// container (cone, tube wall, tube bottom), in the meridional plane; `None`
+    /// without a tube.
+    ///
+    /// A sphere of radius `R` centred there crosses that boundary exactly when
+    /// this is below `R`: the set of `(rho, z)` a sphere covers is its
+    /// meridional disk, so the sphere meets a surface of revolution exactly
+    /// when the disk meets the surface's generating curve.
+    #[must_use]
+    pub fn container_boundary_distance(&self, centre: [f64; 3]) -> Option<f64> {
+        let t = self.tube?;
+        let (rho, z) = (centre[0].hypot(centre[1]), centre[2]);
+        let bottom = self.conus_floor - t.depth;
+        let cone = segment_distance(
+            rho,
+            z,
+            [self.bed_radius, self.bed_bottom],
+            [t.radius, self.conus_floor],
+        );
+        let wall = segment_distance(rho, z, [t.radius, self.conus_floor], [t.radius, bottom]);
+        let floor = segment_distance(rho, z, [t.radius, bottom], [0.0, bottom]);
+        Some(cone.min(wall).min(floor))
+    }
+
+    /// Whether ball `id` is in the model (not removed by the rejection rule).
+    /// Balls outside the lattice's range count as present.
+    #[must_use]
+    pub fn is_present(&self, id: BallId) -> bool {
+        match self.slot(id) {
+            Some((true, i)) => self.a_present[i],
+            Some((false, i)) => self.b_present[i],
+            None => true,
+        }
+    }
+
+    /// Presence mask of tile `(a, b, level)`: bit `i` set when the ball at
+    /// `BallSite::ALL[i]` is present. Selects the tile's universe variant
+    /// together with [`Self::tile_mask`].
+    #[must_use]
+    pub fn tile_present_mask(&self, a: i32, b: i32, level: i32) -> u8 {
+        self.tile_balls(a, b, level)
+            .iter()
+            .enumerate()
+            .fold(0u8, |m, (i, id)| m | (u8::from(self.is_present(*id)) << i))
+    }
+
+    /// Li (2014)'s rule: remove every ball that crosses the cone, the tube wall
+    /// or the tube bottom. Runs before [`Self::assign`], so a removed ball is
+    /// never counted in the fuel split.
+    fn reject(&mut self) {
+        if self.tube.is_none() {
+            return;
+        }
+        let r = 0.5 * self.cell.ball_diameter;
+        let mut n = 0;
+        for id in self.all_balls() {
+            let d = self
+                .container_boundary_distance(self.centre(id))
+                .expect("tube is Some");
+            if d < r {
+                n += 1;
+                match self.slot(id) {
+                    Some((true, i)) => self.a_present[i] = false,
+                    Some((false, i)) => self.b_present[i] = false,
+                    None => unreachable!("every enumerated ball has a slot"),
+                }
+            }
+        }
+        self.rejected_balls = n;
     }
 
     /// z \[cm\] of the lattice centre, to pass to `HexLattice::from_rings_3d`.
@@ -660,7 +807,7 @@ impl TwoBallBed {
                     z + r > self.conus_floor && z - r < self.bed_top && rxy - r < self.bed_radius
                 }
             };
-            if ok {
+            if ok && self.is_present(id) {
                 eligible.push((Self::layer(id), x * x + y * y, y.atan2(x), id));
             }
         }
