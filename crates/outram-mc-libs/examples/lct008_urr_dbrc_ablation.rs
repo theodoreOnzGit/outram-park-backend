@@ -54,10 +54,41 @@
 //! a null result is physically plausible here even though the same ablation
 //! would bite in the true lattice.
 //!
-//! # Results
+//! # Results, 2026-09-25 — a BOUND, not a measurement
 //!
-//! Printed by the run; recorded in
-//! `verification_and_validation/ace_route_physics/`.
+//! Twelve seeds, 3000 histories x [30 inactive + 120 active]:
+//!
+//! ```text
+//! k with URR+DBRC : 0.84937  (seed-to-seed sd 0.00181)
+//! k ablated       : 0.85001  (seed-to-seed sd 0.00222)
+//! ABLATION WORTH  : +63.5 pcm, sem 77.2, sd 267.5  (0.8 sigma)
+//! ```
+//!
+//! **NOT RESOLVED at 2 sigma**, so the result is `|worth| < 154 pcm at
+//! 2 sigma`. Do not quote `+63.5 pcm` as the worth.
+//!
+//! **The prediction above is NOT supported.** `+100 to +300 pcm` was predicted
+//! and `+63.5 ± 77` measured: the sign is right, the magnitude is below the
+//! range, and zero is not excluded. Recorded as a miss.
+//!
+//! **And the gap being explained was itself only 0.78 sigma** — never
+//! established to exist. The bound here and that non-significance are jointly
+//! consistent with there being no route difference and no URR+DBRC worth on
+//! this homogenised model.
+//!
+//! **Two methodological findings.** The pairing bought nothing: sd on the
+//! difference is 267.5 against per-arm sds of 181/222, i.e. `sqrt(2) x ~200`,
+//! the uncorrelated result — URR and DBRC change how many draws each history
+//! consumes, so the streams diverge and the arms do not correlate. Size this as
+//! independent arms, or give URR its own `future_seed` substream. Resolving
+//! `+63.5` at 3 sigma needs ~162 seeds.
+//!
+//! **Do not spend that here.** This model homogenises the lumped fuel, which is
+//! what destroys the self-shielding that makes these treatments matter. The
+//! number worth having belongs on the lumped case (`lct008_keff.rs`).
+//!
+//! Full record:
+//! `verification_and_validation/ace_route_physics/urr_dbrc_worth_2026_09_25.md`.
 //!
 //! ```text
 //! cargo run --release -p outram-mc-libs --example lct008_urr_dbrc_ablation
