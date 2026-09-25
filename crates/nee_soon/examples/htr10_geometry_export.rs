@@ -48,7 +48,9 @@ use nee_soon::htr10_rmc::core_model::{
     HTR10_DISCHARGE_TUBE_RADIUS_CM, HTR10_GRAPHITE_OUTER_CM, HTR10_REFLECTOR_OUTER_CM,
     PAPER_FILLING_FRACTION,
 };
-use nee_soon::htr10_rmc::materials::{htr10_material_set, nuclide_name, Htr10MaterialConfig};
+use nee_soon::htr10_rmc::materials::{
+    htr10_material_set, nuclide_name, Htr10MaterialConfig, RodMetalNuclides, ROD_METAL_TAPES_ENDF8,
+};
 use nee_soon::htr10_rmc::{geometry_closures, heavy_metal_per_ball, table1};
 use outram_mc_libs::geometry::surface::SurfaceKind;
 use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
@@ -560,7 +562,9 @@ fn main() {
         b11: 10,
     };
     let cfg = Htr10MaterialConfig::benchmark_default(TEMP_K);
-    let mats = htr10_material_set(nuclides, cfg);
+    // The rod metal is appended after slot 10, as `htr10_rmc_keff` loads it.
+    let metal_first = 11;
+    let mats = htr10_material_set(nuclides, RodMetalNuclides::contiguous(metal_first), cfg);
     let mut materials = String::from("matindex,matid,material,nuclide,atomdensity,temperaturek\n");
     for (idx, m) in mats.iter().enumerate() {
         if m.components.is_empty() {
@@ -583,7 +587,11 @@ fn main() {
                 &format!("{idx}"),
                 &format!("{}", m.id),
                 &m.name,
-                nuclide_name(nuclides, c.nuclide_idx),
+                if c.nuclide_idx >= metal_first {
+                    ROD_METAL_TAPES_ENDF8[c.nuclide_idx - metal_first].0
+                } else {
+                    nuclide_name(nuclides, c.nuclide_idx)
+                },
                 &format!("{:.6e}", c.atom_density),
                 &format!("{:.2}", m.temperature),
             ]));

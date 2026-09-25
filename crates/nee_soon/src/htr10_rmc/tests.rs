@@ -279,7 +279,7 @@ fn the_axial_stack_matches_terry_at_every_loading() {
 /// ATOM basis, so this also checks the two bases agree.
 #[test]
 fn every_boron_bearing_material_carries_natural_b11() {
-    use crate::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+    use crate::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig, RodMetalNuclides};
     use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
     let n = Htr10Nuclides {
         u235: 0,
@@ -295,7 +295,11 @@ fn every_boron_bearing_material_carries_natural_b11() {
         b11: 10,
     };
     let want = 0.801 / 0.199;
-    let mats = htr10_material_set(n, Htr10MaterialConfig::benchmark_default(300.15));
+    let mats = htr10_material_set(
+        n,
+        RodMetalNuclides::contiguous(11),
+        Htr10MaterialConfig::benchmark_default(300.15),
+    );
     let mut with_boron = 0;
     for m in &mats {
         let sum = |i: usize| -> f64 {
@@ -318,8 +322,11 @@ fn every_boron_bearing_material_carries_natural_b11() {
             m.name
         );
     }
-    // Kernel, four graphite layers, three reflector zones, homogenised dummies.
-    assert!(with_boron >= 9, "only {with_boron} materials carry boron");
+    // Kernel, four graphite layers, three reflector zones, homogenised dummies
+    // (9), plus -- since the explicit reflector, 2026-09-25 -- the 23 Table
+    // 4-3 zone slots that carry boron (all but zone 18, the plain carbon
+    // brick) and the rod B4C.
+    assert!(with_boron >= 9 + 23 + 1, "only {with_boron} materials carry boron");
 }
 
 /// **The TRISO lattice holds the particles it reports** (gh:#316).

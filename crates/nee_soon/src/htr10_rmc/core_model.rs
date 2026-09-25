@@ -36,7 +36,12 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCone, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 
-use super::bed::{bed_tile_levels, hex_ring, BallSite, FuelAssignment, HexBedCell, TwoBallBed};
+use super::bed::{
+    bed_tile_levels, hex_ring, BallSite, DischargeTube, FuelAssignment, HexBedCell, TwoBallBed,
+};
+use super::reflector_geometry::{
+    build_reflector, ReflectorFrame, ReflectorMaterials, ReflectorOptions, Rgn,
+};
 
 /// Material slots the assembled geometry expects, in order.
 ///
@@ -204,16 +209,132 @@ pub mod mat {
     pub const BORONATED: usize = 8;
     /// Side-reflector graphite homogenised with its control-rod borings
     /// (TECDOC zones 31–40): 28 % less carbon than solid zone-22 graphite.
+    ///
+    /// **No longer placed by [`super::assemble_explicit_triso`] (2026-09-25).**
+    /// The borings are explicit geometry there (`super::super::reflector_geometry`),
+    /// and the smeared band and its `OUTRAM_HTR10_BORINGS` knob are gone. The
+    /// slot is kept so every index after it stays put.
     pub const BORED_GRAPHITE: usize = 9;
     /// **Homogenised dummy pebbles** — pebble graphite at the bed's filling
-    /// fraction, i.e. what the discharge tube actually contains.
+    /// fraction.
     ///
-    /// Terry (2005) §2: *"the conus and discharge tube contained only dummy
-    /// pebbles"*. Solid reflector graphite there over-reflects; pure helium
-    /// (the bounding ablation) under-reflects. This is the physical value.
+    /// ~~What the discharge tube actually contains.~~ **CORRECTED 2026-09-25:**
+    /// the tube contains whole graphite balls, and since then
+    /// [`super::assemble_explicit_triso`] places them explicitly (Li, Yu & Wei
+    /// 2014: the cone region and discharge tube are formed by graphite balls
+    /// in hexagonal geometry, and balls intersecting the cone or tube surface
+    /// are rejected). This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
+    /// ablation now.
     pub const HOMOG_DUMMY: usize = 10;
     /// Homogenised fuel zone, used only by [`super::assemble`].
     pub const FUEL: usize = KERNEL;
+
+    /// First slot of the IAEA-TECDOC-1382 Table 4-3 zone materials that keep a
+    /// composition of their own in the Monte Carlo model.
+    pub const ZONE_TABLE_FIRST: usize = 11;
+
+    /// Table 4-3 zones that keep a composition of their own once the borings
+    /// are explicit, in slot order from [`ZONE_TABLE_FIRST`], with the factor
+    /// TECDOC p. 242 applies to each (1.0 = the table value unchanged).
+    ///
+    /// Which zones, and the factors, are p. 242's: zones 29 and 42 are
+    /// multiplied by 1.29978 and zone 60 by 1.16051, which puts back exactly
+    /// the boring void those zones had homogenised (see
+    /// `kovan-literature/derived/tecdoc1382-htr10-mc-borings-and-zone-map.md`,
+    /// § 3). Zone 18 is the plain carbon brick; zones 51 and 68 share zone 24's
+    /// row of the table and use its slot.
+    ///
+    /// Zones 0-4, 8-16, 19-21, 48 and 57 are **homogenised by the source**:
+    /// it gives no geometry for what is inside them (the cold helium chamber,
+    /// the hot-gas borings under the conus, the bottom structures). They are
+    /// explicit regions at their Fig. 4.10 positions carrying the source's
+    /// composition. That is an open item, not a modelling choice made here.
+    pub const TABLE_4_3_ZONES: [(usize, f64); 24] = [
+        (0, 1.0),
+        (1, 1.0),
+        (2, 1.0),
+        (3, 1.0),
+        (4, 1.0),
+        (8, 1.0),
+        (9, 1.0),
+        (10, 1.0),
+        (11, 1.0),
+        (12, 1.0),
+        (13, 1.0),
+        (14, 1.0),
+        (15, 1.0),
+        (16, 1.0),
+        (18, 1.0),
+        (19, 1.0),
+        (20, 1.0),
+        (21, 1.0),
+        (24, 1.0),
+        (29, 1.29978),
+        (42, 1.29978),
+        (48, 1.0),
+        (57, 1.0),
+        (60, 1.16051),
+    ];
+    /// B4C of the control-rod absorber rings (TECDOC § 4.1.2: 1.7 g/cm³,
+    /// natural boron).
+    pub const ROD_B4C: usize = ZONE_TABLE_FIRST + TABLE_4_3_ZONES.len();
+    /// Stainless steel of the control-rod sleeves (TECDOC § 4.1.2: 7.9 g/cm³,
+    /// Cr 18 / Fe 68.1 / Ni 10 / Si 1 / Mn 2 / C 0.1 / Ti 0.8 wt%).
+    pub const ROD_STEEL: usize = ROD_B4C + 1;
+    /// Iron of the control-rod joints and ends (TECDOC § 4.1.2: Fe only,
+    /// 0.04 atoms/(b cm), for 27.5 mm < R < 55 mm).
+    pub const ROD_IRON: usize = ROD_STEEL + 1;
+    /// Number of material slots.
+    pub const COUNT: usize = ROD_IRON + 1;
+
+    /// Slot of a Table 4-3 zone listed in [`TABLE_4_3_ZONES`].
+    #[must_use]
+    pub fn table_zone_slot(zone: usize) -> Option<usize> {
+        TABLE_4_3_ZONES
+            .iter()
+            .position(|&(z, _)| z == zone)
+            .map(|i| ZONE_TABLE_FIRST + i)
+    }
+
+    /// **Material slot of a Fig. 4.10 zone in the Monte Carlo model**, with
+    /// IAEA-TECDOC-1382 p. 242's corrections for explicit borings applied.
+    ///
+    /// - zones 23, 25-26, 28, 30-41, 43-45, 49-50, 52-54, 58-59, 61-63, 66-67,
+    ///   69-71, 80, 82 take zone 22's density: [`REFLECTOR`];
+    /// - zones 27, 46, 55, 64, 72, 74-79 take zone 17's: [`BORONATED`];
+    /// - zones 47, 56, 65, 73 take zone 18's (carbon brick);
+    /// - zones 29, 42 and 60 are scaled, and every other zone keeps its own
+    ///   Table 4-3 value: see [`TABLE_4_3_ZONES`].
+    ///
+    /// # Panics
+    ///
+    /// For zone 5 (the void cavity) and zones 6, 7 and 81 (the discharge tube,
+    /// which holds explicit graphite balls), none of which is a material zone
+    /// in this model, and for zones that do not exist.
+    #[must_use]
+    pub fn for_zone_mc(zone: usize) -> usize {
+        match zone {
+            22 | 23 | 25 | 26 | 28 | 30..=41 | 43..=45 | 49 | 50 | 52..=54 | 58 | 59
+            | 61..=63 | 66 | 67 | 69..=71 | 80 | 82 => REFLECTOR,
+            17 | 27 | 46 | 55 | 64 | 72 | 74..=79 => BORONATED,
+            47 | 56 | 65 | 73 => table_zone_slot(18).expect("zone 18 is listed"),
+            51 | 68 => table_zone_slot(24).expect("zone 24 is listed"),
+            z => table_zone_slot(z)
+                .unwrap_or_else(|| panic!("zone {z} is not a material zone of the MC model")),
+        }
+    }
+
+    /// **ABLATION** (`OUTRAM_HTR10_NO_ZONE_MAP`): the reflector this model had
+    /// before the zone map, i.e. zone-22 graphite everywhere except the
+    /// boronated bricks at r > 167.793 cm (zones 75-79).
+    #[must_use]
+    pub fn for_zone_uniform(zone: usize) -> usize {
+        if (75..=79).contains(&zone) {
+            BORONATED
+        } else {
+            REFLECTOR
+        }
+    }
 }
 
 /// A built core and the sizes that describe it.
@@ -1080,56 +1201,31 @@ pub fn assemble_explicit_triso(
         z0: conus_floor,
         bc: BoundaryType::Transmissive,
     }));
-    // 19, 20: the side-reflector band carrying the CONTROL-ROD BORINGS,
-    // 95.6 -> 108.6 cm (Terry 2005 Fig. 2). Modelled as solid zone-22 graphite
-    // this over-reflects: TECDOC zones 31-40 give that homogenised band
-    // 28.1 % LESS carbon. It is the reflector band nearest the core, so it is
-    // the highest-leverage place in the reflector to get wrong.
-    //
-    // DEFAULT OFF, and that is deliberate. The zone map in
-    // `terry2005-htr10-rz-zone-geometry.md` records only the bottom two axial
-    // layers; the CORE-HEIGHT assignment for this radial band is explicitly
-    // "not yet placed". Zone 47 is the documented zone for [95.6, 108.6] at
-    // the bottom, and zones 31-40 (used by this knob) were inferred only from
-    // ten consecutive zones sharing one reduced density -- a guess, not data.
-    // The doc warns in terms: "use this as a check, not a generator".
-    //
-    // So enabling it by default would be substituting one unjustified
-    // composition for another in the reflector band nearest the core. The knob
-    // instead MEASURES the sensitivity: OUTRAM_HTR10_BORINGS=1 turns it on.
-    let (bore_in, bore_out) =
-        if refl_thickness > 0.0 && std::env::var("OUTRAM_HTR10_BORINGS").is_ok() {
-            (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM)
-        } else {
-            (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_INNER_CM)
-        };
+    // 19, 20: the side-reflector band carrying the control-rod borings,
+    // 95.6 -> 108.6 cm. ~~A homogenised band of TECDOC zones 31-40 behind
+    // `OUTRAM_HTR10_BORINGS` (default off: its core-height placement was
+    // unrecorded).~~ **REPLACED 2026-09-25:** the borings are explicit
+    // geometry (`super::reflector_geometry`), placed from TECDOC-1382 p. 242
+    // and Fig. 4.10, and the knob is gone. These two surfaces are kept only so
+    // every surface index after them stays put; the reflector builder reuses
+    // them as the band's boundaries.
+    for r in [HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM] {
+        surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r,
+            bc: BoundaryType::Transmissive,
+        }));
+    }
+    // 21: the FUEL DISCHARGE TUBE wall, r = 25 cm (TECDOC-1382 p. 242:
+    // 0 < R < 250 mm, from the conus floor to the model bottom). It holds
+    // whole graphite balls: see `DischargeTube`. ~~`OUTRAM_HTR10_NO_DISCHARGE=1`
+    // collapsed it to restore graphite.~~ **REMOVED 2026-09-25**: the tube is
+    // explicit; `OUTRAM_HTR10_HOMOG_TUBE=1` is the ablation now.
     surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
         x0: 0.0,
         y0: 0.0,
-        r: bore_in,
-        bc: BoundaryType::Transmissive,
-    }));
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
-        x0: 0.0,
-        y0: 0.0,
-        r: bore_out,
-        bc: BoundaryType::Transmissive,
-    }));
-    // 21: the FUEL DISCHARGE TUBE below the conus floor, r < 25 cm. Reflector
-    // graphite here over-reflects the conus tip, where the fuel converges.
-    // Real: a tube of pebbles and void. Modelled as helium, which BOUNDS the
-    // effect (real pebbles would reflect somewhat more than void).
-    //
-    // OUTRAM_HTR10_NO_DISCHARGE=1 collapses it, restoring graphite.
-    let tube_r = if refl_thickness > 0.0 && std::env::var("OUTRAM_HTR10_NO_DISCHARGE").is_err() {
-        HTR10_DISCHARGE_TUBE_RADIUS_CM
-    } else {
-        0.0
-    };
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
-        x0: 0.0,
-        y0: 0.0,
-        r: tube_r,
+        r: HTR10_DISCHARGE_TUBE_RADIUS_CM,
         bc: BoundaryType::Transmissive,
     }));
     // 22..29: (fuel zone, pebble) sphere pairs of the ball sites ATop, BEast,
@@ -1159,182 +1255,116 @@ pub fn assemble_explicit_triso(
         )
     };
 
-    // Universe 3 -- one TRISO particle: five shells then matrix.
-    let mut cells = vec![
-        // 0: the bed (delta-tracked)
-        {
-            // The bed is the cylinder UNION the conus.
+    // Ablations of the explicit reflector and discharge tube (2026-09-25).
+    // Each is a named, visible act; the default builds everything.
+    //
+    // - OUTRAM_HTR10_HOMOG_TUBE=1: the discharge tube is the old smear
+    //   (`mat::HOMOG_DUMMY`) and the cone CUTS partial balls, instead of whole
+    //   graphite balls with Li (2014)'s rejection at the cone and tube.
+    // - OUTRAM_HTR10_NO_ZONE_MAP=1: every Fig. 4.10 zone is zone-22 graphite
+    //   except the boronated bricks at r > 167.793 cm (the reflector before the
+    //   zone map), the borings still explicit.
+    // - OUTRAM_HTR10_NO_WITHDRAWN_RODS=1: the rod channels are empty.
+    let has_refl = refl_thickness > 0.0;
+    let explicit_tube = has_refl && std::env::var("OUTRAM_HTR10_HOMOG_TUBE").is_err();
+    let zone_map = std::env::var("OUTRAM_HTR10_NO_ZONE_MAP").is_err();
+    let withdrawn_rods = std::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_err();
+    let zone_material = move |z: usize| {
+        if zone_map {
+            mat::for_zone_mc(z)
+        } else {
+            mat::for_zone_uniform(z)
+        }
+    };
+
+    // With no reflector (OUTRAM_HTR10_NOREFL=1) the bed cylinder IS the edge
+    // of the model, so its surfaces carry the outer boundary condition.
+    // ~~The reflector surfaces were collapsed onto the bed's, leaving
+    // zero-volume shells whose boundary condition acted on nothing.~~
+    // **CHANGED 2026-09-25**: with no reflector, no reflector cells are built.
+    if !has_refl {
+        for i in [7, 8, 9] {
+            match &mut surfaces[i] {
+                SurfaceKind::ZCylinder(c) => c.bc = obc,
+                SurfaceKind::ZPlane(p) => p.bc = obc,
+                _ => unreachable!("surfaces 7, 8, 9 are the bed cylinder and planes"),
+            }
+        }
+    }
+
+    // Root cells, in search order: the bed first (every history starts there
+    // and spends most of its time there), then the cavity and zone 0, then
+    // the reflector (appended by `build_reflector`).
+    let bed_region = {
+        let cyl = Rgn::ins(7).and(Rgn::out(8)).and(Rgn::ins(9));
+        if has_refl {
+            // The bed is the cylinder UNION the conus (UNION the discharge
+            // tube, when it holds explicit balls).
             //
             // This is the whole mechanism -- no per-tile omission is needed.
             // `Geometry::locate` calls `find_cell` (a CSG region test) BEFORE
             // descending into the lattice, so a point is only given a tile if
-            // it is inside this region. The cone therefore clips the pebble
-            // lattice exactly as `ins(7)` already clips it to r < 90 cm, and
-            // `Cell::distance_to_boundary` tests the cone because it is one of
-            // this cell's own surfaces. See the V&V record: the bead's premise
-            // that this needed conditional tile omission was wrong.
-            let bed = Cell::fill(
-                1,
-                vec![
-                    ins(7),
-                    out(8),
-                    RegionToken::Intersection,
-                    ins(9),
-                    RegionToken::Intersection,
-                    ins(17),
-                    ins(8),
-                    RegionToken::Intersection,
-                    out(18),
-                    RegionToken::Intersection,
-                    RegionToken::Union,
-                ],
-                CellFill::Lattice(0),
-                Position::ZERO,
-            );
-            // `usize::MAX` means "surface-track the bed too", so the SAME
-            // geometry can be run both ways. That is the discriminator for the
-            // k = 0 failure: if surface tracking gives a sensible k on this
-            // model, the delta path is at fault; if it does not, the model is.
-            if majorant_index == usize::MAX {
-                bed
+            // it is inside this region. The cone clips the pebble lattice
+            // exactly as `ins(7)` clips it to r < 90 cm. With Li's rejection
+            // (`DischargeTube`) no kept ball reaches the cone or the tube, so
+            // there the cut only ever passes through helium.
+            let conus = Rgn::ins(17).and(Rgn::ins(8)).and(Rgn::out(18));
+            let r = cyl.or(conus);
+            if explicit_tube {
+                r.or(Rgn::ins(21).and(Rgn::ins(18)).and(Rgn::out(11)))
             } else {
-                bed.delta_tracked(majorant_index)
+                r
             }
-        },
-        // 1: graphite reflector -- inside the boronated interface, outside the
-        // bed, and outside the coolant annulus.
-        Cell::material(
-            2,
-            vec![
-                ins(13),
-                out(11),
-                RegionToken::Intersection,
-                ins(12),
-                RegionToken::Intersection,
-                ins(7),
-                out(8),
-                RegionToken::Intersection,
-                ins(9),
-                RegionToken::Intersection,
-                RegionToken::Complement,
-                RegionToken::Intersection,
-                ins(15),
-                out(14),
-                RegionToken::Intersection,
-                RegionToken::Complement,
-                RegionToken::Intersection,
-                ins(7),
-                out(9),
-                RegionToken::Intersection,
-                ins(16),
-                RegionToken::Intersection,
-                RegionToken::Complement,
-                RegionToken::Intersection,
-                // and the conus, which the bed now occupies
-                ins(17),
-                ins(8),
-                RegionToken::Intersection,
-                out(18),
-                RegionToken::Intersection,
-                RegionToken::Complement,
-                RegionToken::Intersection,
-                // minus the bored control-rod band
-                ins(20),
-                out(19),
-                RegionToken::Intersection,
-                out(18),
-                RegionToken::Intersection,
-                ins(16),
-                RegionToken::Intersection,
-                RegionToken::Complement,
-                RegionToken::Intersection,
-                // minus the discharge tube
-                ins(21),
-                ins(18),
-                RegionToken::Intersection,
-                RegionToken::Complement,
-                RegionToken::Intersection,
-            ],
-            mat::REFLECTOR,
-            293.6,
-        ),
-        // 1d: side reflector homogenised with its CONTROL-ROD BORINGS.
-        Cell::material(
-            16,
-            vec![
-                ins(20),
-                out(19),
-                RegionToken::Intersection,
-                out(18),
-                RegionToken::Intersection,
-                ins(16),
-                RegionToken::Intersection,
-            ],
-            mat::BORED_GRAPHITE,
-            293.6,
-        ),
-        // 1e: the FUEL DISCHARGE TUBE below the conus. Terry (2005) section 2
-        // says it holds only DUMMY PEBBLES -- so neither solid reflector
-        // graphite (what this model had, over-reflecting) nor helium (the
-        // bounding ablation, under-reflecting), but pebble graphite at the
-        // bed's filling fraction.
-        Cell::material(
-            17,
-            vec![
-                ins(21),
-                ins(18),
-                RegionToken::Intersection,
-                out(11),
-                RegionToken::Intersection,
-            ],
-            mat::HOMOG_DUMMY,
-            293.6,
-        ),
-        // 1c: the EMPTY CORE CAVITY above the pebble bed -- helium, not graphite.
-        Cell::material(
+        } else {
+            cyl
+        }
+    };
+    let mut cells = vec![{
+        let bed = Cell::fill(1, bed_region.0, CellFill::Lattice(0), Position::ZERO);
+        // `usize::MAX` means "surface-track the bed too", so the SAME
+        // geometry can be run both ways. That is the discriminator for the
+        // k = 0 failure: if surface tracking gives a sensible k on this
+        // model, the delta path is at fault; if it does not, the model is.
+        if majorant_index == usize::MAX {
+            bed
+        } else {
+            bed.delta_tracked(majorant_index)
+        }
+    }];
+    if has_refl {
+        // The EMPTY CORE CAVITY above the pebble bed -- helium, not graphite.
+        cells.push(Cell::material(
             5,
-            vec![
-                ins(7),
-                out(9),
-                RegionToken::Intersection,
-                ins(16),
-                RegionToken::Intersection,
-            ],
+            Rgn::ins(7).and(Rgn::out(9)).and(Rgn::ins(16)).0,
             mat::HELIUM,
             293.6,
-        ),
-        // 1b: the cold coolant flow annulus -- helium, i.e. effectively void.
-        Cell::material(
-            4,
-            vec![
-                ins(15),
-                out(14),
-                RegionToken::Intersection,
-                out(11),
-                RegionToken::Intersection,
-                ins(12),
-                RegionToken::Intersection,
-            ],
-            mat::HELIUM,
+        ));
+        // TECDOC zone 0: between the cone and r = 90 cm, from the conus top to
+        // the conus floor (Fig. 4.10) -- the bottom reflector with its hot
+        // helium borings, whose geometry the source does not give.
+        cells.push(Cell::material(
+            2,
+            Rgn::ins(7)
+                .and(Rgn::out(17))
+                .and(Rgn::ins(8))
+                .and(Rgn::out(18))
+                .0,
+            zone_material(0),
             293.6,
-        ),
-        // 2: BORONATED CARBON BRICKS -- the outermost reflector annulus,
-        // 167.793 -> 190.0 cm (Terry 2005 Fig. 2). Omitting this is what made
-        // the reflector optimistic.
-        Cell::material(
-            3,
-            vec![
-                ins(10),
-                out(13),
-                RegionToken::Intersection,
-                out(11),
-                RegionToken::Intersection,
-                ins(12),
-                RegionToken::Intersection,
-            ],
-            mat::BORONATED,
-            293.6,
-        ),
+        ));
+        if !explicit_tube {
+            // ABLATION: the smeared discharge tube, conus floor to model bottom.
+            cells.push(Cell::material(
+                17,
+                Rgn::ins(21).and(Rgn::ins(18)).and(Rgn::out(11)).0,
+                mat::HOMOG_DUMMY,
+                293.6,
+            ));
+        }
+    }
+    let n_root_fixed = cells.len();
+    let triso_first = cells.len();
+    cells.extend([
         // 7..12: the TRISO particle's shells, then matrix beyond it
         // (universe TRISO_PARTICLE_UNIVERSE)
         Cell::material(8, vec![ins(0)], mat::KERNEL, 293.6),
@@ -1354,8 +1384,7 @@ pub fn assemble_explicit_triso(
         // tile completely with one material.
         Cell::material(14, vec![out(4)], mat::GRAPHITE, 293.6),
         Cell::material(15, vec![ins(4)], mat::GRAPHITE, 293.6),
-    ];
-
+    ]);
 
     // FUEL / DUMMY IDENTITY IS PER BALL (gh:#309 step 2).
     //
@@ -1377,10 +1406,12 @@ pub fn assemble_explicit_triso(
     } else {
         FuelAssignment::Paper
     };
-    // AXIAL EXTENT: the lattice reaches below the conus floor and above the
-    // bed top; `TwoBallBed` places its faces on the A layers (anchored at the
-    // bed floor) and its centre accordingly. `n_axial` stays the fuel LOADING
-    // HEIGHT. Levels outside the bed cell's region are never reached.
+    // AXIAL EXTENT: the lattice reaches below the conus floor -- to the model
+    // bottom, through the discharge tube, when the tube holds explicit balls --
+    // and above the bed top; `TwoBallBed` places its faces on the A layers
+    // (anchored at the bed floor) and its centre accordingly. `n_axial` stays
+    // the fuel LOADING HEIGHT. Levels outside the bed cell's region are never
+    // reached.
     //
     // The lattice centre is NOT z = 0 any more, and that is deliberate, not
     // the old "bottom-referenced centre" defect (which put the lattice 58.79 cm
@@ -1388,59 +1419,69 @@ pub fn assemble_explicit_triso(
     // the true mid-height of the stack `TwoBallBed` laid out, and
     // `the_built_bed_matches_the_two_ball_description` checks every tile centre
     // of the built lattice against it.
-    let bed = TwoBallBed::new(
+    let bed = TwoBallBed::new_with_tube(
         cell,
         n_rings,
         n_axial,
         HTR10_CONUS_HEIGHT_CM,
         bed_radius,
+        explicit_tube.then_some(DischargeTube {
+            radius: HTR10_DISCHARGE_TUBE_RADIUS_CM,
+            depth: HTR10_BOTTOM_REFLECTOR_CM,
+        }),
         assignment,
     );
     debug_assert!((bed.bed_top - bed_half_height).abs() < 1e-9);
 
-    // One universe per fuel mask in use (bit i = ball site i fuelled). Up to
-    // 2^5 = 32; the all-dummy variant is always built, as the lattice `outer`.
+    // One universe per (fuel mask, presence mask) in use: bit i = ball site i
+    // fuelled / present. A rejected ball (Li's rule, `DischargeTube`) is simply
+    // absent from its tiles, and its space is helium. The all-dummy,
+    // all-present variant is always built, as the lattice `outer`.
     let nr = n_rings as i32;
-    let mut mask_universe: [Option<usize>; 32] = [None; 32];
-    let mut masks_used: Vec<u8> = vec![0];
-    let mut tile_masks: Vec<(i32, i32, i32, u8)> = Vec::new();
+    const ALL_PRESENT: u8 = 0b1_1111;
+    let mut keys_used: Vec<(u8, u8)> = vec![(0, ALL_PRESENT)];
+    let mut tile_keys: Vec<(i32, i32, i32, (u8, u8))> = Vec::new();
     for level in 0..bed.n_levels as i32 {
         for a in -(nr - 1)..=(nr - 1) {
             for b in -(nr - 1)..=(nr - 1) {
                 if hex_ring(a, b) > n_rings - 1 {
                     continue;
                 }
-                let m = bed.tile_mask(a, b, level);
-                if !masks_used.contains(&m) {
-                    masks_used.push(m);
+                let key = (bed.tile_mask(a, b, level), bed.tile_present_mask(a, b, level));
+                if !keys_used.contains(&key) {
+                    keys_used.push(key);
                 }
-                tile_masks.push((a, b, level, m));
+                tile_keys.push((a, b, level, key));
             }
         }
     }
-    masks_used.sort_unstable();
+    keys_used.sort_unstable();
     let mut universes = vec![
-        // Root order: bed, graphite reflector, bored control-rod band,
-        // discharge tube, cavity, coolant annulus, boronated bricks.
         Universe {
             id: 0,
-            cell_indices: vec![0, 1, 2, 3, 4, 5, 6],
+            cell_indices: (0..n_root_fixed).collect(),
         },
         Universe {
             id: TRISO_PARTICLE_UNIVERSE as i32,
-            cell_indices: vec![7, 8, 9, 10, 11, 12],
+            cell_indices: (triso_first..triso_first + 6).collect(),
         },
         Universe {
             id: TRISO_MATRIX_UNIVERSE as i32,
-            cell_indices: vec![13, 14],
+            cell_indices: vec![triso_first + 6, triso_first + 7],
         },
     ];
-    for &m in &masks_used {
+    let mut key_universe: std::collections::BTreeMap<(u8, u8), usize> =
+        std::collections::BTreeMap::new();
+    assert!(keys_used.len() < 1000, "tile cell ids hold at most 1000 variants");
+    for (v, &(m, p)) in keys_used.iter().enumerate() {
         let u = universes.len();
-        let base = 10 * i32::from(m);
+        let base = 10 * v as i32;
         let mut idx = Vec::new();
-        let mut helium_region = Vec::new();
+        let mut helium_region: Option<Rgn> = None;
         for (i, &site) in BallSite::ALL.iter().enumerate() {
+            if p & (1 << i) == 0 {
+                continue; // rejected: no ball here, its space is helium
+            }
             let (fz, pb) = site_surfaces[i];
             let [x, y, z] = cell.site_centre(site);
             let id = base + i as i32;
@@ -1464,25 +1505,33 @@ pub fn assemble_explicit_triso(
                     293.6,
                 ));
             }
-            helium_region.push(out(pb));
-            if i > 0 {
-                helium_region.push(RegionToken::Intersection);
+            helium_region = Some(match helium_region {
+                None => Rgn::out(pb),
+                Some(r) => r.and(Rgn::out(pb)),
+            });
+        }
+        match helium_region {
+            Some(r) => {
+                idx.push(cells.len());
+                cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+            }
+            None => {
+                // Every ball of the tile rejected: all helium. Two cells,
+                // because an empty region is FALSE (see the TRISO matrix).
+                let (_, pb) = site_surfaces[0];
+                for r in [Rgn::ins(pb), Rgn::out(pb)] {
+                    idx.push(cells.len());
+                    cells.push(Cell::material(TILE_HELIUM_CELL_ID + base, r.0, mat::HELIUM, 293.6));
+                }
             }
         }
-        idx.push(cells.len());
-        cells.push(Cell::material(
-            TILE_HELIUM_CELL_ID + base,
-            helium_region,
-            mat::HELIUM,
-            293.6,
-        ));
-        mask_universe[m as usize] = Some(u);
+        key_universe.insert((m, p), u);
         universes.push(Universe {
             id: u as i32,
             cell_indices: idx,
         });
     }
-    let outer_universe = mask_universe[0].expect("the all-dummy variant is always built");
+    let outer_universe = key_universe[&(0, ALL_PRESENT)];
 
     // Placeholder levels in `from_rings_3d`'s ring layout (it validates the ring
     // sizes), then every tile's universe written by its (a, b, level) index, so
@@ -1509,14 +1558,35 @@ pub fn assemble_explicit_triso(
             Some(outer_universe)
         },
     );
-    for &(a, b, level, m) in &tile_masks {
+    for &(a, b, level, key) in &tile_keys {
         let i = [a + nr - 1, b + nr - 1, level];
         debug_assert!(bed_lattice.are_valid_indices(i));
         let flat = bed_lattice.flat_index(i);
-        bed_lattice.universes[flat] =
-            mask_universe[m as usize].expect("every used mask has a universe") as i32;
+        bed_lattice.universes[flat] = key_universe[&key] as i32;
     }
-    let tiles = tile_masks.len();
+    let tiles = tile_keys.len();
+
+    // THE REFLECTOR, explicit: every boring at its own position in solid
+    // graphite, inside TECDOC Fig. 4.10's zone map. See
+    // `super::reflector_geometry` for the specification and what it leaves
+    // open.
+    if has_refl {
+        let refl_root = build_reflector(
+            &mut surfaces,
+            &mut cells,
+            &mut universes,
+            ReflectorFrame { refl_top },
+            ReflectorOptions { withdrawn_rods },
+            ReflectorMaterials {
+                helium: mat::HELIUM,
+                b4c: mat::ROD_B4C,
+                steel: mat::ROD_STEEL,
+                iron: mat::ROD_IRON,
+            },
+            zone_material,
+        );
+        universes[0].cell_indices.extend(refl_root);
+    }
 
     let (tp, tm) = (TRISO_PARTICLE_UNIVERSE, TRISO_MATRIX_UNIVERSE);
     let triso_lattice = RectLattice {
@@ -1588,17 +1658,22 @@ pub const TRISO_PARTICLE_UNIVERSE: usize = 1;
 pub const TRISO_MATRIX_UNIVERSE: usize = 2;
 
 /// Cell-id bases of the pebble cells inside a bed tile universe of
-/// [`assemble_explicit_triso`]. A tile cell's id is `base + 10*mask + site`
-/// (`site` the index in [`BallSite::ALL`], `mask` the tile's 5-bit fuel mask),
-/// or `base + 10*mask` for the helium cell. Read back with
-/// [`tile_cell_role`].
-pub const TILE_FUEL_ZONE_CELL_ID: i32 = 1000;
+/// [`assemble_explicit_triso`]. A tile cell's id is `base + 10*v + site`
+/// (`site` the index in [`BallSite::ALL`], `v` the ordinal of the tile's
+/// universe variant -- its (fuel mask, presence mask) pair, see
+/// `TwoBallBed::tile_present_mask`), or `base + 10*v` for the helium cell.
+/// Read back with [`tile_cell_role`].
+///
+/// ~~`base + 10*mask`, bases 1000-4000~~ **CHANGED 2026-09-25**: a variant
+/// is now a pair of 5-bit masks (up to 1024 combinations), so the bases moved
+/// to 10 000-40 000 and `v` counts the variants actually built.
+pub const TILE_FUEL_ZONE_CELL_ID: i32 = 10_000;
 /// See [`TILE_FUEL_ZONE_CELL_ID`].
-pub const TILE_FUEL_SHELL_CELL_ID: i32 = 2000;
+pub const TILE_FUEL_SHELL_CELL_ID: i32 = 20_000;
 /// See [`TILE_FUEL_ZONE_CELL_ID`].
-pub const TILE_DUMMY_BALL_CELL_ID: i32 = 3000;
+pub const TILE_DUMMY_BALL_CELL_ID: i32 = 30_000;
 /// See [`TILE_FUEL_ZONE_CELL_ID`].
-pub const TILE_HELIUM_CELL_ID: i32 = 4000;
+pub const TILE_HELIUM_CELL_ID: i32 = 40_000;
 
 /// What a cell of a bed tile universe is: which kind of pebble a point in it
 /// belongs to. Lets a sampler measure the realised fuel-BALL fraction from the
@@ -1618,7 +1693,7 @@ pub enum TileCellRole {
 /// The role of a bed-tile cell from its id, or `None` for any other cell.
 #[must_use]
 pub fn tile_cell_role(cell_id: i32) -> Option<TileCellRole> {
-    match cell_id.div_euclid(1000) {
+    match cell_id.div_euclid(10_000) {
         1 => Some(TileCellRole::FuelZone),
         2 => Some(TileCellRole::FuelShell),
         3 => Some(TileCellRole::DummyBall),
