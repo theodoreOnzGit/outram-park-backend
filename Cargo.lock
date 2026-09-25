@@ -2246,6 +2246,11 @@ dependencies = [
 [[package]]
 name = "dover"
 version = "0.1.0"
+dependencies = [
+ "outram-park-fork-dwsim-libs",
+ "serde",
+ "toml",
+]
 
 [[package]]
 name = "downcast-rs"

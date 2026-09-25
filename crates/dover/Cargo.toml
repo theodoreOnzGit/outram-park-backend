@@ -4,16 +4,21 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "DOVER (Deck-based Open-source Visualisation Engine for Reactors). Empty skeleton: the scope is not yet decided and nothing is implemented."
+description = "DOVER (Deck-based Open-source Visualisation Engine for Reactors) — low-fidelity reactor models driven by TOML input decks, headless. First case: steam methane reforming in a CSTR."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
 
-# NO DEPENDENCIES, deliberately. DOVER's scope has not been decided (created
-# 2026-09-25 as an empty skeleton at the maintainer's direction). A dependency
-# would be an architectural claim made before any code exists to justify it,
-# and an unused one is not free: it enters the lock file and every downstream
-# build graph. Add one when something here actually calls into it, with the
-# version taken from the root [workspace.dependencies] (`<dep>.workspace = true`).
+# Dependencies arrive only when code here calls into them (the crate rule from
+# when this was an empty skeleton still holds). Each of these is called.
+#
+# All three are pure Rust with no system BLAS, C toolchain or windowing stack,
+# so the library stays Android- and wasm-buildable per the workspace rules.
 [dependencies]
+# The reactor stack DOVER composes: Cstr, Reaction, EquilibriumConstant,
+# ReactorFeed/Outcome. Reused rather than reimplemented -- see src/lib.rs.
+outram-park-fork-dwsim-libs = { workspace = true }
+# The deck is a typed, validated document; serde derives it and toml parses it.
+serde = { workspace = true }
+toml = { workspace = true }

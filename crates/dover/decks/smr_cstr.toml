@@ -1,0 +1,65 @@
+# DOVER input deck — steam methane reforming in a CSTR.
+#
+# Run it:
+#   cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
+#
+# Everything thermodynamic is DERIVED from the species table in
+# `src/species.rs`. The only fitted numbers in this file are the two
+# `a_forward` / `e_forward_j_mol` pairs -- see the model-hierarchy note in
+# `src/smr.rs`.
+#
+# UNTRUSTED AI-ASSISTED DRAFT, no human V&V. Education / research / V&V only.
+
+schema_version = 1
+
+[case]
+name = "smr-base"
+
+[reactor]
+kind = "cstr"
+# A 2 m3 tank at conditions in the range industrial primary reformers run:
+# 850 C and 20 bar. The model is isothermal, so this is the whole reactor
+# temperature, not an inlet -- a real reformer's gas cools as it reacts.
+volume_m3 = 2.0
+temperature_k = 1123.15
+pressure_pa = 2.0e6
+
+[feed]
+methane_mol_s = 1.0
+# S/C = 3.0, in the industrial 2.5-3.5 band used to suppress carbon laydown.
+# This model has no carbon chemistry, so a lower value here would be
+# optimistic rather than visibly wrong.
+steam_to_carbon = 3.0
+
+# ---------------------------------------------------------------------------
+# The ONLY fitted inputs in the model.
+#
+# These are NOT the Xu-Froment (1989) constants, which are deliberately not
+# embedded: they are fitted to one specific Ni/MgAl2O4 catalyst, and the
+# workspace requires any document informing the code to be catalogued in
+# kovan-literature first -- which has not been done (see src/species.rs).
+#
+# What is here instead is an order-of-magnitude choice that puts the reactor
+# in a kinetically-interesting regime at the conditions above: fast enough to
+# show real conversion, slow enough that it is not simply sitting at
+# equilibrium. Treat them as a placeholder for a catalogued kinetic set, not
+# as a property of any real catalyst.
+# ---------------------------------------------------------------------------
+[kinetics.reforming]
+a_forward = 1.0e7
+e_forward_j_mol = 2.4e5
+
+# ---------------------------------------------------------------------------
+# The water-gas shift is EQUILIBRIUM-LIMITED here, and its pre-exponential is
+# chosen for numerical conditioning, not to reproduce any result. Measured
+# 2026-09-25: methane conversion is 0.41174540 at a_forward = 1e2 and
+# 0.41174800 at 1e6 -- 6e-6 relative -- because the shift sits at equilibrium
+# (Q/Kc = 0.9992 and 1.0000) either way. At 1e6, though, V*rate_shift reaches
+# 1.3e6 mol/s against a 1 mol/s feed and the residual zeta - V*rate becomes
+# unsolvable: the solve then failed for 4 of 13 temperatures and 4 of 6
+# volumes, and max_iter = 100000 fixed none of them. See the "Stiffness"
+# section in src/smr.rs.
+# ---------------------------------------------------------------------------
+[kinetics.water_gas_shift]
+a_forward = 1.0e2
+e_forward_j_mol = 6.7e4

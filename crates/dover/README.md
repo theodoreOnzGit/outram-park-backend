@@ -29,11 +29,12 @@ hierarchical surrogates in `outram-park-digital-twin-engine`'s simulators.
 
 ## Direction: TOML input decks, steady-state and dynamic runs (2026-09-25)
 
-**Maintainer direction, 2026-09-25, stated as tentative ("perhaps"):**
+**Maintainer direction, 2026-09-25, stated as tentative ("perhaps"), and
+**settled the same day** by the first model landing on it (below):**
 
-- **Input decks are perhaps TOML files**, serialised and deserialised by a
+- **Input decks are TOML files**, serialised and deserialised by a
   reader against a **schema**, so a deck is a validated, typed document rather
-  than free text.
+  than free text. `schema_version = 1`; unknown keys are rejected, not ignored.
 - DOVER runs **steady-state** simulations, **like DWSIM** (a flowsheet solved
   to steady state), and **dynamic** simulations as well.
 
@@ -53,14 +54,71 @@ hierarchical surrogates in `outram-park-digital-twin-engine`'s simulators.
 Not decided: the schema's form and versioning, which models a deck may name,
 and whether DOVER has a windowing GUI.
 
-## Status: empty skeleton
+## Status
 
-This crate was created on 2026-09-25 at the maintainer's direction as an
-**empty skeleton**. ~~The scope is still to be decided.~~ **CORRECTED
-2026-09-25**: the role is set (above), and the details are open. Nothing is
-implemented: there is no deck format, no visualisation engine, no physics, no
-public API and no dependency. Do not describe this crate as providing anything until code has
-actually been written here.
+Created 2026-09-25 as an **empty skeleton**. ~~Nothing is implemented: there is
+no deck format, no visualisation engine, no physics, no public API and no
+dependency.~~ **CORRECTED 2026-09-25** — one model has landed, below. There is
+still no visualisation engine and no GUI.
+
+## First model: steam methane reforming in a CSTR (2026-09-25)
+
+**Maintainer direction: "draft me a steam methane reforming CSTR in Dover,
+headless."** Two independent reactions in a perfectly-mixed tank at steady
+state:
+
+$$\text{CH}_4 + \text{H}_2\text{O} \rightleftharpoons \text{CO} + 3\,\text{H}_2 \quad (\text{reforming, strongly endothermic})$$
+
+$$\text{CO} + \text{H}_2\text{O} \rightleftharpoons \text{CO}_2 + \text{H}_2 \quad (\text{water-gas shift, mildly exothermic})$$
+
+The reactor itself is `outram-park-fork-dwsim-libs`' `Cstr` — DOVER supplies the
+chemistry and the deck and does not reimplement a reactor.
+
+**What is derived and what is fitted.** Everything thermodynamic is summed from
+a five-species formation table: $\Delta H^\circ$, $\Delta S^\circ$, the
+equilibrium constants by van 't Hoff, and the reverse rate constants, which are
+forced to satisfy $k_f/k_r = K_c$ rather than supplied. The **only** fitted
+inputs are the two forward Arrhenius pairs, and they come from the deck. So the
+equilibrium limit of this reactor is pure thermodynamics, independent of the
+kinetics — which is exactly what
+`long_residence_time_approaches_thermodynamic_equilibrium` measures.
+
+### Run it
+
+```bash
+cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_cstr.toml
+cargo run --release -p dover --example smr_cstr -- crates/dover/decks/smr_temperature_sweep.toml
+```
+
+Output is CSV on stdout with a stable header and fixed precision; the committed
+fixtures in `tests/fixtures/` are regression-checked. There is no GUI and no
+window — DOVER is headless by construction here.
+
+### What it produces
+
+Base deck (2 m³, 1123.15 K, 20 bar, steam-to-carbon 3, $\tau = 107$ s):
+methane conversion **0.4117**, **1.428** mol H₂ per mol CH₄, duty **76.8 kW**.
+
+### ⚠️ Not validated, and the kinetics are placeholders
+
+The tests are **verification only** — atom balances, thermodynamic consistency,
+the equilibrium limit, trend directions. **Not one compares against an
+experiment or a published reformer.** Specifically:
+
+- **No published kinetic parameter set is embedded.** The Xu–Froment (1989)
+  Langmuir–Hinshelwood constants are the usual choice and are deliberately not
+  typed in, because the workspace requires any document informing the code to be
+  catalogued in `kovan-literature` first, and that has not been done. The deck's
+  forward rates are placeholders and are labelled as such in the deck itself.
+- **Isothermal**, with the heat of reaction reported but not fed back into an
+  energy balance. Real reforming is violently endothermic.
+- **Constant volumetric flow**, inherited from the reactor, while reforming
+  takes 2 mol to 4.
+- **Power-law kinetics, no adsorption term**, no catalyst, no diffusion, no
+  pressure drop, no carbon formation.
+- The formation data itself still needs cataloguing in `kovan-literature`.
+
+Do not quote a number out of this as a property of any real reactor.
 
 ## Build and test
 
@@ -68,8 +126,6 @@ actually been written here.
 cargo build --release -p dover
 cargo test  --release -p dover --lib --tests
 ```
-
-The only test asserts that the crate builds and links.
 
 ## Bookkeeping status
 

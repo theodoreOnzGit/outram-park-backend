@@ -48,20 +48,77 @@ hierarchical, physics-derived surrogates, run uncalibrated first.
 Not decided: the schema's form and versioning, which models a deck may name,
 and whether DOVER has a windowing GUI.
 
-## What this crate is now: an EMPTY SKELETON
+## First model: a steam-methane-reforming CSTR, headless (2026-09-25)
 
-Created 2026-09-25 at the maintainer's direction ("empty skeleton").
-~~The scope is deliberately undecided.~~ **CORRECTED 2026-09-25**: the role is
-set (above), and the details are still open. The crate has no dependencies, no
-public items and no behaviour; `src/lib.rs` holds only the crate doc and one
-build-and-link test.
+**Maintainer direction, 2026-09-25: "draft me a steam methane reforming CSTR in
+Dover, headless."** This is the crate's first physics, and it fixes the deck
+direction above from "perhaps TOML" to TOML in fact.
 
-## Hard rules for this crate, while it is a skeleton
+What landed:
 
-- **Do not infer the details from the name or the role.** No deck format,
-  visualisation engine, physics or API is to be invented here until the
-  maintainer decides them. Record each decision and its date here and in the
-  README.
+- `species` — five-species formation data (CH4, H2O(g), CO, CO2, H2). **The
+  NIST-JANAF cataloguing into `kovan-literature` that the workspace hard rule
+  requires is OUTSTANDING**: this container has no path to fetch the source.
+  Recorded in that module, not glossed over.
+- `smr` — two independent reactions (reforming + water-gas shift), `ΔH°`/`ΔS°`
+  summed from the species table, `K(T)` by van 't Hoff, reverse rates forced
+  to satisfy `k_f/k_r = Kc`. The only fitted inputs are the deck's forward
+  Arrhenius pairs.
+- `deck` — TOML in, validated and typed, `deny_unknown_fields`, schema
+  version 1.
+- `headless` — deterministic CSV, stable header, committed fixtures under
+  `tests/fixtures/`.
+
+**Reuse, per the search-before-building rule:** the reactor itself is
+`outram-park-fork-dwsim-libs`' `Cstr`, not a new one. DOVER supplies the
+chemistry and the deck; it does not reimplement a reactor.
+
+### Three findings worth carrying forward
+
+1. **`Kp` is not `Kc`.** `ΔG°` gives `Kp`; `Cstr`'s rate law works in
+   concentrations. For reforming `Δn = +2`, so the factor is `(RT/P°)² ≈ 115`
+   at 1123 K. Getting this wrong still converges and still returns a
+   plausible-looking number — it moved methane conversion from 0.197 to 0.412.
+2. **`dwsim-libs` carries two different gas constants.** `reactions::R_GAS` is
+   the truncated `8.314` DWSIM upstream uses; the thermo modules use full
+   CODATA. At `E = 240 kJ/mol` and 700 K the 5.6e-5 difference in `R` becomes
+   2e-3 in `k`. `smr::R_KINETIC` re-exports the one the rate law actually uses.
+3. **A fabricated rate constant made the system unsolvable, and it looked like
+   a solver bug.** See the "Stiffness" section in `src/smr.rs` for the full
+   measurement. Short version: the shift is equilibrium-limited, so its
+   pre-exponential does not change the answer (0.41174540 at `1e2` vs
+   0.41174800 at `1e6`) but does change whether the residual `ζ − V·rate` is
+   solvable at all. Reverting to a conditioned value was the fix; raising
+   `max_iter` to 100 000 was not.
+
+### Open against `outram-park-fork-dwsim-libs` (not fixed here)
+
+`Cstr::solve`'s damped Newton, on a step that no damping improves, **takes the
+full step anyway** — unbounded, so it can drive a molar flow negative into the
+`f.max(0.0)` clamp where the finite-difference Jacobian carries no information.
+Upstream bounds its own step to consuming at most 80 % of any compound present
+(`CSTR.vb:878-886`); the port did not carry that limit across. A prototype of
+the limit was written and measured, and **reverted**: on the badly-posed system
+it made convergence *worse*, and changing a mature crate's numerics on the
+strength of a case that turned out to be DOVER's own modelling error is not
+justified. Reported for the maintainer rather than patched from here.
+
+## Maturity of this model
+
+**Not mature, and not validated.** Every test in `tests/smr_cstr.rs` is
+*verification* — atom balances, thermodynamic consistency of the rate law, the
+equilibrium limit, trend directions. **Not one compares against an experiment
+or a published reformer.** The kinetics are placeholders with no literature
+provenance, the model is isothermal, the volumetric flow is held constant while
+reforming doubles the mole count, and there is no adsorption term. Do not quote
+a number out of it as a property of any real reactor.
+
+## Hard rules for this crate
+
+- **Do not infer the details from the name or the role.** Beyond the SMR CSTR
+  above, no further deck format, visualisation engine, physics or API is to be
+  invented here until the maintainer decides them. Record each decision and its
+  date here and in the README.
 - **No placeholder modules, no stubbed API, no TODO physics.** An empty crate
   is honest; a stub that looks like a capability is not.
 - **Search the workspace before building anything** (root `CLAUDE.md` hard
@@ -77,11 +134,11 @@ build-and-link test.
 
 ## Maturity
 
-**Not declared mature**, and has nothing to be mature about. No V&V exists
-because nothing is implemented. Proposing maturity is allowed once there is
-something to assess; declaring it is the maintainer's call alone.
+**Not declared mature.** See "Maturity of this model" above for what exists and
+what it does not establish. Proposing maturity is allowed; declaring it is the
+maintainer's call alone.
 
 ## API mirror
 
-There is deliberately no `docs/dover-api.md`: the crate has no public API to
-mirror. Generate one with `kovan-cli api-docs dover` once public items exist.
+`docs/dover-api.md` has not been generated yet. Run `kovan-cli api-docs dover`
+(not `kovan`, which is the GUI) now that public items exist.
