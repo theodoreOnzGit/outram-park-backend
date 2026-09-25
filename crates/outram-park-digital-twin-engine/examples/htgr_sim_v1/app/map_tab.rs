@@ -648,11 +648,30 @@ mod tests {
             four_decades, far_below,
             "beyond four decades the scale must clamp, not keep darkening"
         );
-        // Degenerate inputs must not panic or produce a bright receptor.
-        let floor = Color32::from_gray(45);
-        assert_eq!(log_shade(0.0, peak), floor);
-        assert_eq!(log_shade(-1.0, peak), floor);
-        assert_eq!(log_shade(peak, 0.0), floor);
+        // Degenerate inputs must not panic, must all land on the SAME floor,
+        // and that floor must RECEDE against the map's white ground.
+        //
+        // ~~`let floor = Color32::from_gray(45);`~~ **CORRECTED 2026-09-25.**
+        // This test asserted the near-black floor that belonged to the dark
+        // canvas, and `log_shade` has returned `from_gray(225)` since the
+        // ground went white on 2026-09-24 -- so the test had been failing
+        // ever since, asserting a colour the function could no longer return.
+        // It is now written against the *contract* (one floor, and a light
+        // one) rather than against a grey level restated in two places, so
+        // the next background change cannot silently break it again.
+        let floor = log_shade(0.0, peak);
+        assert_eq!(log_shade(-1.0, peak), floor, "a negative must hit the floor");
+        assert_eq!(log_shade(peak, 0.0), floor, "a zero peak must hit the floor");
+        assert_ne!(floor, at_peak, "the floor must not be the peak colour");
+        // "Light" is the load-bearing half: on a white map the no-value cells
+        // are most of the picture, and a dark floor would make the quiet
+        // sectors the hardest thing to see -- which is backwards, since a
+        // quiet sector is the reassuring result.
+        let (r, g, b) = (floor.r() as u16, floor.g() as u16, floor.b() as u16);
+        assert!(
+            (r + g + b) / 3 >= 200,
+            "the floor must recede on a white ground; got rgb({r}, {g}, {b})"
+        );
     }
 
     /// The downwind filter must select the half-plane the plume is actually
