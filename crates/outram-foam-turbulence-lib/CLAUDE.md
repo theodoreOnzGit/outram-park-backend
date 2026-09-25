@@ -1,5 +1,14 @@
 # CLAUDE.md — outram-foam-turbulence-lib
 
+> **HARD RULE — draw reactor geometry for a human (2026-09-25).** Whenever you
+> build or change a complex reactor geometry or mesh in this crate, render the
+> ASSEMBLED geometry as images (PNG/JPG/SVG) — an axial slice, radial slices at
+> the heights that matter, and zoomed slices at every nested level — commit
+> them with the change and point the human at them before reporting results as
+> more than tentative. Full rule: the workspace
+> [`CLAUDE.md`](../../CLAUDE.md), "Reactor geometry is DRAWN for a human to
+> check before it is trusted".
+
 Pure-Rust port of the OpenFOAM turbulence model library (RAS and LES).
 This crate sits **between** `outram-foam-basic-lib` (Layer 1–3 primitives + FV
 operators) and `outram-foam-appbuilder-lib` (solver loops + I/O).

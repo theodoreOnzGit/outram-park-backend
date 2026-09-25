@@ -1,5 +1,14 @@
 # CLAUDE.md — raffles
 
+> **HARD RULE — draw reactor geometry for a human (2026-09-25).** Whenever you
+> build or change a complex reactor geometry or mesh in this crate, render the
+> ASSEMBLED geometry as images (PNG/JPG/SVG) — an axial slice, radial slices at
+> the heights that matter, and zoomed slices at every nested level — commit
+> them with the change and point the human at them before reporting results as
+> more than tentative. Full rule: the workspace
+> [`CLAUDE.md`](../../CLAUDE.md), "Reactor geometry is DRAWN for a human to
+> check before it is trusted".
+
 Crate-specific guidance for Claude Code and other AI assistants working in
 `crates/raffles`. The workspace-root `CLAUDE.md` still binds in full — this
 file adds to it, and relaxes nothing.

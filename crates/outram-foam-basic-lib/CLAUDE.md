@@ -1,5 +1,14 @@
 # CLAUDE.md — outram-foam-basic-lib
 
+> **HARD RULE — draw reactor geometry for a human (2026-09-25).** Whenever you
+> build or change a complex reactor geometry or mesh in this crate, render the
+> ASSEMBLED geometry as images (PNG/JPG/SVG) — an axial slice, radial slices at
+> the heights that matter, and zoomed slices at every nested level — commit
+> them with the change and point the human at them before reporting results as
+> more than tentative. Full rule: the workspace
+> [`CLAUDE.md`](../../CLAUDE.md), "Reactor geometry is DRAWN for a human to
+> check before it is trusted".
+
 This crate is a pure-Rust translation of the OpenFOAM C++ primitive and
 finite-volume library layer, scoped to the primitives needed to implement
 compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
