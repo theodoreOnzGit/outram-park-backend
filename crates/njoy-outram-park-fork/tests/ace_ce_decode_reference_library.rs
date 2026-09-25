@@ -277,6 +277,19 @@ fn every_secondary_law_in_the_reference_library_decodes() {
                         assert!(rows.iter().all(|r| r.cosines.is_some()), "LAW=61 without cosines");
                     }
                 }
+                // The three actinides carry only laws 3, 4, 44 and 61 — the
+                // census this file was written around. The decoder reads seven
+                // more (GitHub #307 item 3), so this arm is not "unreachable",
+                // it is a statement about *these tables*: if a regenerated
+                // reference library ever carries one, the census in
+                // `ce_laws`'s module doc is out of date and this says so
+                // instead of quietly passing.
+                other => panic!(
+                    "{name} MT={}: law {} is not in the actinide census (3/4/44/61) — \
+                     update the census in acer::ce_laws' module doc",
+                    d.reactions[i].mt,
+                    other.code()
+                ),
             }
         }
         println!("{name}: {nr} laws decoded ({n_law3} LAW=3, {n_tab} tabulated)");

@@ -16,6 +16,20 @@
 //! | DLW LAW=4 | `openmc/data/energy_distribution.py::ContinuousTabular.from_ace` |
 //! | DLW LAW=44 | `openmc/data/kalbach_mann.py::KalbachMann.from_ace` |
 //! | DLW LAW=61 | `openmc/data/correlated.py::CorrelatedAngleEnergy.from_ace` |
+//! | DLW LAW=2 | `openmc/data/energy_distribution.py::DiscretePhoton.from_ace` |
+//! | DLW LAW=3, 33 | `openmc/data/energy_distribution.py::LevelInelastic.from_ace` |
+//! | DLW LAW=7 | `openmc/data/energy_distribution.py::MaxwellEnergy.from_ace` |
+//! | DLW LAW=9 | `openmc/data/energy_distribution.py::Evaporation.from_ace` |
+//! | DLW LAW=11 | `openmc/data/energy_distribution.py::WattEnergy.from_ace` |
+//! | DLW LAW=66 | `openmc/data/nbody.py::NBodyPhaseSpace.from_ace` |
+//! | the `LNW` chain | `openmc/data/reaction.py:1082-1092` |
+//!
+//! The dispatch those rows hang off is `angle_energy.py::AngleEnergy.from_ace`,
+//! which accepts exactly `{2, 3, 33, 4, 5, 7, 9, 11, 44, 61, 66}` and raises on
+//! anything else. **LAW=5's own `from_ace` then raises `NotImplementedError`**
+//! (`energy_distribution.py:192-194`), so upstream dispatches law 5 and cannot
+//! read it; this module refuses it too, and says so in the error rather than
+//! implying the gap is ours alone.
 //!
 //! # The three laws share one structure
 //!
@@ -34,11 +48,43 @@
 //! three would have triplicated the discrete-line handling, which is the part
 //! that is easy to get wrong.
 //!
-//! Measured over the whole NJOY2016 reference library in `reference-data/ace`,
-//! these are the **only** neutron laws present: U-235 and U-238 use
-//! `{LAW3: 39, LAW4: 1, LAW61: 4}`, U-234 uses `{LAW3: 40, LAW4: 4, LAW44: 4}`.
-//! LAW=3 is discrete two-body level scattering and carries no tabulated data at
-//! all -- just `Q` and the mass ratio, from which the kinematics are analytic.
+//! Measured over the NJOY2016 reference library in `reference-data/ace`, those
+//! three plus LAW=3 are the only laws the **actinide** tables use: U-235 and
+//! U-238 use `{LAW3: 39, LAW4: 1, LAW61: 4}`, U-234 `{LAW3: 40, LAW4: 4,
+//! LAW44: 4}`, and the delayed-neutron block (DNED) is `{LAW4: 6}` on all
+//! three. LAW=3 is discrete two-body level scattering and carries no tabulated
+//! data at all -- just `Q` and the mass ratio, from which the kinematics are
+//! analytic.
+//!
+//! # ~~Only 3, 4, 44 and 61 occur~~ **CORRECTED 2026-09-25** -- four more do
+//!
+//! That census was true of the actinides it was taken over and was read as
+//! though it were true of ACE. It is not. Running NJOY2016 (the same
+//! `RECONR+ACER` deck, 0 K) over four more tapes already committed in
+//! `reference-data/endf/` produces laws this module used to refuse outright:
+//!
+//! | tape | MT | ACE law | from |
+//! |---|---|---|---|
+//! | H-2 ENDF/B-VIII.0 | 16 | **66** (`n`-body phase space) | MF=6 LAW=6 |
+//! | C-12 ENDF/B-VIII.0 | 28, 91 | **9** (evaporation) | MF=5 LF=9 |
+//! | Na-23 ENDF/B-VIII.0 | 16 | **9** | MF=5 LF=9 |
+//! | Na-23 ENDF/B-VIII.0 | 91 | **9, 9** -- a two-law `LNW` chain | MF=5 LF=9, NK=2 |
+//! | Be-9 ENDF/B-VIII.0 | 16 | 61 | MF=6 **LAW=7** |
+//!
+//! The Be-9 row is the useful negative: its evaluation is MF=6 **LAW=7**
+//! (laboratory angle-energy), the one representation an ACE reader might expect
+//! to meet as law 67 -- and NJOY's ACER does not write law 67, it converts the
+//! section to ACE **law 61**, which this module already read. (This port reads
+//! the ENDF side of that law too, through
+//! [`crate::acer::energy::parse_mf6_law7_lab_angle_energy`] and the conversion
+//! in `ContinuumEmission::from_endf_mf6`; upstream OpenMC reads MF=6 LAW=7 from
+//! ENDF but refuses ACE law 67.) So no held table needs law 67.
+//!
+//! The Na-23 row is the other useful one: `LNW != 0` is not hypothetical.
+//! MT=91 carries two evaporation laws with applicability functions that switch
+//! over at 12 MeV (`p` goes 1 -> 0 on the first, 0 -> 1 on the second), so
+//! refusing the chain refused a common light-nuclide reaction, not an exotic
+//! one.
 //!
 //! # Units
 //!
@@ -51,9 +97,10 @@ use crate::acer::{jxs, nxs};
 use crate::acer::angular::{ElasticAngular, EnergyAngular};
 use crate::acer::ce_decode::EV_PER_MEV;
 use crate::error::NjoyError;
+use crate::endf::records::{Cont, Tab1};
 use crate::nuclear_data::secondary::{
     ChiEout, ChiTabular, ContinuumAngular, ContinuumAngularRow, ContinuumAngularTable,
-    ContinuumKalbachRow, ContinuumKalbachTable, NuBar,
+    ContinuumKalbachRow, ContinuumKalbachTable, FissionSpectrum, NuBar,
 };
 
 fn need(t: &RawAceTable, at: usize, n: usize, what: &str) -> Result<(), NjoyError> {
@@ -103,6 +150,113 @@ pub enum AceEnergyLaw {
         /// ACE's `NR = 0` default of a single lin-lin range.
         incident_interp: Vec<(u32, u32)>,
     },
+    /// **LAW=2** -- a single discrete line.
+    ///
+    /// A *neutron* DLW block does not use it; it is the photon-production
+    /// (DLWP) representation of a discrete gamma, and upstream dispatches it
+    /// from the same `AngleEnergy.from_ace` this module mirrors
+    /// (`angle_energy.py:83-85`). Decoded rather than refused so the two blocks
+    /// can share one reader, and because a two-word law is not where a port
+    /// should draw a line.
+    DiscretePhoton {
+        /// `LP`: `0`/`1` the line sits at [`eg`](Self::DiscretePhoton::eg);
+        /// `2` it is a primary photon at `eg + AWR/(AWR+1) * E`.
+        lp: i32,
+        /// `EG` \[eV\].
+        eg: f64,
+    },
+    /// **LAW=7/9/11** -- an analytic outgoing-energy law whose parameters are
+    /// themselves tabulated against the *incident* energy.
+    ///
+    /// Carried as this crate's [`FissionSpectrum`], which despite the name is
+    /// simply its representation of an ENDF **MF=5** section: ACE law 7/9/11
+    /// and ENDF LF=7/9/11 are the same three laws with the same parameters,
+    /// differing only in that ACE stores MeV. Reusing the type means the
+    /// transport crate's existing exact samplers
+    /// (`sample_maxwell_lf7`/`sample_evaporation_lf9`/`sample_watt_lf11`, each a
+    /// port of the matching OpenMC C++ sampler) apply to the ACE route with no
+    /// second implementation to drift.
+    Analytic {
+        /// The ACE law code (7, 9 or 11), kept so a consumer can report what
+        /// the file said rather than inferring it back from the variant.
+        law: i32,
+        /// The law itself, parameters in eV (and eV^-1 for Watt's `b`).
+        spectrum: FissionSpectrum,
+    },
+    /// **LAW=66** -- `n`-body phase space.
+    ///
+    /// ACE stores only the two numbers ENDF's LAW=6 CONT record carries; the
+    /// shape in `x = E'/E'_max` is *computed*, by ENDF-6 formula 6.21 on the
+    /// grid `acefc.f90`'s `acelf6` uses -- already ported as
+    /// [`crate::acer::energy::law66_shape_table`]. `E'_max(E)` additionally
+    /// needs the reaction `Q` and the target mass, which live in LQR and the
+    /// table header, so the conversion to a tabulated spectrum is
+    /// [`ace_phase_space_chi`] rather than something this variant can do alone.
+    PhaseSpace {
+        /// `NPSX`: the number of particles sharing the phase space (3, 4 or 5).
+        npsx: i32,
+        /// `APSX`: their total mass in neutron masses.
+        apsx: f64,
+    },
+    /// **An `LNW` chain** -- two or more laws for one reaction, each with an
+    /// applicability `p_k(E)` over the incident energy, `sum_k p_k(E) = 1`.
+    ///
+    /// Upstream walks this chain unconditionally (`reaction.py:1082-1092`); this
+    /// port used to refuse it outright, which refused Na-23's MT=91 (two
+    /// evaporation laws switching over at 12 MeV). The `Tab1` is the
+    /// applicability, read from the words that follow the three-word DLW header.
+    Mixture(Vec<(Tab1, AceEnergyLaw)>),
+}
+
+impl AceEnergyLaw {
+    /// The law as an **MF=5-style outgoing-energy spectrum**, when it is one.
+    ///
+    /// `Some` for the analytic laws (7/9/11), for LAW=4 (which is ENDF MF=5
+    /// LF=1 in ACE's layout, and whose cosine is the AND block's, not its own),
+    /// and for a [`Mixture`](Self::Mixture) every member of which converts.
+    ///
+    /// `None` -- deliberately, not as a failure -- for the laws whose angle is
+    /// *correlated with the outgoing energy* (44 and 61) and for those that are
+    /// not a spectrum at all (3, 2, 66). Flattening a correlated law into this
+    /// representation would silently drop the correlation, which is the one
+    /// mistake this method exists to make impossible: a caller that wants those
+    /// must handle the variant.
+    pub fn as_fission_spectrum(&self) -> Option<FissionSpectrum> {
+        match self {
+            Self::Analytic { spectrum, .. } => Some(spectrum.clone()),
+            Self::Tabulated {
+                law: 4,
+                rows,
+                incident_interp,
+            } => Some(FissionSpectrum::ContinuousTabular(
+                to_chi_and_angular(rows, 4, incident_interp).0,
+            )),
+            Self::Mixture(parts) => {
+                let mut out = Vec::with_capacity(parts.len());
+                for (p, law) in parts {
+                    out.push((p.clone(), law.as_fission_spectrum()?));
+                }
+                Some(FissionSpectrum::Mixture(out))
+            }
+            _ => None,
+        }
+    }
+
+    /// The ACE law code, for reporting. A [`Mixture`](Self::Mixture) reports its
+    /// first member's, with the chain length, e.g. `9 (x2)`.
+    pub fn code(&self) -> String {
+        match self {
+            Self::TwoBodyLevel { .. } => "3".into(),
+            Self::Tabulated { law, .. } => law.to_string(),
+            Self::DiscretePhoton { .. } => "2".into(),
+            Self::Analytic { law, .. } => law.to_string(),
+            Self::PhaseSpace { .. } => "66".into(),
+            Self::Mixture(parts) => match parts.first() {
+                Some((_, l)) => format!("{} (x{})", l.code(), parts.len()),
+                None => "empty chain".into(),
+            },
+        }
+    }
 }
 
 /// Read a tabulated cosine distribution (32 equiprobable bins are `intt = 1`
@@ -237,28 +391,79 @@ pub fn decode_energy_law(t: &RawAceTable, i: usize) -> Result<AceEnergyLaw, Njoy
     }
     need(t, (ldlw - 1) as usize + i, 1, "LDLW")?;
     let loc = t.xss[(ldlw - 1) as usize + i] as i64;
-    let base = (dlw - 1) as usize + (loc as usize) - 1;
-    need(t, base, 2, "DLW header")?;
-    let lnw = t.xss[base] as i64;
-    let law = t.xss[base + 1] as i32;
-    let idat = t.xss[base + 2] as i64;
-    if lnw != 0 {
-        // Multiple laws sharing a reaction, chosen by an applicability
-        // probability. Refused rather than silently taking the first: taking
-        // one of two laws over its whole range is a different nuclide.
-        return Err(NjoyError::NotPorted(
-            "ACE DLW with LNW != 0 (multiple competing laws for one reaction)",
-        ));
-    }
-    // Skip the applicability TAB1 (NR, NBT, INT, NE, E, p) that precedes IDAT.
-    let at = (dlw - 1) as usize + (idat as usize) - 1;
+    decode_law_chain(t, (dlw - 1) as usize, loc)
+}
 
+/// Walk an `LNW` chain starting at the DLW-relative locator `loc`, where `ldis`
+/// is the 0-based first word of the distribution block (DLW for neutrons, DNED
+/// for delayed neutrons, DLWP for photons -- the layout is the same).
+///
+/// Each link is `[LNW, LAW, IDAT]`, the applicability `p_k(E)` TAB1 immediately
+/// after it, and the law's own data at the DLW-relative `IDAT`. `LNW` is the
+/// locator of the *next* link, `0` ending the chain -- so a single-law reaction
+/// is a chain of length one, not a special case. Ported from
+/// `openmc/data/reaction.py:1082-1092`, whose `while lnw > 0` loop is the same
+/// walk; the one difference is that upstream keeps the applicability on the
+/// product and this returns it alongside its law, because nothing here owns a
+/// product.
+pub fn decode_law_chain(
+    t: &RawAceTable,
+    ldis: usize,
+    mut loc: i64,
+) -> Result<AceEnergyLaw, NjoyError> {
+    let mut parts: Vec<(Tab1, AceEnergyLaw)> = Vec::new();
+    while loc > 0 {
+        let base = ldis + (loc as usize) - 1;
+        need(t, base, 3, "DLW header")?;
+        let next = t.xss[base] as i64;
+        let law = t.xss[base + 1] as i32;
+        let idat = t.xss[base + 2] as i64;
+        // The applicability TAB1 follows the three-word header; the law's data
+        // starts at IDAT, which is past it. Upstream reads it at
+        // `jxs[11] + lnw + 2`, i.e. exactly here (`reaction.py:1085-1086`).
+        let (applicability, _) = read_tab1_full(t, base + 3, 1.0, "DLW applicability")?;
+        let decoded = decode_one_law(t, ldis, law, idat)?;
+        parts.push((applicability, decoded));
+        if next == loc {
+            return Err(NjoyError::EndfParse(
+                "ACE DLW LNW chain points at itself".into(),
+            ));
+        }
+        loc = next;
+    }
+    match parts.len() {
+        0 => Err(NjoyError::EndfParse(
+            "ACE DLW locator is zero: the reaction emits neutrons but carries no law".into(),
+        )),
+        1 => Ok(parts.pop().expect("length checked").1),
+        _ => Ok(AceEnergyLaw::Mixture(parts)),
+    }
+}
+
+/// Decode one law of a chain. `idat` is the DLW-relative 1-based locator of the
+/// law's own data, as the header's third word gives it.
+fn decode_one_law(
+    t: &RawAceTable,
+    ldis: usize,
+    law: i32,
+    idat: i64,
+) -> Result<AceEnergyLaw, NjoyError> {
+    let at = ldis + (idat as usize) - 1;
     match law {
-        3 => {
+        // LAW=33 is LAW=3 with the same two words; upstream reads them through
+        // the same `LevelInelastic.from_ace` (`angle_energy.py:86-88`).
+        3 | 33 => {
             need(t, at, 2, "LAW=3 data")?;
             Ok(AceEnergyLaw::TwoBodyLevel {
                 ldat1: t.xss[at] * EV_PER_MEV,
                 ldat2: t.xss[at + 1],
+            })
+        }
+        2 => {
+            need(t, at, 2, "LAW=2 data")?;
+            Ok(AceEnergyLaw::DiscretePhoton {
+                lp: t.xss[at] as i32,
+                eg: t.xss[at + 1] * EV_PER_MEV,
             })
         }
         4 | 44 | 61 => {
@@ -267,13 +472,73 @@ pub fn decode_energy_law(t: &RawAceTable, i: usize) -> Result<AceEnergyLaw, Njoy
                 61 => 4,
                 _ => 5,
             };
-            let (rows, incident_interp) =
-                read_tabulated_law(t, at, (dlw - 1) as usize, n_arrays, law)?;
-            Ok(AceEnergyLaw::Tabulated { law, rows, incident_interp })
+            let (rows, incident_interp) = read_tabulated_law(t, at, ldis, n_arrays, law)?;
+            Ok(AceEnergyLaw::Tabulated {
+                law,
+                rows,
+                incident_interp,
+            })
         }
+        7 | 9 => {
+            // theta(E) [MeV -> eV], then the restriction energy U. Upstream
+            // reads U at `idx + 2 + 2*nr + 2*ne`
+            // (`energy_distribution.py:324-326`), which is the word the TAB1
+            // reader stops on.
+            let (theta, next) = read_tab1_full(t, at, EV_PER_MEV, "LAW=7/9 theta(E)")?;
+            need(t, next, 1, "LAW=7/9 restriction energy")?;
+            let u = t.xss[next] * EV_PER_MEV;
+            let spectrum = if law == 7 {
+                FissionSpectrum::Maxwell { theta, u }
+            } else {
+                FissionSpectrum::Evaporation { theta, u }
+            };
+            Ok(AceEnergyLaw::Analytic { law, spectrum })
+        }
+        11 => {
+            // a(E) is an energy [MeV -> eV]; b(E) is an inverse energy, so it
+            // scales by the INVERSE (`energy_distribution.py:601-611`). Scaling
+            // both the same way is the classic error here and it does not fail,
+            // it just hardens the spectrum by 12 orders of magnitude.
+            let (a, next) = read_tab1_full(t, at, EV_PER_MEV, "LAW=11 a(E)")?;
+            let (b, next) = read_tab1_full(t, next, 1.0 / EV_PER_MEV, "LAW=11 b(E)")?;
+            need(t, next, 1, "LAW=11 restriction energy")?;
+            let u = t.xss[next] * EV_PER_MEV;
+            Ok(AceEnergyLaw::Analytic {
+                law,
+                spectrum: FissionSpectrum::WattEnergyDependent { a, b, u },
+            })
+        }
+        66 => {
+            need(t, at, 2, "LAW=66 data")?;
+            Ok(AceEnergyLaw::PhaseSpace {
+                npsx: t.xss[at] as i32,
+                apsx: t.xss[at + 1],
+            })
+        }
+        5 => Err(NjoyError::NotPorted(
+            "ACE DLW LAW=5 (general evaporation). Upstream dispatches it and then \
+             raises NotImplementedError in `GeneralEvaporation.from_ace` \
+             (openmc/data/energy_distribution.py:192-194), and this crate's ENDF \
+             route does not read the identical MF=5 LF=5 either. NJOY2016 does \
+             support LF=5 (groupr.f90:12355, acefc.f90:2251) but linearises the \
+             one place it occurs in reference-data/endf -- the MT=455 delayed \
+             spectra of U-234/235/238 -- into ACE LAW=4, measured as {LAW4: 6} \
+             in every DNED block of the reference library. So no held table \
+             carries law 5 and a reader for it could not be verified against \
+             anything",
+        )),
+        67 => Err(NjoyError::NotPorted(
+            "ACE DLW LAW=67 (laboratory angle-energy). Upstream refuses it too \
+             (`angle_energy.py:113` raises on any law outside {2,3,33,4,5,7,9,11,\
+             44,61,66}). Measured 2026-09-25: NJOY2016's ACER converts the only \
+             held evaluation with the ENDF form this comes from -- Be-9's MF=6 \
+             LAW=7 on MT=16 -- into ACE LAW=61, so no table generated from \
+             reference-data/endf carries law 67",
+        )),
         other => Err(NjoyError::EndfParse(format!(
-            "ACE DLW LAW={other} is not decoded; the NJOY2016 reference library \
-             uses only 3, 4, 44 and 61 on neutron tables"
+            "ACE DLW LAW={other} is not a law upstream reads either; \
+             `AngleEnergy.from_ace` accepts only 2, 3, 33, 4, 5, 7, 9, 11, 44, \
+             61 and 66"
         ))),
     }
 }
@@ -428,8 +693,45 @@ pub(crate) fn read_tab1(
     at: usize,
     what: &str,
 ) -> Result<(Vec<f64>, Vec<f64>, usize), NjoyError> {
+    let (tab, next) = read_tab1_full(t, at, 1.0, what)?;
+    let (x, y) = tab.pairs.iter().copied().unzip();
+    Ok((x, y, next))
+}
+
+/// [`read_tab1`] keeping the record's **interpolation regions**, as the
+/// workspace's [`Tab1`].
+///
+/// `y_scale` multiplies every ordinate: `EV_PER_MEV` for a parameter that is an
+/// energy (Maxwell/evaporation `theta`, Watt `a`), its reciprocal for one that
+/// is an inverse energy (Watt `b`), and `1.0` for a dimensionless one (an
+/// applicability probability, a yield). The abscissae are always incident
+/// energies and always scale from MeV, so that is not a parameter.
+///
+/// # Why the regions matter here and not in [`read_tab1`]
+///
+/// [`read_tab1`] serves the NU block, whose consumer ([`NuBar::at`]) interpolates
+/// lin-lin regardless. The analytic laws' parameters go into a [`Tab1`] the
+/// transport crate evaluates with the full ENDF multi-region rule
+/// (`eval_tab1`), so dropping `(NBT, INT)` here would silently turn a histogram
+/// or log region into a linear one. ACE stores the regions in the same
+/// one-based-breakpoint convention as ENDF, so they are carried across as they
+/// stand.
+pub(crate) fn read_tab1_full(
+    t: &RawAceTable,
+    at: usize,
+    y_scale: f64,
+    what: &str,
+) -> Result<(Tab1, usize), NjoyError> {
     need(t, at, 1, &format!("{what} TAB1 NR"))?;
     let n_regions = t.xss[at] as usize;
+    need(t, at + 1, 2 * n_regions, &format!("{what} TAB1 regions"))?;
+    let mut interp = Vec::with_capacity(n_regions);
+    for r in 0..n_regions {
+        interp.push((
+            t.xss[at + 1 + r] as u32,
+            t.xss[at + 1 + n_regions + r] as u32,
+        ));
+    }
     let j = at + 1 + 2 * n_regions;
     need(t, j, 1, &format!("{what} TAB1 count"))?;
     let n = t.xss[j] as usize;
@@ -439,12 +741,54 @@ pub(crate) fn read_tab1(
         )));
     }
     need(t, j + 1, 2 * n, &format!("{what} TAB1 body"))?;
-    let x: Vec<f64> = t.xss[j + 1..j + 1 + n]
-        .iter()
-        .map(|e| e * EV_PER_MEV)
+    let pairs: Vec<(f64, f64)> = (0..n)
+        .map(|k| (t.xss[j + 1 + k] * EV_PER_MEV, t.xss[j + 1 + n + k] * y_scale))
         .collect();
-    let y = t.xss[j + 1 + n..j + 1 + 2 * n].to_vec();
-    Ok((x, y, j + 1 + 2 * n))
+    let tab = Tab1 {
+        head: Cont {
+            c1: 0.0,
+            c2: 0.0,
+            l1: 0,
+            l2: 0,
+            n1: n_regions as i32,
+            n2: n as i32,
+        },
+        interp,
+        pairs,
+    };
+    Ok((tab, j + 1 + 2 * n))
+}
+
+/// Turn an ACE **LAW=66** (`n`-body phase space) entry into the tabulated
+/// [`ChiTabular`] the transport samplers already consume, over the incident
+/// range `[e_lo, e_hi]` \[eV\].
+///
+/// ACE stores only `NPSX`/`APSX`; the shape in `x = E'/E'_max` comes from
+/// [`crate::acer::energy::law66_shape_table`] (the port of `acefc.f90`'s
+/// `acelf6` grid, so the reader reconstructs the same table the writer would
+/// have emitted), and the scaling from
+/// [`crate::nuclear_data::secondary::phase_space_chi`] -- the same function the
+/// ENDF MF=6 LAW=6 path uses, so the two routes cannot disagree about
+/// `E'_max(E)`.
+///
+/// `q` is the reaction Q-value \[eV\] from LQR and `awr` the target mass ratio
+/// from the table header. `None` when `NPSX` is outside the 3..=5 upstream
+/// supports, or when the range yields fewer than two usable incident points.
+pub fn ace_phase_space_chi(
+    npsx: i32,
+    apsx: f64,
+    awr: f64,
+    q: f64,
+    e_lo: f64,
+    e_hi: f64,
+) -> Option<ChiTabular> {
+    if !(3..=5).contains(&npsx) {
+        return None;
+    }
+    let (x_frac, pdf, cdf) = crate::acer::energy::law66_shape_table(npsx);
+    crate::nuclear_data::secondary::phase_space_chi(
+        &x_frac, &pdf, &cdf, apsx, awr, q, e_lo, e_hi,
+    )
 }
 
 pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {

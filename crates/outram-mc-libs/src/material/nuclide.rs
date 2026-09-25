@@ -23,8 +23,8 @@ use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{
-    ChiEout, ChiTabular, ContinuumBranch, ContinuumEmission, FissionSpectrum, NuBar,
-    UncorrelatedEmission,
+    ChiEout, ChiTabular, ContinuumAngular, ContinuumBranch, ContinuumEmission, FissionSpectrum,
+    NuBar, UncorrelatedEmission,
 };
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
@@ -1396,8 +1396,8 @@ impl Nuclide {
     ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::acer::ce_decode::decode_ce;
         use njoy_outram_park_fork::acer::ce_laws::{
-            decode_angular, decode_energy_law, decode_nu, n_neutron_reactions, to_chi_and_angular,
-            AceEnergyLaw,
+            ace_phase_space_chi, decode_angular, decode_energy_law, decode_nu,
+            n_neutron_reactions, to_chi_and_angular, AceEnergyLaw,
         };
 
         let ace = decode_ce(table)?;
@@ -1482,6 +1482,13 @@ impl Nuclide {
         let mut mt16 = None;
         let mut mt17 = None;
         let mut mt5 = None;
+        // The MF=4 + MF=5 form of the same three reactions. An ACE table can
+        // carry it too: NJOY writes an analytic DLW law (7/9/11) wherever the
+        // evaluation had MF=5 LF=7/9/11 and put the cosine in MF=4 — C-12 and
+        // Na-23 both do (GitHub #307 item 3).
+        let mut uncorr91: Option<UncorrelatedEmission> = None;
+        let mut uncorr16: Option<UncorrelatedEmission> = None;
+        let mut uncorr17: Option<UncorrelatedEmission> = None;
 
         for i in 0..n_rx {
             let Some(rx) = ace.reactions.get(i) else { break };
@@ -1493,38 +1500,126 @@ impl Nuclide {
                     }
                 }
             }
-            let law = decode_energy_law(table, i)?;
-            let AceEnergyLaw::Tabulated { law, rows, incident_interp } = law else {
-                continue; // LAW=3 is analytic two-body; no table to carry
-            };
-            let (chi_tab, angular) = to_chi_and_angular(&rows, law, &incident_interp);
-            if rx.mt == 18 || [19, 20, 21, 38].contains(&rx.mt) {
-                // The first fission law encountered defines chi. With partial
-                // fission the partials share a spectrum in every evaluation
-                // read here; taking the first is upstream's behaviour too.
-                if matches!(chi, FissionSpectrum::Tabulated { .. })
-                    || matches!(chi, FissionSpectrum::Watt { .. })
-                {
-                    chi = FissionSpectrum::ContinuousTabular(chi_tab);
-                } else if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
-                    chi = FissionSpectrum::ContinuousTabular(chi_tab);
-                }
-                continue;
-            }
-            let emission = ContinuumEmission {
-                branches: vec![ContinuumBranch {
-                    spectrum: chi_tab,
-                    yield_pairs: Vec::new(),
-                    angular,
-                }],
-                cm_frame: rx.ty < 0,
-            };
-            match rx.mt {
+            let decoded = decode_energy_law(table, i)?;
+            let is_fission = rx.mt == 18 || [19, 20, 21, 38].contains(&rx.mt);
+            let mut place = |emission: ContinuumEmission| match rx.mt {
                 91 => mt91 = Some(emission),
                 16 => mt16 = Some(emission),
                 17 => mt17 = Some(emission),
                 5 => mt5 = Some(emission),
                 _ => {}
+            };
+            match decoded {
+                // LAW=3 is analytic two-body scattering (the outgoing energy
+                // follows from Q and the mass ratio, the cosine from the AND
+                // block, and `build_inelastic_levels` above already has both);
+                // LAW=2 is a discrete photon line, which this crate does not
+                // transport. Neither carries a neutron spectrum to place.
+                AceEnergyLaw::TwoBodyLevel { .. } | AceEnergyLaw::DiscretePhoton { .. } => {}
+                AceEnergyLaw::Tabulated {
+                    law,
+                    ref rows,
+                    ref incident_interp,
+                } => {
+                    let (chi_tab, angular) = to_chi_and_angular(rows, law, incident_interp);
+                    if is_fission {
+                        // The first fission law encountered defines chi. With
+                        // partial fission the partials share a spectrum in every
+                        // evaluation read here; taking the first is upstream's
+                        // behaviour too.
+                        if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
+                            chi = FissionSpectrum::ContinuousTabular(chi_tab);
+                        }
+                    } else {
+                        place(ContinuumEmission {
+                            branches: vec![ContinuumBranch {
+                                spectrum: chi_tab,
+                                yield_pairs: Vec::new(),
+                                angular,
+                            }],
+                            cm_frame: rx.ty < 0,
+                        });
+                    }
+                }
+                // LAW=66: `n`-body phase space. The shape is rebuilt from NPSX
+                // and scaled by `E'_max(E)`, which needs this reaction's own Q
+                // and the target mass — hence the conversion here rather than in
+                // the decoder. Emission is isotropic in the centre of mass by
+                // construction, which `EvaluatedIsotropic` states as a property
+                // of the law rather than as a missing angular table.
+                AceEnergyLaw::PhaseSpace { npsx, apsx } => {
+                    let e_lo = ace
+                        .energy
+                        .get(rx.threshold_index)
+                        .copied()
+                        .unwrap_or(1.0e-5)
+                        .max(1.0e-5);
+                    let e_hi = ace.energy.last().copied().unwrap_or(2.0e7);
+                    if let Some(spectrum) =
+                        ace_phase_space_chi(npsx, apsx, ace.awr, rx.q_value, e_lo, e_hi)
+                    {
+                        place(ContinuumEmission {
+                            branches: vec![ContinuumBranch {
+                                spectrum,
+                                yield_pairs: Vec::new(),
+                                angular: ContinuumAngular::EvaluatedIsotropic,
+                            }],
+                            cm_frame: rx.ty < 0,
+                        });
+                    }
+                }
+                // LAW=7/9/11, and an LNW chain of them: the same MF=5 laws the
+                // ENDF route reads, so they go into the same uncorrelated slot
+                // and sample through the same exact samplers. The cosine is the
+                // AND block's, drawn independently — which is what the
+                // representation says and what ACER wrote.
+                ref other => {
+                    let Some(spectrum) = other.as_fission_spectrum() else {
+                        // A chain mixing in a correlated law (44/61) or a phase
+                        // space; flattening it here would drop the correlation.
+                        // No held table does this — U-234/235/238's chains are
+                        // length 1 and Na-23's MT=91 is two evaporations — so
+                        // this refuses rather than approximating.
+                        return Err(NjoyError::NotPorted(
+                            "ACE DLW LNW chain mixing a correlated law (44/61) or a phase                              space with another law: sampling it needs a mixture of                              correlated laws, which no representation here carries",
+                        ));
+                    };
+                    if is_fission {
+                        if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
+                            chi = spectrum;
+                        }
+                    } else if [91, 16, 17].contains(&rx.mt) {
+                        // The frame: ACE makes TY negative for a centre-of-mass
+                        // distribution. `UncorrelatedEmission` refuses CM on the
+                        // ENDF route (no held section is CM and the transform
+                        // would be untested), and the ACE route matches it —
+                        // measured 2026-09-25, C-12 MT=28/91 and Na-23 MT=16/91
+                        // are all TY > 0.
+                        if rx.ty >= 0 {
+                            // Multiplicity from the MT, as the ENDF route does
+                            // (`acefc.f90:5857-5866` is where ACER sets TY the
+                            // same way); TY agrees on every held table.
+                            let yield_n = match rx.mt {
+                                16 => 2,
+                                17 => 3,
+                                _ => 1,
+                            };
+                            let angular = decode_angular(table, i + 1, 1)?.unwrap_or_default();
+                            let emission = UncorrelatedEmission {
+                                energy: spectrum,
+                                angular,
+                                lct: 1,
+                                yield_n,
+                            };
+                            match rx.mt {
+                                91 => uncorr91 = Some(emission),
+                                16 => uncorr16 = Some(emission),
+                                17 => uncorr17 = Some(emission),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1543,11 +1638,16 @@ impl Nuclide {
             },
             thermal: None,
             continuum: ContinuumLaws {
-                // Three entries, matching the field: the uncorrelated
-                // fallbacks are for MT=91/16/17, which ENDF may give as MF=5
-                // when MF=6 is absent. ACE has no such split -- every law here
-                // is correlated or two-body -- so all three are `None`.
-                uncorrelated: [(91, None), (16, None), (17, None)],
+                // ~~ACE has no such split -- every law here is correlated or
+                // two-body -- so all three are `None`~~ **CORRECTED
+                // 2026-09-25.** ACE keeps the split: an analytic DLW law
+                // (7/9/11) is MF=5's law with MF=4's cosine, exactly the
+                // uncorrelated pair, and NJOY writes it whenever the evaluation
+                // has one. Measured on tables generated from tapes already in
+                // `reference-data/endf/`: C-12 MT=91 and Na-23 MT=16/91 are ACE
+                // law 9. The old claim was drawn from U-234/235/238, which
+                // happen to carry only laws 3/4/44/61.
+                uncorrelated: [(91, uncorr91), (16, uncorr16), (17, uncorr17)],
                 mt91,
                 mt16,
                 mt17,

@@ -470,9 +470,25 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
             // someone porting something. LF=5 is a tabulated `g(x)` with
             // `x = E'/θ(E)` — the same "universal shape, incident-dependent
             // scale" form as MF=6 LAW=6, so it would convert the same way.
-            // Not yet ported because no evaluation in `reference-data/endf/`
-            // uses it; `mf5_lf_survey` asserts that and will fail if one is
-            // added.
+            // ~~Not yet ported because no evaluation in `reference-data/endf/`
+            // uses it~~ **CORRECTED 2026-09-25.** Seven held tapes DO use LF=5
+            // -- U-234, U-235 (VII.0 and VIII.0), U-238 (VII.0, VIII.0,
+            // JENDL-3.3) and Pu-239 JENDL-3.3 -- all of them on **MT=455**, the
+            // delayed-neutron spectra. The old claim held only for the MTs
+            // `mf5_lf_survey` walks (18, 16, 91, 5), which is where it was
+            // measured; MT=455 was never in that set, so the survey could not
+            // have failed and the "will fail if one is added" was not true of
+            // LF=5 either.
+            //
+            // Nothing is silently degraded by the omission: the delayed
+            // *spectrum* is dropped on both routes (`DelayedData` keeps
+            // `fraction`, not `spectrum`), and NJOY's ACER linearises those
+            // MT=455 LF=5 sections into ACE LAW=4 -- measured as `{LAW4: 6}` in
+            // the DNED block of every U-234/235/238 table in
+            // `reference-data/ace`. So LF=5 reaches neither route's sampler and
+            // porting it would gain nothing until delayed spectra are carried.
+            // Verified by scanning all 79 tapes' MF=5 subsection headers, not by
+            // re-reading the previous note.
             _ => None,
         };
         match law {
@@ -1340,19 +1356,13 @@ fn collapse_law7_incident_interp(interp: &[(u32, u32)]) -> Vec<(u32, u32)> {
 /// isotropic per the evaluation, which is a different fact from "unported", and
 /// the enum keeps them apart.
 ///
-/// # `E'_max`, ported from upstream
+/// # `E'_max`
 ///
-/// `groupr.f90:12658-12666` (`f6psp`):
-///
-/// ```text
-/// f1     = (APSX - AWP) / APSX          AWP = emitted particle mass (1 for a neutron)
-/// f2     = AWR / (AWR + 1)
-/// E'_max = f1 * (f2 * E + Q)
-/// ```
-///
-/// Upstream supports **3, 4 or 5 particles only** (`f6psp` errors otherwise);
-/// this returns `Ok(None)` for any other `NPSX` rather than inventing a shape,
-/// so the caller keeps its documented fallback.
+/// The formula and its upstream citation live in [`phase_space_chi`], which does
+/// the scaling for both this route and the ACE one. Upstream supports **3, 4 or
+/// 5 particles only** (`f6psp` errors otherwise); this returns `Ok(None)` for any
+/// other `NPSX` rather than inventing a shape, so the caller keeps its
+/// documented fallback.
 ///
 /// `Q` is read from MF=3's `QM` for the same MT — the reaction Q-value the
 /// formula wants, and the same one upstream's `q` argument carries.
@@ -1390,55 +1400,103 @@ fn phase_space_emission(
         _ => return Ok(None),
     };
 
-    // AWP: the emitted particle is a neutron, so 1 neutron mass.
-    const AWP: f64 = 1.0;
-    let f1 = (ps.apsx - AWP) / ps.apsx;
-    let f2 = awr / (awr + 1.0);
-    let e_max_at = |e: f64| f1 * (f2 * e + q);
-
-    // A log-spaced incident grid over the reaction's own MF=3 range. The law's
-    // shape is incident-independent, so the grid only has to resolve
-    // `E'_max(E)`, which is linear in `E` -- 80 points is ample and keeps the
-    // table small.
-    const N_IN: usize = 80;
-    let lo = e_first.max(1.0e-5);
-    let hi = e_last;
-    let mut incident = Vec::with_capacity(N_IN);
-    let mut tables = Vec::with_capacity(N_IN);
-    for i in 0..N_IN {
-        let e = lo * (hi / lo).powf(i as f64 / (N_IN - 1) as f64);
-        let emax = e_max_at(e);
-        if !(emax > 0.0) {
-            continue; // below threshold: no phase space to share
-        }
-        let e_out: Vec<f64> = ps.x_frac.iter().map(|&x| x * emax).collect();
-        // `pdf` is a density in x; rescaling the variable by `emax` divides it.
-        let pdf: Vec<f64> = ps.pdf.iter().map(|&p| p / emax).collect();
-        incident.push(e);
-        tables.push(ChiEout {
-            e_out,
-            pdf,
-            cdf: ps.cdf.clone(),
-            linlin: true,
-        });
-    }
-    if incident.len() < 2 {
+    let Some(spectrum) = phase_space_chi(
+        &ps.x_frac,
+        &ps.pdf,
+        &ps.cdf,
+        ps.apsx,
+        awr,
+        q,
+        e_first.max(1.0e-5),
+        e_last,
+    ) else {
         return Ok(None);
-    }
+    };
 
     Ok(Some(ContinuumEmission {
         branches: vec![ContinuumBranch {
-            spectrum: ChiTabular {
-                incident,
-                tables,
-                // Synthesised grid: the law carries no TAB2 of its own.
-                incident_interp: Vec::new(),
-            },
+            spectrum,
             yield_pairs: ps.yield_pairs.clone(),
             angular: ContinuumAngular::EvaluatedIsotropic,
         }],
         cm_frame: ps.lct >= 2,
     }))
+}
+
+/// Scale an `n`-body phase-space **shape** in `x = E'/E'_max` onto an incident
+/// grid, giving the tabulated [`ChiTabular`] every sampler here consumes.
+///
+/// Shared by the two routes that meet this law: ENDF MF=6 LAW=6
+/// ([`phase_space_emission`], which reads the shape out of the section) and ACE
+/// LAW=66 ([`crate::acer::ce_laws::ace_phase_space_chi`], which rebuilds the
+/// shape from `NPSX` because the file stores only the two parameters). One
+/// implementation, so the routes cannot disagree about `E'_max(E)` -- the part
+/// that carries the physics and the part neither file stores.
+///
+/// # `E'_max`, ported from upstream
+///
+/// `groupr.f90:12658-12666` (`f6psp`), with `AWP = 1` for an emitted neutron:
+///
+/// ```text
+/// f1     = (APSX - AWP) / APSX
+/// f2     = AWR / (AWR + 1)
+/// E'_max = f1 * (f2 * E + Q)
+/// ```
+///
+/// `q` is the reaction Q-value \[eV\] and `awr` the target-to-neutron mass
+/// ratio. The incident grid is 80 log-spaced points over `[e_lo, e_hi]`: the
+/// shape does not vary with incident energy, so the grid only has to resolve
+/// `E'_max(E)`, which is linear in `E`. Points below threshold
+/// (`E'_max <= 0`) are dropped, and `None` comes back if fewer than two survive
+/// -- a one-row table is not a distribution.
+pub fn phase_space_chi(
+    x_frac: &[f64],
+    pdf_in: &[f64],
+    cdf_in: &[f64],
+    apsx: f64,
+    awr: f64,
+    q: f64,
+    e_lo: f64,
+    e_hi: f64,
+) -> Option<ChiTabular> {
+    if x_frac.len() < 2 || !(apsx > 0.0) || !(e_hi > e_lo) || !(e_lo > 0.0) {
+        return None;
+    }
+    // AWP: the emitted particle is a neutron, so 1 neutron mass.
+    const AWP: f64 = 1.0;
+    let f1 = (apsx - AWP) / apsx;
+    let f2 = awr / (awr + 1.0);
+    let e_max_at = |e: f64| f1 * (f2 * e + q);
+
+    const N_IN: usize = 80;
+    let mut incident = Vec::with_capacity(N_IN);
+    let mut tables = Vec::with_capacity(N_IN);
+    for i in 0..N_IN {
+        let e = e_lo * (e_hi / e_lo).powf(i as f64 / (N_IN - 1) as f64);
+        let emax = e_max_at(e);
+        if !(emax > 0.0) {
+            continue; // below threshold: no phase space to share
+        }
+        let e_out: Vec<f64> = x_frac.iter().map(|&x| x * emax).collect();
+        // `pdf` is a density in x; rescaling the variable by `emax` divides it.
+        let pdf: Vec<f64> = pdf_in.iter().map(|&p| p / emax).collect();
+        incident.push(e);
+        tables.push(ChiEout {
+            e_out,
+            pdf,
+            cdf: cdf_in.to_vec(),
+            linlin: true,
+        });
+    }
+    if incident.len() < 2 {
+        return None;
+    }
+    Some(ChiTabular {
+        incident,
+        tables,
+        // Synthesised grid: the law carries no TAB2 of its own.
+        incident_interp: Vec::new(),
+    })
 }
 
 impl ContinuumEmission {

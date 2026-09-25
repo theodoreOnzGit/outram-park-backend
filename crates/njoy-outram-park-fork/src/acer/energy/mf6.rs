@@ -652,7 +652,12 @@ pub struct Mf6PhaseSpace {
 /// ~7776–7815): a geometric step (`×10^0.2`) below `x=0.1`, then an additive
 /// step of `0.02` up to `x=1`, integrated by the trapezoid rule and
 /// renormalised to `∫pdf dx = 1`.
-fn law66_shape_table(npsx: i32) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+///
+/// Public because the **reader** needs it as much as the writer: an ACE LAW=66
+/// entry stores only `NPSX`/`APSX`, so a consumer reading such a table has to
+/// rebuild the shape, and it must be the *same* shape ACER would have written or
+/// the two routes disagree about a distribution neither of them stores.
+pub fn law66_shape_table(npsx: i32) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let step1 = 10f64.powf(1.0 / 5.0);
     let step2 = 1.0 / 50.0;
     let elow = 1.0e-5;

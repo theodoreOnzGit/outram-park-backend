@@ -90,7 +90,7 @@ pub use core::{build_emissions, law3_discrete_level, Emission, EnergyLaw, Law4, 
 pub use mf6::parse_mf6_law1_products;
 pub use mf5::{parse_mf5_law4, parse_mf5_section, Applicability, Mf5Law, Mf5Subsection, TabFn};
 pub use mf6::{
-    parse_mf6_law1_neutron, parse_mf6_law1_neutrons, parse_mf6_law6_phase_space,
+    law66_shape_table, parse_mf6_law1_neutron, parse_mf6_law1_neutrons, parse_mf6_law6_phase_space,
     parse_mf6_law7_lab_angle_energy, parse_mf6_product_yields, Law7Incident, Law7MuTable,
     Mf6AngularLaw, Mf6AngularTable, Mf6LabAngleEnergy, Mf6Neutron, Mf6PhaseSpace,
 };
