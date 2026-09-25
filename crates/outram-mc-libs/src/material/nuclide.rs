@@ -1592,7 +1592,13 @@ impl Nuclide {
             dbrc: None,
             elastic_0k: elastic_0k_from_ace(&ace),
             prompt_only: false,
-            delayed: None,
+            // **Delayed neutrons ARE decoded now (GitHub #307 item 1).** The
+            // DNU/BDD blocks were not read, so this was `None` and the ACE route
+            // could not do kinetics at all while the ENDF route could -- the
+            // same asymmetry as the URR omission. `None` here now means only
+            // that the table carries no delayed data (`JXS(24) == 0`), which is
+            // every non-fissionable nuclide.
+            delayed: DelayedData::from_ace(table)?,
         }
         // **Default ON, matching the ENDF route.** `with_dbrc` is a no-op when
         // `elastic_0k` is empty (a broadened table), so this is correct for
@@ -3759,6 +3765,30 @@ pub struct DelayedData {
 impl DelayedData {
     /// Read MF=1/455 and MF=5/455 off a tape. `Ok(None)` when the evaluation
     /// has no delayed-neutron data at all.
+    /// Build from an **ACE** table's DNU/BDD blocks — GitHub #307 item 1.
+    ///
+    /// The ACE analogue of [`Self::from_tape`]. `Ok(None)` when the table has no
+    /// delayed data (`JXS(24) == 0`), which is every non-fissionable nuclide —
+    /// not an error, and not the same as "not decoded".
+    ///
+    /// `lambda_is_lowest_energy_only` is **false**: ACE stores one decay
+    /// constant per group with no energy dependence, so there is no `LDG=1`
+    /// analogue to flag. The ENDF route sets it when the tape used that form.
+    pub fn from_ace(
+        table: &njoy_outram_park_fork::acer::read::RawAceTable,
+    ) -> Result<Option<Self>, NjoyError> {
+        let Some(d) = njoy_outram_park_fork::acer::delayed::decode_delayed(table)? else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            lambda: d.lambda,
+            energy: d.energy,
+            nu_delayed: d.nu_delayed,
+            group_fraction: d.group_fraction,
+            lambda_is_lowest_energy_only: false,
+        }))
+    }
+
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,

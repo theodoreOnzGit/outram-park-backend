@@ -412,6 +412,41 @@ pub fn to_chi_and_angular(
 /// Two forms: `LNU = 1` is a polynomial in `E` \[MeV\], `LNU = 2` a TAB1. A
 /// negative first word means the block holds *both* prompt and total, with the
 /// total following the prompt.
+/// Read an ACE **TAB1** record at `at`: `[NR, (NBT,INT)*NR, NE, x*NE, y*NE]`.
+///
+/// Returns `(x [eV], y, next_index)`. `x` is scaled from the file's MeV; `y` is
+/// returned as stored, because what it means depends on the record — a yield, a
+/// probability, a cross section — and only the caller knows.
+///
+/// Factored out of [`decode_nu`], which had it inline, so the delayed-neutron
+/// decoder shares one implementation rather than adding a second. The
+/// interpolation-region skip — `2 * NR` words that are read past, not used — is
+/// exactly the arithmetic that drifts between two copies, and `decode_nu`'s own
+/// comment records what it cost to get wrong once.
+pub(crate) fn read_tab1(
+    t: &RawAceTable,
+    at: usize,
+    what: &str,
+) -> Result<(Vec<f64>, Vec<f64>, usize), NjoyError> {
+    need(t, at, 1, &format!("{what} TAB1 NR"))?;
+    let n_regions = t.xss[at] as usize;
+    let j = at + 1 + 2 * n_regions;
+    need(t, j, 1, &format!("{what} TAB1 count"))?;
+    let n = t.xss[j] as usize;
+    if n == 0 {
+        return Err(NjoyError::EndfParse(format!(
+            "{what}: a TAB1 record with zero points cannot be interpolated"
+        )));
+    }
+    need(t, j + 1, 2 * n, &format!("{what} TAB1 body"))?;
+    let x: Vec<f64> = t.xss[j + 1..j + 1 + n]
+        .iter()
+        .map(|e| e * EV_PER_MEV)
+        .collect();
+    let y = t.xss[j + 1 + n..j + 1 + 2 * n].to_vec();
+    Ok((x, y, j + 1 + 2 * n))
+}
+
 pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
     let nu = t.jxs[jxs::NU];
     if nu <= 0 {
@@ -460,14 +495,9 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
             // human and completely invisible to a type system, which is why
             // the test below gates on the physical value and not merely on
             // decoding without error.
-            need(t, at + 1, 1, "NU TAB1 NR")?;
-            let n_regions = t.xss[at + 1] as usize;
-            let j = at + 2 + 2 * n_regions;
-            need(t, j, 1, "NU TAB1 count")?;
-            let n = t.xss[j] as usize;
-            need(t, j + 1, 2 * n, "NU TAB1 body")?;
-            let energy: Vec<f64> = t.xss[j + 1..j + 1 + n].iter().map(|e| e * EV_PER_MEV).collect();
-            let nu_total = t.xss[j + 1 + n..j + 1 + 2 * n].to_vec();
+            // The arithmetic the comment above is about now lives in one
+            // place, `read_tab1`, which starts at the record's NR word.
+            let (energy, nu_total, _) = read_tab1(t, at + 1, "NU")?;
             Ok(Some(NuBar { energy, nu_total }))
         }
         other => Err(NjoyError::EndfParse(format!("ACE NU block LNU={other}"))),

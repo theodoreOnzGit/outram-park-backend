@@ -83,6 +83,7 @@ pub mod angular;
 pub mod build;
 pub mod ce_decode;
 pub mod ce_laws;
+pub mod delayed;
 pub mod dosimetry;
 pub mod energy;
 pub mod fortran_fmt;
@@ -222,6 +223,12 @@ pub mod nxs {
     /// NXS(6): NTRP — number of photon-production reactions (deferred; `0`).
     pub const NTRP: usize = 5;
     /// NXS(9): S — excited-state number of the target (`0` = ground state).
+    /// NXS(8): **NDNF** — the number of delayed-neutron precursor groups.
+    ///
+    /// Read by [`super::delayed::decode_delayed`]; upstream's own reader uses
+    /// `ace.nxs[8]` (`openmc/data/reaction.py:325`), hence `7` here.
+    pub const NDNF: usize = 7;
+
     pub const S: usize = 8;
     /// NXS(10): Z — atomic number.
     pub const Z: usize = 9;
@@ -294,6 +301,28 @@ pub mod jxs {
     /// is `openmc/data/urr.py::ProbabilityTables.from_ace`, which indexes
     /// `ace.jxs[23]` (1-based) — hence `22` here.
     pub const LUNR: usize = 22;
+
+    /// JXS(24): **DNU** — delayed ν̄_d. Zero ⇒ the table carries no delayed
+    /// data, which upstream uses as the test for exactly that
+    /// (`openmc/data/reaction.py:319`).
+    pub const DNU: usize = 23;
+
+    /// JXS(25): **BDD** — basic delayed data: per precursor group, the decay
+    /// constant (in inverse **shakes**) followed by the group's probability
+    /// TAB1.
+    pub const BDD: usize = 24;
+
+    /// JXS(26): **DNEDL** — one locator per group into [`DNED`].
+    pub const DNEDL: usize = 25;
+
+    /// JXS(27): **DNED** — the delayed neutrons' energy distributions.
+    ///
+    /// Not decoded, and not a gap in the delayed-neutron path: `DelayedData`
+    /// carries no outgoing spectrum on **either** route — the ENDF route's
+    /// `DelayedData::from_tape` keeps `DelayedChi`'s `fraction` and drops its
+    /// `spectrum` too. Whoever adds a delayed emission spectrum needs this
+    /// block and MF=5/MT=455 together.
+    pub const DNED: usize = 26;
 }
 
 /// Run the ACER card-input driver (NJOY module entry point).
