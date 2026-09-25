@@ -312,6 +312,31 @@ pub const DBRC_GRID_MAX_EV: f64 = 2.5e4;
 /// grid ends.
 pub const DBRC_DEFAULT_E_MAX_EV: f64 = 1.0e3;
 
+/// The 0 K elastic `(E, sigma)` pairs an ACE table can supply, or empty.
+///
+/// **An ACE table's ESZ elastic column is at the table's own temperature.** So
+/// this returns the pairs only when the table *is* at 0 K; for a table
+/// broadened to 293.6 K it returns empty, because the 0 K data is not in the
+/// file at all and inventing it by un-broadening would be a fabrication.
+///
+/// The threshold is on `kT`: 1e-9 eV is far below any physical temperature
+/// (293.6 K is 2.53e-2 eV) and far above the rounding a 0 K table's header
+/// carries, so it separates the two cases without a magic temperature.
+fn elastic_0k_from_ace(
+    ace: &njoy_outram_park_fork::acer::ce_decode::CeNeutronAce,
+) -> Vec<(f64, f64)> {
+    if ace.kt_ev > 1.0e-9 {
+        return Vec::new();
+    }
+    ace.energy
+        .iter()
+        .copied()
+        .zip(ace.elastic.iter().copied())
+        .filter(|&(e, _)| e <= DBRC_GRID_MAX_EV)
+        .collect()
+}
+
+
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
 ///
 /// Two reactions need one: **MT=91** (continuum inelastic) and **MT=16**
@@ -1047,6 +1072,93 @@ impl Nuclide {
         self.dbrc.is_some()
     }
 
+    /// Supply 0 K elastic data from a **companion 0 K ACE table**, then attach
+    /// DBRC — GitHub #307 item 3.
+    ///
+    /// A table broadened to its own temperature carries no 0 K elastic, so
+    /// [`Self::from_ace`] leaves DBRC off for one. The data does exist, in the
+    /// 0 K table for the same nuclide (`reference-data/ace` ships one for
+    /// U-235), and this is how to pair them:
+    ///
+    /// ```text
+    /// let n = Nuclide::from_ace(&hot, "U235")?          // 293.6 K, no DBRC
+    ///     .with_elastic_0k_from_ace(&cold)?;            // + 0 K elastic, DBRC on
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// The companion table is **not** at 0 K, or is a different nuclide. Both
+    /// are refused rather than accepted: 0 K elastic from the wrong nuclide
+    /// samples the wrong target velocity, and from a broadened table samples a
+    /// distribution that has already been broadened once — errors that shift
+    /// `k` without announcing themselves.
+    pub fn with_elastic_0k_from_ace(
+        mut self,
+        table: &njoy_outram_park_fork::acer::read::RawAceTable,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::acer::ce_decode::decode_ce;
+        let ace = decode_ce(table)?;
+        if ace.kt_ev > 1.0e-9 {
+            return Err(NjoyError::EndfParse(format!(
+                "the companion table is at kT = {:.6e} eV, not 0 K. DBRC needs the \
+                 UNBROADENED elastic cross section; taking it from a broadened \
+                 table samples a distribution that has already been broadened \
+                 once, which shifts k without announcing itself.",
+                ace.kt_ev
+            )));
+        }
+        // The ZAID carries 1000*Z + A, which is the cheap identity check. A
+        // mismatch here means 0 K elastic from the wrong nuclide, i.e. the wrong
+        // target mass in the velocity sample.
+        let want = (self.awr * 1.0086649) .round();
+        let got = f64::from(ace.za % 1000);
+        if (want - got).abs() > 2.0 {
+            return Err(NjoyError::EndfParse(format!(
+                "the companion table is ZA = {} (A ~ {got}), but this nuclide's AWR \
+                 {:.4} implies A ~ {want}. 0 K elastic from the wrong nuclide \
+                 samples the wrong target velocity.",
+                ace.za, self.awr
+            )));
+        }
+        self.elastic_0k = ace
+            .energy
+            .iter()
+            .copied()
+            .zip(ace.elastic.iter().copied())
+            .filter(|&(e, _)| e <= DBRC_GRID_MAX_EV)
+            .collect();
+        Ok(self.with_dbrc(DBRC_DEFAULT_E_MAX_EV))
+    }
+
+    /// Why DBRC is **off**, when it is — GitHub #307 item 3.
+    ///
+    /// `None` means DBRC is on. `Some(reason)` says which of the two causes
+    /// applies, because "no DBRC" previously looked the same whether the data
+    /// was absent or the reader simply did not look — and that ambiguity is
+    /// what #307 was filed about. A caller building from ACE can print this
+    /// instead of guessing.
+    pub fn dbrc_unavailable_reason(&self) -> Option<String> {
+        if self.dbrc.is_some() {
+            return None;
+        }
+        Some(if self.elastic_0k.is_empty() {
+            "no 0 K elastic cross section is available. An ACE table's ESZ \
+             elastic column is at the table's own temperature, so a broadened \
+             table cannot supply it; pair this nuclide with its 0 K companion \
+             through `with_elastic_0k_from_ace`. Built from ENDF, `from_tape` \
+             supplies it from the unbroadened RECONR output."
+                .to_string()
+        } else {
+            format!(
+                "0 K elastic IS available ({} points) but no DBRC table was \
+                 built from it -- either `without_dbrc()` was called, or every \
+                 point lies above the {:.3e} eV cap.",
+                self.elastic_0k.len(),
+                DBRC_GRID_MAX_EV
+            )
+        })
+    }
+
     /// This nuclide's DBRC table, for the transport kernels to hand to
     /// [`free_gas_elastic_scatter_dbrc`](crate::physics::scatter::free_gas_elastic_scatter_dbrc).
     ///
@@ -1261,8 +1373,16 @@ impl Nuclide {
     ///   unresolved range — the ordinary case for a light nuclide. The old text
     ///   was right about the consequence, which is why it was fixed rather than
     ///   re-worded.
-    /// - **DBRC** needs the 0 K elastic cross section, which a table broadened
-    ///   to 293.6 K does not carry, so `elastic_0k` is empty.
+    /// - **DBRC** needs the 0 K elastic cross section. ~~which a table broadened
+    ///   to 293.6 K does not carry, so `elastic_0k` is empty.~~
+    ///   **CORRECTED 2026-09-25 (GitHub #307 item 3)** — a **0 K table** does
+    ///   carry it, in its own ESZ elastic column, and DBRC now attaches **by
+    ///   default** from one. It is still absent for a table broadened to
+    ///   293.6 K, because the 0 K data is genuinely not in such a file; pair it
+    ///   with its 0 K companion via [`Self::with_elastic_0k_from_ace`], and ask
+    ///   [`Self::dbrc_unavailable_reason`] rather than inferring why DBRC is
+    ///   off. The old text was right about the broadened case and wrong to
+    ///   state it unconditionally.
     /// - **S(α,β)** lives in a separate thermal `.t` table, not this one.
     ///
     /// # Errors
@@ -1450,18 +1570,36 @@ impl Nuclide {
                 table,
                 ace.kt_ev / 8.617_333_262e-5,
             )?,
-            // **DBRC is still None, and for a reason that is not an oversight.**
-            // It needs 0 K elastic data to sample the target velocity, and an
-            // ACE table broadened to its own temperature carries none -- the
-            // ESZ elastic column is already at `kt_ev`. A 0 K table would carry
-            // it, so this is a property of the table rather than of the reader;
-            // see #307 for the decision on whether to attach it when the table
-            // is at 0 K.
+            // **DBRC attaches when -- and only when -- the table can supply
+            // 0 K elastic (GitHub #307 item 3).**
+            //
+            // DBRC samples the target velocity from the 0 K elastic cross
+            // section, so it needs `elastic_0k`. An ACE table's ESZ elastic
+            // column is at the table's OWN temperature, so:
+            //
+            // - a **0 K table** (`kt_ev` ~ 0) carries exactly what is needed,
+            //   and it is taken here;
+            // - a table broadened to 293.6 K carries 0 K elastic **nowhere**,
+            //   and no amount of reading will find it. That is a property of
+            //   the file, not of this reader. Pair it with its 0 K companion
+            //   through [`Self::with_elastic_0k_from_ace`], or ask
+            //   [`Self::dbrc_unavailable_reason`] why DBRC is off rather than
+            //   guessing.
+            //
+            // `dbrc` is set by the `with_dbrc` call after construction below,
+            // so that the ACE route applies it by default exactly as the ENDF
+            // route does.
             dbrc: None,
-            elastic_0k: Vec::new(),
+            elastic_0k: elastic_0k_from_ace(&ace),
             prompt_only: false,
             delayed: None,
-        })
+        }
+        // **Default ON, matching the ENDF route.** `with_dbrc` is a no-op when
+        // `elastic_0k` is empty (a broadened table), so this is correct for
+        // both cases and does not need a branch: the physics is applied
+        // whenever the data permits it, and the caller ablates explicitly with
+        // `without_dbrc`.
+        .with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 
     pub fn from_tape(
