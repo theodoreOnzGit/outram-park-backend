@@ -58,14 +58,16 @@
 //!   offset; built == counted is asserted. Resampled: 0.9971 +/- 0.0014 of the
 //!   paper-implied kernel fraction (was 0.9875). Worth **+353 +/- 111 pcm**
 //!   at 122.47 cm (three paired seeds). Every k in this section predates it.
-//! - gh:#218 — the `+7` pcm/cm drift itself. **Cause now evidenced
-//!   (2026-09-25):** a shrunk-pebble ablation with no #309 clip and no #310
-//!   axial contact (all volume fractions the paper's) changes k by
-//!   `-6.88 +/- 1.48` pcm/cm across 98-201 cm, equal and opposite to the
-//!   drift. Its absolute offset mixes in an 18 % smaller pebble, so the fix is
-//!   #309's two-ball cell with the real 6 cm pebble, re-measured across the
-//!   range. Already ruled out: data library, source convergence, cavity,
-//!   bottom-reflector mirroring, UO2 law source, B-11, TRISO count.
+//! - gh:#218 — the `+7` pcm/cm drift itself. ~~Cause now evidenced by the
+//!   shrunk-pebble ablation (-6.88 +/- 1.48 pcm/cm)~~ **WITHDRAWN
+//!   2026-09-25.** The real fix for #309/#310 (two-ball cell, draft PR #328)
+//!   only moved the slope from about +5.0 to +3.4 pcm/cm (-1.6 +/- 0.9, not
+//!   resolved), so most of the ablation's -6.88 came from its 18 % smaller
+//!   pebble, not from the clip or contact. The drift is still unexplained.
+//!   Ruled out: data library, source convergence, cavity, bottom-reflector
+//!   mirroring, UO2 law source, B-11, TRISO count. Open: the reflector
+//!   (explicit channels, draft PR #327), the height convention of the
+//!   reference.
 //!
 //! **Documented simplifications (not defects, each pushes `k` one way):**
 //! - every reflector region is TECDOC zone 22, the densest graphite in
