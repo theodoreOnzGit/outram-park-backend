@@ -352,7 +352,11 @@ mod tests {
                 // falls through to a wildcard (there is deliberately no `_`
                 // arm in `artifact_accent`).
                 let c = artifact_accent(kind, theme);
-                assert_eq!(c.a(), 255, "accent must be fully opaque: {kind:?}/{theme:?}");
+                assert_eq!(
+                    c.a(),
+                    255,
+                    "accent must be fully opaque: {kind:?}/{theme:?}"
+                );
             }
         }
     }
@@ -374,8 +378,14 @@ mod tests {
 
     #[test]
     fn unavailable_accent_is_gruvbox_red_and_differs_per_theme() {
-        assert_eq!(unavailable_accent(GuiTheme::GruvboxDark), GRUVBOX_BRIGHT_RED);
-        assert_eq!(unavailable_accent(GuiTheme::GruvboxLight), GRUVBOX_FADED_RED);
+        assert_eq!(
+            unavailable_accent(GuiTheme::GruvboxDark),
+            GRUVBOX_BRIGHT_RED
+        );
+        assert_eq!(
+            unavailable_accent(GuiTheme::GruvboxLight),
+            GRUVBOX_FADED_RED
+        );
     }
 
     #[test]

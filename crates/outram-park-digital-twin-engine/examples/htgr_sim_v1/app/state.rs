@@ -284,6 +284,16 @@ pub struct HtgrSnapshot {
     /// One entry per receptor, ordered distance-major then compass sector.
     /// All-zero before the first dispersion evaluation.
     pub receptors: [ReceptorSnapshot; DISPERSION_RECEPTORS],
+    /// The evaluated `chi/Q` field the Map tab paints, `s/m^3` per cell,
+    /// row-major and **north-up** so it can be drawn straight down the screen.
+    ///
+    /// `f32`, not `f64`: this exists to drive a colour ramp, and the snapshot
+    /// is cloned every frame. Empty until the first dispersion run.
+    pub dispersion_grid: Vec<f32>,
+    /// Cells per side of [`Self::dispersion_grid`].
+    pub dispersion_grid_cells: usize,
+    /// Half-width of the square the grid covers \[m\].
+    pub dispersion_grid_half_width_m: f64,
     /// Operator wind speed, m/s, driving the dispersion model.
     ///
     /// A **control input**: written by the GUI, read by the physics thread,
@@ -629,6 +639,9 @@ impl Default for HtgrSnapshot {
             pebble_centre_k: f64::NAN,
             particle_sic_k: f64::NAN,
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
+            dispersion_grid: Vec::new(),
+            dispersion_grid_cells: 0,
+            dispersion_grid_half_width_m: 0.0,
             wind_speed_m_per_s: 3.0,
             wind_from_deg: 0.0,
             stability_class: "",

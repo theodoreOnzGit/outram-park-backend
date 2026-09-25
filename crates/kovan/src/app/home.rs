@@ -208,7 +208,7 @@ impl HomeState {
             // op-ngvq (GH issue #35's 2026-09-01 checkpoint §1): the
             // canonical full expansion belongs on the startup screen;
             // ordinary workspace chrome elsewhere keeps the plain "KOVAN".
-            ui.weak("Knowledge-Oriented V&V for Analysis of Nuclear Reactors");
+            ui.weak("Knowledge Oriented V&V Analysis for Nuclear science and engineering");
             ui.add_space(20.0);
 
             if !self.message.is_empty() {

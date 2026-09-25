@@ -123,11 +123,13 @@ impl RecognizedTable {
         if let Some(note) = &self.source_note {
             let _ = writeln!(s, "# source: {note}");
         }
-        let review = match &self.review {
-            ReviewStatus::Unreviewed => "UNREVIEWED".to_string(),
-            ReviewStatus::Reviewed { by, at, .. } => format!("reviewed by {by} at {at}"),
-        };
-        let _ = writeln!(s, "# review: {review}");
+        // Unreviewed writes NOTHING, matching
+        // `dataset::DigitisedDataset::to_csv_string`. The "UNREVIEWED" marker
+        // was stale in both: there is no AI review step for a digitisation to
+        // be pending on (maintainer, 2026-09-24).
+        if let ReviewStatus::Reviewed { by, at, .. } = &self.review {
+            let _ = writeln!(s, "# review: reviewed by {by} at {at}");
+        }
         for row in &self.rows {
             let cells: Vec<String> = row.iter().map(|c| csv_escape(c)).collect();
             let _ = writeln!(s, "{}", cells.join(","));
@@ -484,7 +486,14 @@ mod tests {
             ],
         };
         let csv = table.to_csv_string();
-        assert!(csv.contains("# review: UNREVIEWED"));
+        // The "UNREVIEWED" marker was removed 2026-09-24 (stale: no AI
+        // review step exists for it to be pending on). An unreviewed table
+        // now says nothing about review at all.
+        assert!(
+            !csv.to_uppercase().contains("UNREVIEWED"),
+            "the stale marker must not come back:\n{csv}"
+        );
+        assert!(!csv.contains("# review:"));
         assert!(csv.contains("# source: fig7.pdf page 3"));
         assert!(csv.contains("\"a, b\",c"));
         assert!(csv.contains("1,2"));

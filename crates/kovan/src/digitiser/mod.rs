@@ -24,14 +24,22 @@
 //! - [`detect`] — automatic detection of the plot frame (axis box) from dark
 //!   line runs. Deterministic; no ML, no OCR (unlike [`table_ocr`] below,
 //!   whose OCR use is a deliberate, separately-decided exception — see its
-//!   own module doc).
+//!   own module doc). Used by [`auto`], i.e. by the CLI and TUI; the GUI
+//!   reads only its [`detect::PixelRect`] type.
 //! - [`trace`] — automatic curve tracing by column scan, with enum-dispatched
 //!   strategies ([`trace::TraceStrategy`]) and colour selectors
-//!   ([`trace::CurveSelector`]).
+//!   ([`trace::CurveSelector`]). CLI and TUI only, for the same reason as
+//!   [`auto`].
 //! - [`dataset`] — the output types. [`dataset::DigitisedDataset`] is
 //!   deliberately impossible to construct or export without its
 //!   [`calibration::PlotCalibration`] and [`dataset::FigureSource`] attached.
-//! - [`auto`] — the one-shot automatic pipeline shared by all front ends.
+//! - [`auto`] — the one-shot automatic pipeline. ~~Shared by all front
+//!   ends.~~ **CORRECTED 2026-09-24**: the `kovan` GUI no longer uses it.
+//!   Auto-trace was removed from that panel on 2026-09-23 (GH issue #290,
+//!   maintainer: "we won't do auto-trace anymore") in favour of a drawn
+//!   stroke that snaps to the curve; the GUI now places every point by
+//!   hand. `auto` remains for `kovan-cli digitise` and `kovan-tui`, which
+//!   were not part of that decision.
 //! - [`synthetic`] — deterministic rendering of known curves to images, used
 //!   as self-consistency test fixtures (and later to cross-check the
 //!   maintainer-supplied golden oracle, bead `op-amfh`).

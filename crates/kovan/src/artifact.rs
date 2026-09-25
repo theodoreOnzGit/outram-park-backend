@@ -758,6 +758,127 @@ pub fn render_csv_body(csv_data: &str) -> String {
     format!("```csv\n{}\n```\n", csv_data.trim_end())
 }
 
+/// Opens a multi-series digitised-graph body.
+pub const SERIES_START: &str = "### start of data series";
+/// Closes a multi-series digitised-graph body.
+pub const SERIES_END: &str = "### end of series";
+/// Prefix of each series heading; the rest of the line is the series name.
+pub const SERIES_PREFIX: &str = "### Series:";
+
+/// One curve inside a multi-series digitised-graph artifact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeriesBlock {
+    /// The name after `### Series:`, trimmed.
+    pub name: String,
+    /// The CSV between this series' fences, verbatim.
+    pub csv: String,
+}
+
+/// Render several curves as one artifact body (maintainer, 2026-09-24).
+///
+/// ````markdown
+/// ### start of data series
+///
+/// ### Series: 235U thermal
+///
+/// ```csv
+/// x,y
+/// 1,2
+/// ```
+///
+/// ### end of series
+/// ````
+///
+/// # Why `###`, and why this does not disturb anything
+///
+/// [`ARTIFACT_LEVEL`] is 1, so an artifact is a `#` heading and
+/// [`heading_span`] ends its block at the next heading of depth **<= 1**. A
+/// `###` is depth 3, so every series heading sits *inside* the artifact --
+/// the sentinels delimit the series without ever splitting the block that
+/// contains them. CRUD keeps operating on the whole isolated artifact, as it
+/// did before, and the `#`-delimiter isolation it relies on is unchanged.
+///
+/// Each curve stays in its own ```csv fence, so [`Artifact::csv_block`] still
+/// returns a single, ordinary CSV table -- the sentinels sit *outside* the
+/// fences, which is why scanning for a fence finds the data either way.
+pub fn render_multi_series_body(series: &[SeriesBlock]) -> String {
+    if series.is_empty() {
+        return String::new();
+    }
+    let mut out = String::new();
+    out.push_str(SERIES_START);
+    out.push_str("\n\n");
+    for s in series {
+        out.push_str(SERIES_PREFIX);
+        out.push(' ');
+        out.push_str(s.name.trim());
+        out.push_str("\n\n");
+        out.push_str(&render_csv_body(&s.csv));
+        out.push('\n');
+    }
+    out.push_str(SERIES_END);
+    out.push('\n');
+    out
+}
+
+/// Read the curves back out of a multi-series body.
+///
+/// Returns empty for an ordinary single-CSV body, which is how a caller tells
+/// the two apart without a flag: a body with no `### Series:` heading has no
+/// series, and [`Artifact::csv_block`] is the right way to read it.
+///
+/// Tolerant by design, like [`parse_document`]: a series heading whose fence
+/// is missing or unterminated is skipped rather than failing the parse, so
+/// one malformed curve cannot make the other three unreadable.
+pub fn parse_series_blocks(body: &str) -> Vec<SeriesBlock> {
+    let mut out = Vec::new();
+    let lines: Vec<&str> = body.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i].trim_start();
+        let Some(rest) = line.strip_prefix(SERIES_PREFIX) else {
+            i += 1;
+            continue;
+        };
+        let name = rest.trim().to_string();
+        // Find this series' opening fence, stopping at the next series or the
+        // end sentinel so a fence-less heading cannot swallow its neighbour's
+        // data.
+        let mut j = i + 1;
+        let mut csv = None;
+        while j < lines.len() {
+            let l = lines[j].trim_start();
+            if l.starts_with(SERIES_PREFIX) || l.starts_with(SERIES_END) {
+                break;
+            }
+            if l.starts_with("```csv") {
+                let mut k = j + 1;
+                let mut body_lines = Vec::new();
+                let mut closed = false;
+                while k < lines.len() {
+                    if lines[k].trim_start().starts_with("```") {
+                        closed = true;
+                        break;
+                    }
+                    body_lines.push(lines[k]);
+                    k += 1;
+                }
+                if closed {
+                    csv = Some(body_lines.join("\n"));
+                    j = k;
+                }
+                break;
+            }
+            j += 1;
+        }
+        if let Some(csv) = csv {
+            out.push(SeriesBlock { name, csv });
+        }
+        i = j.max(i + 1);
+    }
+    out
+}
+
 /// Wrap `latex` — a BibTeX record or a formula — as a fenced ```latex
 /// block, the schema's third block type alongside ```toml (metadata) and
 /// ```csv (data).
@@ -823,8 +944,7 @@ pub fn heading_span(md: &str, line: usize, level: u8) -> std::ops::Range<usize> 
             continue;
         }
         let hashes = line.chars().take_while(|c| *c == '#').count();
-        if hashes >= 1 && hashes <= level as usize && line.chars().nth(hashes) == Some(' ')
-        {
+        if hashes >= 1 && hashes <= level as usize && line.chars().nth(hashes) == Some(' ') {
             end = i;
             break;
         }
@@ -869,9 +989,13 @@ mod tests {
             relation: None,
             connections: Vec::new(),
         };
-        let md =
-            render_artifact_block(ARTIFACT_LEVEL, "Fig 1.", &toml, &render_csv_body("a,b\n1,2\n"))
-                .unwrap();
+        let md = render_artifact_block(
+            ARTIFACT_LEVEL,
+            "Fig 1.",
+            &toml,
+            &render_csv_body("a,b\n1,2\n"),
+        )
+        .unwrap();
         let doc = parse_document(&md);
         let art = doc.get("fig-1").expect("artifact parses");
         assert_eq!(art.csv_block().unwrap().trim(), "a,b\n1,2");
@@ -899,9 +1023,11 @@ mod tests {
                 classification: Classification::default(),
                 extraction: None,
                 relation: None,
-            connections: Vec::new(),
+                connections: Vec::new(),
             },
-            body: "```csv\n# kovan digitiser dataset (schema v1)\n# figure: Fig 1.\nx,y\n1,2\n```\n".into(),
+            body:
+                "```csv\n# kovan digitiser dataset (schema v1)\n# figure: Fig 1.\nx,y\n1,2\n```\n"
+                    .into(),
         };
         assert_eq!(art.csv_export().unwrap(), "x,y\n1,2\n");
     }
@@ -1440,8 +1566,13 @@ modified = "m"
             relation: None,
             connections: Vec::new(),
         };
-        let rendered =
-            render_artifact_block(ARTIFACT_LEVEL, "Coupled neutronics methodology", &payload, "").unwrap();
+        let rendered = render_artifact_block(
+            ARTIFACT_LEVEL,
+            "Coupled neutronics methodology",
+            &payload,
+            "",
+        )
+        .unwrap();
 
         let doc = parse_document(&rendered);
         assert!(doc.problems.is_empty(), "{:?}", doc.problems);
@@ -1469,8 +1600,164 @@ modified = "m"
             connections: Vec::new(),
         };
         let rendered =
-            render_artifact_block(ARTIFACT_LEVEL, "A note", &payload, "Some prose about it.").unwrap();
+            render_artifact_block(ARTIFACT_LEVEL, "A note", &payload, "Some prose about it.")
+                .unwrap();
         let doc = parse_document(&rendered);
         assert_eq!(doc.artifacts[0].body, "Some prose about it.");
+    }
+
+    // ------------------------------------------------------------------
+    // Multi-series digitised graphs (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    fn series(name: &str, csv: &str) -> SeriesBlock {
+        SeriesBlock {
+            name: name.to_string(),
+            csv: csv.to_string(),
+        }
+    }
+
+    fn multi_series_artifact() -> String {
+        let toml = ArtifactToml {
+            kovan: ArtifactMeta {
+                id: "fig-7".into(),
+                kind: ArtifactKind::DigitisedGraph,
+                created: "t".into(),
+                modified: "t".into(),
+                reviewed: None,
+            },
+            source: None,
+            classification: Classification::default(),
+            extraction: Some(Extraction::new("manual_digitisation", None)),
+            relation: None,
+            connections: Vec::new(),
+        };
+        let body = render_multi_series_body(&[
+            series("235U thermal", "x,y\n1,2\n3,4"),
+            series("238U", "x,y\n5,6"),
+        ]);
+        render_artifact_block(ARTIFACT_LEVEL, "Fig 7.", &toml, &body).unwrap()
+    }
+
+    /// The body carries the sentinels the maintainer specified, in order.
+    #[test]
+    fn a_multi_series_body_is_sentinel_delimited() {
+        let body = render_multi_series_body(&[series("A", "x,y\n1,2"), series("B", "x,y\n3,4")]);
+        let start = body.find(SERIES_START).expect("start sentinel");
+        let a = body.find("### Series: A").expect("series A");
+        let b = body.find("### Series: B").expect("series B");
+        let end = body.find(SERIES_END).expect("end sentinel");
+        assert!(
+            start < a && a < b && b < end,
+            "sentinels must bracket the curves in order:\n{body}"
+        );
+        assert_eq!(body.matches("```csv").count(), 2, "one fence per curve");
+    }
+
+    #[test]
+    fn series_round_trip_through_the_parser() {
+        let md = multi_series_artifact();
+        let doc = parse_document(&md);
+        let art = doc.get("fig-7").expect("artifact parses");
+        let found = parse_series_blocks(&art.body);
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].name, "235U thermal");
+        assert_eq!(found[0].csv, "x,y\n1,2\n3,4");
+        assert_eq!(found[1].name, "238U");
+        assert_eq!(found[1].csv, "x,y\n5,6");
+    }
+
+    /// A ```csv fence must still read as a single, ordinary CSV table --
+    /// the maintainer's explicit requirement. The sentinels sit OUTSIDE the
+    /// fences, so nothing that scans for a fence is disturbed by them.
+    #[test]
+    fn csv_block_still_returns_one_plain_table() {
+        let md = multi_series_artifact();
+        let art = parse_document(&md).get("fig-7").cloned().expect("parses");
+        assert_eq!(art.csv_block().unwrap().trim(), "x,y\n1,2\n3,4");
+        assert_eq!(art.csv_export().unwrap(), "x,y\n1,2\n3,4\n");
+        assert!(
+            !art.csv_block().unwrap().contains("###"),
+            "a sentinel must never leak inside a fence"
+        );
+    }
+
+    /// An ordinary single-CSV artifact has no series -- that is how a reader
+    /// tells the two apart, with no flag.
+    #[test]
+    fn a_plain_csv_artifact_reports_no_series() {
+        assert!(parse_series_blocks(&render_csv_body("a,b\n1,2")).is_empty());
+    }
+
+    /// **The isolation requirement.** `###` series headings are depth 3 and
+    /// `ARTIFACT_LEVEL` is 1, so they must not end the artifact's block --
+    /// and the NEXT `#` artifact must still end it exactly where it always
+    /// did. Without this, CRUD on a multi-series graph would either truncate
+    /// at its own first series or run on into the following artifact.
+    #[test]
+    fn series_headings_do_not_split_the_artifact_and_the_next_one_still_does() {
+        let mut md = multi_series_artifact();
+        md.push_str("\n# Another artifact\n\n```toml\n[kovan]\nid = \"other\"\nkind = \"annotation\"\ncreated = \"t\"\nmodified = \"t\"\n```\n\nbody\n");
+        let doc = parse_document(&md);
+        let art = doc.get("fig-7").expect("first artifact");
+        let span = block_span(&md, art);
+        let lines: Vec<&str> = md.lines().collect();
+
+        // Every series heading is INSIDE the span.
+        for (i, l) in lines.iter().enumerate() {
+            if l.starts_with("### Series:") || *l == SERIES_START || *l == SERIES_END {
+                assert!(
+                    span.contains(&i),
+                    "line {i} ({l:?}) must stay inside the artifact's block"
+                );
+            }
+        }
+        // And the span stops at the next `#` artifact, not before or after.
+        let next = lines
+            .iter()
+            .position(|l| *l == "# Another artifact")
+            .expect("second artifact");
+        assert_eq!(span.end, next, "the block must end exactly at the next `#`");
+        assert!(
+            doc.get("other").is_some(),
+            "the second artifact still parses"
+        );
+    }
+
+    /// Deleting a multi-series artifact removes all of it and leaves its
+    /// neighbour untouched -- the failure mode `heading_span`'s fence
+    /// tracking was added for, now with `###` sentinels in the body too.
+    #[test]
+    fn removing_a_multi_series_artifact_leaves_the_next_one_intact() {
+        let mut md = multi_series_artifact();
+        md.push_str("\n# Another artifact\n\n```toml\n[kovan]\nid = \"other\"\nkind = \"annotation\"\ncreated = \"t\"\nmodified = \"t\"\n```\n\nbody\n");
+        let art = parse_document(&md).get("fig-7").cloned().expect("parses");
+        let after = remove_block(&md, art.line, "Fig 7.").expect("removed");
+        assert!(
+            !after.contains("### Series:"),
+            "no series survives:\n{after}"
+        );
+        assert!(!after.contains(SERIES_START) && !after.contains(SERIES_END));
+        assert!(after.contains("# Another artifact"), "the neighbour stays");
+        assert!(parse_document(&after).get("other").is_some());
+    }
+
+    /// A series whose fence is missing is skipped, and must not swallow the
+    /// next series' data -- one malformed curve cannot corrupt its
+    /// neighbours.
+    #[test]
+    fn a_series_without_a_fence_is_skipped_not_merged() {
+        let body = format!(
+            "{SERIES_START}\n\n### Series: broken\n\n### Series: good\n\n```csv\nx,y\n9,9\n```\n\n{SERIES_END}\n"
+        );
+        let found = parse_series_blocks(&body);
+        assert_eq!(found.len(), 1, "only the well-formed curve is returned");
+        assert_eq!(found[0].name, "good");
+        assert_eq!(found[0].csv, "x,y\n9,9");
+    }
+
+    #[test]
+    fn no_series_renders_an_empty_body() {
+        assert_eq!(render_multi_series_body(&[]), "");
     }
 }

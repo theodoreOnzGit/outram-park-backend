@@ -121,8 +121,8 @@ use outram_park_digital_twin_engine::components::LegendUnit;
 use crate::physics::secondary_loop::{FeedwaterCommand, SecondaryCommands};
 use crate::physics::{HtgrPlant, PlantCommands};
 use panels::{
-    draw_controls, draw_diagnostics_panel, draw_plots_csv_panel,
-    draw_plots_panel, draw_schematic_panel, Panel,
+    draw_controls, draw_diagnostics_panel, draw_plots_csv_panel, draw_plots_panel,
+    draw_schematic_panel, Panel,
 };
 use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
@@ -350,7 +350,10 @@ fn start_simulation() -> SimulationRun {
     // from the shared state, steps the plant, writes outputs back. Spawned
     // *monitored* so a panic (e.g. a steam-property call out of range) trips
     // the shared crash flag instead of silently freezing the sim.
-    let mut plant = HtgrPlant::new();
+    // `with_live_map_field`: this is the GUI path, so a Map tab exists and an
+    // adapter does too (eframe would not have started otherwise). Headless
+    // runs deliberately do not take this -- see `HtgrPlant::map_field_live`.
+    let mut plant = HtgrPlant::new().with_live_map_field();
     let dt = Time::new::<second>(PHYSICS_DT_S);
     // Real-time pacing, in the workspace house pattern lifted from
     // `fhr_sim_v2`: each tick gets PHYSICS_TICK of wall clock for its work
@@ -651,7 +654,8 @@ impl eframe::App for HtgrSimApp {
         let wall_s = ui.input(|i| i.time);
         let rate = self.plant_clock_rate.observe(snapshot.sim_time_s, wall_s);
         let frame_dt = ui.input(|i| i.stable_dt).clamp(0.0, 0.1) as f64;
-        self.tracers.advance(Time::new::<second>(frame_dt * rate), &snapshot);
+        self.tracers
+            .advance(Time::new::<second>(frame_dt * rate), &snapshot);
 
         egui::Panel::top("htgr_top").show(ui, |ui| {
             ui.heading(

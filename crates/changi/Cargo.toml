@@ -20,3 +20,27 @@ petir = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
+
+# ── rayon: native + Android only ─────────────────────────────────────────────
+# The Gaussian puff field's own thread pool (see `puff::wgsl::pool`) --
+# the map refreshes at 10 Hz beside a physics loop, and sharing the global
+# pool means whichever grabs the workers first stalls the other.
+#
+# Target-gated off wasm ONLY, matching `boon-lay`'s own rayon-vs-wasm32
+# constraint (`crates/boon-lay/Cargo.toml`, bead op-okqo.1): rayon is pure
+# Rust and Android is in scope, so Termux keeps the multi-core path. On
+# `wasm32-unknown-unknown`, which has no OS threads, `puff::wgsl::field_pooled`
+# falls back to the serial `field_serial` kernel under the same name rather
+# than depending on rayon at all -- see that function's doc comment.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[features]
+# gpu — dispatches `puff::wgsl::field_gpu`/`field_auto`'s GPU path through
+# PETIR's headless runner. OFF BY DEFAULT, matching `petir/wgpu`'s own
+# default: a host with no adapter (or this feature disabled) simply uses
+# `puff::wgsl::field_pooled`. See `puff::wgsl`'s module doc for why both
+# paths must exist -- `outram-mc-libs/CLAUDE.md`'s GPU policy is a hard rule
+# across this workspace, and `petir/wgpu` is itself target-gated off Android
+# and wasm, which this feature does not change.
+gpu = ["petir/wgpu"]

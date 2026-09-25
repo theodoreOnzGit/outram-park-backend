@@ -378,12 +378,44 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
     // arm the code chose to run them in. Both arms now carry them, so the
     // term prices evaluation differences and the genuinely-absent SiC law,
     // and nothing else.
+    // `OUTRAM_HTR10_UO2_TAPE_DIR=<dir>` reads the UO2 laws from TABULATED
+    // tapes in <dir> (`tsl-UinUO2.endf`, `tsl-OinUO2.endf`) instead of
+    // generating them from the committed decks. The decks are the VIII.0
+    // evaluation, so this is how the VII.0 arm gets its OWN UO2 laws (VII.0
+    // ships them: U-in-UO2 MAT 76, O-in-UO2 MAT 75). A tape that fails to load
+    // aborts the run rather than falling back to free gas.
+    let uo2_tape_dir = std::env::var("OUTRAM_HTR10_UO2_TAPE_DIR").ok();
     let uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
         if no_sab {
             diag.note(format!(
                 "{name} S(a,b) deliberately NOT applied (NO_SAB ablation)"
             ));
             return None;
+        }
+        if let Some(dir) = &uo2_tape_dir {
+            let (f, mat) = match material {
+                SabMaterial::UInUO2 => ("tsl-UinUO2.endf", 76),
+                SabMaterial::OInUO2 => ("tsl-OinUO2.endf", 75),
+                _ => unreachable!("only the two UO2 laws come through here"),
+            };
+            let p = std::path::Path::new(dir).join(f);
+            eprint!("  {name:<8} TAPE  ");
+            let t = Instant::now();
+            let out = diag.time_data(
+                format!("{name} S(a,b)"),
+                DataSource::File(p.clone()),
+                format!("MAT {mat}, {TEMP_K:.2} K, tabulated tape"),
+                || {
+                    Some(
+                        ThermalScattering::from_endf_file(p.to_str()?, mat, TEMP_K, name)
+                            .unwrap_or_else(|e| {
+                                panic!("{name} tape {} (MAT {mat}) FAILED: {e}", p.display())
+                            }),
+                    )
+                },
+            );
+            eprintln!("{:.1?}", t.elapsed());
+            return Some(out.expect("UO2 tape path is not valid UTF-8"));
         }
         eprint!("  {name:<8} LEAPR ");
         let t = Instant::now();

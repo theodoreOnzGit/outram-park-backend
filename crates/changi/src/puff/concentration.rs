@@ -279,4 +279,242 @@ mod tests {
         };
         assert!((at(2.0) - 2.0 * at(1.0)).abs() / at(1.0) < 1e-12);
     }
+
+    // ------------------------------------------------------------------
+    // Analytical verification (maintainer, 2026-09-24).
+    //
+    // The tests above are code-to-code (upstream's `gpuff`) or behavioural.
+    // These check the kernel against *closed-form results that hold exactly*
+    // for a reflected three-dimensional Gaussian, independently of any other
+    // implementation. A port can agree with its upstream and still be wrong
+    // about the mathematics; only this class of check can say otherwise.
+    // ------------------------------------------------------------------
+
+    /// Integrate `C` over the half-space `z >= 0` on a midpoint grid.
+    ///
+    /// Returns the integral in kg. Extent is set from the sigmas so the
+    /// truncated tails contribute below the tolerances asserted against.
+    fn integrate_half_space(
+        mass: Mass,
+        class: StabilityClass,
+        height: Length,
+        distance: Length,
+        n: usize,
+        span_sigmas: f64,
+        moment: Option<u8>,
+    ) -> f64 {
+        let sig = pasquill_gifford_sigmas(class, distance).expect("sigmas");
+        let (sy, sz) = (sig.sigma_y.get::<meter>(), sig.sigma_z.get::<meter>());
+        let h = height.get::<meter>();
+
+        let xy_half = span_sigmas * sy;
+        // The vertical run must cover the plume centred at `h` plus its tail.
+        let z_top = h + span_sigmas * sz;
+        let (dx, dy, dz) = (
+            2.0 * xy_half / n as f64,
+            2.0 * xy_half / n as f64,
+            z_top / n as f64,
+        );
+
+        let mut total = 0.0;
+        for i in 0..n {
+            let x = -xy_half + (i as f64 + 0.5) * dx;
+            for j in 0..n {
+                let y = -xy_half + (j as f64 + 0.5) * dy;
+                for k in 0..n {
+                    let z = (k as f64 + 0.5) * dz;
+                    let c = gaussian_puff_concentration(
+                        mass,
+                        class,
+                        len(0.0),
+                        len(0.0),
+                        height,
+                        (len(x), len(y), len(z)),
+                        distance,
+                    )
+                    .get::<kilogram_per_cubic_meter>();
+                    let w = match moment {
+                        None => 1.0,
+                        Some(1) => x * x, // second moment about x = 0
+                        Some(2) => z,     // first moment in z
+                        _ => unreachable!(),
+                    };
+                    total += c * w * dx * dy * dz;
+                }
+            }
+        }
+        total
+    }
+
+    /// **Mass conservation.** Integrating the kernel over the half-space
+    /// `z >= 0` must return the puff's whole mass `Q`, exactly.
+    ///
+    /// This is the analytical statement the image term exists to make true:
+    ///
+    /// ```text
+    /// int_{-inf}^{inf} int_{-inf}^{inf} exp(-(x^2+y^2)/(2 sy^2)) dx dy = 2 pi sy^2
+    /// int_0^{inf} [ exp(-(z-H)^2/(2 sz^2)) + exp(-(z+H)^2/(2 sz^2)) ] dz
+    ///     = int_{-inf}^{inf} exp(-(z-H)^2/(2 sz^2)) dz = sqrt(2 pi) sz
+    /// ```
+    ///
+    /// so `Q / ((2 pi)^{3/2} sy^2 sz) * 2 pi sy^2 * sqrt(2 pi) sz = Q`. The
+    /// reflection does not add mass; it folds the part of the plume that
+    /// would sit below ground back up, which is why the half-space integral
+    /// equals the *full*-space integral of a single unreflected Gaussian.
+    ///
+    /// A wrong normalisation constant -- `(2 pi)^{3/2}` mistyped, or
+    /// `sigma_y^2` written as `sigma_y sigma_z` -- is invisible to a
+    /// code-to-code comparison if upstream shares the error, and invisible to
+    /// a shape test because it scales every value equally. Only this catches
+    /// it.
+    #[test]
+    fn the_puff_integrates_to_its_own_mass() {
+        let q = Mass::new::<kilogram>(1.0);
+        // Elevated release, so both image terms are genuinely in play.
+        let got = integrate_half_space(q, StabilityClass::D, len(30.0), len(500.0), 160, 6.0, None);
+        assert!(
+            (got - 1.0).abs() < 5.0e-3,
+            "half-space integral is {got:.6} kg, must be the puff mass 1.0"
+        );
+    }
+
+    /// The same, for a **ground-level** release, where the image coincides
+    /// with the real puff and the surface value doubles. Mass must still be
+    /// `Q` -- doubling the concentration at the ground while halving the
+    /// volume the plume occupies is exactly what conserves it, and getting
+    /// that wrong would double the released inventory.
+    #[test]
+    fn a_ground_level_release_also_integrates_to_its_mass() {
+        let got = integrate_half_space(
+            Mass::new::<kilogram>(1.0),
+            StabilityClass::D,
+            len(0.0),
+            len(500.0),
+            160,
+            6.0,
+            None,
+        );
+        assert!(
+            (got - 1.0).abs() < 5.0e-3,
+            "ground-level half-space integral is {got:.6} kg, must be 1.0"
+        );
+    }
+
+    /// **Zero flux through the ground.** The reflected kernel is an *even*
+    /// function of `z`, so `dC/dz = 0` at `z = 0` exactly -- no material
+    /// crosses the surface.
+    ///
+    /// Checked as evenness rather than by differencing, because that is the
+    /// exact statement: `C(-z) == C(+z)` for every `z`. A missing image term
+    /// would leave a finite downward gradient and quietly lose mass into the
+    /// ground.
+    #[test]
+    fn no_flux_passes_through_the_ground() {
+        let q = Mass::new::<kilogram>(1.0);
+        let at = |z: f64| {
+            gaussian_puff_concentration(
+                q,
+                StabilityClass::D,
+                len(0.0),
+                len(0.0),
+                len(30.0),
+                (len(10.0), len(5.0), len(z)),
+                len(500.0),
+            )
+            .get::<kilogram_per_cubic_meter>()
+        };
+        for dz in [0.01, 0.5, 5.0, 25.0] {
+            let (up, down) = (at(dz), at(-dz));
+            assert!(
+                (up - down).abs() <= 1e-12 * up.max(down).max(1e-300),
+                "C is not even about the ground at dz = {dz}: {up:e} vs {down:e}"
+            );
+        }
+    }
+
+    /// **The second moment recovers `sigma_y`.**
+    ///
+    /// `int x^2 C dV / int C dV = sigma_y^2` for a Gaussian centred at
+    /// `x = 0`. This checks the *width* the kernel actually has against the
+    /// width it claims, which no amplitude test can: a kernel using
+    /// `sigma_y` where it means `2 sigma_y^2` in the exponent still looks
+    /// like a plausible plume and still integrates to `Q`.
+    #[test]
+    fn the_second_moment_recovers_the_dispersion_parameter() {
+        let q = Mass::new::<kilogram>(1.0);
+        let (class, dist) = (StabilityClass::D, len(500.0));
+        let sig = pasquill_gifford_sigmas(class, dist).expect("sigmas");
+        let sy = sig.sigma_y.get::<meter>();
+
+        let m0 = integrate_half_space(q, class, len(30.0), dist, 160, 6.0, None);
+        let m2 = integrate_half_space(q, class, len(30.0), dist, 160, 6.0, Some(1));
+        let variance = m2 / m0;
+
+        assert!(
+            (variance.sqrt() - sy).abs() / sy < 0.01,
+            "recovered sigma_y = {:.3} m from the second moment, kernel says {sy:.3} m",
+            variance.sqrt()
+        );
+    }
+
+    /// **The peak sits at the puff centre and has the closed-form value.**
+    ///
+    /// At `(x_p, y_p, H)` both exponentials in the horizontal vanish and the
+    /// vertical pair is `1 + exp(-2 H^2 / sigma_z^2)`, so
+    ///
+    /// ```text
+    /// C_max = Q / ((2 pi)^{3/2} sy^2 sz) * (1 + exp(-2 H^2 / sz^2))
+    /// ```
+    ///
+    /// Evaluated here from the sigmas alone, with no reference to the
+    /// implementation's own arithmetic.
+    #[test]
+    fn the_peak_matches_the_closed_form() {
+        let q = 1.0;
+        let (class, dist, h) = (StabilityClass::D, len(500.0), 30.0);
+        let sig = pasquill_gifford_sigmas(class, dist).expect("sigmas");
+        let (sy, sz) = (sig.sigma_y.get::<meter>(), sig.sigma_z.get::<meter>());
+
+        let expected = q / ((2.0 * core::f64::consts::PI).powf(1.5) * sy * sy * sz)
+            * (1.0 + (-2.0 * h * h / (sz * sz)).exp());
+
+        let got = gaussian_puff_concentration(
+            Mass::new::<kilogram>(q),
+            class,
+            len(0.0),
+            len(0.0),
+            len(h),
+            (len(0.0), len(0.0), len(h)),
+            dist,
+        )
+        .get::<kilogram_per_cubic_meter>();
+
+        assert!(
+            (got - expected).abs() / expected < 1e-12,
+            "peak {got:e} vs closed form {expected:e}"
+        );
+
+        // And it really is the maximum: no offset beats it.
+        for (dx, dy, dz) in [
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (0.0, 0.0, -1.0),
+        ] {
+            let off = gaussian_puff_concentration(
+                Mass::new::<kilogram>(q),
+                class,
+                len(0.0),
+                len(0.0),
+                len(h),
+                (len(dx), len(dy), len(h + dz)),
+                dist,
+            )
+            .get::<kilogram_per_cubic_meter>();
+            assert!(
+                off < got,
+                "a point offset by ({dx}, {dy}, {dz}) exceeded the peak"
+            );
+        }
+    }
 }

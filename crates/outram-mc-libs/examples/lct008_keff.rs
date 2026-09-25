@@ -660,7 +660,15 @@ fn main() {
             res_opts.dbrc, res_opts.urr
         );
     }
-    let (nuclides, slots, omitted) = load_nuclides(&spec, res_opts);
+    // `--via-ace` routes every nuclide through this workspace's own ACER and
+    // ACE reader instead of straight from the reconstructed ENDF.
+    let ace_scratch = args.iter().any(|a| a == "--via-ace").then(|| {
+        let d = std::env::temp_dir().join(format!("lct008_ace_{}", std::process::id()));
+        std::fs::create_dir_all(&d).expect("scratch dir");
+        eprintln!("Nuclide route: ENDF -> ACER -> .ace -> from_ace (--via-ace)");
+        d
+    });
+    let (nuclides, slots, omitted) = load_nuclides(&spec, res_opts, ace_scratch.clone());
     let (materials, clad_idx) = build_materials(&spec, &slots, &omitted, false);
     report_omissions(&spec, &omitted);
     // `check_geometry`'s hand-written predicate resolves materials by the model's
@@ -685,6 +693,12 @@ fn main() {
         n_active,
         temperature_k: TEMP_K,
         compute: ComputeType::CpuMultiThread(Default::default()),
+        // `--seed` makes each invocation an independent draw, so a sweep can
+        // time data and transport per run rather than pooling N seeds inside
+        // one process the way `OUTRAM_BENCH_SEEDS` does (2026-09-24).
+        seed: arg_usize(&args, "--seed")
+            .map(|v| v as u64)
+            .unwrap_or(KeffSettings::default().seed),
         ..KeffSettings::default()
     };
     // The fissionable region is the whole pin array; sample the core cylinder.
@@ -1022,6 +1036,7 @@ fn tape_for(name: &str) -> &'static str {
 fn load_nuclides(
     spec: &[MaterialSpec],
     opts: ResonanceOptions,
+    ace_scratch: Option<std::path::PathBuf>,
 ) -> (Vec<Nuclide>, BTreeMap<String, usize>, BTreeMap<String, f64>) {
     let mut wanted: Vec<&str> = Vec::new();
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
@@ -1059,7 +1074,10 @@ fn load_nuclides(
     let mut slots = BTreeMap::new();
     for name in wanted {
         let file = tape_for(name);
-        let mut n = load(name, file);
+        let mut n = match &ace_scratch {
+            Some(dir) => load_via_ace(name, file, dir),
+            None => load(name, file),
+        };
         // Resonance treatments, on the actinides only -- they are where the
         // resolved and unresolved resonances that matter live, and building
         // URR tables is expensive enough not to attempt on nuclides with no
@@ -1099,6 +1117,62 @@ fn load_nuclides(
     }
     eprintln!("Nuclear data ready in {:.1} s.", t0.elapsed().as_secs_f64());
     (nuclides, slots, omitted)
+}
+
+/// The ACE temperature in MeV, for the ACE route's ZAID header.
+const KT_MEV: f64 = 8.617_333_262e-5 * TEMP_K * 1.0e-6;
+
+/// Build this nuclide the long way round: reconstruct, broaden, **write ACE,
+/// read it back**, and construct from that (`--via-ace`).
+///
+/// # Why the round trip rather than reading a pre-built library
+///
+/// There is no ACE library committed for this tier — the `reference-data/ace`
+/// submodule carries uranium only, and LEU-COMP-THERM-008 is a thermal
+/// lattice in water that needs H-1 and O-16. Generating in process is
+/// therefore the only way to exercise this workspace's **own** ACER on the
+/// benchmark, which is the point: it measures what our ACE writer and reader
+/// cost and whether transport through them lands on the same `k`.
+///
+/// The assembly order lives in `njoy_outram_park_fork::acer::build_full` so
+/// this cannot drift from `lct008_ace_roundtrip.rs` or `njoy`'s own
+/// `write_ace.rs`.
+///
+/// The file is deleted as soon as it is read: U-235 alone is ~256 MB of
+/// Type-1 ASCII, and a run of this tier writes well over a gigabyte in total.
+fn load_via_ace(name: &str, file: &str, scratch: &std::path::Path) -> Nuclide {
+    use njoy_outram_park_fork::broadr::broaden_result;
+    use njoy_outram_park_fork::endf::tape::Tape;
+    use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+
+    let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
+    eprint!("  via ACE {name:<6} … ");
+    let t0 = Instant::now();
+    let tape = Tape::read_file(&p).unwrap_or_else(|e| panic!("tape({name}): {e}"));
+    let mat = tape.materials()[0];
+    let recon0 = reconr(
+        &tape,
+        &ReconrConfig { mat, tolerance: 1.0e-3, temperature: 0.0 },
+    )
+    .unwrap_or_else(|e| panic!("RECONR({name}): {e}"));
+    let recon = broaden_result(&recon0, TEMP_K);
+    let ace = njoy_outram_park_fork::acer::build_full(&tape, mat, &recon, KT_MEV, 0)
+        .unwrap_or_else(|e| panic!("assemble ACE({name}): {e}"));
+
+    let out = scratch.join(format!("{name}.ace"));
+    ace.write_type1(&out)
+        .unwrap_or_else(|e| panic!("write ACE({name}): {e}"));
+    let bytes = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
+    let raw = njoy_outram_park_fork::acer::read::read(&out)
+        .unwrap_or_else(|e| panic!("read ACE({name}): {e}"));
+    let n = Nuclide::from_ace(&raw, name).unwrap_or_else(|e| panic!("from_ace({name}): {e}"));
+    // `OUTRAM_KEEP_ACE=1` leaves the file behind so another code can read it.
+    // Off by default because this tier writes well over a gigabyte per run.
+    if std::env::var("OUTRAM_KEEP_ACE").is_err() {
+        let _ = std::fs::remove_file(&out);
+    }
+    eprintln!("{:.1?}  ({:.0} MB written, read back, removed)", t0.elapsed(), bytes as f64 / 1.0e6);
+    n
 }
 
 fn load(name: &str, file: &str) -> Nuclide {

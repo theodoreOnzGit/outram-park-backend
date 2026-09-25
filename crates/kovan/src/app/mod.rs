@@ -18,6 +18,7 @@ mod literature_list;
 mod nav;
 mod page_canvas;
 mod pdf_reader;
+mod plot_setup;
 mod setup;
 mod table_digitiser;
 mod theme;
@@ -87,6 +88,10 @@ enum View {
     KvimEditor,
     Bibliography,
     TableDigitiser,
+    /// The three-stage form shown between cropping a figure and digitising
+    /// it (maintainer, 2026-09-24) -- see [`plot_setup`]. Answers what the
+    /// caption and axes already say, so the digitiser opens filled in.
+    PlotSetup,
     /// The interactive mindmap (§8, §9, `op-9vo6.21`), built on top of the
     /// `Wiki` view's collection model. **The default since 2026-09-22**
     /// (maintainer brief, epic #247): Kovan always opens on its built-in
@@ -326,6 +331,10 @@ pub struct DigitiseApp {
     /// The PDF reader's list of the open folder's literature, built on
     /// demand and dropped when the folder's knowledge changes.
     literature: Option<literature_list::LiteratureList>,
+    /// Recently opened papers, for the "Recently opened" node beside
+    /// Unsorted. Loaded lazily from `.kovan/recent.toml` on first use and
+    /// rewritten on every open -- local derived state, never committed.
+    recent: Option<crate::recent::RecentPapers>,
     /// The literature fuzzy finder (Ctrl+P).
     literature_finder: literature_list::LiteratureFinder,
     /// The document last opened in the reader, for the list's highlight.
@@ -413,10 +422,14 @@ pub struct DigitiseApp {
     y_log: bool,
     // trace tuning
     threshold: u8,
-    /// Spacing between points laid along a drawn stroke, in image pixels
-    /// (#290 — "the points will be placed 2 pixels apart", which is the
-    /// default; the slider exists because a dense figure sometimes wants
-    /// coarser).
+    /// Spacing between points laid along a drawn stroke, in image pixels.
+    ///
+    /// ~~2 px, per #290's "the points will be placed 2 pixels apart".~~
+    /// **CORRECTED 2026-09-24** — the default is **10 px** (maintainer).
+    /// 2 px laid down hundreds of points per curve, which is far denser than
+    /// a digitisation needs and made the point list unwieldy to correct by
+    /// hand. The slider still spans 1..=20 for a figure that wants finer or
+    /// coarser.
     snap_spacing: f64,
     // provenance input
     figure: String,
@@ -427,6 +440,29 @@ pub struct DigitiseApp {
     x_label: String,
     y_label: String,
     operator: String,
+    /// The crop exactly as it arrived, before any turn or deskew.
+    ///
+    /// Kept so the setup form's transforms can be re-derived from scratch
+    /// rather than stacked: the deskew resamples, and applying it on top of
+    /// its own output softens the image once per nudge of the slider.
+    raster_original: Option<PlotRaster>,
+    /// The `(turn, skew)` currently baked into `raster`, so a frame where
+    /// neither changed does no work.
+    applied_transform: (crate::digitiser::raster::Quarter, f64),
+    /// Series already finished on **this** figure, in the order they were
+    /// completed. The one being traced now is `dataset`; these are its
+    /// predecessors, and they share its calibration, source and axis labels
+    /// because they are curves on the same pair of axes.
+    ///
+    /// A `Vec` beside the live `Option` rather than replacing it: every
+    /// existing edit path (add/move/delete a point, review, undo) acts on
+    /// "the dataset being worked on", and that stays exactly one.
+    completed_series: Vec<DigitisedDataset>,
+    /// Name for the series currently being traced, e.g. `"235U thermal"`.
+    series_name: String,
+    /// The three-stage setup form, live only while `view == View::PlotSetup`.
+    /// Held across frames because it is a form; taken when it finishes.
+    plot_setup: plot_setup::PlotSetup,
     // result
     dataset: Option<DigitisedDataset>,
     selected: Option<usize>,
@@ -486,6 +522,7 @@ impl Default for DigitiseApp {
             background_jobs: Vec::new(),
             library_clone: None,
             literature: None,
+            recent: None,
             literature_finder: Default::default(),
             reader_path: None,
             history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
@@ -523,7 +560,7 @@ impl Default for DigitiseApp {
             x_log: false,
             y_log: false,
             threshold: 128,
-            snap_spacing: 2.0,
+            snap_spacing: 10.0,
             figure: String::new(),
             document_title: String::new(),
             document_id: String::new(),
@@ -532,6 +569,11 @@ impl Default for DigitiseApp {
             x_label: "x".to_string(),
             y_label: "y".to_string(),
             operator: default_operator_name(),
+            raster_original: None,
+            applied_transform: (crate::digitiser::raster::Quarter::None, 0.0),
+            completed_series: Vec::new(),
+            series_name: String::new(),
+            plot_setup: plot_setup::PlotSetup::default(),
             dataset: None,
             selected: None,
             dragging: None,
@@ -573,6 +615,18 @@ impl DigitiseApp {
             .cloned()
             .ok_or_else(|| "no Kovan folder open".to_string())?;
         let mut session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
+
+        // Remember it. AFTER `PaperSession::open` succeeded, so a citekey
+        // that cannot be opened never enters the list -- a recents entry that
+        // errors when clicked is worse than no entry.
+        //
+        // A failure to persist is deliberately swallowed: not remembering a
+        // paper must never stop it being opened.
+        let recent = self
+            .recent
+            .get_or_insert_with(|| crate::recent::RecentPapers::load_or_default(&root));
+        recent.record(citekey);
+        let _ = recent.save(&root);
 
         // Maintainer, 2026-09-02: "if the annotations are disordered, order
         // them when opening them." Page-anchored blocks written before
@@ -710,7 +764,11 @@ impl DigitiseApp {
         if !self.literature_finder.open {
             return;
         }
-        if self.literature.as_ref().is_none_or(|l| l.root != root.path()) {
+        if self
+            .literature
+            .as_ref()
+            .is_none_or(|l| l.root != root.path())
+        {
             self.literature = Some(literature_list::LiteratureList::build(&root));
         }
         let chosen = self
@@ -926,6 +984,61 @@ impl DigitiseApp {
     /// silently blanked, since nothing about a crop's raw pixels alone
     /// could tell us which figure it is. Fields stay editable afterwards
     /// either way.
+    /// Copy the three-stage form's answers into the digitiser's own fields.
+    ///
+    /// This is the whole point of the form: everything here is something the
+    /// operator would otherwise have typed into the digitiser panel while
+    /// also doing the pixel work. The reference **values** land in
+    /// `ref_val`; their **pixels** stay unset, because those can only be
+    /// placed against the image.
+    ///
+    /// Provenance fields are only overwritten when the form actually carries
+    /// something, so a blank optional box cannot erase what
+    /// [`Self::load_image_from_raster`] already worked out from the crop and
+    /// the active paper.
+    fn apply_plot_setup(&mut self) {
+        let setup = self.plot_setup.clone();
+        // A rotation is a processing step and DATA_POLICY.md says to record
+        // one. The raster's `source_sha256` still identifies the file it was
+        // decoded from, so the hash alone would not say the image had been
+        // turned.
+        let mut steps = Vec::new();
+        if setup.turn != crate::digitiser::raster::Quarter::None {
+            steps.push(format!("rotated {}\u{00B0} clockwise", setup.turn.degrees()));
+        }
+        if setup.skew_degrees != 0.0 {
+            // Worth naming as a RESAMPLE: a reader judging the digitisation
+            // should know the pixels were interpolated, not merely permuted.
+            steps.push(format!(
+                "deskewed {:+.1}\u{00B0} (bilinear resample)",
+                setup.skew_degrees
+            ));
+        }
+        if !steps.is_empty() {
+            let note = format!("{} before digitising", steps.join(", "));
+            if self.notes.trim().is_empty() {
+                self.notes = note;
+            } else if !self.notes.contains("before digitising") {
+                self.notes = format!("{}; {note}", self.notes.trim());
+            }
+        }
+        self.figure = setup.figure.trim().to_string();
+        if !setup.document_title.trim().is_empty() {
+            self.document_title = setup.document_title.trim().to_string();
+        }
+        if !setup.page.trim().is_empty() {
+            self.page = setup.page.trim().to_string();
+        }
+        if !setup.notes.trim().is_empty() {
+            self.notes = setup.notes.trim().to_string();
+        }
+        self.ref_val = setup.reference_values();
+        self.x_log = setup.x_log;
+        self.y_log = setup.y_log;
+        self.x_label = setup.x_label.trim().to_string();
+        self.y_label = setup.y_label.trim().to_string();
+    }
+
     pub fn load_image_from_raster(
         &mut self,
         raster: PlotRaster,
@@ -970,6 +1083,10 @@ impl DigitiseApp {
     /// correct than "nothing set yet", and every line is immediately visible
     /// and draggable regardless), and clear any previous dataset/selection.
     fn set_raster(&mut self, raster: PlotRaster, status: String) {
+        // Remember the untouched crop; the setup form's turn/deskew are
+        // re-derived from this, never stacked on their own output.
+        self.raster_original = Some(raster.clone());
+        self.applied_transform = (crate::digitiser::raster::Quarter::None, 0.0);
         let (w, h) = (raster.width() as f64, raster.height() as f64);
         self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
         // Parallelogram corners seeded the same 10%/90% inset as the
@@ -985,6 +1102,10 @@ impl DigitiseApp {
         self.raster = Some(raster);
         self.texture = None; // re-uploaded next frame
         self.dataset = None;
+        // A new image is a new figure; its predecessors' series belong to the
+        // old one and must not follow it across.
+        self.completed_series.clear();
+        self.series_name.clear();
         self.selected = None;
         self.ref_dragging = None;
         self.ref_dragging_corner = None;
@@ -1182,11 +1303,84 @@ impl DigitiseApp {
             digitised_at: utc_now_iso8601(),
             trace: None,
             review: ReviewStatus::Unreviewed,
+            series: (!self.series_name.trim().is_empty())
+                .then(|| self.series_name.trim().to_string()),
             points: Vec::new(),
         });
         self.selected = None;
         self.mode = ClickMode::AddPoint;
         self.set_status("empty dataset started — click to place points");
+    }
+
+    /// Bank the series being traced and start the next one on the same axes.
+    ///
+    /// The new series inherits calibration, source and axis labels: they are
+    /// properties of the *figure*, and re-deriving them would let two curves
+    /// off one plot disagree about where its axes are. Only the points and
+    /// the name are new.
+    ///
+    /// Refuses an unnamed series once there is more than one, and refuses a
+    /// duplicate name. Two columns both called `""` -- or both called
+    /// `"1600 degC"` -- are not something a reader can take apart later, and
+    /// the export is the only place it would surface.
+    fn finish_series(&mut self) {
+        let Some(current) = self.dataset.clone() else {
+            self.set_error("no series in progress");
+            return;
+        };
+        if current.points.is_empty() {
+            self.set_error("this series has no points yet");
+            return;
+        }
+        let name = self.series_name.trim().to_string();
+        if name.is_empty() {
+            self.set_error("name this series before adding another");
+            return;
+        }
+        if self
+            .completed_series
+            .iter()
+            .any(|d| d.series.as_deref() == Some(name.as_str()))
+        {
+            self.set_error(format!("a series called {name:?} is already on this figure"));
+            return;
+        }
+
+        let mut banked = current.clone();
+        banked.series = Some(name);
+        self.completed_series.push(banked);
+
+        // The next series: same figure, same axes, no points.
+        let mut next = current;
+        next.series = None;
+        next.points.clear();
+        next.review = ReviewStatus::Unreviewed;
+        next.trace = None;
+        next.digitised_at = utc_now_iso8601();
+        self.dataset = Some(next);
+        self.series_name.clear();
+        self.selected = None;
+        self.mode = ClickMode::AddPoint;
+        self.set_status(format!(
+            "series banked ({} on this figure) — name and trace the next",
+            self.completed_series.len()
+        ));
+    }
+
+    /// Every series on this figure: the finished ones, then the one in
+    /// progress if it has any points.
+    ///
+    /// This is what the exporters and the canvas both read, so "what is on
+    /// this figure" is answered in one place rather than each caller
+    /// remembering that the live dataset is not in `completed_series`.
+    fn all_series(&self) -> Vec<&DigitisedDataset> {
+        let mut out: Vec<&DigitisedDataset> = self.completed_series.iter().collect();
+        if let Some(d) = &self.dataset {
+            if !d.points.is_empty() {
+                out.push(d);
+            }
+        }
+        out
     }
 
     /// Any edit invalidates a recorded review.
@@ -1303,7 +1497,22 @@ impl DigitiseApp {
         }
         let mut saved = format!("saved {}", self.json_out.trim());
         if !self.csv_out.trim().is_empty() {
-            match d.write_csv(std::path::Path::new(self.csv_out.trim())) {
+            let path = std::path::Path::new(self.csv_out.trim());
+            // Same rule as the markdown path: the CSV comes from
+            // `all_series()`, never from a possibly-emptied live `dataset`.
+            let result = {
+                let series = self.all_series();
+                match series.len() {
+                    0 => Err("no points traced yet — nothing to export".to_string()),
+                    1 => series[0].write_csv(path).map_err(|e| e.to_string()),
+                    // Every curve in one file: exporting a multi-series
+                    // figure and silently getting one would be the worst
+                    // kind of quiet data loss.
+                    _ => std::fs::write(path, DigitisedDataset::many_to_csv_data_only(&series))
+                        .map_err(|e| e.to_string()),
+                }
+            };
+            match result {
                 Ok(()) => saved.push_str(&format!(" and {}", self.csv_out.trim())),
                 Err(e) => {
                     self.set_error(format!("json saved, csv failed: {e}"));
@@ -1342,7 +1551,51 @@ impl DigitiseApp {
             title
         }
         .to_string();
-        let csv_body = crate::artifact::render_csv_body(&d.to_csv_data_only());
+        // One artifact carries every series on the figure. With a single
+        // curve this is byte-identical to what it always wrote; with several
+        // it gains a leading `series` column (see
+        // `DigitisedDataset::many_to_csv_data_only` on why it is long-form
+        // and not one column per curve).
+        // One artifact, one ```csv fence per curve, delimited by `###`
+        // sentinels (maintainer, 2026-09-24). A single curve keeps the plain
+        // body it has always had -- byte-identical -- so nothing that reads
+        // an existing artifact changes.
+        // Read the CSV from `all_series()`, never from the live `dataset`.
+        // Banking a curve moves its points out of `dataset` and leaves that
+        // empty, so the single-series branch used to render the EMPTY live
+        // buffer and save a header row with no data -- reported as "the csv
+        // turns up blank" (maintainer, 2026-09-24).
+        let csv_body = {
+            let series = self.all_series();
+            match series.len() {
+                0 => None,
+                1 => Some(crate::artifact::render_csv_body(
+                    &series[0].to_csv_data_only(),
+                )),
+                _ => {
+                    let blocks: Vec<crate::artifact::SeriesBlock> = series
+                        .iter()
+                        .enumerate()
+                        .map(|(i, d)| crate::artifact::SeriesBlock {
+                            name: d
+                                .series
+                                .clone()
+                                .filter(|n| !n.trim().is_empty())
+                                .unwrap_or_else(|| format!("series-{}", i + 1)),
+                            csv: d.to_csv_data_only(),
+                        })
+                        .collect();
+                    Some(crate::artifact::render_multi_series_body(&blocks))
+                }
+            }
+        };
+        // Saving nothing is an error, not a silent empty artifact. A blank
+        // CSV in a paper's markdown looks like a digitisation that found no
+        // data, which is a very different claim from "not traced yet".
+        let Some(csv_body) = csv_body else {
+            self.set_error("no points traced yet — nothing to save");
+            return;
+        };
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
         // artifact (so the page-context panel can re-open it), replacing the
@@ -1544,6 +1797,51 @@ impl DigitiseApp {
         );
         ui.separator();
 
+        // A figure routinely carries several curves against one pair of axes
+        // (maintainer, 2026-09-24). They share calibration, source and labels
+        // -- only the points and the name differ -- so banking one and
+        // starting the next keeps all of that rather than re-deriving it.
+        ui.label("Series on this figure:");
+        ui.horizontal(|ui| {
+            ui.label("name");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.series_name)
+                    .hint_text("e.g. 235U thermal")
+                    .desired_width(160.0),
+            );
+            if ui
+                .button("\u{2795} Bank & start next")
+                .on_hover_text(
+                    "store this curve under its name and begin another on the same axes",
+                )
+                .clicked()
+            {
+                self.finish_series();
+            }
+        });
+        if !self.completed_series.is_empty() {
+            let names: Vec<&str> = self
+                .completed_series
+                .iter()
+                .map(|d| d.series.as_deref().unwrap_or("(unnamed)"))
+                .collect();
+            ui.horizontal_wrapped(|ui| {
+                ui.weak(format!("banked ({}):", names.len()));
+                ui.weak(names.join(", "));
+            });
+            if ui
+                .button("\u{21A9} Drop last banked series")
+                .on_hover_text("remove the most recently banked curve from this figure")
+                .clicked()
+            {
+                if let Some(d) = self.completed_series.pop() {
+                    let name = d.series.clone().unwrap_or_default();
+                    self.set_status(format!("dropped series {name:?}"));
+                }
+            }
+        }
+        ui.separator();
+
         ui.label("4. Provenance (required to export):");
         let field = |ui: &mut egui::Ui, name: &str, s: &mut String| {
             ui.horizontal(|ui| {
@@ -1681,13 +1979,16 @@ impl DigitiseApp {
             }
         });
         if let Some(d) = &self.dataset {
+            // A review shows only when there IS one. An "UNREVIEWED" badge
+            // was stale: every point here is hand-placed and there is no AI
+            // review step for it to be pending on (maintainer, 2026-09-24).
             let review = match &d.review {
-                ReviewStatus::Unreviewed => "UNREVIEWED".to_string(),
+                ReviewStatus::Unreviewed => String::new(),
                 ReviewStatus::Reviewed { by, at, .. } => {
-                    format!("reviewed by {by} at {at}")
+                    format!(" · reviewed by {by} at {at}")
                 }
             };
-            ui.label(format!("{} points · {review}", d.points.len()));
+            ui.label(format!("{} points{review}", d.points.len()));
             if let Some(i) = self.selected {
                 if let Some(p) = d.points.get(i) {
                     ui.label(format!(
@@ -1808,9 +2109,7 @@ impl DigitiseApp {
             if self.mode == ClickMode::Erase {
                 // The pointer says which mode is live: an eraser that looks
                 // like the point tool costs someone their trace.
-                response
-                    .clone()
-                    .on_hover_cursor(egui::CursorIcon::NoDrop);
+                response.clone().on_hover_cursor(egui::CursorIcon::NoDrop);
             }
             if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
                 if let Some(pos) = response.interact_pointer_pos() {
@@ -1829,7 +2128,9 @@ impl DigitiseApp {
             // frame of the gesture contributes a vertex — the stroke is the
             // path the pointer took, not its two ends.
             if self.mode == ClickMode::DrawTrace {
-                response.clone().on_hover_cursor(egui::CursorIcon::Crosshair);
+                response
+                    .clone()
+                    .on_hover_cursor(egui::CursorIcon::Crosshair);
                 if response.dragged() {
                     if let Some(pos) = response.interact_pointer_pos() {
                         let (px, py) = to_image(pos);
@@ -2550,7 +2851,10 @@ impl eframe::App for DigitiseApp {
                     _ => (None, None),
                 };
                 egui::CentralPanel::default().show(ui, |ui| {
-                    match self.mindmap.ui(ui, root.as_ref(), index, graph) {
+                    match self
+                        .mindmap
+                        .ui(ui, root.as_ref(), index, graph, self.recent.as_ref())
+                    {
                         Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
                         Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
                         // No Kovan folder yet and the user asked for
@@ -2577,7 +2881,8 @@ impl eframe::App for DigitiseApp {
                     if self.wiki.is_none() {
                         self.wiki = Some(wiki::WikiState::new());
                     }
-                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    if let (Some(w), Some(workspace)) =
+                        (self.wiki.as_mut(), self.workspace.as_ref())
                     {
                         w.open_sort_flow(citekey, &workspace.index);
                     }
@@ -2693,7 +2998,8 @@ impl eframe::App for DigitiseApp {
                     if self.wiki.is_none() {
                         self.wiki = Some(wiki::WikiState::new());
                     }
-                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    if let (Some(w), Some(workspace)) =
+                        (self.wiki.as_mut(), self.workspace.as_ref())
                     {
                         w.open_sort_flow(citekey, &workspace.index);
                     }
@@ -2708,8 +3014,19 @@ impl eframe::App for DigitiseApp {
                 // separate popup/tab was added.
                 match crop_result {
                     Some(pdf_reader::CropResult::Plot(raster, provenance)) => {
+                        // Load the raster first: `load_image_from_raster`
+                        // seeds figure/page/document identity from the crop
+                        // and the active paper, and the form starts from
+                        // whatever it managed to work out rather than asking
+                        // again for what is already known.
                         self.load_image_from_raster(raster, Some(provenance));
-                        self.view = View::Digitiser;
+                        let page = self.page.trim().parse::<u32>().ok();
+                        let figure = (!self.figure.trim().is_empty())
+                            .then(|| self.figure.clone());
+                        let title = (!self.document_title.trim().is_empty())
+                            .then(|| self.document_title.clone());
+                        self.plot_setup = plot_setup::PlotSetup::begin(figure, page, title);
+                        self.view = View::PlotSetup;
                     }
                     Some(pdf_reader::CropResult::Table(raster, provenance)) => {
                         self.table_digitiser.load_crop(raster, Some(provenance));
@@ -2820,6 +3137,65 @@ impl eframe::App for DigitiseApp {
                         self.open_picker(FileDialogTarget::TableCsvExport)
                     }
                     None => {}
+                }
+            }
+            View::PlotSetup => {
+                // Upload the crop's texture here as well as in the digitiser:
+                // the form is reached FIRST, so waiting for the digitiser's
+                // own upload would show the operator an empty panel on the
+                // one screen whose questions can only be answered by looking
+                // at the figure.
+                if self.texture.is_none() {
+                    if let Some(raster) = self.raster.as_ref() {
+                        let img = pdf_reader::raster_to_color_image(raster);
+                        self.texture =
+                            Some(ui.ctx().load_texture("plot", img, TextureOptions::NEAREST));
+                    }
+                }
+                let figure = self.raster.as_ref().and_then(|r| {
+                    self.texture.as_ref().map(|t| {
+                        (t.id(), Vec2::new(r.width() as f32, r.height() as f32))
+                    })
+                });
+                let mut outcome = plot_setup::Outcome::Continue;
+                egui::CentralPanel::default().show(ui, |ui| {
+                    outcome = self.plot_setup.ui(ui, figure);
+                });
+                // The form owns the intent; the pixels live here. Re-derive
+                // the working raster whenever the turn or the skew changes.
+                //
+                // **Always from `raster_original`, never from the current
+                // raster.** The quarter turn is lossless and could be
+                // applied incrementally, but the deskew RESAMPLES -- nudging
+                // the slider ten times would otherwise blur the figure ten
+                // times over. Re-deriving means the operator can sweep the
+                // slider freely and the result depends only on where it
+                // ends up.
+                let want = (self.plot_setup.turn, self.plot_setup.skew_degrees);
+                if self.applied_transform != want {
+                    if let Some(original) = self.raster_original.clone() {
+                        let turned = original.rotated(want.0);
+                        self.raster = Some(if want.1 == 0.0 {
+                            turned
+                        } else {
+                            turned.deskewed(want.1)
+                        });
+                        self.texture = None; // re-uploaded next frame
+                    }
+                    self.applied_transform = want;
+                }
+                match outcome {
+                    plot_setup::Outcome::Finish => {
+                        self.apply_plot_setup();
+                        self.view = View::Digitiser;
+                    }
+                    // Backing out of stage 1 returns to the reader. The
+                    // raster stays loaded rather than being thrown away --
+                    // re-cropping the same figure to correct a typo in the
+                    // form would be a poor trade, and the digitiser is still
+                    // reachable from the nav bar with it in place.
+                    plot_setup::Outcome::Cancel => self.view = View::PdfReader,
+                    plot_setup::Outcome::Continue => {}
                 }
             }
         }
@@ -3485,4 +3861,420 @@ mod tests {
         assert!(app.message_is_error, "{}", app.message);
         assert!(app.message.contains("ingest this PDF"), "{}", app.message);
     }
+
+    /// The point of the three-stage form: after it finishes, the digitiser
+    /// panel is already filled in, so the only work left is the part that
+    /// needs the image.
+    #[test]
+    fn the_setup_form_autofills_the_digitiser_panel() {
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            stage: plot_setup::Stage::Labels,
+            turn: crate::digitiser::raster::Quarter::None,
+            skew_degrees: 0.0,
+            show_grid: false,
+            grid_spacing: 40.0,
+            figure: "  Fig. 7 ".into(),
+            document_title: "Verfondern 1990".into(),
+            page: "12".into(),
+            notes: "upper curve".into(),
+            x_min: "0".into(),
+            x_max: "100".into(),
+            y_min: "1".into(),
+            y_max: "1000".into(),
+            x_log: false,
+            y_log: true,
+            x_label: " Time (h) ".into(),
+            y_label: "Activity (Bq)".into(),
+        };
+        app.apply_plot_setup();
+
+        assert_eq!(app.figure, "Fig. 7", "trimmed on the way in");
+        assert_eq!(app.document_title, "Verfondern 1990");
+        assert_eq!(app.page, "12");
+        assert_eq!(app.notes, "upper curve");
+        assert_eq!(
+            app.ref_val,
+            ["0", "100", "1", "1000"].map(String::from),
+            "reference VALUES land in the digitiser's [X1, X2, Y1, Y2] order"
+        );
+        assert!(!app.x_log && app.y_log, "the log flags carry across per axis");
+        assert_eq!(app.x_label, "Time (h)");
+        assert_eq!(app.y_label, "Activity (Bq)");
+    }
+
+    /// A blank optional box must not erase provenance the crop already
+    /// worked out (`load_image_from_raster` fills page and document identity
+    /// from the active paper). Only the figure, the ranges and the labels
+    /// are required, and only those are unconditional.
+    #[test]
+    fn an_empty_optional_field_does_not_erase_what_the_crop_knew() {
+        let mut app = DigitiseApp::default();
+        app.document_title = "from the active paper".into();
+        app.page = "31".into();
+        app.notes = "cropped at 300 dpi".into();
+
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 2".into(),
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "0".into(),
+            y_max: "1".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+
+        assert_eq!(app.document_title, "from the active paper");
+        assert_eq!(app.page, "31");
+        assert_eq!(app.notes, "cropped at 300 dpi");
+        assert_eq!(app.figure, "Fig. 2", "the required field still applies");
+    }
+
+
+    /// A minimal dataset with points, for the series tests.
+    fn sample_dataset_for_series() -> DigitisedDataset {
+        use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale};
+        let axis = |v0: f64, v1: f64| {
+            AxisCalibration::new(
+                AxisScale::Linear,
+                AxisRef { pixel: 0.0, value: v0 },
+                AxisRef { pixel: 100.0, value: v1 },
+            )
+            .expect("valid axis")
+        };
+        DigitisedDataset {
+            schema_version: DATASET_SCHEMA_VERSION,
+            source: FigureSource::new("Fig. 1").expect("figure"),
+            calibration: PlotCalibration::AxisAligned {
+                x: axis(0.0, 10.0),
+                y: axis(0.0, 20.0),
+            },
+            x_label: "time (s)".into(),
+            y_label: "power (%)".into(),
+            digitised_by: "unit test".into(),
+            digitised_at: "2026-09-24T00:00:00Z".into(),
+            trace: None,
+            review: ReviewStatus::Unreviewed,
+            series: None,
+            points: vec![DigitisedPoint {
+                x: 1.0,
+                y: 2.0,
+                x_px: Some(10.0),
+                y_px: Some(20.0),
+                x_minus: 0.0,
+                x_plus: 0.0,
+                y_minus: 0.0,
+                y_plus: 0.0,
+                origin: PointOrigin::HandPlaced {
+                    by: "unit test".into(),
+                },
+            }],
+        }
+    }
+
+    /// Banking a series keeps the figure's calibration, source and axis
+    /// labels and starts a fresh curve. Re-deriving them would let two
+    /// curves off one plot disagree about where its axes are.
+    #[test]
+    fn banking_a_series_keeps_the_figure_and_clears_the_points() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        let before = app.dataset.clone().expect("set above");
+        app.series_name = "235U thermal".into();
+
+        app.finish_series();
+
+        assert_eq!(app.completed_series.len(), 1);
+        let banked = &app.completed_series[0];
+        assert_eq!(banked.series.as_deref(), Some("235U thermal"));
+        assert_eq!(banked.points.len(), before.points.len(), "points are kept");
+
+        let next = app.dataset.as_ref().expect("a next series is started");
+        assert!(next.points.is_empty(), "the next curve starts empty");
+        assert_eq!(next.series, None, "and unnamed, awaiting its own name");
+        assert_eq!(next.calibration, before.calibration, "same axes");
+        assert_eq!(next.source, before.source, "same figure");
+        assert_eq!(next.x_label, before.x_label);
+        assert!(app.series_name.is_empty(), "the name box is cleared");
+    }
+
+    /// An unnamed or duplicate series is refused: the export is the only
+    /// place it would surface, and two columns both called "1600 degC" are
+    /// not something a reader can take apart afterwards.
+    #[test]
+    fn a_series_must_be_named_and_unique() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+
+        app.series_name = "   ".into();
+        app.finish_series();
+        assert!(app.completed_series.is_empty(), "unnamed is refused");
+        assert!(app.message_is_error);
+
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1);
+
+        // Same name again.
+        app.dataset.as_mut().expect("live").points =
+            app.completed_series[0].points.clone();
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1, "a duplicate name is refused");
+        assert!(app.message_is_error);
+    }
+
+    /// An empty curve cannot be banked -- it would export as a named series
+    /// with no rows, which reads as "we measured nothing" rather than "we
+    /// forgot to trace it".
+    #[test]
+    fn an_empty_series_cannot_be_banked() {
+        let mut app = DigitiseApp::default();
+        let mut d = sample_dataset_for_series();
+        d.points.clear();
+        app.dataset = Some(d);
+        app.series_name = "A".into();
+        app.finish_series();
+        assert!(app.completed_series.is_empty());
+        assert!(app.message_is_error);
+    }
+
+    /// `all_series` is the single answer to "what is on this figure": the
+    /// banked curves plus the live one, and the live one only once it has
+    /// points.
+    #[test]
+    fn all_series_counts_the_live_curve_only_once_it_has_points() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        assert_eq!(app.all_series().len(), 1, "a live curve with points counts");
+
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(
+            app.all_series().len(),
+            1,
+            "after banking, the fresh empty curve does not count"
+        );
+
+        app.dataset.as_mut().expect("live").points =
+            app.completed_series[0].points.clone();
+        assert_eq!(app.all_series().len(), 2, "banked + live-with-points");
+    }
+
+    /// Loading a different image is a different figure; its predecessors'
+    /// series must not follow it across.
+    #[test]
+    fn a_new_image_clears_the_banked_series() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1);
+
+        app.set_raster(PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]), String::new());
+        assert!(
+            app.completed_series.is_empty(),
+            "a new figure starts with no series"
+        );
+        assert!(app.series_name.is_empty());
+    }
+
+
+    /// **A banked series must still reach the CSV.**
+    ///
+    /// Banking moves the points out of `dataset` and leaves it empty, so the
+    /// single-series path used to render the EMPTY live buffer -- a header
+    /// row and no data. Reported as "the csv turns up blank" (maintainer,
+    /// 2026-09-24) after digitising a one-curve figure and banking it.
+    #[test]
+    fn a_banked_series_is_what_gets_written_not_the_emptied_live_one() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        app.series_name = "only curve".into();
+        app.finish_series();
+
+        // The state that used to produce a blank CSV: one banked curve, and
+        // a live dataset that is empty.
+        assert_eq!(app.completed_series.len(), 1);
+        assert!(app.dataset.as_ref().expect("live").points.is_empty());
+
+        let series = app.all_series();
+        assert_eq!(series.len(), 1, "the banked curve is the only one");
+        let csv = series[0].to_csv_data_only();
+        assert!(
+            csv.lines().count() > 1,
+            "the CSV must carry data rows, not just a header:\n{csv}"
+        );
+        assert!(csv.contains("1,2"), "the banked point must be present:\n{csv}");
+
+        // And the live (empty) dataset is NOT what would have been written.
+        let live = app.dataset.as_ref().expect("live").to_csv_data_only();
+        assert_eq!(
+            live.lines().count(),
+            1,
+            "precondition: the live buffer really is header-only"
+        );
+    }
+
+    /// With nothing traced at all, saving reports an error rather than
+    /// writing an empty artifact. A blank CSV in a paper's markdown reads as
+    /// "this digitisation found no data", which is a very different claim
+    /// from "not traced yet".
+    #[test]
+    fn saving_with_no_points_is_an_error_not_an_empty_artifact() {
+        let mut app = DigitiseApp::default();
+        let mut d = sample_dataset_for_series();
+        d.points.clear();
+        app.dataset = Some(d);
+        assert!(app.all_series().is_empty());
+
+        app.save_into_project();
+        assert!(app.message_is_error, "must report, not write nothing");
+        assert!(
+            app.message.contains("no points"),
+            "unexpected message: {}",
+            app.message
+        );
+    }
+
+
+    /// Rotating in the wizard turns the **raster**, not just the preview,
+    /// and drops the texture so it is re-uploaded. Calibrating against an
+    /// image the digitiser does not have would transpose every axis.
+    #[test]
+    fn the_wizard_rotation_turns_the_raster_the_digitiser_will_use() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        // 8 x 3, so a quarter turn is unmistakable in the dimensions.
+        app.set_raster(
+            PlotRaster::from_rgb_fn(8, 3, |x, y| [x as u8, y as u8, 0]),
+            String::new(),
+        );
+        let before = app.raster.as_ref().expect("raster").clone();
+        assert_eq!((before.width(), before.height()), (8, 3));
+
+        // What the host does when the form sets the flag.
+        let turned = before.rotated(Quarter::Clockwise);
+        app.raster = Some(turned);
+        app.texture = None;
+
+        let after = app.raster.as_ref().expect("raster");
+        assert_eq!(
+            (after.width(), after.height()),
+            (3, 8),
+            "a quarter turn must swap the dimensions the digitiser sees"
+        );
+        assert!(app.texture.is_none(), "the texture must be dropped for re-upload");
+    }
+
+    /// A rotation is a processing step, so it is recorded in the provenance
+    /// notes -- the raster's `source_sha256` still identifies the file it was
+    /// decoded from and would not reveal that the image had been turned.
+    #[test]
+    fn a_rotation_is_recorded_in_the_provenance_notes() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 7".into(),
+            turn: Quarter::Clockwise,
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        assert!(
+            app.notes.contains("rotated 90"),
+            "the turn must be recorded: {:?}",
+            app.notes
+        );
+
+        // No turn, no note -- it must not invent provenance.
+        let mut app2 = DigitiseApp::default();
+        app2.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 8".into(),
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app2.apply_plot_setup();
+        assert!(!app2.notes.contains("rotated"), "{:?}", app2.notes);
+    }
+
+
+    /// **Transforms re-derive from the untouched original, never stack.**
+    ///
+    /// The deskew resamples, so applying it on top of its own output would
+    /// soften the figure once per nudge of the slider. Sweeping the slider
+    /// and coming back to the same angle must give the same pixels as going
+    /// there directly.
+    #[test]
+    fn sweeping_the_skew_slider_does_not_accumulate_blur() {
+        use crate::digitiser::raster::Quarter;
+        let original = PlotRaster::from_rgb_fn(32, 24, |x, y| {
+            if (x / 4 + y / 4) % 2 == 0 { [0, 0, 0] } else { [255, 255, 255] }
+        });
+
+        // Straight to 6 degrees.
+        let direct = original.rotated(Quarter::None).deskewed(6.0);
+
+        // The wizard's path: re-derive from the original each time, which is
+        // what `applied_transform` + `raster_original` make the host do.
+        let mut derived = original.clone();
+        for angle in [3.0, -8.0, 12.0, 6.0] {
+            derived = original.rotated(Quarter::None).deskewed(angle);
+        }
+
+        assert_eq!(
+            derived, direct,
+            "the result must depend only on where the slider ENDS UP"
+        );
+
+        // And stacking really would differ -- this is what is being avoided.
+        let stacked = original.deskewed(3.0).deskewed(3.0);
+        assert_ne!(
+            stacked,
+            original.deskewed(6.0),
+            "precondition: two 3-degree passes are NOT one 6-degree pass"
+        );
+    }
+
+    /// A resample is named as one in the provenance, because a reader
+    /// judging the digitisation should know the pixels were interpolated
+    /// rather than merely permuted.
+    #[test]
+    fn a_deskew_is_recorded_as_a_resample() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 8".into(),
+            turn: Quarter::Clockwise,
+            skew_degrees: -2.5,
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        assert!(app.notes.contains("rotated 90"), "{:?}", app.notes);
+        assert!(app.notes.contains("deskewed -2.5"), "{:?}", app.notes);
+        assert!(
+            app.notes.contains("resample"),
+            "the interpolation must be named: {:?}",
+            app.notes
+        );
+    }
+
 }

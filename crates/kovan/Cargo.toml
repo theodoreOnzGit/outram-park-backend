@@ -141,7 +141,16 @@ directories.workspace = true
 # `features = ["egui"]` pulls in exactly the reusable pieces, nothing more.
 # Requires the workspace's egui/eframe bump to 0.36 (root Cargo.toml) --
 # kopitiam-pdf 0.3.2 itself pins egui/eframe = "0.36".
-kopitiam-pdf = { version = "0.3.2", default-features = false, features = ["egui"] }
+#
+# 0.4.0 (2026-09-24, kopitiam AID-0058): `CCITTFaxDecode`. Scanned bilevel
+# PDFs -- which is most pre-2000 reactor literature -- previously rendered as
+# blank pages, because that filter sat in kopitiam-pdf's `is_deferred_codec`
+# and the image decoder bailed before touching a sample. The port is verified
+# byte-identical against both MuPDF's own `mutool extract` and, as an
+# independent lineage, poppler's `pdfimages`, on all 34 images of a 39-page
+# scan. Minor rather than patch because a call that used to return
+# `Unsupported` on such a file now returns pixels.
+kopitiam-pdf = { version = "0.4.0", default-features = false, features = ["egui"] }
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than
@@ -207,7 +216,11 @@ sha2.workspace = true
 # GitHub issue #30's final interface spec, whose stated reason for wanting
 # exactly `kovan`/`kovan-cli`/`kovan-tui` was Android usability.
 ratatui.workspace = true
-kopitiam-neovim = "0.2.4"
+# 0.2.5 (2026-09-24): insert-mode Backspace at column 0 joined the lines and
+# silently ate one character of the note with the newline ("ab" + "cd" gave
+# "acd"). kovan's annotation editor and page-context panel are both this
+# engine, so the defect was reachable from the GUI on every line join.
+kopitiam-neovim = "0.2.5"
 
 # The `gui` feature's egui/eframe stack, desktop-only: target-gated off
 # Android on top of being behind the feature, so an Android build of this

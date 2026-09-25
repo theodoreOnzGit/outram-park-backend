@@ -79,6 +79,7 @@
 //! establishes the translation is faithful; it says nothing about whether the
 //! model reproduces measured dispersion.
 
+pub mod wgsl;
 pub mod climatology;
 pub mod concentration;
 pub mod dispersion;

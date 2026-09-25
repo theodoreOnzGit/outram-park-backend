@@ -388,8 +388,8 @@ mod tests {
         }
         let tmp = tempfile::tempdir().unwrap();
         let lib = tmp.path().join("lib");
-        let root = KovanRoot::create(&lib, crate::root::RootConfig::new("lib", "Lib"), true)
-            .unwrap();
+        let root =
+            KovanRoot::create(&lib, crate::root::RootConfig::new("lib", "Lib"), true).unwrap();
         // An open corpus that exists locally, with no remote of its own.
         crate::corpus_repos::ensure_repo(&root.open_corpus_dir(), None, None).unwrap();
 

@@ -190,12 +190,18 @@ pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Mat
 #[must_use]
 pub fn nuclide_name(n: Htr10Nuclides, idx: usize) -> &'static str {
     match idx {
-        i if i == n.u235 => "U-235",
-        i if i == n.u238 => "U-238",
-        i if i == n.o16 => "O-16",
+        // The thermal law named is the one `htr10_rmc_keff` binds to the slot
+        // in its default (ENDF/B-VIII.0) arm. The VII.0 arm leaves the SiC
+        // slots free gas: VII.0 ships no SiC evaluation.
+        i if i == n.u235 => "U-235 (U-in-UO2 S(a,b))",
+        i if i == n.u238 => "U-238 (U-in-UO2 S(a,b))",
+        i if i == n.o16 => "O-16 (O-in-UO2 S(a,b))",
         i if i == n.c_free => "C (free gas)",
         i if i == n.c_graphite => "C (graphite S(a,b))",
-        i if i == n.si28 => "Si-28",
+        i if i == n.c_sic => "C (C-in-SiC S(a,b))",
+        i if i == n.si28 => "Si-28 (Si-in-SiC S(a,b))",
+        i if i == n.si29 => "Si-29 (Si-in-SiC S(a,b))",
+        i if i == n.si30 => "Si-30 (Si-in-SiC S(a,b))",
         i if i == n.b10 => "B-10",
         _ => "unknown",
     }

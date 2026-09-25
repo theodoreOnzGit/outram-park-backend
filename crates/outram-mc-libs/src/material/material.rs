@@ -132,10 +132,10 @@ impl Material {
         self.components
             .iter()
             .map(|c| {
-                c.atom_density
-                    * nuclides[c.nuclide_idx]
-                        .xs_at_energy(e, self.temperature)
-                        .total
+                // `total_at_energy`, not `xs_at_energy(..).total`: identical
+                // value, but it skips ~45 grid evaluations per nuclide that
+                // this sum discards. See `Nuclide::total_at_energy`.
+                c.atom_density * nuclides[c.nuclide_idx].total_at_energy(e, self.temperature)
             })
             .sum()
     }

@@ -76,6 +76,7 @@ use changi::activity::chi_over_q::{dilution_factors, DilutionFactors, StabilityS
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use changi::activity::survey::{survey, DepositionVelocities, SiteSurvey};
+use changi::puff::dispersion::pasquill_gifford_sigmas;
 use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
 use changi::puff::stability::StabilityClass;
 use changi::puff::wind::{wind_vector_convert, WindComponents};
@@ -107,6 +108,65 @@ pub const RECEPTOR_SECTORS: usize = 8;
 /// labelled rather than dropped.
 pub const RECEPTOR_DISTANCES_M: [f64; 3] = [100.0, 500.0, 1000.0];
 
+/// Cells across the dispersion grid, per side.
+///
+/// The Map tab paints one square per cell, so this is the map's own
+/// resolution. 64 gives a 5 px cell on a ~320 px map, which is what the
+/// maintainer asked for (2026-09-24).
+///
+/// # This is an EVALUATED field, not a contour plot
+///
+/// The rose's doc rejects a contour plot because it would interpolate between
+/// the receptors -- "a picture of a plume rather than a readout of one". A
+/// grid does not have that problem: **every cell is a real evaluation of the
+/// same puff model at that cell's own coordinates**, with nothing drawn
+/// between them. The objection was to interpolation, not to resolution.
+///
+/// 64 x 64 = 4096 evaluations per refresh, against the ring's 24. That rides
+/// on [`AtmosphericDispersionChannel::update`]'s existing throttle rather
+/// than running per frame.
+pub const GRID_CELLS: usize = 64;
+
+/// Half-width of the grid, metres: it spans `+/- GRID_HALF_WIDTH_M` about the
+/// release point on both axes.
+///
+/// 1250 m is 1.25x the outermost receptor ring (1000 m), which is exactly
+/// what the square map panel shows: the rings are drawn to `0.40 * size` and
+/// the panel's half-width is `0.50 * size`. So the field fills the white box
+/// corner to corner instead of leaving a blank margin outside the outer ring
+/// (maintainer, 2026-09-24).
+pub const GRID_HALF_WIDTH_M: f64 = 1250.0;
+
+/// An evaluated `chi/Q` field on a square grid centred on the release point.
+///
+/// Row-major, `GRID_CELLS * GRID_CELLS` entries, **north-up**: row 0 is the
+/// northernmost row, so it can be painted straight down the screen without
+/// the caller having to remember to flip it.
+#[derive(Debug, Clone)]
+pub struct DispersionGrid {
+    /// `chi/Q` \[s/m^3\] per cell, row-major, north-up.
+    pub chi_over_q: Vec<f64>,
+    /// Half-width of the covered square \[m\].
+    pub half_width_m: f64,
+    /// Cells per side.
+    pub cells: usize,
+}
+
+impl DispersionGrid {
+    /// The largest `chi/Q` in the field, for scaling a colour ramp.
+    pub fn peak(&self) -> f64 {
+        self.chi_over_q.iter().copied().fold(0.0_f64, f64::max)
+    }
+
+    /// `chi/Q` at `(column, row)`, or `None` outside the grid.
+    pub fn at(&self, column: usize, row: usize) -> Option<f64> {
+        if column >= self.cells || row >= self.cells {
+            return None;
+        }
+        self.chi_over_q.get(row * self.cells + column).copied()
+    }
+}
+
 /// Total receptors: one per sector per distance.
 pub const RECEPTOR_COUNT: usize = RECEPTOR_SECTORS * RECEPTOR_DISTANCES_M.len();
 
@@ -128,31 +188,73 @@ impl Htr10SiteInputs {
     ///
     /// Going from activity circulating in the primary helium to activity in the
     /// atmosphere requires a containment and leakage model: circuit leak rate,
-    /// building retention, filtration, stack release. **This simulator models
-    /// none of it.** HTR-10 has a published design leak rate; it is not in this
-    /// workspace, and inventing one and calling it HTR-10's would be putting an
-    /// unverified number under a reactor's name.
+    /// building retention, filtration, stack release. **This simulator still
+    /// models none of that chain** — what it now has is the first term of it.
     ///
-    /// `1e-7 /s` is a round order-of-magnitude placeholder — roughly 0.9 % of
-    /// the circulating inventory per day — chosen to be *obviously* a round
-    /// number rather than to represent any plant. It is stated here, and
-    /// everything downstream is reported per unit of it, so a reader with a
-    /// real leak rate multiplies through.
+    /// ~~HTR-10 has a published design leak rate; it is not in this workspace,
+    /// and inventing one and calling it HTR-10's would be putting an
+    /// unverified number under a reactor's name. `1e-7 /s` is a round
+    /// order-of-magnitude placeholder — roughly 0.9 % of the circulating
+    /// inventory per day.~~
+    ///
+    /// **CORRECTED 2026-09-24 — the published figure is now in the
+    /// workspace.** Liu and Cao (2002), p. 4: leakage from the primary
+    /// circuit is **about 1 % per day**, which is
+    /// `0.01 / 86400 = 1.1574e-7 /s`. The placeholder was 1e-7, so the
+    /// correction is 16 % and the previous order of magnitude was right —
+    /// which is luck, not vindication: it was a round number chosen to look
+    /// like one.
+    ///
+    /// **What this does NOT become.** A primary-circuit leak rate is not a
+    /// release-to-environment fraction. Between the two sit building
+    /// retention, filtration and the stack, and this simulator models none of
+    /// them — so treating the product of this and an inventory as an
+    /// environmental source term still over-states it by whatever those
+    /// remove. The same paper's Table 5 reports the airborne activity that
+    /// actually reaches the environment; it is **not digitised here**, and
+    /// until it is, this remains a circuit leak and nothing more.
     ///
     /// **`chi/Q` does not depend on this at all** (see the module doc), which
     /// is why `chi/Q` is the quotable output and the concentrations are not.
-    pub const LEAK_FRACTION_PER_S: f64 = 1.0e-7;
+    pub const LEAK_FRACTION_PER_S: f64 = 1.157_4e-7;
 
-    /// Release height \[m\] — **an indicative drawing/modelling input, not a
-    /// published HTR-10 stack height.**
+    /// Release height \[m\] — **the published HTR-10 stack height.**
     ///
-    /// 30 m is a round number of the order of a reactor building. The Gaussian
-    /// puff's ground-level concentration is *strongly* sensitive to it through
-    /// the `exp(-(z-H)^2 / 2 sigma_z^2)` term — a taller release moves the
-    /// ground-level maximum further downwind and lowers it — so this is a
-    /// leading sensitivity, not a detail. Named and held in one place so a
-    /// sweep over it is a one-line change.
-    pub const RELEASE_HEIGHT_M: f64 = 30.0;
+    /// ~~An indicative drawing/modelling input, not a published HTR-10 stack
+    /// height. 30 m is a round number of the order of a reactor building.~~
+    /// **CORRECTED 2026-09-24:** Liu and Cao (2002), p. 5 give a **40 m
+    /// chimney** against a 12 m reactor building, with a 9 m/s outlet
+    /// velocity.
+    ///
+    /// The correction matters more than its size suggests. The Gaussian
+    /// puff's ground-level concentration is *strongly* sensitive to release
+    /// height through `exp(-(z-H)^2 / 2 sigma_z^2)` — a taller release moves
+    /// the ground-level maximum further downwind and lowers it — so 30 -> 40 m
+    /// is a leading sensitivity, not a detail.
+    ///
+    /// **The 9 m/s outlet velocity is recorded and NOT used**: it would drive
+    /// a momentum plume rise, raising the effective release height above the
+    /// physical stack, and this model has no plume-rise term at all. So the
+    /// effective height is under-stated by whatever that rise would be, and
+    /// the ground-level concentration correspondingly over-stated. Stated
+    /// rather than quietly ignored.
+    pub const RELEASE_HEIGHT_M: f64 = 40.0;
+
+    /// Reactor building height \[m\] — Liu and Cao (2002), p. 5.
+    ///
+    /// Recorded for the building-wake question rather than used: a 40 m stack
+    /// against a 12 m building is a ratio of 3.3, comfortably clear of the
+    /// 2.5x rule of thumb below which a plume is entrained into the building
+    /// wake. So neglecting wake effects is defensible here, and this constant
+    /// is what lets a reader check that rather than take it on trust.
+    #[allow(dead_code)] // recorded provenance, deliberately unused -- see above
+    pub const BUILDING_HEIGHT_M: f64 = 12.0;
+
+    /// Stack outlet velocity \[m/s\] — Liu and Cao (2002), p. 5.
+    ///
+    /// Recorded, not used. See [`Self::RELEASE_HEIGHT_M`] on plume rise.
+    #[allow(dead_code)] // recorded provenance, deliberately unused -- see above
+    pub const STACK_EXIT_VELOCITY_M_PER_S: f64 = 9.0;
 
     /// Receptor height \[m\]. 1.5 m is the conventional breathing height and is
     /// used here purely as the height at which the air concentration is
@@ -242,11 +344,18 @@ pub struct DispersionResult {
     pub stability: Option<StabilityClass>,
     /// Plant time the evaluation was taken at \[s\].
     pub evaluated_at_s: f64,
+    /// The evaluated `chi/Q` field the Map tab paints, one value per cell.
+    ///
+    /// Every cell is a real evaluation of the same puff model at that cell's
+    /// coordinates -- see [`GRID_CELLS`] on why that is not the contour plot
+    /// the rose's docs reject.
+    pub grid: DispersionGrid,
 }
 
 impl DispersionResult {
     /// The highest `chi/Q` over all receptors — the plume centreline at the
     /// closest ring, in practice.
+    #[allow(dead_code)] // part of the result's public surface; no caller in this example yet
     pub fn peak_chi_over_q(&self) -> f64 {
         self.receptors
             .iter()
@@ -272,6 +381,34 @@ impl DispersionResult {
 /// meaningfully change faster than this.
 pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 60.0;
 
+/// How often the Map tab's `chi/Q` **field** is allowed to refresh \[s of
+/// **wall-clock** time\], as distinct from [`DISPERSION_EVALUATION_INTERVAL_S`],
+/// which throttles the receptor ring.
+///
+/// # The field and the ring are on different clocks, for a real reason
+///
+/// [`DISPERSION_EVALUATION_INTERVAL_S`]'s reasoning — that nothing the model
+/// reads can change faster than the release rate, which follows the kernel
+/// temperature, which moves on the bed's ~184 s time constant — is correct
+/// **for the ring**, because the ring's activity columns depend on the
+/// source. It does **not** transfer to the field: `chi/Q` is a dilution
+/// factor that by construction does not depend on the source at all (see the
+/// module doc), only on meteorology and geometry. Its actual input is the
+/// operator's wind slider, which moves as fast as a hand does.
+///
+/// So the field is rate-limited on **wall-clock** time, not plant time: a
+/// paused or fast-forwarded simulation must not change how responsive the map
+/// feels to a hand on the slider. `0.1 s` is the 10 Hz the Map tab targets.
+///
+/// This is purely a **rate limit**, not a schedule — [`AtmosphericDispersionChannel::refresh_field`]
+/// only ever recomputes when the meteorology has actually changed, which is
+/// the overwhelmingly common case (the wind sits still far more often than an
+/// operator is dragging it). A slow field computation is not "fixed" by
+/// coarsening the grid or blocking the caller: it simply refreshes less often
+/// than 10 Hz, with the last field staying on screen until the next one is
+/// ready.
+pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
+
 /// The dispersion channel: fixed site inputs, operator meteorology, and the
 /// most recent result.
 #[derive(Debug, Clone)]
@@ -280,6 +417,14 @@ pub struct AtmosphericDispersionChannel {
     meteorology: Meteorology,
     latest: Option<DispersionResult>,
     last_evaluated_s: Option<f64>,
+    /// The last computed map field, reused while the meteorology is unchanged.
+    grid_cache: Option<DispersionGrid>,
+    /// The meteorology `grid_cache` was computed for.
+    grid_meteorology: Option<Meteorology>,
+    /// Wall-clock time [`Self::refresh_field`] last actually recomputed the
+    /// field, for the [`FIELD_REFRESH_INTERVAL_S`] rate limit. Deliberately
+    /// `std::time::Instant`, not plant time -- see that constant's doc.
+    last_field_refresh: Option<std::time::Instant>,
 }
 
 impl AtmosphericDispersionChannel {
@@ -291,6 +436,9 @@ impl AtmosphericDispersionChannel {
             meteorology: Meteorology::default(),
             latest: None,
             last_evaluated_s: None,
+            grid_cache: None,
+            grid_meteorology: None,
+            last_field_refresh: None,
         }
     }
 
@@ -329,9 +477,73 @@ impl AtmosphericDispersionChannel {
         if !due {
             return false;
         }
-        self.latest = Some(self.evaluate(sim_time_s, release));
+        let result = self.evaluate(sim_time_s, release);
+        // Remember the field and the meteorology it belongs to, so the next
+        // tick reuses it instead of recomputing an identical one.
+        self.grid_cache = Some(result.grid.clone());
+        self.grid_meteorology = Some(self.meteorology);
+        self.latest = Some(result);
         self.last_evaluated_s = Some(sim_time_s);
         true
+    }
+
+    /// Refresh the map field on its own, faster clock -- see
+    /// [`FIELD_REFRESH_INTERVAL_S`] for why the field and the ring must not
+    /// share a throttle.
+    ///
+    /// Returns `true` if the field was actually recomputed. Two independent
+    /// reasons return `false` without doing any work:
+    ///
+    /// 1. the cached field already matches the current meteorology -- the
+    ///    overwhelmingly common case, since the wind sits still far more often
+    ///    than it moves;
+    /// 2. the meteorology changed, but under [`FIELD_REFRESH_INTERVAL_S`] of
+    ///    wall-clock time has passed since the last refresh -- the rate limit
+    ///    that keeps a dragged slider from triggering a field evaluation on
+    ///    every frame.
+    ///
+    /// Does **not** touch [`Self::update`]'s throttle or its receptor ring:
+    /// the two are deliberately independent clocks.
+    pub fn refresh_field(&mut self) -> bool {
+        if self.grid_is_current_for(&self.meteorology) {
+            return false;
+        }
+        let now = std::time::Instant::now();
+        if let Some(last) = self.last_field_refresh {
+            if now.duration_since(last).as_secs_f64() < FIELD_REFRESH_INTERVAL_S {
+                return false;
+            }
+        }
+
+        let grid = self.compute_field(&self.run_config());
+        self.grid_cache = Some(grid.clone());
+        self.grid_meteorology = Some(self.meteorology);
+        self.last_field_refresh = Some(now);
+        // So a snapshot written before the next `update()` picks up the fresh
+        // field rather than the one `latest` was built with.
+        if let Some(latest) = &mut self.latest {
+            latest.grid = grid;
+        }
+        true
+    }
+
+    /// The meteorology the cached grid was computed for, so it is recomputed
+    /// only when the wind or stability actually changes.
+    ///
+    /// **`chi/Q` does not depend on the source** -- that is the whole point of
+    /// a dilution factor, and this module's docs say so. The field therefore
+    /// changes only when the *meteorology* does, never because the release
+    /// rate moved. Without this the grid would be recomputed on every
+    /// [`DISPERSION_EVALUATION_INTERVAL_S`] tick, at ~30 million kernel
+    /// evaluations a time, to produce a field identical to the last one.
+    fn grid_is_current_for(&self, met: &Meteorology) -> bool {
+        let Some(previous) = &self.grid_meteorology else {
+            return false;
+        };
+        previous.speed == met.speed
+            && previous.direction_from == met.direction_from
+            && previous.hour == met.hour
+            && previous.stability == met.stability
     }
 
     /// Run the puff model once, ignoring the throttle. Pure with respect to
@@ -379,6 +591,19 @@ impl AtmosphericDispersionChannel {
             self.meteorology.stability,
         );
 
+        // The map's field: the same puff run, evaluated on a square grid at
+        // ground level. 4096 receptors against the ring's 24 -- roughly 30
+        // million kernel evaluations -- so it is reused verbatim whenever the
+        // meteorology has not changed. `chi/Q` is a dilution factor and does
+        // not depend on the source, so a moving release rate cannot change it.
+        let grid = match (
+            &self.grid_cache,
+            self.grid_is_current_for(&self.meteorology),
+        ) {
+            (Some(cached), true) => cached.clone(),
+            _ => self.compute_field(&config),
+        };
+
         let source_term = self.source_term(release, config.duration);
         let site = survey(
             &source_term,
@@ -388,6 +613,7 @@ impl AtmosphericDispersionChannel {
         );
 
         DispersionResult {
+            grid,
             receptors: self.collect(&air, &site),
             stability: match self.meteorology.stability {
                 StabilitySource::Fixed(c) => Some(c),
@@ -468,6 +694,123 @@ impl AtmosphericDispersionChannel {
         receptors
     }
 
+    /// The flattened puff states the map field sums over.
+    ///
+    /// # Built analytically, not by running the simulator again
+    ///
+    /// For a **constant** wind -- which is what this simulator has, and says
+    /// so -- a puff's whole history is closed form: a puff emitted at `t_j`
+    /// is, at time `t_k`, at `(u, v) * (t_k - t_j)` with dispersion set by
+    /// the distance `|U| * (t_k - t_j)` it has travelled. So the 7200 states
+    /// the field sums over can be written down directly.
+    ///
+    /// That matters because the alternative was handing 4096 grid receptors
+    /// to `dilution_factors`, which re-walks every puff at every step for
+    /// every receptor: ~30 million kernel evaluations inside a routine built
+    /// for two dozen. Here the expensive per-puff work -- the branchy
+    /// Pasquill-Gifford table walk -- happens **once per state** rather than
+    /// once per (state, cell), which is 4096 times less of it, and what
+    /// crosses to the GPU is pure arithmetic.
+    ///
+    /// Weights are per **unit release rate**, so the field is a `chi/Q`
+    /// dilution factor: independent of the source, exactly as the receptor
+    /// ring's `chi/Q` is, and comparable between nuclides.
+    fn field_states(&self, config: &RunConfig) -> Vec<changi::puff::wgsl::PuffState> {
+        use changi::puff::wgsl::PuffState;
+
+        let components =
+            wind_vector_convert(self.meteorology.speed, self.meteorology.direction_from);
+        let (u, v) = (
+            components.u.get::<meter_per_second>(),
+            components.v.get::<meter_per_second>(),
+        );
+        let speed = (u * u + v * v).sqrt();
+
+        let dt = config.sim_dt.get::<second>();
+        let puff_dt = config.puff_dt.get::<second>();
+        let duration = config.duration.get::<second>();
+        let steps = (duration / dt).floor() as usize;
+
+        let mut states = Vec::new();
+        for step in 0..steps {
+            let now = step as f64 * dt;
+            let mut emission = 0.0_f64;
+            while emission <= now {
+                let age = now - emission;
+                let travel = speed * age;
+                // Zero travel is upstream's NA path: a puff that has not
+                // moved has no sigma and contributes nothing.
+                if let Some(sig) = pasquill_gifford_sigmas(
+                    self.stability_for_field(),
+                    Length::new::<meter>(travel),
+                ) {
+                    states.push(PuffState {
+                        x: (u * age) as f32,
+                        y: (v * age) as f32,
+                        sigma_y: sig.sigma_y.get::<meter>() as f32,
+                        sigma_z: sig.sigma_z.get::<meter>() as f32,
+                        // Unit release RATE integrated over this step, so the
+                        // sum is `chi/Q` in s/m^3.
+                        weight: dt as f32,
+                    });
+                }
+                emission += puff_dt;
+            }
+        }
+        states
+    }
+
+    /// The stability class the field uses.
+    ///
+    /// The wind is constant over a run, so a class derived per puff is the
+    /// same for every puff and resolving it once is exact rather than an
+    /// approximation.
+    fn stability_for_field(&self) -> StabilityClass {
+        match self.meteorology.stability {
+            StabilitySource::Fixed(c) => c,
+            StabilitySource::FromWind => changi::puff::stability::stability_class(
+                Some(self.meteorology.speed),
+                self.meteorology.hour,
+            )
+            .primary(),
+        }
+    }
+
+    /// Evaluate the map field.
+    ///
+    /// Sums [`Self::field_states`] over the grid through
+    /// `changi::puff::wgsl::field_auto`, which dispatches the WGSL kernel on
+    /// the GPU when one is there and falls back to changi's own CPU thread
+    /// pool when it is not. Both paths exist because
+    /// `outram-mc-libs/CLAUDE.md`'s GPU policy makes the CPU route mandatory
+    /// and trusted, and here it is also the reference the GPU result is
+    /// checked against (`field_gpu_agrees_with_the_serial_reference`, 1e-4
+    /// relative).
+    ///
+    /// Measured on the simulator's own 7 260-puff working point (see
+    /// `changi::puff::wgsl`'s timing table, 2026-09-24): **~2.0 ms on the
+    /// GPU, ~15.9 ms pooled on 16 cores, ~136 ms serial.** Either of the
+    /// first two fits inside `PHYSICS_TICK`; the selection is about not
+    /// wasting the budget, not about whether it fits.
+    fn compute_field(&self, config: &RunConfig) -> DispersionGrid {
+        use changi::puff::wgsl::{field_auto, FieldGrid};
+
+        let states = self.field_states(config);
+        let grid = FieldGrid {
+            cells: GRID_CELLS,
+            half_width_m: GRID_HALF_WIDTH_M as f32,
+            source_height_m: self.site.release_height.get::<meter>() as f32,
+        };
+        DispersionGrid {
+            chi_over_q: field_auto(&states, &grid)
+                .into_iter()
+                .map(f64::from)
+                .collect(),
+            half_width_m: GRID_HALF_WIDTH_M,
+            cells: GRID_CELLS,
+        }
+    }
+
     /// Build the released source term from the release channel's circulating
     /// pool.
     ///
@@ -527,9 +870,7 @@ impl AtmosphericDispersionChannel {
                     bearing_deg,
                     distance_m: distance,
                     chi_over_q,
-                    air_bq_s_per_m3: site
-                        .total_air(index)
-                        .becquerel_seconds_per_cubic_meter(),
+                    air_bq_s_per_m3: site.total_air(index).becquerel_seconds_per_cubic_meter(),
                     ground_bq_per_m2: site.total_ground(index).becquerel_per_square_meter(),
                 });
                 index += 1;
@@ -571,7 +912,9 @@ mod tests {
         let mut channel = TrisoAtopsReleaseChannel::new_htr10();
         channel.update(
             0.0,
-            Some(uom::si::f64::ThermodynamicTemperature::new::<kelvin>(kernel_k)),
+            Some(uom::si::f64::ThermodynamicTemperature::new::<kelvin>(
+                kernel_k,
+            )),
             uom::si::f64::ThermodynamicTemperature::new::<kelvin>(950.0),
         );
         channel
@@ -681,8 +1024,7 @@ mod tests {
                 .receptors
                 .iter()
                 .find(|r| {
-                    (r.bearing_deg - bearing).abs() < 1e-9
-                        && (r.distance_m - distance).abs() < 1e-9
+                    (r.bearing_deg - bearing).abs() < 1e-9 && (r.distance_m - distance).abs() < 1e-9
                 })
                 .map(|r| r.chi_over_q)
                 .expect("receptor is in the ring")
@@ -807,7 +1149,11 @@ mod tests {
         println!(
             "chi/Q worst difference over a source change of x{:.3e}: {worst:.3e} s/m^3\n\
              summed air concentration moved {air_cool:.4e} -> {air_hot:.4e} Bq.s/m^3 per Ci",
-            if air_cool > 0.0 { air_hot / air_cool } else { f64::NAN }
+            if air_cool > 0.0 {
+                air_hot / air_cool
+            } else {
+                f64::NAN
+            }
         );
 
         assert_eq!(
@@ -832,10 +1178,7 @@ mod tests {
         let config = channel.run_config();
         let speed = channel.meteorology.speed.get::<meter_per_second>();
         let reach_m = speed * config.puff_duration.get::<second>();
-        let outermost = RECEPTOR_DISTANCES_M
-            .iter()
-            .cloned()
-            .fold(0.0_f64, f64::max);
+        let outermost = RECEPTOR_DISTANCES_M.iter().cloned().fold(0.0_f64, f64::max);
 
         println!(
             "puff reach at {speed} m/s over {} s = {reach_m:.0} m against an outermost \
@@ -860,7 +1203,10 @@ mod tests {
         let release = release_at(1200.0);
         let mut channel = AtmosphericDispersionChannel::new();
 
-        assert!(channel.update(0.0, &release), "the first call must evaluate");
+        assert!(
+            channel.update(0.0, &release),
+            "the first call must evaluate"
+        );
         assert!(channel.latest().is_some());
         assert!(
             !channel.update(30.0, &release),
@@ -929,5 +1275,85 @@ mod tests {
                 peak.bearing_deg
             );
         }
+    }
+
+    /// **The field's own clock is a no-op once it is caught up.** The first
+    /// call on a fresh channel has nothing cached yet and must actually
+    /// compute; an immediate second call, with the meteorology unchanged,
+    /// must not.
+    #[test]
+    fn refresh_field_is_a_no_op_once_the_meteorology_is_cached() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        assert!(
+            channel.refresh_field(),
+            "the first call has nothing cached and must compute"
+        );
+        assert!(
+            !channel.refresh_field(),
+            "an unchanged meteorology must not trigger another computation"
+        );
+    }
+
+    /// **A meteorology change is allowed one refresh, then the rate limit
+    /// holds** -- this is [`FIELD_REFRESH_INTERVAL_S`]'s whole point: a
+    /// dragged slider must not trigger a field evaluation on every frame.
+    #[test]
+    fn changing_the_meteorology_forces_one_refresh_then_the_rate_limit_holds() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        assert!(channel.refresh_field(), "establish the baseline cache");
+
+        channel.set_meteorology(Meteorology {
+            direction_from: Angle::new::<degree>(90.0),
+            ..Meteorology::default()
+        });
+        assert!(
+            channel.refresh_field(),
+            "a changed meteorology must trigger exactly one refresh"
+        );
+        assert!(
+            !channel.refresh_field(),
+            "an immediate second call must be refused by the rate limit"
+        );
+    }
+
+    /// **The rate limit is genuinely time-based, not merely "the cache
+    /// happens to already match".** With a meteorology the cache does NOT
+    /// match, a refresh attempted well inside [`FIELD_REFRESH_INTERVAL_S`] of
+    /// the last one must still be refused; the same call must succeed once
+    /// that interval has genuinely elapsed. This is the branch that actually
+    /// protects the plant loop while an operator drags the wind slider faster
+    /// than 10 Hz.
+    #[test]
+    fn refresh_field_rate_limit_is_time_based_not_cache_based() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        // The cache belongs to a DIFFERENT meteorology from the one now set,
+        // refreshed "just now" -- so `grid_is_current_for` is false and the
+        // only thing that can block this call is the wall-clock gate.
+        channel.grid_meteorology = Some(Meteorology {
+            direction_from: Angle::new::<degree>(45.0),
+            ..Meteorology::default()
+        });
+        channel.last_field_refresh = Some(std::time::Instant::now());
+        assert_ne!(
+            channel.grid_meteorology,
+            Some(channel.meteorology),
+            "the test setup must actually leave the cache stale"
+        );
+        assert!(
+            !channel.refresh_field(),
+            "a refresh inside FIELD_REFRESH_INTERVAL_S must be refused even \
+             though the meteorology does not match the cache"
+        );
+
+        // Once the interval has genuinely elapsed, the same stale cache must
+        // be allowed to refresh.
+        channel.last_field_refresh = Some(
+            std::time::Instant::now()
+                - std::time::Duration::from_secs_f64(FIELD_REFRESH_INTERVAL_S + 0.05),
+        );
+        assert!(
+            channel.refresh_field(),
+            "past the interval, a changed meteorology must be allowed to refresh"
+        );
     }
 }

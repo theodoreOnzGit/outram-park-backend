@@ -64,6 +64,7 @@ impl AppLocation {
             View::KvimEditor => "Kvim Editor",
             View::Bibliography => "Bibliography",
             View::TableDigitiser => "Table Digitiser",
+            View::PlotSetup => "Digitiser setup",
         };
         match (&self.paper, is_concept_page(self.view), &self.concept) {
             (Some(citekey), _, _) => format!("{page}: {citekey}"),

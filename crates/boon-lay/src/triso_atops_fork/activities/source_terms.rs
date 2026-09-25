@@ -65,6 +65,50 @@ pub struct FailureFractions {
 }
 
 impl FailureFractions {
+    /// Replace `incremental` with a value computed by the PANAMA-I model
+    /// (`crate::fuel_failure`), leaving the other three untouched.
+    ///
+    /// ```text
+    /// f_inc = 1 − (1 − φ₁)·(1 − φ₂)
+    /// ```
+    ///
+    /// `f_hm`, `f_sic` and `f_inc_sic` are **as-manufactured** properties of a
+    /// fuel product line. PANAMA models neither — its own equivalent, `φ_o`,
+    /// is an input to it too (page -480- of HTA-IB-03/90) — so they stay the
+    /// caller's. Only `f_inc`, the in-service failure fraction, is something
+    /// PANAMA computes.
+    ///
+    /// This is an **additional** route to `f_inc`, not a replacement: a
+    /// `RunFile` that sets all four by hand is unaffected, which
+    /// [`tests::the_hand_entered_path_is_untouched`] pins.
+    ///
+    /// # When this is the right thing to do, and when it is not
+    ///
+    /// PANAMA computes **accident** failure. Under normal operation its
+    /// answer is many orders of magnitude below a typical as-manufactured
+    /// `f_inc`: for HTR-10 it is `10⁻¹⁵`–`10⁻⁶` across the plausible fuel
+    /// temperature band against a 3·10⁻⁵ placeholder
+    /// (`crate::fuel_failure::htr10`). Using it there would not improve the
+    /// number, it would silently answer a different question and divide every
+    /// reported activity by ~10⁷. Use it for a transient; for steady state,
+    /// supply fuel-qualification data.
+    ///
+    /// PANAMA was also built and validated for **German** TRISO over
+    /// 1600–2500 °C. Applying it elsewhere is an extrapolation and should be
+    /// reported as one.
+    #[must_use]
+    pub fn with_panama_incremental(
+        self,
+        progress: crate::fuel_failure::history::FailureProgress,
+    ) -> Self {
+        FailureFractions {
+            incremental: progress
+                .in_service_failure_fraction()
+                .get::<uom::si::ratio::ratio>(),
+            ..self
+        }
+    }
+
     /// Sum of all four failure fractions, `f_hm + f_sic + f_inc + f_inc_sic`.
     ///
     /// Used for special-metal and "other" nuclides, whose entire failed-particle
@@ -316,5 +360,44 @@ mod tests {
         );
         assert_eq!(sg.source_rate, 635.911_23);
         assert_eq!(sg.graphite_activity, 0.0);
+    }
+
+    /// **The hand-entered `RunFile` path is untouched by the PANAMA seam.**
+    ///
+    /// [`FailureFractions::with_panama_incremental`] is an *additional* route
+    /// to `f_inc`, not a replacement: a deck that sets all four fields
+    /// directly must behave exactly as it did before the constructor existed,
+    /// and the three as-manufactured fields must survive the call unchanged.
+    #[test]
+    fn the_hand_entered_path_is_untouched() {
+        let hand = FailureFractions {
+            heavy_metal: 1.0e-5,
+            sic: 2.0e-5,
+            incremental: 3.0e-5,
+            incremental_sic: 4.0e-5,
+        };
+        // Untouched by construction: nothing in the type changed.
+        assert!((hand.sum() - 1.0e-4).abs() < 1e-18);
+        assert_eq!(hand.incremental, 3.0e-5);
+
+        // The PANAMA route replaces exactly one field.
+        let progress = crate::fuel_failure::history::FailureProgress::at_start(
+            uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(7.5e-4),
+            uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(0.0),
+        );
+        let wired = hand.with_panama_incremental(progress);
+        assert_eq!(wired.heavy_metal, hand.heavy_metal);
+        assert_eq!(wired.sic, hand.sic);
+        assert_eq!(
+            wired.incremental_sic, hand.incremental_sic,
+            "phi_2 must NOT be routed into incremental_sic -- that field is a \
+             distinct as-manufactured population upstream"
+        );
+        assert!(
+            (wired.incremental - 7.5e-4).abs() < 1e-15,
+            "f_inc must be the PANAMA in-service fraction, got {}",
+            wired.incremental
+        );
+        assert!((wired.sum() - (1.0e-5 + 2.0e-5 + 7.5e-4 + 4.0e-5)).abs() < 1e-15);
     }
 }

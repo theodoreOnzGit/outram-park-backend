@@ -1804,6 +1804,71 @@ impl Nuclide {
         base
     }
 
+    /// **Total microscopic cross section only** — the hot path.
+    ///
+    /// # Why this exists
+    ///
+    /// [`xs_at_energy`](Self::xs_at_energy) fills every channel eagerly. On the
+    /// `Pointwise` tier that is **~46 separate grid evaluations** for U-235 or
+    /// U-238: MT=1, MT=2, MT=18, all 40 inelastic levels, MT=16, MT=17, MT=5
+    /// and the MT=27 absorption. The transport loop's *flight-distance* step
+    /// (`transport_csg.rs`, `materials[m].macro_xs(..).total`) reads exactly
+    /// one of those and discards the rest, once per nuclide per sample.
+    ///
+    /// Above the S(α,β) cutoff the total is simply **MT=1**, already tabulated
+    /// — so the other 45 evaluations are pure waste there. This returns that
+    /// one number.
+    ///
+    /// # It is not a shortcut through the physics
+    ///
+    /// Below the cutoff the bound-atom law *replaces* the elastic channel and
+    /// the total is **rebuilt** as `absorption + inelastic + n2n + σ_sab`
+    /// (see [`xs_at_energy`](Self::xs_at_energy)). There is no cheaper correct
+    /// answer there, so this does the full evaluation. The value is identical
+    /// either way — this changes only how much work is done to reach it, never
+    /// what it is.
+    ///
+    /// # It is NOT unresolved-resonance aware
+    ///
+    /// [`xs_at_energy_urr`](Self::xs_at_energy_urr) samples a probability-table
+    /// band and **replaces** the total; this returns the infinitely-dilute one,
+    /// exactly as `xs_at_energy` does. That matches what
+    /// [`Material::macro_xs_total`](crate::material::material::Material::macro_xs_total)
+    /// has always returned, so nothing changed here — but it means that with
+    /// URR tables attached the flight-distance path and the collision path use
+    /// **different totals** in the unresolved range. That predates this
+    /// function and is dormant while URR defaults off; do not reach for this
+    /// as "the" total in a URR-aware context without fixing that first.
+    pub fn total_at_energy(&self, e: f64, temp_k: f64) -> f64 {
+        // The bound-atom override needs channels the fast path does not
+        // compute, so the full evaluation is unavoidable when it is in play.
+        //
+        // The rebuild is spelled out rather than delegated to
+        // `xs_at_energy`, which would evaluate `th.total_xs(e)` a SECOND time
+        // — once in this guard and once inside. A thermal moderator is hit on
+        // most collisions in a water lattice, so that duplicate S(a,b)
+        // interpolation is paid in the hottest place there is.
+        //
+        // It must stay in lockstep with `xs_at_energy`'s own rebuild.
+        // `tests/total_fast_path_matches_full.rs` asserts the two are exactly
+        // equal, including through the cutoff, so a drift fails immediately
+        // rather than shifting k quietly.
+        if let Some(th) = &self.thermal {
+            let sab = th.total_xs(e);
+            if sab > 0.0 {
+                let x = self.base_xs_at_energy(e, temp_k);
+                return x.absorption + x.inelastic + x.n2n + sab;
+            }
+        }
+        match &self.xs {
+            XsSource::Pointwise { recon, .. } => recon.eval_mt(MtReaction::Mt1Total, e),
+            // The LOW tier already carries a tabulated total; its `MicroXS`
+            // construction is a handful of field copies, not 46 searches, so
+            // there is nothing to gain from a separate path.
+            _ => self.base_xs_at_energy(e, temp_k).total,
+        }
+    }
+
     /// Microscopic cross sections **before** any S(α,β) thermal override — the
     /// raw free-gas / CE evaluation from the underlying [`XsSource`]. Split out so
     /// [`xs_at_energy`](Self::xs_at_energy) can layer the bound-atom thermal
