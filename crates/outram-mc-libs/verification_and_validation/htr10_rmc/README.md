@@ -220,12 +220,21 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
   homogenised with their borings.
 - **Control rods themselves** are absent; the benchmark arm is rods-out.
-- **11.1 % of the pebble-shell graphite** is clipped away by the
-  one-ball-per-tile construction and replaced by helium (helium 41.9 % against
-  the paper's 39.0 %), so total core carbon is ~4.7 % low while the heavy metal
-  is exact to +0.060 %. The comment in `core_model.rs` said 4.7 %, which is the
-  deficit in BALL volume, not shell volume; corrected 2026-09-25. Sign on `k`
-  not predicted, not measured — **gh:#309**.
+- **4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
+  construction and replaced by helium. Every pebble loses 4.74 % of its volume
+  — 11.1 % of the *fuel* pebble's fuel-free shell, and the whole cap for the
+  43 % of tiles that are solid graphite dummies, which have no shell at all —
+  while the fuel zone loses only 0.061 %. So core graphite goes
+  **0.59988 → 0.57131**, helium **39.0 % → 41.9 %**, and the heavy metal stays
+  exact to **+0.060 %**: **C/U is 4.8 % low**. The `core_model.rs` comment said
+  4.7 % of the *shell*, which is the BALL deficit mislabelled, and omitted the
+  dummy pebbles entirely; both corrected 2026-09-25. Sign on `k` not predicted,
+  not measured — **gh:#309**.
+- **`mat::HOMOG_DUMMY` smears the discharge tube at `PAPER_FILLING_FRACTION =
+  0.61` while the bed it homogenises realises 0.5814**, so the tube is 4.9 %
+  denser in graphite than the bed above it — the same error with the opposite
+  sign, in the one place the model homogenises rather than resolves. It should
+  read the realised packing from the assembled lattice — **gh:#309**.
 - **Axially adjacent pebbles are in contact**, joined by a 3.46 cm-diameter
   disc of shell graphite and a 1.00 cm-diameter disc of fuel zone, so the bed is
   a stack of welded truncated spheres rather than a sphere packing. Volume

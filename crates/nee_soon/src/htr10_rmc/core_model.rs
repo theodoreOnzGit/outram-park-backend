@@ -335,11 +335,18 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // remove 5.363 cm^3, of which only 0.080 cm^3 is fuel zone, so
     // **11.2 % of the pebble-shell graphite is removed**, and the shell's
     // share of core volume falls from the paper's 0.25699 to 0.22842 --
-    // a **11.1 %** deficit. Helium goes from 39.0 % to 41.9 %. Total core
-    // carbon is therefore ~4.7 % low while the heavy metal is exact to
-    // +0.06 %, i.e. **C/U is ~4.7 % low**. Sign on k is NOT predictable a
-    // priori (an over-moderated core loses parasitic capture as well as
-    // moderation) and has not been measured -- gh:#309.
+    // a **11.1 %** deficit.
+    //
+    // **And that is only the FUEL pebble.** 43 % of the tiles are solid
+    // graphite dummy pebbles with no shell and no fuel zone, and the lattice
+    // clips them identically -- the whole 5.363 cm^3 is graphite there. The
+    // core-level number, which is the one to quote, is: every pebble loses
+    // 4.74 % of its volume, essentially all of it carbon in both types, while
+    // the fuel zone loses 0.061 %. Core graphite volume fraction goes
+    // **0.59988 -> 0.57131, i.e. -4.76 %**, helium 39.0 % -> 41.9 %, and the
+    // heavy metal stays exact to +0.060 % -- so **C/U is 4.8 % low**. Sign on
+    // k is NOT predictable a priori (an over-moderated core loses parasitic
+    // capture as well as moderation) and has not been measured -- gh:#309.
     let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
@@ -760,11 +767,18 @@ pub fn assemble_explicit_triso(
     // remove 5.363 cm^3, of which only 0.080 cm^3 is fuel zone, so
     // **11.2 % of the pebble-shell graphite is removed**, and the shell's
     // share of core volume falls from the paper's 0.25699 to 0.22842 --
-    // a **11.1 %** deficit. Helium goes from 39.0 % to 41.9 %. Total core
-    // carbon is therefore ~4.7 % low while the heavy metal is exact to
-    // +0.06 %, i.e. **C/U is ~4.7 % low**. Sign on k is NOT predictable a
-    // priori (an over-moderated core loses parasitic capture as well as
-    // moderation) and has not been measured -- gh:#309.
+    // a **11.1 %** deficit.
+    //
+    // **And that is only the FUEL pebble.** 43 % of the tiles are solid
+    // graphite dummy pebbles with no shell and no fuel zone, and the lattice
+    // clips them identically -- the whole 5.363 cm^3 is graphite there. The
+    // core-level number, which is the one to quote, is: every pebble loses
+    // 4.74 % of its volume, essentially all of it carbon in both types, while
+    // the fuel zone loses 0.061 %. Core graphite volume fraction goes
+    // **0.59988 -> 0.57131, i.e. -4.76 %**, helium 39.0 % -> 41.9 %, and the
+    // heavy metal stays exact to +0.060 % -- so **C/U is 4.8 % low**. Sign on
+    // k is NOT predictable a priori (an over-moderated core loses parasitic
+    // capture as well as moderation) and has not been measured -- gh:#309.
     let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
