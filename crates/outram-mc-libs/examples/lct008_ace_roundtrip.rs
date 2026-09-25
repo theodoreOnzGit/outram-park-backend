@@ -200,6 +200,21 @@ impl Stages {
     }
 }
 
+/// One arm's answer, as the reporting code wants it: a `k` and the uncertainty
+/// **on that `k`**.
+///
+/// With one seed those are `run_keff`'s own mean and its internal standard
+/// error; with several they are the mean over seeds and the standard error of
+/// *that mean*, from the seed-to-seed scatter. One type for both is what lets
+/// the comparison below be written once — and the two uncertainties are **not**
+/// interchangeable, which is why the multi-seed path reports the scatter rather
+/// than averaging the internal estimates: independent runs of a power iteration
+/// disagree by more than each run thinks it knows.
+struct KRes {
+    k_mean: f64,
+    k_std: f64,
+}
+
 /// `--flag <usize>` from the command line, if present.
 fn arg_usize(args: &[String], flag: &str) -> Option<usize> {
     let i = args.iter().position(|a| a == flag)?;
@@ -215,6 +230,11 @@ fn main() {
     let n_inactive = arg_usize(&args, "--inactive").unwrap_or(30);
     let n_active = arg_usize(&args, "--active").unwrap_or(80);
     let seed_override = arg_usize(&args, "--seed").map(|v| v as u64);
+    // `--seeds N` repeats ONLY the transport, over N consecutive seeds, reusing
+    // the nuclides. The ACE build is ~300 s and the library 607 MB, so paying it
+    // once and looping the cheap part is what makes a multi-seed statement
+    // affordable at all. N = 1 reproduces the single-seed behaviour exactly.
+    let n_seeds = arg_usize(&args, "--seeds").unwrap_or(1).max(1);
 
     let mut st = Stages::default();
     let wall = Instant::now();
@@ -319,13 +339,61 @@ fn main() {
         settings.n_particles, settings.n_inactive, settings.n_active, settings.seed
     );
 
-    let t = Instant::now();
-    let r_endf = run_keff(radius_cm, &make_material("LCT008 (ENDF)"), &via_endf, &settings);
-    st.transport_endf = t.elapsed();
+    // One arm's `k` over the seeds: the mean, the standard error OF THAT MEAN,
+    // and the per-seed spread. With one seed the sem is the run's own reported
+    // `k_std`; with several it is the seed-to-seed scatter, which is the honest
+    // uncertainty on a mean over independent runs and is usually LARGER than a
+    // single run's internal estimate.
+    struct Arm {
+        k: f64,
+        sem: f64,
+        sd: f64,
+        per_seed: Vec<f64>,
+    }
+    fn summarise(per_seed: &[f64], single_std: f64) -> Arm {
+        let n = per_seed.len() as f64;
+        let k = per_seed.iter().sum::<f64>() / n;
+        if per_seed.len() < 2 {
+            return Arm { k, sem: single_std, sd: 0.0, per_seed: per_seed.to_vec() };
+        }
+        let var = per_seed.iter().map(|v| (v - k) * (v - k)).sum::<f64>() / (n - 1.0);
+        Arm { k, sem: (var / n).sqrt(), sd: var.sqrt(), per_seed: per_seed.to_vec() }
+    }
 
-    let t = Instant::now();
-    let r_ace = run_keff(radius_cm, &make_material("LCT008 (ACE)"), &via_ace, &settings);
-    st.transport_ace = t.elapsed();
+    let mut k_endf: Vec<f64> = Vec::new();
+    let mut k_ace: Vec<f64> = Vec::new();
+    let mut std_endf = 0.0;
+    let mut std_ace = 0.0;
+    for s in 0..n_seeds {
+        let mut set = settings.clone();
+        set.seed = settings.seed + s as u64;
+
+        let t = Instant::now();
+        let r = run_keff(radius_cm, &make_material("LCT008 (ENDF)"), &via_endf, &set);
+        st.transport_endf += t.elapsed();
+        std_endf = r.k_std;
+        k_endf.push(r.k_mean);
+
+        let t = Instant::now();
+        let r = run_keff(radius_cm, &make_material("LCT008 (ACE)"), &via_ace, &set);
+        st.transport_ace += t.elapsed();
+        std_ace = r.k_std;
+        k_ace.push(r.k_mean);
+
+        if n_seeds > 1 {
+            println!(
+                "    seed {:>3}: ENDF {:.5}   ACE {:.5}   ({:+.1} pcm)",
+                set.seed,
+                k_endf[s],
+                k_ace[s],
+                1.0e5 * (k_ace[s] - k_endf[s])
+            );
+        }
+    }
+    let a_endf = summarise(&k_endf, std_endf);
+    let a_ace = summarise(&k_ace, std_ace);
+    let r_endf = KRes { k_mean: a_endf.k, k_std: a_endf.sem };
+    let r_ace = KRes { k_mean: a_ace.k, k_std: a_ace.sem };
 
     // ── Arm A': the ENDF route with the ACE route's OMISSIONS imposed ──────
     //
@@ -353,14 +421,24 @@ fn main() {
         (0, 0),
         "the ablated arm must carry neither term, or it is not the control it claims to be"
     );
-    let t = Instant::now();
-    let r_abl = run_keff(
-        radius_cm,
-        &make_material("LCT008 (ENDF, URR+DBRC ablated)"),
-        &via_endf_ablated,
-        &settings,
-    );
-    st.transport_endf_ablated = t.elapsed();
+    let mut k_abl: Vec<f64> = Vec::new();
+    let mut std_abl = 0.0;
+    for s in 0..n_seeds {
+        let mut set = settings.clone();
+        set.seed = settings.seed + s as u64;
+        let t = Instant::now();
+        let r = run_keff(
+            radius_cm,
+            &make_material("LCT008 (ENDF, URR+DBRC ablated)"),
+            &via_endf_ablated,
+            &set,
+        );
+        st.transport_endf_ablated += t.elapsed();
+        std_abl = r.k_std;
+        k_abl.push(r.k_mean);
+    }
+    let a_abl = summarise(&k_abl, std_abl);
+    let r_abl = KRes { k_mean: a_abl.k, k_std: a_abl.sem };
 
     // ── Parity ─────────────────────────────────────────────────────────────
     let d_pcm = 1.0e5 * (r_ace.k_mean - r_endf.k_mean);
@@ -411,15 +489,57 @@ fn main() {
         "    ACE - ENDF     : {d_pcm:+.1} +/- {combined:.1} pcm ({:.2} sigma)          -- what was quoted before",
         d_pcm.abs() / combined.max(1e-12)
     );
-    if d_ace_vs_abl.abs() < d_pcm.abs() {
+    // THE VERDICT IS GATED ON THE STATISTICS, not on which number is bigger.
+    //
+    // A first version of this block printed "removing the asymmetry did NOT
+    // close the gap" whenever |ACE - ablated| >= |ACE - ENDF|, and on the first
+    // run that meant announcing a conclusion from a 37 pcm change between two
+    // differences whose own sigmas are ~350 pcm. That is the failure this
+    // workspace's process rule is about -- a comparison that cannot fail is not
+    // evidence -- so the change in gap is quoted WITH its uncertainty and a
+    // direction is claimed only when it exceeds it.
+    let d_gap = d_ace_vs_abl.abs() - d_pcm.abs();
+    let s_gap = (s_ace_vs_abl * s_ace_vs_abl + combined * combined).sqrt();
+    println!(
+        "    change in gap  : {d_gap:+.1} +/- {s_gap:.1} pcm ({:.2} sigma)",
+        d_gap.abs() / s_gap.max(1e-12)
+    );
+    if d_gap.abs() < s_gap {
         println!(
-            "    => removing the asymmetry moved the arms CLOSER by {:.1} pcm, so part of\n                    the {d_pcm:+.1} pcm was the missing physics rather than the format.",
-            d_pcm.abs() - d_ace_vs_abl.abs()
+            "    => NOT RESOLVED: the gap changes by less than the uncertainty on that\n       \
+             change, so this run cannot say whether the asymmetry explained any of the\n       \
+             {:+.1} pcm. What it does say is that removing the asymmetry creates no\n       \
+             disagreement either. Resolving a {:.0} pcm gap at 3 sigma needs sem <=\n       \
+             {:.0} pcm, about {:.0}x this run's histories or seeds.",
+            d_pcm,
+            d_pcm.abs(),
+            d_pcm.abs() / 3.0,
+            (3.0 * combined / d_pcm.abs().max(1e-12)).powi(2)
+        );
+    } else if d_gap < 0.0 {
+        println!(
+            "    => removing the asymmetry moved the arms CLOSER by {:.1} pcm, more than the\n       \
+             uncertainty on that change, so part of the {:+.1} pcm was the missing\n       \
+             physics rather than the format.",
+            d_gap.abs(),
+            d_pcm
         );
     } else {
         println!(
-            "    => removing the asymmetry did NOT close the gap ({:.1} pcm further), so the\n                    {d_pcm:+.1} pcm is not explained by URR+DBRC.",
-            d_ace_vs_abl.abs() - d_pcm.abs()
+            "    => removing the asymmetry moved the arms FURTHER APART by {:.1} pcm, more\n       \
+             than the uncertainty on that change, so the {:+.1} pcm is not explained by\n       \
+             URR+DBRC and the routes differ for another reason.",
+            d_gap.abs(),
+            d_pcm
+        );
+    }
+    if n_seeds > 1 {
+        println!(
+            "    per-seed spread: ENDF sd {:.0} pcm, ACE sd {:.0} pcm, ablated sd {:.0} pcm \
+             over {n_seeds} seeds",
+            1.0e5 * a_endf.sd,
+            1.0e5 * a_ace.sd,
+            1.0e5 * a_abl.sd
         );
     }
     println!(
