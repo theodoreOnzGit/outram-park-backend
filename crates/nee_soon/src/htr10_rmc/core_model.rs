@@ -64,7 +64,6 @@ pub const HTR10_COOLANT_INNER_CM: f64 = 140.6;
 /// Outer radius \[cm\] of the cold coolant flow annulus (144.6 + 8.0 / 2).
 pub const HTR10_COOLANT_OUTER_CM: f64 = 148.6;
 
-
 /// Total height \[cm\] of the **core cavity**, conus top to cavity top.
 ///
 /// Terry (2005) Fig. 2 / IAEA-TECDOC-1382: `z = 130.0` to `351.818`. This is
@@ -119,6 +118,29 @@ pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 {
 /// is ~130 cm of graphite above the cavity, not the ~1 cm an unextended
 /// `bed_half_height + 100` leaves once the cavity is carved out of it.
 pub const HTR10_AXIAL_REFLECTOR_CM: f64 = 130.0;
+
+/// Bottom reflector thickness \[cm\] below the conus floor.
+///
+/// Terry (2005) Fig. 2: the conus ends at `z = 388.764` and the model at
+/// `z = 610.0`, so **221.236 cm, fixed** -- it does not depend on the loading.
+///
+/// ## What was here before, and why it is gone
+///
+/// ~~The outer box was symmetric: its bottom plane was the mirror of the top,
+/// `-(bed_half_height + cavity + 130)`.~~ **REMOVED 2026-09-25.** Because the
+/// origin is the bed's MID-HEIGHT, the mirrored bottom rode up with the bed, so
+/// the bottom reflector was `314.872 - bed_height` cm: 216.9 cm at the lowest
+/// loading (97.98 cm), 192.4 cm at the benchmark (122.47 cm), **114.0 cm** at
+/// the tallest (200.86 cm) -- up to 107 cm thinner than the reactor's, by an
+/// amount that grew with the bed, and a model 581 cm tall rather than 610. Same
+/// failure class as the constant-cavity void: a loading-dependent geometry
+/// error hidden by a construction that is exact at one point. Every result
+/// computed before this change used the mirrored bottom.
+pub const HTR10_BOTTOM_REFLECTOR_CM: f64 = 610.0 - 388.764;
+
+/// Full axial extent \[cm\] of the benchmark model, Terry (2005) Fig. 2
+/// (`z = 0` to `610`): top reflector + core cavity + conus + bottom reflector.
+pub const HTR10_MODEL_HEIGHT_CM: f64 = 610.0;
 
 /// Height \[cm\] of the **conus** — the sloping bottom of the pebble bed,
 /// tapering from the core radius to the discharge tube.
@@ -213,15 +235,18 @@ pub struct AssembledCore {
     /// Top of the empty core cavity \[cm\], i.e. where the axial reflector
     /// begins. Equals `bed_half_height` when no reflector is built.
     pub cavity_top: f64,
-    /// Half-height \[cm\] of the whole assembled model — the outer reflector
-    /// cylinder runs from `-refl_half_height` to `+refl_half_height`.
+    /// Top of the whole assembled model \[cm\]: cavity top + the 130 cm axial
+    /// reflector. Equals `bed_half_height` when no reflector is built.
+    pub refl_top: f64,
+    /// Bottom of the whole assembled model \[cm\] (negative): conus floor less
+    /// the fixed [`HTR10_BOTTOM_REFLECTOR_CM`]. Equals `-bed_half_height` when
+    /// no reflector is built.
     ///
-    /// **The model is symmetric in EXTENT and asymmetric in CONTENTS**: above
-    /// the bed sit the helium cavity then the axial reflector, below it the
-    /// conus of dummy pebbles then solid graphite all the way down. Anything
-    /// reporting the axial build must read this rather than adding up the
-    /// named constants, which describe the top half only.
-    pub refl_half_height: f64,
+    /// The model is **not** symmetric about `z = 0` (the bed mid-height): see
+    /// [`HTR10_BOTTOM_REFLECTOR_CM`] for why the old mirrored bottom was wrong.
+    /// With a reflector, `refl_top - refl_bottom` is [`HTR10_MODEL_HEIGHT_CM`]
+    /// at every loading.
+    pub refl_bottom: f64,
 }
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
@@ -359,13 +384,13 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     };
     // WHERE the outer boundary lives depends on whether a reflector exists.
     //
-    // With a reflector, surfaces 5/6/7 (refl_radius, +/-refl_half_height) are
+    // With a reflector, surfaces 5/6/7 (refl_radius, refl_bottom, refl_top) are
     // the edge of the model and carry `outer_bc`, while the bed surfaces 2/3/4
     // are interior and must stay TRANSMISSIVE so neutrons pass into the
     // reflector.
     //
     // With `OUTRAM_HTR10_NOREFL=1` the reflector collapses -- `refl_radius`
-    // becomes `bed_radius` and `refl_half_height` becomes `bed_half_height` --
+    // becomes `bed_radius` and `refl_bottom`/`refl_top` become `-/+bed_half_height` --
     // so 5/6/7 land exactly on 2/3/4 and the shell between them has ZERO
     // VOLUME. A boundary condition on a zero-volume shell does nothing:
     // neutrons cross the transmissive bed surfaces and are simply lost. That is
@@ -399,10 +424,18 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // With `bed_half_height + 100` the cavity top (bed + 98.758) left barely a
     // centimetre of graphite before vacuum, so the cavity vented almost
     // directly to the outside -- measured at 15.7 % leakage.
-    let refl_half_height = if refl_thickness > 0.0 {
+    let refl_top = if refl_thickness > 0.0 {
         bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
         bed_half_height
+    };
+    // This homogenised model has no conus (reflector graphite fills it), but
+    // the outer extent is still the reactor's: conus depth + fixed bottom
+    // reflector below the bed, NOT a mirror of the top.
+    let refl_bottom = if refl_thickness > 0.0 {
+        -bed_half_height - HTR10_CONUS_HEIGHT_CM - HTR10_BOTTOM_REFLECTOR_CM
+    } else {
+        -bed_half_height
     };
 
     let surfaces = vec![
@@ -444,11 +477,11 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
             bc: outer_bc,
         }),
         SurfaceKind::ZPlane(ZPlane {
-            z0: -refl_half_height,
+            z0: refl_bottom,
             bc: outer_bc,
         }),
         SurfaceKind::ZPlane(ZPlane {
-            z0: refl_half_height,
+            z0: refl_top,
             bc: outer_bc,
         }),
     ];
@@ -589,7 +622,8 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         } else {
             bed_half_height
         },
-        refl_half_height,
+        refl_top,
+        refl_bottom,
     }
 }
 
@@ -789,10 +823,18 @@ pub fn assemble_explicit_triso(
     // With `bed_half_height + 100` the cavity top (bed + 98.758) left barely a
     // centimetre of graphite before vacuum, so the cavity vented almost
     // directly to the outside -- measured at 15.7 % leakage.
-    let refl_half_height = if refl_thickness > 0.0 {
+    let refl_top = if refl_thickness > 0.0 {
         bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
         bed_half_height
+    };
+    // The bottom is placed from the reactor, NOT mirrored from the top: the
+    // conus floor, then the fixed 221.236 cm bottom reflector (Terry 2005
+    // Fig. 2, z 388.764 -> 610). See `HTR10_BOTTOM_REFLECTOR_CM`.
+    let refl_bottom = if refl_thickness > 0.0 {
+        -bed_half_height - HTR10_CONUS_HEIGHT_CM - HTR10_BOTTOM_REFLECTOR_CM
+    } else {
+        -bed_half_height
     };
 
     // Surfaces 0..4 are the TRISO shells, in PARTICLE-local coordinates.
@@ -853,11 +895,11 @@ pub fn assemble_explicit_triso(
         bc: obc,
     }));
     surfaces.push(SurfaceKind::ZPlane(ZPlane {
-        z0: -refl_half_height,
+        z0: refl_bottom,
         bc: obc,
     }));
     surfaces.push(SurfaceKind::ZPlane(ZPlane {
-        z0: refl_half_height,
+        z0: refl_top,
         bc: obc,
     }));
     // 13: graphite / boronated-brick interface (Terry 2005 Fig. 2).
@@ -1355,6 +1397,7 @@ pub fn assemble_explicit_triso(
         lat_height,
         conus_floor,
         cavity_top,
-        refl_half_height,
+        refl_top,
+        refl_bottom,
     }
 }

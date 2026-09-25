@@ -164,7 +164,10 @@ fn main() {
             "control-rod boring band",
             HTR10_CONTROL_ROD_INNER_CM,
             HTR10_CONTROL_ROD_OUTER_CM,
-            "bored graphite; TECDOC Table 4-3 zones 31-40",
+            // The bored-graphite composition (zones 31-40) is behind
+            // OUTRAM_HTR10_BORINGS and OFF by default: every reported run has
+            // solid zone-22 graphite here. Say what was modelled.
+            "solid graphite; TECDOC zone 22 (bored-graphite option OFF)",
             "Terry et al. (2005) Fig. 2; channel r 102.1 -/+ 13/2",
         ),
         (
@@ -224,29 +227,30 @@ fn main() {
     // 580 cm tall, so a reader checking axial leakage would have been working
     // from a reactor that does not exist.
     //
-    // The model is SYMMETRIC IN EXTENT about z = 0 (the outer reflector
-    // cylinder runs +/- `refl_half_height`) and ASYMMETRIC IN CONTENTS: above
-    // the bed sit the helium cavity then the axial reflector; below it the
-    // conus of dummy pebbles, then solid graphite all the way to the floor.
-    // That asymmetry is the whole point of the table, and only the assembly
-    // knows it.
+    // The model is ASYMMETRIC about z = 0 (the bed mid-height), in extent as
+    // well as contents: above the bed sit the helium cavity then the 130 cm
+    // axial reflector; below it the conus of dummy pebbles, then the fixed
+    // 221.236 cm bottom reflector. Until 2026-09-25 the bottom was a MIRROR of
+    // the top, which rode up with the bed and left the bottom reflector up to
+    // 107 cm short -- see `HTR10_BOTTOM_REFLECTOR_CM`. Read both ends from the
+    // assembly, which is what the transport sees.
     let core = assemble_explicit_triso(rings, layers, 0);
     let bed_height = 2.0 * core.bed_half_height;
     let mut axial = String::from("zone,ztopcm,zbotcm,extentcm,contents,source\n");
     for (zone, ztop, zbot, contents, source) in [
         (
             "axial reflector (above cavity)",
-            core.refl_half_height,
+            core.refl_top,
             core.cavity_top,
             "graphite; TECDOC zone 22",
-            "Terry et al. (2005); 610 cm model height",
+            "Terry et al. (2005) Fig. 2; z 0 to 130",
         ),
         (
             "empty core cavity",
             core.cavity_top,
             core.bed_half_height,
             "helium",
-            "Terry et al. (2005) Fig. 2",
+            "Terry et al. (2005) Fig. 2; 221.818 cm cavity less the bed",
         ),
         (
             "pebble bed as built",
@@ -265,9 +269,9 @@ fn main() {
         (
             "bottom reflector (below conus)",
             core.conus_floor,
-            -core.refl_half_height,
+            core.refl_bottom,
             "graphite; TECDOC zone 22",
-            "assembled: symmetric outer cylinder",
+            "Terry et al. (2005) Fig. 2; z 388.764 to 610",
         ),
     ] {
         axial.push_str(&row(&[

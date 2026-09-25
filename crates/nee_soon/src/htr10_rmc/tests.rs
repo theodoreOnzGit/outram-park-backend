@@ -185,3 +185,87 @@ fn the_reference_curve_implies_a_critical_height() {
     );
     assert!(h > h0 && h < h1, "the crossing must lie inside its bracket");
 }
+
+/// **The axial stack is the reactor's at EVERY loading, not just one.**
+///
+/// Terry (2005) Fig. 2, z measured down from the model top: top reflector
+/// 0 -> 130, core cavity 130 -> 351.818 (bed + void, fixed hardware), conus
+/// 351.818 -> 388.764, bottom reflector 388.764 -> 610. Only the split of the
+/// cavity between bed and void may change with `n_axial`.
+///
+/// Two construction defects of exactly this class have shipped: a constant
+/// void that grew the cavity with the bed, and a bottom boundary MIRRORED from
+/// the top, which rode up with the bed and left the bottom reflector up to
+/// 107 cm short at the tallest loading. Both were exact at one loading, so a
+/// single-height check cannot catch them; this runs the lowest, benchmark and
+/// tallest loadings, and reads the planes the TRANSPORT sees, not just the
+/// reported fields.
+#[test]
+fn the_axial_stack_matches_terry_at_every_loading() {
+    use crate::htr10_rmc::core_model::{assemble, assemble_explicit_triso};
+    use outram_mc_libs::geometry::surface::SurfaceKind;
+    let z_of = |s: &SurfaceKind| match s {
+        SurfaceKind::ZPlane(p) => p.z0,
+        other => panic!("expected a z-plane, got {other:?}"),
+    };
+    let close = |a: f64, b: f64, what: &str, n: usize| {
+        assert!(
+            (a - b).abs() < 1e-9,
+            "n_axial {n}: {what} = {a:.6}, Terry says {b:.6}"
+        );
+    };
+    for n in [20usize, 25, 41] {
+        let c = assemble_explicit_triso(14, n, 0);
+        let bed_bottom = -c.bed_half_height;
+        close(c.refl_top - c.cavity_top, 130.0, "top reflector", n);
+        close(
+            c.cavity_top - bed_bottom,
+            221.818,
+            "core cavity (bed + void)",
+            n,
+        );
+        close(bed_bottom - c.conus_floor, 36.946, "conus", n);
+        close(
+            c.conus_floor - c.refl_bottom,
+            221.236,
+            "bottom reflector",
+            n,
+        );
+        close(c.refl_top - c.refl_bottom, 610.0, "whole model", n);
+        // The vacuum planes the transport actually tracks: surfaces 11/12.
+        close(
+            z_of(&c.geometry.surfaces[11]),
+            c.refl_bottom,
+            "bottom vacuum plane",
+            n,
+        );
+        close(
+            z_of(&c.geometry.surfaces[12]),
+            c.refl_top,
+            "top vacuum plane",
+            n,
+        );
+
+        // The homogenised diagnostic model has the same outer extent
+        // (surfaces 6/7), with reflector graphite where the conus would be.
+        let h = assemble(14, n, 0);
+        close(
+            h.refl_top - h.refl_bottom,
+            610.0,
+            "homogenised: whole model",
+            n,
+        );
+        close(
+            z_of(&h.geometry.surfaces[6]),
+            h.refl_bottom,
+            "homogenised: bottom plane",
+            n,
+        );
+        close(
+            z_of(&h.geometry.surfaces[7]),
+            h.refl_top,
+            "homogenised: top plane",
+            n,
+        );
+    }
+}
