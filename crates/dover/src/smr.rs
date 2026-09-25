@@ -120,8 +120,18 @@
 //! - **Ideal gas, constant volumetric flow.** `Cᵢ = Fᵢ/Q` with `Q` fixed, the
 //!   inherited assumption from `dwsim-libs`' reactors. Reforming increases
 //!   the mole count substantially (1 + 1 → 1 + 3), so a real isobaric reactor
-//!   expands and `Q` rises; holding it fixed overstates the product
-//!   concentrations and therefore the reverse rates. Documented, not modelled.
+//!   expands and `Q` rises. ~~Holding it fixed overstates the product
+//!   concentrations and therefore the reverse rates.~~ **CORRECTED
+//!   2026-09-25, by measurement:** holding it fixed overstates *every*
+//!   concentration, reactants included, and this reactor is forward-rate
+//!   limited, so the net effect is that conversion comes out **too high**, not
+//!   too low. Compiled upstream DWSIM, which re-flashes the tank every sweep,
+//!   gives methane conversion **0.375803** on the base deck where this model
+//!   gives **0.411745 — +9.6 %** — with upstream's `Q` growing 19.0 % through
+//!   the reactor. Handed upstream's outlet `Q`, the same solver reproduces
+//!   upstream to 6.1e-10 per species, so the whole gap is this assumption
+//!   (`outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs`). Documented,
+//!   not modelled.
 //! - **Power-law kinetics, no adsorption.** `dwsim-libs` has
 //!   `LangmuirHinshelwood` ready for the surface-coverage denominator real
 //!   reforming needs; wiring it requires the catalyst constants above, so it

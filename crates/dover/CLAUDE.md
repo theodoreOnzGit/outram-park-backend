@@ -105,6 +105,26 @@ justified. Reported as **GitHub issue #324** rather than patched from here; that
 issue carries the full measurement table, including the prototype variants that
 were tried and what each scored, so the work is not repeated blind.
 
+### Code-to-code check against compiled upstream DWSIM (2026-09-25)
+
+The base deck was run through a real upstream `Reactor_CSTR`, built from the
+pinned DWSIM commit and driven headless
+(`outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs`). Two results that
+matter for DOVER:
+
+- **The reactor DOVER relies on is right.** Given the same `Q`, `dwsim-libs`'
+  `Cstr` reproduces upstream to **6.1e-10** per species on this exact
+  five-species case.
+- **The constant-`Q` assumption is not small here.** Upstream re-flashes the
+  gas every sweep and its `Q` grows 19.0 %; holding `Q` at the inlet value
+  overstates methane conversion by **+9.6 %** (0.411745 vs 0.375803). An
+  earlier note in `src/smr.rs` predicted the opposite sign and has been
+  corrected there.
+
+Upstream also returns **zero conversion** for this case on its pristine build
+(an all-vapour CSTR bug, GitHub issue #326), so the comparison used a one-line
+diagnostic build of upstream. That is upstream's defect, not DOVER's.
+
 ## Maturity of this model
 
 **Not mature, and not validated.** Every test in `tests/smr_cstr.rs` is

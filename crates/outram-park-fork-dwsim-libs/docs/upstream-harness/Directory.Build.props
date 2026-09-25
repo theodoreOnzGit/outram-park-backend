@@ -1,0 +1,16 @@
+<Project>
+  <!-- Build-copy-only workarounds for building DWSIM (pinned 1abf72d1) with
+       .NET 8 MSBuild on Linux. Not part of upstream; see the OUTRAM PARK
+       outram-park-fork-dwsim-libs CLAUDE.md, "Running upstream DWSIM headless". -->
+  <PropertyGroup>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Resources.Extensions">
+      <HintPath>$(MSBuildThisFileDirectory)packages/System.Resources.Extensions.8.0.0/lib/net462/System.Resources.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="netstandard">
+      <HintPath>/usr/lib/mono/4.8-api/Facades/netstandard.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -98,6 +98,8 @@ window — DOVER is headless by construction here.
 
 Base deck (2 m³, 1123.15 K, 20 bar, steam-to-carbon 3, $\tau = 107$ s):
 methane conversion **0.4117**, **1.428** mol H₂ per mol CH₄, duty **76.8 kW**.
+Read the conversion as an **overestimate**: the constant-flow assumption below
+alone accounts for +9.6 % of it.
 
 ### ⚠️ Not validated, and the kinetics are placeholders
 
@@ -113,7 +115,11 @@ experiment or a published reformer.** Specifically:
 - **Isothermal**, with the heat of reaction reported but not fed back into an
   energy balance. Real reforming is violently endothermic.
 - **Constant volumetric flow**, inherited from the reactor, while reforming
-  takes 2 mol to 4.
+  takes 2 mol to 4. **Measured 2026-09-25:** this overstates methane
+  conversion by **+9.6 %** on the base deck (0.4117 here against 0.3758 from
+  compiled upstream DWSIM, which re-flashes the gas every sweep). Handed the
+  same `Q` as upstream, the reactor agrees with it to 6.1e-10, so this
+  assumption is the entire gap.
 - **Power-law kinetics, no adsorption term**, no catalyst, no diffusion, no
   pressure drop, no carbon formation.
 - The formation data itself still needs cataloguing in `kovan-literature`.

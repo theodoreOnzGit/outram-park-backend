@@ -27,6 +27,7 @@ LD_LIBRARY_PATH=. mono d.exe
 | `eos_driver.cs` | `Calculator.CalcProp` density/Z | **verified** — differs from `Z_PR` by a Peneloux volume translation |
 | `flash_driver.cs` | `Calculator.CalcEquilibrium` PT flash | **verified** — differs from this port by the `k_ij` this port cannot apply |
 | `column_driver.cs` | `WangHenkeMethod.SolveColumn` | **verified** — converges on a separating case from this port's own initial estimates |
+| `cstr_driver.cs` | a real `Reactor_CSTR.Calculate()` on a headless flowsheet | **verified** — matches this port to 6.1e-10 per species once upstream is converged; see below |
 
 ## Column driver
 
@@ -62,3 +63,63 @@ methane's critical temperature (190.56 K) there is often no liquid root at all.
 The crate's own module-level example — 101 325 Pa, 200 K — puts **both**
 components fully in the vapour (K = 58.7 and 2.15), so no distillation is
 possible; it is marked `no_run`, which is why that was never noticed.
+
+## CSTR driver (2026-09-25)
+
+Builds a real flowsheet — inlet, outlet and energy streams connected to a
+`Reactor_CSTR`, a kinetic reaction set on a `MolarConc` basis, isothermal,
+Peng-Robinson — and calls `Calculate()`. Cases are selected by name:
+
+```bash
+LD_LIBRARY_PATH=. mono cstr.exe iso_liq        # liquid n-butane -> isobutane
+LD_LIBRARY_PATH=. mono cstr.exe iso_gas_mix    # same, all vapour
+LD_LIBRARY_PATH=. mono cstr.exe smr            # DOVER's steam-reforming base deck
+CSTR_TOL=1e-13 CSTR_MAXIT=100000000 ...        # upstream's own Tolerance / MaxIterations
+```
+
+Output is `KEY=value` lines. The head-to-head result, and why the port is
+handed upstream's *outlet* `Q`, is in `tests/upstream_cstr_parity.rs`.
+
+Three things worth knowing before using it:
+
+1. **Upstream writes the outlet's mass flow and mole fractions, not molar
+   flows.** In single-outlet mode it sets per-compound molar flow from a
+   stream molar flow that is still stale (zero); in a real flowsheet the
+   solver calculates the outlet next. The driver does the same
+   (`outs.Calculate`) and also prints the raw mole fractions.
+2. **An all-vapour CSTR returns zero conversion on the pristine build**
+   (GitHub issue #326): the initial relaxation step is `ResidenceTimeL/10`,
+   and `ResidenceTimeL` is zero with no liquid. `cstr_diagnostic_dt_seed.patch`
+   is a one-line diagnostic that seeds the step from `V/Q` instead. **Apply it
+   to a build copy only**, build that project into a separate run directory
+   (`/p:BuildProjectReferences=false`), and label any number it produces as
+   coming from the diagnostic build. `CSTR.vb` is Latin-1, not UTF-8.
+3. **Upstream's default `Tolerance = 1e-5` is not converged on stiff cases**
+   (issue #326): its loop stops on per-step change, not on the balance
+   residual. Pass `CSTR_TOL` and record the value you used.
+
+## Building with `Directory.Build.props` / `.targets` (2026-09-25)
+
+Two of the workarounds in the crate `CLAUDE.md` can be applied without
+touching any project file: copy `Directory.Build.props` and
+`Directory.Build.targets` from this folder to the **root of the build copy**,
+and MSBuild applies them to every project beneath it.
+
+- `.props` sets `GenerateResourceUsePreserializedResources`, references
+  `System.Resources.Extensions` (package 8.0.0, `lib/net462`), and references
+  Mono's `netstandard` facade, which `DWSIM.GlobalSettings` otherwise fails
+  on with BC30652.
+- `.targets` drops culture-qualified `EmbeddedResource` items right after
+  `SplitResourcesByCulture`, so no satellite assembly is built or copied and
+  the missing `AL` task is never reached. Disabling only
+  `GenerateSatelliteAssemblies` is **not** enough: the copy step still looks for
+  the satellites and fails with MSB3030.
+
+Two other things were needed on 2026-09-25 that the crate `CLAUDE.md` does
+not list:
+
+- `SkiaSharp.NativeAssets.Linux` 1.68.2.1 for `libSkiaSharp.so` (linux-x64),
+  which the flowsheet constructor needs; and
+- running from a directory holding **every** project's `bin/Release`
+  output, not just one. FlowsheetBase pulls in `DWSIM.DynamicsManager`,
+  `LiteDB` and others that only another project copies locally.

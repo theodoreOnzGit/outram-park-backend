@@ -106,6 +106,31 @@ what a reader should treat as the real current evidence:
 | Wang-Henke ⟷ Naphtali-Sandholm cross-check at NS's D | Q₇ −0.018785 W, profiles agree to 0.001 K |
 | Test suite | 705 lib, 18 doc, 11 integration, 0 failing |
 
+**CSTR, measured 2026-09-25 — cross-code, not validation.** A real upstream
+`Reactor_CSTR` on a headless flowsheet against `reactors::Cstr`
+(`tests/upstream_cstr_parity.rs`, driver `docs/upstream-harness/cstr_driver.cs`):
+
+| case | worst relative gap |
+|---|---|
+| liquid n-butane → isobutane, first order | 4.9e-12 |
+| vapour n-butane → isobutane *(diagnostic build)* | 1.7e-13 |
+| steam reforming + shift, 5 species *(diagnostic build)* | 6.1e-10 per species flow |
+
+Two conditions make that a comparison of *solvers*: this crate is handed
+upstream's **outlet** `Q` (upstream re-flashes every sweep, this crate holds
+`Q` fixed), and upstream is run at `Tolerance` 1e-11 to 1e-13, because its
+default `1e-5` stops on per-step change and leaves the steam-reforming case
+with a 0.138 mol/s balance residual. Handed the **inlet** `Q`, as a caller
+normally would, this crate overstates steam-reforming conversion by **+9.6 %**
+(0.411745 vs 0.375803). That is the documented constant-`Q` simplification,
+now with a number on it, not a solver defect.
+
+**Upstream defect found by this run** (GitHub issue #326): an all-vapour CSTR
+returns **zero conversion** on the pristine build, because the first
+relaxation step is `ResidenceTimeL/10` and `ResidenceTimeL = V/(QL+QS)` is
+zero with no liquid. The vapour rows above therefore come from a build copy
+carrying a one-line diagnostic patch, and are labelled so.
+
 ## Running upstream DWSIM headless (for code-to-code verification)
 
 Established 2026-09-13. Upstream DWSIM **can** be built and run on Linux from
@@ -121,6 +146,10 @@ dotnet msbuild DWSIM.Thermodynamics/DWSIM.Thermodynamics.vbproj \
 ```
 
 Six things are required, and none of them touches thermodynamic code:
+(**2026-09-25:** items 2 and 3 can instead be applied with no project-file edits
+by copying `docs/upstream-harness/Directory.Build.props` and `.targets` to the
+build-copy root; the harness README says why and lists two further
+requirements for running a flowsheet.)
 
 1. **`packages/` is ~80 % incomplete** (102 of 128 absent). `dist.nuget.org` is
    proxy-blocked, so fetch each `.nupkg` from `api.nuget.org`'s
