@@ -281,6 +281,28 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // pitch is the ball diameter and not the paper cell's 6.6106/9.798.
     // ONE ball per tile, in a tile that is HALF the paper's two-ball prism.
     //
+    // **WHAT THE CLIP ACTUALLY IS (corrected 2026-09-25, gh:#310).** The paper's
+    // cell is a TWO-ball prism with A-B stacking: each layer sits in the hollow
+    // of the one below, offset laterally by pitch/sqrt(3) = 3.8166 cm, so the
+    // interlayer centre distance is hypot(3.8166, 2.4495) = 6.2102 cm -- clear
+    // of the 6.0 cm diameter. One ball per tile DROPS that offset: every ball in
+    // a column sits at the same (x, y), so the axial neighbour distance is just
+    // the tile height, **4.8990 cm, i.e. 1.101 cm LESS than a diameter. The
+    // pebbles interpenetrate.**
+    //
+    // Two spheres at 4.8990 cm centres cross on a circle of radius
+    // sqrt(3.0^2 - 2.4495^2) = 1.7321 cm, and the tile boundary sits exactly on
+    // that mid-plane -- so the cut is the CORRECT union of the two spheres, and
+    // each 2.6816 cm^3 "cap" removed IS the interpenetration lens. Nothing falls
+    // into a void. What is wrong is upstream: pebbles at 4.899 cm centres cannot
+    // occupy 0.61 of the volume, because 4.74 % of each is inside its neighbour.
+    //
+    // `bed.rs`'s `the_reconstructed_cell_is_a_real_packing` would catch this and
+    // does not: it asserts `is_non_overlapping()` on `HexBedCell::from_paper()`,
+    // which passes. `HexBedCell::interlayer_spacing` assumes the A-B offset, so
+    // no method on it returns the columnar 4.8990 -- the type models the paper
+    // while this builds something else.
+    //
     // The ball (6.0 cm across) is taller than the tile (4.899 cm), so the
     // lattice CLIPS it axially -- and that clipping is not cosmetic: it removes
     // two spherical caps of 2.6816 cm^3 each from a 113.0973 cm^3 ball, leaving
@@ -713,6 +735,28 @@ pub fn assemble_explicit_triso(
     // approximation chosen for convenience. Reaching 0.61 needs the paper's
     // offset half-sphere arrangement, which a single-universe tile cannot hold.
     // ONE ball per tile, in a tile that is HALF the paper's two-ball prism.
+    //
+    // **WHAT THE CLIP ACTUALLY IS (corrected 2026-09-25, gh:#310).** The paper's
+    // cell is a TWO-ball prism with A-B stacking: each layer sits in the hollow
+    // of the one below, offset laterally by pitch/sqrt(3) = 3.8166 cm, so the
+    // interlayer centre distance is hypot(3.8166, 2.4495) = 6.2102 cm -- clear
+    // of the 6.0 cm diameter. One ball per tile DROPS that offset: every ball in
+    // a column sits at the same (x, y), so the axial neighbour distance is just
+    // the tile height, **4.8990 cm, i.e. 1.101 cm LESS than a diameter. The
+    // pebbles interpenetrate.**
+    //
+    // Two spheres at 4.8990 cm centres cross on a circle of radius
+    // sqrt(3.0^2 - 2.4495^2) = 1.7321 cm, and the tile boundary sits exactly on
+    // that mid-plane -- so the cut is the CORRECT union of the two spheres, and
+    // each 2.6816 cm^3 "cap" removed IS the interpenetration lens. Nothing falls
+    // into a void. What is wrong is upstream: pebbles at 4.899 cm centres cannot
+    // occupy 0.61 of the volume, because 4.74 % of each is inside its neighbour.
+    //
+    // `bed.rs`'s `the_reconstructed_cell_is_a_real_packing` would catch this and
+    // does not: it asserts `is_non_overlapping()` on `HexBedCell::from_paper()`,
+    // which passes. `HexBedCell::interlayer_spacing` assumes the A-B offset, so
+    // no method on it returns the columnar 4.8990 -- the type models the paper
+    // while this builds something else.
     //
     // The ball (6.0 cm across) is taller than the tile (4.899 cm), so the
     // lattice CLIPS it axially -- and that clipping is not cosmetic: it removes
