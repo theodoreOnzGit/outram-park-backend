@@ -289,52 +289,6 @@ a 293.6 K comparison that reads as ~1e-6 agreement. See
 > tables and the `thnmax` correction history:
 > [`docs/claude-md-rationale/process-and-porting-lessons.md`](docs/claude-md-rationale/process-and-porting-lessons.md).
 
-## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
-
-**Maintainer direction, 2026-09-25.** Applies to `outram-mc-libs`, `nee_soon`,
-every `outram-foam-*` crate, and **every crate downstream of them**: today
-`boon-lay`, `dhoby-ghaut`, `farrer-park`, `outram-blender`,
-`outram-park-digital-twin-engine`, `outram-park-fork-cfmesh`,
-`outram-park-fork-liggghts`, `outram-park-fork-moltres`,
-`outram-park-fork-offbeat`, `outram-park-fork-pflotran`, `raffles`,
-`sembawang`, `tampines` — and any crate that later takes one of them as a
-dependency (check with `cargo metadata`, not this list).
-
-**Whenever you build or change a complex reactor geometry** — CSG cells and
-surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
-bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
-**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
-before any result computed on it is reported as more than tentative.
-
-- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
-  geometry (cell / material lookup at each pixel, or the mesh itself), never
-  from the named constants. A picture of the constants hides exactly the
-  defects this rule exists to catch.
-- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial
-  (x-y) slices at the heights that matter (bed, cavity, conus, reflector
-  bands); and, for nested geometry, zoomed slices at every level down to the
-  smallest (pebble, TRISO particle). Colour by material, with a legend and the
-  key dimensions marked.
-- **Commit the images with the change** (next to the V&V record or the
-  manuscript package) and point the human at them by path in your summary.
-  Regenerate them whenever the geometry changes.
-- **Say what you checked in them**, and what you could not — an image nobody
-  was told to look at checks nothing.
-
-**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom
-reflector mirrored from the top and up to 107 cm short; a core cavity that grew
-with the bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon
-clipped away (gh:#309, #310); and a TRISO lattice holding 8240 particles while
-reporting 8340 (gh:#316, +353 pcm). **Every run completed with green
-diagnostics.** Each was found by looking at the built geometry, not by the
-eigenvalue.
-
-**Tools.** `outram_mc_libs::geometry::plot` samples a slice of the assembled
-geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once it
-lands. For HTR-10, `nee_soon`'s `htr10_geometry_export` plus the manuscript's
-`plot_htr10_geometry.py` draw from the assembly. Rationale and examples:
-gh:#309, #310, #316 and `docs/htr10-rmc-verification-suite.md` s8.
-
 ## Verification & validation documentation (mandatory)
 
 **Whenever verification and validation (V&V) are concerned, the documentation
