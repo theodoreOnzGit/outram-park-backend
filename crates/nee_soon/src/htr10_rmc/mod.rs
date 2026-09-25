@@ -56,8 +56,8 @@
 //!   2026-09-25**: the TRISO count was taken on one grid offset and the
 //!   lattice built on another (8340 counted, 8240 built). Both now use one
 //!   offset; built == counted is asserted. Resampled: 0.9971 +/- 0.0014 of the
-//!   paper-implied kernel fraction (was 0.9875). Every k in this section
-//!   predates it.
+//!   paper-implied kernel fraction (was 0.9875). Worth **+353 +/- 111 pcm**
+//!   at 122.47 cm (three paired seeds). Every k in this section predates it.
 //! - gh:#218 — the `+7` pcm/cm drift itself. Ruled out so far: nuclear data
 //!   (library term flat), source convergence, the cavity treatment, the
 //!   bottom-reflector mirroring (fixed `d619b2e77e`, worth `+27 +/- 42` pcm, no
