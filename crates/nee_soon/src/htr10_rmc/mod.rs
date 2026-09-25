@@ -52,11 +52,12 @@
 //!   beside B-10 in every material, from the selected library, pinned by
 //!   `every_boron_bearing_material_carries_natural_b11`. Its worth is priced
 //!   on #311. Every k in this section predates it.
-//! - gh:#316 — sampling the built core finds ~1.4 % less heavy metal than the
-//!   paper implies, flat in loading height; the per-tile densities are right,
-//!   so the fuel/dummy split inside the bed cylinder is the suspect. It also
-//!   confounds the #309 shrunk-pebble ablation (+3.3 % heavy metal between
-//!   arms), which was therefore not run.
+//! - ~~gh:#316 — the built core carried ~1.2 % less heavy metal~~ **FIXED
+//!   2026-09-25**: the TRISO count was taken on one grid offset and the
+//!   lattice built on another (8340 counted, 8240 built). Both now use one
+//!   offset; built == counted is asserted. Resampled: 0.9971 +/- 0.0014 of the
+//!   paper-implied kernel fraction (was 0.9875). Every k in this section
+//!   predates it.
 //! - gh:#218 — the `+7` pcm/cm drift itself. Ruled out so far: nuclear data
 //!   (library term flat), source convergence, the cavity treatment, the
 //!   bottom-reflector mirroring (fixed `d619b2e77e`, worth `+27 +/- 42` pcm, no
