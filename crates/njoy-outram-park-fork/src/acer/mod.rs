@@ -285,6 +285,15 @@ pub mod jxs {
     pub const DLWP: usize = 18;
 
     pub const END: usize = 21;
+
+    /// JXS(23): **LUNR** — the unresolved-resonance probability tables.
+    ///
+    /// Zero when the evaluation has no unresolved range, which is the usual
+    /// case for a light nuclide. Read by
+    /// [`crate::purr::UrrProbabilityTables::from_ace`]; upstream's own reader
+    /// is `openmc/data/urr.py::ProbabilityTables.from_ace`, which indexes
+    /// `ace.jxs[23]` (1-based) — hence `22` here.
+    pub const LUNR: usize = 22;
 }
 
 /// Run the ACER card-input driver (NJOY module entry point).

@@ -278,6 +278,160 @@ impl UrrProbabilityTables {
             points,
         }))
     }
+
+    /// Read the probability tables straight out of an **ACE** table's UNR
+    /// block — GitHub #307.
+    ///
+    /// Ported from `openmc/data/urr.py::ProbabilityTables.from_ace` at OpenMC
+    /// `afa7a14`. Where [`Self::from_endf`] *generates* the tables by sampling
+    /// ladders (PURR), this **deserialises** tables somebody already generated,
+    /// which is what an ACE library carries.
+    ///
+    /// # Why this exists
+    ///
+    /// `outram_mc_libs::Nuclide::from_ace` set `urr: None`, so the ACE route
+    /// carried no unresolved-resonance self-shielding while the ENDF route
+    /// applied it by default. Two routes through one workspace with different
+    /// physics is the shape the root `CLAUDE.md`'s "correct physics is the
+    /// DEFAULT SETTING" rule exists to stop, and here it was worse than a
+    /// flag: structurally absent, so the ablation machinery could not express
+    /// it either.
+    ///
+    /// # The block, word for word
+    ///
+    /// `JXS(23)` ([`crate::acer::jxs::LUNR`]) locates it, `0` meaning the
+    /// evaluation has no unresolved range:
+    ///
+    /// | words | meaning |
+    /// |---|---|
+    /// | 0 | `N`, number of incident energies |
+    /// | 1 | `M`, number of probability bands |
+    /// | 2 | interpolation: 2 lin-lin, 5 log-log |
+    /// | 3 | inelastic competition flag |
+    /// | 4 | other-absorption flag |
+    /// | 5 | `IFF`: 1 ⇒ the values multiply the smooth cross section |
+    /// | 6..6+N | the incident energies \[MeV\] |
+    /// | then | `N × 6 × M`, C-order `(energy, column, band)` |
+    ///
+    /// The six columns are `[cumulative probability, total, elastic, fission,
+    /// capture, heating]`. **Only the heating column is in MeV** and needs
+    /// scaling; the other four are barns (or dimensionless factors) and must
+    /// not be touched — upstream scales exactly `table[:, 5, :]`.
+    ///
+    /// # `IFF` is ACE's `LSSF`
+    ///
+    /// `IFF = 1` means the tabulated values **multiply** the smooth cross
+    /// section, which is precisely `LSSF = 1`'s
+    /// [`UrrSample::SelfShieldingFactors`]; `IFF = 0` gives cross sections to
+    /// use in place of the smooth ones, i.e. [`UrrSample::CrossSections`].
+    /// Mapping them the wrong way round multiplies barns by barns and is
+    /// invisible to any check that only looks at shapes, so it is asserted in
+    /// the tests rather than trusted.
+    ///
+    /// # Errors
+    ///
+    /// A block whose declared extent runs past `XSS`, a non-ascending energy
+    /// grid, or a non-positive band count. Returns `Ok(None)` when the table
+    /// simply has no UNR block, which is not an error — most light nuclides
+    /// have none.
+    pub fn from_ace(
+        table: &crate::acer::read::RawAceTable,
+        temperature_k: f64,
+    ) -> Result<Option<Self>, NjoyError> {
+        const EV_PER_MEV: f64 = 1.0e6;
+
+        let loc = table.jxs[crate::acer::jxs::LUNR];
+        if loc <= 0 {
+            return Ok(None);
+        }
+        let base = (loc - 1) as usize;
+        let need = |at: usize, n: usize, what: &str| -> Result<(), NjoyError> {
+            if at + n > table.xss.len() {
+                return Err(NjoyError::EndfParse(format!(
+                    "ACE UNR block: {what} needs words {at}..{} but XSS has {}",
+                    at + n,
+                    table.xss.len()
+                )));
+            }
+            Ok(())
+        };
+        need(base, 6, "the header")?;
+
+        let n_energy = table.xss[base] as usize;
+        let n_bands = table.xss[base + 1] as usize;
+        let interpolation = table.xss[base + 2] as i32;
+        let inelastic_flag = table.xss[base + 3] as i32;
+        let absorption_flag = table.xss[base + 4] as i32;
+        let multiply_smooth = table.xss[base + 5] as i32 == 1;
+
+        if n_energy == 0 || n_bands == 0 {
+            return Err(NjoyError::EndfParse(format!(
+                "ACE UNR block declares {n_energy} energies and {n_bands} bands; \
+                 a table with either at zero cannot be sampled, and silently \
+                 returning None here would hide a corrupt block behind the same \
+                 answer as a nuclide that legitimately has no unresolved range"
+            )));
+        }
+
+        let e_at = base + 6;
+        need(e_at, n_energy, "the energy grid")?;
+        let energy: Vec<f64> = table.xss[e_at..e_at + n_energy]
+            .iter()
+            .map(|&e| e * EV_PER_MEV)
+            .collect();
+        if !energy.windows(2).all(|w| w[1] > w[0]) {
+            return Err(NjoyError::EndfParse(
+                "ACE UNR block: the energy grid is not strictly ascending, so a \
+                 binary search over it would return an arbitrary band"
+                    .into(),
+            ));
+        }
+
+        let t_at = e_at + n_energy;
+        need(t_at, n_energy * 6 * n_bands, "the probability table")?;
+        let raw = &table.xss[t_at..t_at + n_energy * 6 * n_bands];
+
+        // C-order `(energy, column, band)`, matching upstream's
+        // `reshape(N, 6, M)`.
+        let at = |i: usize, col: usize, b: usize| raw[(i * 6 + col) * n_bands + b];
+
+        let mut points = Vec::with_capacity(n_energy);
+        for i in 0..n_energy {
+            let mut cum = Vec::with_capacity(n_bands);
+            let mut value = Vec::with_capacity(n_bands);
+            for b in 0..n_bands {
+                cum.push(at(i, 0, b));
+                // `[total, elastic, fission, capture]` — columns 1..=4. Column
+                // 5 is heating, which this representation does not carry; it is
+                // the only column in MeV and is deliberately not scaled here
+                // because it is not stored.
+                value.push([at(i, 1, b), at(i, 2, b), at(i, 3, b), at(i, 4, b)]);
+            }
+            points.push(UrrPoint { cum, value });
+        }
+
+        Ok(Some(Self {
+            // IFF = 1 ⇒ the values multiply the smooth cross section, which is
+            // LSSF = 1's meaning.
+            lssf: i32::from(multiply_smooth),
+            e_low: energy[0],
+            e_high: energy[n_energy - 1],
+            temperature_k,
+            energy,
+            points,
+        })
+        .map(|t| {
+            // `interpolation` and the two competition flags are read and
+            // checked above but not stored: this representation samples by
+            // nearest energy (see `sample`), and the flags describe how the
+            // *generator* treated competition, which a consumer of finished
+            // tables cannot act on. Naming them here rather than dropping them
+            // silently, so a future reader knows they were considered.
+            let _ = (interpolation, inelastic_flag, absorption_flag);
+            t
+        }))
+    }
+
 }
 
 /// PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial

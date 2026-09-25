@@ -15,6 +15,58 @@
 use outram_mc_libs::material::nuclide::Nuclide;
 use njoy_outram_park_fork::reference_data::reference_endf;
 
+/// **The ACE route must apply URR by default too** — GitHub #307.
+///
+/// This test covered only `from_endf_file`, and that gap was load-bearing:
+/// `from_ace` set `urr: None`, so the two routes through this crate carried
+/// **different physics** while the test written to stop exactly that drift went
+/// on passing. A rule pinned on one construction path is pinned on none.
+///
+/// DBRC is deliberately **not** required here. It needs 0 K elastic data to
+/// sample the target velocity, and an ACE table broadened to its own
+/// temperature carries none — the ESZ elastic column is already at `kT`. That
+/// is a property of the table, not a choice of the reader, so requiring it
+/// would make this test fail for a correct implementation.
+#[test]
+fn from_ace_applies_urr_by_default() {
+    use njoy_outram_park_fork::acer::read;
+    use njoy_outram_park_fork::reference_data::ace_reference_file_or_skip;
+
+    let rel = "reference-njoy/endf-b-viii.0/293.6K/U238.ace.gz";
+    let Some(p) = ace_reference_file_or_skip(rel, "correct-physics-ace") else {
+        return;
+    };
+    let raw = read::read(&p).expect("read the reference U238 ACE table");
+    let n = Nuclide::from_ace(&raw, "U238").expect("construct U238 from ACE");
+
+    assert!(
+        n.has_urr_probability_tables(),
+        "a U-238 built from ACE carries NO unresolved-resonance probability \
+         tables. The ENDF route applies them by default, so this is two routes \
+         through one crate with different physics -- the exact drift this file \
+         exists to prevent. ACE stores them in the UNR block at JXS(23); see \
+         UrrProbabilityTables::from_ace."
+    );
+
+    // And they must cover the unresolved range rather than merely exist.
+    let mid = 8.45e4; // inside U-238's ~20-149 keV unresolved range
+    let dilute = n.xs_at_energy(mid, 293.6);
+    let shielded = n.xs_at_energy_urr(mid, 293.6, 0.05);
+    println!(
+        "U238 from ACE at {mid:.3e} eV: infinitely dilute total {:.5} b, \
+         band-0.05 total {:.5} b",
+        dilute.total, shielded.total
+    );
+    assert!(
+        (shielded.total - dilute.total).abs() > 1.0e-6 * dilute.total.max(1.0),
+        "sampling a low probability band changed nothing ({:.6} vs {:.6} b), so \
+         the tables are attached but not reaching the cross sections -- which is \
+         indistinguishable from not having them",
+        shielded.total,
+        dilute.total
+    );
+}
+
 /// U-238 has a large unresolved range (~20-149 keV on ENDF/B-VIII.0), so a
 /// correctly-constructed nuclide MUST carry probability tables over it.
 #[test]

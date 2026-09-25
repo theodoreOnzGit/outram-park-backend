@@ -1250,10 +1250,17 @@ impl Nuclide {
     /// - **Delayed neutrons** (`DNU`/`BDD`/`DNEDL`/`DNED`): `delayed` is
     ///   `None`, so a kinetics consumer sees "this table does not say" rather
     ///   than a zero delayed fraction.
-    /// - **Unresolved-resonance probability tables** (`UNR`): `urr` is `None`.
-    ///   On a nuclide whose evaluation HAS an unresolved range this is a real
-    ///   physics omission that will shift `k` — the ACE analogue of the
-    ///   defaulted-off URR this crate's `CLAUDE.md` records as a defect.
+    /// - ~~**Unresolved-resonance probability tables** (`UNR`): `urr` is
+    ///   `None`. On a nuclide whose evaluation HAS an unresolved range this is
+    ///   a real physics omission that will shift `k` — the ACE analogue of the
+    ///   defaulted-off URR this crate's `CLAUDE.md` records as a defect.~~
+    ///   **CORRECTED 2026-09-25 (GitHub #307) — the UNR block is now decoded**
+    ///   by [`njoy_outram_park_fork::purr::UrrProbabilityTables::from_ace`] and
+    ///   attaches **by default**, matching the ENDF route. `urr` is `None` here
+    ///   only when `JXS(23) == 0`, i.e. the evaluation genuinely has no
+    ///   unresolved range — the ordinary case for a light nuclide. The old text
+    ///   was right about the consequence, which is why it was fixed rather than
+    ///   re-worded.
     /// - **DBRC** needs the 0 K elastic cross section, which a table broadened
     ///   to 293.6 K does not carry, so `elastic_0k` is empty.
     /// - **S(α,β)** lives in a separate thermal `.t` table, not this one.
@@ -1430,9 +1437,26 @@ impl Nuclide {
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
-            // NOT decoded -- see the doc comment. `None` here means "this path
-            // does not read the block", never "the evaluation has none".
-            urr: None,
+            // **URR IS decoded now (GitHub #307).** It used to be `None` with a
+            // comment saying the path did not read the block, which meant the
+            // ACE route carried no unresolved-resonance self-shielding while
+            // the ENDF route applied it by default -- two routes through one
+            // workspace with different physics, which is what the root
+            // `CLAUDE.md`'s "correct physics is the DEFAULT SETTING" rule
+            // exists to stop. `None` here now means only what it should: the
+            // evaluation has no unresolved range (JXS(23) == 0), which is the
+            // ordinary case for a light nuclide.
+            urr: njoy_outram_park_fork::purr::UrrProbabilityTables::from_ace(
+                table,
+                ace.kt_ev / 8.617_333_262e-5,
+            )?,
+            // **DBRC is still None, and for a reason that is not an oversight.**
+            // It needs 0 K elastic data to sample the target velocity, and an
+            // ACE table broadened to its own temperature carries none -- the
+            // ESZ elastic column is already at `kt_ev`. A 0 K table would carry
+            // it, so this is a property of the table rather than of the reader;
+            // see #307 for the decision on whether to attach it when the table
+            // is at 0 K.
             dbrc: None,
             elastic_0k: Vec::new(),
             prompt_only: false,
