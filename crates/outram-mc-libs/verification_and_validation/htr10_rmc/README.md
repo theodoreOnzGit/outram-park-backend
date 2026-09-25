@@ -207,11 +207,51 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   lattice does not have.~~ **MODELLED 2026-09-18 (`op-5n34`) -- and the stated
   blocker did not exist.** See "The conus" below. It is worth **+4578 +/- 158 pcm** and
   **OVERSHOOTS**: the model goes from -909 pcm to roughly +3.5k pcm.
-- **The bottom is modelled symmetrically** with the top rather than as conus +
-  discharge tube.
+- ~~**The bottom is modelled symmetrically** with the top rather than as conus +
+  discharge tube.~~ **FIXED on develop (`d619b2e77e`, 2026-09-25); this line was
+  stale and is corrected here.** Both assembly functions now place `refl_bottom`
+  from the reactor — `HTR10_BOTTOM_REFLECTOR_CM = 610.0 - 388.764` below the
+  conus floor — rather than mirroring the top. The conus and discharge tube were
+  already modelled (see "The conus" above); what was left was the *extent*, which
+  the mirror made loading-dependent: 192.4 cm of bottom graphite at the benchmark
+  loading but only 114.0 cm at the tallest, in a model 581 cm tall rather than
+  610. **Every result recorded on this page before that commit used the mirrored
+  bottom.**
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
   homogenised with their borings.
 - **Control rods themselves** are absent; the benchmark arm is rods-out.
+- **4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
+  construction and replaced by helium. Every pebble loses 4.74 % of its volume
+  — 11.1 % of the *fuel* pebble's fuel-free shell, and the whole cap for the
+  43 % of tiles that are solid graphite dummies, which have no shell at all —
+  while the fuel zone loses only 0.061 %. So core graphite goes
+  **0.59988 → 0.57131**, helium **39.0 % → 41.9 %**, and the heavy metal stays
+  exact to **+0.060 %**: **C/U is 4.8 % low**. The `core_model.rs` comment said
+  4.7 % of the *shell*, which is the BALL deficit mislabelled, and omitted the
+  dummy pebbles entirely; both corrected 2026-09-25. Sign on `k` not predicted,
+  not measured — **gh:#309**.
+- **`mat::HOMOG_DUMMY` smears the discharge tube at `PAPER_FILLING_FRACTION =
+  0.61` while the bed it homogenises realises 0.5814**, so the tube is 4.9 %
+  denser in graphite than the bed above it — the same error with the opposite
+  sign, in the one place the model homogenises rather than resolves. It should
+  read the realised packing from the assembled lattice — **gh:#309**.
+- **Axially adjacent pebbles are in contact**, joined by a 3.46 cm-diameter
+  disc of shell graphite and a 1.00 cm-diameter disc of fuel zone, so the bed is
+  a stack of welded truncated spheres rather than a sphere packing. Volume
+  fractions are unaffected; pebble-scale Dancoff/chord structure is not —
+  **gh:#310**.
+- **B-11 is never placed** anywhere in this model (only B-10), which leaves the
+  boronated brick ~3.5 % short on atom density. `nee_soon::rod_insertion`
+  already splits it correctly — **gh:#311**.
+- **Every cell hardcodes 293.6 K** while the material temperature is what
+  transport reads, so `Cell::temperature` is inert here — **gh:#313**.
+- **`core_model::assemble` (the homogenised-fuel path) has none of the above
+  fixed.** No cavity (solid graphite there), no boronated brick, no coolant
+  annulus, no conus, no discharge tube: roughly **+15 500 pcm** in terms this
+  page already prices individually. It carries `assemble_explicit_triso`'s
+  comments without its geometry, and it feeds `examples/htr10_mgxs_genfoam.rs`.
+  **Do not read `OUTRAM_HTR10_HOMOG=1` as isolating the fuel zone** —
+  **gh:#308**.
 
 ## THE RESIDUAL WAS THE DATA LIBRARY — measured 2026-09-18
 

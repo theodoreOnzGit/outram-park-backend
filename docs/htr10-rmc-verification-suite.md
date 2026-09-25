@@ -289,6 +289,18 @@ entire difference is the cavity treatment.
 
 ## 8. What has moved since
 
+- **2026-09-25: the bottom reflector was MIRRORED from the top, and is now
+  placed from the reactor.** The outer box was symmetric about the bed
+  mid-height, so the bottom plane rode up with the bed and the bottom
+  reflector was `314.872 - bed height` cm — 216.9 cm at 97.98 cm, 192.4 cm at
+  the benchmark, 114.0 cm at 200.86 cm — against Terry's fixed 221.236 cm
+  (z 388.764 → 610). **Every curve in §2 and §7 predates the fix** and must be
+  re-measured before it is quoted. `the_axial_stack_matches_terry_at_every_loading`
+  now pins top reflector, cavity, conus, bottom reflector and the 610 cm total
+  at three loadings, on the planes the transport tracks.
+- **2026-09-25: the ENDF/B-VII.0 arm now takes Si-29 and Si-30 from VII.0.**
+  They were hardcoded to the VIII.0 tapes; 7.7 % of the SiC silicon came from
+  the other evaluation.
 - **`082cd413d9` deleted the constant-void option entirely.** The fixed cavity
   is now the only behaviour, so §2's curve describes current code and §7
   documents a path that no longer exists. Filed as gh:#292; resolved more

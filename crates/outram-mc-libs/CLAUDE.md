@@ -504,6 +504,39 @@ standing workaround).
 
 ## Design decisions
 
+### The CHEAPEST correct path is the default, not an opt-in (HARD RULE)
+
+**Maintainer direction, 2026-09-25: "the optimisations shld be default in
+future."** This is the performance twin of the root `CLAUDE.md`'s "correct
+physics is the default" rule, and it works the same way: an optimisation
+nobody reaches for is, in practice, an optimisation the code does not have.
+
+**Concretely, for cross sections:**
+
+- **Need only `Σ_t`? Call [`Nuclide::total_at_energy`], never
+  `xs_at_energy(..).total`.** The latter fills every channel eagerly — on the
+  `Pointwise` tier that is **~46 grid evaluations** for U-235 or U-238 (MT=1,
+  MT=2, MT=18, all 40 inelastic levels, MT=16/17/5, MT=27) — and then throws
+  45 of them away. `Material::macro_xs_total` already does this, so the
+  flight-distance path and all five delta-tracking sites are covered.
+- **Measured worth, LCT-008, 11 nuclides, 5000 × [30 + 70]:** transport
+  **64.2 s → 20.1 s (3.2×)**, `k_eff` **byte-identical**. That closed most of
+  the 8.4× gap against OpenMC the 2026-09-24 sweep measured.
+- **An optimisation that changes the answer is a bug, not a trade.**
+  `tests/total_fast_path_matches_full.rs` asserts the two paths are **exactly**
+  equal — no tolerance — across 501 energies for U-235, U-238, H-1 free-gas
+  and H-1 carrying `c_H_in_H2O`. Add the equivalent test before adding the
+  equivalent shortcut.
+- **Watch the S(α,β) branch.** Below the cutoff the total is *not* MT=1: the
+  bound-atom law replaces elastic and the total is rebuilt as
+  `absorption + inelastic + n2n + σ_sab`. A fast path that misses this shifts
+  `k` on a thermal lattice in the way that is hardest to notice.
+
+**If you find another eager evaluation on a hot path, the same three steps
+apply:** make the cheap path the default, prove it exact with a test, and
+record the measured worth rather than asserting one.
+
+
 ### Units: raw `f64`, not `uom`
 Unlike `outram-foam-basic-lib` (which uses `uom` for thermophysics), this crate uses
 plain `f64` throughout the inner transport loop.  Monte Carlo simulates billions

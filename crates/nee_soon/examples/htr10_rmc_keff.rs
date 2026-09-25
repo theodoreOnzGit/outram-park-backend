@@ -268,6 +268,16 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
             r
         }};
     }
+    // Si-29 and Si-30 from the SAME library as Si-28. Until 2026-09-25 they
+    // were hardcoded to the VIII.0 tapes, so the VII.0 arm carried 7.7 % of
+    // its silicon from the other evaluation. VII.0 does evaluate both (IAEA
+    // NDS n_1428_14-Si-29, n_1431_14-Si-30; the Si-28 from that tree is
+    // byte-identical to the committed VII.0 tape).
+    let (f_si29, f_si30) = if endf7 {
+        ("n-014_Si_029-ENDF7.0.endf", "n-014_Si_030-ENDF7.0.endf")
+    } else {
+        ("n-014_Si_029-ENDF8.0.endf", "n-014_Si_030-ENDF8.0.endf")
+    };
     let (f_u235, f_u238, f_o16, f_c, f_si28, f_b10, f_tsl) = if endf7 {
         (
             "n-092_U_235-ENDF7.0.endf",
@@ -461,14 +471,8 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         load!(diag, "B10", f_b10)?,
         // 7: carbon bound in SiC.
         bind(load!(diag, "C12", f_c)?, &c_in_sic),
-        bind(
-            load!(diag, "Si29", "n-014_Si_029-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        bind(
-            load!(diag, "Si30", "n-014_Si_030-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
+        bind(load!(diag, "Si29", f_si29)?, &si_in_sic),
+        bind(load!(diag, "Si30", f_si30)?, &si_in_sic),
     ])
 }
 
