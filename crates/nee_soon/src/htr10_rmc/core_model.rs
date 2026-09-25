@@ -251,6 +251,19 @@ pub struct AssembledCore {
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
 ///
+/// # NOT a benchmark model, and not only because the fuel is homogenised
+///
+/// **This is a COST INSTRUMENT.** Beyond the homogenised fuel zone its
+/// reflector is a single zone-22 graphite cell filling everything inside
+/// r = 190 cm that is not the bed, so it is missing the **empty core cavity**
+/// (solid graphite sits there), the **boronated carbon bricks**, the **cold
+/// coolant annulus**, the **conus**, the **discharge tube** and the **bored
+/// control-rod band**. Materials 8-10 of [`super::materials::htr10_material_set`]
+/// are never referenced. Against [`assemble_explicit_triso`] that is roughly
+/// **+15 500 pcm** in terms the V&V record has already priced individually.
+/// Use [`assemble_explicit_triso`] for anything that reports `k` or feeds
+/// group constants to another solver. gh:#308.
+///
 /// The bed cell's pitch and layer height come from [`HexBedCell::from_paper`],
 /// so the geometry is the paper's even when the size is scaled down.
 ///
@@ -313,9 +326,20 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // check that this is the right target rather than a second arbitrary one.
     //
     // Cost, stated rather than hidden: the shell graphite is then clipped
-    // without compensation, so the bed carries ~4.7 % less pebble-shell
-    // moderator than a whole-ball bed would. That is a real second-order
-    // approximation of the one-ball-per-tile construction.
+    // without compensation.
+    //
+    // ~~the bed carries ~4.7 % less pebble-shell moderator than a whole-ball
+    // bed would~~ **CORRECTED 2026-09-25 -- 4.7 % is the deficit in BALL
+    // volume, not in shell volume, and the caps come off the shell almost
+    // entirely.** Recomputed from this function's own numbers: the two caps
+    // remove 5.363 cm^3, of which only 0.080 cm^3 is fuel zone, so
+    // **11.2 % of the pebble-shell graphite is removed**, and the shell's
+    // share of core volume falls from the paper's 0.25699 to 0.22842 --
+    // a **11.1 %** deficit. Helium goes from 39.0 % to 41.9 %. Total core
+    // carbon is therefore ~4.7 % low while the heavy metal is exact to
+    // +0.06 %, i.e. **C/U is ~4.7 % low**. Sign on k is NOT predictable a
+    // priori (an over-moderated core loses parasitic capture as well as
+    // moderation) and has not been measured -- gh:#309.
     let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
@@ -405,25 +429,27 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     } else {
         outer_bc
     };
-    // Radial reflector structure is PHYSICAL, from Terry (2005) Fig. 2, not
-    // `bed_radius + 100`: graphite out to 167.793 cm, then BORONATED CARBON
-    // BRICKS to the 190 cm outer boundary. Modelling the whole reflector as
-    // clean graphite omits that absorber entirely and is optimistic -- measured
-    // at +8496 pcm against RMC with it missing.
+    // ~~Radial reflector structure is PHYSICAL, from Terry (2005) Fig. 2 ...
+    // BORONATED CARBON BRICKS to the 190 cm outer boundary.~~
+    // **CORRECTED 2026-09-25 -- that comment was pasted from
+    // `assemble_explicit_triso` and is FALSE here.** This function builds ONE
+    // reflector cell of `mat::REFLECTOR` (zone-22 graphite) filling everything
+    // inside r = 190 cm that is not the bed. It has no boronated brick, no
+    // coolant annulus, no bored band, no conus, no discharge tube -- and no
+    // core cavity either: the region above the bed is SOLID GRAPHITE. The
+    // giveaway was `_graphite_outer`, computed and then discarded, which is
+    // now deleted. Against `assemble_explicit_triso` that is roughly
+    // **+15 500 pcm** of already-measured error (the V&V record prices the
+    // empty cavity at -14 108 pcm, the bricks at -1 260 and the annulus at
+    // -122). See gh:#308 -- do not use this function for a k comparison.
     let refl_radius = if refl_thickness > 0.0 {
         HTR10_REFLECTOR_OUTER_CM
     } else {
         bed_radius
     };
-    let _graphite_outer = if refl_thickness > 0.0 {
-        HTR10_GRAPHITE_OUTER_CM
-    } else {
-        bed_radius
-    };
-    // The axial reflector must sit ABOVE the cavity, not be consumed by it.
-    // With `bed_half_height + 100` the cavity top (bed + 98.758) left barely a
-    // centimetre of graphite before vacuum, so the cavity vented almost
-    // directly to the outside -- measured at 15.7 % leakage.
+    // The outer extent reserves room for cavity + axial reflector so the model's
+    // HEIGHT matches `assemble_explicit_triso`'s. Only the extent matches: the
+    // contents of that room are graphite here, not helium.
     let refl_top = if refl_thickness > 0.0 {
         bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
@@ -616,6 +642,11 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         bed_half_height,
         lat_pitch,
         lat_height,
+        // NOT features of this geometry. `conus_floor` is the bed bottom
+        // because there is no conus, and `cavity_top` is an arithmetic z at
+        // which NOTHING changes -- the graphite runs straight through it. Both
+        // are reported only so a caller can size a source box or entropy mesh
+        // the same way for either function. gh:#308.
         conus_floor: -bed_half_height,
         cavity_top: if refl_thickness > 0.0 {
             bed_half_height + cavity_above_bed(2.0 * bed_half_height)
@@ -720,9 +751,20 @@ pub fn assemble_explicit_triso(
     // check that this is the right target rather than a second arbitrary one.
     //
     // Cost, stated rather than hidden: the shell graphite is then clipped
-    // without compensation, so the bed carries ~4.7 % less pebble-shell
-    // moderator than a whole-ball bed would. That is a real second-order
-    // approximation of the one-ball-per-tile construction.
+    // without compensation.
+    //
+    // ~~the bed carries ~4.7 % less pebble-shell moderator than a whole-ball
+    // bed would~~ **CORRECTED 2026-09-25 -- 4.7 % is the deficit in BALL
+    // volume, not in shell volume, and the caps come off the shell almost
+    // entirely.** Recomputed from this function's own numbers: the two caps
+    // remove 5.363 cm^3, of which only 0.080 cm^3 is fuel zone, so
+    // **11.2 % of the pebble-shell graphite is removed**, and the shell's
+    // share of core volume falls from the paper's 0.25699 to 0.22842 --
+    // a **11.1 %** deficit. Helium goes from 39.0 % to 41.9 %. Total core
+    // carbon is therefore ~4.7 % low while the heavy metal is exact to
+    // +0.06 %, i.e. **C/U is ~4.7 % low**. Sign on k is NOT predictable a
+    // priori (an over-moderated core loses parasitic capture as well as
+    // moderation) and has not been measured -- gh:#309.
     let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))

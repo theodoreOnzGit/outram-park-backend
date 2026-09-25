@@ -212,6 +212,29 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
   homogenised with their borings.
 - **Control rods themselves** are absent; the benchmark arm is rods-out.
+- **11.1 % of the pebble-shell graphite** is clipped away by the
+  one-ball-per-tile construction and replaced by helium (helium 41.9 % against
+  the paper's 39.0 %), so total core carbon is ~4.7 % low while the heavy metal
+  is exact to +0.060 %. The comment in `core_model.rs` said 4.7 %, which is the
+  deficit in BALL volume, not shell volume; corrected 2026-09-25. Sign on `k`
+  not predicted, not measured — **gh:#309**.
+- **Axially adjacent pebbles are in contact**, joined by a 3.46 cm-diameter
+  disc of shell graphite and a 1.00 cm-diameter disc of fuel zone, so the bed is
+  a stack of welded truncated spheres rather than a sphere packing. Volume
+  fractions are unaffected; pebble-scale Dancoff/chord structure is not —
+  **gh:#310**.
+- **B-11 is never placed** anywhere in this model (only B-10), which leaves the
+  boronated brick ~3.5 % short on atom density. `nee_soon::rod_insertion`
+  already splits it correctly — **gh:#311**.
+- **Every cell hardcodes 293.6 K** while the material temperature is what
+  transport reads, so `Cell::temperature` is inert here — **gh:#313**.
+- **`core_model::assemble` (the homogenised-fuel path) has none of the above
+  fixed.** No cavity (solid graphite there), no boronated brick, no coolant
+  annulus, no conus, no discharge tube: roughly **+15 500 pcm** in terms this
+  page already prices individually. It carries `assemble_explicit_triso`'s
+  comments without its geometry, and it feeds `examples/htr10_mgxs_genfoam.rs`.
+  **Do not read `OUTRAM_HTR10_HOMOG=1` as isolating the fuel zone** —
+  **gh:#308**.
 
 ## THE RESIDUAL WAS THE DATA LIBRARY — measured 2026-09-18
 
