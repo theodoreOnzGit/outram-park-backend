@@ -12,6 +12,12 @@ sweep and the constant-cavity ablation. **This page remains the authority for
 how the model was built and corrected**; that one is the authority for how it
 performs across the loading range.
 
+**Images of the built geometry (2026-09-25):**
+[`crates/nee_soon/verification_and_validation/htr10_geometry_images/`](../../../nee_soon/verification_and_validation/htr10_geometry_images/README.md)
+— slices of the assembled `assemble_explicit_triso(14, 25, 0)` core rendered
+with the OpenMC-parity plotter, from the whole R-Z model down to one TRISO
+particle. gh:#309 and gh:#310 are directly visible there.
+
 **Status as of 2026-09-18 (later): the conus was filled with the WRONG
 CONTENTS, and correcting it removes the +3670 pcm overshoot.** `op-5n34`.
 

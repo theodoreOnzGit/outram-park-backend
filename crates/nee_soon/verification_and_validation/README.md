@@ -56,3 +56,10 @@ interpretation of what the numbers mean and whether the pass criterion was met.
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).
 
+## Geometry images
+
+- [`htr10_geometry_images/`](htr10_geometry_images/README.md) — the assembled
+  HTR-10 explicit-TRISO core drawn as PNG (R-Z, x-y at bed / conus / cavity,
+  zooms down to one TRISO particle), with what was and was not checked in
+  them. Regenerate with `cargo run --release -p nee_soon --example
+  htr10_geometry_images` whenever the geometry changes.

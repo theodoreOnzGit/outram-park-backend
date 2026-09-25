@@ -691,13 +691,20 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// the double-heterogeneous model the benchmark actually specifies.
 ///
 /// **Open defects in this construction:** gh:#309 (pebble-shell carbon
-/// clipped), gh:#310 (pebbles in axial contact), gh:#311 (no B-11). Results
+/// clipped), gh:#310 (pebbles in axial contact). ~~gh:#311 (no B-11)~~
+/// **CORRECTED 2026-09-25:** #311 is closed and B-11 is placed
+/// (`materials::htr10_material_set`, the `b11` closure). Results
 /// from it are tentative until those are priced — see the module docs,
 /// "Verification status".
 ///
-/// Four coordinate levels: root → bed hex lattice → pebble universe → TRISO
-/// rect lattice → TRISO particle universe. Depth-3 descent was gated in
-/// `outram-mc-libs` `tests/nested_lattice_depth3.rs`; this is depth 4.
+/// ~~Four coordinate levels~~ **CORRECTED 2026-09-25 — three coordinate
+/// levels**: root → (bed hex lattice) → pebble universe → (TRISO rect lattice)
+/// → TRISO particle universe. A lattice selects the next level's universe but
+/// is not a level itself. Verified by locating a kernel in the assembled
+/// 14 x 25 core: `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
+/// (`examples/htr10_geometry_images.rs` prints it). Depth-3 descent was gated
+/// in `outram-mc-libs` `tests/nested_lattice_depth3.rs`, which also counts
+/// `levels.len()`; ~~this is depth 4~~ this is the **same** depth.
 ///
 /// # The TRISO lattice
 ///
