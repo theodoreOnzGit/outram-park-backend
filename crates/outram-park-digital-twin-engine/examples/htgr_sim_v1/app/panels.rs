@@ -655,11 +655,55 @@ pub fn draw_plots_csv_panel(ui: &mut Ui, panel: &mut CsvSnapshotPanel, plots: &H
     );
 }
 
-pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData, display_unit: LegendUnit) {
+/// Height one of the two stacked plots gets, from the tab's viewport and the
+/// **measured** height of one heading row.
+///
+/// **Maintainer direction, 2026-09-25: "make the graphs fill most of the
+/// space, i don't want empty space".** Two plots share whatever the two
+/// headings and the gap between them leave.
+///
+/// `heading_h` is measured from the first heading actually drawn -- the
+/// cursor's travel across it -- rather than assumed from the default font.
+/// A guessed constant would be wrong at any other text size or DPI scale, and
+/// wrong in the direction that matters: too small, and the second plot
+/// overflows the viewport by exactly the error.
+fn plot_height(view_height: f32, heading_h: f32, gap: f32) -> f32 {
+    ((view_height - 2.0 * heading_h - gap) / 2.0).max(PLOT_MIN_H)
+}
+
+/// Gap between the two stacked plots \[points\]. A drawing choice with no
+/// physical counterpart; it is subtracted from the height the plots share so
+/// it cannot push the second one off the bottom.
+const PLOTS_GAP_H: f32 = 12.0;
+
+/// Floor on a plot's height \[points\].
+///
+/// Below this a time history is a smear rather than a readout. A window too
+/// short for two of these gets a scrollbar -- the tab is inside a two-way
+/// scroll area -- instead of two unreadable plots.
+const PLOT_MIN_H: f32 = 180.0;
+
+pub fn draw_plots_panel(
+    ui: &mut Ui,
+    plots: &HtgrPlotData,
+    display_unit: LegendUnit,
+    view: egui::Vec2,
+) {
+    // Fill the width too: `Plot` otherwise takes whatever its content asks
+    // for, which inside a scroll area is the last frame's width and leaves a
+    // margin that never closes.
+    let width = view.x.max(PLOT_MIN_H);
+    let before_heading = ui.cursor().top();
     ui.heading("Reactor power vs time");
+    // The cursor's travel across the heading IS the heading's height plus its
+    // spacing -- the quantity the split below needs, taken from the widget
+    // rather than from a font-size assumption.
+    let heading_h = ui.cursor().top() - before_heading;
+    let height = plot_height(view.y, heading_h, PLOTS_GAP_H);
     Plot::new("htgr_power_plot")
         .legend(Legend::default())
-        .height(240.0)
+        .width(width)
+        .height(height)
         .show(ui, |plot_ui| {
             plot_ui.line(Line::new(
                 "Total power [MW]",
@@ -679,12 +723,13 @@ pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData, display_unit: LegendU
             ));
         });
 
-    ui.add_space(12.0);
+    ui.add_space(PLOTS_GAP_H);
     let symbol = temperature_unit_symbol(display_unit);
     ui.heading(format!("Temperatures vs time [{symbol}]"));
     Plot::new("htgr_temperature_plot")
         .legend(Legend::default())
-        .height(240.0)
+        .width(width)
+        .height(height)
         .show(ui, |plot_ui| {
             plot_ui.line(Line::new(
                 format!("Bed (pebble) temp [{symbol}]"),

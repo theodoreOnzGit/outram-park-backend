@@ -294,6 +294,37 @@ pub struct HtgrSnapshot {
     pub dispersion_grid_cells: usize,
     /// Half-width of the square the grid covers \[m\].
     pub dispersion_grid_half_width_m: f64,
+    /// The **plume clock** [`Self::dispersion_grid`] was evaluated at \[s\]:
+    /// plant time plus [`Self::plume_clock_offset_s`]. `NAN` before the first
+    /// field.
+    ///
+    /// Published separately from [`Self::sim_time_s`] precisely because the
+    /// two can differ -- the operator can run the plume ahead of the plant.
+    /// The Map tab shows both. See
+    /// [`crate::physics::atmospheric_dispersion::MapFieldRequest`] for why
+    /// that is exact for the field and for what it must never be read as.
+    pub dispersion_grid_time_s: f64,
+    /// Cells per side the Map tab is asking the dispersion field for.
+    ///
+    /// A **control input**: the GUI writes the map square's width in physical
+    /// screen pixels, so the field is evaluated once per pixel and the map is
+    /// a readout everywhere it paints rather than a mosaic of interpolated
+    /// boxes (maintainer, 2026-09-25). The physics clamps it to what this
+    /// host can afford -- see
+    /// [`crate::physics::atmospheric_dispersion::max_grid_cells`] -- so an
+    /// oversized request costs a coarser map, never a missed tick.
+    pub map_field_cells_requested: usize,
+    /// How far ahead of the plant clock the operator has run the **plume**
+    /// clock \[s\] -- the Map tab's fast-forward.
+    ///
+    /// A **control input**, written by the GUI's jump buttons. It moves the
+    /// dispersion field only. The plant, the release channel and the receptor
+    /// table stay on the plant clock, because those depend on the source and
+    /// the plant genuinely cannot skip time; the field does not depend on the
+    /// source at all, so evaluating it later is the same closed form at a
+    /// later argument. See
+    /// [`crate::physics::atmospheric_dispersion::MapFieldRequest::plume_clock_offset`].
+    pub plume_clock_offset_s: f64,
     /// Operator wind speed, m/s, driving the dispersion model.
     ///
     /// A **control input**: written by the GUI, read by the physics thread,
@@ -642,6 +673,10 @@ impl Default for HtgrSnapshot {
             dispersion_grid: Vec::new(),
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,
+            dispersion_grid_time_s: f64::NAN,
+            map_field_cells_requested:
+                crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
+            plume_clock_offset_s: 0.0,
             wind_speed_m_per_s: 3.0,
             wind_from_deg: 0.0,
             stability_class: "",

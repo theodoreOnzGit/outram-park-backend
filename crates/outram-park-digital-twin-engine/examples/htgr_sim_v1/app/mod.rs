@@ -74,12 +74,42 @@
 //! other two were being paid for nothing. See
 //! [`crate::physics::steam_generator::PimpleCorrectors`].
 //!
-//! Measured with the whole-plant test run **alone** (`--test-threads=1`), four
-//! runs: **0.9646-0.9677** compute per plant second, **real-time ratio
-//! 1.033-1.037**. Under load
-//! -- the rest of the suite on the other eleven cores -- the same test reads
-//! 0.562, so the readout on the schematic will move with what else the machine
-//! is doing. That is the readout doing its job.
+//! ~~Measured with the whole-plant test run **alone** (`--test-threads=1`),
+//! four runs: **0.9646-0.9677** compute per plant second, **real-time ratio
+//! 1.033-1.037**.~~ **CORRECTED 2026-09-25 -- the plant is now ~3.8x faster
+//! than this says.** `physics::tests::where_the_plant_step_spends_its_time`,
+//! run alone on the same host, gives **0.265 s of compute per second of plant
+//! time, real-time ratio 3.78**. The 0.96 figure predates the steam
+//! generator's substep reduction
+//! (`physics::STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP` is 2, and the
+//! measurement above was taken while the arrays ran 8 substeps per plant
+//! step), so it was a correct record of a plant that no longer exists.
+//!
+//! The consequence is not cosmetic: at ratio 1.03 a 100 ms tick was ~96 %
+//! spent, and every scheduling decision downstream -- including the Map
+//! field's resolution ceiling -- was sized against that. At 3.78 the plant
+//! step costs ~26 ms of the tick.
+//!
+//! Under load -- the rest of the suite on the other cores -- the same test
+//! reads well below this, so the readout on the schematic will move with what
+//! else the machine is doing. That is the readout doing its job.
+//!
+//! ## What the step is actually spent on -- measured 2026-09-25
+//!
+//! Same instrument, same run:
+//!
+//! | Component | Share of the plant step |
+//! |---|---|
+//! | TRISO-ATOPS release channel (`boon-lay`) | **0.07 %** |
+//! | Gaussian puff dispersion (`changi`) | **0.59 %** |
+//! | everything else (kinetics, pebble bed, primary loop, **steam generator**, secondary, shaft) | **99.33 %** |
+//!
+//! So neither of the two channels that *look* expensive -- a TRISO release
+//! model and a puff dispersion run -- is where the time goes. Both are
+//! quasi-steady and throttled (1 s and 60 s of plant time respectively), and
+//! together they are under 0.7 % of the step. The cost is the steam
+//! generator, as the 2026-08-13 table above already found, and moving either
+//! channel onto its own thread would buy nothing measurable.
 //!
 //! ## Why the substep cannot go further, and why more correctors do not help
 //!
@@ -154,6 +184,16 @@ fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
             ),
             direction_from: uom::si::f64::Angle::new::<uom::si::angle::degree>(s.wind_from_deg),
             ..crate::physics::atmospheric_dispersion::Meteorology::default()
+        },
+        // What the Map tab wants of the dispersion field: one cell per screen
+        // pixel of the map square, and the operator's plume-clock
+        // fast-forward. Travels as a command for the same reason the wind
+        // does -- see `MapFieldRequest`. Nothing is clamped here; the
+        // dispersion channel bounds the resolution to what this host can
+        // afford.
+        map_field: crate::physics::atmospheric_dispersion::MapFieldRequest {
+            cells: s.map_field_cells_requested,
+            plume_clock_offset: Time::new::<second>(s.plume_clock_offset_s),
         },
         scenario: if s.circulator_tripped {
             crate::physics::Scenario::Lofc
@@ -276,6 +316,13 @@ pub struct HtgrSimApp {
     /// The plant clock's current rate, measured between snapshots, which sets
     /// how fast the tracers advance per frame -- see [`PlantClockRate`].
     plant_clock_rate: PlantClockRate,
+    /// The Map tab's own retained state: the `chi/Q` field texture and the
+    /// key it was built for.
+    ///
+    /// Owned here rather than rebuilt per repaint because a texture is a GPU
+    /// resource -- uploading a 512 x 512 image on every frame would cost more
+    /// than computing the field does. See [`map_tab::MapTabState`].
+    map_state: map_tab::MapTabState,
     /// Temperature display unit for **every readout on screen** -- the
     /// operator's degC/K toggle (kopi-beans `op-qpgw`).
     ///
@@ -503,6 +550,7 @@ impl HtgrSimApp {
             open_panel: Panel::Schematic,
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
+            map_state: map_tab::MapTabState::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             plant_clock_rate: PlantClockRate::default(),
@@ -719,13 +767,22 @@ impl eframe::App for HtgrSimApp {
                 draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit);
                 return;
             }
-            egui::ScrollArea::both().show(ui, |ui| match self.open_panel {
-                Panel::Schematic => {} // drawn above, outside this scroll area
-                Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
-                Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot),
-                Panel::Map => map_tab::draw_map(ui, &snapshot),
-            });
+            // The viewport height, measured BEFORE entering the scroll area.
+            // Inside one, `available_height` is the scrolled content's own
+            // budget rather than the window's, so a panel that sized itself
+            // from in there would grow every frame it filled.
+            let view = ui.available_size();
+            egui::ScrollArea::both()
+                .auto_shrink([false; 2])
+                .show(ui, |ui| match self.open_panel {
+                    Panel::Schematic => {} // drawn above, outside this scroll area
+                    Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
+                    Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
+                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot),
+                    Panel::Map => {
+                        map_tab::draw_map(ui, &self.physics, &snapshot, &mut self.map_state, view)
+                    }
+                });
         });
 
         // Keep animating while physics runs on its own threads.

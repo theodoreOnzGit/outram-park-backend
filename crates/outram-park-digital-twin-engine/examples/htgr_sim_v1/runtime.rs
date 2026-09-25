@@ -100,6 +100,11 @@ impl PlantControls {
     fn to_commands(&self) -> PlantCommands {
         PlantCommands {
             meteorology: crate::physics::atmospheric_dispersion::Meteorology::default(),
+            // The default field request: the opening resolution and a plume
+            // clock level with the plant clock. `PlantControls` carries no
+            // map state of its own -- the Map tab is a GUI concern, and this
+            // runtime is the headless-schedulable kernel.
+            map_field: crate::physics::atmospheric_dispersion::MapFieldRequest::default(),
             control_rod_insertion_fraction: self.control_rod_insertion_fraction,
             helium_flow_setpoint: MassRate::new::<kilogram_per_second>(
                 self.helium_flow_setpoint_kg_per_s,
