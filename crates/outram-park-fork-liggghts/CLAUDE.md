@@ -44,9 +44,16 @@ bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
 8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
 found by looking at the built geometry, not by the eigenvalue.
 
-**Tools.** `outram_mc_libs::geometry::plot` samples a slice of an assembled
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
 CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
-it lands. For meshes, plot the mesh itself (cells, patches, zones).
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## Maturity: DECLARED MATURE (2026-09-06)
 
