@@ -16,7 +16,184 @@ performs across the loading range.
 [`crates/nee_soon/verification_and_validation/htr10_geometry_images/`](../../../nee_soon/verification_and_validation/htr10_geometry_images/README.md)
 — slices of the assembled `assemble_explicit_triso(14, 25, 0)` core rendered
 with the OpenMC-parity plotter, from the whole R-Z model down to one TRISO
-particle. gh:#309 and gh:#310 are directly visible there.
+particle. ~~gh:#309 and gh:#310 are directly visible there.~~ Regenerated
+2026-09-25 for the two-ball cell, which fixes both — see the next section.
+
+## The two-ball prism cell (2026-09-25, gh:#309 step 2, gh:#310) — CURRENT
+
+**Status: geometry verified (sampling, built-geometry tests, images); the
+eigenvalue residual it produces is an open question.** Branch
+`claude/htr10-two-ball-cell` from `develop` at `fe975296a2`. AI-assisted; not
+yet reviewed by the maintainer. Every `k` elsewhere on this page predates it.
+
+### What changed, and why
+
+The bed was one 6 cm ball per hex tile of half the paper's height
+(4.899 cm), pitch solved to 6.6086 cm. That dropped the paper's A-B lateral
+offset, so axial neighbours sat 4.899 cm apart and **interpenetrated by
+1.101 cm**; the tile face cut each pebble on the plane where the two spheres
+cross, removing 4.74 % of every pebble (almost all carbon). Core graphite was
+4.76 % low (C/U 4.8 % low), and the fuel zones of axial neighbours met on a
+1 cm disc (gh:#309, #310).
+
+Now the lattice tile **is** the paper's prism, `HexBedCell::from_paper()`:
+
+| quantity | value | source |
+|---|---|---|
+| tile pitch | 6.6106 cm | touching pitch diluted to the stated 0.61 (`bed.rs`) |
+| tile height | 9.7980 cm | two close-packed layers = the paper's stated 9.798 cm layer |
+| balls per tile | 2 | A: two half-balls on the axis at the faces; B: three third-balls at alternate vertices, mid-height |
+| packing | 0.6100 | 2 x 113.097 cm³ / 370.8 cm³ |
+| nearest centres | in-plane 6.6106, A-B 6.2102, A-A axial 9.798 cm | all > 6.0 cm: no overlap, 0.210 cm minimum gap |
+| pebble / fuel zone / TRISO | 6.0 cm / 2.5 cm / 8340 per pebble (built = counted, gh:#316) | unchanged |
+
+Nothing is solved or clipped. Spheres centred on a tile face or vertex are
+exact: `Geometry::locate` evaluates a tile universe's cells in tile-local
+coordinates only for points the lattice has placed in that tile, so each tile
+draws its own piece of a ball and its neighbours draw the rest.
+
+**Fuel/dummy identity is per BALL** (`bed::TwoBallBed`). The 57:43 split is a
+low-discrepancy (Bresenham) rule over every ball with volume inside the bed
+cylinder, ordered by layer from the bed floor up, then distance from the axis,
+then angle; balls centred below the bed floor are the conus and are all dummy
+(Terry 2005 s2). Each tile's universe is the variant for its five balls'
+identities (all 32 masks occur; 35 universes, 287 cells at 14 rings).
+
+**`n_axial`** still counts 4.899 cm half-layers, so every loading height is
+unchanged (20 / 25 / 41 -> 97.980 / 122.474 / 200.858 cm). The stacking phase
+is **anchored at the bed floor** (layer 0 is an A layer): the floor is fixed
+hardware, so a taller loading only adds layers on top, and — because the
+identity order runs from the floor up — never reshuffles the balls below
+(`a_taller_loading_does_not_reshuffle_the_balls_below`). An odd `n_axial` ends
+on an A layer, an even one on a B layer; nothing else distinguishes them. The
+layer centred 2.449 cm above the bed top is present and protrudes 0.55 cm into
+the bed, replacing the top layer's 0.55 cm the bed plane clips off; the
+laterally averaged density is periodic with period 4.899 cm, so a whole number
+of half-layers holds exactly the cell's packing.
+
+Cavity, bottom reflector, conus and discharge-tube geometry are unchanged
+(`the_axial_stack_matches_terry_at_every_loading` passes). `mat::HOMOG_DUMMY`'s
+0.61 smear now agrees with the bed it homogenises.
+
+### Verification 1 — sampling the built geometry (`examples/htr10_fuel_fraction.rs`)
+
+400 M uniform points in the fuelled envelope (r <= 90 cm, conus floor to bed
+top), classified by `locate`; expected values computed over the SAME envelope
+(bed slab at 0.61 x 57 % fuel pebbles with 8340 TRISO; conus band: dummy
+pebbles at 0.61 inside the frustum, reflector outside). Binomial errors.
+
+| n_axial | kernel / expected | graphite / expected | helium / expected | bed filling fraction | fuel-ball volume fraction |
+|---|---|---|---|---|---|
+| 20 (97.98 cm) | 0.9983 +/- 0.0014 | 0.9994 | 1.0009 | 0.609701 +/- 0.000029 | 0.569313 +/- 0.000037 |
+| 25 (122.47 cm) | 1.0002 +/- 0.0014 | 0.9993 | 1.0010 | 0.609618 +/- 0.000028 | 0.569333 +/- 0.000036 |
+| 41 (200.86 cm) | 0.9994 +/- 0.0013 | 0.9993 | 1.0009 | 0.609606 +/- 0.000027 | 0.569694 +/- 0.000035 |
+
+- **Heavy metal:** 0.998-1.000 of the paper-implied value (the one-ball model
+  gave 0.9971 +/- 0.0014).
+- **Carbon restored:** envelope graphite at n 25 **0.4990 -> 0.5244**, helium
+  **0.3662 -> 0.3408**; in the bed slab graphite is 0.5996 against the
+  paper-implied 0.59988 (the one-ball bed had 0.57131).
+- **The filling fraction is 0.05 % below 0.61, at 13 sigma, and that is
+  recorded rather than explained away.** A scratch probe (not committed)
+  located it: r < 80 cm gives 0.6094, the 80-90 cm annulus 0.6102, and
+  trimming 10 cm off each end of the r < 80 cm column 0.6099 — it changes
+  sign with the window, which is the signature of lattice-point discreteness
+  (a finite hex lattice cut by a cylinder; A and B layers hold slightly
+  different numbers of balls in a disc), not of missing volume. The fuel-ball
+  volume fraction is 0.05-0.12 % below 0.57 for the same reason plus the
+  one-ball-per-layer granularity of the split. Neither is tuned.
+
+### Verification 2 — tests on the built geometry (`htr10_rmc::tests`, `bed::hex_lattice_tests`)
+
+| test | result (14 rings x 20) |
+|---|---|
+| `no_two_balls_of_the_built_bed_overlap` — centres read from the assembled lattice + sphere surfaces | 29 445 balls; **minimum centre distance 6.2102 cm** (= the A-B spacing) |
+| `every_piece_of_a_built_ball_has_one_identity` | held by 1 / 2 / 3 tiles: 2 501 / 13 888 / 13 056; **0 inconsistent** |
+| `the_built_bed_is_57_percent_fuel_balls_and_the_conus_none` | 7 700 / 13 510 = 0.56995 fuelled in the bed; conus 0 / 5 404 |
+| `the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction` (400 k) | 0.60972, 0.57066 |
+| `every_tile_resolves_a_shared_ball_to_one_position`, `a_taller_loading_does_not_reshuffle_the_balls_below` | pass |
+| `the_built_triso_lattice_holds_the_counted_8340_particles`, `the_axial_stack_matches_terry_at_every_loading`, `every_boron_bearing_material_carries_natural_b11` | pass |
+
+**Mutation check of the identity test:** a per-TILE identity (every site
+takes its `ABottom` ball's identity) -> 11 685 inconsistent, FAILS; the
+`BNorthWest` vertex owner `(a-1, b)` instead of `(a-1, b+1)` -> 3 748
+inconsistent, FAILS; restored -> passes. Giving every tile its neighbour's
+mask is correctly NOT caught: it translates the whole identity field and keeps
+every ball consistent.
+
+### Verification 3 — images
+
+`crates/nee_soon/verification_and_validation/htr10_geometry_images/`,
+regenerated from the assembled geometry, two new views (a B layer in plan; the
+bed floor). Whole pebbles, helium between every pair, no cut at tile faces or
+vertices, every B disc (three tiles) uniformly fuel or dummy, conus all dummy.
+What was and was not checked is in that folder's README.
+
+### Eigenvalue — methodology
+
+`examples/htr10_rmc_keff.rs`, default arm: ENDF/B-VIII.0 + 5 thermal laws,
+B-11 placed, 8340 TRISO, fixed cavity, Terry bottom reflector; 10 000
+histories x [5 inactive + 135 active], 14 rings; seeds 20260917, +2, +3
+(`OUTRAM_BENCH_SEEDS=3`); height-matched against RMC interpolated to the bed
+height. Binary SHA-256 `e74e556f...e214c9`, built from the tree committed as
+`1b8c95704f` (later commits on the branch change docs and tests only). Compared
+against develop (`fe975296a2`-equivalent geometry) at the same settings, 3-seed
+means: n20 0.903261, n25 0.993947, n41 1.157860.
+
+**Prediction stated before the runs:** the +5 to +7 pcm/cm drift against RMC
+should largely disappear (the shrunk-pebble ablation had moved the slope by
+-6.88 +/- 1.48 pcm/cm). No prediction of the absolute shift's sign was made.
+
+### Eigenvalue — results (3 seeds per height)
+
+| bed [cm] | seeds | k (mean) | sem [pcm] | RMC | **dk [pcm]** | develop dk | **change** |
+|---|---|---|---|---|---|---|---|
+| 97.980 | 0.926758, 0.928382, 0.927039 | 0.927393 | 50 | 0.911138 | **+1626 +/- 50** | -788 | **+2413** |
+| 122.474 | 1.017567, 1.015903, 1.017928 | 1.017133 | 62 | 1.000676 | **+1646 +/- 62** | -673 | **+2319** |
+| 200.858 | 1.180401, 1.180581, 1.179514 | 1.180165 | 33 | 1.160581 | **+1958 +/- 33** | -272 | **+2231** |
+
+Lost locate 0 and stuck events 0 in all nine runs; Shannon entropy flat
+(e.g. 5.6044 -> 5.6071 bits at n 25); ~16 min of transport per seed at n 25
+on 32 threads.
+
+| fit (weighted, three heights) | two-ball | develop |
+|---|---|---|
+| slope | **+3.41 +/- 0.54 pcm/cm** (chi² 0.6 / 1) | +5.04 +/- 0.77 (sems from the pooled seed sd, ~60 pcm) |
+| constant | rejected (chi² 40.5 / 2) | rejected |
+| **change of slope** | **-1.63 +/- 0.94 pcm/cm (1.7 sigma, unresolved)** | |
+
+### What this says
+
+1. **The prediction failed.** The drift did not largely disappear: it fell
+   from about +5.0 to +3.4 pcm/cm, a change that is not even resolved at
+   2 sigma, and the remaining slope is 6 sigma from zero. The shrunk-pebble
+   ablation's -6.88 +/- 1.48 pcm/cm differs from the physical fix's
+   -1.63 +/- 0.94 by -5.3 +/- 1.8 pcm/cm, so most of that ablation's effect
+   came from what else differed in it — chiefly its 18 % smaller pebble — not
+   from the clip or the contact. The gh:#218 statement "cause now evidenced"
+   is withdrawn (struck through in the `htr10_rmc` module docs).
+2. **Restoring the carbon raises k by 2231-2413 pcm**, and the model goes from
+   272-788 pcm below RMC to **1626-1958 pcm above it**. Sign as the ablation
+   had it (+2344 to +3069), smaller in magnitude. This is the measured answer
+   of a geometry that is now, on every check above, the paper's; **nothing was
+   adjusted to close the gap.**
+3. **The residual is open.** The documented simplifications that push `k` UP
+   are the first candidates to investigate — not to tune: every reflector
+   region is TECDOC zone 22, the densest graphite in Table 4-3; the boronated
+   reflector zones are not placed; the control-rod boring band is solid
+   zone-22 graphite (the bored-graphite option `OUTRAM_HTR10_BORINGS`, priced
+   at -1572 +/- 425 pcm, is off because its core-height composition is
+   unrecorded). The library term is a further ~+1100 pcm (VII.0 above VIII.0)
+   on the reference's own library.
+
+### NOT done: the twelve-height single-seed curve (cut short)
+
+The planned remaining nine heights (n 21, 23, 27, 29, 31, 33, 35, 37, 39,
+single seed) were **stopped by maintainer direction on 2026-09-25** while n 21
+was still running; no point of that sweep completed. The slope above rests on
+three heights only, and the curvature it hints at (flat 98 -> 122 cm, then
+rising) is unmeasured. Raw logs of the nine completed runs and the 400 M
+sampling runs were kept outside the repository (scratch), not committed.
 
 **Status as of 2026-09-18 (later): the conus was filled with the WRONG
 CONTENTS, and correcting it removes the +3670 pcm overshoot.** `op-5n34`.
@@ -226,7 +403,7 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
   homogenised with their borings.
 - **Control rods themselves** are absent; the benchmark arm is rods-out.
-- **4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
+- ~~**4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
   construction and replaced by helium. Every pebble loses 4.74 % of its volume
   — 11.1 % of the *fuel* pebble's fuel-free shell, and the whole cap for the
   43 % of tiles that are solid graphite dummies, which have no shell at all —
@@ -235,13 +412,13 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   exact to **+0.060 %**: **C/U is 4.8 % low**. The `core_model.rs` comment said
   4.7 % of the *shell*, which is the BALL deficit mislabelled, and omitted the
   dummy pebbles entirely; both corrected 2026-09-25. Sign on `k` not predicted,
-  not measured — **gh:#309**.
-- **`mat::HOMOG_DUMMY` smears the discharge tube at `PAPER_FILLING_FRACTION =
+  not measured — **gh:#309**.~~
+- ~~**`mat::HOMOG_DUMMY` smears the discharge tube at `PAPER_FILLING_FRACTION =
   0.61` while the bed it homogenises realises 0.5814**, so the tube is 4.9 %
   denser in graphite than the bed above it — the same error with the opposite
   sign, in the one place the model homogenises rather than resolves. It should
-  read the realised packing from the assembled lattice — **gh:#309**.
-- **The bed lattice drops the paper's A-B layer offset, so the pebbles
+  read the realised packing from the assembled lattice — **gh:#309**.~~
+- ~~**The bed lattice drops the paper's A-B layer offset, so the pebbles
   INTERPENETRATE.** The paper's cell is a two-ball prism whose layers sit in each
   other's hollows (interlayer centre distance 6.2102 cm, clear of the 6.0 cm
   diameter); one ball per tile puts every ball in a column at the same `(x, y)`,
@@ -253,7 +430,11 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   cause of the graphite deficit above: pebbles at 4.899 cm centres cannot occupy
   0.61 of the volume. **`bed.rs`'s own `is_non_overlapping()` guard cannot see
   it** — it runs on `HexBedCell::from_paper()`, which passes, and `HexBedCell`
-  has no method that returns the columnar spacing — **gh:#310**.
+  has no method that returns the columnar spacing — **gh:#310**.~~
+  **ALL THREE FIXED 2026-09-25** by the two-ball prism cell — see "The
+  two-ball prism cell" at the top of this page: whole pebbles, minimum
+  centre distance 6.2102 cm on the built bed, sampled filling fraction
+  0.6096-0.6097, so `HOMOG_DUMMY`'s 0.61 now matches the bed.
 - **B-11 is never placed** anywhere in this model (only B-10), which leaves the
   boronated brick ~3.5 % short on atom density. `nee_soon::rod_insertion`
   already splits it correctly — **gh:#311**.

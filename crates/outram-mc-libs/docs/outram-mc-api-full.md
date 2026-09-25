@@ -4246,10 +4246,21 @@ pub struct RectLattice {
 Orientation of a hexagonal lattice. Maps to `openmc::HexLattice::Orientation`
 (`include/openmc/lattice.h:296`).
 
-- [`HexOrientation::Y`] — two sides of every tile are parallel to the y-axis
-  (OpenMC default). Flat tile edges face ±x.
-- [`HexOrientation::X`] — two sides parallel to the x-axis; the first element
-  of each ring starts along +x.
+- [`HexOrientation::Y`] — ~~two sides of every tile are parallel to the
+  y-axis (OpenMC default). Flat tile edges face ±x.~~ **CORRECTED
+  2026-09-25:** every tile has two faces **perpendicular** to the y-axis
+  (flat edges facing ±y, vertices pointing ±x), which is OpenMC's own
+  definition (`openmc/lattice.py`, `HexLattice.orientation`: *"the 'y'
+  orientation means that each lattice element has two faces that are
+  perpendicular to the y-axis"*) and what [`HexLattice`]'s centre
+  arithmetic builds: neighbour centres at `(0, ±pitch)` and
+  `(±sqrt(3)/2, ±1/2)·pitch`. OpenMC default. Found while building the
+  HTR-10 two-ball bed, whose B-layer balls sit on the 0-degree vertex
+  `(pitch/sqrt(3), 0)` and are drawn whole only because that is a vertex.
+- [`HexOrientation::X`] — ~~two sides parallel to the x-axis~~ **CORRECTED
+  2026-09-25:** two faces perpendicular to the x-axis (flat edges facing
+  ±x; neighbour centres at `(±pitch, 0)`); the first element of each ring
+  starts along +x.
 
 ```rust
 pub enum HexOrientation {
@@ -4262,11 +4273,11 @@ pub enum HexOrientation {
 
 ###### `Y`
 
-Sides parallel to the y-axis (OpenMC default).
+Two faces of every tile perpendicular to the y-axis (OpenMC default).
 
 ###### `X`
 
-Sides parallel to the x-axis.
+Two faces of every tile perpendicular to the x-axis.
 
 ##### Implementations
 

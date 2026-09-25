@@ -33,21 +33,38 @@
 //!
 //! The twelve-height `k_eff` curve IS now computed against RMC (the "NOT
 //! verifiable now" section below predates the TECDOC reflector model). At
-//! `0454c1ad1b`, 10 000 x [5 + 135], one seed per height, the residual is
+//! `0454c1ad1b` (one-ball bed, superseded -- see CURRENT NUMBERS below), 10 000 x [5 + 135], one seed per height, the residual is
 //! `-896 +/- 30` pcm on ENDF/B-VIII.0 and `+288 +/- 31` pcm on ENDF/B-VII.0
 //! (the reference's library), and **drifts `+7` pcm/cm with loading height in
 //! every arm** (gh:#218, results posted there). Treat those numbers as tentative
 //! until the items below are priced or fixed. Each is an issue; none has been
 //! measured unless it says so.
 //!
+//! **CURRENT NUMBERS (2026-09-25, two-ball cell, ENDF/B-VIII.0 + 5 thermal
+//! laws, 10 000 x [5 + 135], 14 rings, 3 seeds each):** residual against RMC
+//! `+1626 +/- 50` pcm at 97.98 cm, `+1646 +/- 62` at 122.47 cm, `+1958 +/- 33`
+//! at 200.86 cm; slope `+3.41 +/- 0.54` pcm/cm. The model moved from BELOW
+//! RMC to ABOVE it (+2231 to +2413 pcm against the one-ball model). **Nothing
+//! was adjusted towards the reference; the residual is an open question**,
+//! and the simplifications listed below that push `k` up are the first
+//! candidates to investigate -- not to tune. Every earlier number in this
+//! section predates the two-ball cell. Methodology, the twelve-height curve
+//! and the sampling evidence: the V&V record
+//! (`crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`,
+//! "The two-ball prism cell").
+//!
 //! **Model defects, production path (`assemble_explicit_triso`):**
-//! - gh:#309 — one ball per hex tile clips the pebble shell: 4.76 % of all core
-//!   carbon is missing while the heavy metal is exact (C/U low). Sign on `k`
-//!   not predicted.
-//! - gh:#310 — the lattice drops the A-B layer offset, so axially adjacent
-//!   pebbles touch and their fuel zones meet; pebble-scale self-shielding and
-//!   Dancoff factors are those of welded columns, not a packing. The fix for
-//!   both is the two-ball sub-universe cell `bed.rs` already reconstructs.
+//! - ~~gh:#309 — one ball per hex tile clips the pebble shell: 4.76 % of all
+//!   core carbon is missing while the heavy metal is exact (C/U low). Sign on
+//!   `k` not predicted.~~ **FIXED 2026-09-25** by the paper's two-ball prism
+//!   cell (`bed::TwoBallBed`): whole 6 cm pebbles, sampled filling fraction
+//!   0.6096-0.6097, graphite restored (envelope graphite 0.4990 -> 0.5244 at
+//!   122.47 cm), kernel fraction 0.998-1.000 of the paper-implied value.
+//!   Worth `+2231` to `+2413` pcm (3-seed means, 98-201 cm): **k goes UP**.
+//! - ~~gh:#310 — the lattice drops the A-B layer offset, so axially adjacent
+//!   pebbles touch and their fuel zones meet~~ **FIXED 2026-09-25**, same
+//!   change: A-B stacking restored, minimum centre distance of the BUILT bed
+//!   6.2102 cm (`tests::no_two_balls_of_the_built_bed_overlap`).
 //! - ~~gh:#311 — only B-10 is placed~~ **FIXED 2026-09-25**: B-11 now goes in
 //!   beside B-10 in every material, from the selected library, pinned by
 //!   `every_boron_bearing_material_carries_natural_b11`. Its worth is priced
@@ -58,16 +75,23 @@
 //!   offset; built == counted is asserted. Resampled: 0.9971 +/- 0.0014 of the
 //!   paper-implied kernel fraction (was 0.9875). Worth **+353 +/- 111 pcm**
 //!   at 122.47 cm (three paired seeds). Every k in this section predates it.
-//! - gh:#218 — the `+7` pcm/cm drift itself. ~~Cause now evidenced by the
-//!   shrunk-pebble ablation (-6.88 +/- 1.48 pcm/cm)~~ **WITHDRAWN
-//!   2026-09-25.** The real fix for #309/#310 (two-ball cell, draft PR #328)
-//!   only moved the slope from about +5.0 to +3.4 pcm/cm (-1.6 +/- 0.9, not
-//!   resolved), so most of the ablation's -6.88 came from its 18 % smaller
-//!   pebble, not from the clip or contact. The drift is still unexplained.
-//!   Ruled out: data library, source convergence, cavity, bottom-reflector
-//!   mirroring, UO2 law source, B-11, TRISO count. Open: the reflector
-//!   (explicit channels, draft PR #327), the height convention of the
-//!   reference.
+//! - gh:#218 — the `+7` pcm/cm drift itself. ~~**Cause now evidenced
+//!   (2026-09-25):** a shrunk-pebble ablation with no #309 clip and no #310
+//!   axial contact (all volume fractions the paper's) changes k by
+//!   `-6.88 +/- 1.48` pcm/cm across 98-201 cm, equal and opposite to the
+//!   drift.~~ **CORRECTED 2026-09-25 -- NOT evidenced.** The physical fix (the
+//!   two-ball cell, real 6 cm pebble) changes the slope by only
+//!   `-1.63 +/- 0.94` pcm/cm (1.7 sigma, unresolved) at the same three
+//!   heights; the residual still drifts `+3.41 +/- 0.54` pcm/cm (develop:
+//!   `+5.04 +/- 0.77`, its per-point sems taken from the pooled seed sd).
+//!   The two arms' slope changes differ by `-5.3 +/- 1.8` pcm/cm (3 sigma), so
+//!   most of the ablation's `-6.88` came from what else differed in it --
+//!   chiefly its 18 % smaller pebble -- not from the clip or the contact
+//!   (an inference, not a separate measurement). The drift remains open. Already ruled out: data library, source convergence, cavity,
+//!   bottom-reflector mirroring, UO2 law source, B-11, TRISO count; the
+//!   pebble construction accounts for at most about a third of it. Open: the
+//!   reflector (explicit channels, PR #327), the height convention of the
+//!   reference (gh:#333).
 //!
 //! **Documented simplifications (not defects, each pushes `k` one way):**
 //! - every reflector region is TECDOC zone 22, the densest graphite in
