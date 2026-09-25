@@ -3543,6 +3543,11 @@ Fields:
   Outward unit normal at `r` (assumes `r` lies on the surface).
 
 - ```rust
+  pub fn diffuse_reflect(self: &Self, r: Position, u: Direction, seed: &mut u64) -> Direction { /* ... */ }
+  ```
+  **Diffuse** (white) reflection of `u` off this surface at `r`: re-emit
+
+- ```rust
   pub fn reflect(self: &Self, r: Position, u: Direction) -> Direction { /* ... */ }
   ```
   Specular reflection of direction `u` off this surface at `r`.
@@ -6289,6 +6294,213 @@ pub struct VirtualLattice {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `distribcell`
+
+**Distribcell offset tables** — per-instance tallies inside a repeated
+universe. GitHub #261, the last of its sixteen filters.
+
+Ported from `DistribcellFilter::get_all_bins`
+(`src/tallies/filter_distribcell.cpp`) and the offset tables upstream
+builds in `src/geometry_aux.cpp`, at OpenMC `afa7a14`.
+
+# What it is for
+
+A cell defined once inside a universe that a lattice repeats 400 times is
+**one** cell and **400** instances. A `CellFilter` on it bins all 400
+together; a distribcell filter gives 400 bins. Without it there is no
+per-pebble or per-pin result out of a lattice — which is squarely this
+crate's remit, since pebble beds are its specialisation.
+
+# How the instance index is formed
+
+Upstream walks the particle's coordinate stack from root to leaf,
+accumulating an offset at each level, and returns it when the level's cell
+is the target:
+
+```text
+offset = 0
+for each level i:
+    c = cell at level i
+    if c is universe-filled:  offset += cell_offset[c]
+    if c is lattice-filled:   offset += lattice_offset[lat][tile] + cell_offset[c]
+    if c == target:           return offset
+```
+
+So each table entry answers one question: **how many instances of the
+target come before this branch, among its siblings?** For a cell, that is
+the instances under the preceding cells of its own universe; for a lattice
+tile, the instances under the preceding tiles.
+
+# Why this is built per target, not once
+
+The offsets depend on which cell is the target — a cell appearing twice
+under different branches has different counts preceding it than a cell
+appearing once. Upstream indexes every table by a `distribcell_index`;
+this port builds the tables for one target at a time
+([`DistribcellOffsets::build`]), which is the same information without a
+global registry.
+
+# The failure this refuses
+
+A geometry whose universe graph contains a **cycle** would make the
+instance count infinite. Upstream does not check (a cyclic geometry is
+invalid and its own validation catches it earlier); here it would recurse
+until the stack blew. [`DistribcellOffsets::build`] detects it and returns
+an error naming the universe, because a stack overflow gives a reader no
+information at all.
+
+```rust
+pub mod distribcell { /* ... */ }
+```
+
+### Types
+
+#### Struct `DistribcellOffsets`
+
+Offset tables for one target cell.
+
+```rust
+pub struct DistribcellOffsets {
+    pub target: usize,
+    pub cell_offset: Vec<usize>,
+    pub lattice_offset: Vec<Vec<usize>>,
+    pub n_instances: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `target` | `usize` | The cell whose instances are numbered. |
+| `cell_offset` | `Vec<usize>` | Per cell: instances of the target under the **preceding** cells of that<br>cell's own universe. Zero for a cell whose universe is never entered. |
+| `lattice_offset` | `Vec<Vec<usize>>` | Per lattice, per flat tile index: instances under the preceding tiles. |
+| `n_instances` | `usize` | Total instances of the target in the whole geometry. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(geom: &Geometry, target: usize) -> Result<Self, String> { /* ... */ }
+  ```
+  Build the tables for `target`.
+
+- ```rust
+  pub fn instance_of(self: &Self, geom: &Geometry, levels: &[Coord]) -> Option<usize> { /* ... */ }
+  ```
+  The instance index for a located coordinate stack — the port of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DistribcellOffsets { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DistribcellOffsets) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `geometry`
 
 High-level geometry navigation: particle location and boundary crossing.
@@ -7033,12 +7245,16 @@ pub struct Geometry {
   Total macroscopic cross section of the cell a point is in — a convenience
 
 - ```rust
-  pub fn cross_surface(self: &Self, i_surf: usize, r: Position, u: Direction) -> SurfaceCrossing { /* ... */ }
+  pub fn validate_boundary_conditions(self: &Self) -> Result<(), String> { /* ... */ }
   ```
   Apply a surface crossing to a global position/direction and return the
 
 - ```rust
-  pub fn cross_surface_in_frame(self: &Self, i_surf: usize, path: &GeometryPath, coord_level: usize, r_global: Position, u: Direction) -> SurfaceCrossing { /* ... */ }
+  pub fn cross_surface(self: &Self, i_surf: usize, r: Position, u: Direction, seed: &mut u64) -> SurfaceCrossing { /* ... */ }
+  ```
+
+- ```rust
+  pub fn cross_surface_in_frame(self: &Self, i_surf: usize, path: &GeometryPath, coord_level: usize, r_global: Position, u: Direction, seed: &mut u64) -> SurfaceCrossing { /* ... */ }
   ```
   Apply a boundary condition **in the coordinate frame the surface actually
 
@@ -7700,6 +7916,3940 @@ turned into a standalone [`Geometry`] with [`TrisoParticle::into_geometry`].
 
 ```rust
 pub fn triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64) -> TrisoParticle { /* ... */ }
+```
+
+## Module `plot`
+
+**Geometry plotting** — OpenMC's plotter (`src/plot.cpp`), ported, writing
+PNG natively from Rust. GitHub #268.
+
+# What changed, and why this module is shaped the way it is
+
+~~"The native rasteriser is NOT ported ... emits a matplotlib script"~~ —
+**REVERSED 2026-09-25 by maintainer direction**: *"make sure the plotting
+capabilities of openmc are properly ported over (to jpg or PNG)"*. The
+earlier decision (2026-09-22) kept this crate free of an image encoder and
+emitted a Python script instead; that path still exists, unchanged in
+behaviour, in [`script`] (re-exported here as [`sample_slice`],
+[`emit_python`], [`ColourBy`], [`Slice`]).
+
+# What is ported (OpenMC d7d3284a1)
+
+| Here | Upstream | Lines |
+|---|---|---|
+| [`colour::random_colour`], [`colour::default_colours`] | `random_color`, `set_default_colors` | `plot.cpp:1179-1183`, `:580-596` |
+| [`colour::ColourScheme`] builders | `set_user_colors`, `set_mask`, `set_bg_color`, `set_overlap_color` | `plot.cpp:598-633`, `:743-827`, `:466-477` |
+| [`slice::SlicePlot::id_map`] | `SlicePlotBase::get_map<IdData>`, `IdData::set_value` | `plot.h:222-293`, `plot.cpp:47-79` |
+| [`slice::SlicePlot::create_image`] | `Plot::create_image` | `plot.cpp:317-358` |
+| [`slice::check_cell_overlap`] | `check_cell_overlap` | `geometry.cpp:38-90` |
+| mesh lines (private) | `Plot::draw_mesh_lines`, `RegularMesh::plot` | `plot.cpp:941-1053`, `mesh.cpp:1628-1667` |
+| [`raytrace::Camera`] | `RayTracePlot::update_view`, `get_pixel_ray` | `plot.cpp:1200-1219`, `:1326-1367` |
+| ray tracer (private) | `Ray::trace`, `advance_to_boundary_from_void` | `ray.cpp:14-143`, `particle_data.cpp:59-84` |
+| [`raytrace::WireframeRayTracePlot`] | `WireframeRayTracePlot::create_image`, `trackstack_equivalent`, `ProjectionRay` | `plot.cpp:1369-1529`, `:1265-1324`, `:1750-1763` |
+| [`raytrace::SolidRayTracePlot`] | `SolidRayTracePlot::create_image`, `PhongRay` | `plot.cpp:1683-1701`, `:1765-1891` |
+| [`image::ImageData::write_png`] / [`image::ImageData::write_ppm`] | `output_png` / `output_ppm` | `plot.cpp:887-935` / `:857-881` |
+
+Every function above carries its own upstream line range in its doc
+comment.
+
+# What is NOT ported, and why
+
+- **Voxel plots** (`Plot::create_voxel`, `plot.cpp:1065-1177`). They write
+  an HDF5 volume, not an image; HDF5 output belongs to
+  `njoy-outram-park-fork` (gh:#270), and nothing here needs it.
+- **`plots.xml` parsing** — the crate reads no XML (see its `CLAUDE.md`).
+  Plots are built with Rust constructors whose fields name the XML elements.
+- **`openmc_*` C API** entry points (`plot.cpp:1893-2621`) — the Python
+  binding layer; this crate's API *is* the Rust types.
+- **Property maps** (temperature/density, `PropertyData`) and **tally-filter
+  bins** in `RasterData` — used by the interactive plotter, not by image
+  output.
+- **JPEG.** Lossy compression blurs the boundaries a geometry plot exists
+  to show, and OpenMC itself writes only PNG/PPM; PNG is sufficient and
+  smaller for flat-colour images. See [`image`].
+- **Non-regular meshes for mesh lines** — the crate has only
+  [`crate::tally::mesh::RegularMesh`].
+- **Cell rotations** in the Phong normal (`plot.cpp:1828-1833`) — this
+  crate's nested frames are pure translations, so there is nothing to undo.
+
+Known behavioural differences of the ray tracer are listed in
+[`raytrace`]; measured agreement with `openmc --plot` is in
+`verification_and_validation/geometry_plotting/README.md`.
+
+# Drawing a reactor model (the geometry-drawing HARD RULE)
+
+[`render_material_slice`] is the one-call path: slice the **assembled**
+geometry, colour by material with a caller-chosen palette, and frame it
+with a legend and dimensioned axes ([`annotate::annotate_slice`]).
+`crates/nee_soon/examples/htr10_geometry_images.rs` uses it on the HTR-10
+core.
+
+```rust
+pub mod plot { /* ... */ }
+```
+
+### Modules
+
+## Module `annotate`
+
+**Legend, title and dimensioned axes for a plot image** — NEW WORK, no
+OpenMC counterpart.
+
+OpenMC's images are bare rasters: no legend, no axes. The crate's
+geometry-drawing HARD RULE (`crates/outram-mc-libs/CLAUDE.md`) asks for
+images a human can check *without* the input deck beside them — "colour by
+material, with a legend and the key dimensions marked". This module frames
+an already-rendered image with:
+
+- a title line;
+- tick marks and coordinate labels in cm along the bottom and left edges of
+  a slice ([`annotate_slice`]), derived from the slice's own origin, width
+  and basis — so the numbers are the geometry's, not a caption typed by hand;
+- a legend panel mapping each colour to a label.
+
+The raster inside the frame is copied unchanged, so an annotated image
+still carries the exact OpenMC-parity pixels; parity tests compare the
+*unannotated* image.
+
+Text is drawn with a built-in 5x7 bitmap font (upper-case letters, digits
+and common punctuation; lower case is drawn as upper case) so no font file
+or text-rendering dependency is needed.
+
+```rust
+pub mod annotate { /* ... */ }
+```
+
+### Types
+
+#### Struct `LegendEntry`
+
+One legend row.
+
+```rust
+pub struct LegendEntry {
+    pub colour: super::colour::Rgb,
+    pub label: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `colour` | `super::colour::Rgb` | Swatch colour. |
+| `label` | `String` | Label text. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>>(colour: Rgb, label: impl Into<String>) -> Self { /* ... */ }
+  ```
+  A legend row.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LegendEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LegendEntry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `text_width`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Width in pixels of `text` drawn with [`draw_text`].
+
+```rust
+pub fn text_width(text: &str) -> usize { /* ... */ }
+```
+
+#### Function `draw_text`
+
+Draw `text` with its top-left corner at `(x, y)`; pixels off the image are
+dropped.
+
+```rust
+pub fn draw_text(img: &mut super::image::ImageData, x: i64, y: i64, text: &str, colour: super::colour::Rgb) { /* ... */ }
+```
+
+#### Function `annotate_image`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Frame `image` with a title and a legend (no axes) — for ray-traced views.
+
+```rust
+pub fn annotate_image(image: &super::image::ImageData, title: &str, legend: &[LegendEntry]) -> super::image::ImageData { /* ... */ }
+```
+
+#### Function `annotate_slice`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Frame a slice image with a title, a legend, and tick marks labelled in cm
+along the bottom (horizontal axis) and left (vertical axis) edges.
+
+The tick values come from `plot`'s origin, width and basis, using the same
+pixel-to-coordinate map as [`SlicePlot::pixel_centre`], so a tick marks the
+pixel whose centre is nearest that coordinate. Axis names follow the basis
+(`X`, `Y` or `Z`). `image` must be `plot`'s own image (same pixel size).
+
+```rust
+pub fn annotate_slice(image: &super::image::ImageData, plot: &super::slice::SlicePlot, title: &str, legend: &[LegendEntry]) -> super::image::ImageData { /* ... */ }
+```
+
+## Module `colour`
+
+**Plot colours** — OpenMC's default colour stream, user colours, masks.
+
+The one thing that decides whether a plot here and a plot from
+`openmc --plot` come out the *same colour* is [`random_colour`]: three
+draws of the crate's PCG `prn` on a dedicated plotter seed, truncated to a
+byte. It is ported bit-for-bit, so with the same seed and the same cell (or
+material) ordering the two codes agree on every default colour — verified
+pixel-for-pixel in `verification_and_validation/geometry_plotting/`.
+
+```rust
+pub mod colour { /* ... */ }
+```
+
+### Types
+
+#### Struct `Rgb`
+
+One 8-bit RGB colour. Maps to `openmc::RGBColor` (`include/openmc/plot.h:48-79`).
+
+```rust
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `u8` | Red channel. |
+| `g` | `u8` | Green channel. |
+| `b` | `u8` | Blue channel. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn new(r: u8, g: u8, b: u8) -> Self { /* ... */ }
+  ```
+  A colour from its three channels.
+
+- ```rust
+  pub fn scaled(self: Self, x: f64) -> Self { /* ... */ }
+  ```
+  Scale every channel by `x`, truncating back to a byte exactly as
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rgb { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rgb) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PlotColourBy`
+
+What a plot colours by. Maps to `PlottableInterface::PlotColorBy`
+(`include/openmc/plot.h:120`) — upstream offers exactly these two for image
+output. (The matplotlib-script path's [`super::ColourBy`] additionally has a
+universe mode; OpenMC's image plots do not.)
+
+```rust
+pub enum PlotColourBy {
+    Cell,
+    Material,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+By leaf cell (or the cell at the plot's universe level).
+
+###### `Material`
+
+By leaf material; a void cell draws [`WHITE`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ColourScheme`
+
+The colour state every image plot carries: the per-cell or per-material
+table plus the background and overlap colours.
+
+Maps to the colour members of `PlottableInterface`
+(`include/openmc/plot.h:144-149`): `color_by_`, `not_found_`,
+`overlap_color_`, `colors_`. Build it with [`ColourScheme::new`] (which draws
+the default colours) and then apply user colours and masks **in upstream's
+order**, which is the order of the `PlottableInterface` constructor
+(`src/plot.cpp:829-839`): background, default colours, user colours, mask,
+overlap colour. The builder methods are order-independent except that
+[`Self::with_mask`] must follow [`Self::with_colour`], as upstream's does,
+because a mask overwrites whatever colour the component had.
+
+```rust
+pub struct ColourScheme {
+    pub colour_by: PlotColourBy,
+    pub colours: Vec<Rgb>,
+    pub background: Rgb,
+    pub overlap_colour: Rgb,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `colour_by` | `PlotColourBy` | Cell or material colouring. |
+| `colours` | `Vec<Rgb>` | One colour per cell index (in [`crate::geometry::geometry::Geometry::cells`]<br>order) or per material index, as `colour_by` says. |
+| `background` | `Rgb` | Background: pixels in no cell, and pixels whose cell level is deeper than<br>the geometry at that point. `not_found_`, default [`WHITE`]. |
+| `overlap_colour` | `Rgb` | Colour of an overlap when overlaps are shown. `overlap_color_`, default [`RED`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(colour_by: PlotColourBy, n_domains: usize, seed: &mut u64) -> Self { /* ... */ }
+  ```
+  Default colours for `n_domains` cells or materials, drawn from `seed`.
+
+- ```rust
+  pub fn with_colour(self: Self, index: usize, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Set one cell's or material's colour, by index. `set_user_colors`
+
+- ```rust
+  pub fn with_mask(self: Self, components: &[usize], mask_background: Option<Rgb>) -> Self { /* ... */ }
+  ```
+  Mask: every listed component draws `mask_background`, or [`WHITE`] when
+
+- ```rust
+  pub fn with_background(self: Self, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Background colour. `set_bg_color` (`src/plot.cpp:466-477`).
+
+- ```rust
+  pub fn with_overlap_colour(self: Self, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Overlap colour. `set_overlap_color` (`src/plot.cpp:800-827`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColourScheme { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColourScheme) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `random_colour`
+
+One random colour from the plotter stream. Port of `random_color`
+(`src/plot.cpp:1179-1183`): `int(prn(&seed) * 255)` per channel, red first.
+
+```rust
+pub fn random_colour(seed: &mut u64) -> Rgb { /* ... */ }
+```
+
+#### Function `default_colours`
+
+`n` default colours drawn from `seed`, rejecting [`RED`] and [`WHITE`].
+Port of `PlottableInterface::set_default_colors` (`src/plot.cpp:580-596`).
+
+# The seed is shared across plots
+
+Upstream's `model::plotter_seed` is a single global that every plot in a
+`plots.xml` draws from in turn, starting at [`DEFAULT_PLOTTER_SEED`]. So the
+*second* plot's colours depend on how many cells or materials the first one
+coloured. Pass the same `&mut u64` through a sequence of plots to reproduce
+a multi-plot `openmc --plot` run; start a fresh one at
+[`DEFAULT_PLOTTER_SEED`] to reproduce a single-plot run.
+
+```rust
+pub fn default_colours(n: usize, seed: &mut u64) -> Vec<Rgb> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `WHITE`
+
+`WHITE` (`include/openmc/plot.h:82`) — the default background, the colour of a
+void material, and of a masked component with no mask background.
+
+```rust
+pub const WHITE: Rgb = _;
+```
+
+#### Constant `RED`
+
+`RED` (`include/openmc/plot.h:83`) — the default overlap colour.
+
+```rust
+pub const RED: Rgb = _;
+```
+
+#### Constant `BLACK`
+
+`BLACK` (`include/openmc/plot.h:84`) — the default wireframe colour.
+
+```rust
+pub const BLACK: Rgb = _;
+```
+
+#### Constant `DEFAULT_PLOTTER_SEED`
+
+Initial value of OpenMC's `model::plotter_seed` (`src/plot.cpp:174`). The
+`<plot_seed>` element of `settings.xml` overrides it (`src/settings.cpp:581-585`).
+
+```rust
+pub const DEFAULT_PLOTTER_SEED: u64 = 1;
+```
+
+## Module `image`
+
+**Image buffer and the PNG / PPM codecs.**
+
+# Why this writes its own PNG container
+
+Upstream calls libpng. A PNG is a signature, three chunk types and one
+zlib stream, and the only non-trivial part — DEFLATE — is already in this
+crate's dependency tree: `miniz_oxide` (pure Rust, MIT/Zlib/Apache-2.0) is a
+non-optional dependency of `njoy-outram-park-fork`, which this crate depends
+on, so naming it directly adds **no new crate to the build**, and it builds
+for Android/Termux and `wasm32-unknown-unknown` already (it is the WMPB
+codec there). The rest — chunk framing, CRC-32, row filters — is ~150 lines
+below. The `image` crate was considered and rejected: it is a far larger
+tree, and in this workspace it is only ever a dev/GUI dependency.
+
+# Why no JPEG
+
+JPEG is lossy. A geometry plot is a *classification* — every pixel says
+which cell or material is there — and JPEG's block DCT blurs exactly the
+boundaries a plot exists to show, and makes a pixel-for-pixel comparison
+against OpenMC meaningless. OpenMC itself writes only PNG or PPM
+(`PlottableInterface::write_image`, `src/plot.cpp:193-200`). PNG is also
+smaller than JPEG for flat-colour images like these.
+
+The decoder ([`decode_png`]) exists so the parity tests can read OpenMC's
+own PNGs; it handles what libpng writes for an 8-bit RGB/RGBA
+non-interlaced image — all five row filters — and refuses anything else.
+
+```rust
+pub mod image { /* ... */ }
+```
+
+### Types
+
+#### Struct `ImageData`
+
+A rectangular RGB image, row-major with row 0 at the **top** — the order
+both PNG and PPM store rows, and the order upstream's `data(x, y)` writes
+them (`y` = 0 is the first row written by `output_png`).
+
+Maps to `ImageData` = `tensor::Tensor<RGBColor>` of shape `{width, height}`
+(`include/openmc/plot.h:97`), indexed `data(x, y)`.
+
+```rust
+pub struct ImageData {
+    pub width: usize,
+    pub height: usize,
+    pub pixels: Vec<super::colour::Rgb>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `usize` | Pixels across. |
+| `height` | `usize` | Pixels down. |
+| `pixels` | `Vec<super::colour::Rgb>` | `width * height` pixels, `pixels[y * width + x]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn filled(width: usize, height: usize, colour: Rgb) -> Self { /* ... */ }
+  ```
+  An image filled with one colour — upstream constructs every image
+
+- ```rust
+  pub fn get(self: &Self, x: usize, y: usize) -> Rgb { /* ... */ }
+  ```
+  Pixel at column `x`, row `y` (row 0 at the top).
+
+- ```rust
+  pub fn set(self: &mut Self, x: usize, y: usize, c: Rgb) { /* ... */ }
+  ```
+  Set the pixel at column `x`, row `y`.
+
+- ```rust
+  pub fn to_png_bytes(self: &Self) -> Vec<u8> { /* ... */ }
+  ```
+  Encode as PNG: 8-bit RGB, non-interlaced — the same `IHDR` upstream's
+
+- ```rust
+  pub fn write_png</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>) -> io::Result<()> { /* ... */ }
+  ```
+  Write a PNG file. Port of `output_png` (`src/plot.cpp:887-935`).
+
+- ```rust
+  pub fn to_ppm_bytes(self: &Self) -> Vec<u8> { /* ... */ }
+  ```
+  Encode as binary PPM (`P6`), byte-for-byte what `output_ppm` writes
+
+- ```rust
+  pub fn write_ppm</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>) -> io::Result<()> { /* ... */ }
+  ```
+  Write a PPM file. Port of `output_ppm`.
+
+- ```rust
+  pub fn count_differences(self: &Self, other: &Self) -> Option<usize> { /* ... */ }
+  ```
+  Count of pixels that differ between two images of the same size;
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ImageData { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ImageData) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PngDecodeError`
+
+Why a PNG could not be decoded.
+
+```rust
+pub enum PngDecodeError {
+    Malformed(&'static str),
+    BadCrc,
+    Unsupported(&'static str),
+    Inflate,
+}
+```
+
+##### Variants
+
+###### `Malformed`
+
+Not a PNG, or truncated.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `BadCrc`
+
+A chunk's CRC did not match.
+
+###### `Unsupported`
+
+A valid PNG this minimal decoder does not handle (palette, 16-bit,
+greyscale, interlaced).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `Inflate`
+
+The zlib stream did not inflate.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PngDecodeError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PngDecodeError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `decode_png`
+
+Decode an 8-bit RGB or RGBA non-interlaced PNG (alpha is dropped) — the
+format libpng writes for OpenMC's plots and [`ImageData::to_png_bytes`]
+writes here. All five row filters are supported and every chunk CRC is
+checked.
+
+# Errors
+See [`PngDecodeError`].
+
+```rust
+pub fn decode_png(bytes: &[u8]) -> Result<ImageData, PngDecodeError> { /* ... */ }
+```
+
+## Module `raytrace`
+
+**Ray-traced plots** — OpenMC's `wireframe_raytrace` and `solid_raytrace`.
+
+Rays are traced through the crate's own CSG machinery —
+[`Geometry::locate`], [`Geometry::distance_to_boundary`] and
+[`Cell::distance_to_boundary`](crate::geometry::cell::Cell::distance_to_boundary)
+— so a ray-traced plot shows the geometry transport sees. There is no
+second geometry engine here.
+
+# Where this can differ from OpenMC, and why
+
+1. **Complex (union / complement) regions.** Upstream's
+   `Region::distance_complex` walks along the ray until the region is
+   actually left. This crate's cell distance takes the nearest bounding
+   surface of *any* half-space, so a ray in a union region stops at an
+   internal surface, re-locates into the same cell and records an extra
+   segment. Colour is unaffected (consecutive segments of one domain compose
+   to the same attenuation) but the wireframe can show an edge upstream
+   does not. Intersection-only regions — every case in the V&V — are exact.
+2. **Relocation after a crossing.** Upstream re-searches from the crossed
+   level down (`neighbor_list_find_cell`, `cross_lattice`); this re-locates
+   from the root at the advanced position. Without overlaps the two find
+   the same cell.
+3. **Void material under material colouring.** Upstream indexes its colour
+   and opacity tables with `MATERIAL_VOID = -1` — out of bounds. Here a void
+   segment is fully transparent and never opaque.
+
+```rust
+pub mod raytrace { /* ... */ }
+```
+
+### Types
+
+#### Enum `Projection`
+
+Camera projection.
+
+```rust
+pub enum Projection {
+    Perspective {
+        horizontal_fov_deg: f64,
+    },
+    Orthographic {
+        width: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Perspective`
+
+Perspective with this horizontal field of view in degrees, `(0, 180)`.
+Upstream default: 70 (`include/openmc/plot.h:397`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `horizontal_fov_deg` | `f64` | Horizontal field of view \[degrees\]. |
+
+###### `Orthographic`
+
+Orthographic with this horizontal extent \[cm\] (`orthographic_width_`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `f64` | Width of the view \[cm\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Projection { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Projection) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Camera`
+
+The camera of a ray-traced plot. `RayTracePlot`'s members
+(`include/openmc/plot.h:397-414`).
+
+```rust
+pub struct Camera {
+    pub position: crate::geometry::position::Position,
+    pub look_at: crate::geometry::position::Position,
+    pub up: crate::geometry::position::Direction,
+    pub pixels: [usize; 2],
+    pub projection: Projection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::geometry::position::Position` | Eye position \[cm\]. |
+| `look_at` | `crate::geometry::position::Position` | Point at the centre of the view \[cm\]. |
+| `up` | `crate::geometry::position::Direction` | Which way is up. Upstream default `(0, 0, 1)`; it is not settable from<br>`plots.xml`, only through the C API. |
+| `pixels` | `[usize; 2]` | Pixels across and down. |
+| `projection` | `Projection` | Projection. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn perspective(position: Position, look_at: Position, pixels: [usize; 2]) -> Self { /* ... */ }
+  ```
+  A perspective camera with upstream's defaults (70 degrees, up = +z).
+
+- ```rust
+  pub fn camera_to_model(self: &Self) -> [f64; 9] { /* ... */ }
+  ```
+  Camera-to-model matrix, row-major with the camera axes as columns.
+
+- ```rust
+  pub fn pixel_ray(self: &Self, m: &[f64; 9], horiz: usize, vert: usize) -> (Position, Direction) { /* ... */ }
+  ```
+  Start point and direction of the ray through pixel `(horiz, vert)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Camera { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Camera) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WireframeRayTracePlot`
+
+A wireframe ("x-ray") plot. `WireframeRayTracePlot`.
+
+```rust
+pub struct WireframeRayTracePlot {
+    pub camera: Camera,
+    pub xs: Vec<f64>,
+    pub wireframe_thickness: i32,
+    pub wireframe_colour: super::colour::Rgb,
+    pub wireframe_ids: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `camera` | `Camera` | The camera. |
+| `xs` | `Vec<f64>` | Attenuation per colour index \[1/cm\]; upstream default `1e6` = opaque<br>(`set_opacities`, `src/plot.cpp:1555`). Same length as the scheme's colours. |
+| `wireframe_thickness` | `i32` | Line thickness in pixels; 0 = no wireframe. Default 1. |
+| `wireframe_colour` | `super::colour::Rgb` | Line colour. Default [`BLACK`]. |
+| `wireframe_ids` | `Vec<usize>` | Colour indices to outline; empty = every boundary (`wireframe_ids_`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
+  ```
+  Defaults: everything opaque, thickness 1, black lines on every boundary.
+
+- ```rust
+  pub fn with_xs(self: Self, index: usize, xs: f64) -> Self { /* ... */ }
+  ```
+  Set one domain's attenuation (`<color id=.. xs=..>`).
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render. Port of `WireframeRayTracePlot::create_image`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WireframeRayTracePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SolidRayTracePlot`
+
+A solid, lit plot. `SolidRayTracePlot`.
+
+```rust
+pub struct SolidRayTracePlot {
+    pub camera: Camera,
+    pub opaque: Vec<bool>,
+    pub light_position: Option<crate::geometry::position::Position>,
+    pub diffuse_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `camera` | `Camera` | The camera. |
+| `opaque` | `Vec<bool>` | Which colour indices are opaque (`opaque_ids_`); everything else is<br>invisible. |
+| `light_position` | `Option<crate::geometry::position::Position>` | Light position; `None` = at the camera (upstream default,<br>`src/plot.cpp:1735-1737`). |
+| `diffuse_fraction` | `f64` | Share of ambient light, `[0, 1]`. Default 0.1. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
+  ```
+  Defaults: nothing opaque, light at the camera, diffuse fraction 0.1.
+
+- ```rust
+  pub fn with_opaque(self: Self, index: usize) -> Self { /* ... */ }
+  ```
+  Make one domain opaque (`<opaque_ids>`).
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render. Port of `SolidRayTracePlot::create_image` (`src/plot.cpp:1683-1701`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SolidRayTracePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `TINY_BIT`
+
+`TINY_BIT` (`include/openmc/constants.h:50`) — how far past a boundary a
+ray is pushed.
+
+```rust
+pub const TINY_BIT: f64 = 1e-8;
+```
+
+## Module `script`
+
+**Geometry slice plotting, by emitting a standalone matplotlib script.**
+GitHub #268.
+
+This is the *script* path. The native OpenMC-parity rasteriser now lives
+beside it in [`super::slice`] and [`super::raytrace`] and writes PNG
+directly; see the module docs of [`super`].
+
+# Why this shape
+
+~~Upstream `src/plot.cpp` is 2597 lines of PPM/PNG rasterisation, voxel
+output and a colour-mapping layer. **None of it is ported**, by maintainer
+direction.~~ **CORRECTED 2026-09-25 (maintainer direction reversed,
+gh:#268):** "make sure the plotting capabilities of openmc are properly
+ported over (to jpg or PNG)". The slice and ray-trace rasterisers, the
+default colour stream and a PNG writer are now ported in the sibling
+modules; only voxel output (HDF5, not an image) is still left out. This
+script emitter is kept because it is still useful: what it emits is a
+self-contained `.py` file that draws the slice when run.
+
+That choice buys three things:
+
+- the script is **inspectable and editable**: change the colour map, the
+  slice plane or the figure size without rebuilding, and `diff` two scripts
+  to see what changed in a model;
+- it sits naturally beside the OpenMC decks already committed under
+  `verification_and_validation/<topic>/openmc_inputs/`, so it can be
+  compared against `openmc.Plot` output of the same model;
+- matplotlib draws axes, ticks and a colour bar for free.
+
+# How the data gets into the script
+
+The index array is **embedded in the script itself** as a nested list, so
+the `.py` is standalone and reproducible with no Rust binary and no side
+files. It runs on a bare `python3` with only `matplotlib` and `numpy`.
+
+```rust
+pub mod script { /* ... */ }
+```
+
+### Types
+
+#### Enum `ColourBy`
+
+What the slice is coloured by.
+
+~~The three upstream offers.~~ **CORRECTED 2026-09-25:** upstream image
+plots colour by cell or material only (`PlotColorBy`, `include/openmc/plot.h:120`);
+`Universe` is this script path's own addition.
+
+```rust
+pub enum ColourBy {
+    Cell,
+    Material,
+    Universe,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+Leaf cell index.
+
+###### `Material`
+
+Leaf material index; void reads as -1.
+
+###### `Universe`
+
+Leaf universe index.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Slice`
+
+A slice plane: an origin and two in-plane basis vectors, with a width along
+each and a pixel count along each.
+
+```rust
+pub struct Slice {
+    pub origin: crate::geometry::position::Position,
+    pub basis_u: crate::geometry::position::Direction,
+    pub basis_v: crate::geometry::position::Direction,
+    pub width_u: f64,
+    pub width_v: f64,
+    pub pixels_u: usize,
+    pub pixels_v: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::geometry::position::Position` | Centre of the slice \[cm\]. |
+| `basis_u` | `crate::geometry::position::Direction` | In-plane basis vector for the horizontal axis (need not be unit; it is<br>normalised here). |
+| `basis_v` | `crate::geometry::position::Direction` | In-plane basis vector for the vertical axis. |
+| `width_u` | `f64` | Full width along `basis_u` \[cm\]. |
+| `width_v` | `f64` | Full width along `basis_v` \[cm\]. |
+| `pixels_u` | `usize` | Pixels along `basis_u`. |
+| `pixels_v` | `usize` | Pixels along `basis_v`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Slice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `sample_slice`
+
+Sample the slice, returning a `pixels_v` x `pixels_u` array of indices.
+
+`-1` marks a point that is in no cell at all — outside the geometry — and is
+deliberately distinct from a void cell inside it, which under
+[`ColourBy::Material`] also reads `-1`. Under [`ColourBy::Cell`] the two are
+distinguishable, which is why a geometry that looks wrong should be checked
+cell-coloured first.
+
+```rust
+pub fn sample_slice(geom: &crate::geometry::geometry::Geometry, slice: &Slice, colour_by: ColourBy) -> Vec<Vec<i64>> { /* ... */ }
+```
+
+#### Function `emit_python`
+
+Emit a standalone matplotlib script that draws this slice.
+
+`title` names the model; `provenance` is free text written into the header
+comment — the commit, the date, whatever makes the plot traceable later.
+
+```rust
+pub fn emit_python(geom: &crate::geometry::geometry::Geometry, slice: &Slice, colour_by: ColourBy, title: &str, provenance: &str) -> String { /* ... */ }
+```
+
+## Module `slice`
+
+**Slice plots** — OpenMC's `<plot type="slice">`, rasterised in Rust.
+
+```rust
+pub mod slice { /* ... */ }
+```
+
+### Types
+
+#### Enum `PlotBasis`
+
+Slice orientation. `SlicePlotBase::PlotBasis` (`include/openmc/plot.h:204`).
+
+```rust
+pub enum PlotBasis {
+    Xy,
+    Xz,
+    Yz,
+}
+```
+
+##### Variants
+
+###### `Xy`
+
+Horizontal axis +x, vertical axis +y.
+
+###### `Xz`
+
+Horizontal axis +x, vertical axis +z — an R-Z view of an axisymmetric core.
+
+###### `Yz`
+
+Horizontal axis +y, vertical axis +z.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn axes(self: Self) -> (usize, usize) { /* ... */ }
+  ```
+  Global axis indices `(horizontal, vertical)` — `ax1`, `ax2` in
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short name, as OpenMC spells it.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotBasis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotBasis) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshLines`
+
+Mesh-line overlay. `<meshlines>` (`Plot::set_meshlines`, `src/plot.cpp:635-741`).
+
+Upstream draws any structured mesh that implements `Mesh::plot` (regular,
+rectilinear, cylindrical, spherical). This crate has **one** mesh type,
+[`RegularMesh`], so that is the only one supported — which also means
+`meshtype` (`ufs` / `entropy` / `tally`) has nothing to choose between here:
+the caller hands over the mesh itself.
+
+```rust
+pub struct MeshLines {
+    pub mesh: crate::tally::mesh::RegularMesh,
+    pub width: i32,
+    pub colour: super::colour::Rgb,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::RegularMesh` | The mesh to overlay. |
+| `width` | `i32` | `linewidth`: a line covers `2 * width + 1` pixels (`src/plot.cpp:1015`). |
+| `colour` | `super::colour::Rgb` | Line colour. Upstream's default is a value-initialised `RGBColor`, i.e.<br>[`BLACK`] (`include/openmc/plot.h:50`, `:324`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshLines { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SlicePlot`
+
+A slice plot: the geometry-side parameters of OpenMC's `Plot` with
+`PlotType::slice`. Colours live separately in a [`ColourScheme`] so one
+geometry pass ([`SlicePlot::id_map`]) can be coloured several ways.
+
+```rust
+pub struct SlicePlot {
+    pub origin: crate::geometry::position::Position,
+    pub basis: PlotBasis,
+    pub width: [f64; 2],
+    pub pixels: [usize; 2],
+    pub level: Option<usize>,
+    pub show_overlaps: bool,
+    pub meshlines: Option<MeshLines>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::geometry::position::Position` | Centre of the slice \[cm\]. `origin_`. |
+| `basis` | `PlotBasis` | Orientation. `basis_`. |
+| `width` | `[f64; 2]` | Full widths along the horizontal and vertical axes \[cm\]. `width_`. |
+| `pixels` | `[usize; 2]` | Pixels across and down. `pixels_`. |
+| `level` | `Option<usize>` | Universe level whose cell is coloured under cell colouring; `None` is<br>upstream's `PLOT_LEVEL_LOWEST` (the leaf cell). `level_` / `slice_level_`.<br>Level 0 is the root universe. Ignored under material colouring, where<br>the leaf material is always used — as upstream. |
+| `show_overlaps` | `bool` | Paint overlapping cells in the scheme's overlap colour. `show_overlaps_`. |
+| `meshlines` | `Option<MeshLines>` | Optional mesh-line overlay. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(basis: PlotBasis, origin: Position, width: [f64; 2], pixels: [usize; 2]) -> Self { /* ... */ }
+  ```
+  A slice with upstream's defaults: leaf level, no overlaps, no mesh lines.
+
+- ```rust
+  pub fn at_level(self: Self, level: usize) -> Self { /* ... */ }
+  ```
+  Plot a specific universe level (0 = root). `<level>`.
+
+- ```rust
+  pub fn showing_overlaps(self: Self) -> Self { /* ... */ }
+  ```
+  Show overlapping cells. `<show_overlaps>`.
+
+- ```rust
+  pub fn with_meshlines(self: Self, mesh: RegularMesh, width: i32, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Overlay a regular mesh's lines. `<meshlines>`.
+
+- ```rust
+  pub fn pixel_centre(self: &Self, x: usize, y: usize) -> Position { /* ... */ }
+  ```
+  Global position of the centre of pixel `(x, y)`, with exactly the
+
+- ```rust
+  pub fn id_map(self: &Self, geom: &Geometry) -> IdMap { /* ... */ }
+  ```
+  Locate every pixel. Port of `SlicePlotBase::get_map<IdData>`
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render the slice. Port of `Plot::create_image` (`src/plot.cpp:317-358`),
+
+- ```rust
+  pub fn colour_id_map(self: &Self, ids: &IdMap, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Colour an already-computed [`IdMap`] — the colouring half of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SlicePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SliceHit`
+
+What one pixel of a slice found. The information of one `IdData` entry
+(`src/plot.cpp:47-79`) in a type rather than in magic negative integers
+(`NOT_FOUND = -2`, `OVERLAP = -3`, `MATERIAL_VOID = -1`).
+
+```rust
+pub enum SliceHit {
+    NotFound,
+    Overlap,
+    Found {
+        cell: Option<usize>,
+        material: Option<usize>,
+    },
+}
+```
+
+##### Variants
+
+###### `NotFound`
+
+The point is in no cell (outside the model, or in a hole at some level).
+
+###### `Overlap`
+
+The point is claimed by two or more cells of one universe
+(only reported when [`SlicePlot::show_overlaps`] is set).
+
+###### `Found`
+
+A cell was found.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `Option<usize>` | Cell index at the plot's level, or `None` when that level is deeper<br>than the geometry here (upstream writes `NOT_FOUND`, drawn as background). |
+| `material` | `Option<usize>` | Leaf material index, or `None` for a void cell (`MATERIAL_VOID`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SliceHit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SliceHit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IdMap`
+
+The per-pixel result of a slice — `get_map<IdData>`. Row 0 is the top of
+the image; `hits[y * width + x]`.
+
+```rust
+pub struct IdMap {
+    pub width: usize,
+    pub height: usize,
+    pub hits: Vec<SliceHit>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `usize` | Pixels across. |
+| `height` | `usize` | Pixels down. |
+| `hits` | `Vec<SliceHit>` | One entry per pixel. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn get(self: &Self, x: usize, y: usize) -> SliceHit { /* ... */ }
+  ```
+  The hit at column `x`, row `y`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IdMap { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IdMap) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `check_cell_overlap`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Whether any cell other than the one found claims the point, at any level.
+Port of `check_cell_overlap` (`src/geometry.cpp:38-90`) with `error =
+false`, minus its bookkeeping of which pair overlaps (the image only needs
+to know that one does).
+
+```rust
+pub fn check_cell_overlap(geom: &crate::geometry::geometry::Geometry, path: &crate::geometry::geometry::GeometryPath) -> bool { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_MESHLINE_COLOUR`
+
+Default mesh-line colour, spelled out: upstream's `meshlines_color_` is a
+default-constructed `RGBColor`, which is black.
+
+```rust
+pub const DEFAULT_MESHLINE_COLOUR: super::colour::Rgb = BLACK;
+```
+
+### Functions
+
+#### Function `material_count`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Highest material index any cell fills with, plus one — the smallest
+material table a [`ColourScheme`] for this geometry can use. (OpenMC sizes
+its table to the full materials list, which may be longer; pass that
+length instead when reproducing an OpenMC run's colours.)
+
+```rust
+pub fn material_count(geom: &crate::geometry::geometry::Geometry) -> usize { /* ... */ }
+```
+
+#### Function `render_material_slice`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Draw a slice of an assembled geometry by material, with a legend and
+dimensioned axes** — the geometry-drawing rule's minimum, in one call.
+
+`palette[i]` is `(colour, label)` for material index `i`; materials past
+the end of `palette` get OpenMC's default colours (seed
+[`DEFAULT_PLOTTER_SEED`]), labelled `MATERIAL <i>`. Only materials that
+actually appear in the slice are listed in the legend, plus `VOID` and
+`OUTSIDE MODEL` when present. Returns `(raw, annotated)`: the raw image is
+OpenMC-parity pixels, the annotated one is for a human.
+
+```rust
+pub fn render_material_slice(geom: &crate::geometry::geometry::Geometry, plot: &SlicePlot, palette: &[(Rgb, &str)], title: &str) -> (ImageData, ImageData) { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `annotate_image`
+
+```rust
+pub use annotate::annotate_image;
+```
+
+#### Re-export `annotate_slice`
+
+```rust
+pub use annotate::annotate_slice;
+```
+
+#### Re-export `LegendEntry`
+
+```rust
+pub use annotate::LegendEntry;
+```
+
+#### Re-export `default_colours`
+
+```rust
+pub use colour::default_colours;
+```
+
+#### Re-export `random_colour`
+
+```rust
+pub use colour::random_colour;
+```
+
+#### Re-export `ColourScheme`
+
+```rust
+pub use colour::ColourScheme;
+```
+
+#### Re-export `PlotColourBy`
+
+```rust
+pub use colour::PlotColourBy;
+```
+
+#### Re-export `Rgb`
+
+```rust
+pub use colour::Rgb;
+```
+
+#### Re-export `BLACK`
+
+```rust
+pub use colour::BLACK;
+```
+
+#### Re-export `DEFAULT_PLOTTER_SEED`
+
+```rust
+pub use colour::DEFAULT_PLOTTER_SEED;
+```
+
+#### Re-export `RED`
+
+```rust
+pub use colour::RED;
+```
+
+#### Re-export `WHITE`
+
+```rust
+pub use colour::WHITE;
+```
+
+#### Re-export `decode_png`
+
+```rust
+pub use image::decode_png;
+```
+
+#### Re-export `ImageData`
+
+```rust
+pub use image::ImageData;
+```
+
+#### Re-export `PngDecodeError`
+
+```rust
+pub use image::PngDecodeError;
+```
+
+#### Re-export `Camera`
+
+```rust
+pub use raytrace::Camera;
+```
+
+#### Re-export `Projection`
+
+```rust
+pub use raytrace::Projection;
+```
+
+#### Re-export `SolidRayTracePlot`
+
+```rust
+pub use raytrace::SolidRayTracePlot;
+```
+
+#### Re-export `WireframeRayTracePlot`
+
+```rust
+pub use raytrace::WireframeRayTracePlot;
+```
+
+#### Re-export `emit_python`
+
+```rust
+pub use script::emit_python;
+```
+
+#### Re-export `sample_slice`
+
+```rust
+pub use script::sample_slice;
+```
+
+#### Re-export `ColourBy`
+
+```rust
+pub use script::ColourBy;
+```
+
+#### Re-export `Slice`
+
+```rust
+pub use script::Slice;
+```
+
+#### Re-export `IdMap`
+
+```rust
+pub use slice::IdMap;
+```
+
+#### Re-export `MeshLines`
+
+```rust
+pub use slice::MeshLines;
+```
+
+#### Re-export `PlotBasis`
+
+```rust
+pub use slice::PlotBasis;
+```
+
+#### Re-export `SliceHit`
+
+```rust
+pub use slice::SliceHit;
+```
+
+#### Re-export `SlicePlot`
+
+```rust
+pub use slice::SlicePlot;
+```
+
+## Module `volume_calc`
+
+**Stochastic volume calculation** for CSG regions — GitHub #267.
+
+Ported from `VolumeCalculation::execute` (`src/volume_calc.cpp:95`) at
+OpenMC `afa7a14`.
+
+# Why this exists
+
+This workspace's standing correction on R-Z geometry is: **assert region
+volumes match before comparing `k`**. Until now there was no instrument in
+this crate that could perform that assertion for a general CSG region —
+volumes were analytic (simple shapes only), hand-computed, or trusted.
+
+A wrong volume is the signature of a wrong region definition: a mis-signed
+half-space, a surface that does not close. It is the cheapest general check
+that a CSG model is the model that was *intended*, and it catches the class
+of defect GitHub #187 and #185 both describe.
+
+# The estimator
+
+Sample points uniformly in a bounding box, locate each one, count hits per
+domain. With `N` samples, `h` hits and a box of volume `V_box`:
+
+```text
+V     = h / N * V_box
+sigma = sqrt( V * (V_box - V) / N )
+```
+
+which is the binomial variance `V_box^2 * f(1-f) / N` with `f = h/N`,
+rearranged into volume units exactly as upstream writes it
+(`src/volume_calc.cpp:308`).
+
+# Two details that are upstream's and are easy to get wrong
+
+1. **The sampling direction is fixed at `(1,1,1)/sqrt(3)`**, not random
+   (`:161`). A direction is needed only because `locate` takes one to break
+   surface-sense ties; randomising it would consume variates and change
+   nothing. Kept identical so a sample that lands exactly on a surface
+   breaks the same way in both codes.
+2. **A cell is counted at every coordinate level** (`:179`), not just the
+   leaf. A cell that is filled with a universe still has a volume, and it is
+   the sum of what is nested inside it.
+
+# RNG discipline
+
+Each sample gets its **own stream by jump-ahead**:
+`init_seed(id, STREAM_VOLUME, master)`, upstream `:156`. That is this
+crate's required discipline, not a stylistic choice — `CLAUDE.md` records
+(defect `op-rbo`) that per-particle stream independence is what makes a
+quoted sigma mean anything. Sampling this loop from one running seed would
+make the estimate irreproducible under any reordering and correlate it with
+whatever else drew from that seed.
+
+# Scope
+
+Cell and material domains. **Universe domains are not implemented** and are
+rejected rather than silently treated as cells. Per-nuclide atom counts
+(upstream `:295`) are not ported: this crate keeps nuclide bookkeeping in
+the material layer and nothing here needs it yet.
+
+```rust
+pub mod volume_calc { /* ... */ }
+```
+
+### Types
+
+#### Enum `VolumeDomain`
+
+Which kind of region a volume is wanted for.
+
+```rust
+pub enum VolumeDomain {
+    Cell,
+    Material,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+A cell, counted at **every** coordinate level it appears on.
+
+###### `Material`
+
+A material, counted at the leaf.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VolumeDomain { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VolumeDomain) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoundingBox`
+
+The box points are sampled in. Must contain the domain; anything outside it
+is invisible to the estimate, which is why [`VolumeCalculation::execute`]
+reports the hit fraction so a caller can see a box that is far too large.
+
+```rust
+pub struct BoundingBox {
+    pub lower: crate::geometry::position::Position,
+    pub upper: crate::geometry::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower` | `crate::geometry::position::Position` |  |
+| `upper` | `crate::geometry::position::Position` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volume(self: &Self) -> f64 { /* ... */ }
+  ```
+  Volume of the box itself.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundingBox { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `VolumeResult`
+
+One domain's estimated volume.
+
+```rust
+pub struct VolumeResult {
+    pub id: usize,
+    pub volume: f64,
+    pub std_dev: f64,
+    pub hits: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `usize` | Domain id as given in the request. |
+| `volume` | `f64` | Estimated volume \[cm^3\]. |
+| `std_dev` | `f64` | 1 sigma on [`Self::volume`] \[cm^3\], binomial. |
+| `hits` | `u64` | Raw hit count, so a caller can see a domain that was never hit (volume<br>and sigma are then both exactly zero, which is otherwise<br>indistinguishable from a correct answer for an empty region). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn relative_error(self: &Self) -> f64 { /* ... */ }
+  ```
+  Relative error, or `INFINITY` for a domain that was never hit.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VolumeResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VolumeResult) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `VolumeCalculation`
+
+A stochastic volume calculation request.
+
+```rust
+pub struct VolumeCalculation {
+    pub domain: VolumeDomain,
+    pub ids: Vec<usize>,
+    pub box_: BoundingBox,
+    pub n_samples: u64,
+    pub master_seed: i64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `domain` | `VolumeDomain` |  |
+| `ids` | `Vec<usize>` |  |
+| `box_` | `BoundingBox` |  |
+| `n_samples` | `u64` |  |
+| `master_seed` | `i64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn execute(self: &Self, geom: &Geometry) -> (Vec<VolumeResult>, f64) { /* ... */ }
+  ```
+  Run the calculation.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VolumeCalculation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `STREAM_VOLUME`
+
+Upstream's volume stream offset (`include/openmc/random_lcg.h:16`).
+
+```rust
+pub const STREAM_VOLUME: i64 = 3;
 ```
 
 ## Module `particle`
@@ -8568,6 +12718,8 @@ pub struct MacroXs {
     pub elastic: f64,
     pub fission: f64,
     pub nu_fission: f64,
+    pub nu_fission_delayed: f64,
+    pub decay_rate: f64,
     pub absorption: f64,
 }
 ```
@@ -8580,6 +12732,8 @@ pub struct MacroXs {
 | `elastic` | `f64` | Elastic scattering Σ_s \[cm⁻¹\]. |
 | `fission` | `f64` | Fission Σ_f \[cm⁻¹\]. |
 | `nu_fission` | `f64` | Fission production ν̄·Σ_f \[cm⁻¹\] — the k-eigenvalue source term. |
+| `nu_fission_delayed` | `f64` | **Delayed** fission production ν̄_d·Σ_f \[cm⁻¹\] (GitHub #262).<br><br>Zero for a material whose nuclides carry no ENDF MF=1/455. That zero is<br>a statement about the *data*, not a measurement of the delayed<br>fraction: `Material::has_delayed_data` distinguishes the two, and a<br>kinetics calculation that ignores the distinction would report<br>β_eff = 0 for a system whose evaluations simply do not carry MT=455. |
+| `decay_rate` | `f64` | Precursor-decay-weighted delayed production `Σ_k λ_k ν̄_d,k Σ_f`<br>\[cm⁻¹ s⁻¹\] — upstream's `SCORE_DECAY_RATE`<br>(`src/tallies/tally_scoring.cpp:773`), summed over groups. |
 | `absorption` | `f64` | Absorption Σ_a \[cm⁻¹\] — **radiative capture + fission** (i.e. every<br>reaction with no neutron in the exit channel, plus fission), aggregated<br>from each nuclide's [`crate::material::nuclide::MicroXS::absorption`].<br><br>This is the real absorption, **not** `Σ_t − Σ_elastic` — it excludes<br>inelastic scatter, (n,2n) and (n,3n), which keep or multiply the neutron.<br>Mirrors OpenMC's `Nuclide::create_derived` (`src/nuclide.cpp:409-417`):<br>the energy-dependent sum of the non-redundant *disappearance* reactions<br>(MT 101–117, 600–849, …) and fission. |
 
 ##### Implementations
@@ -8724,6 +12878,16 @@ pub struct Material {
   pub fn macro_xs(self: &Self, e: f64, nuclides: &[Nuclide]) -> MacroXs { /* ... */ }
   ```
   Macroscopic cross sections at energy `e` \[eV\], summed over all nuclides.
+
+- ```rust
+  pub fn nu_fission_prompt(xs: &MacroXs) -> f64 { /* ... */ }
+  ```
+  **Prompt** fission production ν̄_p·Σ_f \[cm⁻¹\] = `nu_fission −
+
+- ```rust
+  pub fn has_delayed_data(self: &Self, nuclides: &[Nuclide]) -> bool { /* ... */ }
+  ```
+  Whether **every** fissionable nuclide in this material carries
 
 - ```rust
   pub fn macro_xs_total(self: &Self, e: f64, nuclides: &[Nuclide]) -> f64 { /* ... */ }
@@ -9332,9 +13496,13 @@ pub struct Nuclide {
   Build a nuclide from an ENDF file **on disk** — the ordinary case.
 
 - ```rust
-  pub fn from_tape(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, name: &str, temp_k: f64, tolerance: f64) -> Result<Self, NjoyError> { /* ... */ }
+  pub fn from_ace(table: &njoy_outram_park_fork::acer::read::RawAceTable, name: &str) -> Result<Self, NjoyError> { /* ... */ }
   ```
   Build a nuclide from an ENDF tape **already in hand** — no network, no
+
+- ```rust
+  pub fn from_tape(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, name: &str, temp_k: f64, tolerance: f64) -> Result<Self, NjoyError> { /* ... */ }
+  ```
 
 - ```rust
   pub fn continuum_law(self: &Self, mt: i32) -> Option<&ContinuumEmission> { /* ... */ }
@@ -9374,6 +13542,11 @@ pub struct Nuclide {
 - ```rust
   pub fn xs_at_energy(self: &Self, e: f64, temp_k: f64) -> MicroXS { /* ... */ }
   ```
+
+- ```rust
+  pub fn total_at_energy(self: &Self, e: f64, temp_k: f64) -> f64 { /* ... */ }
+  ```
+  **Total microscopic cross section only** — the hot path.
 
 - ```rust
   pub fn sample_inelastic(self: &Self, e: f64, seed: &mut u64) -> Inelastic { /* ... */ }
@@ -9465,6 +13638,46 @@ pub struct Nuclide {
   ```
   The native energy breakpoints \[eV\] this nuclide's cross-section data
 
+- ```rust
+  pub fn delayed(self: &Self) -> Option<&DelayedData> { /* ... */ }
+  ```
+  The nuclide's delayed-neutron data, or `None` when its evaluation
+
+- ```rust
+  pub fn with_prompt_only_nubar(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation control: transport with the PROMPT yield only.**
+
+- ```rust
+  pub fn is_prompt_only(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this nuclide is currently in the prompt-only ablation.
+
+- ```rust
+  pub fn is_fissionable(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this nuclide can fission at all, judged by its ν̄ being
+
+- ```rust
+  pub fn nu_delayed(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Delayed yield ν̄_d(E), and 0 for a nuclide with no delayed data.
+
+- ```rust
+  pub fn nu_prompt(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Prompt yield ν̄_p(E) = ν̄(E) − ν̄_d(E).
+
+- ```rust
+  pub fn delayed_fraction(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Delayed fraction β(E) = ν̄_d(E) / ν̄(E) for this nuclide alone.
+
+- ```rust
+  pub fn sample_delayed_group(self: &Self, e: f64, seed: &mut u64) -> Option<usize> { /* ... */ }
+  ```
+  Sample whether a fission neutron born at incident energy `e` is
+
 ###### Trait Implementations
 
 - **Any**
@@ -9538,6 +13751,188 @@ pub struct Nuclide {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DelayedData`
+
+Delayed-neutron data for one nuclide: ENDF **MF=1/455** (precursor decay
+constants and ν̄_d(E)) and **MF=5/455** (per-group share p_k(E)).
+
+# Why this is on `Nuclide` and not derived at the tally
+
+β_eff, Λ and every point-kinetics parameter downstream of them are
+properties of *which* fission neutrons are delayed and *how long* their
+precursors live. Neither is recoverable from a total-ν̄ transport run: a
+code that transports prompt and delayed neutrons together, born at the same
+instant, produces exactly the right `k` and has **no information at all**
+about β. That is what this crate did before #262, and why
+`DelayedGroupFilter` could only ever tally zero (GitHub #278).
+
+# What is and is not modelled
+
+The **yields and lifetimes** are here. The delayed neutrons are still born
+at the same instant as the prompt ones in the eigenvalue path — the
+standard `k`-eigenvalue approximation — so this supports the *ratio* route
+to β_eff (`1 − k_p/k`), which is what #262 scope item 3 asks for. It does
+**not** by itself give a time-dependent solution.
+
+```rust
+pub struct DelayedData {
+    pub lambda: Vec<f64>,
+    pub energy: Vec<f64>,
+    pub nu_delayed: Vec<f64>,
+    pub group_fraction: Vec<Vec<(f64, f64)>>,
+    pub lambda_is_lowest_energy_only: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lambda` | `Vec<f64>` | Precursor decay constants λ_k \[s⁻¹\], in ENDF tape order. |
+| `energy` | `Vec<f64>` | Incident-energy grid \[eV\] for ν̄_d, ascending. |
+| `nu_delayed` | `Vec<f64>` | Total delayed yield ν̄_d aligned with [`Self::energy`]. |
+| `group_fraction` | `Vec<Vec<(f64, f64)>>` | Per-group share `p_k(E)` as `(E [eV], fraction)`, one table per group.<br>Empty when the evaluation carries MF=1/455 but no usable MF=5/455, in<br>which case [`Self::group_fraction`] falls back to an equal split and<br>says so. |
+| `lambda_is_lowest_energy_only` | `bool` | `true` when the tape used the energy-dependent decay-constant form<br>(`LDG=1`) and [`Self::lambda`] holds only the lowest-energy set.<br>Carried so a consumer can refuse rather than silently use a λ that is<br>wrong at its energy. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_tape(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32) -> Result<Option<Self>, NjoyError> { /* ... */ }
+  ```
+  Read MF=1/455 and MF=5/455 off a tape. `Ok(None)` when the evaluation
+
+- ```rust
+  pub fn n_groups(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of precursor groups.
+
+- ```rust
+  pub fn nu_delayed_at(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Total delayed yield ν̄_d at incident energy `e` \[eV\], lin-lin
+
+- ```rust
+  pub fn group_fraction(self: &Self, k: usize, e: f64) -> f64 { /* ... */ }
+  ```
+  Group `k`'s share of the delayed emission at incident energy `e`.
+
+- ```rust
+  pub fn has_evaluated_group_split(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the per-group split came from the evaluation (`true`) or is the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DelayedData { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DelayedData) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -9706,6 +14101,25 @@ small. A caller can still choose a lower working limit per nuclide via
 
 ```rust
 pub const DBRC_GRID_MAX_EV: f64 = 2.5e4;
+```
+
+#### Constant `DBRC_DEFAULT_E_MAX_EV`
+
+Default upper energy for DBRC when correct physics is applied at
+construction, \[eV\].
+
+**1 keV, matching OpenMC's `resonance_scattering` default upper bound.**
+Resonance elastic scattering (the Doppler Broadening Rejection Correction)
+matters where the target nuclide's own resonance structure varies across
+the thermal-motion window of the incident neutron -- in practice the low
+epithermal range of the heavy actinides. Above ~1 keV the correction is
+negligible and the free-gas treatment is adequate.
+
+Capped by [`DBRC_GRID_MAX_EV`], which is where the retained 0 K elastic
+grid ends.
+
+```rust
+pub const DBRC_DEFAULT_E_MAX_EV: f64 = 1.0e3;
 ```
 
 ## Module `reaction`
@@ -10771,6 +15185,11 @@ pub struct SourceSite {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SourceSite) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -10792,6 +15211,7 @@ pub struct SourceSite {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -12047,6 +16467,1152 @@ This trait is implemented for the following types:
 - `TabulatedEnergy`
 - `EnergyKind`
 
+## Module `extra`
+
+**Mesh, file, surface and constrained sources** — GitHub #264.
+
+Ported in structure from `include/openmc/source.h`,
+`src/distribution_spatial.cpp` and the `settings::surf_source_*` machinery
+at OpenMC `afa7a14`.
+
+# What each of these unlocks
+
+- [`MeshSource`] — a source distributed over a mesh with a per-element
+  strength. This is how an activated-component or decay-photon source is
+  specified, and how a fixed source is handed over from another code.
+- [`SurfaceSource`] — record every particle crossing a surface, then replay
+  it as the source of a second, decoupled calculation. **The standard
+  two-stage shielding workflow**, and the cheapest large win for
+  deep-penetration problems after weight windows.
+- [`FileSource`] — a source bank held as data, for restarting a
+  fixed-source run or driving one code from another's output.
+- [`SourceConstraints`] — reject sampled sites outside a cell, a material
+  or a fissionable region.
+- [`IndependentSpatial`] — independent distributions per coordinate, rather
+  than the three fixed shapes the crate had.
+
+# The one thing a surface source gets wrong silently
+
+A recorded crossing must carry the particle's **weight** as well as its
+phase-space state. Replaying unit-weight particles from a run that used
+variance reduction inflates the second stage by however much weight the
+first stage had removed — and the answer stays plausible, because nothing
+about it looks wrong. [`SurfaceCrossing`] therefore has no default weight
+and [`SurfaceSource::total_weight`] exists so a caller can check the
+bookkeeping rather than assume it.
+
+```rust
+pub mod extra { /* ... */ }
+```
+
+### Types
+
+#### Struct `MeshSource`
+
+A source spread over mesh elements with per-element strengths —
+`MeshSource` (`include/openmc/source.h:222`) with `MeshElementSpatial`
+(`:238`).
+
+```rust
+pub struct MeshSource {
+    pub mesh: crate::tally::mesh::MeshKind,
+    pub strengths: Vec<f64>,
+    pub energy_ev: f64,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::MeshKind` | The mesh whose elements carry the source. |
+| `strengths` | `Vec<f64>` | Relative strength per element, length `mesh.n_bins()`. Need not sum to<br>anything in particular — it is normalised on construction. |
+| `energy_ev` | `f64` | Emission energy \[eV\]. One energy for now; a per-element spectrum is<br>the natural extension and is **not** implemented, rather than being<br>faked by reusing this for every element. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: MeshKind, strengths: Vec<f64>, energy_ev: f64) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from per-element strengths.
+
+- ```rust
+  pub fn total_strength(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total strength before normalisation.
+
+- ```rust
+  pub fn sample_element(self: &Self, seed: &mut u64) -> usize { /* ... */ }
+  ```
+  Sample an element index by its strength.
+
+- ```rust
+  pub fn sample(self: &Self, seed: &mut u64) -> Result<SourceSite, String> { /* ... */ }
+  ```
+  Sample one source site: an element by strength, then a point uniformly
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SurfaceCrossing`
+
+One recorded surface crossing — `settings::surf_source_write`.
+
+# There is no `Default`, on purpose
+
+A crossing with a defaulted weight of 1.0 is the failure mode this type
+exists to avoid: replaying unit-weight particles from a run that used
+variance reduction inflates the second stage by exactly the weight the
+first stage removed, and the answer stays plausible.
+
+```rust
+pub struct SurfaceCrossing {
+    pub r: crate::geometry::position::Position,
+    pub u: crate::geometry::position::Direction,
+    pub energy: f64,
+    pub weight: f64,
+    pub surface_idx: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `crate::geometry::position::Position` | Where it crossed \[cm\]. |
+| `u` | `crate::geometry::position::Direction` | Direction of travel at the crossing. |
+| `energy` | `f64` | Energy \[eV\]. |
+| `weight` | `f64` | Statistical weight — see the type docs. |
+| `surface_idx` | `usize` | Which surface was crossed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceCrossing { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurfaceCrossing) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SurfaceSource`
+
+A recorded set of crossings, usable as the source of a second run —
+`settings::surf_source_write` / `surf_source_read`.
+
+```rust
+pub struct SurfaceSource {
+    pub crossings: Vec<SurfaceCrossing>,
+    pub surfaces: Vec<usize>,
+    pub max_particles: usize,
+    pub dropped: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `crossings` | `Vec<SurfaceCrossing>` | The crossings, in the order they were recorded. |
+| `surfaces` | `Vec<usize>` | Surfaces being recorded. Empty means **every** surface, matching<br>upstream's behaviour when no `ssw_cell_id` is given. |
+| `max_particles` | `usize` | Cap on recorded crossings — upstream's `ssw_max_particles`. |
+| `dropped` | `usize` | Crossings refused because the cap was reached. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn recording(surfaces: Vec<usize>, max_particles: usize) -> Self { /* ... */ }
+  ```
+  A recorder for the given surfaces (empty = all), capped at
+
+- ```rust
+  pub fn records(self: &Self, surface_idx: usize) -> bool { /* ... */ }
+  ```
+  Whether `surface_idx` is being recorded.
+
+- ```rust
+  pub fn record(self: &mut Self, c: SurfaceCrossing) { /* ... */ }
+  ```
+  Record a crossing, if it is on a watched surface and within the cap.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  How many crossings were recorded.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether nothing was recorded — a bank that cannot be replayed.
+
+- ```rust
+  pub fn dropped(self: &Self) -> usize { /* ... */ }
+  ```
+  How many crossings were DROPPED at the cap. Non-zero makes the bank a
+
+- ```rust
+  pub fn total_weight(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total weight recorded.
+
+- ```rust
+  pub fn sample(self: &Self, seed: &mut u64) -> Result<SourceSite, String> { /* ... */ }
+  ```
+  Sample one site from the recorded crossings, uniformly.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> SurfaceSource { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurfaceSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FileSource`
+
+A source bank held as data — `FileSource` (`include/openmc/source.h:172`).
+
+The **file** half belongs with the state-point writer in
+`njoy-outram-park-fork` (see #271); this is the in-memory form that crosses
+that boundary.
+
+```rust
+pub struct FileSource {
+    pub sites: Vec<crate::source::source::SourceSite>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sites` | `Vec<crate::source::source::SourceSite>` | The sites, sampled uniformly. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn sample(self: &Self, seed: &mut u64) -> Result<SourceSite, String> { /* ... */ }
+  ```
+  Sample one site uniformly.
+
+- ```rust
+  pub fn total_weight(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total weight held — the same bookkeeping check as
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FileSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> FileSource { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FileSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SourceConstraints`
+
+Where a sampled site must land for it to be accepted —
+`settings::source_rejection_fraction` and the domain constraints.
+
+```rust
+pub struct SourceConstraints {
+    pub cells: Vec<usize>,
+    pub materials: Vec<usize>,
+    pub fissionable_only: bool,
+    pub max_rejections: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cells` | `Vec<usize>` | Accept only sites in one of these cells. Empty = no cell constraint. |
+| `materials` | `Vec<usize>` | Accept only sites in one of these materials. Empty = no constraint. |
+| `fissionable_only` | `bool` | Accept only sites in a fissionable material. |
+| `max_rejections` | `usize` | Give up after this many rejections **per site**.<br><br>Upstream expresses the same guard as a *fraction*; a count is used here<br>because the failure it guards is "the constraint matches almost<br>nothing", and a count is what a caller can reason about. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn none() -> Self { /* ... */ }
+  ```
+  Upstream's default: no constraint, and a generous rejection budget.
+
+- ```rust
+  pub fn accepts(self: &Self, cell: usize, material: Option<usize>, fissionable: bool) -> bool { /* ... */ }
+  ```
+  Whether a site in `cell`/`material` is accepted.
+
+- ```rust
+  pub fn is_unconstrained(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether any constraint is active.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SourceConstraints { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> SourceConstraints { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SourceConstraints) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IndependentSpatial`
+
+Independent distributions per Cartesian coordinate —
+`CartesianIndependent` (`src/distribution_spatial.cpp`).
+
+The three fixed shapes this crate had (point, box, sphere) cannot express a
+source that is, say, uniform in `x` and `y` but exponential in `z`.
+
+```rust
+pub struct IndependentSpatial {
+    pub axes: [ScalarSpatial; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `axes` | `[ScalarSpatial; 3]` | Distribution for each of `x`, `y`, `z`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn sample(self: &Self, seed: &mut u64) -> Position { /* ... */ }
+  ```
+  Sample a position.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IndependentSpatial { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IndependentSpatial) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ScalarSpatial`
+
+One coordinate's distribution.
+
+```rust
+pub enum ScalarSpatial {
+    Fixed(f64),
+    Uniform {
+        lo: f64,
+        hi: f64,
+    },
+    Tabulated {
+        grid: Vec<f64>,
+        density: Vec<f64>,
+    },
+}
+```
+
+##### Variants
+
+###### `Fixed`
+
+Always this value.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Uniform`
+
+Uniform on `[lo, hi]`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lo` | `f64` |  |
+| `hi` | `f64` |  |
+
+###### `Tabulated`
+
+A tabulated density on an ascending grid, sampled by inverting its
+piecewise-constant CDF.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `grid` | `Vec<f64>` |  |
+| `density` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn sample(self: &Self, seed: &mut u64) -> f64 { /* ... */ }
+  ```
+  Sample one value.
+
+- ```rust
+  pub fn tabulated(grid: Vec<f64>, density: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Reject a malformed tabulated distribution at construction.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScalarSpatial { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScalarSpatial) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `angle`
 
 ```rust
@@ -12264,6 +17830,7 @@ object.
 pub enum AngleKind {
     Isotropic(IsotropicAngle),
     Monodirectional(MonodirectionalAngle),
+    PolarAzimuthal(PolarAzimuthalAngle),
 }
 ```
 
@@ -12288,6 +17855,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `MonodirectionalAngle` |  |
+
+###### `PolarAzimuthal`
+
+[`PolarAzimuthalAngle`] — a beam with angular spread, or any source
+that is neither isotropic nor a single ray (GitHub #264).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PolarAzimuthalAngle` |  |
 
 ##### Implementations
 
@@ -12376,6 +17954,335 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `ScalarDist`
+
+A 1-D distribution over a bounded variable, for the `mu` and `phi` factors
+of [`PolarAzimuthalAngle`].
+
+Deliberately small: these are the two shapes a beam or cone source actually
+needs. Upstream composes arbitrary `Distribution` objects here; the full
+tabulated/Watt/Maxwell family already exists in
+[`super::energy`] for energies and is not duplicated on the angle side
+until something needs it.
+
+```rust
+pub enum ScalarDist {
+    Constant(f64),
+    Uniform {
+        lo: f64,
+        hi: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Constant`
+
+Always this value.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Uniform`
+
+Uniform on `[lo, hi]`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lo` | `f64` |  |
+| `hi` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScalarDist { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScalarDist) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PolarAzimuthalAngle`
+
+**Polar-azimuthal** source direction: sample `mu` about a reference axis and
+`phi` about it. `openmc::PolarAzimuthal`
+(`src/distribution_multi.cpp:98`).
+
+# The asymmetry this closes
+
+This crate already had a `PolarAzimuthalFilter` for **tallies**
+(`tally::filter`), but nothing on the **source** side: a beam with angular
+spread, or any source that is neither isotropic nor a single ray, could not
+be expressed at all. GitHub #264 names that asymmetry explicitly.
+
+# Construction
+
+`u_ref` is the reference axis; `v_ref` is any vector not parallel to it, and
+the frame is completed with `w_ref = u_ref x v_ref` exactly as upstream does
+(`:71`). [`PolarAzimuthalAngle::new`] orthonormalises `v_ref` against
+`u_ref` rather than requiring the caller to supply an orthogonal pair --
+upstream does **not** do that, and a non-orthogonal `v_ref` there silently
+skews the azimuth.
+
+# The `mu = +/-1` special cases are not decoration
+
+At `mu = +/-1` upstream returns `+/-u_ref` directly (`:111-114`) instead of
+evaluating the general formula. `f = sqrt(1 - mu^2)` is zero there, so the
+azimuthal terms vanish mathematically — but only if `v_ref` and `w_ref` are
+finite. Keeping the branch means a degenerate frame cannot turn a
+perfectly good `mu = 1` sample into a NaN direction.
+
+```rust
+pub struct PolarAzimuthalAngle {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(u_ref: Direction, v_hint: Direction, mu: ScalarDist, phi: ScalarDist) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from a reference axis, a (not necessarily orthogonal) second
+
+- ```rust
+  pub fn cone(axis: Direction, half_angle_rad: f64) -> Result<Self, String> { /* ... */ }
+  ```
+  A **cone** of half-angle `theta` about `axis`, uniform in solid angle
+
+###### Trait Implementations
+
+- **AngleDist**
+  - ```rust
+    fn sample(self: &Self, seed: &mut u64, _e: f64) -> Direction { /* ... */ }
+    ```
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PolarAzimuthalAngle { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PolarAzimuthalAngle) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Traits
 
 #### Trait `AngleDist`
@@ -12401,6 +18308,7 @@ This trait is implemented for the following types:
 - `IsotropicAngle`
 - `MonodirectionalAngle`
 - `AngleKind`
+- `PolarAzimuthalAngle`
 
 ## Module `tally`
 
@@ -12433,6 +18341,14 @@ pub enum ScoreType {
     ScatterN,
     Current,
     Events,
+    Scatter,
+    NuScatter,
+    DelayedNuFission,
+    PromptNuFission,
+    InverseVelocity,
+    DecayRate,
+    FissionQPrompt,
+    FissionQRecoverable,
 }
 ```
 
@@ -12465,6 +18381,57 @@ notebook).
 ###### `Current`
 
 ###### `Events`
+
+###### `Scatter`
+
+`SCORE_SCATTER` — the plain scattering rate `Σ_t − Σ_a`
+(`src/tallies/tally_scoring.cpp:615`).
+
+**Not** the same quantity as [`Self::ScatterN`], which is the elastic
+channel only. Both exist because a P0 transfer matrix is built on the
+first and an (n,xn) production rate on the second.
+
+###### `NuScatter`
+
+`SCORE_NU_SCATTER` — the scattering rate weighted by the number of
+neutrons each scatter emits, so (n,2n) counts twice.
+
+###### `DelayedNuFission`
+
+`SCORE_DELAYED_NU_FISSION` — delayed fission production ν̄_d·Σ_f.
+**Kinetics.**
+
+###### `PromptNuFission`
+
+`SCORE_PROMPT_NU_FISSION` — prompt fission production ν̄_p·Σ_f.
+**Kinetics.**
+
+###### `InverseVelocity`
+
+`SCORE_INVERSE_VELOCITY` — the flux-weighted `1/v` \[s/cm\]
+(`src/tallies/tally_scoring.cpp:607`), whose ratio to the flux gives
+the neutron generation time. **Kinetics.**
+
+###### `DecayRate`
+
+`SCORE_DECAY_RATE` — `Σ_k λ_k ν̄_d,k Σ_f` \[cm⁻¹ s⁻¹\]
+(`src/tallies/tally_scoring.cpp:773`), summed over precursor groups.
+**Kinetics.**
+
+###### `FissionQPrompt`
+
+`SCORE_FISS_Q_PROMPT` — fission energy deposition counting the prompt
+components only.
+
+###### `FissionQRecoverable`
+
+`SCORE_FISS_Q_RECOV` — fission energy deposition counting everything
+recoverable, including delayed betas and gammas.
+
+Distinct from [`Self::KappaFission`], which carries this crate's single
+`Q_FISSION_J` constant; see [`super::scoring::Q_FISSION_PROMPT_J`] and
+[`super::scoring::Q_FISSION_RECOVERABLE_J`] for the split and its
+provenance.
 
 ##### Implementations
 
@@ -12598,6 +18565,7 @@ pub struct TallyBin {
     pub sum: f64,
     pub sum_sq: f64,
     pub count: u64,
+    // Some fields omitted
 }
 ```
 
@@ -12608,6 +18576,7 @@ pub struct TallyBin {
 | `sum` | `f64` |  |
 | `sum_sq` | `f64` |  |
 | `count` | `u64` |  |
+| *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
 
@@ -12616,6 +18585,16 @@ pub struct TallyBin {
 - ```rust
   pub fn score(self: &mut Self, value: f64) { /* ... */ }
   ```
+
+- ```rust
+  pub fn variance(self: &Self) -> f64 { /* ... */ }
+  ```
+  The **sample variance of the scores**, computed stably.
+
+- ```rust
+  pub fn naive_variance_cancelled(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the textbook `sum_sq/n - mean^2` form has **catastrophically
 
 - ```rust
   pub fn mean(self: &Self, n_realizations: u64) -> f64 { /* ... */ }
@@ -12684,6 +18663,11 @@ pub struct TallyBin {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TallyBin) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -12705,6 +18689,7 @@ pub struct TallyBin {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -12787,6 +18772,21 @@ pub struct Tally {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Tally { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12806,6 +18806,11 @@ pub struct Tally {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Tally) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -12827,7 +18832,17 @@ pub struct Tally {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -12875,12 +18890,25 @@ pub struct FilterEvent {
     pub universe_idx: usize,
     pub energy: f64,
     pub surface_idx: usize,
+    pub position_last: crate::geometry::position::Position,
     pub position: crate::geometry::position::Position,
     pub direction: crate::geometry::position::Direction,
     pub mu: f64,
     pub time: f64,
     pub particle: crate::particle::particle::ParticleType,
     pub delayed_group: Option<usize>,
+    pub energy_out: Option<f64>,
+    pub event_mt: i32,
+    pub n_collision: u32,
+    pub cell_from: Option<usize>,
+    pub cell_born: Option<usize>,
+    pub material_from: Option<usize>,
+    pub weight: f64,
+    pub surface_mu: f64,
+    pub position_born: crate::geometry::position::Position,
+    pub cell_instance: Option<usize>,
+    pub parent_nuclide: Option<usize>,
+    pub secondaries: Vec<SecondarySite>,
 }
 ```
 
@@ -12893,12 +18921,25 @@ pub struct FilterEvent {
 | `universe_idx` | `usize` |  |
 | `energy` | `f64` |  |
 | `surface_idx` | `usize` | Surface crossed (usize::MAX if not a surface-crossing event). |
+| `position_last` | `crate::geometry::position::Position` | Start of the track segment \[cm\], for the filters that need the whole<br>segment rather than a representative point —<br>[`super::filter_extra::MeshSurfaceFilter`]. |
 | `position` | `crate::geometry::position::Position` | Representative spatial position of the event \[cm\] — the streamed<br>segment's midpoint for the track-length estimator. Used by the spatial<br>filters ([`MeshFilter`], [`SpatialLegendreFilter`], [`ZernikeFilter`]);<br>ignored by the cell/material/universe/energy filters. |
 | `direction` | `crate::geometry::position::Direction` | Direction of travel (unit vector). Consumed by<br>[`PolarAzimuthalFilter`] and [`SphericalHarmonicsFilter`]. |
 | `mu` | `f64` | Change-of-direction cosine `mu` of a scattering event, in the<br>**laboratory** frame. Meaningful only for a scatter; `MuFilter` is a<br>collision-estimator filter and this is what it bins. |
 | `time` | `f64` | Time since the particle was born \[s\]. Consumed by [`TimeFilter`]. |
 | `particle` | `crate::particle::particle::ParticleType` | Particle type. Consumed by [`ParticleFilter`]. |
 | `delayed_group` | `Option<usize>` | Delayed-neutron precursor group of a fission event, `0`-based, or `None`<br>for a prompt neutron or a non-fission event. Consumed by<br>[`DelayedGroupFilter`]. |
+| `energy_out` | `Option<f64>` | Post-collision (outgoing) neutron energy \[eV\] of a scattering event,<br>or `None` for any event that produced no secondary — an absorption, a<br>surface crossing, or a pure track-length segment. Consumed by<br>[`EnergyOutFilter`].<br><br>This is deliberately separate from [`Self::energy`], which is always the<br>**incoming** energy. A group-to-group scattering matrix needs both at<br>once, so a tally carrying an [`EnergyFilter`] and an [`EnergyOutFilter`]<br>bins `(g_in, g_out)` from a single event. |
+| `event_mt` | `i32` | MT number of the event. Consumed by<br>[`super::filter_extra::ReactionFilter`]; `0` for an event that is not a<br>reaction (a surface crossing, a track-length segment). |
+| `n_collision` | `u32` | Number of collisions this particle has had. Consumed by<br>[`super::filter_extra::CollisionFilter`], which matches it EXACTLY --<br>it is a set of collision numbers, not a range. |
+| `cell_from` | `Option<usize>` | Cell the particle came **from**, or `None` when it has no previous cell<br>(its first event). [`super::filter_extra::CellFromFilter`]. |
+| `cell_born` | `Option<usize>` | Cell the particle was **born** in.<br>[`super::filter_extra::CellBornFilter`]. |
+| `material_from` | `Option<usize>` | Material the particle came **from**.<br>[`super::filter_extra::MaterialFromFilter`]. |
+| `weight` | `f64` | Particle weight at the event. [`super::filter_extra::WeightFilter`].<br><br>~~**1.0 in analog transport**, which is every run today -- see #258. A<br>weight filter is therefore not useful yet~~ **CORRECTED 2026-09-22** —<br>#258 landed, so this is now a real varying weight whenever survival<br>biasing or weight windows are on, and a weight filter bins something.<br>It is still exactly 1.0 on an analog run, which is still the default.<br>The field defaults to 1.0 rather than 0.0 so that a filter binning it<br>does not silently drop every event against a `[0, 1]` grid. |
+| `surface_mu` | `f64` | Cosine between the direction of travel and the **surface normal** at a<br>surface crossing, with the normal already flipped to the side the<br>particle came from. [`super::filter_extra::MuSurfaceFilter`].<br><br>Deliberately separate from [`Self::mu`], which is a SCATTERING cosine at<br>a collision. They are different quantities at different events and<br>conflating them would tally scattering angles into a surface tally. |
+| `position_born` | `crate::geometry::position::Position` | Position the particle was **born** at \[cm\].<br>[`super::filter_extra::MeshBornFilter`]. |
+| `cell_instance` | `Option<usize>` | Instance number of [`Self::cell_idx`] within its repeated universe, or<br>`None` outside a lattice. [`super::filter_extra::CellInstanceFilter`]. |
+| `parent_nuclide` | `Option<usize>` | Nuclide this particle descends from.<br>[`super::filter_extra::ParentNuclideFilter`]. |
+| `secondaries` | `Vec<SecondarySite>` | Secondaries this collision produced.<br>[`super::filter_extra::ParticleProductionFilter`].<br><br>A `Vec` on a per-event struct looks expensive and is not: an empty<br>`Vec` does not allocate, and every event that is not a<br>secondary-producing collision leaves it empty. The alternative — a<br>borrowed slice — would need a lifetime parameter on `FilterEvent`,<br>which the workspace Rust rules forbid. |
 
 ##### Implementations
 
@@ -12920,6 +18961,21 @@ pub struct FilterEvent {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FilterEvent { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Default**
   - ```rust
     fn default() -> Self { /* ... */ }
@@ -12945,6 +19001,11 @@ pub struct FilterEvent {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FilterEvent) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -12966,7 +19027,151 @@ pub struct FilterEvent {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SecondarySite`
+
+One secondary particle emitted by a collision, as
+[`super::filter_extra::ParticleProductionFilter`] sees it.
+
+```rust
+pub struct SecondarySite {
+    pub particle: crate::particle::particle::ParticleType,
+    pub energy: f64,
+    pub weight: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particle` | `crate::particle::particle::ParticleType` | What was emitted. |
+| `energy` | `f64` | Its birth energy \[eV\]. |
+| `weight` | `f64` | Its statistical weight. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SecondarySite { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SecondarySite) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13037,6 +19242,21 @@ pub struct CellFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13065,6 +19285,11 @@ pub struct CellFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13086,7 +19311,17 @@ pub struct CellFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13148,6 +19383,21 @@ pub struct MaterialFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MaterialFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13176,6 +19426,11 @@ pub struct MaterialFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MaterialFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13197,7 +19452,17 @@ pub struct MaterialFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13270,6 +19535,21 @@ pub struct EnergyFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EnergyFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13298,6 +19578,11 @@ pub struct EnergyFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EnergyFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13319,7 +19604,173 @@ pub struct EnergyFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `EnergyOutFilter`
+
+Filter by **outgoing** (post-collision) energy. Maps to
+`openmc::EnergyoutFilter`.
+
+Bins [`FilterEvent::energy_out`], the secondary neutron's energy, where
+[`EnergyFilter`] bins the incoming energy. Pairing the two on one tally is
+what produces a group-to-group scattering matrix `Sigma_s,g->g'`, which is
+the form the deterministic solvers consume (GeN-Foam's `ZoneNuclearData`
+stores `scattering[moment][g_out][g_in]`).
+
+An event with no secondary — an absorption, a surface crossing, or a pure
+track-length segment — has `energy_out == None` and does **not** pass this
+filter, so it contributes to no bin.
+
+# Units
+
+Bin edges are in **eV**, ascending, exactly as [`EnergyFilter`]. `n + 1`
+edges produce `n` bins. Note that multigroup structures are conventionally
+quoted with group 0 as the *highest* energy; this filter does not reorder,
+so bin 0 is the lowest-energy bin and the caller reverses if it wants
+group-index order.
+
+```rust
+pub struct EnergyOutFilter {
+    pub bins: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bins` | `Vec<f64>` | Ascending bin EDGES in eV. `n + 1` edges produce `n` bins. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EnergyOutFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EnergyOutFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13377,6 +19828,21 @@ pub struct UniverseFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UniverseFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13405,6 +19871,11 @@ pub struct UniverseFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UniverseFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13426,7 +19897,17 @@ pub struct UniverseFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13463,10 +19944,18 @@ track-length "bins crossed" sub-segmentation
 (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) — this
 port scores the whole segment into the midpoint's cell, which is exact for a
 mesh whose cells are large relative to the mean free path.
+**CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
+[`RegularMesh`]; it is now a [`MeshKind`], so the same filter serves the
+regular, rectilinear, cylindrical and spherical meshes. Enum dispatch rather
+than a trait object, per the workspace Rust design rule.
+
+A cylindrical mesh filter is what an R-Z power profile actually needs, and
+before this it had to be faked through a Cartesian mesh (wrong bin shapes at
+the radial edge) or hand-built CSG cells (no mesh filter at all).
 
 ```rust
 pub struct MeshFilter {
-    pub mesh: super::mesh::RegularMesh,
+    pub mesh: super::mesh::MeshKind,
 }
 ```
 
@@ -13474,7 +19963,7 @@ pub struct MeshFilter {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh` | `super::mesh::RegularMesh` |  |
+| `mesh` | `super::mesh::MeshKind` |  |
 
 ##### Implementations
 
@@ -13496,6 +19985,21 @@ pub struct MeshFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13524,6 +20028,11 @@ pub struct MeshFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13545,7 +20054,17 @@ pub struct MeshFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13788,6 +20307,21 @@ pub struct SpatialLegendreFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SpatialLegendreFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13822,6 +20356,11 @@ pub struct SpatialLegendreFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SpatialLegendreFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13843,7 +20382,17 @@ pub struct SpatialLegendreFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13911,6 +20460,21 @@ pub struct SurfaceFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13939,6 +20503,11 @@ pub struct SurfaceFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurfaceFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13960,7 +20529,17 @@ pub struct SurfaceFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14027,6 +20606,21 @@ pub struct MuFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MuFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14055,6 +20649,11 @@ pub struct MuFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MuFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14076,7 +20675,17 @@ pub struct MuFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14146,6 +20755,21 @@ pub struct PolarAzimuthalFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PolarAzimuthalFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14174,6 +20798,11 @@ pub struct PolarAzimuthalFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PolarAzimuthalFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14195,7 +20824,17 @@ pub struct PolarAzimuthalFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14260,6 +20899,21 @@ pub struct TimeFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TimeFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14288,6 +20942,11 @@ pub struct TimeFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TimeFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14309,7 +20968,17 @@ pub struct TimeFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14375,6 +21044,21 @@ pub struct ParticleFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParticleFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14403,6 +21087,11 @@ pub struct ParticleFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParticleFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14424,7 +21113,17 @@ pub struct ParticleFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14474,6 +21173,13 @@ pub struct DelayedGroupFilter {
 
 ##### Implementations
 
+###### Methods
+
+- ```rust
+  pub fn new(groups: Vec<usize>) -> Result<Self, String> { /* ... */ }
+  ```
+  **This filter cannot currently tally anything, and saying so is the
+
 ###### Trait Implementations
 
 - **Any**
@@ -14492,6 +21198,21 @@ pub struct DelayedGroupFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DelayedGroupFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14505,6 +21226,7 @@ pub struct DelayedGroupFilter {
   - ```rust
     fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
     ```
+    Correct as written, and deliberately left alone: the moment
 
 - **Freeze**
 - **From**
@@ -14520,6 +21242,11 @@ pub struct DelayedGroupFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DelayedGroupFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14541,7 +21268,17 @@ pub struct DelayedGroupFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14624,6 +21361,21 @@ pub struct ZernikeFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ZernikeFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14656,6 +21408,11 @@ pub struct ZernikeFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ZernikeFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14677,7 +21434,17 @@ pub struct ZernikeFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14746,6 +21513,21 @@ pub struct SphericalHarmonicsFilter {
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SphericalHarmonicsFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14778,6 +21560,11 @@ pub struct SphericalHarmonicsFilter {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SphericalHarmonicsFilter) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -14799,7 +21586,17 @@ pub struct SphericalHarmonicsFilter {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -14835,6 +21632,7 @@ pub enum FilterKind {
     Cell(CellFilter),
     Material(MaterialFilter),
     Energy(EnergyFilter),
+    EnergyOut(EnergyOutFilter),
     Universe(UniverseFilter),
     Mesh(MeshFilter),
     Surface(SurfaceFilter),
@@ -14846,6 +21644,22 @@ pub enum FilterKind {
     SpatialLegendre(SpatialLegendreFilter),
     Zernike(ZernikeFilter),
     SphericalHarmonics(SphericalHarmonicsFilter),
+    Reaction(super::filter_extra::ReactionFilter),
+    Collision(super::filter_extra::CollisionFilter),
+    CellFrom(super::filter_extra::CellFromFilter),
+    CellBorn(super::filter_extra::CellBornFilter),
+    MaterialFrom(super::filter_extra::MaterialFromFilter),
+    Weight(super::filter_extra::WeightFilter),
+    MuSurface(super::filter_extra::MuSurfaceFilter),
+    EnergyFunction(super::filter_extra::EnergyFunctionFilter),
+    Legendre(super::filter_extra::LegendreFilter),
+    MeshBorn(super::filter_extra::MeshBornFilter),
+    ParentNuclide(super::filter_extra::ParentNuclideFilter),
+    CellInstance(super::filter_extra::CellInstanceFilter),
+    MeshMaterial(super::filter_extra::MeshMaterialFilter),
+    ParticleProduction(super::filter_extra::ParticleProductionFilter),
+    MeshSurface(super::filter_extra::MeshSurfaceFilter),
+    Distribcell(super::filter_extra::DistribcellFilter),
 }
 ```
 
@@ -14873,13 +21687,23 @@ Fields:
 
 ###### `Energy`
 
-[`EnergyFilter`].
+[`EnergyFilter`] — incoming energy.
 
 Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `EnergyFilter` |  |
+
+###### `EnergyOut`
+
+[`EnergyOutFilter`] — outgoing (post-collision) energy.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `EnergyOutFilter` |  |
 
 ###### `Universe`
 
@@ -14991,6 +21815,171 @@ Fields:
 |-------|------|---------------|
 | 0 | `SphericalHarmonicsFilter` |  |
 
+###### `Reaction`
+
+[`super::filter_extra::ReactionFilter`] — by MT, with ENDF summation.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::ReactionFilter` |  |
+
+###### `Collision`
+
+[`super::filter_extra::CollisionFilter`] — by collision number.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::CollisionFilter` |  |
+
+###### `CellFrom`
+
+[`super::filter_extra::CellFromFilter`] — the cell the particle left.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::CellFromFilter` |  |
+
+###### `CellBorn`
+
+[`super::filter_extra::CellBornFilter`] — the cell it was born in.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::CellBornFilter` |  |
+
+###### `MaterialFrom`
+
+[`super::filter_extra::MaterialFromFilter`] — the material it left.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::MaterialFromFilter` |  |
+
+###### `Weight`
+
+[`super::filter_extra::WeightFilter`] — by statistical weight.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::WeightFilter` |  |
+
+###### `MuSurface`
+
+[`super::filter_extra::MuSurfaceFilter`] — cosine to a surface normal.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::MuSurfaceFilter` |  |
+
+###### `EnergyFunction`
+
+[`super::filter_extra::EnergyFunctionFilter`] — a continuous weight in
+energy rather than a binning.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::EnergyFunctionFilter` |  |
+
+###### `Legendre`
+
+[`super::filter_extra::LegendreFilter`] — a functional expansion in the
+scattering cosine; the quantity MGXS generation is built on.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::LegendreFilter` |  |
+
+###### `MeshBorn`
+
+[`super::filter_extra::MeshBornFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::MeshBornFilter` |  |
+
+###### `ParentNuclide`
+
+[`super::filter_extra::ParentNuclideFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::ParentNuclideFilter` |  |
+
+###### `CellInstance`
+
+[`super::filter_extra::CellInstanceFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::CellInstanceFilter` |  |
+
+###### `MeshMaterial`
+
+[`super::filter_extra::MeshMaterialFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::MeshMaterialFilter` |  |
+
+###### `ParticleProduction`
+
+[`super::filter_extra::ParticleProductionFilter`] — can match one event
+in several bins at once; see its `matches`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::ParticleProductionFilter` |  |
+
+###### `MeshSurface`
+
+[`super::filter_extra::MeshSurfaceFilter`] — mesh-face currents; also
+matches one event in several bins.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::MeshSurfaceFilter` |  |
+
+###### `Distribcell`
+
+[`super::filter_extra::DistribcellFilter`] — one bin per instance of a
+repeated cell. The sixteenth and last of #261's list.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::filter_extra::DistribcellFilter` |  |
+
 ##### Implementations
 
 ###### Methods
@@ -15015,6 +22004,11 @@ Fields:
   ```
   Whether this filter deposits into every moment bin at once rather than
 
+- ```rust
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
+  ```
+  A short, stable name for each variant.
+
 ###### Trait Implementations
 
 - **Any**
@@ -15033,6 +22027,21 @@ Fields:
     ```
 
 - **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FilterKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -15052,6 +22061,11 @@ Fields:
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FilterKind) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -15073,7 +22087,17 @@ Fields:
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -15128,6 +22152,7 @@ This trait is implemented for the following types:
 - `CellFilter`
 - `MaterialFilter`
 - `EnergyFilter`
+- `EnergyOutFilter`
 - `UniverseFilter`
 - `MeshFilter`
 - `SpatialLegendreFilter`
@@ -15139,6 +22164,3548 @@ This trait is implemented for the following types:
 - `DelayedGroupFilter`
 - `ZernikeFilter`
 - `SphericalHarmonicsFilter`
+- `ReactionFilter`
+- `CollisionFilter`
+- `CellFromFilter`
+- `CellBornFilter`
+- `MaterialFromFilter`
+- `WeightFilter`
+- `MuSurfaceFilter`
+- `EnergyFunctionFilter`
+- `LegendreFilter`
+- `MeshBornFilter`
+- `ParentNuclideFilter`
+- `CellInstanceFilter`
+- `MeshMaterialFilter`
+- `ParticleProductionFilter`
+- `MeshSurfaceFilter`
+- `DistribcellFilter`
+
+## Module `derivative`
+
+**Tally derivatives** — a sensitivity coefficient from a single run.
+GitHub #263 scope item 3.
+
+Ported from `src/tallies/derivative.cpp` at OpenMC `afa7a14`.
+
+# What this replaces
+
+Every reactivity and sensitivity coefficient in this crate today is a
+**paired-run difference**: run twice, subtract. That costs two converged
+runs and its uncertainty is the quadrature sum of both, which is why the
+ablations recorded in `CLAUDE.md` need 64 to 400 seeds per arm to resolve
+effects of a few tens of pcm. A differential operator gives the same
+quantity from one run with **correlated** statistics, so the difference's
+variance is not the sum of two independent variances.
+
+# The method
+
+Along each history the code accumulates the **logarithmic flux
+derivative** `(1/φ)(∂φ/∂p)`. At a collision in the perturbed material that
+quantity gains a term that depends only on the perturbed variable:
+
+| variable | `(1/φ)(∂φ/∂p)` gains |
+|---|---|
+| density | `1/ρ` |
+| nuclide density | `1/N_i` |
+| temperature | `(∂σ_s/∂T) / σ_s` |
+
+A score `c` is then differentiated as
+`∂c/∂p = c ((1/φ)(∂φ/∂p) + (1/c)(∂c/∂p))`, the second term being zero for a
+flux score and `1/ρ` or `1/N_i` for a reaction rate.
+
+# Where this port differs from upstream, deliberately
+
+**The density variable is the total ATOM density, not the mass density.**
+Upstream differentiates with respect to `material.density_gpcc_`; this
+crate's [`Material`] carries atom densities only and no mass density at
+all. At fixed composition the two are proportional, so the *logarithmic*
+derivative `1/ρ` is numerically identical either way — but the units of the
+answer differ, and [`DerivativeVariable::Density`] says so rather than
+leaving a reader to assume g/cm³.
+
+**The temperature derivative is a finite difference**, not the analytic
+windowed-multipole one. Upstream calls `multipole_->evaluate_deriv`; this
+crate has no such routine, and inventing an analytic derivative it does not
+have would be worse than differencing. It is therefore available **only on
+the WMP (`Core`) tier**, where `xs_at_energy` actually depends on the
+temperature argument; on the pointwise tier the cross sections are
+broadened once at construction and the temperature argument is ignored, so
+a finite difference there would return exactly zero — a plausible,
+completely wrong answer. [`TallyDerivative::temperature`] refuses that case
+instead of returning the zero.
+
+**Upstream's own approximation is inherited**, and it is worth restating:
+the temperature derivative assumes `∂P(E'→E, u'→u)/∂T = 0`, i.e. that only
+the magnitude of the scattering cross section moves with temperature and
+not the transfer kernel. Upstream records this as causing 2–5 % errors on
+PWR pin-cell eigenvalue derivatives near low-energy resonances.
+
+```rust
+pub mod derivative { /* ... */ }
+```
+
+### Types
+
+#### Enum `DerivativeVariable`
+
+Which material property a tally is differentiated with respect to —
+`DerivativeVariable` (`include/openmc/tallies/derivative.h`).
+
+```rust
+pub enum DerivativeVariable {
+    Density,
+    NuclideDensity {
+        nuclide_idx: usize,
+    },
+    Temperature,
+}
+```
+
+##### Variants
+
+###### `Density`
+
+The material's **total atom density** \[atoms/barn-cm\], scaling the
+whole composition. See the module docs: upstream uses the mass density,
+and the logarithmic derivative is the same number while the units of
+the answer are not.
+
+###### `NuclideDensity`
+
+One nuclide's atom density \[atoms/barn-cm\]; the index is into the
+global nuclide array.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide_idx` | `usize` |  |
+
+###### `Temperature`
+
+Temperature \[K\]. WMP tier only — see the module docs.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DerivativeVariable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DerivativeVariable) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TallyDerivative`
+
+A differential operator attached to a tally — `TallyDerivative`.
+
+```rust
+pub struct TallyDerivative {
+    pub material_idx: usize,
+    pub variable: DerivativeVariable,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `material_idx` | `usize` | Index of the material being perturbed. A collision anywhere else<br>contributes nothing. |
+| `variable` | `DerivativeVariable` | What is perturbed. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn accumulate_at_collision(self: &Self, flux_deriv: &mut FluxDerivative, material_idx: usize, material: &Material, nuclides: &[Nuclide], event_nuclide: usize, e: f64) -> Result<(), String> { /* ... */ }
+  ```
+  Accumulate this derivative's contribution at a collision —
+
+- ```rust
+  pub fn apply_to_score(self: &Self, score: f64, flux_deriv: &FluxDerivative, material_idx: Option<usize>, material: Option<&Material>, score_type: ScoreType) -> Result<f64, String> { /* ... */ }
+  ```
+  Turn a score into its derivative —
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TallyDerivative { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TallyDerivative) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FluxDerivative`
+
+The running logarithmic flux derivative for one history —
+`p.flux_derivs(idx)`.
+
+One per (history, derivative). Reset at the start of every history: it is a
+path integral along that history and carrying it across would sum
+unrelated particles.
+
+```rust
+pub struct FluxDerivative {
+    pub value: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `value` | `f64` | `(1/φ)(∂φ/∂p)` accumulated so far. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FluxDerivative { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> FluxDerivative { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FluxDerivative) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `filter_extra`
+
+**Tally filters added for GitHub #261**, ported from `src/tallies/` at
+OpenMC `afa7a14`. (The commit the issue cites, `608a1c33`, is unavailable
+here and not fetchable; see
+`outram-mc-libs/verification_and_validation/white_boundary/`.)
+
+Covers, of the sixteen the issue lists:
+
+| filter | upstream | status |
+|---|---|---|
+| `ENERGY_FUNCTION` | `filter_energyfunc.cpp` | here |
+| `REACTION` | `filter_reaction.cpp` | here, with full MT summation |
+| `COLLISION` | `filter_collision.cpp` | here |
+| `CELLFROM` | `filter_cellfrom.cpp` | here |
+| `CELLBORN` | `filter_cellborn.cpp` | here |
+| `MATERIALFROM` | `filter_materialfrom.cpp` | here |
+| `WEIGHT` | `filter_weight.cpp` | here |
+| `MUSURFACE` | `filter_musurface.cpp` | here |
+
+**Not here**, and still open on #261: `DISTRIBCELL`, `CELL_INSTANCE`,
+`MESH_SURFACE`, `MESHBORN`, `MESH_MATERIAL`, `LEGENDRE`, `PARENT_NUCLIDE`
+and `PARTICLE_PRODUCTION`. `DISTRIBCELL` is the expensive one — it needs the
+distribcell offset tables upstream builds in `src/geometry_aux.cpp`.
+
+```rust
+pub mod filter_extra { /* ... */ }
+```
+
+### Types
+
+#### Struct `ReactionFilter`
+
+Bin by the **MT number** of the event. `openmc::ReactionFilter`.
+
+An event may match **several** bins at once when the requested MTs overlap
+(asking for both 1 and 2, say), which is why upstream scans every bin rather
+than looking one up. Ported as such: see [`ReactionFilter::matching_bins`].
+
+```rust
+pub struct ReactionFilter {
+    pub bins: Vec<i32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bins` | `Vec<i32>` | Requested MT numbers, one bin each, in order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn matching_bins(self: &Self, event_mt: i32) -> Vec<usize> { /* ... */ }
+  ```
+  Every bin this event falls into. Upstream pushes one match per bin
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReactionFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+    The single-bin contract returns the **first** matching bin. A tally that
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReactionFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CollisionFilter`
+
+Bin by the particle's **collision number**. `openmc::CollisionFilter`.
+
+Upstream requires an **exact** match against the requested numbers
+(`filter_collision.cpp:45`): a filter asking for `[1, 2, 5]` bins the first,
+second and fifth collisions and drops every other. It is not a range.
+
+```rust
+pub struct CollisionFilter {
+    pub bins: Vec<u32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bins` | `Vec<u32>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CollisionFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CollisionFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CellFromFilter`
+
+Bin by the cell the particle came **from**. `openmc::CellFromFilter`.
+
+```rust
+pub struct CellFromFilter {
+    pub cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cells` | `Vec<usize>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellFromFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellFromFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CellBornFilter`
+
+Bin by the cell the particle was **born** in. `openmc::CellBornFilter`.
+
+```rust
+pub struct CellBornFilter {
+    pub cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cells` | `Vec<usize>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellBornFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellBornFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MaterialFromFilter`
+
+Bin by the material the particle came **from**.
+`openmc::MaterialFromFilter`.
+
+```rust
+pub struct MaterialFromFilter {
+    pub materials: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `materials` | `Vec<usize>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MaterialFromFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MaterialFromFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WeightFilter`
+
+Bin by the particle's **weight**. `openmc::WeightFilter`.
+
+Only meaningful once variance reduction exists (#258) — in analog transport
+every weight is exactly 1 and every event lands in whichever bin contains 1.
+Ported now so the filter is not the thing blocking that work.
+
+`bins` are ascending edges; a weight outside `[first, last]` is unbinned.
+
+```rust
+pub struct WeightFilter {
+    pub bins: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bins` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WeightFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WeightFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MuSurfaceFilter`
+
+Bin by the cosine between the particle direction and the **surface normal**
+at a surface crossing. `openmc::MuSurfaceFilter`.
+
+# How this differs from `MuFilter`, which this crate already has
+
+`MuFilter` bins a **scattering** cosine — the change of direction at a
+collision. This bins the angle of incidence **on a surface**, which is a
+different quantity measured at a different event. Conflating them would
+silently tally scattering angles into a surface-current tally.
+
+Upstream flips the normal when the particle crosses the surface from the
+negative side (`p.surface() < 0`, `filter_musurface.cpp:20`) so `mu` is
+always measured against the normal the particle actually sees, and clamps
+`|mu| > 1` to `+/-1` against round-off.
+
+```rust
+pub struct MuSurfaceFilter {
+    pub bins: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bins` | `Vec<f64>` | Ascending cosine edges, normally spanning `[-1, 1]`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MuSurfaceFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MuSurfaceFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `EnergyFunctionFilter`
+
+**Arbitrary response function of energy** — the ICRP flux-to-dose filter.
+`openmc::EnergyFunctionFilter`.
+
+One bin, whose **weight** is `y(E)` interpolated at the event's incoming
+energy. Events outside `[energy.first(), energy.last()]` are dropped
+entirely rather than clamped (`filter_energyfunc.cpp:96`) — extrapolating a
+dose-response curve past its tabulated range is not a thing upstream will
+do, and neither does this.
+
+This is the filter the dose end of the #226 source-term chain needs.
+
+Only **lin-lin** interpolation is ported. Upstream carries the full ENDF
+interpolation set here; anything else is refused by
+[`EnergyFunctionFilter::new`] rather than silently treated as lin-lin.
+
+```rust
+pub struct EnergyFunctionFilter {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(energy: Vec<f64>, y: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from an ascending energy grid and its response values.
+
+- ```rust
+  pub fn response(self: &Self, e: f64) -> Option<f64> { /* ... */ }
+  ```
+  The interpolated response at `e`, or `None` outside the grid.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EnergyFunctionFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+  - ```rust
+    fn expansion_moments(self: &Self, ev: &FilterEvent) -> Option<Vec<f64>> { /* ... */ }
+    ```
+    One bin carrying the interpolated response as its weight. The crate's
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EnergyFunctionFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LegendreFilter`
+
+**Legendre moment filter** — `LegendreFilter`
+(`src/tallies/filter_legendre.cpp`) at OpenMC `afa7a14`.
+
+Deposits into **every** moment bin at once with weight `P_n(mu)`, where
+`mu` is the scattering cosine. It is a functional expansion, not a binning:
+see [`crate::tally::filter::FilterKind::is_expansion`].
+
+# What it is for
+
+This is the tally that MGXS generation is built on. `Sigma_s,l,g->g'` is
+the `l`-th Legendre moment of the scattering kernel, and this filter
+crossed with an [`crate::tally::filter::EnergyFilter`] and an
+[`crate::tally::filter::EnergyOutFilter`] is exactly how it is measured.
+Without it a generated library can only ever be P0 — which is the defect
+GitHub #265 priced at **−4371 pcm** on a leakage-dominated case.
+
+# Why the weights are NOT `(l + 1/2) P_l`
+
+`calc_pn_c` (`src/math_functions.cpp`) returns the bare `P_l(mu)`; the
+`(l + 1/2)` normalisation belongs to *evaluating* an expansion, not to
+accumulating its moments (see
+[`crate::physics::scattdata::evaluate_legendre`], which applies it on the
+way out). Folding it in here would double-apply it and silently rescale
+every moment above P0 — a mistake that leaves the P0 term looking correct,
+so a smoke test would not catch it.
+
+```rust
+pub struct LegendreFilter {
+    pub order: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `order` | `usize` | Highest moment; produces `order + 1` bins. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LegendreFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, _ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+  - ```rust
+    fn expansion_moments(self: &Self, ev: &FilterEvent) -> Option<Vec<f64>> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LegendreFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshBornFilter`
+
+**Born-position mesh filter** — `MeshBornFilter`
+(`src/tallies/filter_meshborn.cpp`).
+
+Bins by the mesh element the particle was **born** in, not the one it is
+in now. That is what separates "flux here" from "flux here *due to a source
+there*", which is the quantity a source-importance or adjoint-like study
+needs.
+
+```rust
+pub struct MeshBornFilter {
+    pub mesh: crate::tally::mesh::MeshKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::MeshKind` | The mesh; `n_bins` is its element count. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshBornFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshBornFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ParentNuclideFilter`
+
+**Parent-nuclide filter** — `ParentNuclideFilter`
+(`src/tallies/filter_parent_nuclide.cpp`).
+
+Bins by which nuclide the particle descends from. An event whose parent is
+unknown, or is not in the list, matches nothing — it is **not** folded into
+a catch-all bin, because a decay-source study that silently attributed
+unknown parents to one nuclide would be reporting a fabricated spectrum.
+
+```rust
+pub struct ParentNuclideFilter {
+    pub nuclides: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclides` | `Vec<usize>` | Nuclide indices, in bin order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParentNuclideFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParentNuclideFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CellInstanceFilter`
+
+**Cell-instance filter** — `CellInstanceFilter`
+(`src/tallies/filter_cell_instance.cpp`).
+
+Bins explicit `(cell, instance)` pairs — the targeted form of a distribcell
+tally. This is what gives a per-pebble or per-pin result out of a repeated
+universe.
+
+# Scope note
+
+Upstream also walks the coordinate stack so that an *enclosing* cell can
+match, and has a `material_cells_only_` switch for that. This port matches
+the **lowest** coordinate level only, which is the `material_cells_only_`
+behaviour, because this crate's `FilterEvent` carries the leaf cell rather
+than the whole stack. A filter listing a non-leaf cell therefore matches
+nothing here where upstream would match it — stated rather than left to be
+discovered, and the reason [`Self::new`] cannot detect it.
+
+```rust
+pub struct CellInstanceFilter {
+    pub pairs: Vec<(usize, usize)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pairs` | `Vec<(usize, usize)>` | `(cell index, instance)` pairs, in bin order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellInstanceFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellInstanceFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshMaterialFilter`
+
+**Mesh-and-material filter** — `MeshMaterialFilter`
+(`src/tallies/filter_meshmaterial.cpp`).
+
+Bins `(mesh element, material)` pairs, for a homogenised-region tally where
+one mesh cell contains more than one material and the split matters.
+
+```rust
+pub struct MeshMaterialFilter {
+    pub mesh: crate::tally::mesh::MeshKind,
+    pub pairs: Vec<(usize, usize)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::MeshKind` | The mesh. |
+| `pairs` | `Vec<(usize, usize)>` | `(element, material)` pairs, in bin order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshMaterialFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshMaterialFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ParticleProductionFilter`
+
+**Particle-production filter** — `ParticleProductionFilter`
+(`src/tallies/filter_particle_production.cpp`).
+
+Scores the **secondaries a collision produced**, by particle type and
+optionally by their birth energy, each at its own weight. So unlike every
+other filter here it can match an event **more than once**, which is why it
+reports [`Self::matches`] rather than a single bin.
+
+With `energy_bins` empty there is one bin per particle type; otherwise
+`particle_index * n_energy + energy_index`, matching upstream's layout.
+
+```rust
+pub struct ParticleProductionFilter {
+    pub particles: Vec<crate::particle::particle::ParticleType>,
+    pub energy_bins: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particles` | `Vec<crate::particle::particle::ParticleType>` | Particle types, in bin order. |
+| `energy_bins` | `Vec<f64>` | Ascending energy bounds \[eV\], or empty for no energy resolution. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn matches(self: &Self, ev: &FilterEvent) -> Vec<(usize, f64)> { /* ... */ }
+  ```
+  Every `(bin, weight)` this event produces — possibly none, possibly
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParticleProductionFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParticleProductionFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshSurfaceFilter`
+
+**Mesh-surface (current) filter** — `MeshSurfaceFilter`
+(`src/tallies/filter_meshsurface.cpp`).
+
+Bins the **faces** a track crosses rather than the elements it passes
+through, giving a current rather than a flux. That is the quantity a
+CMFD-style acceleration or a nodal coupling needs, and it is not
+recoverable from a flux tally.
+
+One event can cross many faces, so like
+[`ParticleProductionFilter`] this filter reports [`Self::matches`] rather
+than a single bin; `get_bin` returns only the first crossing and its doc
+says so instead of leaving the partial answer to be found later.
+
+```rust
+pub struct MeshSurfaceFilter {
+    pub mesh: crate::tally::mesh::RegularMesh,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::RegularMesh` | The mesh whose faces are binned. Only [`MeshKind::Regular`] is<br>supported — the cylindrical and spherical meshes carry no face<br>crossing routine yet, and [`Self::new`] refuses them rather than<br>returning an empty bin list that reads as "this track crossed nothing". |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: MeshKind) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from a mesh.
+
+- ```rust
+  pub fn matches(self: &Self, ev: &FilterEvent) -> Vec<usize> { /* ... */ }
+  ```
+  Every surface bin this track crosses, in order of travel.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshSurfaceFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshSurfaceFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DistribcellFilter`
+
+**Distribcell filter** — one bin per instance of a repeated cell.
+`DistribcellFilter` (`src/tallies/filter_distribcell.cpp`).
+
+A cell defined once inside a universe that a lattice repeats 400 times is
+one cell and 400 instances; a [`CellFilter`] bins all 400 together and this
+gives 400 bins. See [`crate::geometry::distribcell`] for how the instance
+index is formed.
+
+# The instance must be supplied by the transport
+
+This filter reads [`FilterEvent::cell_instance`], which the transport sets
+from [`crate::geometry::distribcell::DistribcellOffsets::instance_of`]. An
+event with no instance matches **nothing** rather than bin 0 — binning an
+unknown instance into the first bin would put every un-instanced event on
+one pebble.
+
+```rust
+pub struct DistribcellFilter {
+    pub cell_idx: usize,
+    pub n_instances: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell_idx` | `usize` | The repeated cell. |
+| `n_instances` | `usize` | How many instances it has — from `DistribcellOffsets::n_instances`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DistribcellFilter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DistribcellFilter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `is_fission`
+
+`is_fission` (`src/endf.cpp:53`).
+
+```rust
+pub fn is_fission(mt: i32) -> bool { /* ... */ }
+```
+
+#### Function `is_disappearance`
+
+`is_disappearance` (`src/endf.cpp:59`).
+
+```rust
+pub fn is_disappearance(mt: i32) -> bool { /* ... */ }
+```
+
+#### Function `mt_matches`
+
+`mt_matches(event_mt, target_mt)` (`src/endf.cpp:90`) — does an event's MT
+fall under a (possibly **summation**) target MT?
+
+# Why this is ported in full rather than reduced to equality
+
+A reaction filter asking for MT=4 means *every* inelastic level, 51 through
+91 — not a reaction literally labelled 4, which no event ever carries.
+Likewise MT=1 is total, MT=18 covers the first-, second- and third-chance
+fission channels, and MT=103 covers the 600–649 discrete `(n,p)` levels.
+
+Reducing this to `event_mt == target_mt` would compile, run, and tally
+**zero** for every summation MT anyone actually asks for. A silent zero in a
+reaction-rate tally is the same failure shape as the aliased boundary
+condition in #259: plausible output, different question.
+
+```rust
+pub fn mt_matches(event_mt: i32, target_mt: i32) -> bool { /* ... */ }
+```
+
+## Module `trigger`
+
+**Tally triggers** — run until a target precision rather than for a fixed
+batch count. GitHub #263, first half.
+
+Ported from `src/tallies/trigger.cpp` at OpenMC `afa7a14`. (The commit the
+issue cites, `608a1c33`, is unavailable here and not fetchable.)
+
+# Why this matters beyond convenience
+
+Every driver in `physics/` takes a fixed batch count today. That means a
+user either over-runs (wasted time) or under-runs (a result whose sigma
+nobody checked). A trigger converts "how many batches?" — a guess — into
+"what precision do I need?", which is the question that actually has an
+answer.
+
+```rust
+pub mod trigger { /* ... */ }
+```
+
+### Types
+
+#### Enum `TriggerMetric`
+
+Which uncertainty measure a trigger watches. `openmc::TriggerMetric`.
+
+```rust
+pub enum TriggerMetric {
+    Variance,
+    RelativeError,
+    StandardDeviation,
+}
+```
+
+##### Variants
+
+###### `Variance`
+
+Variance of the mean, i.e. `std_dev^2`.
+
+###### `RelativeError`
+
+Standard deviation of the mean divided by `|mean|`.
+
+###### `StandardDeviation`
+
+Standard deviation of the mean.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TriggerMetric { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TriggerMetric) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Trigger`
+
+One trigger: a metric, a threshold, and what to do about empty bins.
+
+```rust
+pub struct Trigger {
+    pub metric: TriggerMetric,
+    pub threshold: f64,
+    pub ignore_zeros: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `metric` | `TriggerMetric` |  |
+| `threshold` | `f64` | The value the metric must fall **to or below**. |
+| `ignore_zeros` | `bool` | Treat a bin with no contributions as satisfied rather than as<br>infinitely uncertain. `Trigger::ignore_zeros` upstream.<br><br>The default (`false`) is the safe one: a score that has never been hit<br>is not converged, it is unmeasured, and the two must not look alike. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Trigger { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Trigger) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BinStats`
+
+Running sums for one tally bin across realizations.
+
+```rust
+pub struct BinStats {
+    pub sum: f64,
+    pub sum_sq: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sum` | `f64` | Sum of the per-realization values. |
+| `sum_sq` | `f64` | Sum of their squares. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BinStats { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BinStats { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bin_uncertainty`
+
+Mean, standard deviation **of the mean**, and relative error for a bin over
+`n` realizations — `get_tally_uncertainty` (`src/tallies/trigger.cpp:30`).
+
+Returns `None` for a bin whose mean is exactly zero, which upstream signals
+with a `(-1, -1)` sentinel pair. A `None` here is "no contributions", not
+"converged to zero", and the caller must keep those distinct.
+
+# The formula is the standard error, not the sample spread
+
+```text
+mean    = sum / n
+std_dev = sqrt( (sum_sq / n - mean^2) / (n - 1) )
+rel_err = std_dev / |mean|
+```
+
+Note the `(n - 1)` is **outside** the parenthesis, so this is the
+uncertainty **on the mean**, not the spread of the realizations. Getting
+that wrong by a factor of `sqrt(n)` would make every trigger fire far too
+early and the runs would look wonderfully cheap.
+
+```rust
+pub fn bin_uncertainty(stats: BinStats, n: usize) -> Option<(f64, f64, f64)> { /* ... */ }
+```
+
+#### Function `bin_ratio`
+
+The uncertainty/threshold ratio for one bin under one trigger, or
+`INFINITY` for an unmeasured bin that the trigger does not ignore.
+
+A ratio at or below 1 means that bin is satisfied.
+
+# A deliberate divergence from upstream, and why
+
+`src/tallies/trigger.cpp:108` reads:
+
+```text
+double this_ratio = uncertainty / trigger.threshold;
+if (trigger.metric == TriggerMetric::variance) {
+  this_ratio = std::sqrt(ratio);
+}
+```
+
+Under the **variance** metric it takes `sqrt(ratio)` — `ratio` being the
+running maximum across all bins, the function's *output* accumulator, which
+is initialised to `0` at `:60`. It is not `this_ratio`. So the first bin
+evaluated under a variance trigger yields `sqrt(0) = 0`, the threshold is
+not consulted at all, and the trigger reports satisfied on a bin it never
+examined.
+
+**That reads as an upstream bug rather than a convention**, and this port
+does NOT reproduce it. The variance branch here is
+`sqrt(this_ratio)` — the evident intent, which makes the variance metric
+behave like the others: it puts the ratio on a standard-deviation footing so
+a threshold on variance converges at the same rate as one on `std_dev`.
+
+The workspace rule is that upstream is the specification, and it is being
+knowingly departed from here. Recorded rather than silently "fixed", because
+a reader comparing the two files will find the difference and needs to know
+it was deliberate. `tests::the_variance_metric_does_not_reproduce_upstreams_bug`
+pins the divergence so it cannot be quietly reverted either way.
+
+```rust
+pub fn bin_ratio(stats: BinStats, n: usize, trigger: &Trigger) -> f64 { /* ... */ }
+```
+
+#### Function `limiting_ratio`
+
+The most limiting ratio over every bin of every trigger.
+
+Bins with fewer than two realizations are skipped, as upstream skips tallies
+with `n_realizations_ < 2` (`:65`) — a single realization has no
+uncertainty estimate at all, and treating it as converged would stop the run
+on its first batch.
+
+```rust
+pub fn limiting_ratio(bins: &[BinStats], n: usize, triggers: &[Trigger]) -> f64 { /* ... */ }
+```
+
+#### Function `satisfied`
+
+Are all triggers satisfied? `max(ratio) <= 1` (`:182`).
+
+```rust
+pub fn satisfied(ratio: f64) -> bool { /* ... */ }
+```
+
+#### Function `predict_batches`
+
+Predicted total batches needed, assuming variance falls as `1/N`
+(`:209-215`):
+
+```text
+n_pred = (int)(n_active * ratio^2) + n_inactive + 1
+```
+
+Returns `None` when the ratio is infinite — a tally with no scores gives no
+basis for an estimate, and upstream says so rather than printing a number.
+
+```rust
+pub fn predict_batches(current_batch: usize, n_inactive: usize, ratio: f64) -> Option<usize> { /* ... */ }
+```
 
 ## Module `mesh`
 
@@ -15151,8 +25718,25 @@ tally can be resolved *spatially* — one bin per grid cell — independent of t
 CSG cell structure. This is the spatial counterpart to the energy grouping an
 [`super::filter::EnergyFilter`] provides. Only the axis-aligned
 [`RegularMesh`] is ported here (the workhorse for the `post-processing`
-notebook); rectilinear / cylindrical / spherical meshes are a documented gap
-(bead op-6tz.13).
+notebook); ~~rectilinear / cylindrical / spherical meshes are a documented
+gap (bead op-6tz.13)~~ **CORRECTED 2026-09-22 (GitHub #260)** --
+[`RectilinearMesh`], [`CylindricalMesh`] and [`SphericalMesh`] are now
+present, verified bin-for-bin against OpenMC's own per-bin volumes to
+2.854e-16 (`tests/mesh_vs_openmc.rs`).
+
+Scope item 4 (wiring into [`super::filter::MeshFilter`]) is done too, via
+[`MeshKind`]; per-bin volumes for flux normalisation (scope item 5) are on
+[`MeshKind::bin_volume`].
+
+Still absent, and still a real gap: the **unstructured** mesh family, which
+is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
+#260. Also still a gap, unchanged by this work and pre-dating it: the
+track-length **`bins_crossed`** sub-segmentation, so a segment is scored
+whole into its midpoint's cell rather than split across the cells it
+actually crosses. That approximation is exact only while a mesh cell is
+large relative to the mean free path, and it is **more** wrong on a
+cylindrical mesh than a Cartesian one, because a radial cell's width varies
+across it. Worth knowing before using a fine R-Z mesh.
 
 ```rust
 pub mod mesh { /* ... */ }
@@ -15220,6 +25804,21 @@ pub struct RegularMesh {
   pub fn shannon_entropy(self: &Self, sites: &[crate::particle::bank::BankSite]) -> Option<f64> { /* ... */ }
   ```
   **Shannon entropy of the fission source on this mesh, in bits.**
+
+- ```rust
+  pub fn n_surface_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of bins a [`crate::tally::filter_extra::MeshSurfaceFilter`] on
+
+- ```rust
+  pub fn surface_bin(self: &Self, element: usize, axis: usize, max: bool, inward: bool) -> usize { /* ... */ }
+  ```
+  The surface bin for one face of one element —
+
+- ```rust
+  pub fn surface_bins_crossed(self: &Self, r0: Position, r1: Position) -> Vec<usize> { /* ... */ }
+  ```
+  Every surface bin the segment `r0 -> r1` crosses, in order of travel —
 
 ###### Trait Implementations
 
@@ -15331,6 +25930,690 @@ pub struct RegularMesh {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `RectilinearMesh`
+
+**Rectilinear** mesh: explicit, non-uniform bin edges on each axis.
+
+`openmc::RectilinearMesh`. This is the cheap one, and it is what a radial
+power profile with finer edge binning actually needs.
+
+```rust
+pub struct RectilinearMesh {
+    pub grid: [Vec<f64>; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `grid` | `[Vec<f64>; 3]` | Ascending bin edges along x, y, z. Each needs at least two entries. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Number of bins along each axis.
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total bins.
+
+- ```rust
+  pub fn indices(self: &Self, p: Position) -> Option<[usize; 3]> { /* ... */ }
+  ```
+  `(i, j, k)` of the bin containing `p`, or `None` if outside.
+
+- ```rust
+  pub fn bin(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+  ```
+  Flat bin index, x fastest — the same ordering [`RegularMesh`] uses.
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:1867`, the product of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RectilinearMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RectilinearMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CylindricalMesh`
+
+**Cylindrical** `(r, phi, z)` mesh about `origin`.
+
+`openmc::CylindricalMesh`. This is the natural tally geometry for every core
+model in this repository — the workspace's standing correction is that
+reactor cores are R-Z, not slabs.
+
+`phi` is measured from the +x axis and is mapped into `[0, 2 pi)`, matching
+`src/mesh.cpp:1932`. `z` is absolute (relative to `origin.z`).
+
+```rust
+pub struct CylindricalMesh {
+    pub r_grid: Vec<f64>,
+    pub phi_grid: Vec<f64>,
+    pub z_grid: Vec<f64>,
+    pub origin: crate::geometry::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_grid` | `Vec<f64>` | Ascending radial edges \[cm\]. |
+| `phi_grid` | `Vec<f64>` | Ascending azimuthal edges \[rad\], within `[0, 2 pi]`. |
+| `z_grid` | `Vec<f64>` | Ascending axial edges \[cm\], relative to `origin`. |
+| `origin` | `crate::geometry::position::Position` | Mesh origin \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+
+- ```rust
+  pub fn indices(self: &Self, p: Position) -> Option<[usize; 3]> { /* ... */ }
+  ```
+  `(i_r, i_phi, i_z)` of the bin containing `p`, or `None` if outside.
+
+- ```rust
+  pub fn bin(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+  ```
+  Flat bin index, r fastest.
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2159`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CylindricalMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CylindricalMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SphericalMesh`
+
+**Spherical** `(r, theta, phi)` mesh about `origin`.
+
+`openmc::SphericalMesh`. `theta` is the **polar** angle from +z in
+`[0, pi]`; `phi` the azimuth from +x in `[0, 2 pi)`. That ordering is
+upstream's (`src/mesh.cpp:2230`) and is the opposite of the physics
+convention some texts use, which is exactly the kind of thing that produces
+a mesh that looks right and bins wrong.
+
+```rust
+pub struct SphericalMesh {
+    pub r_grid: Vec<f64>,
+    pub theta_grid: Vec<f64>,
+    pub phi_grid: Vec<f64>,
+    pub origin: crate::geometry::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_grid` | `Vec<f64>` | Ascending radial edges \[cm\]. |
+| `theta_grid` | `Vec<f64>` | Ascending polar edges \[rad\], within `[0, pi]`. |
+| `phi_grid` | `Vec<f64>` | Ascending azimuthal edges \[rad\], within `[0, 2 pi]`. |
+| `origin` | `crate::geometry::position::Position` | Mesh origin \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+
+- ```rust
+  pub fn indices(self: &Self, p: Position) -> Option<[usize; 3]> { /* ... */ }
+  ```
+  `(i_r, i_theta, i_phi)`, or `None` if outside. `src/mesh.cpp:2218`.
+
+- ```rust
+  pub fn bin(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+  ```
+  Flat bin index, r fastest.
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2493`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SphericalMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SphericalMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MeshKind`
+
+**Enum dispatch over every structured mesh type** — the form a
+[`super::filter::MeshFilter`] holds so one filter serves all four.
+
+Enum rather than a trait object, per the workspace Rust design rule
+(`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
+Upstream uses virtual dispatch off a `Mesh` base class; the enum is the
+faithful equivalent here and costs no indirection.
+
+```rust
+pub enum MeshKind {
+    Regular(RegularMesh),
+    Rectilinear(RectilinearMesh),
+    Cylindrical(CylindricalMesh),
+    Spherical(SphericalMesh),
+}
+```
+
+##### Variants
+
+###### `Regular`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RegularMesh` |  |
+
+###### `Rectilinear`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RectilinearMesh` |  |
+
+###### `Cylindrical`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CylindricalMesh` |  |
+
+###### `Spherical`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SphericalMesh` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total bins.
+
+- ```rust
+  pub fn bin(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+  ```
+  Flat bin index containing `p`, or `None` if `p` is outside the mesh.
+
+- ```rust
+  pub fn bin_volume(self: &Self, bin: usize) -> Option<f64> { /* ... */ }
+  ```
+  Volume of flat bin `bin` \[cm^3\], or `None` if out of range.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `SURFACE_BINS_PER_ELEMENT`
+
+Surface bins per mesh element: `4 * n_dimension` — for each of the three
+axes, the min and max face, each with an outward and an inward current.
+
+`StructuredMesh::n_surface_bins` (`src/mesh.cpp:1189`) at OpenMC `afa7a14`.
+
+```rust
+pub const SURFACE_BINS_PER_ELEMENT: usize = 12;
+```
+
 ## Module `scoring`
 
 Tally scoring — accumulate scores at collision events (collision estimator).
@@ -15363,6 +26646,24 @@ pub mod scoring { /* ... */ }
 ```
 
 ### Functions
+
+#### Function `neutron_speed_cm_per_s`
+
+Neutron speed \[cm/s\] at kinetic energy `e` \[eV\], non-relativistic.
+
+`v = sqrt(2E/m)`, with `m_n = 1.67492749804e-27 kg` and
+`1 eV = 1.602176634e-19 J`; the factor 100 converts m/s to cm/s.
+
+Non-relativistic is correct to better than 0.1 % below ~20 MeV, which is
+the whole neutron range this crate transports. Upstream's `p.speed(E)` is
+relativistic; the difference at 20 MeV is 1.1 % in `v` and therefore in
+`1/v`, which matters for nothing this score is used for (the generation
+time is dominated by thermal and epithermal flux). Stated rather than
+silently assumed.
+
+```rust
+pub fn neutron_speed_cm_per_s(e: f64) -> f64 { /* ... */ }
+```
 
 #### Function `score_track_length`
 
@@ -15417,7 +26718,88 @@ multi-`(bin, weight)` `get_all_bins`) rather than routing through the single-bin
 [`filter_bin`] path. See [`super::filter::SpatialLegendreFilter`].
 
 ```rust
-pub fn score_track_length(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy: f64, distance: f64, position: crate::geometry::position::Position, macro_xs: Option<&crate::material::material::MacroXs>, weight: f64) { /* ... */ }
+pub fn score_track_length(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy: f64, distance: f64, position: crate::geometry::position::Position, macro_xs: Option<&crate::material::material::MacroXs>, weight: f64, cell_instance: Option<usize>, time: f64, direction: crate::geometry::position::Direction) { /* ... */ }
+```
+
+#### Function `score_fission_birth`
+
+Score one **fission-born neutron** into a per-batch accumulator, carrying
+both the energy that caused the fission and the energy the neutron was born
+with.
+
+This is how the fission spectrum `chi_g` is measured rather than assumed. A
+tally holding an [`super::filter::EnergyFilter`] and an
+[`super::filter::EnergyOutFilter`] bins `(g_causing, g_born)`; summing over
+the incoming axis and normalising to unity gives `chi_g`. Keeping the
+incoming axis rather than collapsing it immediately means the caller can
+also see the (weak) dependence of the emission spectrum on the causing
+energy, which is real and which a single `chi` vector averages away.
+
+# What it scores
+
+Only [`ScoreType::NuFission`] receives weight — one unit per neutron
+actually banked, so the bin is a neutron count and not a reaction rate.
+Every other score is left at zero for the same reason as in
+[`score_scatter_matrix`]: depositing into them would fabricate reaction
+rates that did not occur at this event.
+
+# Opt-in
+
+Like [`score_scatter_matrix`], this fires only for a tally that carries an
+outgoing-energy filter. Without that guard a plain `[Energy]` tally scoring
+`NuFission` would receive both the track-length production rate and these
+birth counts, which are different quantities in different units.
+
+```rust
+pub fn score_fission_birth(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_born: f64, position: crate::geometry::position::Position, weight: f64) { /* ... */ }
+```
+
+#### Function `score_scatter_matrix`
+
+Score one **scattering event** into a per-batch accumulator, carrying both
+the incoming and the outgoing energy.
+
+This is the analog estimator behind a group-to-group scattering matrix. The
+caller supplies the energy the neutron arrived with and the energy the
+scatter kernel actually produced, so a tally holding an
+[`super::filter::EnergyFilter`] *and* an [`super::filter::EnergyOutFilter`]
+bins the pair `(g_in, g_out)` — one element of `Sigma_s,g->g'`. That matrix
+is what the deterministic solvers consume (GeN-Foam's `ZoneNuclearData`
+stores `scattering[moment][g_out][g_in]`).
+
+# What it scores, and what it deliberately does not
+
+Only [`ScoreType::ScatterN`] and [`ScoreType::Events`] receive the event's
+weight. Every other score is left at zero, because they are meaningless on a
+scattering event: there is no fission, no absorption and no track length
+here, and depositing `weight` into them would fabricate reaction rates that
+did not occur. In particular [`ScoreType::Flux`] is **not** scored — flux is
+a track-length quantity and is already accumulated by
+[`score_track_length`]; scoring it again here would double-count.
+
+# Normalisation — this returns a RATE, not a cross section
+
+The accumulated bin is the scatter reaction *rate* per source particle for
+the pair `(g_in, g_out)`. To obtain the macroscopic cross section
+`Sigma_s,g->g'` the caller divides by the group-`g` scalar flux from a
+companion track-length flux tally over the same spatial filter. This
+function does not do that division, because the flux tally is a separate
+accumulator and combining them is the MGXS layer's job.
+
+# Parameters
+- `batch` — flat per-generation accumulator, `tally.bins.len()` long.
+- `tally` — the tally *definition* (filters + scores); bins are untouched.
+- `cell_idx` / `material_idx` / `universe_idx` — leaf geometry indices of the
+  collision site.
+- `energy_in` — energy the neutron arrived with \[eV\].
+- `energy_out` — energy the scatter kernel produced \[eV\]. May be *higher*
+  than `energy_in`: thermal up-scatter is real and both the free-gas and
+  S(alpha,beta) kernels produce it.
+- `position` — collision site, for spatial filters.
+- `weight` — particle statistical weight (1.0 for analog transport).
+
+```rust
+pub fn score_scatter_matrix(batch: &mut [f64], tally: &super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy_in: f64, energy_out: f64, position: crate::geometry::position::Position, weight: f64) { /* ... */ }
 ```
 
 #### Function `flush_batch`
@@ -15475,7 +26857,7 @@ If any attached filter does not match the event, the collision is not scored
 (the filters act as a conjunction).
 
 ```rust
-pub fn score_collision(tally: &mut super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy: f64, sigma_t: f64, macro_xs: &crate::material::material::MacroXs, weight: f64) { /* ... */ }
+pub fn score_collision(tally: &mut super::tally::Tally, cell_idx: usize, material_idx: usize, universe_idx: usize, energy: f64, sigma_t: f64, macro_xs: &crate::material::material::MacroXs, weight: f64, cell_instance: Option<usize>) { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -15506,6 +26888,39 @@ fission rate, which is what the power-normalization round-trip needs.
 
 ```rust
 pub const Q_FISSION_J: f64 = 3.0982e-11;
+```
+
+#### Constant `Q_FISSION_PROMPT_J`
+
+**Prompt** fission energy release \[J\] — `SCORE_FISS_Q_PROMPT`.
+
+`181.7 MeV` for U-235: the recoverable 193.4 MeV of [`Q_FISSION_J`] less
+the delayed beta (~6.5 MeV) and delayed gamma (~5.2 MeV) components
+(Lamarsh & Baratta, *Introduction to Nuclear Engineering*, fission energy
+budget table). `181.7e6 x 1.602176634e-19 J`.
+
+Like [`Q_FISSION_J`] this is **one constant, not the nuclide- and
+energy-dependent curve upstream carries**, so the absolute watts are not a
+benchmark; the prompt/recoverable *ratio* is what this exists to make
+available. Stated here rather than left implicit, because a power figure
+quoted from it would otherwise look more authoritative than it is.
+
+```rust
+pub const Q_FISSION_PROMPT_J: f64 = 2.9114e-11;
+```
+
+#### Constant `Q_FISSION_RECOVERABLE_J`
+
+**Recoverable** fission energy release \[J\] — `SCORE_FISS_Q_RECOV`.
+
+The same 193.4 MeV as [`Q_FISSION_J`]. They are separate names because they
+are separate upstream scores (`SCORE_KAPPA_FISSION` and `SCORE_FISS_Q_RECOV`
+differ in upstream's data-driven form even where this port's single
+constant makes them equal); collapsing them here would hide that a
+data-driven version has to split them again.
+
+```rust
+pub const Q_FISSION_RECOVERABLE_J: f64 = Q_FISSION_J;
 ```
 
 ## Module `arithmetic`
@@ -16273,7 +27688,12 @@ active generations exactly as in `keff.rs`.
 
 # Fidelity
 
-Analog transport (weight 1, no implicit capture or variance reduction), same
+~~Analog transport (weight 1, no implicit capture or variance reduction)~~
+**CORRECTED 2026-09-22 (gh:#258)** — analog is the DEFAULT, not the only
+option: `KeffSettings::variance_reduction` enables survival biasing,
+Russian roulette and mesh weight windows. Left alone it is analog and
+**bit-identical** to the pre-#258 build, pinned by
+`tests/variance_reduction_is_bit_identical_when_analog.rs`. Same
 collision physics and data tiers as [`crate::physics::keff`]. Tallies use the
 **track-length estimator**: each streamed segment of length `d` deposits `w·d`
 (flux) and `w·d·Σ_x` (reaction rates) into its cell × energy bin, accumulated
@@ -16605,6 +28025,3383 @@ batch, and flushed once per active generation. `&[]` / `None` disables it.
 pub fn run_keff_csg_par(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
+## Module `particle_restart`
+
+**Particle restart** — replay one history, exactly. GitHub #271, scope
+item 1.
+
+# Why this is nearly free in THIS crate
+
+Upstream records a particle's full state to a restart file
+(`src/particle_restart.cpp`) because its RNG state has to be captured. Here
+it does not: `rng::lcg`'s jump-ahead means **a history's entire random
+stream is reconstructible from three integers**.
+
+Verified against the transport loop rather than assumed
+(`physics/transport_csg.rs:713`, `:730`):
+
+```text
+gen_base_seed = future_seed(gen      * GEN_STRIDE,  master_seed)
+history_seed  = future_seed(hist_idx * HIST_STRIDE, gen_base_seed)
+```
+
+So `(master_seed, generation, history_index)` regenerates the exact stream
+that history consumed — no stream capture, no file format, no size that
+scales with the history's length.
+
+# What this buys
+
+This crate's history is a sequence of hunts — the MT=91 kinematic-bound
+defect (#192), the inelastic anisotropy diagnosis (`op-tm9f`), the ring-RPT
+work (#185, #186) — each of which meant reasoning about what **one** history
+did, from aggregate statistics. Being able to name a history and replay
+exactly it is the difference between that and re-deriving it.
+
+# What this does NOT yet do
+
+It reconstructs the **stream**. Event-for-event track capture inside the
+transport loop (scope item 2: per-event phase-space records bounded by
+`max_tracks`) is **not** wired, so "replay and diff the events" is not yet
+available — only "replay with the identical random sequence". The stream is
+the load-bearing half: given the same starting site and the same stream, a
+deterministic transport kernel reproduces the history by construction.
+
+State points (scope item 3) and summary output (item 4) are also not here.
+
+```rust
+pub mod particle_restart { /* ... */ }
+```
+
+### Types
+
+#### Struct `ParticleRestart`
+
+Everything needed to replay one history exactly.
+
+Deliberately **plain data and tiny** — three integers and a birth site. It
+can be printed in a panic message, pasted into an issue, or committed as a
+regression fixture, which is most of the point.
+
+```rust
+pub struct ParticleRestart {
+    pub master_seed: u64,
+    pub generation: usize,
+    pub history_index: usize,
+    pub position: crate::geometry::position::Position,
+    pub direction: crate::geometry::position::Direction,
+    pub energy: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `master_seed` | `u64` | The run's master seed (`KeffSettings::seed`). |
+| `generation` | `usize` | Generation index, 0-based, counting inactive generations. |
+| `history_index` | `usize` | History index within that generation. |
+| `position` | `crate::geometry::position::Position` | Birth position \[cm\].<br><br>Stored as plain coordinates rather than a `transport_csg::Site`, which<br>is `pub(crate)` and derives neither `Debug` nor `PartialEq`. Keeping<br>this struct free of it is also what lets a restart point be printed,<br>compared and committed as a fixture -- the whole point of it being<br>plain data. |
+| `direction` | `crate::geometry::position::Direction` | Birth direction (unit). |
+| `energy` | `f64` | Birth energy \[eV\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn seed(self: &Self) -> u64 { /* ... */ }
+  ```
+  The RNG seed this history started from.
+
+- ```rust
+  pub fn locator(self: &Self) -> String { /* ... */ }
+  ```
+  A one-line form for a panic message or an issue comment.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParticleRestart { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParticleRestart) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `scattdata`
+
+**Anisotropic multigroup scattering** — Legendre-expanded angular
+distributions for the MG transport path, and the tabular form upstream
+converts them into. GitHub #265.
+
+Ported from `ScattDataLegendre` / `ScattDataTabular` /
+`convert_legendre_to_tabular` (`src/scattdata.cpp`) and `evaluate_legendre`
+(`src/math_functions.cpp:120`) at OpenMC `afa7a14`.
+
+# The defect this addresses, and its known size
+
+`physics_mg.rs` resamples the outgoing direction **isotropically in the lab
+frame** at every scatter. That is a P0 set by construction, whatever
+anisotropy the library carries.
+
+This crate has already paid for that exact error once, on the
+continuous-energy side. `CLAUDE.md` records bead `op-tm9f`: sampling
+inelastic scattering isotropically instead of from its ENDF MF=4 law moved
+Godiva by **-198 pcm** (ANISO `+45 +/- 32` against ISO `+269 +/- 30`, a
+`-224 +/- 44 pcm` difference at 5.1 sigma), because understating `<mu>`
+inflates `Sigma_tr = Sigma_t (1 - <mu>)` and suppresses leakage.
+
+So this is a **known-sized** error in the MG path, not an unknown small
+one, and it has the same sign.
+
+# What a P0 set does and does not excuse
+
+A transport-corrected P0 set partly compensates — that is what transport
+correction is for — but only in the diffusion-like limit, and **nothing in
+the crate checks that a supplied set is transport-corrected rather than
+plain P0**. `Mgxs::new` asserts group-count consistency and a
+self-consistency residual, not this. [`ScatterRepresentation`] exists so the
+assumption is recorded in the data rather than implied by a doc comment.
+
+# The mean cosine a Legendre kernel DELIVERS is not the one it declares
+
+A truncated Legendre series is not a probability density: for a P1 kernel
+`f(mu) = 1/2 + (3/2) a_1 mu` the series goes negative below
+`mu = -1 / (3 a_1)`, which lies inside `[-1, 1]` as soon as
+`|a_1| > 1/3`. **Both** of upstream's sampling paths silently remove that
+lobe — the Legendre path by the `if (f > 0.)` guard in the rejection loop
+(`:359`), the tabular path by clamping `fmu` to zero and renormalising
+(`:874-894`). So what gets sampled is the *positive part, renormalised*,
+and its mean is strictly smaller in magnitude than `a_1 / a_0`.
+
+This is not a subtlety that can be left to a comment, because it is exactly
+the quantity that drives `Sigma_tr`. Measured here (see
+`sampling_reproduces_the_mean_cosine_that_is_actually_sampled`):
+
+| `a_1` | declared `<mu>` | actually sampled `<mu>` | loss |
+|---|---|---|---|
+| 0.0 | 0.0 | 0.0 | — |
+| 0.2 | 0.2 | 0.2 | none (series stays positive) |
+| **0.5** | **0.5** | **4/9 = 0.44444** (closed form) | **−11.1 %** |
+| −0.3 | −0.3 | −0.3 | none |
+
+[`LegendreKernel::mean_cosine`] reports the declared value, the moment
+ratio. [`LegendreKernel::sampled_mean_cosine`] reports what the sampler
+actually delivers. **They are different functions on purpose**, and a gate
+that compares sampled cosines against `mean_cosine` for a negative-going
+kernel is testing the wrong number.
+
+```rust
+pub mod scattdata { /* ... */ }
+```
+
+### Types
+
+#### Enum `ScatterRepresentation`
+
+What angular representation a multigroup set actually carries.
+
+# Why this is data and not a comment
+
+Before this existed, "the library is P0 / transport-corrected" was a claim
+in a doc comment that nothing could check. A caller handing in a genuine P3
+set got it sampled isotropically anyway; a caller handing in a plain
+(untransport-corrected) P0 set got no warning that the compensation the
+approximation relies on was absent.
+
+```rust
+pub enum ScatterRepresentation {
+    IsotropicP0,
+    TransportCorrectedP0,
+    Legendre {
+        order: usize,
+    },
+    Tabular {
+        points: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `IsotropicP0`
+
+P0 with no transport correction. Isotropic-in-lab sampling is then
+**wrong in a known direction** — it understates `<mu>`.
+
+###### `TransportCorrectedP0`
+
+P0 whose total has been transport-corrected. Isotropic sampling is the
+intended treatment, valid in the diffusion-like limit.
+
+###### `Legendre`
+
+Legendre moments to the given order; sample the outgoing cosine from
+them.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `order` | `usize` |  |
+
+###### `Tabular`
+
+A tabulated `f(mu)` on a uniform cosine grid of the given size — what
+`convert_legendre_to_tabular` produces, and what upstream actually runs
+when `legendre_to_tabular_points` is set.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScatterRepresentation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScatterRepresentation) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LegendreKernel`
+
+Legendre coefficients of the scattering kernel for one `(g_in, g_out)` pair,
+already normalised the way upstream stores them in `dist`.
+
+```rust
+pub struct LegendreKernel {
+    pub coeffs: Vec<f64>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `coeffs` | `Vec<f64>` | `a_0 .. a_order`. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(coeffs: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from raw coefficients, precomputing the rejection bound.
+
+- ```rust
+  pub fn bounding_height(self: &Self) -> f64 { /* ... */ }
+  ```
+  The rejection bounding-box height actually in use, margin included.
+
+- ```rust
+  pub fn f(self: &Self, mu: f64) -> f64 { /* ... */ }
+  ```
+  The (unnormalised) density at `mu`.
+
+- ```rust
+  pub fn mean_cosine(self: &Self) -> f64 { /* ... */ }
+  ```
+  `<mu>` **as declared by the moments**: `a_1 / a_0`.
+
+- ```rust
+  pub fn positive_support(self: &Self) -> Vec<(f64, f64)> { /* ... */ }
+  ```
+  The sub-intervals of `[-1, 1]` on which the series is positive — i.e.
+
+- ```rust
+  pub fn goes_negative(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the series dips below zero somewhere in `[-1, 1]`, i.e. whether
+
+- ```rust
+  pub fn sampled_mean_cosine(self: &Self) -> f64 { /* ... */ }
+  ```
+  `<mu>` **of the distribution actually sampled**: the positive part of
+
+- ```rust
+  pub fn truncated_to(self: &Self, max_order: usize) -> Result<Self, String> { /* ... */ }
+  ```
+  Truncate the expansion to `max_order`, the way upstream's
+
+- ```rust
+  pub fn order(self: &Self) -> usize { /* ... */ }
+  ```
+  The Legendre order carried, i.e. `coeffs.len() - 1`.
+
+- ```rust
+  pub fn sample_mu(self: &Self, seed: &mut u64) -> Result<f64, String> { /* ... */ }
+  ```
+  Sample `mu` by rejection from a rectangular bounding box —
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LegendreKernel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LegendreKernel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TabularKernel`
+
+A tabulated `f(mu)` on a uniform cosine grid, with its CDF — the form
+`convert_legendre_to_tabular` (`:835`) produces and `ScattDataTabular`
+samples by inversion instead of rejection.
+
+# Why this exists alongside [`LegendreKernel`]
+
+It is not an optimisation of the same distribution. The conversion applies
+a **negativity clamp on the grid** and then renormalises, so on a coarse
+grid it samples a measurably different distribution from the rejection
+path — the clamp lands on grid points rather than on the true root. The
+difference is measured in
+`the_tabular_grid_costs_a_measurable_amount_of_mean_cosine`, not asserted
+away.
+
+```rust
+pub struct TabularKernel {
+    pub mu: Vec<f64>,
+    pub fmu: Vec<f64>,
+    pub cdf: Vec<f64>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mu` | `Vec<f64>` | Uniform cosine grid, `mu[0] = -1`, `mu[n-1] = +1`. |
+| `fmu` | `Vec<f64>` | Normalised `f(mu)` on that grid, negatives clamped to zero. |
+| `cdf` | `Vec<f64>` | Normalised cumulative distribution, `cdf[0] = 0`, `cdf[n-1] = 1`. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_legendre(leg: &LegendreKernel, n_mu: usize) -> Result<Self, String> { /* ... */ }
+  ```
+  Convert a Legendre kernel onto an `n_mu`-point cosine grid —
+
+- ```rust
+  pub fn from_legendre_default(leg: &LegendreKernel) -> Result<Self, String> { /* ... */ }
+  ```
+  The conversion with upstream's own default grid size (`:840-847`).
+
+- ```rust
+  pub fn sample_mu(self: &Self, seed: &mut u64) -> f64 { /* ... */ }
+  ```
+  Sample `mu` by inverting the piecewise-linear CDF —
+
+- ```rust
+  pub fn mean_cosine(self: &Self) -> f64 { /* ... */ }
+  ```
+  `<mu>` of the tabulated, piecewise-linear density — exactly, by
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TabularKernel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TabularKernel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HistogramKernel`
+
+A **histogram** angular distribution: `order` equal-width cosine bins over
+`[-1, 1]`, with the density constant inside each bin — `ScattDataHistogram`
+(`:588-706`, `:735-756`).
+
+# Why this is a separate type and not a special case of [`TabularKernel`]
+
+They are different densities. A tabular kernel interpolates **linearly**
+between grid points and is sampled by inverting that linear form; a
+histogram is piecewise **constant** and is sampled uniformly inside the
+chosen bin. Collapsing them would silently reinterpret one library's data
+as the other's, which is exactly the class of error this module exists to
+stop.
+
+```rust
+pub struct HistogramKernel {
+    pub mu: Vec<f64>,
+    pub fmu: Vec<f64>,
+    pub cdf: Vec<f64>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mu` | `Vec<f64>` | Bin edges, `order + 1` of them, `mu[0] = -1`, `mu[order] = +1`. |
+| `fmu` | `Vec<f64>` | Normalised density in each of the `order` bins. |
+| `cdf` | `Vec<f64>` | Cumulative distribution **at the top edge of each bin**, `order`<br>entries, ending at 1. Upstream stores it this way (`:697`) rather than<br>with a leading zero, and the sampling index depends on that. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(bins: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from per-bin values, normalising to unit integral (`:690-705`).
+
+- ```rust
+  pub fn from_legendre(leg: &LegendreKernel, order: usize) -> Result<Self, String> { /* ... */ }
+  ```
+  Convert a Legendre kernel onto an `order`-bin histogram by evaluating
+
+- ```rust
+  pub fn f(self: &Self, mu: f64) -> f64 { /* ... */ }
+  ```
+  The density at `mu` — `ScattDataHistogram::calc_f` (`:735`).
+
+- ```rust
+  pub fn sample_mu(self: &Self, seed: &mut u64) -> f64 { /* ... */ }
+  ```
+  Sample `mu` — `ScattDataHistogram::sample` (`:709-733`): pick the bin by
+
+- ```rust
+  pub fn mean_cosine(self: &Self) -> f64 { /* ... */ }
+  ```
+  `<mu>` of the histogram, exactly: the density is constant per bin, so
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HistogramKernel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HistogramKernel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `evaluate_legendre`
+
+Evaluate the Legendre series `sum_l (l + 1/2) a_l P_l(mu)`.
+
+`evaluate_legendre` (`src/math_functions.cpp:120`). The `(l + 1/2)` factor
+is part of the evaluation, **not** folded into the stored coefficients —
+carrying it in the data instead would silently rescale every moment and the
+P0 term would still look right, which is what makes the mistake survive a
+smoke test.
+
+```rust
+pub fn evaluate_legendre(coeffs: &[f64], mu: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_NMU`
+
+Default cosine-grid size for the Legendre-to-tabular conversion
+(`DEFAULT_NMU`, `include/openmc/constants.h:292`).
+
+```rust
+pub const DEFAULT_NMU: usize = 33;
+```
+
+## Module `state_point`
+
+**State points and run summaries** — what a run leaves behind.
+GitHub #271 scope items 3 and 4.
+
+Ported in structure from `src/state_point.cpp` and `src/summary.cpp` at
+OpenMC `afa7a14`.
+
+# Why a state point is cheap in THIS crate
+
+Upstream has to record the RNG state of every particle in flight. This
+crate does not: `rng::lcg::init_seed(id, offset, master)` means a
+particle's entire stream is reconstructible from its **id and the master
+seed**. So a state point here records the master seed and the generation
+counter, not a stream — which is why [`StatePoint::rng_master_seed`] is a
+single `u64` where upstream carries an array.
+
+That is also the reason the restart guarantee can be **exact** rather than
+statistical: given the same seed, the same generation index and the same
+fission bank, the continued run consumes the identical stream.
+
+# What is NOT here
+
+The HDF5 **file** layout. Per #271 the writer belongs in
+`njoy-outram-park-fork` so this crate's inner loop stays free of file I/O;
+this module captures the state and hands it over. [`StatePoint`] is
+therefore a value, not a file, and nothing here opens one.
+
+```rust
+pub mod state_point { /* ... */ }
+```
+
+### Types
+
+#### Struct `StatePoint`
+
+A run's state at a generation boundary — `src/state_point.cpp`.
+
+```rust
+pub struct StatePoint {
+    pub generations_done: usize,
+    pub n_inactive: usize,
+    pub n_particles: usize,
+    pub rng_master_seed: u64,
+    pub k_by_generation: Vec<f64>,
+    pub source_bank: Vec<[f64; 7]>,
+    pub tallies: Vec<crate::tally::tally::Tally>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `generations_done` | `usize` | Generations completed when this was taken. A restart resumes at this<br>index, so it is the count of *finished* generations, not the index of<br>the one in progress. |
+| `n_inactive` | `usize` | Inactive generations the run was configured with, carried so a restart<br>knows whether it is still converging the source. |
+| `n_particles` | `usize` | Histories per generation. |
+| `rng_master_seed` | `u64` | The master RNG seed. See the module docs for why one `u64` suffices. |
+| `k_by_generation` | `Vec<f64>` | Per-generation eigenvalue estimates, all generations so far. |
+| `source_bank` | `Vec<[f64; 7]>` | The fission bank at this boundary, as `(x, y, z, u, v, w, E)` — the<br>same seven numbers a `Site` carries.<br><br>Stored as plain tuples rather than the crate-internal `Site` because a<br>state point is an **interchange** artefact: it crosses into the HDF5<br>writer in another crate, and pinning it to a `pub(crate)` type would<br>make that impossible without leaking the type. |
+| `tallies` | `Vec<crate::tally::tally::Tally>` | Tallies as accumulated. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn k_mean(self: &Self) -> Result<f64, String> { /* ... */ }
+  ```
+  Mean eigenvalue over the active generations.
+
+- ```rust
+  pub fn is_restartable(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this state point can be restarted from.
+
+- ```rust
+  pub fn approx_bytes(self: &Self) -> usize { /* ... */ }
+  ```
+  Bytes this state point occupies, approximately — for deciding how often
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StatePoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StatePoint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RunSummary`
+
+The geometry and materials **as actually built** — `src/summary.cpp`.
+
+# Why this is worth writing down
+
+It doubles as a check that the model is the model intended. Several of this
+crate's recorded defects were input errors that looked like physics: a
+density read as atoms/cm³ where the field means atoms/barn-cm (the #266
+near-miss, which would have "passed" a convergence study against a solution
+that never moved), a two-nuclide Godiva standing in for a three-nuclide
+one. A summary is what makes those visible without re-reading the code that
+built the model.
+
+```rust
+pub struct RunSummary {
+    pub cells: Vec<(i32, &'static str, Option<usize>)>,
+    pub surfaces: Vec<&'static str>,
+    pub materials: Vec<MaterialSummary>,
+    pub universes: Vec<i32>,
+    pub n_lattices: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cells` | `Vec<(i32, &'static str, Option<usize>)>` | One row per cell: `(id, what it is filled with as a short name,<br>material index where that applies)`. |
+| `surfaces` | `Vec<&'static str>` | One row per surface: its kind, as a short name. |
+| `materials` | `Vec<MaterialSummary>` | One row per material: `(id, name, temperature [K], components)`, each<br>component `(nuclide name, atom density [atoms/barn-cm])`. |
+| `universes` | `Vec<i32>` | Universe ids, in order. |
+| `n_lattices` | `usize` | Number of lattices. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn of(geom: &Geometry, materials: &[Material], nuclides: &[Nuclide]) -> Self { /* ... */ }
+  ```
+  Build a summary from the model a run was given.
+
+- ```rust
+  pub fn implausible_densities(self: &Self) -> Vec<&MaterialSummary> { /* ... */ }
+  ```
+  Materials whose total atom density is outside the plausible range for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RunSummary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RunSummary) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MaterialSummary`
+
+One material as built.
+
+```rust
+pub struct MaterialSummary {
+    pub id: i32,
+    pub name: String,
+    pub temperature_k: f64,
+    pub components: Vec<(String, f64)>,
+    pub total_atom_density: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | The material's id. |
+| `name` | `String` | Its name. |
+| `temperature_k` | `f64` | Its temperature \[K\]. |
+| `components` | `Vec<(String, f64)>` | `(nuclide name, atom density [atoms/barn-cm])`. |
+| `total_atom_density` | `f64` | Total atom density \[atoms/barn-cm\] — the number a units error shows<br>up in first. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MaterialSummary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MaterialSummary) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `track_output`
+
+**Particle track capture** — every phase-space state along a history.
+GitHub #271 scope item 2.
+
+Ported in structure from `src/track_output.cpp` and `TrackState`
+(`include/openmc/particle_data.h:81`) at OpenMC `afa7a14`.
+
+# What this is for, and why it is not a logging feature
+
+This crate's history is a sequence of hunts — the MT=91 kinematic-bound
+defect (#192), the inelastic anisotropy diagnosis (`op-tm9f`), the ring-RPT
+hunt (#185, #186) — each of which came down to what *one history* did, and
+each of which was resolved by re-deriving that from aggregate statistics
+because there was no way to look. A recorded track is the direct answer.
+
+# Memory is bounded by construction, not by hoping
+
+A single fast history on Godiva is tens of events; a generation is
+thousands of histories; a run is a hundred generations. Recording
+everything is gigabytes. [`TrackRecorder`] therefore caps **both** the
+number of tracks (`max_tracks`, upstream's `settings::max_tracks`) and the
+states per track, and it reports what it dropped rather than silently
+truncating — a truncated track that looks complete is worse than no track,
+because the missing events are exactly the end of the history one is
+usually looking for.
+
+# Recording consumes no randomness
+
+Nothing here draws from the RNG, so a run with capture on gives the **same
+eigenvalue, bit for bit**, as one without.
+`tests/variance_reduction_is_bit_identical_when_analog.rs` is the pattern;
+`track_capture_does_not_perturb_the_run` is the check for this feature.
+
+```rust
+pub mod track_output { /* ... */ }
+```
+
+### Types
+
+#### Enum `TrackEvent`
+
+What happened at a recorded state — upstream has no equivalent field, and
+it is added here because a track without it is a list of points that a
+reader has to guess the meaning of.
+
+```rust
+pub enum TrackEvent {
+    Born,
+    SurfaceCrossing,
+    Scatter,
+    Fission,
+    Absorption,
+    Rouletted,
+    Leak,
+    Lost,
+}
+```
+
+##### Variants
+
+###### `Born`
+
+The particle's birth state.
+
+###### `SurfaceCrossing`
+
+A surface was crossed.
+
+###### `Scatter`
+
+A scattering collision (elastic, inelastic, (n,xn)).
+
+###### `Fission`
+
+A fission, which terminates the history in the analog path.
+
+###### `Absorption`
+
+Capture.
+
+###### `Rouletted`
+
+Killed by Russian roulette or a weight-window cutoff. **Not** a
+physical event: distinguishing it from `Absorption` is what stops a
+track reader from counting variance-reduction kills as captures.
+
+###### `Leak`
+
+Left the geometry through a vacuum boundary, or streamed to infinity.
+
+###### `Lost`
+
+The particle was lost — a `locate` failure or the event-count cap.
+A track that ends here is a defect report, not a history.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrackEvent { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrackEvent) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrackState`
+
+One phase-space state — `TrackState` (`include/openmc/particle_data.h:81`),
+plus [`Self::event`].
+
+```rust
+pub struct TrackState {
+    pub r: crate::geometry::position::Position,
+    pub u: crate::geometry::position::Direction,
+    pub energy: f64,
+    pub time: f64,
+    pub weight: f64,
+    pub cell: usize,
+    pub material: Option<usize>,
+    pub event: TrackEvent,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `crate::geometry::position::Position` | Position \[cm\]. |
+| `u` | `crate::geometry::position::Direction` | Direction (unit). |
+| `energy` | `f64` | Energy \[eV\]. |
+| `time` | `f64` | Time since birth \[s\]. |
+| `weight` | `f64` | Statistical weight. |
+| `cell` | `usize` | Cell index, or `usize::MAX` where it is not known. |
+| `material` | `Option<usize>` | Material index, or `None` in a void — upstream's `material_id = -1`. |
+| `event` | `TrackEvent` | What produced this state. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrackState { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrackState) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Track`
+
+One particle's full track — `TrackStateHistory`
+(`include/openmc/particle_data.h:93`).
+
+```rust
+pub struct Track {
+    pub states: Vec<TrackState>,
+    pub dropped_states: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `states` | `Vec<TrackState>` | States in the order they occurred. |
+| `dropped_states` | `usize` | States dropped because [`TrackRecorder::max_states_per_track`] was hit.<br><br>Non-zero means this track is **incomplete at the end**, which is<br>usually where the interesting part is. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn path_length(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Total path length \[cm\] along the recorded states.
+
+- ```rust
+  pub fn outcome(self: &Self) -> Option<TrackEvent> { /* ... */ }
+  ```
+  How the history ended, or `None` for a track that was cut short.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Track { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Track { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Track) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrackRecorder`
+
+Collects tracks under a hard memory bound —
+`settings::max_tracks` / `settings::write_all_tracks`.
+
+```rust
+pub struct TrackRecorder {
+    pub tracks: Vec<Track>,
+    pub max_tracks: usize,
+    pub max_states_per_track: usize,
+    pub dropped_tracks: usize,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tracks` | `Vec<Track>` | Completed tracks. |
+| `max_tracks` | `usize` | Cap on the number of tracks kept. |
+| `max_states_per_track` | `usize` | Cap on states within one track. |
+| `dropped_tracks` | `usize` | Tracks not started because [`Self::max_tracks`] was reached. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(max_tracks: usize, max_states_per_track: usize) -> Self { /* ... */ }
+  ```
+  A recorder bounded at `max_tracks` histories and
+
+- ```rust
+  pub fn is_full(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the track budget is spent.
+
+- ```rust
+  pub fn begin(self: &mut Self) { /* ... */ }
+  ```
+  Begin a new track. Silently a no-op once the budget is spent, with the
+
+- ```rust
+  pub fn record(self: &mut Self, state: TrackState) { /* ... */ }
+  ```
+  Record one state on the current track.
+
+- ```rust
+  pub fn finish(self: &mut Self) { /* ... */ }
+  ```
+  Close the current track, if any.
+
+- ```rust
+  pub fn n_states(self: &Self) -> usize { /* ... */ }
+  ```
+  Total states held, for reporting memory.
+
+- ```rust
+  pub fn ending_in(self: &Self, event: TrackEvent) -> Vec<&Track> { /* ... */ }
+  ```
+  Every track that ended in the given way — the query a defect hunt
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrackRecorder { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrackRecorder) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `ufs`
+
+**Uniform fission site (UFS) weighting** — GitHub #258 scope item 5.
+
+Ported from `ufs_count_sites` and `ufs_get_weight` (`src/eigenvalue.cpp`)
+at OpenMC `afa7a14`.
+
+# What it does and why it is not the same as a weight window
+
+A weight window steers particles towards a *tally*. UFS steers the
+**fission source** towards uniformity across a mesh, by producing more
+fission sites where the source is sparse and fewer where it is dense, and
+compensating with the site weight so the expectation is unchanged.
+
+That matters in a problem where the fission source is strongly peaked — a
+reflected core, a partially-loaded lattice, a pebble bed with a hot
+central channel — because the peripheral regions then get so few source
+particles that their tallies never converge, however many histories the run
+uses in total.
+
+# The bias this carries, stated
+
+UFS makes the **expected** production per site correct while changing the
+*variance* of the fission source, which shifts the fission-bank
+population-control bias of power iteration. That bias scales as `1/N` in
+the bank size and is the same mechanism this branch is separately measuring
+for survival biasing — see
+`verification_and_validation/variance_reduction/`. So a UFS run and an
+analog run of the same problem agree in the large-bank limit and **need not
+agree at a fixed small bank**, and a comparison that finds a few tens of
+pcm between them has not necessarily found a defect.
+
+# First generation is deliberately unbiased
+
+Upstream assumes an even source on the very first generation so that the
+production is not biased before there is anything to measure the
+distribution from ([`UfsWeights::uniform`]). Reproducing that matters: the
+alternative is weighting against a source distribution derived from the
+*initial guess*, which is usually a box and bears no relation to the
+converged shape.
+
+```rust
+pub mod ufs { /* ... */ }
+```
+
+### Types
+
+#### Struct `UfsWeights`
+
+Per-element source fractions, and the weights they imply.
+
+```rust
+pub struct UfsWeights {
+    pub mesh: crate::tally::mesh::RegularMesh,
+    pub source_frac: Vec<f64>,
+    pub volume_frac: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::RegularMesh` | The mesh the source is flattened over. |
+| `source_frac` | `Vec<f64>` | Fraction of the total source weight in each element, summing to 1. |
+| `volume_frac` | `f64` | `1 / n_bins` — each element's share of the volume, since a<br>[`RegularMesh`] has uniform elements. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn uniform(mesh: RegularMesh) -> Self { /* ... */ }
+  ```
+  The first-generation state: assume the source is already even, so no
+
+- ```rust
+  pub fn from_bank(mesh: RegularMesh, sites: &[(Position, f64)]) -> Result<Self, String> { /* ... */ }
+  ```
+  Count the source bank into the mesh and normalise —
+
+- ```rust
+  pub fn weight_at(self: &Self, r: Position) -> Result<f64, String> { /* ... */ }
+  ```
+  The UFS weight at `r` — `ufs_get_weight`.
+
+- ```rust
+  pub fn peaking(self: &Self) -> f64 { /* ... */ }
+  ```
+  How uneven the source is, as `max/min` over elements that carry any.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UfsWeights { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UfsWeights) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `variance_reduction`
+
+**Variance reduction** — weight cutoff, Russian roulette and survival
+biasing. GitHub #258.
+
+Ported from `src/physics_common.cpp` at OpenMC `afa7a14`. (The commit the
+issue cites, `608a1c33`, is not available in this container and is not
+fetchable — see
+`verification_and_validation/white_boundary/white_boundary_vs_openmc.md`.)
+
+# These are estimators, not physics
+
+The root `CLAUDE.md` rule *"correct physics is the default setting"* binds
+physics terms. Variance reduction is not one: it changes how a quantity is
+**estimated**, never what the quantity is. So unlike a physics term these
+are correctly **off by default**, and the burden that replaces "default on"
+is a different and harder one — each scheme must be shown **unbiased** by a
+paired ablation against the analog arm on a case the analog arm can actually
+converge, before being used anywhere it cannot.
+
+[`VarianceReduction::default()`] is therefore all-off, and
+[`VarianceReduction::is_analog`] is the predicate a transport loop uses to
+take the untouched analog path.
+
+# Upstream couples roulette to survival biasing, and that is deliberate
+
+`apply_russian_roulette` (`src/physics_common.cpp:21`) returns immediately
+unless `settings::survival_biasing` is on. The issue lists weight
+cutoff/roulette (scope item 1) and survival biasing (item 2) as separate
+deliverables; **upstream does not treat them as separable**, and this port
+follows upstream rather than the issue on that point.
+
+The reason is worth stating because it is not obvious from the code: in
+analog transport every particle has weight exactly 1 until it is killed, so
+there is never a particle below the cutoff and roulette has nothing to act
+on. Weights only spread once something *makes* them spread — survival
+biasing, or a weight window. Shipping roulette alone would be shipping a
+branch that can never be taken, and would read as a feature.
+
+[`VarianceReduction::validate`] enforces this rather than letting a caller
+configure a no-op.
+
+```rust
+pub mod variance_reduction { /* ... */ }
+```
+
+### Types
+
+#### Struct `VarianceReduction`
+
+Variance-reduction settings for a run. All-off is analog.
+
+```rust
+pub struct VarianceReduction {
+    pub survival_biasing: bool,
+    pub weight_cutoff: f64,
+    pub weight_survive: f64,
+    pub survival_normalization: bool,
+    pub weight_windows: Option<std::sync::Arc<crate::physics::weight_windows::WeightWindows>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `survival_biasing` | `bool` | Implicit capture: reduce weight by the absorption probability instead of<br>killing the particle. `settings::survival_biasing`. |
+| `weight_cutoff` | `f64` | Weight below which a particle is rouletted. `settings::weight_cutoff`;<br>upstream's default is 0.25. |
+| `weight_survive` | `f64` | Weight a roulette survivor is promoted to. `settings::weight_survive`;<br>upstream's default is 1.0. |
+| `survival_normalization` | `bool` | Scale the cutoff and survival weight by the particle's **birth** weight<br>rather than using them absolutely. `settings::survival_normalization`. |
+| `weight_windows` | `Option<std::sync::Arc<crate::physics::weight_windows::WeightWindows>>` | Mesh weight windows, applied at the surface-crossing and collision<br>checkpoints. `None` plays no window game, which is the default.<br><br>`Arc` rather than an owned value: the bounds are one array shared by<br>every history in a run and must not be cloned per particle. Read-only<br>data is `Arc<T>` per the workspace Rust rules. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_analog(self: &Self) -> bool { /* ... */ }
+  ```
+  Is this an analog run — nothing to do, take the untouched path?
+
+- ```rust
+  pub fn with_weight_windows(self: Self, ww: crate::physics::weight_windows::WeightWindows) -> Self { /* ... */ }
+  ```
+  Attach mesh weight windows.
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<(), String> { /* ... */ }
+  ```
+  Reject configurations that cannot do what they appear to.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VarianceReduction { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    Analog. See the module docs for why off is the correct default for an
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VarianceReduction) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `russian_roulette`
+
+The roulette kernel. `src/physics_common.cpp:12`, in full:
+
+```text
+if (weight_survive * prn(p.current_seed()) < p.wgt()) { p.wgt() = weight_survive; }
+else { p.wgt() = 0.; }
+```
+
+# Why this is unbiased
+
+A particle of weight `w` survives with probability `w / w_s` and is promoted
+to `w_s`; otherwise it is killed. The expected weight after the operation is
+
+```text
+(w / w_s) * w_s + (1 - w / w_s) * 0 = w
+```
+
+exactly, for any `w <= w_s`. That identity is what makes roulette an
+estimator change rather than a physics change, and it is asserted directly
+in [`tests::roulette_preserves_expected_weight`] rather than left as a
+comment.
+
+Note the comparison is `w_s * xi < w`, **strictly less**. At `w == w_s` the
+particle survives unless `xi` is exactly 1, which `prn` never returns, so a
+particle at exactly the survival weight always survives. Reversing the
+comparison would kill it with probability zero *and* leave a
+measure-zero-but-real difference from upstream at `w = 0`.
+
+```rust
+pub fn russian_roulette(weight: f64, weight_survive: f64, seed: &mut u64) -> f64 { /* ... */ }
+```
+
+#### Function `apply_russian_roulette`
+
+`apply_russian_roulette` (`src/physics_common.cpp:21`): the cutoff test that
+decides whether the kernel above runs at all.
+
+Returns the particle's new weight. Returns `weight` unchanged when survival
+biasing is off, which is the analog path.
+
+`weight_born` is the particle's birth weight, read only when
+[`VarianceReduction::survival_normalization`] is set.
+
+```rust
+pub fn apply_russian_roulette(vr: &VarianceReduction, weight: f64, weight_born: f64, seed: &mut u64) -> f64 { /* ... */ }
+```
+
+#### Function `survival_bias_absorption`
+
+Survival biasing (implicit capture) at a collision: `src/physics.cpp:674`.
+
+Instead of sampling whether the particle is absorbed and killing it, remove
+the absorbed *weight* and let the particle continue:
+
+```text
+w_absorbed = w * sigma_a / sigma_t
+w         -= w_absorbed
+```
+
+Returns `(new_weight, absorbed_weight)`. The caller needs the second for the
+implicit-absorption `k` estimator, which upstream scores as
+`w_absorbed * nu_fission / absorption`.
+
+# What this does NOT do
+
+It does not touch the fission-site production. Upstream keeps producing
+fission sites from the *pre-absorption* weight through `create_fission_sites`
+on the same collision; moving that here would double-count. The split is
+upstream's and is kept.
+
+```rust
+pub fn survival_bias_absorption(weight: f64, absorption_xs: f64, total_xs: f64) -> (f64, f64) { /* ... */ }
+```
+
+## Module `weight_windows`
+
+**Mesh-based weight windows** — splitting above the window, Russian
+roulette below it, and MAGIC generation from a flux tally. GitHub #258.
+
+Ported from `src/weight_windows.cpp` / `include/openmc/weight_windows.h`
+at OpenMC `afa7a14`.
+
+# What a weight window is for, and why it is not physics
+
+A weight window is an **estimator**, not a model. It splits a particle that
+is more important than its weight suggests and rouletted one that is less,
+preserving the expected score while moving sampling effort towards the
+tally. Nothing about the transported physics changes, which is why
+[`crate::physics::variance_reduction`] and this module are opt-in while a
+physics term supplied by the data is not (root `CLAUDE.md`).
+
+That framing carries an obligation: **an unbiased-in-principle scheme is
+still a bug until measured.** A window with the wrong bounds, or a split
+that mis-divides the weight, produces a plausible answer with a plausible
+uncertainty and nothing raises an error. Every claim in this module is
+either an exact algebraic invariant asserted in a test, or a measured
+comparison against the analog arm.
+
+# Where the two checkpoints sit
+
+Upstream applies windows at two points, `weight_window_checkpoint_surface`
+and `weight_window_checkpoint_collision`. Both are honoured here:
+[`WeightWindows::look_up`] is called after a surface crossing and after a
+collision, and [`apply`] plays the game.
+
+```rust
+pub mod weight_windows { /* ... */ }
+```
+
+### Types
+
+#### Struct `WeightWindow`
+
+One window: the bounds and the game parameters at a single
+(energy, mesh cell). `WeightWindow` (`weight_windows.h:47`).
+
+```rust
+pub struct WeightWindow {
+    pub lower_weight: f64,
+    pub upper_weight: f64,
+    pub max_lb_ratio: f64,
+    pub survival_weight: f64,
+    pub weight_cutoff: f64,
+    pub max_split: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower_weight` | `f64` | Below this the particle is rouletted. **A non-positive lower bound<br>means "no window here"** — generators mark an unresolved cell with<br>`-1`, and a zero lower bound conventionally turns the game off in a<br>cell (the MCNP `wwinp` convention). That is why [`Self::is_valid`]<br>exists rather than an `Option`: the sentinel is what the data format<br>carries. |
+| `upper_weight` | `f64` | Above this the particle is split. |
+| `max_lb_ratio` | `f64` | Cap on how far above the lower bound a particle may sit before the<br>window itself is scaled up to meet it. |
+| `survival_weight` | `f64` | Weight a roulette survivor is promoted to. |
+| `weight_cutoff` | `f64` | Absolute weight below which the particle is killed outright. |
+| `max_split` | `u32` | Cap on the number of copies one split may produce.<br><br>**Integral, matching upstream's `int max_split_` (`weight_windows.h:200`),<br>and that is load-bearing rather than cosmetic.** `apply` divides the<br>parent's weight by `n_split` and emits `round(n_split)` particles. Those<br>two agree only while `n_split` is exactly an integer. Upstream gets that<br>for free because `max_split` is an `int`, so `min(ceil(..), max_split)`<br>cannot be fractional. An earlier draft of this port widened the field to<br>`f64`, which admitted `max_split = 2.5` -> `round(2.5) = 3` copies each<br>of weight `w/2.5`, i.e. `1.2 w` total — weight created from nothing, in<br>the one routine whose entire justification is that it is weight-neutral. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_valid(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether a window exists here at all (`weight_windows.h:59`).
+
+- ```rust
+  pub fn scale(self: &mut Self, factor: f64) { /* ... */ }
+  ```
+  Scale the window by a constant factor (`weight_windows.h:63`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WeightWindow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WeightWindow) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `WindowOutcome`
+
+What playing the window game did to a particle.
+
+```rust
+pub enum WindowOutcome {
+    Unchanged,
+    Killed,
+    Survived {
+        weight: f64,
+    },
+    Split {
+        copies: usize,
+        weight: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Unchanged`
+
+No window here, or the particle is inside it. Weight unchanged.
+
+###### `Killed`
+
+The particle was killed — by the absolute cutoff or by losing a
+roulette.
+
+###### `Survived`
+
+Rouletted and survived, promoted to this weight.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `weight` | `f64` |  |
+
+###### `Split`
+
+Split into `copies` particles (including the original), each carrying
+`weight`. `copies - 1` new particles must be banked.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `copies` | `usize` |  |
+| `weight` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WindowOutcome { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WindowOutcome) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WindowState`
+
+Per-particle state the window game needs to carry.
+
+Upstream keeps these on `Particle` (`wgt_born`, `wgt_ww_born`, `ww_factor`,
+`n_split`). They are grouped here so the game is a pure function of
+(window, state, weight) and can be tested without a transport loop.
+
+```rust
+pub struct WindowState {
+    pub weight_born: f64,
+    pub ww_born: f64,
+    pub ww_factor: f64,
+    pub n_split: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `weight_born` | `f64` | The weight this particle was born with. |
+| `ww_born` | `f64` | The midpoint of the first window the particle saw, or `-1.0` if it has<br>not seen one yet. Upstream's `wgt_ww_born`. |
+| `ww_factor` | `f64` | Once set, the factor by which the window is scaled up to meet a<br>particle sitting far above it. Upstream's `ww_factor`; `0.0` means<br>unset, which is upstream's sentinel. |
+| `n_split` | `f64` | Splits accumulated by this history, against `max_history_splits`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WindowState { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WindowState) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WeightWindows`
+
+A set of weight windows on a regular mesh, optionally resolved in energy —
+`WeightWindows` (`src/weight_windows.cpp`).
+
+Bounds are stored `[energy_bin][mesh_bin]` flattened row-major, matching
+upstream's `lower_ww_(e, m)`.
+
+```rust
+pub struct WeightWindows {
+    pub mesh: crate::tally::mesh::RegularMesh,
+    pub energy_bounds: Vec<f64>,
+    pub lower: Vec<f64>,
+    pub upper: Vec<f64>,
+    pub survival_ratio: f64,
+    pub max_lb_ratio: f64,
+    pub max_split: u32,
+    pub weight_cutoff: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::tally::mesh::RegularMesh` | The spatial mesh the windows live on. |
+| `energy_bounds` | `Vec<f64>` | Ascending energy bounds \[eV\], length `n_energy + 1`. A single bin<br>covering everything is `[e_min, e_max]`. |
+| `lower` | `Vec<f64>` | `lower[e * n_mesh + m]`. A non-positive entry means "no window". |
+| `upper` | `Vec<f64>` | `upper[e * n_mesh + m]`. |
+| `survival_ratio` | `f64` | `survival_weight = lower * survival_ratio`. |
+| `max_lb_ratio` | `f64` | Carried into every [`WeightWindow`] produced. |
+| `max_split` | `u32` | Carried into every [`WeightWindow`] produced. Integral — see<br>[`WeightWindow::max_split`] for why that matters. |
+| `weight_cutoff` | `f64` | Carried into every [`WeightWindow`] produced. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: RegularMesh, energy_bounds: Vec<f64>, lower: Vec<f64>, upper: Vec<f64>) -> Result<Self, String> { /* ... */ }
+  ```
+  Build from bounds already known.
+
+- ```rust
+  pub fn n_energy(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of energy bins.
+
+- ```rust
+  pub fn look_up(self: &Self, r: Position, e: f64) -> Option<WeightWindow> { /* ... */ }
+  ```
+  The window at `(r, e)`, or `None` outside the mesh or the energy range —
+
+- ```rust
+  pub fn update_magic(self: &mut Self, sum: &[f64], sum_sq: &[f64], volumes: &[f64], n: usize, threshold: f64, ratio: f64) -> Result<(), String> { /* ... */ }
+  ```
+  **MAGIC** — regenerate the bounds from a forward flux tally
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WeightWindows { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WeightWindows) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `apply`
+
+Play the weight-window game — `apply_weight_window`
+(`src/weight_windows.cpp`).
+
+Returns what happened; the caller applies it. `state` is updated in place,
+which is how `ww_born`, `ww_factor` and `n_split` persist across the
+checkpoints of one history.
+
+```rust
+pub fn apply(window: WeightWindow, state: &mut WindowState, weight: f64, seed: &mut u64) -> WindowOutcome { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `WEIGHT_WINDOW_REL_TOL`
+
+`WEIGHT_WINDOW_REL_TOL` (`include/openmc/constants.h:80`).
+
+The relative dead band on the window comparisons. Without it, a weight that
+sits within rounding of a bound takes a branch decided by the last bit of
+the bound — and weight-window arithmetic produces exactly that case (a
+roulette survivor assigned `weight * max_split`, later compared against an
+upper bound that is an exact multiple of the same lower bound).
+
+```rust
+pub const WEIGHT_WINDOW_REL_TOL: f64 = 1.0e-9;
+```
+
+#### Constant `DEFAULT_WEIGHT_CUTOFF`
+
+`DEFAULT_WEIGHT_CUTOFF` (`include/openmc/weight_windows.h:26`).
+
+```rust
+pub const DEFAULT_WEIGHT_CUTOFF: f64 = 1.0e-38;
+```
+
+#### Constant `MAX_HISTORY_SPLITS`
+
+`settings::max_history_splits` (`src/settings.cpp:123`).
+
+```rust
+pub const MAX_HISTORY_SPLITS: f64 = 10_000_000.0;
+```
+
 ## Module `fixed_source`
 
 **Fixed-source** Monte Carlo transport — an external neutron source driving
@@ -16628,7 +31425,10 @@ style problems (attenuation, leakage, flux far from a source).
 
 # Scope
 
-Analog transport (no variance reduction). Fission neutrons are tracked as
+~~Analog transport (no variance reduction).~~ **CORRECTED 2026-09-22
+(gh:#258)** — analog by default; `FixedSourceSettings::variance_reduction`
+enables survival biasing, roulette and weight windows, which is what a
+shielding fixed source needs. Fission neutrons are tracked as
 secondaries with a per-source-particle safety cap, so a **sub-critical**
 (`k < 1`) or non-multiplying system converges; a super-critical system would
 multiply without bound and is capped (and physically meaningless for a fixed
@@ -16642,9 +31442,18 @@ pub mod fixed_source { /* ... */ }
 
 #### Enum `FixedSource`
 
-An external neutron source for a fixed-source run. Isotropic in direction;
-mono-energetic in energy (the common shielding/detector case). Position is
-either a point or uniform in an axis-aligned box.
+An external neutron source for a fixed-source run.
+
+[`Self::Point`] and [`Self::Box`] are isotropic and mono-energetic (the
+common shielding/detector case). [`Self::Surface`] replays a recorded
+surface crossing bank, which carries its own direction, energy **and
+weight**.
+
+**Not `Copy` since GitHub #264**: [`Self::Surface`] holds an `Arc` to a
+recorded bank. Per the workspace design rules that is `Arc<T>` for
+read-only shared data rather than a lifetime parameter, and it follows
+[`FixedSourceSettings`], which gave up `Copy` for the same reason when
+weight windows landed.
 
 ```rust
 pub enum FixedSource {
@@ -16657,6 +31466,7 @@ pub enum FixedSource {
         upper: crate::geometry::position::Position,
         energy_ev: f64,
     },
+    Surface(std::sync::Arc<crate::source::extra::SurfaceSource>),
 }
 ```
 
@@ -16686,6 +31496,44 @@ Fields:
 | `lower` | `crate::geometry::position::Position` | Lower corner \[cm\]. |
 | `upper` | `crate::geometry::position::Position` | Upper corner \[cm\]. |
 | `energy_ev` | `f64` | Emission energy \[eV\]. |
+
+###### `Surface`
+
+**Replay a recorded surface-crossing bank** — stage two of the two-stage
+shielding workflow (GitHub #264).
+
+Each sampled site is a crossing recorded by a previous run at a watched
+surface, with the direction, energy **and weight** it carried when it
+crossed. Nothing is re-sampled: the whole point is that stage two starts
+exactly where stage one left off.
+
+# Normalising stage two
+
+Sampling is **uniform over the `K` recorded crossings**, so `M` replayed
+histories cover `M / K` of the bank and the stage-one-equivalent estimate
+is `tally * K / M`. Read `K` from
+[`SurfaceSource::len`](crate::source::extra::SurfaceSource::len). With
+`M = K` the factor is 1, which is what
+`tests/surface_source_two_stage.rs` runs.
+
+# It panics on an unusable bank, deliberately
+
+An empty bank, or one that hit its cap and **dropped** crossings, makes
+[`SurfaceSource::sample`](crate::source::extra::SurfaceSource::sample)
+return an error, and this variant turns that into a panic carrying the
+full message. A truncated bank is a prefix biased towards whatever the
+first histories did: replaying it yields a systematically wrong second
+stage **that looks converged**, and there is no in-band way to signal
+that from inside the history loop. Failing loudly beats returning a
+plausible wrong number. Check
+[`SurfaceSource::dropped`](crate::source::extra::SurfaceSource::dropped)
+before building this if a soft failure is wanted.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<crate::source::extra::SurfaceSource>` |  |
 
 ##### Implementations
 
@@ -16717,7 +31565,6 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -16797,6 +31644,8 @@ Fields:
 #### Struct `FixedSourceSettings`
 
 Settings for a fixed-source run.
+Not `Copy`: since GitHub #258 this carries an optional `Arc` to a weight
+window set. Clone it explicitly where a copy was previously implicit.
 
 ```rust
 pub struct FixedSourceSettings {
@@ -16805,6 +31654,7 @@ pub struct FixedSourceSettings {
     pub temperature_k: f64,
     pub seed: u64,
     pub max_secondaries: usize,
+    pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
 }
 ```
 
@@ -16817,6 +31667,7 @@ pub struct FixedSourceSettings {
 | `temperature_k` | `f64` | Material temperature \[K\] for the cross-section lookup. |
 | `seed` | `u64` | Master RNG seed (fixed → reproducible on the single-thread path). |
 | `max_secondaries` | `usize` | Safety cap on fission secondaries transported per source particle — the<br>backstop against runaway multiplication if a (mis-specified)<br>super-critical system is run as a fixed source. |
+| `variance_reduction` | `crate::physics::variance_reduction::VarianceReduction` | Variance reduction (GitHub #258). The [`Default`] is analog.<br><br>A fixed-source shielding run is the case variance reduction exists for:<br>analog histories die long before reaching a detector behind a shield,<br>so the attenuated tally never converges. That is why this field is here<br>and not only on [`crate::physics::keff::KeffSettings`]. |
 
 ##### Implementations
 
@@ -16848,7 +31699,6 @@ pub struct FixedSourceSettings {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -17098,6 +31948,20 @@ assert_eq!(res.total_histories, 1000); // void: no collisions, no secondaries
 
 ```rust
 pub fn run_fixed_source(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &FixedSource, settings: &FixedSourceSettings, tally: Option<&mut crate::tally::tally::Tally>) -> FixedSourceResult { /* ... */ }
+```
+
+#### Function `run_fixed_source_traced`
+
+[`run_fixed_source`] with **particle track capture** — GitHub #271.
+
+Every phase-space state of the first `recorder.max_tracks` histories is
+recorded. Recording draws no randomness, so this returns exactly the same
+result as [`run_fixed_source`] with the same inputs — pinned by
+`track_capture_does_not_perturb_the_run`, because a debugging instrument
+that changes the thing being debugged is worse than none.
+
+```rust
+pub fn run_fixed_source_traced(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source: &FixedSource, settings: &FixedSourceSettings, tally: Option<&mut crate::tally::tally::Tally>, tracks: Option<&mut crate::physics::track_output::TrackRecorder>, surface_source: Option<&mut crate::source::extra::SurfaceSource>, distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>) -> FixedSourceResult { /* ... */ }
 ```
 
 ## Module `scatter`
@@ -17926,7 +32790,9 @@ that mean.
 
 # Fidelity
 
-Analog transport (no implicit capture / weight windows), target at rest. Both
+~~Analog transport (no implicit capture / weight windows)~~ **CORRECTED
+2026-09-22 (gh:#258)** — analog by default, with both available through
+`KeffSettings::variance_reduction`. Target at rest. Both
 data tiers now model inelastic down-scatter and forward-peaked elastic; they
 differ in how finely that physics is resolved:
 
@@ -17988,6 +32854,9 @@ pub mod keff { /* ... */ }
 #### Struct `KeffSettings`
 
 Settings for a [`run_keff`] power iteration.
+Not `Copy`: since GitHub #258 this carries an optional `Arc` to a weight
+window set, which is bulk data rather than a scalar setting. Clone it
+explicitly where a copy was previously implicit.
 
 ```rust
 pub struct KeffSettings {
@@ -17999,6 +32868,8 @@ pub struct KeffSettings {
     pub watt_a: f64,
     pub watt_b: f64,
     pub compute: ComputeType,
+    pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
+    pub keff_trigger: Option<crate::tally::trigger::Trigger>,
 }
 ```
 
@@ -18014,6 +32885,8 @@ pub struct KeffSettings {
 | `watt_a` | `f64` | Watt fission-spectrum parameter `a` \[eV\] for banked neutron energies. |
 | `watt_b` | `f64` | Watt fission-spectrum parameter `b` \[eV⁻¹\]. |
 | `compute` | `ComputeType` | Which transport backend [`run_keff`] dispatches to.<br><br>- [`ComputeType::CpuSingleThread`] — the scalar, single-RNG-stream path<br>  ([`run_keff_cpu_single`]); the trusted, bit-reproducible **deterministic<br>  reference**. This is the [`Default`].<br>- [`ComputeType::CpuMultiThread`] — [`rayon`]-parallel over the histories<br>  of each generation ([`run_keff_cpu_multi`]) in a dedicated pool sized by<br>  the carried [`ThreadCount`] (default [`ThreadCount::Auto`] = every<br>  logical core); each history runs on its own deterministically derived RNG<br>  sub-stream, so the eigenvalue is reproducible independent of thread count<br>  (but does **not** bit-match the single-thread stream — see that<br>  function's docs).<br>- [`ComputeType::Gpu`] — GPU-accelerated macroscopic Sigma_t lookup<br>  ([`run_keff_gpu`]), with a transparent CPU fallback (never an error) when<br>  no GPU adapter is available. The GPU is `f32` acceleration only; the CPU<br>  single-thread path stays the trusted reference. |
+| `variance_reduction` | `crate::physics::variance_reduction::VarianceReduction` | Variance reduction for the CSG transport path (GitHub #258).<br><br>The [`Default`] is **analog** — survival biasing off, no roulette —<br>and that is deliberate. This is not a physics term the data supplies<br>(which the workspace rule would require on by default); it is a choice<br>of *estimator*, and the analog estimator is the reference every<br>recorded V&V number in this crate was measured with. Turning it on is<br>a named act, and<br>`tests/variance_reduction_is_bit_identical_when_analog.rs` pins that<br>leaving it alone changes nothing at all. |
+| `keff_trigger` | `Option<crate::tally::trigger::Trigger>` | **Run until `k` reaches a target precision** rather than for a fixed<br>generation count — GitHub #263 scope items 1, 2 and 4.<br><br>`None` (the default) runs exactly `n_active` active generations, which<br>is what every recorded result in this crate was measured with. With a<br>trigger, `n_active` becomes the **maximum**: the run stops early once<br>the metric is met, and still stops at `n_active` if it never is.<br><br>A trigger cannot make a run go longer than `n_active`. Upstream has a<br>separate `n_max_batches` for that; conflating the two here would let a<br>tightened threshold silently multiply the cost of a study, which is<br>the opposite of what this feature is for. |
 
 ##### Implementations
 
@@ -18052,7 +32925,6 @@ pub struct KeffSettings {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -18437,7 +33309,7 @@ pub fn run_keff_gpu(radius_cm: f64, material: &crate::material::material::Materi
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:701:11: 701:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:701:10: 701:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:735:11: 735:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:735:10: 735:33 (#0))])]")`
 
 The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
 
@@ -18487,7 +33359,7 @@ pub fn run_keff_gpu_inner(ctx: &crate::gpu::GpuContext, radius_cm: f64, material
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:888:11: 888:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:888:10: 888:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:922:11: 922:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:922:10: 922:33 (#0))])]")`
 
 **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
 the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
@@ -18563,7 +33435,7 @@ pub fn run_keff_event_cpu_mirror(radius_cm: f64, material: &crate::material::mat
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1244:11: 1244:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1244:10: 1244:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1278:11: 1278:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1278:10: 1278:33 (#0))])]")`
 
 **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
 op-u6s.8 deep-penetration path. Desktop / non-Android only.
@@ -18605,6 +33477,977 @@ pub use crate::physics::compute::ComputeType;
 
 ```rust
 pub use crate::physics::compute::ThreadCount;
+```
+
+## Module `ifp`
+
+**Iterated fission probability (IFP)** — adjoint-weighted `β_eff` and `Λ`.
+GitHub #262 scope item 4.
+
+Ported from `src/ifp.cpp` and `include/openmc/ifp.h`, with the three
+`SCORE_IFP_*` accumulations from `src/tallies/tally_scoring.cpp:939-1000`,
+at OpenMC `afa7a14`.
+
+# Why this exists when the k-ratio route already gives a number
+
+`physics::kinetics` gives `β_eff ≈ 1 − k_p/k` from two eigenvalue solves.
+That is the **prompt-`k`** definition and it is biased: it weights every
+fission neutron equally, when what β_eff means is the delayed fraction
+weighted by each neutron's **importance** — its probability of causing a
+fission chain that survives.
+
+IFP measures that importance directly and without an adjoint solve. The
+idea: follow a fission neutron's descendants for `N` generations. The
+weight of fission produced in generation `N` **is** the neutron's
+importance, because that is what importance means. So carry each fission
+site's lineage — was its `N`-generations-ago ancestor delayed, and how long
+did that ancestor live — and score against it.
+
+# The three scores, and what they divide into
+
+```text
+beta_eff = ifp-beta-numerator / ifp-denominator
+Lambda   = ifp-time-numerator / ifp-denominator
+```
+
+The denominator is the total weight of fissions whose lineage is `N`
+generations deep. The numerators are the same weight, restricted to
+delayed ancestors (β) or multiplied by the ancestor's lifetime (Λ).
+
+# The cost, and the bias that replaces the one it removes
+
+Every fission site carries an `N`-entry lineage, so the fission bank grows
+by `N` numbers per site. More importantly, **no fission scores anything
+until generation `N`**: the first `N` active generations produce a
+denominator of exactly zero. A run with fewer than `N` active generations
+returns `0/0`, and [`IfpTallies::beta_eff`] refuses rather than returning a
+NaN that propagates.
+
+`N` is a convergence parameter, not a free choice. Too small and the
+importance is not converged — the answer is somewhere between the
+bare delayed fraction (`N = 0`) and the true adjoint-weighted one. Upstream
+defaults to 10. [`IfpSettings::n_generation`] carries it on the result so a
+β_eff cannot be quoted without it.
+
+```rust
+pub mod ifp { /* ... */ }
+```
+
+### Types
+
+#### Struct `IfpSettings`
+
+Which lineage data to carry — `settings::ifp_delayed_group_on` and
+`ifp_lifetime_on`.
+
+```rust
+pub struct IfpSettings {
+    pub n_generation: usize,
+    pub delayed_group: bool,
+    pub lifetime: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_generation` | `usize` | Generations of lineage to carry. Upstream's default is 10. |
+| `delayed_group` | `bool` | Carry the ancestor's delayed group, for `β_eff`. |
+| `lifetime` | `bool` | Carry the ancestor's lifetime, for `Λ`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_on(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether IFP is doing anything at all.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IfpSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    Upstream's defaults, with both quantities on: carrying one and not the
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IfpSettings) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IfpLineage`
+
+One fission site's ancestry — the IFP banks, per site.
+
+`delayed_groups[0]` and `lifetimes[0]` are the **oldest** entry, i.e. the
+ancestor `n_generation` generations back once the list is full. That
+ordering is what makes the score a single index rather than a search, and
+it is why [`Self::push`] shifts left rather than appending.
+
+```rust
+pub struct IfpLineage {
+    pub delayed_groups: Vec<usize>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `delayed_groups` | `Vec<usize>` | Delayed group of each ancestor, 0 for prompt. Oldest first. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn push(self: &Self, settings: &IfpSettings, delayed_group: usize, lifetime_s: f64) -> Self { /* ... */ }
+  ```
+  Extend the lineage with one generation — `_ifp`
+
+- ```rust
+  pub fn depth(self: &Self) -> usize { /* ... */ }
+  ```
+  How many generations of ancestry this site carries.
+
+- ```rust
+  pub fn is_converged(self: &Self, settings: &IfpSettings) -> bool { /* ... */ }
+  ```
+  Whether the lineage is deep enough to score — upstream's
+
+- ```rust
+  pub fn lifetimes_seconds(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Ancestor lifetimes in seconds, oldest first.
+
+- ```rust
+  pub fn oldest_delayed_group(self: &Self, settings: &IfpSettings) -> Option<usize> { /* ... */ }
+  ```
+  The `n_generation`-back ancestor's delayed group, or `None` until the
+
+- ```rust
+  pub fn oldest_lifetime(self: &Self, settings: &IfpSettings) -> Option<f64> { /* ... */ }
+  ```
+  The `n_generation`-back ancestor's lifetime \[s\], or `None` until the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IfpLineage { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IfpLineage { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IfpLineage) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IfpTallies`
+
+The three IFP scores, accumulated over a run —
+`SCORE_IFP_BETA_NUM`, `SCORE_IFP_TIME_NUM`, `SCORE_IFP_DENOM`.
+
+```rust
+pub struct IfpTallies {
+    pub beta_numerator: f64,
+    pub time_numerator: f64,
+    pub denominator: f64,
+    pub skipped_shallow: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `beta_numerator` | `f64` | Weight of fissions whose `n_generation`-back ancestor was **delayed**. |
+| `time_numerator` | `f64` | Weight of fissions times their ancestor's lifetime \[s\]. |
+| `denominator` | `f64` | Weight of all fissions with a converged lineage. |
+| `skipped_shallow` | `usize` | Fissions seen whose lineage was **not** deep enough to score. Carried<br>because a large count against a small denominator is the signature of<br>a run too short for its `n_generation`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn score_fission(self: &mut Self, settings: &IfpSettings, lineage: &IfpLineage, weight: f64) { /* ... */ }
+  ```
+  Score one fission — the three `SCORE_IFP_*` branches in one place,
+
+- ```rust
+  pub fn beta_eff(self: &Self, settings: &IfpSettings) -> Result<f64, String> { /* ... */ }
+  ```
+  Adjoint-weighted `β_eff`.
+
+- ```rust
+  pub fn generation_time(self: &Self, settings: &IfpSettings) -> Result<f64, String> { /* ... */ }
+  ```
+  Adjoint-weighted generation time `Λ` \[s\].
+
+- ```rust
+  pub fn scoring_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  Fraction of fissions that actually scored.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IfpTallies { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IfpTallies { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IfpTallies) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `kinetics`
+
+**Point-kinetics parameters from a Monte Carlo run** — the effective
+delayed fraction `β_eff` and the neutron generation time `Λ`. GitHub #262.
+
+These are the two numbers a point-kinetics model needs, and
+`crates/teh-o-prke` exists in this workspace with nothing feeding it. This
+module is that feed.
+
+# Two definitions, and only one of them is here
+
+**The `k`-ratio route** (this module): solve the eigenvalue twice, once
+with the full yield and once with the prompt yield alone, and take
+
+```text
+beta_eff ~ 1 - k_p / k
+```
+
+It is cheap, it is the standard first answer, and it is **biased**: it is
+the "prompt-`k`" definition, not the adjoint-weighted one. Delayed neutrons
+are born softer than prompt ones, so in a fast system they are *less* worth
+than average and the adjoint-weighted `β_eff` is smaller than the bare
+delayed fraction; in a thermal system the sign of the correction flips. The
+ratio route captures part of that through the two eigenvalue solves and
+**not all of it**.
+
+**The IFP route** (`src/ifp.cpp`, not ported): adjoint-weighted, the
+correct definition, and what makes the number defensible. It needs
+generation lineage on the particle. `beta_eff_from_k_ratio`'s docs say
+plainly that its answer is the biased one, because a `β_eff` quoted without
+that qualifier is the kind of number that gets used in a safety argument.
+
+# `Λ`
+
+```text
+Lambda = integral(phi / v) / integral(nu Sigma_f phi)
+```
+
+— the neutron population divided by the production rate, i.e. seconds. Both
+integrals come from the same run as flux-weighted tallies
+([`crate::tally::tally::ScoreType::InverseVelocity`] and
+[`crate::tally::tally::ScoreType::NuFission`]), so this is one extra tally
+rather than a second calculation. Like `β_eff` above it is the
+**non-adjoint-weighted** form.
+
+```rust
+pub mod kinetics { /* ... */ }
+```
+
+### Types
+
+#### Struct `KineticsParameters`
+
+The kinetics parameters of one system, with their provenance attached.
+
+```rust
+pub struct KineticsParameters {
+    pub beta_eff: f64,
+    pub beta_eff_sigma: f64,
+    pub lambda_generation: f64,
+    pub k_total: f64,
+    pub k_prompt: f64,
+    pub method: KineticsMethod,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `beta_eff` | `f64` | Effective delayed fraction, dimensionless (not pcm, not per cent). |
+| `beta_eff_sigma` | `f64` | 1σ uncertainty on [`Self::beta_eff`], propagated from the two<br>eigenvalues. |
+| `lambda_generation` | `f64` | Neutron generation time \[s\]. |
+| `k_total` | `f64` | The total eigenvalue `k`. |
+| `k_prompt` | `f64` | The prompt eigenvalue `k_p`. |
+| `method` | `KineticsMethod` | **How this was obtained.** Carried on the value so it cannot be quoted<br>without it. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KineticsParameters { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KineticsParameters) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `KineticsMethod`
+
+Which definition produced a [`KineticsParameters`].
+
+```rust
+pub enum KineticsMethod {
+    KRatio,
+    IteratedFissionProbability,
+}
+```
+
+##### Variants
+
+###### `KRatio`
+
+`1 − k_p/k` from two eigenvalue solves. Biased; see the module docs.
+
+###### `IteratedFissionProbability`
+
+Adjoint-weighted iterated fission probability. **Not implemented** —
+the variant exists so a consumer can match on it and so that an
+IFP result, when it lands, is distinguishable from a ratio one rather
+than silently replacing it.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KineticsMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KineticsMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `beta_eff_from_k_ratio`
+
+`β_eff` from two eigenvalues — the ratio route.
+
+`k` is the ordinary eigenvalue and `k_p` the one obtained with every
+nuclide in [`Nuclide::with_prompt_only_nubar`]. The two runs must be
+otherwise identical, including the seed: the difference is a few hundred
+pcm on a fast system and seed-to-seed scatter is comparable, so an unpaired
+pair of runs measures noise.
+
+The uncertainty assumes the two eigenvalues are **independent**, which
+paired runs are not — they share a seed and a geometry, so the quoted sigma
+is conservative. That direction is the safe one and is stated rather than
+corrected by an assumed correlation nobody measured.
+
+```rust
+pub fn beta_eff_from_k_ratio(k: f64, k_sigma: f64, k_prompt: f64, k_prompt_sigma: f64) -> Result<f64, String> { /* ... */ }
+```
+
+#### Function `generation_time`
+
+The neutron generation time from an inverse-velocity and a ν-fission tally.
+
+`inverse_velocity` is `∫ φ/v` \[neutrons per source neutron\] and
+`nu_fission` is `∫ νΣ_f φ` \[neutrons per second per source neutron\], both
+from the same run. Their ratio is seconds.
+
+# Errors
+
+A non-positive production integral — a system that produced no fission
+neutrons has no generation time, and returning zero or infinity would read
+as one.
+
+```rust
+pub fn generation_time(inverse_velocity: f64, nu_fission: f64) -> Result<f64, String> { /* ... */ }
+```
+
+#### Function `from_k_ratio`
+
+Assemble the parameters, refusing the cases where the answer would be
+meaningless rather than returning it.
+
+# Errors
+
+- `k_p > k`, per [`beta_eff_from_k_ratio`].
+- A zero production integral, per [`generation_time`].
+- **A β of exactly zero**, which on this path means the evaluations carry
+  no MT=455 rather than that the system has no delayed neutrons. Use
+  [`delayed_data_is_complete`] to distinguish the two before running.
+
+```rust
+pub fn from_k_ratio(k: f64, k_sigma: f64, k_prompt: f64, k_prompt_sigma: f64, inverse_velocity: f64, nu_fission: f64) -> Result<KineticsParameters, String> { /* ... */ }
+```
+
+#### Function `delayed_data_is_complete`
+
+Whether every fissionable nuclide in every material carries MF=1/455.
+
+A `false` here means a kinetics result from this model is missing part of
+its delayed production, so the β it yields is a **lower bound**, not a
+measurement. Checked before a run rather than inferred from a small answer
+afterwards.
+
+```rust
+pub fn delayed_data_is_complete(materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide]) -> bool { /* ... */ }
+```
+
+#### Function `prompt_only`
+
+The nuclides of a model with the prompt-only ablation applied to all of
+them — the second arm of the ratio route.
+
+```rust
+pub fn prompt_only(nuclides: &[crate::material::nuclide::Nuclide]) -> Vec<crate::material::nuclide::Nuclide> { /* ... */ }
 ```
 
 ## Module `search`
@@ -19522,17 +35365,34 @@ the same surface-tracking fission-source power iteration over an arbitrary CSG
 [`Geometry`], but with group-indexed collision physics instead of CE lookups.
 At each collision in group `g` the reaction is partitioned on the group total
 Σ_t,g into fission | capture | scatter; a scatter samples the outgoing group
-`g'` from row `g` of the scattering matrix (direction resampled isotropically,
-the P0 assumption); a fission banks `n ≈ ν̄_g/k` next-generation sites whose
-birth group is drawn from χ.
+`g'` from row `g` of the scattering matrix and then the outgoing cosine from
+that transfer's own angular kernel; a fission banks `n ≈ ν̄_g/k`
+next-generation sites whose birth group is drawn from χ.
 
 # Fidelity
 
-Analog transport (weight 1, no variance reduction). Scattering is treated as
-isotropic in the lab frame (a P0 / transport-corrected set); anisotropic
-(P_N) scattering matrices are not modelled. There is no delayed-neutron
-separation (delayed folded into ν̄). This matches the simplest OpenMC MG mode
-(`isotropic` angular representation).
+Analog transport (weight 1). **The MG path does not yet read
+`variance_reduction`** — #258's survival biasing and weight windows are
+wired into the CSG kernel only, so an MG run is analog whatever the
+setting says. Stated rather than left to be discovered from a setting
+that silently does nothing. There is no
+delayed-neutron separation (delayed folded into ν̄).
+
+~~Scattering is treated as isotropic in the lab frame (a P0 /
+transport-corrected set); anisotropic (P_N) scattering matrices are not
+modelled. This matches the simplest OpenMC MG mode (`isotropic` angular
+representation).~~ **CORRECTED 2026-09-22 (GitHub #265)** — this was true
+when written and is no longer. Anisotropic scattering is now modelled:
+[`Mgxs::with_legendre_scattering`] attaches Legendre moments per `(g, g')`
+transfer, and the kernel samples the outgoing cosine from them and rotates
+the incoming direction, mirroring `scatter` (`src/physics_mg.cpp:86-90`).
+A set built by [`Mgxs::new`] alone still carries no moments, so it is still
+sampled isotropically — that is a property of the *data*, not of the
+transport kernel, and [`ScatterAngle`] now records which it is.
+
+**What this was worth, measured rather than asserted.** See
+`examples/mg_scatter_anisotropy_ablation.rs` and
+`verification_and_validation/mg_anisotropic_scattering/`.
 
 # Example
 
@@ -19591,6 +35451,7 @@ pub struct Mgxs {
     pub nu_fission: Vec<f64>,
     pub chi: Vec<f64>,
     pub scatter: Vec<f64>,
+    pub scatter_angle: ScatterAngle,
 }
 ```
 
@@ -19606,6 +35467,7 @@ pub struct Mgxs {
 | `nu_fission` | `Vec<f64>` | Fission production ν̄·Σ_f,g \[cm⁻¹\], length `G` — the k source term. |
 | `chi` | `Vec<f64>` | Fission spectrum χ_g (probability a fission neutron is born in group `g`),<br>length `G`, sums to 1. |
 | `scatter` | `Vec<f64>` | Scattering matrix Σ_s,g→g' \[cm⁻¹\], length `G·G`, **row-major**:<br>`scatter[g * G + g']` transfers from group `g` into group `g'`. |
+| `scatter_angle` | `ScatterAngle` | How the outgoing cosine is sampled. [`ScatterAngle::Isotropic`] unless<br>the caller supplied Legendre moments — see<br>[`Mgxs::with_legendre_scattering`]. GitHub #265. |
 
 ##### Implementations
 
@@ -19615,6 +35477,26 @@ pub struct Mgxs {
   pub fn new</* synthetic */ impl Into<String>: Into<String>>(name: impl Into<String>, total: Vec<f64>, absorption: Vec<f64>, fission: Vec<f64>, nu_fission: Vec<f64>, chi: Vec<f64>, scatter: Vec<f64>) -> Self { /* ... */ }
   ```
   Assemble a validated [`Mgxs`] from its per-group components.
+
+- ```rust
+  pub fn with_legendre_scattering(self: Self, moments: Vec<Vec<f64>>) -> Result<Self, String> { /* ... */ }
+  ```
+  Attach Legendre angular moments to the scattering matrix.
+
+- ```rust
+  pub fn without_scatter_anisotropy(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablate** the scattering anisotropy: throw the moments away and sample
+
+- ```rust
+  pub fn transfer_mean_cosine(self: &Self, g: usize, gp: usize) -> f64 { /* ... */ }
+  ```
+  The declared mean cosine of transfer `g → g'`, or 0 where the set is
+
+- ```rust
+  pub fn group_mean_cosine(self: &Self, g: usize) -> f64 { /* ... */ }
+  ```
+  The **scatter-weighted** mean cosine out of group `g`, using the cosine
 
 - ```rust
   pub fn scatter_out(self: &Self, g: usize) -> f64 { /* ... */ }
@@ -19709,6 +35591,177 @@ pub struct Mgxs {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ScatterAngle`
+
+The angular representation a [`Mgxs`] set carries for its scattering matrix.
+
+# Why this is data and not a flag
+
+Before GitHub #265 the MG kernel resampled the outgoing direction
+**isotropically in the lab frame** at every scatter, so a set carrying real
+P1+ moments was transported as if it were P0. Nothing said so, and nothing
+could: the anisotropy assumption lived in a doc comment.
+
+It now lives here. A set built by [`Mgxs::new`] declares
+[`Self::Isotropic`] because it genuinely has no moments to apply; a set
+built through [`Mgxs::with_legendre_scattering`] carries them and the
+kernel uses them **by default**. Throwing them away is
+[`Mgxs::without_scatter_anisotropy`] — a named, visible act, per the
+workspace rule that correct physics is the default setting rather than an
+opt-in.
+
+```rust
+pub enum ScatterAngle {
+    Isotropic,
+    Legendre {
+        order: usize,
+        kernels: Vec<Option<crate::physics::scattdata::LegendreKernel>>,
+    },
+}
+```
+
+##### Variants
+
+###### `Isotropic`
+
+Isotropic in the lab frame: `⟨μ⟩ = 0` for every transfer. Correct for a
+transport-corrected P0 set, **wrong in a known direction** for a plain
+one — it understates `⟨μ⟩`, inflates `Σ_tr = Σ_t(1 − ⟨μ⟩)` and
+suppresses leakage.
+
+###### `Legendre`
+
+One Legendre kernel per `(g, g')` transfer, row-major over `G·G`.
+`None` marks a transfer with no data, which is sampled isotropically —
+the same treatment upstream's `gmin`/`gmax` banding gives an
+out-of-band group.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `order` | `usize` | Highest moment carried, for reporting. |
+| `kernels` | `Vec<Option<crate::physics::scattdata::LegendreKernel>>` | `kernels[g * G + g']`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kernel(self: &Self, g: usize, gp: usize, n_groups: usize) -> Option<&LegendreKernel> { /* ... */ }
+  ```
+  The kernel for transfer `g → g'`, if this representation has one.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScatterAngle { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScatterAngle) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -21134,6 +37187,33 @@ is violated.
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `assemble_six_factors`
+
+Assemble the six factors from the group-resolved rates. `a`, `p`, `l` are
+indexed `[thermal, resonance, fast]`; `a_thermal_fuel` is thermal absorption
+in the fuel materials. See the module docs for the formulas — they telescope
+exactly to `η·f·p·ε·P_FNL·P_TNL = P_total / (A_total + L_total)`.
+
+# Why this is public
+
+`p` and `ε` are **not convention-free** — this module's own docs record a
+case where comparing two differently-defined `p` values made them look
+8.8 % apart while their product differed by 2.2 %, which was read as
+physics and was not. A deterministic (diffusion / SP3) solve that wants to
+be compared against a Monte Carlo run must therefore use *this* assembly on
+its own group-resolved rates, rather than reimplementing the formulas
+against the same names. Supply rates in the same units on both sides — per
+source neutron per generation — and the two decompositions are comparable
+term by term.
+
+A deterministic solve has no statistical uncertainty, so pass
+[`Estimate`]s with zero standard deviation; the propagation then reduces to
+the means and the resulting `1σ` fields are zero, as they should be.
+
+```rust
+pub fn assemble_six_factors(a: [Estimate; 3], a_thermal_fuel: Estimate, p: [Estimate; 3], l: [Estimate; 3], bounds: (f64, f64)) -> SixFactors { /* ... */ }
+```
 
 #### Function `run_keff_reactor_physics`
 
@@ -26823,6 +42903,11 @@ The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
   The B-10 weight fraction applied to the stated ppm under this reading.
 
 - ```rust
+  pub fn b11_fraction(self: Self) -> f64 { /* ... */ }
+  ```
+  The B-11 weight fraction applied to the stated ppm under this reading:
+
+- ```rust
   pub fn kernel_ppm(self: Self) -> f64 { /* ... */ }
   ```
   Natural-boron ppm applied to the **kernel** under this reading.
@@ -26975,6 +43060,10 @@ pub struct Htr10Nuclides {
     pub c_graphite: usize,
     pub si28: usize,
     pub b10: usize,
+    pub c_sic: usize,
+    pub si29: usize,
+    pub si30: usize,
+    pub b11: usize,
 }
 ```
 
@@ -26985,10 +43074,14 @@ pub struct Htr10Nuclides {
 | `u235` | `usize` | U-235. |
 | `u238` | `usize` | U-238. |
 | `o16` | `usize` | O-16. |
-| `c_free` | `usize` | Free-gas carbon — the SiC layer only. |
+| `c_free` | `usize` | Free-gas carbon — the **ablation arm only**.<br><br>Was the SiC layer's carbon until 2026-09-23. It is not that any more:<br>SiC has its own bound thermal law and [`Self::c_sic`] carries it. This<br>slot survives so `OUTRAM_HTR10_NO_SAB` can still strip every S(alpha,<br>beta) and measure what they are worth. |
 | `c_graphite` | `usize` | Graphite-bound carbon (with S(alpha,beta)) — buffer, PyC, matrix, shell.<br><br>Using free-gas carbon here would misrepresent the thermal spectrum a<br>graphite-moderated pebble lives in. The distinction is not cosmetic. |
-| `si28` | `usize` | Si-28. |
+| `si28` | `usize` | Si-28, bound in SiC (with S(alpha,beta)). |
 | `b10` | `usize` | B-10 — the impurity absorber. |
+| `c_sic` | `usize` | Carbon bound in **SiC**, with the C-in-SiC S(alpha,beta).<br><br>Added 2026-09-23. The SiC coating's carbon had been free-gas, which<br>is the same error the doc on [`Self::c_graphite`] warns about one<br>layer out: SiC is a crystal, its carbon is bound, and ENDF/B-VIII.0<br>ships `tsl-CinSiC` (MAT 44) precisely so it need not be approximated. |
+| `si29` | `usize` | Si-29, bound in SiC.<br><br>Added 2026-09-23. Natural silicon is 92.223 % Si-28, **4.685 % Si-29<br>and 3.092 % Si-30**, and the model carried all of it as Si-28. The<br>atom density was always computed from silicon's NATURAL molar mass,<br>so the total was right and only the isotopic split was missing. |
+| `si30` | `usize` | Si-30, bound in SiC. See [`Self::si29`]. |
+| `b11` | `usize` | B-11, the other 80.1 at.% of natural boron.<br><br>Added 2026-09-25 (gh:#311). Every composition placed B-10 only, so the<br>boronated carbon brick (TECDOC zone 17) was ~3.5 % short on scattering<br>atoms. A scattering correction, not an absorption one. |
 
 ##### Implementations
 
@@ -27124,6 +43217,19 @@ host of density `rho` \[g/cm3\], under the given reading.
 pub fn b10_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 { /* ... */ }
 ```
 
+#### Function `b11_atom_density`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+B-11 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron, the
+companion of [`b10_atom_density`]. Zero under readings that place none.
+
+```rust
+pub fn b11_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 { /* ... */ }
+```
+
 #### Function `fuel_pebble_materials`
 
 **Attributes:**
@@ -27215,12 +43321,41 @@ pub const B_PPM_GRAPHITE: f64 = 1.3;
 
 B-10 **weight** fraction of natural boron (19.9 at% B-10 / 80.1 at% B-11).
 
-B-11 is left out of the compositions below: its absorption cross section is
-~0.005 b against B-10's ~3840 b, and at 1.3 ppm its scattering contributes
-nothing. Only the absorber is modelled.
+~~B-11 is left out of the compositions below~~ **Placed since 2026-09-25
+(gh:#311).** Its absorption (~0.005 b against B-10's ~3840 b) and, at 1.3
+ppm, its scattering are both negligible here -- but the reference states
+natural boron, `nee_soon::rod_insertion` already splits it, and the model
+realises the stated composition rather than the part that matters.
 
 ```rust
 pub const B10_WEIGHT_FRACTION_OF_NATURAL_B: f64 = 0.184_3;
+```
+
+#### Constant `SI28_ATOM_FRACTION`
+
+Natural silicon isotopic abundances, atom fractions (IUPAC).
+
+The SiC atom density is built from silicon's natural molar mass, so these
+split a total that is already correct rather than changing it.
+
+```rust
+pub const SI28_ATOM_FRACTION: f64 = 0.922_23;
+```
+
+#### Constant `SI29_ATOM_FRACTION`
+
+See [`SI28_ATOM_FRACTION`].
+
+```rust
+pub const SI29_ATOM_FRACTION: f64 = 0.046_85;
+```
+
+#### Constant `SI30_ATOM_FRACTION`
+
+See [`SI28_ATOM_FRACTION`].
+
+```rust
+pub const SI30_ATOM_FRACTION: f64 = 0.030_92;
 ```
 
 ## Module `keff_delta`
@@ -32209,6 +48344,642 @@ pub mod depletion { /* ... */ }
 
 ### Modules
 
+## Module `integrators`
+
+**Higher-order depletion integrators and transfer rates** — GitHub #266
+scope items 2, 3 and 4.
+
+Ported in structure from `openmc/deplete/integrators.py` and
+`openmc/deplete/transfer_rates.py` at OpenMC `afa7a14`.
+
+# Why the order matters, and what #266 already measured
+
+The predictor integrator this crate had is **first order** in the step
+size. #266's scope item 1 measured that convergence on the existing
+operator, and the finding was sharper than "the error is small": **Xe-135
+is not in the asymptotic regime at practical step sizes at all.** Its
+Richardson-observed order came out **negative (−3.70) at 5-day steps** and
+only climbed through 1 once the step fell below its ~9.14 h half-life.
+
+That is the context these integrators land in. A fourth-order method is
+fourth order *in its asymptotic regime*; on a nuclide whose own time
+constant is shorter than the step, it is not obviously better than first
+order, and [`Integrator::observed_order`] is provided so that claim is
+measured per problem rather than assumed from the method's name.
+
+# What each method costs
+
+| method | transport solves per step | order |
+|---|---|---|
+| [`Integrator::Predictor`] | 1 | 1 |
+| [`Integrator::CeCm`] | 2 | 2 |
+| [`Integrator::Cf4`] | 4 | 4 |
+
+"Transport solves" is the expensive part — each one is a full eigenvalue
+calculation in a coupled run. CF4 is four times the cost of predictor per
+step, so it only pays if it lets the step grow by more than 4x.
+
+```rust
+pub mod integrators { /* ... */ }
+```
+
+### Types
+
+#### Enum `Integrator`
+
+Which time integrator to advance the inventory with.
+
+```rust
+pub enum Integrator {
+    Predictor,
+    CeCm,
+    Cf4,
+}
+```
+
+##### Variants
+
+###### `Predictor`
+
+Explicit predictor — `PredictorIntegrator`. First order, one solve.
+
+###### `CeCm`
+
+Constant-extrapolation / constant-midpoint — `CECMIntegrator`.
+Second order, two solves.
+
+###### `Cf4`
+
+Commutator-free fourth order — `CF4Integrator`. Upstream's usual
+production default. Four solves.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn solves_per_step(self: Self) -> usize { /* ... */ }
+  ```
+  Transport solves this method needs per step.
+
+- ```rust
+  pub fn nominal_order(self: Self) -> u32 { /* ... */ }
+  ```
+  The method's **nominal** order — what it converges at in its asymptotic
+
+- ```rust
+  pub fn step<F>(self: Self, n: &[f64], dt_seconds: f64, rebuild: F) -> Vec<f64>
+where
+    F: FnMut(&[f64]) -> DepletionMatrix { /* ... */ }
+  ```
+  Advance `n` by one step of `dt_seconds`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Integrator { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Integrator) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TransferRate`
+
+Continuous removal or feed of a nuclide during depletion —
+`openmc/deplete/transfer_rates.py`.
+
+# Why this matters here specifically
+
+**Pebble recirculation is exactly a transfer rate**, and pebble beds are
+this crate's specialisation. So is gas stripping, and so is MSR salt
+processing. A transfer rate adds `-rate * N_i` to the `i`-th nuclide's
+balance — a first-order loss with the units of inverse time, identical in
+form to a decay constant, which is why it composes with the burnup matrix
+by simple addition to the diagonal.
+
+# Destination is not modelled
+
+Upstream can route the removed material into a *second* material's
+inventory. This port models **removal and feed for one material only**:
+`rate > 0` removes, and [`TransferRate::feed`] adds a constant source.
+A two-material transfer needs both materials advanced together, which the
+single-material operator here cannot express — stated rather than
+approximated by removing from one and hoping.
+
+```rust
+pub struct TransferRate {
+    pub nuclide_idx: usize,
+    pub rate: f64,
+    pub feed: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide_idx` | `usize` | Index of the nuclide in chain order. |
+| `rate` | `f64` | First-order removal rate \[s⁻¹\]. Zero for a pure feed. |
+| `feed` | `f64` | Constant feed \[atoms/(barn·cm·s)\]. Zero for a pure removal. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_cycle_days(nuclide_idx: usize, cycle_days: f64) -> Result<Self, String> { /* ... */ }
+  ```
+  A removal with a given **cycle time** — the natural way to express
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TransferRate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TransferRate) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MicroXs`
+
+A fixed set of one-group microscopic cross sections — `openmc.deplete.MicroXS`.
+
+# What it is for
+
+Deplete from cross sections that are **held fixed** rather than recomputed
+from transport at every step. Orders of magnitude cheaper for a parameter
+sweep, and the only tractable option when the sweep has hundreds of points.
+
+# And what it costs, stated
+
+Fixing the cross sections fixes the **spectrum**. As the inventory burns
+the real spectrum hardens (fissile depletion) and softens (fission-product
+absorption), and a frozen set captures neither. The error grows with
+burnup and is **not** bounded by the integrator's truncation error — a
+fourth-order integrator on frozen cross sections is fourth-order accurate
+at solving the wrong problem.
+
+[`MicroXs::from_chain`] collapses the crate's own CORE data at a stated
+spectrum, so the frozen point is explicit rather than inherited from
+whatever the last transport solve happened to give.
+
+```rust
+pub struct MicroXs {
+    pub xs: Vec<crate::depletion::operator::OneGroupXs>,
+    pub provenance: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `xs` | `Vec<crate::depletion::operator::OneGroupXs>` | One entry per chain nuclide, in chain order. |
+| `provenance` | `String` | A human-readable note on where these came from, carried so a result<br>cannot be quoted without its provenance. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_chain(chain: &DepletionChain, settings: &BurnupSettings) -> Self { /* ... */ }
+  ```
+  Collapse the crate's CORE nuclide data onto the chain at the weighting
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MicroXs { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MicroXs) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `combine`
+
+A weighted sum of burnup matrices, `sum_i c_i A_i`.
+
+Used by CF4, whose stages are exponentials of linear combinations of the
+stage matrices rather than of the matrices themselves — that is what makes
+it *commutator-free*.
+
+# Panics
+
+Matrices of different order. That is a programmer error (the chain does not
+change between stages of one step), not a runtime condition.
+
+```rust
+pub fn combine(terms: &[(&crate::depletion::matrix::DepletionMatrix, f64)]) -> crate::depletion::matrix::DepletionMatrix { /* ... */ }
+```
+
+#### Function `observed_order`
+
+The **observed** order of convergence between two step sizes, by Richardson
+extrapolation against a reference.
+
+`coarse` and `fine` are the answers at step `h` and `h/2`, `reference` the
+converged one.
+
+```text
+order = log2( |coarse - reference| / |fine - reference| )
+```
+
+# Errors
+
+A fine answer that matches the reference exactly — the ratio is then
+infinite and the order is undefined, which is a different statement from
+"the order is very high".
+
+# This can legitimately be NEGATIVE
+
+And on this crate's own depletion problems it is: #266's convergence study
+measured **−3.70** for Xe-135 at 5-day steps, because Xe-135's ~9.14 h
+half-life is far shorter than the step and the method is nowhere near its
+asymptotic regime. A negative order is a real result about the problem, not
+an error in the measurement, so this returns it rather than refusing.
+
+```rust
+pub fn observed_order(coarse: f64, fine: f64, reference: f64) -> Result<f64, String> { /* ... */ }
+```
+
+#### Function `apply_transfer_rates`
+
+Add transfer rates to a burnup matrix, in place.
+
+Removal goes on the diagonal, exactly where a decay constant goes. **The
+feed term does NOT**: a constant source is inhomogeneous and a burnup
+matrix is homogeneous, so it cannot be expressed as a matrix entry at all.
+
+# Errors
+
+A nuclide index outside the chain, a negative rate, or **any non-zero
+feed** — see [`apply_feed`], which is where a feed has to be handled and
+which this function deliberately refuses to do silently.
+
+```rust
+pub fn apply_transfer_rates(matrix: &mut crate::depletion::matrix::DepletionMatrix, rates: &[TransferRate]) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `apply_feed`
+
+Apply the constant feed terms over a step, after the matrix exponential.
+
+# The approximation, stated
+
+This adds `feed * dt` to each fed nuclide **after** the step, i.e. it
+treats the fed material as arriving at the end and not being depleted
+during the step. Exact only in the limit of a small step against the fed
+nuclide's own removal rate. The exact treatment needs the inhomogeneous
+solution `A⁻¹(exp(A dt) − I) f`, which this port does not implement —
+so the error is first order in the step and is **stated here rather than
+absorbed**.
+
+```rust
+pub fn apply_feed(n: &mut [f64], rates: &[TransferRate], dt_seconds: f64) { /* ... */ }
+```
+
+#### Function `deplete_independent`
+
+Deplete with **frozen** cross sections — `openmc.deplete.IndependentOperator`.
+
+No transport solve at any step: the burnup matrix is rebuilt only because
+the flux changes with the inventory (to hold the requested power), while
+the microscopic cross sections stay as given.
+
+# Errors
+
+A cross-section array that does not match the chain.
+
+```rust
+pub fn deplete_independent(chain: &crate::depletion::chain::DepletionChain, initial: &[(String, f64)], settings: &crate::depletion::operator::BurnupSettings, micro: &MicroXs, method: Integrator) -> Result<crate::depletion::operator::BurnupResult, String> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SECONDS_PER_DAY`
+
+Seconds in a day, matching `operator.rs`.
+
+```rust
+pub const SECONDS_PER_DAY: f64 = 86_400.0;
+```
+
 ## Module `matrix`
 
 Dense depletion (burnup) matrix `A` with units of inverse seconds.
@@ -32613,8 +49384,17 @@ the official OpenMC software, and not for reactor operation.
    target=...>` entries) is **private** — only `name`, `half_life_seconds`,
    `decay_energy_electronvolt`, and `raw_decay_data` (the decay branches) are
    public. So neutron-reaction *targets* cannot be pulled from these libs;
-   they come from the hardcoded `chain_simple.xml` transcription instead.
-   Only decay constants / decay branches are cross-checkable against the libs.
+   ~~they come from the hardcoded `chain_simple.xml` transcription instead.
+   Only decay constants / decay branches are cross-checkable against the
+   libs.~~ **CORRECTED 2026-09-23** — the first sentence still holds (the
+   field is still private, verified on that date), but the conclusion no
+   longer does: [`DepletionChain::from_chain_xml`] reads a **depletion chain
+   XML file**, targets included, through the codec in
+   `njoy-outram-park-fork::hdf5::depletion_chain_xml` (gh:#270). The
+   hardcoded transcription remains as [`DepletionChain::simple`] and is now
+   *checked against* the file it was transcribed from
+   (`tests/depletion_chain_xml_vs_transcription.rs`) rather than being the
+   only source of those targets.
 2. **U-235 thermal yields are not in `fission-yields-data` 0.1.4's public
    API.** The per-nuclide accessors (`u235_thermal_fission_yield`, …) live in
    `pub(crate)` modules and are not re-exported by the crate `prelude`; the
@@ -32797,7 +49577,7 @@ A single radioactive-decay branch: which daughter, and with what probability.
 
 ```rust
 pub struct DecayBranch {
-    pub target: String,
+    pub target: Option<String>,
     pub branching: f64,
 }
 ```
@@ -32806,7 +49586,7 @@ pub struct DecayBranch {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `target` | `String` | Daughter nuclide name (e.g. `"Xe135"`). If it is not a tracked nuclide,<br>the branch contributes only removal (the daughter leaves the chain). |
+| `target` | `Option<String>` | Daughter nuclide name (e.g. `"Xe135"`).<br><br>`None` means **no in-chain daughter**, which a real chain file expresses<br>two ways: by giving no `target` at all (electron capture in<br>`chain_ni.xml`'s Fe-55 record) or by naming the `"nothing"` sentinel.<br>Either way the branch contributes only removal. A `Some(name)` that is<br>not a tracked nuclide behaves the same — the daughter leaves the chain —<br>but says which nuclide it left as, so a reader can tell a truncated chain<br>from a decay with genuinely no product in the file.<br><br>**CHANGED 2026-09-23** from `String` to `Option<String>` when<br>[`DepletionChain::from_chain_xml`] landed. The old type could not<br>represent a targetless decay without inventing a placeholder name, and<br>it disagreed with [`NeutronReaction::target`], which was already<br>optional for exactly this reason. |
 | `branching` | `f64` | Branching ratio (dimensionless, `0..=1`) — the fraction of decays of the<br>parent that follow this branch. |
 
 ##### Implementations
@@ -33194,15 +49974,479 @@ pub struct NuclideData {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `UnmodelledReason`
+
+Why a channel in a chain file is not represented in the burnup matrix.
+
+A closed set (enum dispatch per the workspace design rules).
+
+```rust
+pub enum UnmodelledReason {
+    ReactionTypeNotModelled,
+    BranchedChannel {
+        branching_ratio: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `ReactionTypeNotModelled`
+
+The reaction type is outside [`ReactionKind`]'s three channels — the file
+asked for something like `(n,p)` or `(n,3n)`, which this crate's
+one-group operator has no [`super::MicroRate`] field for.
+
+###### `BranchedChannel`
+
+The channel splits between products with a branching ratio other than 1,
+which [`NeutronReaction`] cannot express. Applying the full rate to one
+target would produce atoms the file did not specify, so the channel is
+left out entirely and reported instead.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `branching_ratio` | `f64` | The ratio the file gave. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnmodelledReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnmodelledReason) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `UnmodelledChannel`
+
+One channel a chain file declared and this crate did not carry.
+
+```rust
+pub struct UnmodelledChannel {
+    pub nuclide: String,
+    pub reaction: String,
+    pub reason: UnmodelledReason,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide` | `String` | Which nuclide declared it. |
+| `reaction` | `String` | The reaction `type` string as the file wrote it, e.g. `"(n,p)"`. |
+| `reason` | `UnmodelledReason` | Why it was left out. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnmodelledChannel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnmodelledChannel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ChainImportError`
+
+What can go wrong turning a parsed chain file into a [`DepletionChain`].
+
+```rust
+pub enum ChainImportError {
+    Codec(String),
+    NoYieldsAtEnergy {
+        nuclide: String,
+        wanted_ev: f64,
+        tabulated_ev: Vec<f64>,
+    },
+    YieldsWithoutFission {
+        nuclide: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Codec`
+
+The codec refused the file. The message is the codec's own.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NoYieldsAtEnergy`
+
+A nuclide tabulates fission yields, but not at the requested energy.
+Interpolating or taking the nearest energy is deliberately not done.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide` | `String` | The nuclide whose yields were wanted. |
+| `wanted_ev` | `f64` | The energy asked for, eV. |
+| `tabulated_ev` | `Vec<f64>` | The energies the file does tabulate, eV. |
+
+###### `YieldsWithoutFission`
+
+A nuclide carries fission yields but declares no `"fission"` channel, so
+nothing in the matrix could ever reach them.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide` | `String` | The nuclide. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ChainImportError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ChainImportError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `DepletionChain`
 
 A decay + transmutation chain that assembles a burnup matrix.
 
 Holds the tracked nuclides in a fixed order (the matrix-row order) plus a
 name→index map for O(1) lookup. Construct with [`DepletionChain::simple`]
-(fast, hardcoded `chain_simple.xml` transcription) or
+(fast, hardcoded `chain_simple.xml` transcription),
 [`DepletionChain::simple_from_data`] (pulls the fission-product half-lives
-live from the ENDF/B-VIII decay libraries and cross-checks them).
+live from the ENDF/B-VIII decay libraries and cross-checks them), or
+[`DepletionChain::from_chain_xml`] (reads a chain file of any size).
+
+`PartialEq` is derived, and compares the nuclide records **exactly**,
+`f64`s included. That is deliberate: it is what lets a parsed chain be
+checked against the hand transcription of the same file without a tolerance
+to argue about.
 
 ```rust
 pub struct DepletionChain {
@@ -33231,6 +50475,21 @@ pub struct DepletionChain {
   The `chain_simple.xml` chain, but with the I-135 and Xe-135 half-lives
 
 - ```rust
+  pub fn from_chain_xml(xml: &DepletionChainXml, fission_energy_ev: f64) -> Result<Self, ChainImportError> { /* ... */ }
+  ```
+  Build a chain by **reading a depletion chain XML file**, rather than from
+
+- ```rust
+  pub fn from_chain_xml_file(path: &std::path::Path, fission_energy_ev: f64) -> Result<Self, ChainImportError> { /* ... */ }
+  ```
+  Read a chain straight from a file — [`Self::from_chain_xml`] with the
+
+- ```rust
+  pub fn unmodelled_channels(self: &Self) -> &[UnmodelledChannel] { /* ... */ }
+  ```
+  Channels a source chain file declared that this crate does not model.
+
+- ```rust
   pub fn nuclide_names(self: &Self) -> Vec<&str> { /* ... */ }
   ```
   Nuclide names in matrix-row order (the order of matrix rows/columns).
@@ -33244,6 +50503,16 @@ pub struct DepletionChain {
   pub fn is_empty(self: &Self) -> bool { /* ... */ }
   ```
   Whether the chain tracks no nuclides.
+
+- ```rust
+  pub fn nuclide(self: &Self, name: &str) -> Option<&NuclideData> { /* ... */ }
+  ```
+  The full record for `name`, or `None` if it is not tracked. Read access
+
+- ```rust
+  pub fn nuclides(self: &Self) -> &[NuclideData] { /* ... */ }
+  ```
+  Every nuclide record, in matrix-row order.
 
 - ```rust
   pub fn index_of(self: &Self, name: &str) -> Option<usize> { /* ... */ }
@@ -33317,6 +50586,11 @@ pub struct DepletionChain {
     Calls `U::from(self)`.
 
 - **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DepletionChain) -> bool { /* ... */ }
+    ```
+
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -33338,6 +50612,7 @@ pub struct DepletionChain {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -33787,6 +51062,146 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `OneGroupXs`
+
+One-group microscopic cross sections \[barn\] for a chain nuclide.
+
+```rust
+pub struct OneGroupXs {
+    pub fission: f64,
+    pub gamma: f64,
+    pub nu_fission: f64,
+    pub absorption: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fission` | `f64` | Fission σ_f \[barn\]. |
+| `gamma` | `f64` | Radiative capture σ_(n,γ) = σ_a − σ_f \[barn\]. |
+| `nu_fission` | `f64` | Fission production ν̄·σ_f \[barn\] (for the k_inf numerator). |
+| `absorption` | `f64` | Absorption σ_a = capture + fission \[barn\] (for the k_inf denominator). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OneGroupXs { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> OneGroupXs { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OneGroupXs) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `BurnupStep`
 
 The inventory and reactor state recorded at one burnup step.
@@ -34066,6 +51481,51 @@ pub struct BurnupResult {
 - **WasmNotSync**
 ### Functions
 
+#### Function `one_group_cross_sections`
+
+Evaluate the one-group cross sections for each chain nuclide from the
+`njoy-outram-park-fork` CORE provider.
+
+Returns a vector aligned with `chain.nuclide_names()`. A nuclide the provider
+does not carry is treated as cross-section-free (all zeros) and noted by the
+caller; every `chain_simple` nuclide is in the CORE set, so in practice this
+never happens for the default chain.
+
+```rust
+pub fn one_group_cross_sections(chain: &super::chain::DepletionChain, settings: &BurnupSettings) -> Vec<OneGroupXs> { /* ... */ }
+```
+
+#### Function `flux_for_power`
+
+The flux \[neutrons/(cm²·s)\] that makes the fission power in `fuel_volume_cm3`
+equal `power_watts`, given the current densities and one-group fission data.
+
+`P = flux * V * sum_j N_j sigma_f_j Q_j` with `N` in atoms/(barn·cm),
+`sigma_f` in barn (so `N sigma_f` is a macroscopic 1/cm), `Q` in joules, and
+`V` in cm³. Returns 0.0 if there is no fissile material left.
+
+```rust
+pub fn flux_for_power(names: &[&str], densities: &[f64], xs: &[OneGroupXs], settings: &BurnupSettings) -> f64 { /* ... */ }
+```
+
+#### Function `k_inf`
+
+One-group infinite-medium `k_inf = sum(N nu sigma_f) / sum(N sigma_a)` over
+the chain nuclides (relative trend indicator — see module fidelity caveats).
+
+```rust
+pub fn k_inf(densities: &[f64], xs: &[OneGroupXs]) -> f64 { /* ... */ }
+```
+
+#### Function `reaction_rates`
+
+Build the frozen one-group [`ReactionRates`] for a step from the flux and the
+per-nuclide cross sections (`rate[1/s] = flux * sigma[barn] * 1e-24`).
+
+```rust
+pub fn reaction_rates(names: &[&str], flux: f64, xs: &[OneGroupXs]) -> super::ReactionRates { /* ... */ }
+```
+
 #### Function `deplete_coupled`
 
 Run a burnup calculation in which the **flux spectrum is recomputed at every
@@ -34123,7 +51583,7 @@ which is why it is.
 pub fn deplete_coupled</* synthetic */ impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>: FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>>(chain: &super::chain::DepletionChain, initial: &[(String, f64)], settings: &BurnupSettings, spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>) -> BurnupResult { /* ... */ }
 ```
 
-#### Function `deplete_predictor`
+#### Function `deplete_with`
 
 Run a predictor (forward-Euler) burnup calculation on `chain`, starting from
 the inventory `initial` (`(nuclide_name, atom_density)` in atoms/(barn·cm)).
@@ -34136,6 +51596,40 @@ This is the honest, one-group demonstration described in the module docs; the
 transmutation step itself (CRAM) is verified to analytic accuracy in
 [`super::cram`], and the inventory *trends* are checked against the notebook
 in the `depletion` verification test.
+Run a one-group burnup history with a **chosen integrator** — gh:#266.
+
+[`deplete_predictor`] is this with [`Integrator::Predictor`], and is kept as
+the name every existing caller and recorded result uses.
+
+# Why this exists separately from `Integrator::step`
+
+[`Integrator::CeCm`] and [`Integrator::Cf4`] landed as single-step methods
+over a matrix-rebuild closure and were unit-tested on synthetic matrices —
+but **no burnup driver took an `Integrator`**, so their order could not be
+measured on a real history. #266's acceptance asks for exactly that
+("the observed order reported as a measured number"), so the pieces existed
+and nothing joined them. This joins them.
+
+# The flux is rebuilt at every stage, not held fixed
+
+`rebuild` recomputes the flux from the *stage's own* densities before
+building the matrix, which is what makes a higher-order method worth
+anything: if the matrix were frozen at begin-of-step, every method would
+integrate the same constant-coefficient system and CF4 would be exact for
+the wrong reason. [`Integrator::Cf4`]'s own tests pin the constant-matrix
+case; this driver is the varying-coefficient one.
+
+# Measured (2026-09-24, 40 d at 1 MW, 3 % UO2, `DepletionChain::simple`)
+
+End-of-life `k_inf` against step size, and the Richardson order over
+successive halvings — see
+`verification_and_validation/depletion/step_convergence_2026_09_24.md`.
+
+```rust
+pub fn deplete_with(integrator: super::integrators::Integrator, chain: &super::chain::DepletionChain, initial: &[(String, f64)], settings: &BurnupSettings) -> BurnupResult { /* ... */ }
+```
+
+#### Function `deplete_predictor`
 
 ```rust
 pub fn deplete_predictor(chain: &super::chain::DepletionChain, initial: &[(String, f64)], settings: &BurnupSettings) -> BurnupResult { /* ... */ }
@@ -34466,10 +51960,64 @@ pub struct ReactionRates {
 - **WasmNotSync**
 ### Re-exports
 
+#### Re-export `ChainImportError`
+
+```rust
+pub use chain::ChainImportError;
+```
+
+#### Re-export `DecayBranch`
+
+```rust
+pub use chain::DecayBranch;
+```
+
+#### Re-export `DepletionChain`
+
+```rust
+pub use chain::DepletionChain;
+```
+
+#### Re-export `NeutronReaction`
+
+```rust
+pub use chain::NeutronReaction;
+```
+
+#### Re-export `NuclideData`
+
+```rust
+pub use chain::NuclideData;
+```
+
+#### Re-export `ReactionKind`
+
+```rust
+pub use chain::ReactionKind;
+```
+
+#### Re-export `UnmodelledChannel`
+
+```rust
+pub use chain::UnmodelledChannel;
+```
+
+#### Re-export `UnmodelledReason`
+
+```rust
+pub use chain::UnmodelledReason;
+```
+
 #### Re-export `DepletionMatrix`
 
 ```rust
 pub use matrix::DepletionMatrix;
+```
+
+#### Re-export `deplete_with`
+
+```rust
+pub use operator::deplete_with;
 ```
 
 ## Module `gpu`
@@ -38148,6 +55696,658 @@ usual working directory for `cargo test`/example runs).
 pub const LOCAL_PERF_DIR: &str = "verification_and_validation/local_perf";
 ```
 
+## Module `run_diagnostics`
+
+Per-run diagnostic record: which nuclear-data files a run used, how long
+each took to process, and how long transport took — reported separately,
+because they scale with different things. Written to the gitignored
+local-perf directory. See [`run_diagnostics`].
+**A per-run diagnostic record: what data was used, and where the time went.**
+
+# Why this exists
+
+A Monte Carlo run's wall time is two very different things added together:
+**nuclear-data processing** (reconstructing cross sections from ENDF tapes,
+Doppler broadening, generating or baking S(alpha,beta) tables) and the
+**transport** itself. They scale with completely different things — data
+prep with the number of nuclides and the thermal laws asked for, transport
+with histories times cycles — and reporting one number for both makes a run
+impossible to reason about. A case that spends four minutes in LEAPR and
+thirty seconds in transport is not "a four-and-a-half minute case".
+
+It also answers the question that is hardest to reconstruct afterwards:
+**which data files did this run actually use?** A missing tape usually does
+not announce itself — a thermal law that fails to load falls back to free
+gas, and the eigenvalue simply comes out somewhere else. Recording every
+source, with the MAT and the temperature it was taken at, turns that from
+an invisible substitution into a line in a file.
+
+# What it is not
+
+Not a benchmark. The times here are whatever the machine was doing at the
+time; use `perf_report` for measurements meant to be compared. This is a
+provenance record that happens to carry timings.
+
+# Output
+
+Written to the **gitignored** [`perf_report::LOCAL_PERF_DIR`], like every
+other machine-specific artifact in this crate, unless
+`OUTRAM_MC_DIAGNOSTICS` names a path.
+
+```rust
+pub mod run_diagnostics { /* ... */ }
+```
+
+### Types
+
+#### Enum `DataSource`
+
+Where one piece of nuclear data came from.
+
+```rust
+pub enum DataSource {
+    File(std::path::PathBuf),
+    GeneratedFromLeaprDeck(String),
+}
+```
+
+##### Variants
+
+###### `File`
+
+Read from a file on disk.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::path::PathBuf` |  |
+
+###### `GeneratedFromLeaprDeck`
+
+Generated in-process from a LEAPR deck rather than read from a tape.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **AsRef**
+  - ```rust
+    fn as_ref(self: &Self) -> &Path { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DataSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DataSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DataItem`
+
+One nuclear-data item: what it was for, where it came from, how long it took.
+
+```rust
+pub struct DataItem {
+    pub role: String,
+    pub source: DataSource,
+    pub detail: String,
+    pub seconds: f64,
+    pub ok: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `role` | `String` | What this data is for, e.g. `"U-235 cross sections"`. |
+| `source` | `DataSource` | Where it came from. |
+| `detail` | `String` | Free text — MAT number, temperature, evaluation, whatever identifies it. |
+| `seconds` | `f64` | Wall seconds spent processing it. |
+| `ok` | `bool` | Whether it succeeded. A **failed** item is recorded rather than dropped:<br>a silent fallback is exactly what this file exists to make visible. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DataItem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Phase`
+
+One timed phase of the run proper.
+
+```rust
+pub struct Phase {
+    pub name: String,
+    pub seconds: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Phase name, e.g. `"transport (k-eigenvalue)"`. |
+| `seconds` | `f64` | Wall seconds. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Phase { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RunDiagnostics`
+
+The record for one run. Build it as the run proceeds, then [`write`](Self::write).
+
+```rust
+pub struct RunDiagnostics {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>>(label: impl Into<String>) -> Self { /* ... */ }
+  ```
+  Start a record for a run called `label`.
+
+- ```rust
+  pub fn time_data<T, /* synthetic */ impl Into<String>: Into<String>, /* synthetic */ impl Into<String>: Into<String>, /* synthetic */ impl FnOnce() -> Option<T>: FnOnce() -> Option<T>>(self: &mut Self, role: impl Into<String>, source: DataSource, detail: impl Into<String>, f: impl FnOnce() -> Option<T>) -> Option<T> { /* ... */ }
+  ```
+  Time `f`, record it as a nuclear-data item, and return its result.
+
+- ```rust
+  pub fn push_data(self: &mut Self, item: DataItem) { /* ... */ }
+  ```
+  Record an already-timed data item.
+
+- ```rust
+  pub fn time_phase<T, /* synthetic */ impl Into<String>: Into<String>, /* synthetic */ impl FnOnce() -> T: FnOnce() -> T>(self: &mut Self, name: impl Into<String>, f: impl FnOnce() -> T) -> T { /* ... */ }
+  ```
+  Time `f` as a named run phase and return its result.
+
+- ```rust
+  pub fn note</* synthetic */ impl Into<String>: Into<String>>(self: &mut Self, note: impl Into<String>) { /* ... */ }
+  ```
+  Add a free-text note — settings, environment knobs, caveats.
+
+- ```rust
+  pub fn data_item_count(self: &Self) -> usize { /* ... */ }
+  ```
+  How many nuclear-data items were recorded.
+
+- ```rust
+  pub fn data_seconds(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total seconds spent on nuclear data.
+
+- ```rust
+  pub fn phase_seconds(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total seconds spent in the run phases.
+
+- ```rust
+  pub fn failures(self: &Self) -> Vec<&DataItem> { /* ... */ }
+  ```
+  Any data item that failed to load.
+
+- ```rust
+  pub fn render(self: &Self) -> String { /* ... */ }
+  ```
+  Render the record.
+
+- ```rust
+  pub fn print_summary(self: &Self) { /* ... */ }
+  ```
+  Print the summary to stdout — the two totals, separated, and any failure.
+
+- ```rust
+  pub fn output_path(self: &Self) -> PathBuf { /* ... */ }
+  ```
+  Where the record will be written: `OUTRAM_MC_DIAGNOSTICS`, else a
+
+- ```rust
+  pub fn write(self: &Self) -> std::io::Result<PathBuf> { /* ... */ }
+  ```
+  Write the record, creating the directory if needed. Returns the path.
+
+- ```rust
+  pub fn write_and_report(self: &Self) -> Option<PathBuf> { /* ... */ }
+  ```
+  Write, and print where it went — or why it could not be written.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RunDiagnostics { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `vv`
 
 Verification & validation gates and the committed oracle tables this crate is
@@ -39037,6 +57237,98 @@ pooled `sem` is `sd/√n`, so 7 seeds reach ~70 pcm on a case with
 pub fn bench_seeds() -> usize { /* ... */ }
 ```
 
+#### Function `report_transport_losses`
+
+Report the transport-loss channels of a [`KeffResult`] to stderr.
+
+**What this is for.** A Monte Carlo history that is lost, or that exhausts
+its event budget, is normally **scored as a leak**. The neutron balance
+then closes and `k_eff` looks entirely healthy, so a transport defect of
+this class is invisible in the reported eigenvalue and its uncertainty.
+This crate has already been bitten by exactly that: an HTR-10 core model
+in which **68.5 % of histories** ended on the event budget and were
+counted as leakage, with no outward sign in `k`.
+
+Call this on any case whose residual is being interpreted as physics.
+A non-zero `lost_locate` or `stuck_events` means some fraction of the
+answer is a geometry defect wearing a leakage costume, and the residual
+cannot be attributed to nuclear data until it is zero.
+
+**Interpreting the fields**
+
+- `lost_locate` — [`Geometry::locate`] failed to place a particle. Always
+  a defect; there is no physical configuration in which a point inside the
+  model has no cell.
+- `stuck_events` — the history hit the per-history event cap. Either the
+  geometry traps it (coincident or mis-sensed surfaces) or the cap is too
+  low for a legitimately long walk. `stuck_path_cm` and `stuck_last_e`
+  distinguish the two: a trapped particle accumulates almost no path.
+- `neg_dist` — a negative distance-to-boundary was returned.
+  `neg_from_lattice` splits out the lattice path, which is where the
+  coordinate-frame bugs of this crate's history have lived.
+
+All rates are expressed per history, because an absolute count is
+meaningless without the denominator.
+
+This writes to **stderr** so it composes with examples whose stdout is a
+machine-read data stream.
+
+```rust
+pub fn report_transport_losses(label: &str, r: &crate::physics::keff::KeffResult) { /* ... */ }
+```
+
+#### Function `report_source_convergence`
+
+Report source-convergence evidence for a k-eigenvalue run.
+
+**Why this is not optional.** A Monte Carlo eigenvalue run scores `k` while
+the fission source is still relaxing toward its fundamental mode if too few
+inactive generations were run. The result is a **bias, not a variance** —
+it does not shrink when you pool more seeds, and the reported `sem` gives
+no hint of it, because every seed is biased the same way. Pooling 32 seeds
+of a badly converged case produces a tight, confident, wrong number.
+
+Loosely coupled systems — large lattices, reflected assemblies, anything
+with a dominance ratio near 1 — need far more inactive generations than a
+compact bare sphere. Copying a settings block from one case to another is
+therefore not safe, which is exactly how this goes unnoticed.
+
+**The diagnostic.** Split the ACTIVE generations in half and compare the
+two means. Under a converged source the halves differ only by statistics;
+a systematic drift between them means the source was still moving while
+scoring, and `n_inactive` is too low. Shannon entropy over the fission
+source (`entropy`) is the companion check and is reported when present.
+
+`drift_pcm` is returned so a caller can gate on it rather than eyeball it.
+A drift comparable to, or larger than, the residual being interpreted means
+that residual cannot be attributed to nuclear data at all.
+
+```rust
+pub fn report_source_convergence(label: &str, r: &crate::physics::keff::KeffResult, n_inactive: usize) -> f64 { /* ... */ }
+```
+
+#### Function `source_convergence_drift_pcm`
+
+Active-phase drift in pcm, computed quietly (no printing).
+
+Splits the active generations in half and returns `(second - first)` in
+pcm. See [`report_source_convergence`] for what this measures and why it
+matters; this variant exists so the statistic can be **pooled across
+seeds**, which is the only way to tell a real convergence bias from noise.
+
+**Why pooling is the decisive test.** At one seed the drift carries an
+uncertainty comparable to its own size, so a single value proves nothing.
+A genuine convergence bias is *systematic* — the source relaxes the same
+way every time — so it survives averaging over independent seeds. Statistical
+scatter does not. Pooling `n` seeds shrinks the error by `sqrt(n)` while
+leaving a true bias untouched.
+
+Returns `NaN` when there are too few active generations to split.
+
+```rust
+pub fn source_convergence_drift_pcm(r: &crate::physics::keff::KeffResult, n_inactive: usize) -> f64 { /* ... */ }
+```
+
 ### Re-exports
 
 #### Re-export `assert_absolute`
@@ -39219,6 +57511,72 @@ pub use crate::geometry::cell::SurfaceToken;
 
 ```rust
 pub use crate::geometry::universe::Universe;
+```
+
+#### Re-export `render_material_slice`
+
+```rust
+pub use crate::geometry::plot::render_material_slice;
+```
+
+#### Re-export `Camera`
+
+```rust
+pub use crate::geometry::plot::Camera;
+```
+
+#### Re-export `ColourScheme`
+
+```rust
+pub use crate::geometry::plot::ColourScheme;
+```
+
+#### Re-export `ImageData`
+
+```rust
+pub use crate::geometry::plot::ImageData;
+```
+
+#### Re-export `LegendEntry`
+
+```rust
+pub use crate::geometry::plot::LegendEntry;
+```
+
+#### Re-export `PlotBasis`
+
+```rust
+pub use crate::geometry::plot::PlotBasis;
+```
+
+#### Re-export `PlotColourBy`
+
+```rust
+pub use crate::geometry::plot::PlotColourBy;
+```
+
+#### Re-export `Rgb`
+
+```rust
+pub use crate::geometry::plot::Rgb;
+```
+
+#### Re-export `SlicePlot`
+
+```rust
+pub use crate::geometry::plot::SlicePlot;
+```
+
+#### Re-export `SolidRayTracePlot`
+
+```rust
+pub use crate::geometry::plot::SolidRayTracePlot;
+```
+
+#### Re-export `WireframeRayTracePlot`
+
+```rust
+pub use crate::geometry::plot::WireframeRayTracePlot;
 ```
 
 #### Re-export `HexLattice`
@@ -39425,6 +57783,12 @@ pub use crate::tally::filter::DelayedGroupFilter;
 pub use crate::tally::filter::EnergyFilter;
 ```
 
+#### Re-export `EnergyOutFilter`
+
+```rust
+pub use crate::tally::filter::EnergyOutFilter;
+```
+
 #### Re-export `Filter`
 
 ```rust
@@ -39615,6 +57979,12 @@ pub use crate::physics::transport_csg::run_keff_csg_reactor_physics;
 
 ```rust
 pub use crate::physics::transport_csg::SourceBox;
+```
+
+#### Re-export `assemble_six_factors`
+
+```rust
+pub use crate::physics::reactor_physics::assemble_six_factors;
 ```
 
 #### Re-export `run_keff_reactor_physics`
@@ -39999,7 +58369,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:83:11: 83:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:83:10: 83:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:100:11: 100:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:100:10: 100:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -40045,7 +58415,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:93:11: 93:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:93:10: 93:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:110:11: 110:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:110:10: 110:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -40079,7 +58449,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:101:11: 101:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:101:10: 101:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:118:11: 118:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:118:10: 118:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -40131,7 +58501,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:113:11: 113:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:113:10: 113:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:130:11: 130:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:130:10: 130:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;
