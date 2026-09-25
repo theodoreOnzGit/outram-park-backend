@@ -788,3 +788,49 @@ The fixture this crate tests against is the same bytes as the reference copy
 gate is byte-identity, the stamp is asserted like any other line: regenerate
 the fixture under a different comment and the test fails at byte 47 rather than
 accepting it.
+
+## The ACE **reader** caught up with the writer (2026-09-25, GitHub #307)
+
+This crate could write far more of an ACE table than it could read. Five gaps
+were closed in one pass, and four of them had the same shape: *the block is in
+the file, the writer knows its layout exactly, and nothing looked.*
+
+| gap | reader | verified against | record |
+|---|---|---|---|
+| delayed neutrons | `acer::delayed::decode_delayed` (DNU, BDD) | the ENDF route's own λ, to 1e-16 | commit `6850cbc31` |
+| thermal S(α,β) | `acer::thermal_read::decode_thermal` | this crate's byte-verified writer, then the tape route (0.952 % worst on σ_total) | [`thermal_from_ace/`](verification_and_validation/thermal_from_ace/thermal_from_ace_2026_09_25.md) |
+| DLW laws beyond {3,4,44,61} | `decode_energy_law` now reads every law upstream reads | **OpenMC's own Python reader** on four NJOY2016 tables | [`dlw_law_family/`](verification_and_validation/dlw_law_family/dlw_law_family_2026_09_25.md) |
+| photon production | `acer::photon_read::decode_photon_production` (all seven blocks) | OpenMC's reader on U-235's 583 subsections | [`photon_production_read/`](verification_and_validation/photon_production_read/photon_production_read_2026_09_25.md) |
+| URR probability tables | `purr::UrrProbabilityTables::from_ace` | the ENDF route, 6 significant figures | [`urr_from_ace/`](verification_and_validation/urr_from_ace/urr_from_ace_2026_09_25.md) |
+
+**A census is a statement about the files it was taken over.** The DLW reader
+refused laws 7, 9, 11, 66 and every `LNW` chain, citing a census of
+`reference-data/ace` — which holds U-234, U-235 and U-238 and nothing else. Four
+tapes **already committed** in `reference-data/endf/` produce those laws through
+the same NJOY deck: H-2 MT=16 is law 66, C-12 MT=28/91 and Na-23 MT=16 are law 9,
+and Na-23 MT=91 is a two-law chain whose applicabilities switch at 12 MeV. So
+`Nuclide::from_ace` could not build three of the commonest light nuclides here,
+and nothing failed because the actinides worked. The census in
+`acer::ce_laws`'s module doc now names its tapes.
+
+**Refusals now cite upstream rather than implying the gap is ours.** ACE LAW=5 is
+dispatched by OpenMC and then raises `NotImplementedError` in
+`GeneralEvaporation.from_ace`; LAW=67 is refused by OpenMC too, and NJOY's ACER
+converts the ENDF form it comes from (Be-9's MF=6 LAW=7) into ACE law 61, so it
+never appears. Both measured, both stated in the error text.
+
+**One reader per format, not one per block.** DLWP has DLW's layout, so the
+photon path calls `ce_laws::decode_law_chain`; ANDP has AND's, so it calls
+`decode_angular_block`. That is why ACE LAW=2 (a discrete line) is decoded in
+`ce_laws` — the photon block needs it — even though a neutron table never uses
+it. Law 66 rebuilds its shape with `law66_shape_table` (the writer's own port of
+`acelf6`'s grid, now public) and scales it with
+`nuclear_data::secondary::phase_space_chi`, shared with the ENDF MF=6 LAW=6 path
+so the two routes cannot disagree about `E'_max(E)`.
+
+**A stale claim fixed in the same pass.** `parse_mf5_section` said ENDF LF=5 was
+unported "because no evaluation in `reference-data/endf/` uses it". Seven tapes do
+— all on **MT=455** — and `mf5_lf_survey` walks MT ∈ {18, 16, 91, 5} only, so it
+could never have failed. Nothing was degraded (the delayed spectrum is dropped on
+both routes, and ACER linearises those sections into ACE LAW=4), but the comment
+was untrue about the data.

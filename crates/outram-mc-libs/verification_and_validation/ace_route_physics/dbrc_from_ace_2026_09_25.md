@@ -86,3 +86,86 @@ samples the wrong target mass.
   ACE route requires the caller to hold a 0 K companion. That is a real
   operational cost of the ACE route relative to the ENDF one, where `from_tape`
   has the unbroadened RECONR output in hand already.
+
+---
+
+# Item 4 — the pairing happens by itself now
+
+Implemented and measured **2026-09-25**, same day, after the above.
+
+## What was still wrong
+
+Everything above made DBRC *possible* on the ACE route. It left the **pairing** to
+the caller: build the broadened nuclide, notice DBRC is off, find the 0 K
+companion, read it, call `with_elastic_0k_from_ace`. Four steps, the first of
+which is "notice".
+
+A physics default that has to be noticed is not a default. It is the same defect
+the workspace's *"correct physics is the DEFAULT SETTING, not an opt-in"* rule was
+written about, one level up: the term was no longer behind a flag, it was behind
+knowing that a second file existed. The ENDF route asks nothing of a caller —
+`from_tape` broadens from unbroadened RECONR output and has the 0 K elastic in
+hand — so the ACE route asking for four steps is an asymmetry, not a convenience.
+
+## What was implemented
+
+`Nuclide::from_ace_file(path, name)` — the ordinary entry point for a file, which
+reads the table (Type 1, Type 2 or gzipped; `acer::read::read` sniffs), builds the
+nuclide, and **if DBRC came out off for want of 0 K elastic** searches for the
+companion in the three layouts ACE libraries use:
+
+1. a **sibling temperature directory** — `…/293.6K/U235.ace.gz` →
+   `…/0K/U235.ace.gz`, which is how `reference-data/ace` is laid out. The parent
+   is treated as a temperature only if it ends in `K` and the rest parses as a
+   number, so a directory called `LANL` is left alone;
+2. a **`0K` subdirectory beside the file**, for a library that nests;
+3. the **temperature in the file name** — `U235.0K.ace.gz` and `U235_0K.ace.gz`,
+   with the suffix before the whole extension chain rather than inside it.
+
+`zero_kelvin_companion_candidates` is public so a library with a fourth layout can
+be searched by the caller rather than by patching that list, and
+`Nuclide::zero_kelvin_companion_report` prints the candidates with `FOUND`/`absent`
+— because when DBRC is off the question is always *where should it have been*, and
+a list of paths answers it where a sentence cannot.
+
+**A candidate that exists and is not usable is an error, not a silent skip.** A
+file sitting in a library's `0K/` directory under this nuclide's name that turns
+out to be a different nuclide, or not at 0 K, is a setup mistake worth hearing
+about; `with_elastic_0k_from_ace`'s two refusals (wrong ZA, non-zero `kT`) are
+wrapped with the path that failed. A companion that is simply **absent** is not an
+error: the nuclide comes back with DBRC off and the reason says so.
+
+## Results (2026-09-25)
+
+Run on the real submodule, not a temporary directory —
+`reference-data/ace` ships U-235 at both temperatures, which is layout 1:
+
+```
+0 K companion search for …/endf-b-viii.0/293.6K/U235.ace.gz:
+  [FOUND ] …/endf-b-viii.0/0K/U235.ace.gz
+  [absent] …/endf-b-viii.0/293.6K/0K/U235.ace.gz
+  [absent] …/endf-b-viii.0/293.6K/U235.0K.ace.gz
+  [absent] …/endf-b-viii.0/293.6K/U235_0K.ace.gz
+
+from_ace(&hot)        -> has_dbrc = false  (reason: no 0 K elastic …)
+from_ace_file(hot)    -> has_dbrc = true,  123 887 DBRC table points
+from_ace(&cold)       -> has_dbrc = true,  123 887 DBRC table points
+```
+
+The paired table is asserted to be the **same length** as the one the 0 K table
+gives directly, so the pairing is checked to have used the companion's grid rather
+than to have merely turned a flag on.
+
+Gates: `outram-mc-libs`'s `tests/dbrc_from_ace.rs` — 6 passed, of which
+`from_ace_file_finds_the_0k_companion_in_the_reference_library` and
+`the_companion_search_covers_the_three_documented_layouts` are new.
+
+## What this does not claim
+
+- **No `k` is re-measured here.** The worth of DBRC on LCT-008 is the separate
+  measurement in [`urr_dbrc_worth_2026_09_25.md`](urr_dbrc_worth_2026_09_25.md),
+  which reported a bound rather than a difference; this change makes the term
+  reachable without asking, it does not re-price it.
+- **The search is a list of conventions, not a discovery mechanism.** A library
+  that stores its 0 K table under a name none of the three layouts predicts is not
+  found, and the report is what says so.

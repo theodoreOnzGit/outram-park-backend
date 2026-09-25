@@ -299,7 +299,24 @@ pub fn decode_angular(
     i: usize,
     lct: i32,
 ) -> Result<Option<ElasticAngular>, NjoyError> {
-    let land = t.jxs[jxs::LAND];
+    decode_angular_block(t, t.jxs[jxs::LAND], t.jxs[jxs::AND], i, lct)
+}
+
+/// [`decode_angular`] against **named** locator and data blocks, so the
+/// photon-production pair (`LANDP`/`ANDP`, `JXS(16..17)`) reads through the same
+/// code as the neutron one (`LAND`/`AND`).
+///
+/// `land`/`and` are the `JXS` values as stored — 1-based into `XSS`, `0` meaning
+/// the block is absent. Upstream reads both pairs through one
+/// `AngleDistribution.from_ace` for exactly this reason
+/// (`reaction.py:686` passes `ace.jxs[17]`, `:357` passes `ace.jxs[9]`).
+pub fn decode_angular_block(
+    t: &RawAceTable,
+    land: i32,
+    and: i32,
+    i: usize,
+    lct: i32,
+) -> Result<Option<ElasticAngular>, NjoyError> {
     if land <= 0 {
         return Ok(None);
     }
@@ -312,7 +329,6 @@ pub fn decode_angular(
         // Angle is carried inside the DLW law itself (LAW=44/61).
         return Ok(None);
     }
-    let and = t.jxs[jxs::AND];
     if and <= 0 {
         return Err(NjoyError::EndfParse("LAND points into an absent AND block".into()));
     }
@@ -688,7 +704,7 @@ pub fn to_chi_and_angular(
 /// interpolation-region skip — `2 * NR` words that are read past, not used — is
 /// exactly the arithmetic that drifts between two copies, and `decode_nu`'s own
 /// comment records what it cost to get wrong once.
-pub(crate) fn read_tab1(
+pub fn read_ace_tab1(
     t: &RawAceTable,
     at: usize,
     what: &str,
@@ -841,7 +857,7 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
             // decoding without error.
             // The arithmetic the comment above is about now lives in one
             // place, `read_tab1`, which starts at the record's NR word.
-            let (energy, nu_total, _) = read_tab1(t, at + 1, "NU")?;
+            let (energy, nu_total, _) = read_ace_tab1(t, at + 1, "NU")?;
             Ok(Some(NuBar { energy, nu_total }))
         }
         other => Err(NjoyError::EndfParse(format!("ACE NU block LNU={other}"))),

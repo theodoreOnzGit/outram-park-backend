@@ -337,6 +337,62 @@ fn elastic_0k_from_ace(
 }
 
 
+/// Where a 0 K companion table for the broadened ACE file at `path` would be.
+///
+/// The paths, in search order, that [`Nuclide::from_ace_file`] tries. ACE
+/// libraries do not agree on a layout, so this knows the three spellings this
+/// workspace and the common distributions use, and is public so a caller with a
+/// fourth can search it themselves rather than patching this list:
+///
+/// 1. **A sibling temperature directory.** `.../293.6K/U235.ace.gz` ->
+///    `.../0K/U235.ace.gz`, which is how `reference-data/ace` is laid out. The
+///    parent directory is treated as a temperature only if it ends in `K` and
+///    parses as a number, so a directory called `LANL` is left alone.
+/// 2. **A `0K` subdirectory beside the file**, `.../293.6K/0K/U235.ace.gz`, for a
+///    library that nests rather than parallels.
+/// 3. **The same directory with the temperature in the file name**, both
+///    `U235.0K.ace` and `U235_0K.ace` spellings, keeping every extension
+///    (`.ace`, `.ace.gz`) the original had.
+///
+/// Empty when `path` has no file name. A 0 K table's own directory is `0K`, so
+/// candidate 1 resolves to the file itself — harmless, because
+/// [`Nuclide::from_ace_file`] only searches when the table it read was broadened.
+pub fn zero_kelvin_companion_candidates(path: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let Some(file) = path.file_name() else {
+        return Vec::new();
+    };
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    let dir = path.parent().unwrap_or(std::path::Path::new("."));
+
+    // 1. a sibling `0K` directory, when this file sits in a temperature one.
+    if let Some(name) = dir.file_name().and_then(|n| n.to_str()) {
+        let looks_like_temperature = name
+            .strip_suffix('K')
+            .is_some_and(|t| !t.is_empty() && t.parse::<f64>().is_ok());
+        if looks_like_temperature {
+            if let Some(up) = dir.parent() {
+                out.push(up.join("0K").join(file));
+            }
+        }
+    }
+    // 2. a `0K` subdirectory beside the file.
+    out.push(dir.join("0K").join(file));
+    // 3. the temperature in the file name, both spellings. `file_stem` on
+    //    `U235.ace.gz` gives `U235.ace`, so the suffix goes before the whole
+    //    extension chain rather than inside it.
+    if let Some(fname) = file.to_str() {
+        let (stem, ext) = match fname.find('.') {
+            Some(i) => (&fname[..i], &fname[i..]),
+            None => (fname, ""),
+        };
+        out.push(dir.join(format!("{stem}.0K{ext}")));
+        out.push(dir.join(format!("{stem}_0K{ext}")));
+    }
+    out.dedup();
+    out.retain(|c| c != path);
+    out
+}
+
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
 ///
 /// Two reactions need one: **MT=91** (continuum inelastic) and **MT=16**
@@ -1078,7 +1134,9 @@ impl Nuclide {
     /// A table broadened to its own temperature carries no 0 K elastic, so
     /// [`Self::from_ace`] leaves DBRC off for one. The data does exist, in the
     /// 0 K table for the same nuclide (`reference-data/ace` ships one for
-    /// U-235), and this is how to pair them:
+    /// U-235), and this is how to pair them **by hand** —
+    /// [`Self::from_ace_file`] does it for you when the companion is where a
+    /// library puts it, and is the entry point to prefer:
     ///
     /// ```text
     /// let n = Nuclide::from_ace(&hot, "U235")?          // 293.6 K, no DBRC
@@ -1130,6 +1188,88 @@ impl Nuclide {
         Ok(self.with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 
+    /// Build from an ACE **file**, pairing the 0 K companion automatically when
+    /// one is where a library puts it — GitHub #307 item 4.
+    ///
+    /// [`Self::from_ace`] takes a parsed table and, for a *broadened* one, has to
+    /// leave DBRC off: an ACE table's ESZ elastic column is at the table's own
+    /// temperature, and DBRC needs the unbroadened cross section. The data
+    /// exists — in the 0 K table for the same nuclide — but pairing them was the
+    /// caller's job, through [`Self::with_elastic_0k_from_ace`]. In practice a
+    /// caller who does not know DBRC exists does not call it, which is the
+    /// off-by-default failure the workspace's "correct physics is the default"
+    /// rule is about, one level up: the default is correct only if the ordinary
+    /// entry point reaches it.
+    ///
+    /// So this is the ordinary entry point. It reads `path` (Type 1, Type 2 or
+    /// gzipped — [`njoy_outram_park_fork::acer::read::read`] sniffs), builds the
+    /// nuclide, and if DBRC came out off for want of 0 K elastic it tries each
+    /// path [`zero_kelvin_companion_candidates`] names, in order, taking the
+    /// first that exists.
+    ///
+    /// A 0 K table needs no companion and gets none: its own ESZ column *is* the
+    /// unbroadened elastic, so [`Self::from_ace`] already attached DBRC.
+    ///
+    /// # Errors
+    ///
+    /// The table cannot be read or decoded, or **a candidate companion exists and
+    /// is not usable** — the wrong nuclide, or not at 0 K. That is an error and
+    /// not a silent skip: a file sitting in a library's `0K/` directory under this
+    /// nuclide's name, which turns out to be something else, is a setup mistake
+    /// worth hearing about. A companion that is simply *absent* is not an error —
+    /// the nuclide comes back with DBRC off and
+    /// [`Self::dbrc_unavailable_reason`] says so.
+    pub fn from_ace_file<P: AsRef<std::path::Path>>(
+        path: P,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        let path = path.as_ref();
+        let table = njoy_outram_park_fork::acer::read::read(path)?;
+        let built = Self::from_ace(&table, name)?;
+        if built.has_dbrc() || !built.elastic_0k.is_empty() {
+            return Ok(built);
+        }
+        for cand in zero_kelvin_companion_candidates(path) {
+            if !cand.is_file() {
+                continue;
+            }
+            let companion = njoy_outram_park_fork::acer::read::read(&cand)?;
+            return built.with_elastic_0k_from_ace(&companion).map_err(|e| {
+                NjoyError::EndfParse(format!(
+                    "{} looks like the 0 K companion of {} but cannot be used: {e}",
+                    cand.display(),
+                    path.display()
+                ))
+            });
+        }
+        Ok(built)
+    }
+
+    /// What [`Self::from_ace_file`] looked for, and what it found — the
+    /// diagnostic half of the pairing.
+    ///
+    /// One line per candidate, marked `FOUND` or `absent`, in search order. Worth
+    /// printing when DBRC came out off and the reason is "no 0 K elastic": the
+    /// question is then always *where should it have been*, and a list of paths
+    /// answers it where a sentence cannot.
+    pub fn zero_kelvin_companion_report<P: AsRef<std::path::Path>>(path: P) -> String {
+        let path = path.as_ref();
+        let cands = zero_kelvin_companion_candidates(path);
+        if cands.is_empty() {
+            return format!(
+                "no 0 K companion candidates for {}: its path matches none of the \
+                 layouts `zero_kelvin_companion_candidates` knows",
+                path.display()
+            );
+        }
+        let mut out = format!("0 K companion search for {}:\n", path.display());
+        for c in cands {
+            let mark = if c.is_file() { "FOUND " } else { "absent" };
+            out.push_str(&format!("  [{mark}] {}\n", c.display()));
+        }
+        out
+    }
+
     /// Why DBRC is **off**, when it is — GitHub #307 item 3.
     ///
     /// `None` means DBRC is on. `Some(reason)` says which of the two causes
@@ -1144,9 +1284,12 @@ impl Nuclide {
         Some(if self.elastic_0k.is_empty() {
             "no 0 K elastic cross section is available. An ACE table's ESZ \
              elastic column is at the table's own temperature, so a broadened \
-             table cannot supply it; pair this nuclide with its 0 K companion \
-             through `with_elastic_0k_from_ace`. Built from ENDF, `from_tape` \
-             supplies it from the unbroadened RECONR output."
+             table cannot supply it. Build through `Nuclide::from_ace_file`, \
+             which finds the 0 K companion beside the table and pairs it \
+             automatically (`Nuclide::zero_kelvin_companion_report` lists where \
+             it looked), or pair one by hand with `with_elastic_0k_from_ace`. \
+             Built from ENDF, `from_tape` supplies it from the unbroadened \
+             RECONR output."
                 .to_string()
         } else {
             format!(
@@ -1351,7 +1494,11 @@ impl Nuclide {
     /// | `chi` | DLW LAW=4 on the fission MT |
     /// | elastic angular | AND, centre-of-mass |
     /// | inelastic angular | AND per reaction, frame from the sign of TYR |
-    /// | continuum laws | DLW LAW=44 (Kalbach) / LAW=61 (tabulated cosine) |
+    /// | continuum laws | DLW LAW=44 (Kalbach) / LAW=61 (tabulated cosine) / LAW=66 (`n`-body phase space) |
+    /// | uncorrelated laws | DLW LAW=7/9/11 (Maxwell / evaporation / Watt) with AND's cosine — and an `LNW` chain of them as a mixture |
+    /// | `urr` | UNR probability tables, **on by default** |
+    /// | `delayed` | DNU + BDD |
+    /// | `elastic_0k`, `dbrc` | ESZ elastic of a 0 K table, or its 0 K companion |
     ///
     /// # What is NOT in this path — stated, not defaulted
     ///
@@ -1379,17 +1526,39 @@ impl Nuclide {
     ///   carry it, in its own ESZ elastic column, and DBRC now attaches **by
     ///   default** from one. It is still absent for a table broadened to
     ///   293.6 K, because the 0 K data is genuinely not in such a file; pair it
-    ///   with its 0 K companion via [`Self::with_elastic_0k_from_ace`], and ask
+    ///   with its 0 K companion — [`Self::from_ace_file`] finds it, or
+    ///   [`Self::with_elastic_0k_from_ace`] takes one — and ask
     ///   [`Self::dbrc_unavailable_reason`] rather than inferring why DBRC is
     ///   off. The old text was right about the broadened case and wrong to
     ///   state it unconditionally.
-    /// - **S(α,β)** lives in a separate thermal `.t` table, not this one.
+    /// - **S(α,β)** lives in a separate thermal `.t` table, not this one. Since
+    ///   2026-09-25 one can be read —
+    ///   [`ThermalScattering::from_ace`](crate::material::thermal::ThermalScattering::from_ace)
+    ///   — and attached with [`Self::with_thermal_scattering`].
+    /// - **Photon production** (`MTRP`/`LSIGP`/`SIGP`/`LANDP`/`ANDP`/`LDLWP`/
+    ///   `DLWP`) is **out of scope for this type, by design** — the one entry in
+    ///   this list that is a scope decision rather than an omission, so it is
+    ///   marked as such instead of reading like unfinished work. This crate
+    ///   transports **neutrons only** (see
+    ///   [`crate::tally::filter`]), so a `Nuclide` has nowhere to put a photon
+    ///   yield, a photon spectrum or a photon cosine law, and carrying them
+    ///   would be data no kernel reads.
+    ///
+    ///   The blocks are **not unread**, which is the part worth knowing:
+    ///   [`njoy_outram_park_fork::acer::photon_read::decode_photon_production`]
+    ///   decodes all seven of them, verified against OpenMC's own reader on
+    ///   U-235's 583 subsections. Whoever adds photon transport starts from a
+    ///   decoder, not from a format. The ACE DLW `LAW=2` variant exists for the
+    ///   same reason: the photon block's energy laws are read by the same code
+    ///   as the neutron block's.
     ///
     /// # Errors
     ///
-    /// A table that is not continuous-energy neutron data, or whose DLW
-    /// carries a law outside {3, 4, 44, 61}. Refusing is deliberate: a law
-    /// silently skipped is a reaction whose secondaries are wrong.
+    /// A table that is not continuous-energy neutron data, or whose DLW carries
+    /// a law outside the set upstream reads (`{2, 3, 33, 4, 7, 9, 11, 44, 61,
+    /// 66}` since GitHub #307 item 3; `5` and `67` are refused for the reasons
+    /// `acer::ce_laws` records). Refusing is deliberate: a law silently skipped
+    /// is a reaction whose secondaries are wrong.
     pub fn from_ace(
         table: &njoy_outram_park_fork::acer::read::RawAceTable,
         name: &str,
@@ -1682,7 +1851,8 @@ impl Nuclide {
             // - a table broadened to 293.6 K carries 0 K elastic **nowhere**,
             //   and no amount of reading will find it. That is a property of
             //   the file, not of this reader. Pair it with its 0 K companion
-            //   through [`Self::with_elastic_0k_from_ace`], or ask
+            //   through [`Self::from_ace_file`] (which searches for it) or
+            //   [`Self::with_elastic_0k_from_ace`], or ask
             //   [`Self::dbrc_unavailable_reason`] why DBRC is off rather than
             //   guessing.
             //

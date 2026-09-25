@@ -161,3 +161,91 @@ fn a_broadened_companion_is_refused() {
         "and why it matters, since the result would otherwise look plausible: {m}"
     );
 }
+
+/// **The pairing happens by itself when the companion is where a library puts
+/// it** — GitHub #307 item 4.
+///
+/// Items 1-3 made DBRC *possible* on the ACE route and left the pairing to the
+/// caller. A physics default a caller has to know about is not a default: the
+/// ENDF route needs nothing asked of it, and so should this. `from_ace_file`
+/// reads the broadened table, sees that DBRC came out off for want of 0 K
+/// elastic, and looks for the 0 K companion in the three places a library puts
+/// it.
+///
+/// `reference-data/ace` is the first of those layouts —
+/// `endf-b-viii.0/293.6K/U235.ace.gz` beside `endf-b-viii.0/0K/U235.ace.gz` —
+/// so this runs on the real library rather than on a temporary directory.
+///
+/// # Results (2026-09-25)
+///
+/// `from_ace(&hot)` gives DBRC **off** with the "no 0 K elastic" reason;
+/// `from_ace_file(hot_path)` on the same table gives DBRC **on**, with the same
+/// grid length the 0 K table gives directly. The search report is printed.
+#[test]
+fn from_ace_file_finds_the_0k_companion_in_the_reference_library() {
+    let rel = "reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz";
+    let Some(hot_path) = ace_reference_file_or_skip(rel, "dbrc-from-ace/auto-pair") else {
+        return;
+    };
+    print!("{}", Nuclide::zero_kelvin_companion_report(&hot_path));
+
+    // The hand-fed route, for contrast: a broadened table alone cannot do it.
+    let hot = read::read(&hot_path).expect("read the 293.6 K table");
+    let unpaired = Nuclide::from_ace(&hot, "U235").expect("construct from the hot table");
+    assert!(
+        !unpaired.has_dbrc(),
+        "a broadened table has no 0 K elastic, so DBRC must be off"
+    );
+
+    // The ordinary entry point, which finds the companion itself.
+    let paired = Nuclide::from_ace_file(&hot_path, "U235").expect("build and pair");
+    assert!(
+        paired.has_dbrc(),
+        "from_ace_file must pair the 0 K companion: {}",
+        paired.dbrc_unavailable_reason().unwrap_or_default()
+    );
+    assert!(paired.dbrc_unavailable_reason().is_none());
+
+    // And the grid it paired is the 0 K table's own, not the hot table's.
+    let Some(cold) = table("0K", "dbrc-from-ace/auto-pair-cold") else { return };
+    let direct = Nuclide::from_ace(&cold, "U235").expect("construct from the 0 K table");
+    assert_eq!(
+        paired.dbrc_table().map(|t| t.len()),
+        direct.dbrc_table().map(|t| t.len()),
+        "the paired DBRC table must be the one the 0 K table gives directly"
+    );
+    println!(
+        "from_ace_file(293.6 K) paired the 0 K companion: DBRC on, {} table points",
+        paired.dbrc_table().map(|t| t.len()).unwrap_or(0)
+    );
+}
+
+/// The candidate list is a documented set of layouts, so it is asserted rather
+/// than left to whatever a directory happens to contain.
+#[test]
+fn the_companion_search_covers_the_three_documented_layouts() {
+    use outram_mc_libs::material::nuclide::zero_kelvin_companion_candidates;
+    let c = zero_kelvin_companion_candidates(std::path::Path::new(
+        "/lib/endf-b-viii.0/293.6K/U235.ace.gz",
+    ));
+    let strs: Vec<String> = c.iter().map(|p| p.display().to_string()).collect();
+    assert!(
+        strs.contains(&"/lib/endf-b-viii.0/0K/U235.ace.gz".to_string()),
+        "the sibling temperature directory is the reference-data/ace layout: {strs:?}"
+    );
+    assert!(strs.contains(&"/lib/endf-b-viii.0/293.6K/0K/U235.ace.gz".to_string()));
+    // The suffix goes before the whole extension chain, not inside it: a
+    // `U235.ace.0K.gz` would not be found by anything.
+    assert!(strs.contains(&"/lib/endf-b-viii.0/293.6K/U235.0K.ace.gz".to_string()), "{strs:?}");
+    assert!(strs.contains(&"/lib/endf-b-viii.0/293.6K/U235_0K.ace.gz".to_string()));
+
+    // A directory that is not a temperature must not be rewritten.
+    let c2 = zero_kelvin_companion_candidates(std::path::Path::new("/lib/LANL/U235.ace"));
+    let strs2: Vec<String> = c2.iter().map(|p| p.display().to_string()).collect();
+    assert!(
+        !strs2.iter().any(|s| s == "/lib/0K/U235.ace"),
+        "`LANL` is not a temperature: {strs2:?}"
+    );
+    assert!(strs2.contains(&"/lib/LANL/0K/U235.ace".to_string()));
+    println!("companion candidates for a 293.6K-directory table: {strs:?}");
+}

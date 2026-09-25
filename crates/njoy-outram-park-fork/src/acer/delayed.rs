@@ -40,7 +40,7 @@
 //! this decodes DNU and BDD and says why the other two are absent rather than
 //! leaving a reader to wonder.
 
-use crate::acer::ce_laws::read_tab1;
+use crate::acer::ce_laws::read_ace_tab1;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
 use crate::error::NjoyError;
@@ -93,7 +93,7 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
     // DNU: `LNU` at the locator, the TAB1 immediately after it. Only LNU=2
     // (tabular) occurs for delayed nu-bar; upstream reads it unconditionally as
     // a TAB1, and a polynomial delayed yield is not a form ACER emits.
-    let (energy, nu_delayed, _) = read_tab1(t, (dnu - 1) as usize + 1, "DNU delayed nu-bar")?;
+    let (energy, nu_delayed, _) = read_ace_tab1(t, (dnu - 1) as usize + 1, "DNU delayed nu-bar")?;
 
     // BDD: per group, the decay constant then the probability TAB1.
     let bdd = t.jxs[jxs::BDD];
@@ -117,7 +117,7 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
         // **Inverse shakes -> inverse seconds.** See the module docs: omitting
         // this is eight orders of magnitude and looks like a number.
         lambda.push(t.xss[at] / SECONDS_PER_SHAKE);
-        let (e, p, next) = read_tab1(t, at + 1, &format!("BDD group {g} probability"))?;
+        let (e, p, next) = read_ace_tab1(t, at + 1, &format!("BDD group {g} probability"))?;
         group_fraction.push(e.into_iter().zip(p).collect::<Vec<(f64, f64)>>());
         at = next;
     }
