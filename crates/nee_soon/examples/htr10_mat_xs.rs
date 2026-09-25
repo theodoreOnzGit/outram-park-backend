@@ -42,6 +42,7 @@ fn main() {
         Some(c_sic),
         Some(si29),
         Some(si30),
+        Some(b11),
     ) = (
         l("U235", "n-092_U_235-ENDF8.0.endf"),
         l("U238", "n-092_U_238.endf"),
@@ -53,7 +54,9 @@ fn main() {
         l("C12", "n-006_C_012-ENDF8.0.endf"),
         l("Si29", "n-014_Si_029-ENDF8.0.endf"),
         l("Si30", "n-014_Si_030-ENDF8.0.endf"),
-    ) else {
+        l("B11", "n-005_B_011-ENDF8.0.endf"), // 10: B-11 (gh:#311)
+    )
+    else {
         println!("SKIP: no endf dir");
         return;
     };
@@ -71,6 +74,8 @@ fn main() {
         bind_sic(c_sic, &c_in_sic),
         bind_sic(si29, &si_in_sic),
         bind_sic(si30, &si_in_sic),
+        // 10: B-11 (gh:#311).
+        b11,
     ];
     let idx = Htr10Nuclides {
         u235: 0,
@@ -84,6 +89,7 @@ fn main() {
         c_sic: 7,
         si29: 8,
         si30: 9,
+        b11: 10,
     };
     let mut mats = fuel_pebble_materials(idx, BoronReading::Natural, 293.6);
     mats.truncate(6);

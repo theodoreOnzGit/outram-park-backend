@@ -129,11 +129,10 @@
 
 use std::sync::Arc;
 
-
 use nee_soon::genfoam_xs::to_nuclear_data_input;
 use nee_soon::htr10_rmc::core_model::{
-    HTR10_AXIAL_REFLECTOR_CM,
-    assemble_explicit_triso, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
+    HTR10_AXIAL_REFLECTOR_CM, assemble_explicit_triso, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON,
+    PAPER_FILLING_FRACTION,
 };
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure, MgxsLibrary};
@@ -171,6 +170,7 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     c_sic: 7,
     si29: 8,
     si30: 9,
+    b11: 10,
 };
 
 fn env_usize(key: &str, default: usize) -> usize {
@@ -218,6 +218,7 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
         bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
         bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+        load("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
     ])
 }
 
@@ -371,9 +372,7 @@ fn main() {
     // resonances (6.67, 20.9, 36.7 eV); 1.35 MeV is near the U-238 fast-fission
     // threshold. A log-uniform grid spends its resolution where nothing happens
     // and puts no boundary across the resonances at all.
-    const WIMS8: [f64; 9] = [
-        1.0e-5, 0.14, 0.625, 4.0, 29.0, 130.0, 9.12e3, 1.35e6, 2.0e7,
-    ];
+    const WIMS8: [f64; 9] = [1.0e-5, 0.14, 0.625, 4.0, 29.0, 130.0, 9.12e3, 1.35e6, 2.0e7];
     let edges: Vec<f64> = match n_groups {
         2 => vec![1.0e-5, 2.38, 2.0e7],
         8 => WIMS8.to_vec(),
@@ -383,7 +382,9 @@ fn main() {
             println!("  NOTE: {n} groups requested -- no placed structure for that count,");
             println!("        falling back to a log-uniform grid. Use 8 for the WIMS-style one.");
             let (l0, l1) = (1.0e-5_f64.ln(), 2.0e7_f64.ln());
-            (0..=n).map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp()).collect()
+            (0..=n)
+                .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+                .collect()
         }
     };
     let groups = GroupStructure::new(edges).expect("ascending edges");
@@ -534,11 +535,11 @@ fn main() {
     // with the algebraic k_inf of its own input.
     println!("\n  balance: Sigma_t vs Sigma_a + sum_g' Sigma_s,g->g'");
     for (name, rows) in sys.balance_check() {
-        let worst = rows
-            .iter()
-            .map(|(_, _, r)| r.abs())
-            .fold(0.0_f64, f64::max);
-        println!("    {name:<38} worst |discrepancy| = {:.1} %", 100.0 * worst);
+        let worst = rows.iter().map(|(_, _, r)| r.abs()).fold(0.0_f64, f64::max);
+        println!(
+            "    {name:<38} worst |discrepancy| = {:.1} %",
+            100.0 * worst
+        );
         for (g, (t, rebuilt, rel)) in rows.iter().enumerate() {
             println!(
                 "      g{g}: Sigma_t {t:.5e}   Sigma_a+Sigma_s {rebuilt:.5e}   {:+.1} %",
@@ -607,7 +608,10 @@ fn main() {
     let pcm = |a: f64, b: f64| (a - b) * 1.0e5;
 
     println!("\n=== k_inf: Monte Carlo tallies vs deterministic solvers ===\n");
-    println!("  (the leaky Monte Carlo k_eff for this geometry was {:.6}; it is NOT", mc.k_mean);
+    println!(
+        "  (the leaky Monte Carlo k_eff for this geometry was {:.6}; it is NOT",
+        mc.k_mean
+    );
     println!("   the comparison target -- the deterministic solve below has no leakage)\n");
     // ---- WHERE DOES THE ABSORPTION THE SOLVER SEES COME FROM? ----
     //
@@ -673,17 +677,19 @@ fn main() {
             "  balance: k_eff/(1-L) = {implied:.6} implies k_inf; tallied is {k_inf_mc:.6} ({err:+.0} pcm)"
         );
         if k_inf_mc < mc.k_mean {
+            println!("  *** IMPOSSIBLE: tallied k_inf < k_eff. A leaking system cannot exceed its");
             println!(
-                "  *** IMPOSSIBLE: tallied k_inf < k_eff. A leaking system cannot exceed its"
+                "  *** own infinite-medium multiplication. The condensation is wrong (op-ra9f),"
             );
-            println!("  *** own infinite-medium multiplication. The condensation is wrong (op-ra9f),");
             println!("  *** and nothing below may be quoted as agreement with the Monte Carlo.");
         } else if err.abs() > 1000.0 {
             println!("  *** WARNING: condensation and eigenvalue disagree by >1000 pcm (op-ra9f).");
         }
     }
-    println!("  Monte Carlo eigenvalue (leaky, the target)   k_eff = {:.6} +/- {:.6}",
-             mc.k_mean, mc.k_std);
+    println!(
+        "  Monte Carlo eigenvalue (leaky, the target)   k_eff = {:.6} +/- {:.6}",
+        mc.k_mean, mc.k_std
+    );
     // WHICH REFERENCE GOES WITH WHICH ARM -- this has been got wrong twice.
     //
     // `solved` is `sys.with_buckling(b)`: leakage has been DELIBERATELY added
@@ -772,11 +778,16 @@ fn main() {
         println!("    SP3 - diffusion = {d:+7.0}");
         println!();
         if d.abs() < 10.0 {
-            println!("  SP3 reproduces diffusion to {:.0} pcm, as it must in an isotropic", d.abs());
+            println!(
+                "  SP3 reproduces diffusion to {:.0} pcm, as it must in an isotropic",
+                d.abs()
+            );
             println!("  medium. That is a HARNESS CHECK on the SP3 wiring, not evidence that");
             println!("  SP3 adds anything here -- it cannot, and is not expected to.");
         } else {
-            println!("  WARNING: SP3 and diffusion differ by {d:+.0} pcm in an INFINITE HOMOGENEOUS");
+            println!(
+                "  WARNING: SP3 and diffusion differ by {d:+.0} pcm in an INFINITE HOMOGENEOUS"
+            );
             println!("  MEDIUM, where the flux is isotropic and SP3 must reduce to diffusion.");
             println!("  That is a defect in the SP3 wiring or the second-moment boundary");
             println!("  treatment, NOT transport physics diffusion is missing. Do not read the");
@@ -892,8 +903,7 @@ fn main() {
                     )
                     .expect("two-zone mesh"),
                 );
-                let zone2: Vec<usize> =
-                    (0..N).map(|c| if c * 5 < 90 { 0 } else { 1 }).collect();
+                let zone2: Vec<usize> = (0..N).map(|c| if c * 5 < 90 { 0 } else { 1 }).collect();
 
                 // The comparison that matches the reference: zero leakage.
                 let bc_refl = vec![
@@ -984,8 +994,7 @@ fn main() {
                     )
                     .expect("volume-matched mesh"),
                 );
-                let zone_v: Vec<usize> =
-                    (0..NV).map(|c| if c * 5 < 90 { 0 } else { 1 }).collect();
+                let zone_v: Vec<usize> = (0..NV).map(|c| if c * 5 < 90 { 0 } else { 1 }).collect();
                 println!(
                     "  volume-matched slab: reflector:bed = {:.3} (target {:.3} from r-z)",
                     (NV - 18) as f64 / 18.0,
@@ -1132,7 +1141,8 @@ fn main() {
                 // relative to a true r-z model. This is stated, not corrected.
                 println!("\n=== LEAKY model: k_eff vs k_eff, real boundary conditions ===");
                 {
-                    let g_zone = sys_all.homogenised_subset(&[mat::REFLECTOR], "reflector graphite");
+                    let g_zone =
+                        sys_all.homogenised_subset(&[mat::REFLECTOR], "reflector graphite");
                     let bored = sys_all.homogenised_subset(&[9usize], "bored band");
                     let boronated = sys_all.homogenised_subset(&[8usize], "boronated carbon");
                     let helium = sys_all.homogenised_subset(&[mat::HELIUM], "coolant helium");
@@ -1153,12 +1163,14 @@ fn main() {
                     // and make the bridge refuse the whole library. Printing
                     // this BEFORE the solve turns "refused" into a diagnosis.
                     for z in &radial.zones {
-                        let empty: Vec<usize> = (0..z.flux.len())
-                            .filter(|&g| z.flux[g] <= 0.0)
-                            .collect();
+                        let empty: Vec<usize> =
+                            (0..z.flux.len()).filter(|&g| z.flux[g] <= 0.0).collect();
                         let total: f64 = z.flux.iter().sum();
                         if empty.is_empty() {
-                            println!("  zone {:<22} all groups populated, flux sum {total:.4e}", z.name);
+                            println!(
+                                "  zone {:<22} all groups populated, flux sum {total:.4e}",
+                                z.name
+                            );
                         } else {
                             println!(
                                 "  zone {:<22} EMPTY groups {empty:?}, flux sum {total:.4e}",

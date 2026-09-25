@@ -61,6 +61,7 @@ const M_O16: f64 = 15.994_914_6;
 const M_C: f64 = 12.011;
 const M_SI: f64 = 28.0855;
 const M_B10: f64 = 10.0129;
+const M_B11: f64 = 11.0093;
 
 /// Fuel enrichment as a **weight** fraction of U-235 in uranium (Table 2: 17 %).
 ///
@@ -84,9 +85,11 @@ pub const B_PPM_GRAPHITE: f64 = 1.3;
 
 /// B-10 **weight** fraction of natural boron (19.9 at% B-10 / 80.1 at% B-11).
 ///
-/// B-11 is left out of the compositions below: its absorption cross section is
-/// ~0.005 b against B-10's ~3840 b, and at 1.3 ppm its scattering contributes
-/// nothing. Only the absorber is modelled.
+/// ~~B-11 is left out of the compositions below~~ **Placed since 2026-09-25
+/// (gh:#311).** Its absorption (~0.005 b against B-10's ~3840 b) and, at 1.3
+/// ppm, its scattering are both negligible here -- but the reference states
+/// natural boron, `nee_soon::rod_insertion` already splits it, and the model
+/// realises the stated composition rather than the part that matters.
 pub const B10_WEIGHT_FRACTION_OF_NATURAL_B: f64 = 0.184_3;
 
 /// How the two "ppm" rows of Table 2 are read.
@@ -134,6 +137,17 @@ impl BoronReading {
             Self::Natural | Self::GraphiteOnly => B10_WEIGHT_FRACTION_OF_NATURAL_B,
             Self::None => 0.0,
             Self::AsElementalB10 => 1.0,
+        }
+    }
+
+    /// The B-11 weight fraction applied to the stated ppm under this reading:
+    /// the remainder of natural boron, or nothing when the ppm is read as
+    /// elemental B-10 (that arm puts ALL of it in B-10) or dropped.
+    #[must_use]
+    pub fn b11_fraction(self) -> f64 {
+        match self {
+            Self::Natural | Self::GraphiteOnly => 1.0 - B10_WEIGHT_FRACTION_OF_NATURAL_B,
+            Self::None | Self::AsElementalB10 => 0.0,
         }
     }
 
@@ -212,6 +226,12 @@ pub struct Htr10Nuclides {
     pub si29: usize,
     /// Si-30, bound in SiC. See [`Self::si29`].
     pub si30: usize,
+    /// B-11, the other 80.1 at.% of natural boron.
+    ///
+    /// Added 2026-09-25 (gh:#311). Every composition placed B-10 only, so the
+    /// boronated carbon brick (TECDOC zone 17) was ~3.5 % short on scattering
+    /// atoms. A scattering correction, not an absorption one.
+    pub b11: usize,
 }
 
 /// Natural silicon isotopic abundances, atom fractions (IUPAC).
@@ -244,6 +264,13 @@ pub fn b10_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 {
     atom_density(rho_host * ppm * 1.0e-6 * reading.b10_fraction(), M_B10)
 }
 
+/// B-11 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron, the
+/// companion of [`b10_atom_density`]. Zero under readings that place none.
+#[must_use]
+pub fn b11_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 {
+    atom_density(rho_host * ppm * 1.0e-6 * reading.b11_fraction(), M_B11)
+}
+
 /// The seven-material table for an HTR-10 fuel pebble, in the order
 /// [`DhUniverse::pebble`](crate::dh_universe::DhUniverse::pebble) requires:
 /// the five TRISO shells outward from the centre, then the fuel-zone matrix,
@@ -267,6 +294,8 @@ pub fn fuel_pebble_materials(
     let rho_u = RHO_UO2 * m_u / m_uo2;
     let n_b10_kernel = b10_atom_density(rho_u, boron.kernel_ppm(), boron);
     let gr_b10 = |rho: f64| b10_atom_density(rho, boron.graphite_ppm(), boron);
+    let n_b11_kernel = b11_atom_density(rho_u, boron.kernel_ppm(), boron);
+    let gr_b11 = |rho: f64| b11_atom_density(rho, boron.graphite_ppm(), boron);
 
     let mat = |id: i32, name: &str, comps: &[(usize, f64)]| Material {
         id,
@@ -287,7 +316,11 @@ pub fn fuel_pebble_materials(
         mat(
             id,
             name,
-            &[(n.c_graphite, atom_density(rho, M_C)), (n.b10, gr_b10(rho))],
+            &[
+                (n.c_graphite, atom_density(rho, M_C)),
+                (n.b10, gr_b10(rho)),
+                (n.b11, gr_b11(rho)),
+            ],
         )
     };
 
@@ -300,6 +333,7 @@ pub fn fuel_pebble_materials(
                 (n.u238, (1.0 - x5) * n_uo2),
                 (n.o16, 2.0 * n_uo2),
                 (n.b10, n_b10_kernel),
+                (n.b11, n_b11_kernel),
             ],
         ),
         graphite(1, "buffer PyC", RHO_BUFFER),

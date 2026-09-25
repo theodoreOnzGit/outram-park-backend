@@ -48,8 +48,10 @@
 //!   pebbles touch and their fuel zones meet; pebble-scale self-shielding and
 //!   Dancoff factors are those of welded columns, not a packing. The fix for
 //!   both is the two-ball sub-universe cell `bed.rs` already reconstructs.
-//! - gh:#311 — only B-10 is placed; B-11 (80 % of natural boron) is dropped, so
-//!   the boronated brick (zone 17) is ~3.5 % short on scattering atoms.
+//! - ~~gh:#311 — only B-10 is placed~~ **FIXED 2026-09-25**: B-11 now goes in
+//!   beside B-10 in every material, from the selected library, pinned by
+//!   `every_boron_bearing_material_carries_natural_b11`. Its worth is priced
+//!   on #311. Every k in this section predates it.
 //! - gh:#218 — the `+7` pcm/cm drift itself. Ruled out so far: nuclear data
 //!   (library term flat), source convergence, the cavity treatment, the
 //!   bottom-reflector mirroring (fixed `d619b2e77e`, worth `+27 +/- 42` pcm, no

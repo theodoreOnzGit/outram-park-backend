@@ -36,7 +36,9 @@ use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Ht
 use super::core_model::{mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION};
 use super::reflector::zone_composition;
 
-/// Natural boron is 19.9 at.% B-10; the rest is effectively a non-absorber.
+/// Natural boron is 19.9 at.% B-10; the other 80.1 at.% is B-11, a
+/// non-absorber that is placed anyway (gh:#311) because the reference states
+/// natural boron.
 pub const B10_OF_NATURAL: f64 = 0.199;
 
 /// Everything the material set depends on, stated rather than read from the
@@ -86,6 +88,15 @@ pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Mat
             natural * B10_OF_NATURAL
         }
     };
+    // B-11, the rest of the same natural boron (gh:#311). Until 2026-09-25 only
+    // B-10 was placed, leaving the boronated brick ~3.5 % short on atoms.
+    let b11 = |natural: f64| {
+        if matches!(boron, BoronReading::None) {
+            0.0
+        } else {
+            natural * (1.0 - B10_OF_NATURAL)
+        }
+    };
 
     let mut mats = fuel_pebble_materials(n, boron, t);
     // `fuel_pebble_materials` returns a 7th entry ("shell graphite") that is
@@ -115,6 +126,10 @@ pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Mat
                 nuclide_idx: n.b10,
                 atom_density: b10(z.natural_boron),
             },
+            NuclideComponent {
+                nuclide_idx: n.b11,
+                atom_density: b11(z.natural_boron),
+            },
         ],
         temperature: t,
     });
@@ -134,6 +149,10 @@ pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Mat
                 nuclide_idx: n.b10,
                 atom_density: b10(zb.natural_boron),
             },
+            NuclideComponent {
+                nuclide_idx: n.b11,
+                atom_density: b11(zb.natural_boron),
+            },
         ],
         temperature: t,
     });
@@ -151,6 +170,10 @@ pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Mat
             NuclideComponent {
                 nuclide_idx: n.b10,
                 atom_density: b10(HTR10_BORED_BORON),
+            },
+            NuclideComponent {
+                nuclide_idx: n.b11,
+                atom_density: b11(HTR10_BORED_BORON),
             },
         ],
         temperature: t,
@@ -203,6 +226,7 @@ pub fn nuclide_name(n: Htr10Nuclides, idx: usize) -> &'static str {
         i if i == n.si29 => "Si-29 (Si-in-SiC S(a,b))",
         i if i == n.si30 => "Si-30 (Si-in-SiC S(a,b))",
         i if i == n.b10 => "B-10",
+        i if i == n.b11 => "B-11",
         _ => "unknown",
     }
 }
