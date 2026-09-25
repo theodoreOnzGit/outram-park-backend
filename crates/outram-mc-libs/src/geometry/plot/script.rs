@@ -3,29 +3,31 @@
 //! **Geometry slice plotting, by emitting a standalone matplotlib script.**
 //! GitHub #268.
 //!
-//! # Why this shape, and what is deliberately NOT ported
+//! This is the *script* path. The native OpenMC-parity rasteriser now lives
+//! beside it in [`super::slice`] and [`super::raytrace`] and writes PNG
+//! directly; see the module docs of [`super`].
 //!
-//! Upstream `src/plot.cpp` is 2597 lines of PPM/PNG rasterisation, voxel output
-//! and a colour-mapping layer. **None of it is ported**, by maintainer
-//! direction. What this emits is a self-contained `.py` file that draws the
-//! slice when run.
+//! # Why this shape
 //!
-//! That choice buys four things:
+//! ~~Upstream `src/plot.cpp` is 2597 lines of PPM/PNG rasterisation, voxel
+//! output and a colour-mapping layer. **None of it is ported**, by maintainer
+//! direction.~~ **CORRECTED 2026-09-25 (maintainer direction reversed,
+//! gh:#268):** "make sure the plotting capabilities of openmc are properly
+//! ported over (to jpg or PNG)". The slice and ray-trace rasterisers, the
+//! default colour stream and a PNG writer are now ported in the sibling
+//! modules; only voxel output (HDF5, not an image) is still left out. This
+//! script emitter is kept because it is still useful: what it emits is a
+//! self-contained `.py` file that draws the slice when run.
 //!
-//! - no new Rust dependency, no image encoder, nothing that has to compile for
-//!   Android or wasm — the output is a text file;
+//! That choice buys three things:
+//!
 //! - the script is **inspectable and editable**: change the colour map, the
 //!   slice plane or the figure size without rebuilding, and `diff` two scripts
 //!   to see what changed in a model;
 //! - it sits naturally beside the OpenMC decks already committed under
 //!   `verification_and_validation/<topic>/openmc_inputs/`, so it can be
 //!   compared against `openmc.Plot` output of the same model;
-//! - it is the honest scope. A geometry plot's job here is to let someone *see
-//!   whether the model is the model they meant* — the same job
-//!   [`crate::geometry::volume_calc`] does numerically.
-//!
-//! Explicitly out of scope: voxel plots, the native rasteriser, and any
-//! interactive viewer (the crate already has a TUI).
+//! - matplotlib draws axes, ticks and a colour bar for free.
 //!
 //! # How the data gets into the script
 //!
@@ -37,7 +39,11 @@ use crate::geometry::cell::SurfaceToken;
 use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 
-/// What the slice is coloured by. The three upstream offers.
+/// What the slice is coloured by.
+///
+/// ~~The three upstream offers.~~ **CORRECTED 2026-09-25:** upstream image
+/// plots colour by cell or material only (`PlotColorBy`, `include/openmc/plot.h:120`);
+/// `Universe` is this script path's own addition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColourBy {
     /// Leaf cell index.
@@ -120,16 +126,10 @@ pub fn sample_slice(geom: &Geometry, slice: &Slice, colour_by: ColourBy) -> Vec<
                 None => -1,
                 Some(path) => match colour_by {
                     ColourBy::Material => path.material.map(|m| m as i64).unwrap_or(-1),
-                    ColourBy::Cell => path
-                        .levels
-                        .last()
-                        .map(|c| c.cell as i64)
-                        .unwrap_or(-1),
-                    ColourBy::Universe => path
-                        .levels
-                        .last()
-                        .map(|c| c.universe as i64)
-                        .unwrap_or(-1),
+                    ColourBy::Cell => path.levels.last().map(|c| c.cell as i64).unwrap_or(-1),
+                    ColourBy::Universe => {
+                        path.levels.last().map(|c| c.universe as i64).unwrap_or(-1)
+                    }
                 },
             };
             row.push(v);

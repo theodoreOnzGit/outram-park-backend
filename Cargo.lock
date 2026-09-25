@@ -6739,6 +6739,7 @@ dependencies = [
  "approx",
  "fission-yields-data",
  "log",
+ "miniz_oxide",
  "naga",
  "ndarray",
  "njoy-outram-park-fork",
