@@ -3,7 +3,8 @@
 //!
 //! # Why this module exists
 //!
-//! These eleven materials were assembled inline in
+//! These materials (eleven until 2026-09-25, `mat::COUNT` since the explicit
+//! reflector) were assembled inline in
 //! `examples/htr10_rmc_keff.rs`. That was fine while the example was the only
 //! consumer, and stopped being fine the moment a second one appeared
 //! (`examples/htr10_geometry_export.rs`, which writes the model specification
@@ -22,13 +23,15 @@
 //! geometry refers to materials by that index. Reordering it silently
 //! repoints every cell in the core at the wrong material, which is not a
 //! failure that announces itself — `k_eff` simply comes out wrong. The
-//! length is asserted against `mat::HOMOG_DUMMY + 1` for that reason.
+//! length is asserted against `mat::COUNT` for that reason.
 //!
 //! # Provenance
 //!
 //! Compositions: Li et al. (2014) Table 2 for the pebble (via
 //! [`outram_mc_libs::pebble_beds::htr10::fuel_pebble_materials`]);
-//! IAEA-TECDOC-1382 Table 4-3 for every reflector zone.
+//! IAEA-TECDOC-1382 Table 4-3 for every reflector zone, with its p. 242
+//! corrections; TECDOC § 4.1.2 for the control-rod B4C, steel and iron;
+//! IUPAC/CIAAW for atomic weights and isotopic compositions.
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
@@ -70,14 +73,185 @@ impl Htr10MaterialConfig {
     }
 }
 
-/// Build the eleven-material set, indexed by [`mat`].
+/// Indices, into the caller's nuclide array, of the nuclides the withdrawn
+/// control rods need beyond [`Htr10Nuclides`]: the sleeve steel and the iron
+/// joints.
+///
+/// Silicon appears here AGAIN, as free gas: [`Htr10Nuclides`]'s silicon is
+/// bound in SiC with its own S(alpha, beta), which is wrong for silicon
+/// dissolved in steel. Carbon in steel and in B4C uses
+/// [`Htr10Nuclides::c_free`] for the same reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub struct RodMetalNuclides {
+    pub fe54: usize,
+    pub fe56: usize,
+    pub fe57: usize,
+    pub fe58: usize,
+    pub cr50: usize,
+    pub cr52: usize,
+    pub cr53: usize,
+    pub cr54: usize,
+    pub ni58: usize,
+    pub ni60: usize,
+    pub ni61: usize,
+    pub ni62: usize,
+    pub ni64: usize,
+    pub mn55: usize,
+    pub ti46: usize,
+    pub ti47: usize,
+    pub ti48: usize,
+    pub ti49: usize,
+    pub ti50: usize,
+    /// Free-gas Si-28 (NOT the SiC-bound slot).
+    pub si28: usize,
+    /// Free-gas Si-29.
+    pub si29: usize,
+    /// Free-gas Si-30.
+    pub si30: usize,
+}
+
+impl RodMetalNuclides {
+    /// Number of nuclide slots this table names.
+    pub const COUNT: usize = 22;
+
+    /// The slots laid out consecutively from `first`, in field order
+    /// (Fe-54..58, Cr-50..54, Ni-58..64, Mn-55, Ti-46..50, free Si-28..30) --
+    /// the order a caller appends them to its nuclide array in.
+    #[must_use]
+    pub const fn contiguous(first: usize) -> Self {
+        let f = first;
+        Self {
+            fe54: f,
+            fe56: f + 1,
+            fe57: f + 2,
+            fe58: f + 3,
+            cr50: f + 4,
+            cr52: f + 5,
+            cr53: f + 6,
+            cr54: f + 7,
+            ni58: f + 8,
+            ni60: f + 9,
+            ni61: f + 10,
+            ni62: f + 11,
+            ni64: f + 12,
+            mn55: f + 13,
+            ti46: f + 14,
+            ti47: f + 15,
+            ti48: f + 16,
+            ti49: f + 17,
+            ti50: f + 18,
+            si28: f + 19,
+            si29: f + 20,
+            si30: f + 21,
+        }
+    }
+}
+
+/// ENDF/B-VIII.0 tapes (in `reference-data/endf/`) for the rod-metal
+/// nuclides, in [`RodMetalNuclides::contiguous`] order, as `(name, file)`.
+///
+/// The silicon tapes are the same files as the SiC slots'; they are loaded a
+/// second time WITHOUT a thermal law. There is no ENDF/B-VII.0 counterpart in
+/// the checkout for the metals, so a VII.0 run takes these VIII.0 tapes for
+/// the rod metal only, and must say so.
+pub const ROD_METAL_TAPES_ENDF8: [(&str, &str); RodMetalNuclides::COUNT] = [
+    ("Fe54", "n-026_Fe_054-ENDF8.0.endf"),
+    ("Fe56", "n-026_Fe_056-ENDF8.0.endf"),
+    ("Fe57", "n-026_Fe_057-ENDF8.0.endf"),
+    ("Fe58", "n-026_Fe_058-ENDF8.0.endf"),
+    ("Cr50", "n-024_Cr_050-ENDF8.0.endf"),
+    ("Cr52", "n-024_Cr_052-ENDF8.0.endf"),
+    ("Cr53", "n-024_Cr_053-ENDF8.0.endf"),
+    ("Cr54", "n-024_Cr_054-ENDF8.0.endf"),
+    ("Ni58", "n-028_Ni_058-ENDF8.0.endf"),
+    ("Ni60", "n-028_Ni_060-ENDF8.0.endf"),
+    ("Ni61", "n-028_Ni_061-ENDF8.0.endf"),
+    ("Ni62", "n-028_Ni_062-ENDF8.0.endf"),
+    ("Ni64", "n-028_Ni_064-ENDF8.0.endf"),
+    ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+    ("Ti46", "n-022_Ti_046-ENDF8.0.endf"),
+    ("Ti47", "n-022_Ti_047-ENDF8.0.endf"),
+    ("Ti48", "n-022_Ti_048-ENDF8.0.endf"),
+    ("Ti49", "n-022_Ti_049-ENDF8.0.endf"),
+    ("Ti50", "n-022_Ti_050-ENDF8.0.endf"),
+    ("Si28", "n-014_Si_028-ENDF8.0.endf"),
+    ("Si29", "n-014_Si_029-ENDF8.0.endf"),
+    ("Si30", "n-014_Si_030-ENDF8.0.endf"),
+];
+
+/// Avogadro constant \[1/mol\] (CODATA 2018, exact).
+const AVOGADRO: f64 = 6.022_140_76e23;
+
+/// Standard atomic weights \[g/mol\], IUPAC/CIAAW (Meija et al., *Pure Appl.
+/// Chem.* 88 (2016) 265-291, Table 1; conventional values where an interval is
+/// given): the seven constituents of the rod steel.
+pub mod atomic_weight {
+    /// Chromium.
+    pub const CR: f64 = 51.9961;
+    /// Iron.
+    pub const FE: f64 = 55.845;
+    /// Nickel.
+    pub const NI: f64 = 58.6934;
+    /// Silicon (conventional value).
+    pub const SI: f64 = 28.085;
+    /// Manganese.
+    pub const MN: f64 = 54.938_044;
+    /// Carbon (conventional value).
+    pub const C: f64 = 12.011;
+    /// Titanium.
+    pub const TI: f64 = 47.867;
+    /// Boron (conventional value).
+    pub const B: f64 = 10.811;
+}
+
+/// Representative natural isotopic compositions \[atom fraction\], IUPAC/CIAAW
+/// (Meija et al., *Pure Appl. Chem.* 88 (2016) 293-306, Table 1).
+pub mod abundance {
+    /// Fe-54, Fe-56, Fe-57, Fe-58.
+    pub const FE: [f64; 4] = [0.05845, 0.91754, 0.02119, 0.00282];
+    /// Cr-50, Cr-52, Cr-53, Cr-54.
+    pub const CR: [f64; 4] = [0.04345, 0.83789, 0.09501, 0.02365];
+    /// Ni-58, Ni-60, Ni-61, Ni-62, Ni-64.
+    pub const NI: [f64; 5] = [0.680_769, 0.262_231, 0.011_399, 0.036_345, 0.009_256];
+    /// Ti-46, Ti-47, Ti-48, Ti-49, Ti-50.
+    pub const TI: [f64; 5] = [0.0825, 0.0744, 0.7372, 0.0541, 0.0518];
+}
+
+/// Rod sleeve steel density \[g/cm³\], TECDOC § 4.1.2.
+pub const ROD_STEEL_DENSITY: f64 = 7.9;
+/// Rod sleeve steel composition \[weight fraction\], TECDOC § 4.1.2:
+/// Cr 18, Fe 68.1, Ni 10, Si 1, Mn 2, C 0.1, Ti 0.8 (sums to 100 %).
+pub const ROD_STEEL_WT: [(&str, f64); 7] = [
+    ("Cr", 0.18),
+    ("Fe", 0.681),
+    ("Ni", 0.10),
+    ("Si", 0.01),
+    ("Mn", 0.02),
+    ("C", 0.001),
+    ("Ti", 0.008),
+];
+/// Iron atom density of the rod joints and ends \[atoms/(b cm)\], TECDOC
+/// § 4.1.2: iron alone, filling 27.5 mm < R < 55 mm.
+pub const ROD_JOINT_IRON_DENSITY: f64 = 0.04;
+
+/// Build the material set, indexed by [`mat`] (`mat::COUNT` materials).
+///
+/// **Signature changed 2026-09-25** to take [`RodMetalNuclides`]: the ten
+/// control rods are now explicit geometry at their withdrawn position, and
+/// their steel sleeves and iron joints need nuclides the pebble set has no
+/// slots for.
 ///
 /// # Panics
 ///
 /// If `reflector_zone` is not listed in TECDOC Table 4-3, or if the assembled
 /// length does not match the index table.
 #[must_use]
-pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Material> {
+pub fn htr10_material_set(
+    n: Htr10Nuclides,
+    metal: RodMetalNuclides,
+    cfg: Htr10MaterialConfig,
+) -> Vec<Material> {
     let t = cfg.temperature_k;
     let boron = cfg.boron;
     // B-10 density for a zone, honouring the `BoronReading::None` ablation.
@@ -197,9 +371,137 @@ pub fn htr10_material_set(n: Htr10Nuclides, cfg: Htr10MaterialConfig) -> Vec<Mat
         temperature: t,
     });
 
+    // 11..: the Table 4-3 zones that keep a composition of their own in the
+    // Monte Carlo model, with TECDOC p. 242's correction factors (see
+    // `mat::TABLE_4_3_ZONES`). The factor scales carbon and boron alike: it
+    // restores the graphite a homogenised boring void had diluted.
+    assert_eq!(mats.len(), mat::ZONE_TABLE_FIRST);
+    for (zone, factor) in mat::TABLE_4_3_ZONES {
+        let z = zone_composition(zone).expect("every TABLE_4_3_ZONES entry is in Table 4-3");
+        let mut components = vec![NuclideComponent {
+            nuclide_idx: n.c_graphite,
+            atom_density: z.carbon * factor,
+        }];
+        if z.natural_boron > 0.0 {
+            components.push(NuclideComponent {
+                nuclide_idx: n.b10,
+                atom_density: b10(z.natural_boron * factor),
+            });
+            components.push(NuclideComponent {
+                nuclide_idx: n.b11,
+                atom_density: b11(z.natural_boron * factor),
+            });
+        }
+        mats.push(Material {
+            id: 100 + zone as i32,
+            name: if factor == 1.0 {
+                format!("TECDOC Table 4-3 zone {zone}")
+            } else {
+                format!("TECDOC Table 4-3 zone {zone} x {factor} (p. 242)")
+            },
+            components,
+            temperature: t,
+        });
+    }
+
+    // Control-rod B4C: 1.7 g/cm3 of B4C with natural boron (TECDOC § 4.1.2).
+    // Its carbon is NOT graphite, so it takes the free-gas carbon slot.
+    let n_b4c = super::control_rod::b4c_molecular_density();
+    mats.push(Material {
+        id: 90,
+        name: "control-rod B4C (1.7 g/cm3)".into(),
+        components: vec![
+            NuclideComponent {
+                nuclide_idx: n.b10,
+                atom_density: b10(4.0 * n_b4c),
+            },
+            NuclideComponent {
+                nuclide_idx: n.b11,
+                atom_density: b11(4.0 * n_b4c),
+            },
+            NuclideComponent {
+                nuclide_idx: n.c_free,
+                atom_density: n_b4c,
+            },
+        ],
+        temperature: t,
+    });
+
+    // Control-rod sleeve steel, 7.9 g/cm3 (TECDOC § 4.1.2), split into
+    // natural isotopes. N_e = rho w_e N_A / M_e.
+    let n_elem = |w: f64, m: f64| ROD_STEEL_DENSITY * w * AVOGADRO / m * 1.0e-24;
+    let wt = |e: &str| {
+        ROD_STEEL_WT
+            .iter()
+            .find(|(s, _)| *s == e)
+            .map(|(_, w)| *w)
+            .expect("listed element")
+    };
+    let mut steel: Vec<NuclideComponent> = Vec::new();
+    let mut split = |total: f64, idx: &[usize], frac: &[f64]| {
+        for (&i, &f) in idx.iter().zip(frac) {
+            steel.push(NuclideComponent {
+                nuclide_idx: i,
+                atom_density: total * f,
+            });
+        }
+    };
+    split(
+        n_elem(wt("Fe"), atomic_weight::FE),
+        &[metal.fe54, metal.fe56, metal.fe57, metal.fe58],
+        &abundance::FE,
+    );
+    split(
+        n_elem(wt("Cr"), atomic_weight::CR),
+        &[metal.cr50, metal.cr52, metal.cr53, metal.cr54],
+        &abundance::CR,
+    );
+    split(
+        n_elem(wt("Ni"), atomic_weight::NI),
+        &[metal.ni58, metal.ni60, metal.ni61, metal.ni62, metal.ni64],
+        &abundance::NI,
+    );
+    split(
+        n_elem(wt("Ti"), atomic_weight::TI),
+        &[metal.ti46, metal.ti47, metal.ti48, metal.ti49, metal.ti50],
+        &abundance::TI,
+    );
+    split(
+        n_elem(wt("Si"), atomic_weight::SI),
+        &[metal.si28, metal.si29, metal.si30],
+        &[
+            outram_mc_libs::pebble_beds::htr10::SI28_ATOM_FRACTION,
+            outram_mc_libs::pebble_beds::htr10::SI29_ATOM_FRACTION,
+            outram_mc_libs::pebble_beds::htr10::SI30_ATOM_FRACTION,
+        ],
+    );
+    split(n_elem(wt("Mn"), atomic_weight::MN), &[metal.mn55], &[1.0]);
+    split(n_elem(wt("C"), atomic_weight::C), &[n.c_free], &[1.0]);
+    mats.push(Material {
+        id: 91,
+        name: "control-rod sleeve steel (7.9 g/cm3)".into(),
+        components: steel,
+        temperature: t,
+    });
+
+    // Control-rod joints and ends: iron only, 0.04 atoms/(b cm).
+    mats.push(Material {
+        id: 92,
+        name: "control-rod joint iron (0.04 /b-cm)".into(),
+        components: [metal.fe54, metal.fe56, metal.fe57, metal.fe58]
+            .iter()
+            .zip(abundance::FE)
+            .map(|(&i, f)| NuclideComponent {
+                nuclide_idx: i,
+                atom_density: ROD_JOINT_IRON_DENSITY * f,
+            })
+            .collect(),
+        temperature: t,
+    });
+
     assert_eq!(
         mats.len(),
-        mat::HOMOG_DUMMY + 1,
+        mat::COUNT,
         "material set length must match the `mat` index table"
     );
     mats
