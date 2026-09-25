@@ -8,9 +8,11 @@
 //!
 //! # Why this is an exporter and not a table someone typed
 //!
-//! Most of this geometry is **not a constant**. The hex pitch is solved so the
-//! axially-clipped ball realises the paper's fuel-zone volume fraction; the
-//! TRISO pitch is solved from a particle count; the tile, cell and universe
+//! Most of this geometry is **not a constant**. ~~The hex pitch is solved so
+//! the axially-clipped ball realises the paper's fuel-zone volume fraction;~~
+//! (**CORRECTED 2026-09-25:** the bed lattice is now the paper's two-ball
+//! prism, pitch and height taken from `HexBedCell::from_paper`, gh:#309/#310);
+//! the TRISO pitch is solved from a particle count; the tile, cell and universe
 //! counts fall out of the assembly. Transcribing any of them into a manuscript
 //! would create a second copy that drifts silently from the model the
 //! eigenvalue was computed with — which is exactly the failure this workspace's
@@ -257,7 +259,7 @@ fn main() {
             core.bed_half_height,
             -core.bed_half_height,
             "hex lattice; 57:43 fuelled:dummy",
-            "realised: layers x lattice height",
+            "realised: half-layers x 4.899 cm (half the two-ball tile)",
         ),
         (
             "conus (sloping bed floor)",
@@ -424,6 +426,13 @@ fn main() {
     );
 
     // ------------------------------------------------- realised lattice
+    // Two whole 6 cm balls per tile (gh:#309 step 2): the realised packing and
+    // the closest approach follow from the BUILT lattice's pitch and height.
+    let tile_volume = 0.5 * 3.0_f64.sqrt() * core.lat_pitch.powi(2) * core.lat_height;
+    let realised_packing =
+        2.0 * 4.0 / 3.0 * std::f64::consts::PI * (0.5 * table1::BALL_DIAMETER_CM).powi(3)
+            / tile_volume;
+    let interlayer = (core.lat_pitch / 3.0_f64.sqrt()).hypot(0.5 * core.lat_height);
     let mut realised = String::from("quantity,magnitude,units,remark\n");
     for (q, v, u, note) in [
         (
@@ -436,19 +445,43 @@ fn main() {
             "axial layers",
             format!("{layers}"),
             "-",
-            "reported case size",
+            "reported case size; half-layers of 4.899 cm (one ball layer each)",
         ),
         (
             "hex lattice pitch, realised",
             format!("{:.4}", core.lat_pitch),
             "cm",
-            "SOLVED so the axially-clipped ball realises the paper's fuel-zone volume fraction",
+            "the paper's two-ball prism pitch (not solved)",
         ),
         (
             "axial tile height, realised",
             format!("{:.4}", core.lat_height),
             "cm",
-            "half the paper's two-ball prism: one ball per tile",
+            "one A-B layer pair: two balls per tile",
+        ),
+        (
+            "ball filling fraction, realised tile",
+            format!("{:.5}", realised_packing),
+            "-",
+            "2 whole balls per tile volume; sampled bed value in the V&V record",
+        ),
+        (
+            "helium fraction, realised tile",
+            format!("{:.5}", 1.0 - realised_packing),
+            "-",
+            "",
+        ),
+        (
+            "nearest centre distance, in-plane",
+            format!("{:.4}", core.lat_pitch),
+            "cm",
+            "A to A or B to B within a layer",
+        ),
+        (
+            "nearest centre distance, between layers",
+            format!("{:.4}", interlayer),
+            "cm",
+            "A to B: hypot(pitch/sqrt(3), height/2); clear of the 6 cm diameter",
         ),
         (
             "bed cylinder radius",
