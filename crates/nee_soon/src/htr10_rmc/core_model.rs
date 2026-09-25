@@ -690,6 +690,11 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
 /// the double-heterogeneous model the benchmark actually specifies.
 ///
+/// **Open defects in this construction:** gh:#309 (pebble-shell carbon
+/// clipped), gh:#310 (pebbles in axial contact), gh:#311 (no B-11). Results
+/// from it are tentative until those are priced — see the module docs,
+/// "Verification status".
+///
 /// Four coordinate levels: root → bed hex lattice → pebble universe → TRISO
 /// rect lattice → TRISO particle universe. Depth-3 descent was gated in
 /// `outram-mc-libs` `tests/nested_lattice_depth3.rs`; this is depth 4.
