@@ -176,10 +176,11 @@ struct Stages {
     endf_direct: Duration,
     transport_endf: Duration,
     transport_ace: Duration,
+    transport_endf_ablated: Duration,
 }
 
 impl Stages {
-    fn rows(&self) -> [(&'static str, Duration); 10] {
+    fn rows(&self) -> [(&'static str, Duration); 11] {
         [
             ("ENDF parse", self.endf_parse),
             ("RECONR (0 K)", self.reconr),
@@ -191,6 +192,7 @@ impl Stages {
             ("Nuclide::from_endf_file", self.endf_direct),
             ("transport (ENDF route)", self.transport_endf),
             ("transport (ACE route)", self.transport_ace),
+            ("transport (ENDF ablated)", self.transport_endf_ablated),
         ]
     }
     fn total(&self) -> Duration {
@@ -325,6 +327,41 @@ fn main() {
     let r_ace = run_keff(radius_cm, &make_material("LCT008 (ACE)"), &via_ace, &settings);
     st.transport_ace = t.elapsed();
 
+    // ── Arm A': the ENDF route with the ACE route's OMISSIONS imposed ──────
+    //
+    // GitHub #307 item 5. The parity number below was measured while the two
+    // arms carried DIFFERENT PHYSICS: the ENDF route applies URR self-shielding
+    // and DBRC by default, and route B carries neither -- the reader decodes the
+    // UNR block since 2026-09-25, but THIS WORKSPACE'S ACE WRITER DOES NOT EMIT
+    // ONE (no UNR block in `acer::build`), and a table broadened to 293.6 K
+    // carries no 0 K elastic for DBRC. So route B still cannot have them here,
+    // and the way to price the asymmetry is to take them OFF the ENDF arm.
+    //
+    // `via_endf` is CONSUMED rather than cloned: arm A's transport is already
+    // done, and a third copy of U-238's 284 415-point grid is hundreds of MB.
+    let via_endf_ablated: Vec<Nuclide> = via_endf
+        .into_iter()
+        .map(|n| n.without_urr_probability_tables().without_dbrc())
+        .collect();
+    let n_urr = via_endf_ablated
+        .iter()
+        .filter(|n| n.has_urr_probability_tables())
+        .count();
+    let n_dbrc = via_endf_ablated.iter().filter(|n| n.has_dbrc()).count();
+    assert_eq!(
+        (n_urr, n_dbrc),
+        (0, 0),
+        "the ablated arm must carry neither term, or it is not the control it claims to be"
+    );
+    let t = Instant::now();
+    let r_abl = run_keff(
+        radius_cm,
+        &make_material("LCT008 (ENDF, URR+DBRC ablated)"),
+        &via_endf_ablated,
+        &settings,
+    );
+    st.transport_endf_ablated = t.elapsed();
+
     // ── Parity ─────────────────────────────────────────────────────────────
     let d_pcm = 1.0e5 * (r_ace.k_mean - r_endf.k_mean);
     let combined = 1.0e5 * (r_endf.k_std.powi(2) + r_ace.k_std.powi(2)).sqrt();
@@ -349,6 +386,44 @@ fn main() {
         "\n    NOT a benchmark value: this homogenises the lumped fuel that gives\n    \
          LEU-COMP-THERM-008 its resonance self-shielding, so k is not comparable\n    \
          to the benchmark's 1.0000."
+    );
+
+    // ── The asymmetry, priced (GitHub #307 item 5) ─────────────────────────
+    let sig = |a: f64, b: f64| 1.0e5 * (a * a + b * b).sqrt();
+    let d_abl_vs_endf = 1.0e5 * (r_abl.k_mean - r_endf.k_mean);
+    let s_abl_vs_endf = sig(r_abl.k_std, r_endf.k_std);
+    let d_ace_vs_abl = 1.0e5 * (r_ace.k_mean - r_abl.k_mean);
+    let s_ace_vs_abl = sig(r_ace.k_std, r_abl.k_std);
+    println!("\n  THE ASYMMETRY, PRICED (GitHub #307 item 5)");
+    println!(
+        "    ENDF ablated : k_eff = {:.5} +/- {:.5}   (URR off, DBRC off)",
+        r_abl.k_mean, r_abl.k_std
+    );
+    println!(
+        "    ablated - ENDF : {d_abl_vs_endf:+.1} +/- {s_abl_vs_endf:.1} pcm ({:.2} sigma)          -- the worth of URR+DBRC here",
+        d_abl_vs_endf.abs() / s_abl_vs_endf.max(1e-12)
+    );
+    println!(
+        "    ACE - ablated  : {d_ace_vs_abl:+.1} +/- {s_ace_vs_abl:.1} pcm ({:.2} sigma)          -- the routes with the SAME physics",
+        d_ace_vs_abl.abs() / s_ace_vs_abl.max(1e-12)
+    );
+    println!(
+        "    ACE - ENDF     : {d_pcm:+.1} +/- {combined:.1} pcm ({:.2} sigma)          -- what was quoted before",
+        d_pcm.abs() / combined.max(1e-12)
+    );
+    if d_ace_vs_abl.abs() < d_pcm.abs() {
+        println!(
+            "    => removing the asymmetry moved the arms CLOSER by {:.1} pcm, so part of\n                    the {d_pcm:+.1} pcm was the missing physics rather than the format.",
+            d_pcm.abs() - d_ace_vs_abl.abs()
+        );
+    } else {
+        println!(
+            "    => removing the asymmetry did NOT close the gap ({:.1} pcm further), so the\n                    {d_pcm:+.1} pcm is not explained by URR+DBRC.",
+            d_ace_vs_abl.abs() - d_pcm.abs()
+        );
+    }
+    println!(
+        "    NOTE ON PAIRING: URR and DBRC change how many variates a history draws, so\n             the ablated arm's random stream DIVERGES from the unablated one. These are\n             independent runs, not a paired difference -- the sigmas above are sqrt(2) x the\n             per-arm sigma and no variance cancels. Measured in\n             verification_and_validation/ace_route_physics/urr_dbrc_worth_2026_09_25.md."
     );
 
     // ── Timing ─────────────────────────────────────────────────────────────
