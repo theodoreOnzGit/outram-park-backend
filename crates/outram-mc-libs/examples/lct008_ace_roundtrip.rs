@@ -52,7 +52,11 @@
 //! (a known open defect), so including it would make this example unrunnable
 //! for a reason that has nothing to do with ACE.
 
-//! # Results (2026-09-23, ENDF/B-VIII.0, seed 1)
+//! # Results (2026-09-23, ENDF/B-VIII.0, seed 1) — the ORIGINAL single-seed run
+//!
+//! Kept for the timing breakdown and because its `k` values are what the
+//! superseded parity claim below was drawn from. The eight-seed numbers are the
+//! ones to quote.
 //!
 //! ```text
 //! ENDF route : k_eff = 0.84980 +/- 0.00232
@@ -74,14 +78,86 @@
 //!
 //! ## The parity result, and how much it is worth
 //!
-//! The two routes agree at **0.78 sigma**. That is a pass, and it is a **weak**
-//! one: at a combined sigma of 347 pcm it cannot exclude a real difference of a
-//! couple of hundred pcm. The sensitive check on the same question is
-//! `tests/nuclide_from_ace_vs_endf.rs`, which compares **cross sections**
-//! rather than `k` and resolves agreement to **0.03 %**. Read this as an
-//! end-to-end confirmation that nothing is grossly wrong, not as a tight bound.
+//! ~~The two routes agree at **0.78 sigma**~~ **SUPERSEDED 2026-09-25 — see the
+//! eight-seed result below.** The old text called 0.78 sigma "a pass, and a weak
+//! one", which was right, and then left `+269.3 pcm` standing as the measured
+//! difference, which was not: over eight seeds the difference is **+23.9 pcm**
+//! and the per-seed spread is **~250 pcm**, so `+269.3` was one seed's
+//! fluctuation of about one standard deviation. A single-seed difference was
+//! never a measurement of the difference; it is kept struck through because it
+//! was quoted as one.
 //!
-//! ## AN OPEN ANOMALY: the ACE route transports 4.6x SLOWER
+//! The sensitive check on the same question remains
+//! `tests/nuclide_from_ace_vs_endf.rs`, which compares **cross sections** rather
+//! than `k` and resolves agreement to **0.03 %**.
+//!
+//! # Results (2026-09-25, ENDF/B-VIII.0, EIGHT seeds) — GitHub #307 item 5
+//!
+//! `--seeds 8`, 3000 histories x [30 inactive + 80 active] per seed. Each arm's
+//! uncertainty is the standard error of the mean **over seeds**, from the
+//! seed-to-seed scatter — not an average of the per-run internal estimates,
+//! which understate it.
+//!
+//! ```text
+//! ENDF route   : k_eff = 0.84956 +/- 0.00090   (URR + DBRC on, per-seed sd 255 pcm)
+//! ACE  route   : k_eff = 0.84980 +/- 0.00087   (neither,        per-seed sd 245 pcm)
+//! ENDF ablated : k_eff = 0.84994 +/- 0.00098   (both off,       per-seed sd 279 pcm)
+//!
+//! ACE - ENDF      = +23.9 +/- 125.0 pcm (0.19 sigma)   <- the parity number
+//! ablated - ENDF  = +38.4 +/- 133.4 pcm (0.29 sigma)   <- the worth of URR+DBRC here
+//! ACE - ablated   = -14.5 +/- 131.2 pcm (0.11 sigma)   <- the routes, SAME physics
+//! change in gap   =  -9.4 +/- 181.2 pcm (0.05 sigma)
+//!
+//! per-seed (ACE - ENDF), pcm: +269.3, +93.4, -214.4, +204.3, -59.4, -666.0,
+//!                             -45.5, +609.5
+//! ```
+//!
+//! ## What the three arms settle, and what they do not
+//!
+//! **The asymmetry was real and its effect here is not.** Route A applies URR
+//! self-shielding and DBRC; route B carries neither — the reader decodes the UNR
+//! block since 2026-09-25, but this workspace's ACE **writer emits no UNR block**
+//! (GitHub #325), and a table broadened to 293.6 K holds no 0 K elastic for DBRC.
+//! Imposing the same omissions on the ENDF arm moves the comparison by
+//! `-9.4 +/- 181.2 pcm`, i.e. by nothing measurable.
+//!
+//! **All three differences are consistent with zero**, so this is a set of
+//! bounds, not a set of detections:
+//!
+//! - the two data routes agree to within **+/- 250 pcm at 2 sigma**;
+//! - the worth of URR+DBRC on *this homogenised geometry* is below the same
+//!   bound, consistent with the sharper twelve-seed measurement in
+//!   `verification_and_validation/ace_route_physics/urr_dbrc_worth_2026_09_25.md`
+//!   (`+63.5 +/- 77 pcm`, whose own conclusion is the bound `< 154 pcm at
+//!   2 sigma`).
+//!
+//! **Why the worth is small here, stated rather than left to look like a null
+//! result about URR in general:** this example *homogenises* the fuel, which
+//! destroys the resonance self-shielding that makes the unresolved range matter.
+//! The lumped `lct008_keff.rs` geometry is where URR should be priced, and that
+//! measurement is not this one.
+//!
+//! **Resolving the remaining +23.9 pcm would take ~246x these statistics**
+//! (3 sigma needs sem <= 8 pcm), which is about 2000 seeds of this example at
+//! ~15 min each. That is the honest cost of turning this bound into a
+//! measurement, and it is why the cross-section comparison at 0.03 % is the
+//! right instrument for route parity and `k` is not.
+//!
+//! ## The ACE route transports 4.6x SLOWER — **7.6x as of 2026-09-25**
+//!
+//! Re-measured over the eight-seed run: **694 s per seed on the ACE route
+//! against 91 s on the ENDF route**, where 2026-09-23 recorded 603.56 s against
+//! 131.34 s. The ratio widened because the **ENDF arm got 1.4x faster** (91 s
+//! against 131 s), not because the ACE arm got slower (694 s against 604 s, 1.15x
+//! and within run-to-run variation on a shared machine). The ENDF speedup is
+//! consistent with `develop`'s `total_at_energy` change (`1a83fad7c`), which
+//! stopped the kernel building a full `XsSet` where only the total was needed;
+//! that is an attribution, not a measurement — nothing here isolates it.
+//!
+//! The explanation below still stands, and the wider ratio is what it predicts:
+//! the ACE route's cost is in cross-section lookup over one union grid, so a
+//! change that makes *lookup* cheaper helps the route that does less of it.
+//!
 //!
 //! 603.56 s against 131.34 s, same geometry, same settings, same seed, and
 //! `k` agreeing. **This runs opposite to expectation.** `Nuclide::from_ace`

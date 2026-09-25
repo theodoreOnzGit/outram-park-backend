@@ -4,7 +4,10 @@
 //!
 //! `lct008_ace_roundtrip.rs` measured transport at **603.56 s on the ACE route
 //! against 131.34 s on the ENDF route** -- same geometry, settings and seed,
-//! with `k` agreeing at 0.78 sigma. That example records three candidate causes
+//! with `k` agreeing at 0.78 sigma (that single-seed agreement is superseded:
+//! eight seeds give +23.9 +/- 125.0 pcm, 0.19 sigma -- see
+//! `ace_route_physics/route_parity_8seed_2026_09_25.md`). That example records
+//! three candidate causes
 //! and measures none of them. This is the measurement.
 //!
 //! It builds U-238 -- the dominant cost in that run -- both ways in one process
@@ -77,7 +80,8 @@
 //!
 //! The accumulated totals are **identical: 1.606e7 on both routes** over 520 445
 //! energies spanning 1e-4 to 2e7 eV. That is a far tighter statement of ACE/ENDF
-//! agreement than `lct008_ace_roundtrip.rs`'s 0.78 sigma on `k`, and it came out
+//! agreement than `lct008_ace_roundtrip.rs`'s `k` comparison (0.19 sigma over
+//! eight seeds, and a +/- 250 pcm bound at best), and it came out
 //! of a timing harness.
 fn main() {
     use njoy_outram_park_fork::acer::{angular::parse_elastic_angular, energy::build_emissions, AceTable};

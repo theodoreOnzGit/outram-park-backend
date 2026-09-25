@@ -150,10 +150,18 @@ implementation.
 
 - **Closes** #307's scope items 1, 2 and 4: the UNR decoder, wiring it in by
   default, and extending the default-physics test to cover the ACE path.
-- **Does not** re-measure the ACE-vs-ENDF `k` comparison. That is item 5, and it
-  is now the interesting one: the asymmetry the 0.78 sigma agreement was
-  measured under is **gone for URR**, so re-running `lct008_ace_roundtrip`
-  should move the ACE arm. Note the `+269.3 pcm` gap it reported was itself only
+- ~~**Does not** re-measure the ACE-vs-ENDF `k` comparison.~~ **DONE 2026-09-25,
+  and the prediction in the next sentence was WRONG.** It said the asymmetry "is
+  gone for URR, so re-running `lct008_ace_roundtrip` should move the ACE arm".
+  It is not gone: the UNR block is now *read*, but this workspace's ACE **writer
+  never emits one** (GitHub #325), so a round-tripped table still carries no URR
+  and the ACE arm cannot move for that reason. The comparison was instead redone
+  with URR+DBRC **ablated off the ENDF arm**, over eight seeds:
+  `ACE − ENDF = +23.9 ± 125.0 pcm` and `ACE − ENDF(ablated) = −14.5 ± 131.2 pcm`
+  — see
+  [`ace_route_physics/route_parity_8seed_2026_09_25.md`](../../../outram-mc-libs/verification_and_validation/ace_route_physics/route_parity_8seed_2026_09_25.md).
+  The original text is struck through rather than deleted because it carried a
+  prediction, and the prediction failing is the informative part. Note the `+269.3 pcm` gap it reported was itself only
   0.78 sigma, i.e. never established — see
   `outram-mc-libs/verification_and_validation/ace_route_physics/urr_dbrc_worth_2026_09_25.md`,
   which bounds the joint URR+DBRC worth on that homogenised case at

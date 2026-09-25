@@ -111,7 +111,20 @@ const WATER_VF: f64 = 1.0 - FUEL_VF;
 const RADIUS_CM: f64 = 40.0;
 
 /// The observed ACE − ENDF difference this example exists to explain.
-const OBSERVED_GAP_PCM: f64 = 269.3;
+///
+/// ~~`269.3` pcm, one seed~~ **CORRECTED 2026-09-25 to `23.9` pcm, eight seeds**
+/// (GitHub #307 item 5,
+/// `verification_and_validation/ace_route_physics/route_parity_8seed_2026_09_25.md`).
+/// `lct008_ace_roundtrip.rs` now runs the comparison over eight seeds and gets
+/// `+23.9 ± 125.0 pcm` against a per-seed spread of ~250 pcm, so the `+269.3`
+/// this example was built to explain was **one seed's fluctuation of about one
+/// standard deviation**. There was never a 269 pcm gap to attribute.
+///
+/// The constant is kept, and the percentage printed from it is kept, because the
+/// comparison is still the right one to show — but it now compares a bound
+/// against a bound, and the output says so. Deleting it would hide that this
+/// example's premise moved.
+const OBSERVED_GAP_PCM: f64 = 23.9;
 
 /// Same five nuclides, densities and volume fractions as
 /// `lct008_ace_roundtrip.rs`, so the two examples describe the same model.
@@ -262,9 +275,12 @@ fn main() {
         "    ABLATION WORTH  : {m_d:+.1} pcm, sem {sem_d:.1}, sd {sd_d:.1}  ({sigma:.1} sigma)"
     );
     println!(
-        "    observed ACE-ENDF gap : {OBSERVED_GAP_PCM:+.1} pcm  \
+        "    observed ACE-ENDF gap : {OBSERVED_GAP_PCM:+.1} pcm (8 seeds, +/- 125.0)  \
          => URR+DBRC explains {:.0} % of it",
         100.0 * m_d / OBSERVED_GAP_PCM
+    );
+    println!(
+        "    BOTH SIDES OF THAT RATIO ARE UNRESOLVED, so the percentage is arithmetic\n             and not an attribution: the gap is {OBSERVED_GAP_PCM:+.1} +/- 125.0 pcm (0.19\n             sigma) and the worth below is quoted with its own sigma. The single-seed\n             +269.3 pcm this example was built to explain was one seed's fluctuation --\n             see route_parity_8seed_2026_09_25.md."
     );
 
     println!("\n  READING THE OUTCOME");

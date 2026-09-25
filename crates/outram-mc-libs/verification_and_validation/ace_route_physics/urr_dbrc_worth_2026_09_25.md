@@ -116,5 +116,33 @@ worth there, and the reverse is the claim anyone would actually want.
 - **Not settled, and still the substance of #307:** the two routes carry
   different physics, which remains true regardless of whether it is detectable
   here. `tests/correct_physics_is_default.rs` still covers only the ENDF path.
-- **Not settled:** what the +269.3 pcm gap is. It may be nothing; nobody has
-  shown it is something.
+- ~~**Not settled:** what the +269.3 pcm gap is. It may be nothing; nobody has
+  shown it is something.~~ **SETTLED the same day** — see the update at the end
+  of this file: over eight seeds the gap is `+23.9 ± 125.0 pcm`, so it was one
+  seed's fluctuation and there is nothing to attribute.
+
+
+---
+
+## UPDATE, same day: the gap this study set out to explain was one seed
+
+`lct008_ace_roundtrip.rs` has since been run over **eight seeds** with a third,
+ablated ENDF arm (GitHub #307 item 5, record
+[`route_parity_8seed_2026_09_25.md`](route_parity_8seed_2026_09_25.md)):
+
+| difference | 1 seed (2026-09-23) | 8 seeds (2026-09-25) |
+|---|---|---|
+| ACE − ENDF | +269.3 ± 346.6 pcm | **+23.9 ± 125.0 pcm** |
+| worth of URR + DBRC | — | +38.4 ± 133.4 pcm |
+| ACE − ENDF(ablated) | — | −14.5 ± 131.2 pcm |
+
+So the `+269.3 pcm` named above as "the gap being explained" was **one seed's
+fluctuation of about one standard deviation** — the per-seed spread of that
+difference is ~250 pcm. This record's own conclusion is unaffected and its
+warning was right for a sharper reason than it knew: it said *"the gap being
+explained was itself only 0.78 sigma — never something to reason backwards
+from"*, and the eight-seed number shows there was no gap to explain at all.
+
+The twelve-seed worth measured here (`+63.5 ± 77 pcm`, bound `< 154 pcm at
+2 sigma`) remains the number to quote; the eight-seed `+38.4 ± 133.4 pcm` agrees
+with it and is less precise.
