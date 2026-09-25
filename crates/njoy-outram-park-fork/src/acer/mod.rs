@@ -163,6 +163,7 @@ pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool 
 /// `s_of_e_at(temp_k)`). See [`thermal`] for the table layout.
 pub mod read;
 pub mod thermal;
+pub mod thermal_read;
 pub mod write;
 
 /// A continuous-energy ACE table held in memory.

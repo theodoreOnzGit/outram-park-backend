@@ -639,6 +639,75 @@ impl ThermalScattering {
     /// Kept public so a caller holding a tape for other reasons does not have to
     /// write it back out to a file first. Same arguments, grids, elastic-channel
     /// detection and errors as [`from_endf_file`](Self::from_endf_file).
+    /// Build from a **thermal S(α,β) ACE table** — ACE gap 2.
+    ///
+    /// The third way in, beside [`Self::from_endf_file`] (a published
+    /// `tsl-*.endf` tape) and [`Self::from_leapr`] (regenerate the law). Before
+    /// this, a thermal lattice assembled from an ACE library had **no bound-atom
+    /// scattering at all**: the crate wrote thermal ACE byte-for-byte against
+    /// NJOY2016 but could not read one back.
+    ///
+    /// `name` is the scatterer label (e.g. `"C in graphite"`); an ACE table's
+    /// ZAID does not carry it in a form worth guessing from.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`njoy_outram_park_fork::acer::thermal_read::decode_thermal`]
+    /// refuses — notably `IFENG = 2` (continuous emission), which this
+    /// representation holds no form for. See that function's docs: it is a limit
+    /// of the transport-side discrete representation, not of the ACE port.
+    pub fn from_ace(
+        table: &njoy_outram_park_fork::acer::read::RawAceTable,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::acer::thermal_read::{decode_thermal, AceThermalElastic};
+
+        let t = decode_thermal(table)?;
+        let cutoff_ev = t.inel_energy.last().copied().unwrap_or(0.0);
+        let elastic = match t.elastic {
+            AceThermalElastic::None => ThermalElastic::None,
+            AceThermalElastic::Coherent { energy, cumulative } => {
+                ThermalElastic::Coherent(CoherentElasticTable {
+                    edges_ev: energy,
+                    s_cum: cumulative,
+                })
+            }
+            AceThermalElastic::Incoherent {
+                energy,
+                xs,
+                cosines,
+                n_mu,
+            } => ThermalElastic::Incoherent(IncoherentElasticTable {
+                e_grid: energy,
+                sigma: xs,
+                cosines,
+                n_mu,
+            }),
+        };
+        Ok(Self {
+            name: name.to_string(),
+            cutoff_ev,
+            // The table IS its temperature -- there is no request to match
+            // against a tabulated grid the way `from_tape` has, so the selected
+            // temperature is simply the table's own.
+            // Boltzmann's constant in eV/K. The table IS its temperature.
+            selected_temperature_k: t.kt_ev / 8.617_333_262e-5,
+            xs_e: t.inel_energy.clone(),
+            xs_sigma: t.inel_xs,
+            emit_e: t.inel_energy,
+            emit_tables: t
+                .emission
+                .into_iter()
+                .map(|e| EmissionTable {
+                    e_out: e.e_out,
+                    cosines: e.cosines,
+                    n_mu: e.n_mu,
+                })
+                .collect(),
+            elastic,
+        })
+    }
+
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
