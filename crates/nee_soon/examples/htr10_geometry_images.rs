@@ -23,18 +23,20 @@
 //! | File | Slice |
 //! |---|---|
 //! | `htr10_rz_full.png` | x-z (R-Z) through the axis, whole model |
-//! | `htr10_xy_bed_mid.png` | x-y at bed mid-height (z = 0) |
+//! | `htr10_xy_bed_mid.png` | x-y at bed mid-height (z = 0, an A layer) |
+//! | `htr10_xy_b_layer.png` | x-y, 40 cm square, one ball layer above the zoom pebble: a B layer, whose balls are each split across three tiles |
 //! | `htr10_xy_conus.png` | x-y at the conus mid-height |
 //! | `htr10_xy_cavity.png` | x-y at the core-cavity mid-height |
 //! | `htr10_xz_pebbles.png` | x-z, 30 cm square round one fuel pebble: several pebbles |
-//! | `htr10_xz_one_pebble.png` | x-z through one fuel pebble (and a row of its TRISO): its clipped shell |
+//! | `htr10_xz_one_pebble.png` | x-z through one fuel pebble (and a row of its TRISO): whole since the two-ball cell (it was clipped at the tile faces before, gh:#309) |
 //! | `htr10_xy_one_pebble.png` | x-y through the same pebble: its TRISO lattice |
 //! | `htr10_xy_triso.png` | x-y, 0.8 cm square: a few TRISO particles and their coatings |
+//! | `htr10_xz_bed_floor.png` | x-z through a TRISO row, 30 cm square centred on the bed floor: fuel only in balls centred above it |
 //! | `htr10_xz_conus_pebbles.png` | x-z through a TRISO row, 30 cm square at the conus mid-height: are the conus pebbles fuelled? |
 //! | `htr10_xy_bed_wall.png` | x-y at z = 0, 24 cm square at the bed wall (x = 90 cm) |
 //! | `htr10_xz_conus_wall.png` | x-z at y = 0, 30 cm square on the conus slope |
 //!
-//! The case size is the **reported** 14 rings x 25 layers (as
+//! The case size is the **reported** 14 rings x 25 half-layers (as
 //! `htr10_geometry_export`), overridable with `OUTRAM_HTR10_RINGS` /
 //! `OUTRAM_HTR10_LAYERS`.
 //!
@@ -61,7 +63,7 @@ fn env_usize(k: &str, d: usize) -> usize {
 /// Material palette, indexed by [`mat`]. Chosen so the TRISO layers read as a
 /// warm-to-cool sequence from the kernel out and the graphites stay grey/brown.
 fn palette() -> Vec<(Rgb, &'static str)> {
-    let mut p = vec![(Rgb::new(0, 0, 0), ""); mat::HOMOG_DUMMY + 1];
+    let mut p = vec![(Rgb::new(0, 0, 0), ""); mat::COUNT];
     p[mat::KERNEL] = (Rgb::new(220, 20, 20), "UO2 KERNEL");
     p[mat::BUFFER] = (Rgb::new(255, 150, 0), "BUFFER PYC");
     p[mat::IPYC] = (Rgb::new(250, 225, 0), "IPYC");
@@ -73,14 +75,51 @@ fn palette() -> Vec<(Rgb, &'static str)> {
     p[mat::BORONATED] = (Rgb::new(130, 40, 160), "BORONATED CARBON");
     p[mat::BORED_GRAPHITE] = (Rgb::new(190, 160, 120), "BORED REFLECTOR GRAPHITE");
     p[mat::HOMOG_DUMMY] = (Rgb::new(60, 70, 150), "HOMOG. DUMMY PEBBLES");
+    // The Table 4-3 zones that keep their own composition (2026-09-25): one
+    // colour each, so every zone boundary of Fig. 4.10 shows in a slice.
+    let zone_colours: [(Rgb, &'static str); 24] = [
+        (Rgb::new(120, 90, 60), "ZONE 0 CONUS SURROUND"),
+        (Rgb::new(170, 60, 190), "ZONE 1 TOP BORONATED"),
+        (Rgb::new(175, 140, 100), "ZONE 2 TOP REFLECTOR"),
+        (Rgb::new(255, 240, 170), "ZONE 3 COLD HE CHAMBER"),
+        (Rgb::new(185, 150, 105), "ZONE 4 TOP REFLECTOR"),
+        (Rgb::new(140, 105, 70), "ZONE 8 BOTTOM"),
+        (Rgb::new(160, 120, 80), "ZONE 9 BOTTOM"),
+        (Rgb::new(200, 90, 90), "ZONE 10 BOTTOM (B)"),
+        (Rgb::new(190, 110, 90), "ZONE 11 BOTTOM (B)"),
+        (Rgb::new(210, 100, 120), "ZONE 12 BOTTOM (B)"),
+        (Rgb::new(150, 130, 90), "ZONE 13 BOTTOM"),
+        (Rgb::new(230, 200, 120), "ZONE 14 HOT GAS CHAMBER"),
+        (Rgb::new(250, 225, 150), "ZONE 15 HOT GAS CHAMBER"),
+        (Rgb::new(130, 115, 85), "ZONE 16 BOTTOM"),
+        (Rgb::new(95, 75, 55), "ZONE 18 CARBON BRICK"),
+        (Rgb::new(150, 50, 170), "ZONE 19 BORONATED"),
+        (Rgb::new(165, 130, 95), "ZONE 20"),
+        (Rgb::new(220, 190, 140), "ZONE 21"),
+        (Rgb::new(115, 125, 70), "ZONES 24/51/68 (B)"),
+        (Rgb::new(215, 175, 120), "ZONE 29 X1.29978"),
+        (Rgb::new(100, 140, 80), "ZONE 42 X1.29978"),
+        (Rgb::new(225, 185, 130), "ZONE 48"),
+        (Rgb::new(200, 170, 110), "ZONE 57"),
+        (Rgb::new(90, 130, 90), "ZONE 60 X1.16051"),
+    ];
+    for (i, c) in zone_colours.into_iter().enumerate() {
+        p[mat::ZONE_TABLE_FIRST + i] = c;
+    }
+    p[mat::ROD_B4C] = (Rgb::new(20, 20, 20), "ROD B4C");
+    p[mat::ROD_STEEL] = (Rgb::new(170, 180, 195), "ROD STEEL");
+    p[mat::ROD_IRON] = (Rgb::new(90, 100, 115), "ROD IRON");
     p
 }
 
 /// The centre of a fuel pebble near `(x, y, z)` and of one TRISO particle in
 /// it, read off the located path: the leaf level is the particle universe
 /// (entered through the TRISO lattice, its frame offset is the particle
-/// centre) and the level above it the pebble universe (entered through the bed
-/// lattice, its offset is the pebble centre).
+/// centre) and the level above it the bed-tile universe (entered through the
+/// bed lattice, its offset is the TILE centre). Since the two-ball cell
+/// (2026-09-25) a pebble is centred on a tile face or vertex, not the tile
+/// centre, so the pebble centre is the tile offset PLUS the translation of
+/// the fuel-zone fill cell the point was found in.
 fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)> {
     // A 2-D scan: the TRISO lattice puts particle centres at HALF-pitch
     // offsets in x and y (`TRISO_OFFSET = [0.5, 0.5, 0.0]` in `core_model`), so
@@ -92,7 +131,8 @@ fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)
             if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
                 let n = path.levels.len();
                 if path.material == Some(mat::KERNEL) && n >= 3 {
-                    let peb = path.levels[n - 2].offset;
+                    let tile = &path.levels[n - 2];
+                    let peb = tile.offset + g.cells[tile.cell].translation;
                     let part = path.levels[n - 1].offset;
                     // Printed because `assemble_explicit_triso`'s docs once
                     // claimed four levels; the located path is the evidence.
@@ -269,6 +309,36 @@ fn main() {
             [1000, 1000],
         ),
         "X-Z THROUGH A TRISO ROW, CONUS MID-HEIGHT",
+    );
+    // The bed FLOOR, cut through the same TRISO row: the per-BALL identity
+    // rule makes every ball centred above z = -bed_half_height eligible for
+    // fuel and every ball centred below it (the conus) a dummy, so fuel may
+    // appear only in balls whose centre lies above the floor.
+    render(
+        "htr10_xz_bed_floor.png",
+        SlicePlot::new(
+            PlotBasis::Xz,
+            Position::new(0.0, part.y, -core.bed_half_height),
+            [30.0, 30.0],
+            [1000, 1000],
+        ),
+        "X-Z THROUGH A TRISO ROW AT THE BED FLOOR",
+    );
+    // A B layer (mid-height of a tile, 4.899 cm above the A layer at the
+    // pebble found above) in plan, 40 cm square: B balls sit at alternate
+    // vertices of the tile hexagons, so the plan pattern is again hexagonal
+    // but shifted by pitch/sqrt(3) in x from the A layer's.
+    render(
+        "htr10_xy_b_layer.png",
+        SlicePlot::new(
+            PlotBasis::Xy,
+            // Half a tile (one ball layer) above the pebble's centre plane;
+            // the TRISO grid has a particle plane through each pebble centre.
+            Position::new(peb.x, peb.y, peb.z + 0.5 * core.lat_height),
+            [40.0, 40.0],
+            [1000, 1000],
+        ),
+        "X-Y, 40 CM, A B-LAYER (Z = PEBBLE + 4.899)",
     );
     render(
         "htr10_xy_triso.png",

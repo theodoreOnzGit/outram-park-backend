@@ -223,9 +223,19 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   loading but only 114.0 cm at the tallest, in a model 581 cm tall rather than
   610. **Every result recorded on this page before that commit used the mirrored
   bottom.**
-- **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
-  homogenised with their borings.
-- **Control rods themselves** are absent; the benchmark arm is rods-out.
+- ~~**Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
+  homogenised with their borings.~~
+- ~~**Control rods themselves** are absent; the benchmark arm is rods-out.~~
+- **CHANGED 2026-09-25 (WIP, branch `claude/htr10-reflector`, not yet priced
+  or drawn):** every reflector channel is explicit geometry — 20 coolant,
+  10 control-rod, 3 irradiation and 7 absorber-ball channels plus the hot gas
+  duct, in solid graphite, inside the full IAEA-TECDOC-1382 Fig. 4.10 zone map
+  with the p. 242 corrections — and the ten rods sit in their channels at the
+  withdrawn position (B1 is rods-out) with explicit B4C, steel and iron. The
+  discharge tube holds explicit whole graphite balls with Li (2014)'s
+  rejection at the cone and tube. See `nee_soon::htr10_rmc::reflector_geometry`
+  and `crates/kovan-literature/derived/tecdoc1382-htr10-mc-borings-and-zone-map.md`.
+  The residuals on this page predate it.
 - **4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
   construction and replaced by helium. Every pebble loses 4.74 % of its volume
   — 11.1 % of the *fuel* pebble's fuel-free shell, and the whole cap for the

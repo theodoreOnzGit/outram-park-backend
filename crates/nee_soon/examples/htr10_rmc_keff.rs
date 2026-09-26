@@ -73,8 +73,10 @@
 //!
 //! > *"the conus and discharge tube contained only **dummy** pebbles"*
 //!
-//! The conus is part of the bed hex lattice, and `bed_tile_levels` applies the
-//! core's 57:43 fuel:dummy split to every level. Extending the lattice to the
+//! The conus is part of the bed hex lattice, and `bed_tile_levels` applied the
+//! core's 57:43 fuel:dummy split to every level. (Since 2026-09-25 the
+//! explicit-TRISO bed assigns fuel per BALL through `bed::TwoBallBed`, with
+//! the conus all-dummy by construction.) Extending the lattice to the
 //! conus floor therefore filled it with fuel. The geometry was right; the
 //! contents were not. Correcting it is worth **-5177 +/- 420 pcm (12 sigma)**.
 //!
@@ -141,7 +143,9 @@ const TEMP_K: f64 = 300.15;
 ///
 /// Kept as the historical comparison point, but **do not compare against it
 /// blind** -- see [`rmc_at_height`]. The bed this example builds is
-/// `lat_height * n_axial` tall, which at the default layer count is NOT
+/// `n_axial x 4.899` cm tall (`2 * bed_half_height`; ~~`lat_height *
+/// n_axial`~~, which stopped being true on 2026-09-25 when the tile became the
+/// two-ball 9.798 cm prism), which at the default layer count is NOT
 /// 123.576 cm, and RMC's own curve is steep enough (~270 pcm/cm near this
 /// point) that the mismatch is a real systematic rather than a rounding
 /// detail.
@@ -153,7 +157,7 @@ const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
 /// # Why this exists
 ///
 /// The example compared every result against the single 123.576 cm point while
-/// building a bed of `lat_height * n_axial` cm. At the default 25 layers that
+/// building a bed of `n_axial x 4.899` cm. At the default 25 layers that
 /// bed is **122.474 cm**, and RMC's curve interpolates there to **1.000676**
 /// rather than 1.004288 -- so **+361 pcm of the reported disagreement was the
 /// comparison point, not the model**. The curve rises ~270 pcm/cm through this
@@ -462,7 +466,7 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         None => n,
     };
 
-    Some(vec![
+    let mut v = vec![
         bind(load!(diag, "U235", f_u235)?, &u_in_uo2),
         bind(load!(diag, "U238", f_u238)?, &u_in_uo2),
         bind(load!(diag, "O16", f_o16)?, &o_in_uo2),
@@ -485,7 +489,26 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         bind(load!(diag, "Si30", f_si30)?, &si_in_sic),
         // 10: B-11 (gh:#311). No thermal law: a trace scatterer in graphite.
         load!(diag, "B11", f_b11)?,
-    ])
+    ];
+    // 11..: the withdrawn control rods' sleeve steel and joint iron
+    // (2026-09-25), free gas, in `RodMetalNuclides::contiguous(11)` order.
+    //
+    // ENDF/B-VIII.0 only: the checkout has no VII.0 tapes for Fe, Cr, Ni, Mn
+    // or Ti. So the VII.0 arm takes these from VIII.0 -- for the rod metal
+    // alone, a few grams of steel 11 cm above the cavity -- and says so. That
+    // is a mixed-library arm, recorded here rather than hidden.
+    if endf7 {
+        diag.note(
+            "rod-metal nuclides (Fe, Cr, Ni, Mn, Ti, free Si) are ENDF/B-VIII.0 in \
+             this ENDF/B-VII.0 arm: no VII.0 tapes for them in reference-data/endf"
+                .to_string(),
+        );
+        eprintln!("  NOTE: rod-metal nuclides from ENDF/B-VIII.0 in the VII.0 arm");
+    }
+    for (name, file) in nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8 {
+        v.push(load!(diag, name, file)?);
+    }
+    Some(v)
 }
 
 fn main() {
@@ -552,6 +575,7 @@ fn main() {
     );
     let mats = nee_soon::htr10_rmc::materials::htr10_material_set(
         NUC,
+        nee_soon::htr10_rmc::materials::RodMetalNuclides::contiguous(11),
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron,
@@ -728,7 +752,8 @@ fn main() {
         println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
     }
 
-    // Height-matched comparison. The bed is `lat_height * n_axial` tall; RMC's
+    // Height-matched comparison. The bed is `2 * bed_half_height` = `n_axial x
+    // 4.899` cm tall (not `lat_height * n_axial` since the two-ball tile); RMC's
     // curve is sampled at ITS heights, so comparing against a point the model
     // does not occupy imports a systematic worth ~270 pcm per cm of mismatch.
     let bed_height_cm = core.bed_half_height * 2.0;

@@ -70,12 +70,28 @@
 //!   reference.
 //!
 //! **Documented simplifications (not defects, each pushes `k` one way):**
-//! - every reflector region is TECDOC zone 22, the densest graphite in
-//!   Table 4-3, and the boronated zones are not placed — raises `k`;
-//! - the control-rod boring band is solid zone-22 graphite
-//!   (`OUTRAM_HTR10_BORINGS` is off: its core-height composition is unrecorded);
-//! - the core-height reflector zone map is not placed;
-//! - rods fully withdrawn; one temperature (300.15 K) everywhere.
+//! - ~~every reflector region is TECDOC zone 22, the densest graphite in
+//!   Table 4-3, and the boronated zones are not placed — raises `k`;~~
+//! - ~~the control-rod boring band is solid zone-22 graphite
+//!   (`OUTRAM_HTR10_BORINGS` is off: its core-height composition is unrecorded);~~
+//! - ~~the core-height reflector zone map is not placed;~~
+//! - rods fully withdrawn (the benchmark's B1 state); one temperature
+//!   (300.15 K) everywhere.
+//!
+//! **CHANGED 2026-09-25 (WIP, branch `claude/htr10-reflector`, NOT yet
+//! priced):** the reflector is explicit 3-D geometry
+//! ([`reflector_geometry`]): the 20 coolant, 10 control-rod, 3 irradiation
+//! and 7 absorber-ball channels at their own positions in solid graphite,
+//! the hot gas duct, and every IAEA-TECDOC-1382 Fig. 4.10 zone with the
+//! p. 242 corrections for explicit borings. The rods sit in their channels
+//! at the withdrawn position with explicit B4C, steel and iron. The
+//! discharge tube holds explicit whole graphite balls, with Li (2014)'s
+//! rejection of balls crossing the cone or tube. What the specification does
+//! not give (channel azimuths, the contents of the absorber-ball and
+//! irradiation channels, the internal structure of zones 0-4, 8-16, 19-21,
+//! 48, 57) is listed in [`reflector_geometry`]'s module docs. **No `k` has
+//! been computed on this geometry yet, and it has not yet been drawn** (the
+//! crate's geometry-drawing rule): treat it as unverified.
 //!
 //! **Other paths and plumbing:**
 //! - gh:#308 — `assemble` (homogenised fuel) lacks the cavity, conus, bricks and
@@ -142,6 +158,7 @@ use outram_mc_libs::prelude::TrisoSpec;
 
 pub mod bed;
 pub mod reflector;
+pub mod reflector_geometry;
 pub mod core_model;
 pub mod control_rod;
 pub mod materials;
