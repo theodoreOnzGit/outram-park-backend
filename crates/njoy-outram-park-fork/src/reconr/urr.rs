@@ -578,6 +578,7 @@ pub(super) fn add_unresolved_ranges(
                 MtReaction::Mt1Total,
                 MtReaction::Mt2Elastic,
                 MtReaction::Mt18Fission,
+                MtReaction::Mt19FirstChanceFission,
                 MtReaction::Mt102Capture,
             ] {
                 if let Some(sec) = sections.iter().find(|s| s.mt == mt) {
@@ -605,6 +606,9 @@ pub(super) fn add_unresolved_ranges(
             (0usize, MtReaction::Mt1Total),
             (1, MtReaction::Mt2Elastic),
             (2, MtReaction::Mt18Fission),
+            // `itype = 3` for MT=19 as well (`reconr.f90:4760`); MT=18 is
+            // absent whenever MT=19 is present (`mtr18`, see `reconr`).
+            (2, MtReaction::Mt19FirstChanceFission),
             (3, MtReaction::Mt102Capture),
         ] {
             let Some(sec) = sections.iter_mut().find(|s| s.mt == mt) else {

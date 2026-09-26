@@ -280,6 +280,10 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         ResonanceInfo::default()
     };
 
+    // AWI, the incident particle's mass ratio (MF=1/MT=451, third record);
+    // `lunion`'s `awin`. 1 for a neutron sublibrary.
+    let awin = mf1_sec.rows.get(2).map_or(1.0, |r| r[0]);
+
     // MF=3 — background cross sections
     let mut sections: Vec<ReconrSection> = tape
         .sections()
@@ -287,8 +291,9 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         .filter(|s| s.key.mat == mat && s.key.mf == 3)
         .map(|sec| {
             let mut cur = SectionCursor::new(&sec.rows);
-            let _head = cur.read_cont()?; // MF=3 HEAD: ZA, AWR, 0, 0, 0, 0
-            let tab1 = cur.read_tab1()?; // TAB1 header carries QM (c1), QI (c2)
+            let head = cur.read_cont()?; // MF=3 HEAD: ZA, AWR, 0, 0, 0, 0
+            let mut tab1 = cur.read_tab1()?; // TAB1 header carries QM (c1), QI (c2)
+            raise_threshold_to_kinematic(&mut tab1.pairs, tab1.head.c2, head.c2, awin)?;
             let mut pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
             shade_discontinuities(&mut pairs);
             Ok(ReconrSection {
@@ -323,6 +328,17 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         urr::build_mt152(material.za, material.awr, &urr_ranges, &sections, 0.0, eps)?
     };
 
+    // Phase 2a-ter: upstream's `mtr18` rule (`anlyzd`, `reconr.f90:557-561`).
+    // When the evaluation carries MT=19, MT=18 is a REDUNDANT reaction:
+    // `lunion` drops the tape's own MT=18 (`:1893`), `emerge` adds resonance
+    // fission to MT=19 (`itype=3`, `:4760`), and MT=18 is rebuilt as the sum
+    // of 19/20/21/38 (`:4886-4887`) carrying MT=19's Q (`q18`, `:1916`,
+    // `:5281`). Done after `genunr`, which reads the tape's MF=3 as-is.
+    let mtr18 = sections.iter().any(|s| s.mt.number() == 19);
+    if mtr18 {
+        sections.retain(|s| s.mt.number() != 18);
+    }
+
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps);
 
@@ -333,9 +349,13 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         urr::add_unresolved_ranges(&mut sections, &urr_ranges, eps)?;
     }
 
-    // Phase 2d: emit the lumped charged-particle channels MT=103-107 for an
-    // evaluation that carries only the discrete MT=600-849 levels.
+    // Phase 2d: rebuild the lumped charged-particle channels MT=103-107 from
+    // the discrete MT=600-849 levels, as the redundant reactions they are.
     synthesise_lumped_particle_channels(&mut sections);
+
+    if mtr18 {
+        synthesise_total_fission(&mut sections);
+    }
 
     Ok(ReconrResult {
         material,
@@ -343,6 +363,84 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         resonance_upper_limit: res_info.pendf_resonance_upper_limit(),
         unresolved_table,
     })
+}
+
+/// `lunion`'s threshold check (`reconr.f90:1913-1938`): a section whose first
+/// tabulated energy lies below the kinematic threshold
+/// `-Q (A+1)/A`, rounded **up** at 7 figures, has that first energy raised to
+/// it, and any following energies it now overtakes are pushed up by one unit
+/// each. NJOY prints `changed threshold from ... to ...` when it does this.
+///
+/// Measured 2026-09-26 on U-234 (ENDF/B-VIII.0): every one of the 40 discrete
+/// levels' thresholds came out one unit lower in the 7th figure than NJOY's
+/// table (`4.368748e-2` against `4.368749e-2` MeV for MT=51), which is exactly
+/// the evaluation's own threshold against its `sigfig(thr, 7, +1)`.
+fn raise_threshold_to_kinematic(
+    pairs: &mut [(f64, f64)],
+    qx: f64,
+    awr: f64,
+    awin: f64,
+) -> Result<(), NjoyError> {
+    let thrx = if awin != 0.0 {
+        let awrx = awr / awin;
+        -qx * (awrx + 1.0) / awrx
+    } else {
+        -qx
+    };
+    if thrx <= 0.0 || pairs.is_empty() {
+        return Ok(());
+    }
+    let thrxx = sigfig(thrx, 7, 1);
+    if pairs[0].0 >= thrxx {
+        return Ok(());
+    }
+    pairs[0].0 = thrxx;
+    let mut l = 0;
+    while l + 1 < pairs.len() && pairs[l + 1].0 <= pairs[l].0 {
+        if l > 10 {
+            return Err(NjoyError::EndfParse("lunion: ill-behaved threshold.".into()));
+        }
+        pairs[l + 1].0 = sigfig(pairs[l].0, 7, 1);
+        l += 1;
+    }
+    Ok(())
+}
+
+/// Rebuild MT=18 as the sum of MT=19/20/21/38, upstream's redundant `mtr=18`
+/// (`reconr.f90:4886-4893`), on the union of the parts' grids, with MT=19's Q
+/// (`q18`, `:1916`, written at `:5281`). Only called when MT=19 is present,
+/// after the tape's own MT=18 was dropped as `lunion` drops it (`:1893`).
+fn synthesise_total_fission(sections: &mut Vec<ReconrSection>) {
+    let parts: Vec<&ReconrSection> = sections
+        .iter()
+        .filter(|s| matches!(s.mt.number(), 19 | 20 | 21 | 38))
+        .collect();
+    if parts.is_empty() {
+        return;
+    }
+    let mut grid: Vec<f64> = parts
+        .iter()
+        .flat_map(|s| s.pairs.iter().map(|&(e, _)| e))
+        .collect();
+    grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    grid.dedup_by(|a, b| (*a - *b).abs() <= SAME_ENERGY_REL * b.abs().max(1.0));
+    let pairs: Vec<(f64, f64)> = grid
+        .iter()
+        .map(|&e| (e, parts.iter().map(|s| eval_lin_lin(&s.pairs, e)).sum()))
+        .collect();
+    let qi = parts
+        .iter()
+        .find(|s| s.mt.number() == 19)
+        .map(|s| s.qi)
+        .unwrap_or(0.0);
+    sections.retain(|s| s.mt.number() != 18);
+    sections.push(ReconrSection {
+        lr: 0,
+        mt: MtReaction::Mt18Fission,
+        qi,
+        pairs,
+    });
+    sections.sort_by_key(|s| i32::from(s.mt));
 }
 
 /// The five lumped charged-particle channels and the discrete MF=3 level
@@ -355,8 +453,9 @@ const LUMPED_PARTICLE_CHANNELS: [(i32, i32, i32); 5] = [
     (107, 800, 849), // (n,α)
 ];
 
-/// Build MT=103-107 as the sum of their discrete MT=600-849 levels when the
-/// evaluation carries the levels but not the lumped section.
+/// Build MT=103-107 as the sum of their discrete MT=600-849 levels whenever
+/// the evaluation carries any of the levels (~~only when it lacks the lumped
+/// section~~ -- see the correction below).
 ///
 /// # Why this is needed
 ///
@@ -379,21 +478,26 @@ const LUMPED_PARTICLE_CHANNELS: [(i32, i32, i32); 5] = [
 /// **two** alphas on top of its triton. Found by
 /// `tests/gaspr_vs_njoy2016.rs`, 2026-09-17.
 ///
-/// # What this deliberately does not do
+/// # Upstream recomputes it unconditionally, with Q = 0
 ///
-/// Where the lumped section **is** present it is left alone rather than
+/// ~~Where the lumped section **is** present it is left alone rather than
 /// recomputed from the levels, even though upstream recomputes it
-/// unconditionally. On B-10 — which carries MT=103 *and* MT=600-605 — the
-/// evaluation's own MT=103 already equals NJOY's recomputed sum to every
-/// printed digit (2.9376236660e-2 b at 5.5909e6 eV on both sides), so
-/// recomputing would be churn with a real regression risk and no measured
-/// gain. If a tape is ever found where the two disagree, this is the place to
-/// change.
+/// unconditionally. On B-10 the evaluation's own MT=103 already equals NJOY's
+/// recomputed sum to every printed digit, so recomputing would be churn with
+/// no measured gain.~~ **CORRECTED 2026-09-26** -- the gain was there, just
+/// not in the cross section. `lunion` drops the tape's own lumped section
+/// (`reconr.f90:1883-1887`) and `recout` writes the rebuilt one with
+/// **`Q = 0`** (`scr(2)=0`, `:5280`; only MT=18 gets a Q). Keeping the tape's
+/// section kept its Q: NJOY2016's U-235 ACE table stores `Q = 0` for MT=103
+/// and MT=107 where this crate stored -0.8199998 and 11.1165 MeV. The
+/// synthesised case was wrong the same way -- it took the ground-state
+/// level's Q. Both now follow upstream.
 fn synthesise_lumped_particle_channels(sections: &mut Vec<ReconrSection>) {
     for (lumped, lo, hi) in LUMPED_PARTICLE_CHANNELS {
-        if sections.iter().any(|s| s.mt.number() == lumped) {
+        if !sections.iter().any(|s| (lo..=hi).contains(&s.mt.number())) {
             continue;
         }
+        sections.retain(|s| s.mt.number() != lumped);
         let levels: Vec<&ReconrSection> = sections
             .iter()
             .filter(|s| (lo..=hi).contains(&s.mt.number()))
@@ -414,14 +518,9 @@ fn synthesise_lumped_particle_channels(sections: &mut Vec<ReconrSection>) {
             .map(|&e| (e, levels.iter().map(|s| eval_lin_lin(&s.pairs, e)).sum()))
             .collect();
 
-        // The lumped channel's Q is the ground-state level's, i.e. the lowest
-        // MT in the range — the same convention the evaluation uses when it
-        // writes the lumped section itself.
-        let qi = levels
-            .iter()
-            .min_by_key(|s| s.mt.number())
-            .map(|s| s.qi)
-            .unwrap_or(0.0);
+        // A redundant reaction is written with Q = 0 (`recout`,
+        // `reconr.f90:5280`). ~~The ground-state level's Q.~~
+        let qi = 0.0;
 
         sections.push(ReconrSection {
             lr: 0,
@@ -777,6 +876,9 @@ pub(crate) fn rebuild_range(
         MtReaction::Mt1Total,
         MtReaction::Mt2Elastic,
         MtReaction::Mt18Fission,
+        // `itype = 3` for MT=19 too (`reconr.f90:4760`). The two never
+        // coexist here: MT=18 is dropped when MT=19 is present (`mtr18`).
+        MtReaction::Mt19FirstChanceFission,
         MtReaction::Mt102Capture,
     ]
     .into_iter()
@@ -824,6 +926,7 @@ pub(crate) fn rebuild_range(
                 (MtReaction::Mt1Total, _) => deltas[i].total,
                 (MtReaction::Mt2Elastic, _) => deltas[i].elastic,
                 (MtReaction::Mt18Fission, _) => deltas[i].fission,
+                (MtReaction::Mt19FirstChanceFission, _) => deltas[i].fission,
                 (MtReaction::Mt102Capture, _) => deltas[i].capture,
                 _ => 0.0,
             };
@@ -904,23 +1007,19 @@ fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) 
         if mt > 200 && mt < 600 {
             return false;
         }
-        // Fission: take MT=18, not MT=19/20/21/38.
+        // Fission: sum MT=19/20/21/38 when the evaluation carries MT=19,
+        // otherwise MT=18 -- upstream's `mtr18` rule.
         //
-        // This is the OPPOSITE of the choice upstream's `anlyzd` records
-        // (`reconr.f90:553-556` sets `mtr18` and builds MT=18 from its parts),
-        // and it is deliberate, because it follows where THIS crate puts the
-        // resonance contribution: `assemble`'s `targets` list reconstructs
-        // `Mt18Fission`, and leaves MT=19..21/38 as pure background. NJOY's
-        // own PENDF carries the resonance fission on the first-chance section
-        // instead, so summing its parts loses nothing there.
-        //
-        // Measured on U-234 (ENDF/B-VIII.0, MAT 9225), which carries all of
-        // 18/19/20/21/38: at 1e-5 eV MT=19, 20, 21 and 38 are all exactly 0.0
-        // here while MT=18 is 3.448068842 b. Summing the parts instead of
-        // MT=18 lost precisely that 3.448 b and moved the total from NJOY's
-        // 5.206555e3 (matched to 3.2e-8) out to 5.203107e3 (6.6e-4). Getting
-        // this backwards is a silent 0.066 % hole in the total of a Godiva
-        // nuclide, so it is spelled out rather than left to inference.
+        // ~~Take MT=18, not MT=19/20/21/38 -- the OPPOSITE of upstream,
+        // deliberately, because this crate reconstructed resonance fission on
+        // MT=18 only and left MT=19..21/38 as pure background (on U-234 that
+        // made summing the parts lose 3.448 b at 1e-5 eV).~~ **CORRECTED
+        // 2026-09-26** -- that was the port's defect, not a reason to diverge.
+        // Upstream drops the tape's MT=18 when MT=19 exists (`lunion`,
+        // `reconr.f90:1893`), puts the resonance fission on MT=19 (`itype=3`,
+        // `:4760`) and rebuilds MT=18 from the parts afterwards. `reconr` now
+        // does all three, so by the time this runs MT=18 is absent whenever
+        // MT=19 is present and `has_total_fission` selects the parts.
         if (19..=21).contains(&mt) && has_total_fission {
             return false;
         }

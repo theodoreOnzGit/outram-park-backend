@@ -81,8 +81,13 @@ fn reading_then_writing_reproduces_njoys_unr_block_word_for_word() {
         let mut n_value = 0usize;
         let mut n_type = 0usize;
         let mut first_bad: Option<(usize, f64, f64)> = None;
+        // Compared as a Type-1 file prints them (`1pE20.11`, 12 digits): since
+        // 2026-09-26 the writer rounds with upstream's own `sigfig`, whose
+        // x1.0000000000001 bias sits below that precision -- and the file, not
+        // the in-memory double, is what is being reproduced.
+        let printed = |x: f64| format!("{x:.11e}");
         for (i, ((gv, gi), (wv, wi))) in got.iter().zip(want.iter()).enumerate() {
-            if gv.to_bits() != wv.to_bits() {
+            if printed(*gv) != printed(*wv) {
                 n_value += 1;
                 first_bad.get_or_insert((i, *gv, *wv));
             }
@@ -229,12 +234,18 @@ fn build_full_with_purr_writes_a_block_that_reads_back_as_generated() {
 
     let lunr = back.jxs[jxs::LUNR];
     assert!(lunr > 0, "build_full_with_purr must set JXS(23)");
-    // Immediately after DLW: NJOY's own ordering, DLW -> LUNR -> ... -> MTRP.
-    let dlw_end = if back.jxs[jxs::MTRP] > 0 {
-        back.jxs[jxs::MTRP]
-    } else {
-        back.jxs[jxs::END] + 1
-    };
+    // Immediately after DLW: NJOY's own ordering, DLW -> LUNR -> DNU -> BDD
+    // -> DNEDL -> DNED -> GPD -> MTRP. The block after UNR is whichever of
+    // those is present first. (~~Assumed MTRP~~: stale since the delayed
+    // blocks landed between them, 2026-09-26.)
+    let dlw_end = back
+        .jxs
+        .iter()
+        .enumerate()
+        .filter(|&(k, &l)| k != jxs::END && l > lunr)
+        .map(|(_, &l)| l)
+        .min()
+        .unwrap_or(back.jxs[jxs::END] + 1);
     let len = 6 + generated.len() * (1 + 6 * generated.n_bands());
     assert_eq!(
         lunr as usize + len,

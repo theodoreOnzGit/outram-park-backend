@@ -48,12 +48,16 @@
 use crate::reconr::{eval_lin_lin, ReconrResult, ReconrSection};
 
 use super::angular::ElasticAngular;
-use super::energy::Emission;
+use super::energy::{Emission, EnergyLaw};
 use super::{jxs, nxs, AceTable};
 use super::photon_blocks::SigP;
 
 /// Convert eV → MeV (NJOY `emev`).
 const EMEV: f64 = 1.0e6;
+
+/// `acelod`'s `eps` (`acefc.f90`, `real(kr),parameter::eps=1.e-10_kr`), the
+/// relative slack in its threshold-index search.
+const SIG_EPS: f64 = 1.0e-10;
 
 /// How closely MT=19+20+21+38 must reproduce MT=18 before the partial fission
 /// channels may replace it as the stored representation.
@@ -63,18 +67,33 @@ const EMEV: f64 = 1.0e6;
 /// carrying structure the other lacks.
 const FISSION_SUM_TOL: f64 = 1.0e-3;
 
-/// Round `x` to `n` significant figures, matching NJOY's `sigfig(x,n,0)`.
+/// Round `x` to `n` significant figures — NJOY's `sigfig(x, n, 0)`.
 ///
 /// NJOY writes ACE values to 7 significant figures so that independently
 /// processed libraries compare cleanly; reproducing it keeps our output aligned
 /// with the upstream oracle.
+///
+/// ~~matching NJOY's `sigfig(x,n,0)`~~ **CORRECTED 2026-09-26.** The body here
+/// used to be `(x * 10^d).round() / 10^d`, which is **not** upstream's
+/// `sigfig` (`util.f90:361-393`): upstream rounds
+/// `nint(x·10^p + 10^(ndig−11))` — a nudge that tips a scaled value sitting a
+/// hair below `.5` upward — and multiplies the result by
+/// `bias = 1.0000000000001`. Found by `tests/delayed_blocks_write_vs_njoy2016.rs`,
+/// where 654 of 10 920 DNED words came out one unit low in the 7th figure
+/// (`4.645954e-5` against NJOY's `4.645955e-5`).
+///
+/// The crate already had the faithful port, [`crate::mixr::mix::sigfig`], and
+/// the two ACE classes that reach **byte** parity with NJOY (photo-atomic,
+/// photo-nuclear) use it; the continuous-energy path had grown a second,
+/// simplified copy. This is now a thin call to that one, so there is a single
+/// implementation. The bias sits below the 12 digits of a Type-1 file, so it is
+/// invisible there, and it is **required** in a Type-2 file, which stores the
+/// double itself.
 pub(crate) fn sigfig(x: f64, n: i32) -> f64 {
     if x == 0.0 || !x.is_finite() {
         return x;
     }
-    let d = (n - 1) - x.abs().log10().floor() as i32;
-    let f = 10f64.powi(d);
-    (x * f).round() / f
+    crate::mixr::mix::sigfig(x, n, 0)
 }
 
 /// Evaluate a reconstructed section at energy `e` \[eV\], treating energies below
@@ -257,7 +276,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None, None)
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -282,6 +301,7 @@ impl AceTable {
             None,
             None,
             false,
+            None,
             None,
             None,
         )
@@ -313,7 +333,7 @@ impl AceTable {
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
         Self::build(
-            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None,
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None, None,
         )
     }
 
@@ -346,6 +366,34 @@ impl AceTable {
     ) -> Self {
         Self::build(
             result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, Some(urr),
+            None,
+        )
+    }
+
+    /// [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a
+    /// full NJOY deck writes: the UNR probability tables (PURR, GitHub #325)
+    /// and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED
+    /// ([`super::delayed_blocks`]). Either may be `None`; both are placed where
+    /// NJOY places them, immediately after DLW, UNR first.
+    ///
+    /// This is what [`crate::acer::build_full`] and
+    /// [`crate::acer::build_full_with_purr`] call; prefer those.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_extras(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+    ) -> Self {
+        Self::build(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed,
         )
     }
 
@@ -361,6 +409,7 @@ impl AceTable {
         mt19: bool,
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
         urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -412,6 +461,12 @@ impl AceTable {
         // MT=18. This is measured, not assumed, and it self-corrects: if
         // RECONR later reconstructs the partials too, the check passes and the
         // inventory matches NJOY without anyone revisiting this.
+        //
+        // **UPDATE 2026-09-26: it did.** RECONR now follows upstream's
+        // `mtr18` rule (resonance fission on MT=19, MT=18 rebuilt as the sum
+        // of its parts, `reconr.f90:1893/4760/4886`), so on U-234 this check
+        // passes by construction and the stored inventory is NJOY's
+        // 19/20/21/38. The check stays as the guard it was written as.
         //
         // Evaluating a higher-chance channel below its threshold correctly
         // yields zero, so the comparison runs over MT=18's own grid.
@@ -471,13 +526,52 @@ impl AceTable {
 
         // Pre-evaluate every partial on the grid (reused for total/disappearance
         // and again for the SIG block).
-        let partial_xs: Vec<Vec<f64>> = partials
+        let mut partial_xs: Vec<Vec<f64>> = partials
             .iter()
             .map(|sec| {
                 egrid
                     .iter()
                     .map(|&e| sigfig(eval_partial(sec, e), 7))
                     .collect()
+            })
+            .collect();
+
+        // Each reaction's SIG entry starts at its threshold index IE, as
+        // `acelod` stores it (`acefc.f90:5466-5501`): the first grid index at
+        // or above the section's `gety1` start, and the first stored value is
+        // zeroed when IE > 1 and the next tabulated energy lies above 100 eV
+        // (`:5503-5505`). Nothing is stored below IE, so it contributes
+        // nothing to the total either.
+        let sig_ie: Vec<usize> = partials
+            .iter()
+            .zip(partial_xs.iter_mut())
+            .map(|(sec, xs)| {
+                let t = crate::endf::records::Tab1 {
+                    head: crate::endf::records::Cont {
+                        c1: 0.0,
+                        c2: 0.0,
+                        l1: 0,
+                        l2: 0,
+                        n1: 1,
+                        n2: sec.pairs.len() as i32,
+                    },
+                    interp: vec![(sec.pairs.len() as u32, 2)],
+                    pairs: sec.pairs.clone(),
+                };
+                let mut g = crate::endf::gety1::Gety1::new(&t);
+                let enext = g.get(0.0).xnext;
+                let mut j = nes; // 1-based
+                while j >= 1 && enext <= (1.0 + SIG_EPS) * egrid[j - 1] {
+                    j -= 1;
+                }
+                let ie = j + 1;
+                for v in xs.iter_mut().take(ie.saturating_sub(1)) {
+                    *v = 0.0;
+                }
+                if ie > 1 && ie <= nes && g.get(egrid[ie - 1]).xnext > 100.0 {
+                    xs[ie - 1] = 0.0;
+                }
+                ie
             })
             .collect();
 
@@ -556,26 +650,53 @@ impl AceTable {
             // TYR: neutron yield with frame sign. Zero for reactions with no
             // secondary neutron; the producer value comes from `emissions`.
             jxs[jxs::TYR] = b.next_locator();
+            // A generalized yield's TYR is `±(100 + L)`, `L` the DLW locator
+            // of its yield table (`acefc.f90:7285`), so the DLW layout is
+            // needed before DLW itself is written.
+            let producers: Vec<&Emission> = partials
+                .iter()
+                .filter_map(|sec| emissions.iter().find(|e| e.mt == i32::from(sec.mt)))
+                .collect();
+            let layout = dlw_layout(&producers);
             for sec in &partials {
                 let mt = i32::from(sec.mt);
-                let tyr = emissions.iter().find(|e| e.mt == mt).map_or(0, |e| e.tyr);
+                let tyr = match producers.iter().position(|e| e.mt == mt) {
+                    None => 0,
+                    Some(k) => match &producers[k].law {
+                        EnergyLaw::Acelf6(entry) => match entry.tyr {
+                            super::acelf6::Acelf6Tyr::Fixed(t) => t,
+                            super::acelf6::Acelf6Tyr::Generalized { sign } => {
+                                sign * (100 + layout[k].0)
+                            }
+                        },
+                        _ => producers[k].tyr,
+                    },
+                };
                 b.int(tyr);
             }
 
             // LSIG: per-reaction locator into the SIG block (1-based, integers).
-            // Each reaction's SIG entry is [IE, NE, σ(1..NE)] → 2 + NE words; we
-            // store every reaction on the full grid, so NE = NES and IE = 1.
+            // Each reaction's SIG entry is [IE, NE, σ(IE..NES)] → 2 + NE words.
+            // ~~We store every reaction on the full grid, so NE = NES and IE =
+            // 1.~~ **CHANGED 2026-09-26**: from its threshold index, as
+            // `acelod` does -- see `sig_ie` above.
             jxs[jxs::LSIG] = b.next_locator();
-            for i in 0..ntr {
-                b.int((1 + i * (2 + nes)) as i32);
+            let mut loc = 1usize;
+            for &ie in &sig_ie {
+                b.int(loc as i32);
+                loc += 2 + nes + 1 - ie.min(nes);
             }
 
             // SIG: [IE, NE, σ values] for each reaction.
             jxs[jxs::SIG] = b.next_locator();
-            for xs in &partial_xs {
-                b.int(1); // IE — first grid index (1-based)
-                b.int(nes as i32); // NE — number of points
-                xs.iter().for_each(|&v| b.real(v));
+            for ((sec, xs), &ie) in partials.iter().zip(&partial_xs).zip(&sig_ie) {
+                if i32::from(sec.mt) == 18 {
+                    jxs[jxs::FIS] = b.next_locator();
+                }
+                let ie = ie.min(nes);
+                b.int(ie as i32); // IE — threshold grid index (1-based)
+                b.int((nes + 1 - ie) as i32); // NE
+                xs[ie - 1..].iter().for_each(|&v| b.real(v));
             }
         }
 
@@ -591,24 +712,44 @@ impl AceTable {
 
         // ── LAND / AND (angular) and LDLW / DLW (energy) secondary blocks ────
         // Reactions in LAND order: elastic first, then each producer. Discrete
-        // levels carry an MF=4 angular distribution; continuum producers are
-        // isotropic (correlated angle → future Law 61/44).
+        // levels carry an MF=4 angular distribution; MF=6 producers carry
+        // theirs inside the DLW law (44/61/66) and get LAND = -1.
         let mut angulars: Vec<Option<&ElasticAngular>> = Vec::with_capacity(nr + 1);
         angulars.push(angular);
         for e in &producers {
             angulars.push(e.angular.as_ref());
         }
+        // `LAND = -1` for a correlated MF=6 law (`acefc.f90:5846-5847`).
+        let mut correlated = vec![false];
+        correlated.extend(
+            producers
+                .iter()
+                .map(|e| matches!(&e.law, EnergyLaw::Acelf6(x) if x.correlated)),
+        );
         let any_aniso = angulars
             .iter()
             .any(|a| a.is_some_and(|x| !x.is_all_isotropic()));
         if any_aniso || nr > 0 {
-            let (land, and) = append_angular_blocks(&mut b, &angulars);
+            let (land, and) = append_angular_blocks(&mut b, &angulars, &correlated);
             jxs[jxs::LAND] = land;
             jxs[jxs::AND] = and;
         }
+        // The inline Law-3 header's lower bound is the reaction's own
+        // threshold grid energy, `esz(ja)` with `ja` its SIG IE
+        // (`acefc.f90:5921-5930`).
+        let law3_lo: Vec<f64> = producers
+            .iter()
+            .map(|e| {
+                let ie = partials
+                    .iter()
+                    .position(|s| i32::from(s.mt) == e.mt)
+                    .map_or(1, |k| sig_ie[k].min(nes));
+                sigfig(egrid[ie - 1] / EMEV, 7)
+            })
+            .collect();
         if nr > 0 {
             let (ldlw, dlw) =
-                append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
+                append_dlw(&mut b, &producers, &law3_lo, sigfig(egrid[nes - 1] / EMEV, 7));
             jxs[jxs::LDLW] = ldlw;
             jxs[jxs::DLW] = dlw;
         }
@@ -628,6 +769,28 @@ impl AceTable {
             }
         }
 
+        // ── Delayed neutrons: DNU, BDD, DNEDL, DNED ─────────────────────────
+        // After UNR and before the photon blocks -- NJOY's own order, measured
+        // on its U-238 table: LUNR -> DNU -> BDD -> DNEDL -> DNED -> GPD -> MTRP.
+        // DNEDL/DNED locators are DNED-relative, so the blocks append verbatim.
+        let mut ndnf = 0i32;
+        if let Some(d) = delayed {
+            if d.n_groups > 0 {
+                for (slot, words) in [
+                    (jxs::DNU, &d.dnu),
+                    (jxs::BDD, &d.bdd),
+                    (jxs::DNEDL, &d.dnedl),
+                    (jxs::DNED, &d.dned),
+                ] {
+                    jxs[slot] = b.next_locator();
+                    for &(v, is_int) in words {
+                        b.word(v, is_int);
+                    }
+                }
+                ndnf = d.n_groups as i32;
+            }
+        }
+
         // Photon production. Absent is the normal case and a legal table; the
         // builder returns None rather than a partial block for a form it
         // cannot write (see `photon_blocks::build`).
@@ -644,6 +807,25 @@ impl AceTable {
                 jxs[jxs::LDLWP] = ldlwp;
                 jxs[jxs::DLWP] = dlwp;
                 ntrp = entries.len() as i32;
+
+                // YP: distinct MTs, in MTRP order, whose production is a
+                // yield rather than an MF=13 cross section (`acelpp`,
+                // `acefc.f90:8993-9008`). Written even when empty, as there.
+                jxs[jxs::YP] = b.next_locator();
+                let mut yp: Vec<i32> = Vec::new();
+                let mut mtl = 0;
+                for e in entries.iter() {
+                    let mtd = e.mtrp / 1000;
+                    let mf13 = !matches!(e.sigp, super::photon_blocks::SigP::Yield { .. });
+                    if !mf13 && mtd != mtl {
+                        mtl = mtd;
+                        yp.push(mtd);
+                    }
+                }
+                b.int(yp.len() as i32);
+                for mt in yp {
+                    b.int(mt);
+                }
             }
         }
 
@@ -659,6 +841,7 @@ impl AceTable {
         nxs_arr[nxs::NR] = nr as i32;
         // NTRP was hard-zeroed here while photon production was unwritten.
         nxs_arr[nxs::NTRP] = ntrp;
+        nxs_arr[nxs::NDNF] = ndnf;
         nxs_arr[nxs::S] = 0;
         nxs_arr[nxs::Z] = za / 1000;
         nxs_arr[nxs::A] = za % 1000;
@@ -753,7 +936,11 @@ impl XssBuilder {
 /// Each reaction's angular distribution, if anisotropic, is written to the AND
 /// block and referenced by its LAND locator (AND-relative, 1-based); isotropic or
 /// absent reactions get LAND locator `0`. Layout per `change` in `acefc.f90`.
-fn append_angular_blocks(b: &mut XssBuilder, reactions: &[Option<&ElasticAngular>]) -> (i32, i32) {
+fn append_angular_blocks(
+    b: &mut XssBuilder,
+    reactions: &[Option<&ElasticAngular>],
+    correlated: &[bool],
+) -> (i32, i32) {
     // Segment length (AND words) of each reaction's data; 0 if isotropic/absent.
     let seg_len: Vec<i32> = reactions
         .iter()
@@ -784,8 +971,8 @@ fn append_angular_blocks(b: &mut XssBuilder, reactions: &[Option<&ElasticAngular
 
     // LAND: one locator per reaction.
     let land = b.next_locator();
-    for &s in &starts {
-        b.int(s);
+    for (i, &s) in starts.iter().enumerate() {
+        b.int(if correlated.get(i).copied().unwrap_or(false) { -1 } else { s });
     }
 
     // AND: each anisotropic reaction's angular data.
@@ -844,29 +1031,50 @@ fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
 /// the 9-word law-validity header `[LNW=0, LAW, IDAT, NR=0, NE=2, E_lo, E_hi,
 /// P=1, P=1]` (applies with probability 1 over `[e_lo, e_hi]` \[MeV\]) followed
 /// at `IDAT` by the law data. Ports the DLW layout of `acelod`/`acelf5`.
-fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], e_lo: f64, e_hi: f64) -> (i32, i32) {
-    let nr = producers.len();
+/// Generic law-applicability header length for the non-`acelf6` laws.
+const DLW_HEADER: i32 = 9;
 
-    // Header is a fixed 9 words; law data follows. Compute each producer's
-    // DLW-relative header offset (1-based) so LDLW and the IDAT locators agree.
-    const HEADER: i32 = 9;
-    let mut header_off = Vec::with_capacity(nr);
-    let mut off = 1i32; // DLW-relative 1-based (DLW starts right after LDLW)
+/// Each producer's `(entry start, LDLW locator)`, DLW-relative and 1-based.
+/// An `acelf6` entry carries its own header and may open with a
+/// generalized-yield table that `LDLW` skips.
+fn dlw_layout(producers: &[&Emission]) -> Vec<(i32, i32)> {
+    let mut out = Vec::with_capacity(producers.len());
+    let mut off = 1i32; // DLW starts right after LDLW
     for e in producers {
-        header_off.push(off);
-        off += HEADER + e.law.data_len();
+        match &e.law {
+            EnergyLaw::Acelf6(entry) => {
+                out.push((off, off + entry.yield_len as i32));
+                off += entry.words.len() as i32;
+            }
+            law => {
+                out.push((off, off));
+                off += DLW_HEADER + law.data_len();
+            }
+        }
     }
+    out
+}
+
+fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], law3_lo: &[f64], e_hi: f64) -> (i32, i32) {
+    let layout = dlw_layout(producers);
 
     // LDLW block: one DLW-relative locator per producer.
     let ldlw = b.next_locator();
-    for &o in &header_off {
-        b.int(o);
+    for &(_, l) in &layout {
+        b.int(l);
     }
 
     // DLW block.
     let dlw = b.next_locator();
     for (i, e) in producers.iter().enumerate() {
-        let idat_rel = header_off[i] + HEADER; // DLW-relative 1-based data start
+        if let EnergyLaw::Acelf6(entry) = &e.law {
+            for (v, is_int) in entry.resolve(layout[i].0) {
+                b.word(v, is_int);
+            }
+            continue;
+        }
+        let idat_rel = layout[i].0 + DLW_HEADER; // DLW-relative 1-based data start
+        let e_lo = law3_lo[i];
         b.int(0); // LNW — single law
         b.int(e.law.law_number()); // LAW
         b.int(idat_rel); // IDAT
@@ -876,7 +1084,15 @@ fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], e_lo: f64, e_hi: f64)
         b.real(e_hi); // E_hi [MeV]
         b.real(1.0); // P_lo
         b.real(1.0); // P_hi
-        for (v, is_int) in e.law.serialize(idat_rel) {
+        let mut words = e.law.serialize(idat_rel);
+        // `acelod`'s clamp: an effective threshold above the table's own
+        // first energy is pulled just below it (`acefc.f90:5933-5935`).
+        if let EnergyLaw::Law3 { .. } = e.law {
+            if words[0].0 > e_lo {
+                words[0].0 = sigfig(e_lo * 0.999998, 7);
+            }
+        }
+        for (v, is_int) in words {
             b.word(v, is_int);
         }
     }
@@ -1032,9 +1248,27 @@ mod tests {
 
     #[test]
     fn sigfig_rounds_to_n_significant_figures() {
+        // Compared at a Type-1 file's precision (`1pE20.11`, 12 digits),
+        // because upstream's result carries a x1.0000000000001 bias below it.
+        let printed = |x: f64| format!("{x:.11e}");
         assert_eq!(sigfig(0.0, 7), 0.0);
-        assert!((sigfig(1.234_567_89, 7) - 1.234_568).abs() < 1e-12);
-        assert!((sigfig(92_235.678_9, 7) - 92_235.68).abs() < 1e-9);
+        assert_eq!(printed(sigfig(1.234_567_89, 7)), printed(1.234_568));
+        assert_eq!(printed(sigfig(92_235.678_9, 7)), printed(92_235.68));
+    }
+
+    /// The nudge: `nint(x·10^p + 10^(ndig−11))`, `util.f90:380`. The value is a
+    /// DNED outgoing energy from U-234's MT=455 spectrum, where the plain
+    /// `round(x·10^p)/10^p` this function used to be gave one unit less in the
+    /// 7th figure than NJOY's own table.
+    #[test]
+    fn sigfig_carries_upstreams_rounding_nudge() {
+        let printed = |x: f64| format!("{x:.11e}");
+        // A value whose 7-figure scaling lands a hair BELOW .5: plain rounding
+        // gives ...954, upstream's `+ 10^(7-11)` nudge gives ...955.
+        let x: f64 = (4_645_954.5 - 1.0e-6) / 1.0e11;
+        let plain = (x * 1.0e11).round() / 1.0e11;
+        assert_eq!(printed(plain), printed(4.645_954e-5), "the case must discriminate");
+        assert_eq!(printed(sigfig(x, 7)), printed(4.645_955e-5));
     }
 
     #[test]

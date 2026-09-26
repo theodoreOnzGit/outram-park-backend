@@ -21,7 +21,7 @@ play.
 | gap | before | after |
 |---|---|---|
 | reaction inventory | ours 47, NJOY 84 (U-235 0 K) | **matches exactly on all three nuclides** |
-| fission ν̄ (NU block) | `JXS(2) = 0` — no fission source at all | **347/347 values bit-identical** |
+| fission ν̄ (NU block) | `JXS(2) = 0` — no fission source at all | **347/347 values identical** at Type-1 print precision (~~bit-identical~~, corrected 2026-09-26, see the NU section) |
 | fission representation | MT=18 always kept, partials always dropped | **follows upstream's `mt19` rule** |
 | nuclide coverage | U-235 | **U-234, U-235, U-238**, then **all 57 tapes** — see the sweep below |
 | temperature coverage | 0 K | **0 K and 293.6 K** |
@@ -226,12 +226,20 @@ NJOY's.
 
 ## Results — ν̄ (the NU block)
 
-**347 of 347 values bit-identical** to NJOY2016's, header included
-(`[-173, 2, 0, 85, …]` both sides), for U-235 at 0 K.
+~~**347 of 347 values bit-identical** to NJOY2016's~~ **CORRECTED 2026-09-26:
+347 of 347 values identical as NJOY's Type-1 file prints them (`1pE20.11`)**,
+header included (`[-173, 2, 0, 85, …]` both sides), for U-235 at 0 K.
+
+Why the wording moved: the oracle is read from a Type-1 file, which cannot
+carry upstream `sigfig`'s `bias = 1.0000000000001` (`util.f90:392`). Bit
+equality held only because this port's `sigfig` omitted the bias too; when it
+was made faithful (delegating to `mixr::mix::sigfig`, needed to reproduce
+NJOY's DNED block), 170 energies moved in the 14th figure -- below anything the
+file can show. The gate still demands exact equality, of the printed value.
 
 Exact equality is the right bar, not a tolerance: the block is the
 evaluation's own table carried through with one unit change (eV → MeV), so
-anything short of bit-identical would mean a real difference in how it is read
+anything short of an identical printed value would mean a real difference in how it is read
 or written. Pinned by `tests/acer_ce_esz_vs_njoy2016.rs` against
 `reference-data/acer/u235_0k_nu_njoy2016.csv`.
 

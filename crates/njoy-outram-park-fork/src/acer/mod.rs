@@ -79,11 +79,15 @@
 //! ```
 
 pub mod acesix;
+pub mod acelf5;
+pub mod acelf6;
+pub mod acensd;
 pub mod angular;
 pub mod build;
 pub mod ce_decode;
 pub mod ce_laws;
 pub mod delayed;
+pub mod delayed_blocks;
 pub mod dosimetry;
 pub mod energy;
 pub mod fortran_fmt;
@@ -293,6 +297,14 @@ pub mod jxs {
     /// JXS(19): photon energy distributions (ACE Law 2 discrete lines or
     /// Law 4 continua).
     pub const DLWP: usize = 18;
+    /// JXS(20): **YP** -- `[NYP, MT(1..NYP)]`, the distinct reactions whose
+    /// photon production is a yield (MF=12/16) rather than a cross section
+    /// (`acelpp`, `acefc.f90:8993-9008`).
+    pub const YP: usize = 19;
+    /// JXS(21): **FIS** -- locator of MT=18's own SIG entry when total
+    /// fission is a stored reaction (`fis=next`, `acefc.f90:5495`); `0`
+    /// otherwise, e.g. when the partial chances are stored instead.
+    pub const FIS: usize = 20;
 
     pub const END: usize = 21;
 
@@ -378,6 +390,66 @@ pub fn build_full(
     kt_mev: f64,
     suffix: u32,
 ) -> Result<AceTable, crate::NjoyError> {
+    build_deck(tape, mat, recon, kt_mev, suffix, &AceDeck::default())
+}
+
+/// Which NJOY modules a deck runs ahead of ACER, for [`build_deck`].
+///
+/// HEATR is **on** by default: heating is physics the evaluation supplies,
+/// and the workspace rule is that such physics is default-on with ablation an
+/// explicit act. [`AceDeck::without_heatr`] is that act -- it reproduces a
+/// deck with no HEATR module, whose PENDF carries no MT=301, so `acelod`
+/// leaves the ESZ heating column at zero (`acefc.f90:5641-5645`). The
+/// reference tables in `reference-data/ace/reference-njoy/` were made that
+/// way, which is the reason this exists.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AceDeck {
+    heatr: bool,
+    purr: Option<(usize, usize, usize)>,
+}
+
+impl Default for AceDeck {
+    fn default() -> Self {
+        AceDeck { heatr: true, purr: None }
+    }
+}
+
+impl AceDeck {
+    /// The deck without HEATR: the ESZ heating column is written as zero.
+    pub fn without_heatr(mut self) -> Self {
+        self.heatr = false;
+        self
+    }
+
+    /// Add PURR with `nbin` bands, `nladr` ladders and `nsamp` samples.
+    pub fn with_purr(mut self, nbin: usize, nladr: usize, nsamp: usize) -> Self {
+        self.purr = Some((nbin, nladr, nsamp));
+        self
+    }
+}
+
+/// Assemble a continuous-energy [`AceTable`] for the given [`AceDeck`]. The
+/// single assembly path behind [`build_full`] and [`build_full_with_purr`].
+pub fn build_deck(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    recon: &crate::reconr::ReconrResult,
+    kt_mev: f64,
+    suffix: u32,
+    deck: &AceDeck,
+) -> Result<AceTable, crate::NjoyError> {
+    const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
+    let urr = match deck.purr {
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf(
+            tape,
+            mat,
+            kt_mev / K_BOLTZMANN_MEV,
+            nbin,
+            nladr,
+            nsamp,
+        )?,
+        None => None,
+    };
     let angular = match tape.section(mat, 4, 2) {
         Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
         None => None,
@@ -388,24 +460,36 @@ pub fn build_full(
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
     let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
-    let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
-    let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
-        .unwrap_or_default();
-    let emission = crate::heatr::build_emission_spectra(tape, mat);
-    let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
-    let kerma = crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
-        .with_energy_balance(&photons, recon);
+    let kerma = if deck.heatr {
+        let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
+        let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
+            .unwrap_or_default();
+        let emission = crate::heatr::build_emission_spectra(tape, mat);
+        let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
+        Some(
+            crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
+                .with_energy_balance(&photons, recon),
+        )
+    } else {
+        None
+    };
     let nu_block = crate::acer::nu::build(tape, mat)?;
-    Ok(AceTable::from_reconr_full(
+    // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
+    // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
+    // is upstream's default (`acer.f90:326`).
+    let delayed = crate::acer::delayed_blocks::build(tape, mat, true)?;
+    Ok(AceTable::from_reconr_full_with_extras(
         recon,
         kt_mev,
         suffix,
         angular.as_ref(),
         &emissions,
-        Some(&kerma),
+        kerma.as_ref(),
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
         crate::acer::photon_blocks::build(tape, mat).as_deref(),
+        urr.as_ref(),
+        delayed.as_ref(),
     ))
 }
 
@@ -444,47 +528,5 @@ pub fn build_full_with_purr(
     nladr: usize,
     nsamp: usize,
 ) -> Result<AceTable, crate::NjoyError> {
-    const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
-    let temperature_k = kt_mev / K_BOLTZMANN_MEV;
-    let Some(urr) = crate::purr::UrrProbabilityTables::from_endf(
-        tape,
-        mat,
-        temperature_k,
-        nbin,
-        nladr,
-        nsamp,
-    )?
-    else {
-        return build_full(tape, mat, recon, kt_mev, suffix);
-    };
-    let angular = match tape.section(mat, 4, 2) {
-        Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
-        None => None,
-    };
-    let partials: Vec<(i32, f64)> = recon
-        .sections
-        .iter()
-        .map(|s| (i32::from(s.mt), s.qi))
-        .collect();
-    let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
-    let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
-    let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
-        .unwrap_or_default();
-    let emission = crate::heatr::build_emission_spectra(tape, mat);
-    let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
-    let kerma = crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
-        .with_energy_balance(&photons, recon);
-    let nu_block = crate::acer::nu::build(tape, mat)?;
-    Ok(AceTable::from_reconr_full_with_urr(
-        recon,
-        kt_mev,
-        suffix,
-        angular.as_ref(),
-        &emissions,
-        Some(&kerma),
-        nu_block.as_deref(),
-        crate::acer::has_mt19_distributions(tape, mat),
-        crate::acer::photon_blocks::build(tape, mat).as_deref(),
-        &urr,
-    ))
+    build_deck(tape, mat, recon, kt_mev, suffix, &AceDeck::default().with_purr(nbin, nladr, nsamp))
 }

@@ -50,15 +50,40 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             // the field silently became 0.0 (bead op-sti5).
             let mantissa = s[..sep].trim_end_matches(['E', 'e', 'D', 'd']);
             let exponent = &s[sep..]; // includes the `+`/`-`
-            let mant: Option<f64> = if mantissa.is_empty() || mantissa == "+" || mantissa == "-" {
-                Some(1.0_f64.copysign(if mantissa.starts_with('-') { -1.0 } else { 1.0 }))
+            // ONE correctly-rounded conversion of the whole decimal, as a
+            // Fortran formatted read does.
+            //
+            // ~~`m * 10^e`~~ **CORRECTED 2026-09-26**: that rounds twice (the
+            // mantissa, then the product), so `1.090000+7` could come out an
+            // ulp off 10 900 000. It mattered: `acelf5`'s MT=18 tail
+            // supplement tests `dele > 2e5` strictly, and on U-235 the
+            // 10.9-11.1 MeV panels are exactly 200 keV wide in the evaluation
+            // -- NJOY left them alone and this crate split them, 16 extra
+            // points per incident energy and 2 568 extra DLW words.
+            let mantissa = if mantissa.is_empty() || mantissa == "+" || mantissa == "-" {
+                if mantissa.starts_with('-') {
+                    "-1"
+                } else {
+                    "1"
+                }
             } else {
-                mantissa.parse::<f64>().ok()
+                mantissa
             };
-            let exp: Option<i32> = exponent.parse::<i32>().ok();
-            match (mant, exp) {
-                (Some(m), Some(e)) => Some(m * 10_f64.powi(e)),
-                _ => None,
+            match exponent.parse::<i32>() {
+                Ok(e) => {
+                    let mut buf = [0u8; 40];
+                    let mut w = std::io::Cursor::new(&mut buf[..]);
+                    use std::io::Write;
+                    if write!(w, "{mantissa}e{e}").is_ok() {
+                        let n = w.position() as usize;
+                        std::str::from_utf8(&buf[..n])
+                            .ok()
+                            .and_then(|t| t.parse::<f64>().ok())
+                    } else {
+                        None
+                    }
+                }
+                Err(_) => None,
             }
         }
     };

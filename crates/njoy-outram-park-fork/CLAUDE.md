@@ -227,7 +227,10 @@ dividing by the stored pdf would be wrong.
 **ACE output is unchanged.** Law 4 is an energy-only law by definition, so the
 DLW serialisation does not see any of this and the golden ACE comparisons are
 untouched. The angular half exists for a transport consumer, not for the ACE
-writer; turning it into ACE Law 61/44 remains separate work.
+writer; ~~turning it into ACE Law 61/44 remains separate work.~~ **DONE
+2026-09-26** by porting `acelf6` itself (`src/acer/acelf6.rs`) rather than
+converting this representation -- see "The ACE tables reproduce NJOY's"
+below.
 
 **`acer::angular::legendre_cosine_law` is now public** so the continuum path
 reuses the MF=4 linearisation rather than growing a second one that drifts from
@@ -862,3 +865,47 @@ included (NJOY shades them one unit inward). **This changes the ENDF route's
 default physics for U-235 and U-234**, so every URR-on `k` since 2026-09-20 was
 taken on the old grid — flagged in `outram-mc-libs`' ICSBEP record pending
 re-measurement.
+
+## The ACE tables reproduce NJOY's, block by block -- except the energy grid (2026-09-26)
+
+Against NJOY2016's own U-234 (293.6 K, `RECONR+BROADR+PURR+ACER`) and U-235
+(0 K, `RECONR+ACER`) tables in the `reference-data/ace` submodule, **every
+word** of these blocks is now identical at print precision:
+- TYR, LQR, NU;
+- LAND/AND (78 143 and 138 687 words);
+- LDLW/DLW (113 139 and 913 698 words);
+- DNU/BDD/DNEDL/DNED.
+
+Record:
+[`ace_block_parity/`](verification_and_validation/ace_block_parity/ace_block_parity_2026_09_26.md).
+Instrument: `examples/ace_blocks_vs_reference.rs`, whose `... words` rows
+compare a block's words exactly.
+
+**Still different:** the ESZ grid (and so the ESZ and SIG values), GPD
+(`gamsum`), and `acelcp`'s charged-particle production. The grid is the big
+one. NJOY's RECONR puts every reaction on one union grid:
+- `rdf2*` nodes at `sigfig(E_r ± Γ/2, ndig)`;
+- `lunion`'s decade points and `1+sqrt(5.3·err)` step cap;
+- `emerge`.
+
+This crate keeps a grid per section and seeds resonance refinement from a
+halo of its own. Tracked as GitHub #340; it is work, not a tolerance to widen.
+
+Three lessons worth more than the fixes:
+
+- **Two readers for one format is a trap here too.** The ACE writer used
+  `parse_mf4_angular`, the transport route's linearisation, for AND. NJOY
+  writes `ptleg2`'s. Both are sound. Only one is NJOY's. `parse_elastic_angular`
+  is now the ACER-side conversion (`acer::acensd`), and `parse_mf4_angular`
+  stays the transport one.
+- **The ENDF float parser rounded twice** (`m * 10^e`), so `1.11e7 - 1.09e7`
+  came out as 200000.00000000186. That tripped `acelf5`'s strict
+  `dele > 2e5` on U-235's exactly-200-keV fission-spectrum panels. The parser
+  now converts the whole decimal once, as a Fortran formatted read does. Any
+  strict comparison upstream makes against a round number is a place where
+  this mattered.
+- **Several "deliberate divergences" were only divergences.** MT=18 over the
+  partial chances, and the lumped MT=103-107 kept with the tape's Q, were each
+  documented as choices. Both were visible in NJOY's table: MTR, and
+  `LQR = 0` for the redundant sums. Both now follow upstream. A divergence
+  argued from the cross section alone can still show up in another block.

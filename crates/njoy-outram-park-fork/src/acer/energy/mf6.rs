@@ -333,7 +333,7 @@ impl Mf6Neutron {
 ///
 /// # Errors
 /// [`NjoyError::EndfParse`] if the section runs out of rows while skipping.
-pub(super) fn skip_mf6_subsection(cur: &mut SectionCursor<'_>, law: i32) -> Result<(), NjoyError> {
+pub(crate) fn skip_mf6_subsection(cur: &mut SectionCursor<'_>, law: i32) -> Result<(), NjoyError> {
     match law {
         6 => {
             cur.read_cont()?;
