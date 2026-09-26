@@ -522,10 +522,57 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         eprintln!("  ASSUMPTION: no withdrawn rods -- rod-metal tapes not loaded");
         return Some(v);
     }
+    // MODELLING ASSUMPTION (maintainer direction 2026-09-26, "just ignore it
+    // and replace w iron"): `OUTRAM_HTR10_NI_AS_FE=1` skips the five Ni tapes
+    // (absent from reference-data/endf/) and `rod_metal_slots` points each Ni
+    // isotope at an Fe isotope, atom for atom: Ni-58/60 -> Fe-56, Ni-61 ->
+    // Fe-57, Ni-62 -> Fe-54, Ni-64 -> Fe-58 (which puts the replaced atoms
+    // close to natural Fe's isotopics). Ni is ~9 % of the sleeve steel's atoms.
+    let ni_as_fe = std::env::var("OUTRAM_HTR10_NI_AS_FE").is_ok();
+    if ni_as_fe {
+        diag.note(
+            "MODELLING ASSUMPTION: rod-steel Ni replaced atom-for-atom by Fe \
+             (Ni-58/60->Fe-56, Ni-61->Fe-57, Ni-62->Fe-54, Ni-64->Fe-58); no Ni tapes"
+                .to_string(),
+        );
+        eprintln!("  ASSUMPTION: rod-steel Ni replaced by Fe (no Ni tapes loaded)");
+    }
     for (name, file) in nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8 {
+        if ni_as_fe && name.starts_with("Ni") {
+            continue;
+        }
         v.push(load!(diag, name, file)?);
     }
     Some(v)
+}
+
+/// Rod-metal nuclide slots: [`RodMetalNuclides::contiguous`] from 11, or,
+/// under `OUTRAM_HTR10_NI_AS_FE`, the same table with the five Ni tapes
+/// skipped and every Ni slot pointing at an Fe slot (see `nuclides`).
+fn rod_metal_slots() -> nee_soon::htr10_rmc::materials::RodMetalNuclides {
+    let c = nee_soon::htr10_rmc::materials::RodMetalNuclides::contiguous(11);
+    if std::env::var("OUTRAM_HTR10_NI_AS_FE").is_err() {
+        return c;
+    }
+    // Slots after the Ni block move down by five.
+    let down = |i: usize| i - 5;
+    nee_soon::htr10_rmc::materials::RodMetalNuclides {
+        ni58: c.fe56,
+        ni60: c.fe56,
+        ni61: c.fe57,
+        ni62: c.fe54,
+        ni64: c.fe58,
+        mn55: down(c.mn55),
+        ti46: down(c.ti46),
+        ti47: down(c.ti47),
+        ti48: down(c.ti48),
+        ti49: down(c.ti49),
+        ti50: down(c.ti50),
+        si28: down(c.si28),
+        si29: down(c.si29),
+        si30: down(c.si30),
+        ..c
+    }
 }
 
 fn main() {
@@ -592,7 +639,7 @@ fn main() {
     );
     let mut mats = nee_soon::htr10_rmc::materials::htr10_material_set(
         NUC,
-        nee_soon::htr10_rmc::materials::RodMetalNuclides::contiguous(11),
+        rod_metal_slots(),
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron,
@@ -640,6 +687,19 @@ fn main() {
         println!(
             "  ASSUMPTION: no withdrawn rods; materials {stripped:?} stripped, used by no cell"
         );
+    }
+    // Every component must name a loaded nuclide (guards the Ni-as-Fe slot
+    // remap and the no-rods strip alike).
+    for m in &mats {
+        for c in &m.components {
+            assert!(
+                c.nuclide_idx < nucs.len(),
+                "material {} names nuclide slot {} but only {} are loaded",
+                m.name,
+                c.nuclide_idx,
+                nucs.len()
+            );
+        }
     }
     println!(
         "  fuel zone: {}",
