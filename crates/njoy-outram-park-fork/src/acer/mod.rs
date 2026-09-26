@@ -439,6 +439,9 @@ pub fn build_deck(
     deck: &AceDeck,
 ) -> Result<AceTable, crate::NjoyError> {
     const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
+    // ACER reads its cross sections from a PENDF tape, not from memory.
+    let pendf = recon.through_pendf_text();
+    let recon = &pendf;
     let urr = match deck.purr {
         Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf(
             tape,
@@ -478,7 +481,7 @@ pub fn build_deck(
     // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
     // is upstream's default (`acer.f90:326`).
     let delayed = crate::acer::delayed_blocks::build(tape, mat, true)?;
-    Ok(AceTable::from_reconr_full_with_extras(
+    let mut table = AceTable::from_reconr_full_with_extras(
         recon,
         kt_mev,
         suffix,
@@ -487,10 +490,51 @@ pub fn build_deck(
         kerma.as_ref(),
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
-        crate::acer::photon_blocks::build(tape, mat).as_deref(),
+        crate::acer::photon_blocks::build_with_pendf(tape, mat, recon).as_deref(),
         urr.as_ref(),
         delayed.as_ref(),
-    ))
+    );
+    if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
+        table.insert_gpd(&g);
+    }
+    Ok(table)
+}
+
+impl AceTable {
+    /// Insert the GPD block (`JXS(12)`) immediately before MTRP, where
+    /// `acelod` stores it (`acefc.f90:6255-6271`), and shift every locator
+    /// that follows. The photon blocks' internal locators are relative, so
+    /// only the absolute `JXS` entries move.
+    ///
+    /// Does nothing without photon-production blocks, or when `gpd` is not
+    /// one word per ESZ energy.
+    pub fn insert_gpd(&mut self, gpd: &[f64]) {
+        let nes = self.nxs[nxs::NES] as usize;
+        let at = self.jxs[jxs::MTRP];
+        if at <= 0 || gpd.len() != nes || self.jxs[11] != 0 {
+            return;
+        }
+        let pos = (at - 1) as usize;
+        self.xss.splice(pos..pos, gpd.iter().copied());
+        self.xss_is_int.splice(pos..pos, std::iter::repeat_n(false, nes));
+        for k in [
+            jxs::MTRP,
+            jxs::LSIGP,
+            jxs::SIGP,
+            jxs::LANDP,
+            jxs::ANDP,
+            jxs::LDLWP,
+            jxs::DLWP,
+            jxs::YP,
+        ] {
+            if self.jxs[k] >= at {
+                self.jxs[k] += nes as i32;
+            }
+        }
+        self.jxs[11] = at;
+        self.jxs[jxs::END] += nes as i32;
+        self.nxs[nxs::LEN_XSS] += nes as i32;
+    }
 }
 
 /// [`build_full`] **with PURR**: the same table plus the UNR probability-table

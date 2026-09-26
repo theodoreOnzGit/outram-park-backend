@@ -119,7 +119,12 @@ fn main() {
         return;
     };
     let theirs = read::read(&ref_path).expect("read NJOY's table");
-    let t_k = theirs.header.kt_mev / K_BOLTZMANN_MEV;
+    // The deck's own card temperature (`293.6/`), not one recovered from the
+    // table's printed kT: 2.5301e-8 MeV / k_B is not exactly 293.6 K.
+    let t_k = temp_dir
+        .trim_end_matches('K')
+        .parse::<f64>()
+        .unwrap_or(theirs.header.kt_mev / K_BOLTZMANN_MEV);
     let with_purr = theirs.jxs[jxs::LUNR] > 0;
 
     // ── Ours, by the same deck ─────────────────────────────────────────────
@@ -284,6 +289,8 @@ fn report(name: &str, temp_dir: &str, ours: &RawAceTable, theirs: &RawAceTable, 
     verdicts.push(("NU".into(), raw_block_words(ours, theirs, jxs::NU, jxs::MTR)));
     for (label, j) in [
         ("ESZ words", jxs::ESZ),
+        ("MTR words", jxs::MTR),
+        ("LSIG words", jxs::LSIG),
         ("SIG words", jxs::SIG),
         ("LQR words", jxs::LQR),
         ("TYR words", jxs::TYR),
@@ -295,6 +302,17 @@ fn report(name: &str, temp_dir: &str, ours: &RawAceTable, theirs: &RawAceTable, 
         ("BDD words", jxs::BDD),
         ("DNEDL words", jxs::DNEDL),
         ("DNED words", jxs::DNED),
+        ("GPD words", 11),
+        ("MTRP words", jxs::MTRP),
+        ("LSIGP words", jxs::LSIGP),
+        ("SIGP words", jxs::SIGP),
+        ("LANDP words", jxs::LANDP),
+        ("ANDP words", jxs::ANDP),
+        ("LDLWP words", jxs::LDLWP),
+        ("DLWP words", jxs::DLWP),
+        ("YP words", 19),
+        ("FIS words", 20),
+        ("LUNR words", jxs::LUNR),
     ] {
         verdicts.push((label.into(), raw_span_words(ours, theirs, j)));
     }
@@ -418,8 +436,12 @@ fn raw_span_words(ours: &RawAceTable, theirs: &RawAceTable, j: usize) -> String 
         if a <= 0 {
             return None;
         }
+        // FIS (JXS 21) points INTO SIG, at MT=18's entry, so it is not a
+        // block boundary; treating it as one cut the SIG span off after the
+        // first reaction.
         let end = BLOCKS
             .iter()
+            .filter(|&&(name, _)| name != "FIS")
             .map(|&(_, k)| t.jxs[k])
             .filter(|&l| l > a)
             .min()
@@ -569,6 +591,12 @@ fn esz_and_sig(co: &CeNeutronAce, ct: &CeNeutronAce, verdicts: &mut Vec<(String,
                 if d > worst {
                     worst = d;
                     worst_mt = ro.mt;
+                    if std::env::var("OUTRAM_DIFF_DUMP").is_ok() {
+                        println!(
+                            "   SIG MT={} at E={:e}: ours {a:e} (IE {}) NJOY {b:e} (IE {})",
+                            ro.mt, co.energy[i], ro.threshold_index, rt.threshold_index
+                        );
+                    }
                 }
             }
         }

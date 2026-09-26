@@ -31,6 +31,11 @@
 //! own PENDF, while agreeing exactly *at* the surviving grid points. Found by
 //! the ERRORR tier-2 golden test (bead `op-tubm`).
 //!
+//! **Superseded in the pipeline, 2026-09-26.** [`super::broaden_result`]
+//! now runs [`super::joint::broadr_joint`], upstream's joint form, which
+//! reproduces NJOY's PENDF word for word on U-234 and U-238. This function
+//! remains the fallback for a result with no MT=1 section.
+//!
 //! **Scope (honest).** One reaction at a time on its own grid (`nreac = 1`):
 //! upstream walks all broadened reactions *together* on the union grid, so
 //! its slope-sign test and convergence test are joint and its output grid is

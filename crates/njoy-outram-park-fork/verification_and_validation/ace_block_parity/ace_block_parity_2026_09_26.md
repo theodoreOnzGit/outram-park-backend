@@ -38,23 +38,45 @@ The pass criterion is word-for-word identity. Nothing here uses a tolerance.
 
 ## Results, 2026-09-26
 
-| block | U-234 293.6 K | U-235 0 K |
-|---|---|---|
-| header, MTR, TYR | SAME | SAME |
-| LQR | SAME | SAME (84 words) |
-| NU | SAME (37 words) | SAME (347 words) |
-| TYR / LAND | SAME, every word | SAME, every word |
-| **AND** | **SAME, all 78 143 words** | **SAME, all 138 687 words** |
-| LDLW | SAME, every word | SAME, every word |
-| **DLW** | **SAME, all 113 139 words** | **SAME, all 913 698 words** |
-| DNU / BDD / DNEDL / DNED | SAME, every word (DNED 10 920) | SAME, every word (DNED 10 920) |
-| UNR | grid SAME (26 pts), flags/bands SAME; band values are PURR samples | absent in both |
-| photon production MTRP..DLWP | SAME entries and forms | SAME entries and forms |
-| ESZ heating | SAME (zero, no-HEATR deck) | SAME |
-| **ESZ grid** | **42 404 vs 25 393 points, 5.5 % shared** | **237 058 vs 233 515, 14.5 % shared** |
-| ESZ / SIG values at shared points | 1.3e-3 / 9.8e-3 worst | 1.4e-4 / 9.1e-4 worst |
-| GPD | missing in ours | missing in ours |
-| charged-particle production (`acelcp`, NXS(7)) | absent in both | **missing in ours** (NJOY: 5 types) |
+References: NJOY2016's own tables in `reference-data/ace`, for U-234 and
+U-238 at 293.6 K (`RECONR -> BROADR -> PURR -> ACER`) and U-235 at 0 K and
+293.6 K. Rows are word-for-word comparisons of whole blocks (`... words`).
+
+| block | U-234 293.6 K | U-238 293.6 K | U-235 293.6 K | U-235 0 K |
+|---|---|---|---|---|
+| ESZ (grid, total, absorption, elastic, heating) | **SAME** (126 965) | **SAME** | **SAME** | **SAME** (1 167 575) |
+| MTR / LQR / TYR / LSIG | **SAME** | **SAME** | **SAME** (85, MT=4 last) | **SAME** (84) |
+| SIG | **SAME** (65 751) | **SAME** | **SAME** | **SAME** (9 567 354) |
+| NU, LAND/AND, LDLW/DLW | **SAME** | **SAME** | **SAME** | **SAME** |
+| DNU / BDD / DNEDL / DNED | **SAME** | **SAME** | **SAME** | **SAME** |
+| GPD | **SAME** (25 393) | see below | see below | see below |
+| MTRP / LSIGP / SIGP / LANDP / ANDP / LDLWP / DLWP / YP | **SAME** | differ (LO=2) | differ (LO=2) | differ (LO=2) |
+| UNR (LUNR) | grid, flags SAME; band values differ | same | same | absent in both |
+| charged-particle production (`acelcp`, NXS(7)) | absent in both | **missing in ours** | **missing in ours** | **missing in ours** |
+
+**U-234 at 293.6 K is identical to NJOY2016's table in every word except
+PURR's probability-band values.** Those come from random resonance ladders.
+Our PURR ports upstream's `rann` and seed, and with the same 10 000 samples
+the first band count is 1 068 against NJOY's 1 070. The generator is ported,
+but some input or arithmetic before it is not yet identical; this is not
+closed.
+
+The GPD and photon rows for U-235 and U-238 were measured before the MF=12
+`LO = 2` conversion was ported (`photon_blocks::build_with_pendf`,
+`Lo2Cascade`); they are re-measured below when that lands.
+
+The same fixes reproduce NJOY's **intermediate PENDFs**, word for word.
+Instrument: `examples/pendf_stage_vs_njoy.rs`; regression:
+`tests/pendf_stages_vs_njoy2016.rs`.
+
+- **RECONR:** U-234, U-238, Si-30, Sr-88, Ar-37, Li-6, C-12. References are
+  NJOY2016 `ac5adf5` PENDFs. The ones committed under
+  `reference-data/reconr/` are Si-30, Sr-88, Ar-37 and U-234; the rest were
+  regenerated in-session with the same deck.
+- **BROADR** at 293.6 K: U-234 and U-238, where NJOY broadens MT 2/18/102
+  and 2/5/18/102/107/800 together and writes 25 393 and 155 207 points out.
+  Also H-2, Li-6, Be-9, C-12, F-19, Si-30, Cl-35 and Ar-37, against
+  `reference-data/errorr/*-293.6K.pendf`.
 
 At the start of the day **every** row from AND downward differed on both
 nuclides. The UNR band values cannot match word for word, because PURR samples
@@ -116,7 +138,10 @@ behaviour. The upstream reference is given with each.
 
 ## What this does not yet establish, and why
 
-- **The energy grid.** `acelod` takes the ESZ grid from the PENDF's MT=1
+- ~~**The energy grid.**~~ **CLOSED 2026-09-26**: the ESZ grid and every
+  SIG word now match (table above). What was missing, in the order found,
+  is under "Closing the grid" below. The original entry:
+  ~~**The energy grid.** `acelod` takes the ESZ grid from the PENDF's MT=1
   (`acefc.f90:5345-5356`), and NJOY's RECONR writes every reaction on one
   union grid. Three pieces of it are unported:
   - `rdf2*`'s resonance nodes: `E_r`, `E_r ± Γ/2` at `sigfig(·, ndig)`, plus
@@ -129,10 +154,76 @@ behaviour. The upstream reference is given with each.
   its own halo of `E_r ± k·Γ/2`. NJOY bisects [1e-5, 2e-5] eV in steps of
   1/32; ours places unrounded points such as 1.06313123764e-5 eV that no
   `resxs` step can produce. The ESZ and SIG value residuals above follow from
-  this, and are not quoted as agreement.
-- **GPD** needs `gamsum` (`acefc.f90:3572-3866`).
+  this, and are not quoted as agreement.~~
+- ~~**GPD** needs `gamsum` (`acefc.f90:3572-3866`).~~ Ported
+  (`photon_blocks::gpd`); U-234 SAME in all 25 393 words.
 - **Charged-particle production** needs `acelcp` (`acefc.f90:9178-11113`).
 - **Unexercised paths:** LANG = 11-13, discrete lines (`ND > 0`), multiple
   neutron subsections in `acelf6`, and LF = 7/9/11/12 in `acelf5` are ported
   line for line. None of them is compared against NJOY here, because neither
   reference nuclide reaches them.
+
+## Closing the grid, 2026-09-26
+
+Each item is a divergence from the upstream routine that owns it, found by
+the stage comparator. The number in brackets is what it moved.
+
+13. **RECONR's union grid** (`lunion`, `reconr.f90:1771-2238`) and
+    `rdf2*`'s resonance nodes were ported (`src/reconr/lunion.rs`). `emerge`
+    now evaluates every section with `gety1` of its own TAB1 and rounds once.
+    [U-235 0 K: grid 14.5 % -> 100 % shared.]
+14. **PENDF text at the ACER boundary.** ACER reads 11-column floats, which
+    carry six figures when the exponent has two digits. [U-235 0 K SIG:
+    246 768 differing words -> 4 554.]
+15. **Background from the raw TAB1, rounded once.** It was lin-lin of
+    already-rounded union values. [4 554 -> 11.]
+16. **Redundant sums rounded as `recout` writes them**:
+    `sigfig(sum, 7, 0)` for MT=1, 4, 18 and 103-107 (`reconr.f90:5308`).
+    [11 -> 0: every U-235 0 K SIG word identical.]
+17. **Resonance reactions are written from the first resonance point.**
+    For `itype != 0`, `emerge` lowers the threshold to the first resonance
+    point and skips no grid point (`reconr.f90:4755-4784`). U-234's MF=3
+    backgrounds are zero to 100 keV, and its sections started at 0.0253 eV.
+    [U-234 293.6 K elastic at 0.0253 eV: +1.7 % -> SAME.]
+18. **The unresolved range through `genunr`/`sigunr`.** `resxs` bisects the
+    interpolated MT=152 table, and `emerge` zeroes the background in
+    `[eresr, eresh)` for MT=1/2/18/19/102 (`reconr.f90:1628-1769, 4789`).
+    It used to evaluate the formula directly, with this crate's own
+    refinement. [U-234 RECONR: 47 extra points and unrounded values -> SAME.]
+19. **MT=3 and MT=4 as `anlyzd` has them.** MT=3 is written only as a
+    redundant sum, and only when MF=12 carries MT=3. MT=4 is redundant, with
+    Q = 0, when levels 51-91 exist. [U-234: an extra MT=3, and MT=4 Q
+    -43.5 keV -> 0.]
+20. **BROADR's joint walk** (`broadr/joint.rs`): every low-threshold reaction
+    broadened together on MT=1's grid, as `broadr`/`bfile3`/`broadn`/`bsigma`
+    do. That includes `nstack = 12`, paging, SLATEC `erfc` and `hnabb`.
+    [U-234 grid 41 541 vs 25 393 points -> SAME; U-238 -> SAME.]
+21. **MF=10 in the union**, with the same threshold raise (`lunion`,
+    `nss = n1h`). [Ar-37: two NJOY points above 22 MeV.]
+22. **`emerge` reads `lunion`'s TAB1s through a formatted scratch tape.** A
+    raised threshold `sigfig(thr,7,+1)` loses sigfig's 1e-13 bias there.
+    [Sr-88: MT=63/66/72 one unit off in the 7th figure -> SAME.]
+23. **LRP != 1 never reaches `rdfil2`.** There are no nodes, and
+    `eresr = eresh = 20 MeV`; the PENDF limit is 20 MeV. [C-12, Li-6: 1e5 eV
+    decade point missing, and unbroadened above 1e5 eV -> SAME.]
+24. **MT=4 kept for URR competition** (`mtcomp`, `acefc.f90:1164-1181`).
+    PURR's MT=153 names MT=4 for U-235. [U-235 293.6 K: 84 -> 85 reactions,
+    MT=4 last as `acelod` appends it.]
+25. **Photon blocks, U-234:**
+    - MF=13 SIGP entries start at `gety2`'s thresholded point, with values
+      at `sigfig(y,7)`;
+    - MF=15 law 4 follows `acelpp`: pdf at 7 figures, cdf from raw values,
+      both at 9 figures after renormalizing, and NR = 0 for one lin-lin
+      region;
+    - the MF=13 law header range comes from the ESZ grid;
+    - GPD is `gamsum`.
+
+    [U-234 photon blocks and GPD -> SAME.]
+
+**Still open:**
+- `acelcp` (charged-particle production, U-235/U-238);
+- the LO=2 photon conversion, re-measured once it lands;
+- PURR band values;
+- a multi-subsection LO=1 MF=12 total rebuilt by `convr`. No reference tape
+  exercises it; `gpd` returns `None` for such a tape rather than a guessed
+  block.

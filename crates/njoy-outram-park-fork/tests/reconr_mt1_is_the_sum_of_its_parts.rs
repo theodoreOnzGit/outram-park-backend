@@ -246,6 +246,9 @@ fn mt1_equals_the_sum_of_our_own_partials() {
                 .map(|m| ours.eval_mt(MtReaction::from_any(m), e))
                 .sum();
             let total = ours.eval_mt(MtReaction::Mt1Total, e);
+            // `recout` writes MT=1 as `sigfig(sum, 7, 0)` (`reconr.f90:5308`),
+            // so the sum is compared as written. ~~Unrounded sum, 1e-9.~~
+            let sum = njoy_outram_park_fork::mixr::mix::sigfig(sum, 7, 0);
             let dev = (total - sum).abs() / sum.abs().max(1e-30);
             println!(
                 "  {} at E={e:.3e}: MT=1 {total:.9e} vs summed parts {sum:.9e} ({dev:.2e})",
@@ -299,7 +302,10 @@ fn u234_fission_follows_upstreams_mtr18_rule() {
     const NJOY_TOTAL: f64 = 5.206555e3;
     /// MT=18 at 1e-5 eV as this crate reconstructed it on 2026-09-14, when the
     /// resonance fission still sat on MT=18; MT=19's background is zero there.
-    const RESONANCE_FISSION: f64 = 3.448068842;
+    ///
+    /// `emerge` writes it at 7 figures (`reconr.f90:4815`), as NJOY's PENDF
+    /// carries it: 3.448069. ~~3.448068842 unrounded.~~
+    const RESONANCE_FISSION: f64 = 3.448069;
 
     let mt18 = ours.eval_mt(MtReaction::from_any(18), E);
     let mt19 = ours.eval_mt(MtReaction::from_any(19), E);
@@ -315,7 +321,7 @@ fn u234_fission_follows_upstreams_mtr18_rule() {
     );
 
     assert!(
-        (mt19 - RESONANCE_FISSION).abs() < 1.0e-8,
+        (mt19 - RESONANCE_FISSION).abs() < 1.0e-12 * RESONANCE_FISSION,
         "MT=19 at {E:e} is {mt19:.9e}; upstream puts the resonance fission \
          ({RESONANCE_FISSION} b) on MT=19 when MT=19 is present"
     );

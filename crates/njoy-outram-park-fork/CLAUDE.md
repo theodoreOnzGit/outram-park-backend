@@ -866,7 +866,28 @@ default physics for U-235 and U-234**, so every URR-on `k` since 2026-09-20 was
 taken on the old grid — flagged in `outram-mc-libs`' ICSBEP record pending
 re-measurement.
 
-## The ACE tables reproduce NJOY's, block by block -- except the energy grid (2026-09-26)
+## The ACE tables reproduce NJOY's, block by block (2026-09-26)
+
+**UPDATE, later 2026-09-26 (GitHub #340): the grid is closed.** RECONR and
+BROADR now reproduce NJOY2016's own PENDFs **word for word**:
+- RECONR: U-234, U-238, Si-30, Sr-88, Ar-37, Li-6, C-12;
+- BROADR at 293.6 K: U-234, U-238, H-2, Li-6, Be-9, C-12, F-19, Si-30,
+  Cl-35, Ar-37.
+
+Regression: `tests/pendf_stages_vs_njoy2016.rs`. Instrument:
+`examples/pendf_stage_vs_njoy.rs`. BROADR is now upstream's joint
+multi-reaction walk (`broadr/joint.rs`). At the ACE level:
+- **U-234 at 293.6 K is identical in every word** except PURR's
+  random-ladder band values;
+- U-238 and U-235 match in every neutron block;
+- what remains is `acelcp` (charged particles), the U-235/U-238 photon-block
+  rounding and PURR bands.
+
+The record is under `verification_and_validation/ace_block_parity/`. The
+text below is the state earlier the same day; its "still different"
+paragraph is superseded.
+
+~~## ... -- except the energy grid~~
 
 Against NJOY2016's own U-234 (293.6 K, `RECONR+BROADR+PURR+ACER`) and U-235
 (0 K, `RECONR+ACER`) tables in the `reference-data/ace` submodule, **every

@@ -441,6 +441,12 @@ impl AceTable {
                     .any(|e| e.mtrp / 1000 == 4 && matches!(e.sigp, SigP::Yield { mftype: 12, .. }))
             })
             .unwrap_or(false);
+        // `mtcomp` (`acefc.f90:1164-1181`): MT=4 is also kept when PURR's
+        // MT=153 names it as the unresolved range's inelastic competition
+        // (`iinel = 4`, more than one level competing). U-235 at 293.6 K is
+        // that case: NJOY's table carries 85 reactions, MT=4 last, where the
+        // 0 K table (no PURR) carries 84.
+        let mt4_has_mf12 = mt4_has_mf12 || urr.is_some_and(|t| t.inelastic_competition == 4);
         let has_partial_fission = present.iter().any(|&m| matches!(m, 19 | 20 | 21 | 38));
 
         // CAN the partial fission channels actually replace MT=18 here?
@@ -494,13 +500,17 @@ impl AceTable {
         let mt19 = mt19 && fission_partials_complete;
 
         let elastic = result.sections.iter().find(|s| i32::from(s.mt) == 2);
-        let partials: Vec<&ReconrSection> = result
+        let mut partials: Vec<&ReconrSection> = result
             .sections
             .iter()
             .filter(|s| {
                 role_of(i32::from(s.mt), mt4_has_mf12, mt19, has_partial_fission) == Role::Partial
             })
             .collect();
+        // A kept MT=3/MT=4 is stored after every other reaction: `acelod`
+        // skips them in its main pass and appends them afterwards ("go back
+        // and add mt3 and/or 4, if needed", `acefc.f90:5693-5700`).
+        partials.sort_by_key(|s| matches!(i32::from(s.mt), 3 | 4));
 
         // ── Union energy grid [eV] ──────────────────────────────────────────
         // The ACE grid is the union of the elastic grid and every stored
@@ -590,10 +600,17 @@ impl AceTable {
                 }
             }
         }
-        // Re-round the accumulated sums to 7 sig figs, as acelod does.
+        // ~~Re-round the accumulated sums to 7 sig figs, as acelod does.~~
+        // CORRECTED 2026-09-26: `acelod` does not. Its total and absorption
+        // are plain sums of the 7-figure partials (`xss(it+j)=xss(it+j)+s`,
+        // `acefc.f90:5511-5516, 5657-5678`), printed at 12 figures: NJOY's
+        // U-235 table holds `3.66767401e4` where the re-rounding wrote
+        // `3.667674e4`. What it does do is the final pass
+        // (`acefc.f90:6311-6317`, "fix up sig figs in summation cross
+        // sections"): energies, total and absorption at 9 figures.
         for j in 0..nes {
-            total[j] = sigfig(total[j], 7);
-            disappear[j] = sigfig(disappear[j], 7);
+            total[j] = sigfig(total[j], 9);
+            disappear[j] = sigfig(disappear[j], 9);
         }
 
         // Lay the XSS block out, recording the integer/real type of each word.
@@ -601,7 +618,7 @@ impl AceTable {
 
         // ESZ: five contiguous arrays of length NES (all real).
         for &e in &egrid {
-            b.real(e / EMEV); // ACE energies are in MeV
+            b.real(sigfig(e / EMEV, 9)); // MeV, 9 figures (`acefc.f90:6314`)
         }
         total.iter().for_each(|&v| b.real(v));
         disappear.iter().for_each(|&v| b.real(v));
@@ -1127,12 +1144,33 @@ fn append_photon_blocks(
     // the section's own first energy to the last at or below its last -- NOT
     // to the end of the grid, which is what NJOY writes (U-234's MT=3
     // subsections stop early).
+    //
+    // Within the window each value is `gamsum`'s (`acefc.f90:3660-3700`,
+    // the `iopp` branch). The window starts at the first grid point at or
+    // above `thresh`, `gety2`'s leading-zero scan of the subsection. It does
+    // not start at the TAB1's first energy: U-234's third MT=3 subsection
+    // opens with zeros, and we wrote it from IE = 1 where NJOY writes
+    // IE = 24 907. The first grid point is read at `E(1+eps)` and the last at
+    // `E(1-eps)`, the threshold point itself is zero, and every value is
+    // `sigfig(y, 7, 0)`. ~~Unrounded `eval_tab1` values~~, CHANGED
+    // 2026-09-26 (GitHub #340).
     let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
-        let (e_first, e_last) = match (pairs.first(), pairs.last()) {
-            (Some(&(a, _)), Some(&(b, _))) => (a, b),
-            _ => return (1, Vec::new()),
+        const EPS: f64 = 1.0e-10;
+        let e_last = match pairs.last() {
+            Some(&(b, _)) => b,
+            None => return (1, Vec::new()),
         };
-        let ie = egrid.iter().position(|&e| e >= e_first).unwrap_or(0);
+        let np = pairs.len() as i32;
+        let tab = crate::endf::records::Tab1 {
+            head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: interp.len() as i32, n2: np },
+            interp: interp.to_vec(),
+            pairs: pairs.to_vec(),
+        };
+        let mut g = crate::endf::gety1::Gety1::new(&tab);
+        let thresh = g.get(0.0).xnext;
+        let Some(ie) = egrid.iter().position(|&e| e >= (1.0 - EPS) * thresh) else {
+            return (1, Vec::new());
+        };
         let last = egrid
             .iter()
             .rposition(|&e| e <= e_last)
@@ -1140,9 +1178,22 @@ fn append_photon_blocks(
         if last < ie {
             return (1, Vec::new());
         }
-        let sig = egrid[ie..=last]
-            .iter()
-            .map(|&e| crate::endf::interp::eval_tab1(e, interp, pairs).unwrap_or(0.0))
+        let nen = egrid.len();
+        let sig = (ie..=last)
+            .map(|i| {
+                let mut e = egrid[i];
+                if i == 0 {
+                    e *= 1.0 + EPS;
+                }
+                if i == nen - 1 {
+                    e *= 1.0 - EPS;
+                }
+                let mut y = g.get(e).y;
+                if i > 0 && e < thresh * (1.0 + EPS) {
+                    y = 0.0;
+                }
+                sigfig(y, 7)
+            })
             .collect();
         (ie as i32 + 1, sig)
     };
@@ -1224,13 +1275,31 @@ fn append_photon_blocks(
     let dlwp = b.next_locator();
     for (i, e) in entries.iter().enumerate() {
         let idat_rel = header_off[i] + HEADER;
+        // For an MF=13 entry `acelpp` takes the law's energy range from the
+        // ESZ grid at the entry's first and last SIGP index (`ef=xss(esz+ie)`,
+        // `el=xss(esz+ie+n-1)`, `acefc.f90:8370-8371`), not from the
+        // subsection's own first energy. U-234's third MT=3 subsection opens
+        // with zeros from 1e-5 eV, and its header read 1e-11 MeV where NJOY
+        // writes 4.518e-2.
+        let (e_lo, e_hi) = match &e.sigp {
+            SigP::Xs { interp, pairs } => {
+                let (ie, sig) = xs_window(interp, pairs);
+                let lo = (ie - 1) as usize;
+                let hi = lo + sig.len().max(1) - 1;
+                match (egrid.get(lo), egrid.get(hi)) {
+                    (Some(&a), Some(&z)) => (sigfig(a / EMEV, 7), sigfig(z / EMEV, 7)),
+                    _ => (e.e_lo_mev, e.e_hi_mev),
+                }
+            }
+            SigP::Yield { .. } => (e.e_lo_mev, e.e_hi_mev),
+        };
         b.int(0); // LNW
         b.int(e.law.law_number());
         b.int(idat_rel);
         b.int(0); // NR
         b.int(2); // NE
-        b.real(e.e_lo_mev);
-        b.real(e.e_hi_mev);
+        b.real(e_lo);
+        b.real(e_hi);
         b.real(1.0);
         b.real(1.0);
         for (v, is_int) in e.law.serialize(idat_rel) {
