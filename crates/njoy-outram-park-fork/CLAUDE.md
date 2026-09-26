@@ -834,3 +834,31 @@ unported "because no evaluation in `reference-data/endf/` uses it". Seven tapes 
 could never have failed. Nothing was degraded (the delayed spectrum is dropped on
 both routes, and ACER linearises those sections into ACE LAW=4), but the comment
 was untrue about the data.
+
+## …and the writer caught up with the reader: the UNR block (2026-09-26, GitHub #325)
+
+The reader could decode the ACE unresolved-range block (`JXS(23)`) and the writer
+could not emit one, so a table built here lost URR self-shielding that both ends
+of the round trip could handle. `acer::unr::unr_words` ports
+`acefc.f90:5958-5990`; `acer::build_full_with_purr` is the `…+PURR+ACER` deck.
+`build_full` is unchanged and still writes none — it is the deck without PURR,
+and byte-parity gates depend on that. Record:
+[`unr_block_write/`](verification_and_validation/unr_block_write/unr_block_write_2026_09_26.md).
+
+**The gate that isolates a writer from a Monte Carlo generator.** PURR's bands
+come from random ladders, so generated tables can never match NJOY's word for
+word. Reading NJOY's own block and writing it back can — and does, **bit-exactly
+on all 3 152 + 2 305 + 10 049 words** of U-234/235/238. Worth copying whenever
+the thing upstream of a writer is stochastic.
+
+**It found a defect upstream of itself.** Our PURR built U-234's tables on 10
+energies (NJOY: 26) and U-235's on 14 (NJOY: 19), because `rdunf2`'s
+"add extra nodes" pass — a fixed ladder of 78 round energies inserted into any
+interval wider than 1.26× — had never been ported, and Case C took the union of
+every `(l, j)` state's points where NJOY takes only the first. U-238's grid is
+fine enough that the pass inserts nothing, so the only comparison that existed
+passed. Fixed; all three now match NJOY's grid to its 7th figure, endpoints
+included (NJOY shades them one unit inward). **This changes the ENDF route's
+default physics for U-235 and U-234**, so every URR-on `k` since 2026-09-20 was
+taken on the old grid — flagged in `outram-mc-libs`' ICSBEP record pending
+re-measurement.

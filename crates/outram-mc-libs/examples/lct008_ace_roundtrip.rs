@@ -116,8 +116,13 @@
 //!
 //! **The asymmetry was real and its effect here is not.** Route A applies URR
 //! self-shielding and DBRC; route B carries neither — the reader decodes the UNR
-//! block since 2026-09-25, but this workspace's ACE **writer emits no UNR block**
-//! (GitHub #325), and a table broadened to 293.6 K holds no 0 K elastic for DBRC.
+//! block since 2026-09-25, but ~~this workspace's ACE **writer emits no UNR
+//! block** (GitHub #325)~~ **this example's route B is built with
+//! `acer::build_full`, the deck WITHOUT PURR, which writes no UNR block**
+//! (CORRECTED 2026-09-26: #325 has since added `acer::build_full_with_purr`, the
+//! `…+PURR+ACER` deck, so the writer *can* emit one — the eight seeds below were
+//! taken before it existed), and a table broadened to 293.6 K holds no 0 K
+//! elastic for DBRC.
 //! Imposing the same omissions on the ENDF arm moves the comparison by
 //! `-9.4 +/- 181.2 pcm`, i.e. by nothing measurable.
 //!
@@ -476,10 +481,16 @@ fn main() {
     // GitHub #307 item 5. The parity number below was measured while the two
     // arms carried DIFFERENT PHYSICS: the ENDF route applies URR self-shielding
     // and DBRC by default, and route B carries neither -- the reader decodes the
-    // UNR block since 2026-09-25, but THIS WORKSPACE'S ACE WRITER DOES NOT EMIT
-    // ONE (no UNR block in `acer::build`), and a table broadened to 293.6 K
-    // carries no 0 K elastic for DBRC. So route B still cannot have them here,
-    // and the way to price the asymmetry is to take them OFF the ENDF arm.
+    // UNR block since 2026-09-25, but route B below is built by
+    // `build_full` -- the RECONR+BROADR+ACER deck, WITHOUT PURR -- which writes
+    // no UNR block, and a table broadened to 293.6 K carries no 0 K elastic for
+    // DBRC. So route B does not have them here, and the way to price the
+    // asymmetry is to take them OFF the ENDF arm.
+    //
+    // (Until 2026-09-26 the writer could not emit a UNR block at all; #325 added
+    // `build_full_with_purr`, which does. Switching route B to it would remove
+    // the URR half of the asymmetry at source, leaving only DBRC -- and would be
+    // a different experiment from the eight seeds recorded above.)
     //
     // `via_endf` is CONSUMED rather than cloned: arm A's transport is already
     // done, and a third copy of U-238's 284 415-point grid is hundreds of MB.

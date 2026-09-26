@@ -257,7 +257,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None)
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -282,6 +282,7 @@ impl AceTable {
             None,
             None,
             false,
+            None,
             None,
         )
     }
@@ -312,7 +313,39 @@ impl AceTable {
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
         Self::build(
-            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons,
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None,
+        )
+    }
+
+    /// [`from_reconr_full`][Self::from_reconr_full] **plus the UNR block** —
+    /// the unresolved-range probability tables at `JXS(23)` (GitHub #325).
+    ///
+    /// Pass the tables PURR produced
+    /// ([`UrrProbabilityTables::from_endf`][crate::purr::UrrProbabilityTables::from_endf])
+    /// or ones read from another table
+    /// ([`from_ace`][crate::purr::UrrProbabilityTables::from_ace]). The block is
+    /// written by [`super::unr::unr_words`], a port of `acefc.f90:5958-5990`,
+    /// immediately after DLW — where NJOY puts it.
+    ///
+    /// `from_reconr_full` stays exactly as it was, because it is the
+    /// `RECONR+ACER` / `RECONR+BROADR+ACER` deck and several byte-parity gates
+    /// compare it against NJOY tables made **without** PURR. A table meant for
+    /// transport wants this one; see [`crate::acer::build_full_with_purr`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_urr(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: &crate::purr::UrrProbabilityTables,
+    ) -> Self {
+        Self::build(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, Some(urr),
         )
     }
 
@@ -327,6 +360,7 @@ impl AceTable {
         nu: Option<&[f64]>,
         mt19: bool,
         photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -577,6 +611,21 @@ impl AceTable {
                 append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
             jxs[jxs::LDLW] = ldlw;
             jxs[jxs::DLW] = dlw;
+        }
+
+        // ── UNR (unresolved-range probability tables) ───────────────────────
+        // Immediately after DLW, which is where NJOY puts it (measured on its
+        // own U-238 table: DLW -> LUNR -> DNU -> ... -> MTRP). An empty table
+        // writes nothing and leaves JXS(23) at zero, ACE's "no unresolved
+        // range" -- a locator at an empty block would be a malformed table.
+        if let Some(t) = urr {
+            let words = super::unr::unr_words(t);
+            if !words.is_empty() {
+                jxs[jxs::LUNR] = b.next_locator();
+                for (v, is_int) in words {
+                    b.word(v, is_int);
+                }
+            }
         }
 
         // Photon production. Absent is the normal case and a legal table; the

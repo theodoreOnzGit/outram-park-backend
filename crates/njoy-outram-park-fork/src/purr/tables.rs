@@ -62,12 +62,19 @@ pub enum UrrSample {
 
 /// One energy point's bands.
 #[derive(Debug, Clone)]
-struct UrrPoint {
+pub(crate) struct UrrPoint {
     /// Cumulative bin probability, ascending, last entry 1.0.
-    cum: Vec<f64>,
+    pub(crate) cum: Vec<f64>,
     /// Per-bin `[total, elastic, fission, capture]` — factors or barns per
     /// the parent's `lssf`.
-    value: Vec<[f64; 4]>,
+    pub(crate) value: Vec<[f64; 4]>,
+    /// Per-bin **heating**: eV per collision when `lssf = 0`, a dimensionless
+    /// factor on the smooth heating when `lssf = 1` — the same split as
+    /// `value`. It is the sixth column of an ACE UNR block and of PURR's
+    /// MT=153, carried so a table read from one can be written back out
+    /// (GitHub #325). All zeros when no HEATR heating was available to the
+    /// generator — see [`UrrProbabilityTables::from_endf`].
+    pub(crate) heating: Vec<f64>,
 }
 
 /// A nuclide's unresolved-resonance probability tables over its whole
@@ -82,6 +89,29 @@ pub struct UrrProbabilityTables {
     pub e_high: f64,
     /// Temperature the tables were generated at \[K\].
     pub temperature_k: f64,
+    /// Interpolation between tabulated energies, as the ACE block's third word
+    /// states it: `2` lin-lin, `5` log-log. **NJOY's ACER always writes `2`**
+    /// (`acefc.f90:5966`, `xss(next+2)=2`) whatever PURR's own `intunr` was, so
+    /// a table generated here is `2` and a table read from a file is whatever
+    /// the file says.
+    pub interpolation: i32,
+    /// The **inelastic competition flag** (the ACE block's `ILF`): `-1` for
+    /// none, an MT in 51..=91 when exactly one discrete level competes inside
+    /// the unresolved range, `4` when more than one does.
+    ///
+    /// ~~Not stored — "the flags describe how the *generator* treated
+    /// competition, which a consumer of finished tables cannot act on".~~
+    /// **CORRECTED 2026-09-26 (GitHub #325).** A consumer does act on it:
+    /// OpenMC's `Nuclide::calculate_urr_xs` (`src/nuclide.cpp:949-990`) adds
+    /// the flagged reaction's **smooth** cross section into the URR total,
+    /// `total = elastic + inelastic + capture + fission`. And a writer cannot
+    /// reproduce the block without it. Measured: NJOY's U-238 table carries
+    /// `51`.
+    pub inelastic_competition: i32,
+    /// The **other-absorption competition flag** (the ACE block's `IOA`): `-1`
+    /// for none, the MT when exactly one non-inelastic reaction competes, `0`
+    /// when more than one does. Measured: NJOY's U-238 table carries `0`.
+    pub absorption_competition: i32,
     /// Ascending energy grid \[eV\] the tables are tabulated on.
     energy: Vec<f64>,
     points: Vec<UrrPoint>,
@@ -102,6 +132,18 @@ impl UrrProbabilityTables {
     /// The tabulated energy grid \[eV\].
     pub fn energies(&self) -> &[f64] {
         &self.energy
+    }
+
+    /// The per-energy bands, for `acer::unr` to serialise. Crate-private: a
+    /// consumer samples through [`Self::sample`], which forces it to see
+    /// whether the numbers are factors or barns.
+    pub(crate) fn points(&self) -> &[UrrPoint] {
+        &self.points
+    }
+
+    /// The number of probability bands per energy (the ACE block's `M`).
+    pub fn n_bands(&self) -> usize {
+        self.points.first().map_or(0, |p| p.cum.len())
     }
 
     /// Whether energy `e` \[eV\] lies inside the unresolved range these tables
@@ -247,7 +289,7 @@ impl UrrProbabilityTables {
                 *last = 1.0;
             }
 
-            let value = (0..t.bin_xs.len())
+            let value: Vec<[f64; 4]> = (0..t.bin_xs.len())
                 .map(|j| {
                     let mut v = [0.0f64; 4];
                     for i in 0..4 {
@@ -266,14 +308,29 @@ impl UrrProbabilityTables {
                 })
                 .collect();
 
-            points.push(UrrPoint { cum, value });
+            // Heating: upstream PURR fills this column from HEATR's MT=301
+            // (and, for full fluctuations, MT=302/318/402) on the PENDF tape it
+            // reads (`rdheat`, `purr.f90:267-279`). This builds from an ENDF
+            // **evaluation**, which carries no MT=301, so it is upstream's
+            // `ihave = 0` case exactly: "no heating found on pendf / ur heating
+            // set to zero". The reference `RECONR+BROADR+PURR+ACER` deck has no
+            // HEATR either, and NJOY's own U-238 table's heating column is
+            // all zeros — measured, not assumed.
+            let heating = vec![0.0; value.len()];
+            points.push(UrrPoint { cum, value, heating });
         }
+
+        let (inelastic_competition, absorption_competition) =
+            competition_flags(tape, mat, &energy, &bkg_all);
 
         Ok(Some(UrrProbabilityTables {
             lssf: range.lssf,
             e_low: range.el,
             e_high: range.eh,
             temperature_k,
+            interpolation: 2,
+            inelastic_competition,
+            absorption_competition,
             energy,
             points,
         }))
@@ -395,19 +452,33 @@ impl UrrProbabilityTables {
         // `reshape(N, 6, M)`.
         let at = |i: usize, col: usize, b: usize| raw[(i * 6 + col) * n_bands + b];
 
+        // Heating is the one column whose UNIT depends on IFF. NJOY's ACER
+        // divides it by 1e6 only when `lssf == 0` (`acefc.f90:5979-5983`),
+        // because with `lssf == 1` it is a dimensionless factor, not an
+        // energy. So it is scaled back only in that case.
+        //
+        // This DIVERGES from OpenMC's reader, which multiplies column 5 by 1e6
+        // unconditionally (`openmc/data/urr.py:211`) — correct for IFF = 0 and
+        // a factor-of-a-million error on an IFF = 1 table with non-zero
+        // heating. It is moot on every table in `reference-data/ace`, whose
+        // heating column is all zeros (no HEATR in the deck), and it is the
+        // reason this follows NJOY's writer rather than OpenMC's reader: the
+        // writer defines the unit.
+        let heat_scale = if multiply_smooth { 1.0 } else { EV_PER_MEV };
+
         let mut points = Vec::with_capacity(n_energy);
         for i in 0..n_energy {
             let mut cum = Vec::with_capacity(n_bands);
             let mut value = Vec::with_capacity(n_bands);
+            let mut heating = Vec::with_capacity(n_bands);
             for b in 0..n_bands {
                 cum.push(at(i, 0, b));
-                // `[total, elastic, fission, capture]` — columns 1..=4. Column
-                // 5 is heating, which this representation does not carry; it is
-                // the only column in MeV and is deliberately not scaled here
-                // because it is not stored.
+                // `[total, elastic, fission, capture]` — columns 1..=4, barns
+                // or factors, never scaled.
                 value.push([at(i, 1, b), at(i, 2, b), at(i, 3, b), at(i, 4, b)]);
+                heating.push(at(i, 5, b) * heat_scale);
             }
-            points.push(UrrPoint { cum, value });
+            points.push(UrrPoint { cum, value, heating });
         }
 
         Ok(Some(Self {
@@ -417,21 +488,110 @@ impl UrrProbabilityTables {
             e_low: energy[0],
             e_high: energy[n_energy - 1],
             temperature_k,
+            // ~~`interpolation` and the two competition flags are read and
+            // checked but not stored ... the flags describe how the generator
+            // treated competition, which a consumer of finished tables cannot
+            // act on.~~ CORRECTED 2026-09-26 (GitHub #325): stored. A writer
+            // needs all three to reproduce the block, and OpenMC's transport
+            // acts on the inelastic flag (see the field's docs).
+            interpolation,
+            inelastic_competition: inelastic_flag,
+            absorption_competition: absorption_flag,
             energy,
             points,
-        })
-        .map(|t| {
-            // `interpolation` and the two competition flags are read and
-            // checked above but not stored: this representation samples by
-            // nearest energy (see `sample`), and the flags describe how the
-            // *generator* treated competition, which a consumer of finished
-            // tables cannot act on. Naming them here rather than dropping them
-            // silently, so a future reader knows they were considered.
-            let _ = (interpolation, inelastic_flag, absorption_flag);
-            t
         }))
     }
 
+}
+
+/// PURR's **competition flags** for an unresolved range — a port of the
+/// `icx`/`iinel`/`iabso` block of `purr.f90` (`:1110-1192`, `rdf3un`).
+///
+/// Two steps, both as upstream does them:
+///
+/// 1. **Is there competition at all?** At each unresolved energy take the
+///    background `σ_x = σ_total − σ_el − σ_f − σ_γ` from MF=3; if it never
+///    exceeds `1e-5` b, there is none and both flags are `-1`. `sb` is the
+///    same four-column background [`super::super::unresr::mf2::background_cross_sections`]
+///    already builds for the band tables, with upstream's `UP`/`DN` edge nudges.
+/// 2. **Which reactions?** Walk MF=3 in MT order up to MT=891, keeping the MTs
+///    upstream's filter keeps, and take each one's threshold the way upstream
+///    does — [`crate::endf::gety1`]'s `x = 0` call. A reaction with
+///    `MT > 4`, not 18/19/102, whose threshold (times `1.00001`) lies below the
+///    top of the unresolved range competes: 51..=91 as **inelastic**, anything
+///    else as **absorption**. One of a kind gives that MT; a second collapses
+///    the flag to `4` (inelastic) or `0` (absorption).
+///
+/// Upstream reads MF=3 off RECONR's PENDF where this reads the evaluation. The
+/// two agree here because RECONR preserves every reaction's threshold, and `σ_x`
+/// is the non-resonant remainder on both — RECONR adds the unresolved average to
+/// MT=1/2/18/102 together, so it cancels out of the difference.
+fn competition_flags(
+    tape: &Tape,
+    mat: i32,
+    eunr: &[f64],
+    sb: &[[f64; 4]],
+) -> (i32, i32) {
+    const UP: f64 = 1.000_01; // purr.f90:1097
+    const SMALL: f64 = 1.0e-5; // purr.f90:1099
+    const MT_MAX: i32 = 891; // purr.f90:1118, "continuum n,2n"
+
+    let competes = sb.iter().any(|b| b[0] - b[1] - b[2] - b[3] > SMALL);
+    if !competes {
+        return (-1, -1);
+    }
+    let Some(e_top) = eunr.last().map(|e| e.abs()) else {
+        return (-1, -1);
+    };
+
+    // `purr.f90:1120-1127`: the MF=3 sections whose thresholds are recorded.
+    let kept = |mt: i32| {
+        mt < 6
+            || (mt > 10 && mt < 12)
+            || (mt > 15 && mt < 43)
+            || (mt > 43 && mt < 46)
+            || (mt > 49 && mt < 92)
+            || (mt > 100 && mt < 110)
+            || (mt > 110 && mt < 118)
+            || (mt > 150 && mt <= 200)
+            || mt >= 600
+    };
+
+    let mut mts: Vec<i32> = tape
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == mat && s.key.mf == 3)
+        .map(|s| s.key.mt)
+        .filter(|&mt| mt >= 4 && mt <= MT_MAX && kept(mt))
+        .collect();
+    mts.sort_unstable();
+
+    let (mut iinel, mut iabso) = (-1i32, -1i32);
+    for mtc in mts {
+        if mtc <= 4 || mtc == 18 || mtc == 19 || mtc == 102 {
+            continue;
+        }
+        let Some(sec) = tape.section(mat, 3, mtc) else {
+            continue;
+        };
+        let mut cur = crate::endf::records::SectionCursor::new(&sec.rows);
+        if cur.read_cont().is_err() {
+            continue;
+        }
+        let Ok(tab) = cur.read_tab1() else {
+            continue;
+        };
+        let threshold = crate::endf::gety1::Gety1::new(&tab).get(0.0).xnext;
+        if !(UP * threshold < e_top) {
+            continue;
+        }
+        if (51..=91).contains(&mtc) {
+            iinel = if iinel < 0 { mtc } else { 4 };
+        } else {
+            iabso = if iabso < 0 { mtc } else { 0 };
+        }
+    }
+    (iinel, iabso)
 }
 
 /// PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial
@@ -449,39 +609,158 @@ fn lssf_reduced_background(bkg: [f64; 4]) -> [f64; 4] {
     [keep, 0.0, 0.0, 0.0]
 }
 
-/// The evaluation's own unresolved energy grid.
+/// The unresolved-range energy grid, built the way NJOY builds it — a port of
+/// the node logic of `rdunf2` (`unresr.f90:426-748`).
 ///
-/// For **Case C** (`LRF=2`, energy-dependent parameters) this is the union of
-/// every J-state's tabulated parameter energies — the grid NJOY builds `eunr`
-/// from, and the one the verified comparison reproduces point for point (83
-/// points on ENDF/B-VIII.0 U-238). Cases A and B carry no per-energy parameter
-/// table, so a log-spaced grid across the range is used instead.
+/// ~~For **Case C** this is the union of every J-state's tabulated parameter
+/// energies — the grid NJOY builds `eunr` from, and the one the verified
+/// comparison reproduces point for point (83 points on ENDF/B-VIII.0 U-238).
+/// Cases A and B carry no per-energy parameter table, so a log-spaced grid
+/// across the range is used instead.~~ **CORRECTED 2026-09-26 (GitHub #325).**
+/// Three statements there were wrong, found by comparing generated tables
+/// against NJOY's own UNR blocks:
+///
+/// - NJOY takes Case C's nodes from the **first** `(l, j)` state only, and
+///   leaves out its first and last points (`:676-679`), not the union of every
+///   state;
+/// - NJOY then **refines** any interval wider than `1.26x` with a fixed ladder
+///   of 78 "round" energies (`egridu`, `:698-722`). That pass was never ported,
+///   so U-234 came out on **10** points where NJOY has **26**, and U-235 on
+///   **14** against **19**. U-238's evaluation grid is already fine enough
+///   that nothing is inserted, which is why the old comparison passed there
+///   and the omission went unseen;
+/// - Case B **does** carry a per-energy table — the fission-width grid
+///   (`:585-594`) — and Case A is refined across its whole range (`indep = 1`)
+///   rather than filled with 40 log-spaced points, which was a stand-in with
+///   no upstream counterpart.
+///
+/// And one that was invisible at the precision it was checked to: NJOY
+/// **shades the endpoints** one unit in the 7th figure inward
+/// (`sigfig(el,7,+1)`, `sigfig(eh,7,-1)`, `:506-513`), so U-238's grid runs
+/// `20000.01 .. 149008.6` eV, not `20000 .. 149008.7`. "Point for point" was
+/// true at four printed figures.
+///
+/// # The algorithm, in upstream's order
+///
+/// 1. Prime the list with `1 MeV` (`ilist` requires one node above every other).
+/// 2. Add the four shaded range endpoints `sigfig(el|eh, 7, ∓1 / ±1)`.
+/// 3. Add the evaluation's own nodes: Case B's fission-width energies from the
+///    second on; Case C's first `(l, j)` state without its end points; Case A
+///    none, and mark it energy-independent.
+/// 4. Walk adjacent pairs below 1 MeV. Where `next >= 1.26 * last`, or always
+///    for Case A, insert every `egridu` energy above `1.01 * (previous inserted)`
+///    and below `next`.
+/// 5. Drop the first node (the lower outer shade) and the last two (the upper
+///    outer shade and the 1 MeV primer), and drop any node within
+///    `sigfig(·, 7, 2)` of the one kept before it.
+///
+/// **Not ported:** upstream merges the nodes of *every* LRU=2 range of every
+/// isotope into one list, and marks nodes below the resolved range's upper
+/// bound negative (`:733-734`) to flag a resolved-unresolved overlap. This
+/// crate builds tables from the first range only (see
+/// [`UrrProbabilityTables::from_endf`]), and no held evaluation has an
+/// overlap; both are stated rather than silently assumed.
 fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64> {
-    let mut grid: Vec<f64> = Vec::new();
-    if let UnresolvedCase::CaseC { l_states, .. } = &range.case_ {
-        for l in l_states {
-            for j in &l.j_states {
-                for p in &j.points {
-                    grid.push(p.e);
+    use crate::mixr::mix::sigfig;
+
+    const ONEMEV: f64 = 1.0e6; // unresr.f90:420
+    const WIDE: f64 = 1.26; // :418
+    const STEP: f64 = 1.01; // :422
+    // `egridu`, unresr.f90:405-417 — ten-ish "round" energies per decade.
+    const EGRIDU: [f64; 78] = [
+        1.0e1, 1.25e1, 1.5e1, 1.7e1, 2.0e1, 2.5e1, 3.0e1, 3.5e1, 4.0e1, 5.0e1, 6.0e1, 7.2e1,
+        8.5e1, 1.0e2, 1.25e2, 1.5e2, 1.7e2, 2.0e2, 2.5e2, 3.0e2, 3.5e2, 4.0e2, 5.0e2, 6.0e2,
+        7.2e2, 8.5e2, 1.0e3, 1.25e3, 1.5e3, 1.7e3, 2.0e3, 2.5e3, 3.0e3, 3.5e3, 4.0e3, 5.0e3,
+        6.0e3, 7.2e3, 8.5e3, 1.0e4, 1.25e4, 1.5e4, 1.7e4, 2.0e4, 2.5e4, 3.0e4, 3.5e4, 4.0e4,
+        5.0e4, 6.0e4, 7.2e4, 8.5e4, 1.0e5, 1.25e5, 1.5e5, 1.7e5, 2.0e5, 2.5e5, 3.0e5, 3.5e5,
+        4.0e5, 5.0e5, 6.0e5, 7.2e5, 8.5e5, 1.0e6, 1.25e6, 1.5e6, 1.7e6, 2.0e6, 2.5e6, 3.0e6,
+        3.5e6, 4.0e6, 5.0e6, 6.0e6, 7.2e6, 8.5e6,
+    ];
+
+    // `ilist` (`:751-778`): ordered insert, omitting an exact duplicate.
+    fn ilist(e: f64, list: &mut Vec<f64>) {
+        match list.iter().position(|&x| e <= x) {
+            Some(i) if list[i] == e => {}
+            Some(i) => list.insert(i, e),
+            None => list.push(e),
+        }
+    }
+
+    if !(range.el > 0.0 && range.eh > range.el) {
+        return Vec::new();
+    }
+
+    // 1-2. Primer, then the shaded endpoints.
+    let mut eunr = vec![ONEMEV];
+    ilist(sigfig(range.el, 7, -1), &mut eunr);
+    ilist(sigfig(range.el, 7, 1), &mut eunr);
+    ilist(sigfig(range.eh, 7, -1), &mut eunr);
+    ilist(sigfig(range.eh, 7, 1), &mut eunr);
+
+    // 3. The evaluation's own nodes.
+    let indep = match &range.case_ {
+        UnresolvedCase::CaseA { .. } => true,
+        UnresolvedCase::CaseB {
+            fission_energies, ..
+        } => {
+            for &e in fission_energies.iter().skip(1) {
+                ilist(sigfig(e, 7, 0), &mut eunr);
+            }
+            false
+        }
+        UnresolvedCase::CaseC { l_states, .. } => {
+            if let Some(j) = l_states.first().and_then(|l| l.j_states.first()) {
+                let ne = j.points.len();
+                for (n, pt) in j.points.iter().enumerate() {
+                    if n != 0 && n + 1 != ne {
+                        ilist(sigfig(pt.e, 7, 0), &mut eunr);
+                    }
                 }
             }
+            false
         }
-    }
-    if grid.is_empty() {
-        // Cases A/B: no tabulated grid in the evaluation. 40 log-spaced points
-        // is a deliberate stand-in, not an upstream behaviour -- NJOY derives
-        // its grid differently there, and a caller comparing against NJOY on
-        // such an evaluation should expect the grids to differ.
-        const N: usize = 40;
-        if range.el > 0.0 && range.eh > range.el {
-            let ratio = range.eh / range.el;
-            for i in 0..=N {
-                grid.push(range.el * ratio.powf(i as f64 / N as f64));
+    };
+
+    // 4. Refinement (`:698-722`), in upstream's 1-based indexing translated to
+    //    0-based: Fortran's `eunr(k)` is `eunr[k - 1]`.
+    let mut i = 1usize; // Fortran i = 1
+    let mut elast = eunr[1]; // eunr(2)
+    loop {
+        i += 1;
+        let Some(&enext) = eunr.get(i) else { break }; // eunr(i+1)
+        if enext >= ONEMEV {
+            break;
+        }
+        if enext >= WIDE * elast || indep {
+            let mut et = elast;
+            loop {
+                let enut = EGRIDU
+                    .iter()
+                    .copied()
+                    .find(|&g| g > STEP * et)
+                    .unwrap_or(enext);
+                et = enut;
+                if et >= enext {
+                    break;
+                }
+                ilist(et, &mut eunr);
+                i += 1;
             }
         }
+        elast = eunr[i]; // eunr(i+1)
     }
-    grid.retain(|e| *e >= range.el && *e <= range.eh);
-    grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    grid.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-9 * b.abs());
-    grid
+
+    // 5. Drop the lower outer shade and the primer, de-duplicate at
+    //    sigfig(., 7, 2), then drop the upper outer shade.
+    let lim = eunr.len().saturating_sub(1);
+    let mut out: Vec<f64> = Vec::with_capacity(lim);
+    let mut en = 0.0f64;
+    for &et in eunr.iter().take(lim).skip(1) {
+        if et >= en {
+            out.push(et);
+            en = sigfig(et.abs(), 7, 2);
+        }
+    }
+    out.pop();
+    out
 }
