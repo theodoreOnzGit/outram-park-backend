@@ -537,42 +537,97 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         );
         eprintln!("  ASSUMPTION: rod-steel Ni replaced by Fe (no Ni tapes loaded)");
     }
-    for (name, file) in nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8 {
-        if ni_as_fe && name.starts_with("Ni") {
-            continue;
-        }
+    // MODELLING ASSUMPTION (2026-09-26): `OUTRAM_HTR10_FE57_AS_FE56=1` takes
+    // the rod steel's Fe-57 (~2 % of natural Fe) as Fe-56. Reconstructing the
+    // ENDF/B-VIII.0 Fe-57 tape (LRF=7, three particle pairs) exhausted 13 GB
+    // and was OOM-killed; that is a reconstruction defect, filed separately,
+    // not a data gap.
+    if std::env::var("OUTRAM_HTR10_FE57_AS_FE56").is_ok() {
+        diag.note("MODELLING ASSUMPTION: rod-steel Fe-57 taken as Fe-56 (Fe-57 reconstruction OOM)".to_string());
+        eprintln!("  ASSUMPTION: rod-steel Fe-57 taken as Fe-56");
+    }
+    let (tapes, _) = rod_metal_plan();
+    for (name, file) in tapes {
         v.push(load!(diag, name, file)?);
     }
     Some(v)
 }
 
-/// Rod-metal nuclide slots: [`RodMetalNuclides::contiguous`] from 11, or,
-/// under `OUTRAM_HTR10_NI_AS_FE`, the same table with the five Ni tapes
-/// skipped and every Ni slot pointing at an Fe slot (see `nuclides`).
-fn rod_metal_slots() -> nee_soon::htr10_rmc::materials::RodMetalNuclides {
-    let c = nee_soon::htr10_rmc::materials::RodMetalNuclides::contiguous(11);
-    if std::env::var("OUTRAM_HTR10_NI_AS_FE").is_err() {
-        return c;
+/// Which rod-metal tapes to load, and the slot table pointing into them.
+/// Plain: every tape of [`ROD_METAL_TAPES_ENDF8`] from slot 11. Under
+/// `OUTRAM_HTR10_NI_AS_FE` the Ni tapes are skipped and each Ni isotope is
+/// pointed at an Fe isotope (Ni-58/60 -> Fe-56, Ni-61 -> Fe-57, Ni-62 ->
+/// Fe-54, Ni-64 -> Fe-58); under `OUTRAM_HTR10_FE57_AS_FE56` the Fe-57 tape
+/// is skipped and everything that pointed at Fe-57 points at Fe-56. Slots of
+/// the tapes still loaded are assigned in table order, so no index is guessed.
+///
+/// [`ROD_METAL_TAPES_ENDF8`]: nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8
+fn rod_metal_plan() -> (
+    Vec<(&'static str, &'static str)>,
+    nee_soon::htr10_rmc::materials::RodMetalNuclides,
+) {
+    use nee_soon::htr10_rmc::materials::{RodMetalNuclides, ROD_METAL_TAPES_ENDF8};
+    let ni_as_fe = std::env::var("OUTRAM_HTR10_NI_AS_FE").is_ok();
+    let fe57_as_fe56 = std::env::var("OUTRAM_HTR10_FE57_AS_FE56").is_ok();
+    let replace = |name: &str| -> Option<&'static str> {
+        let r = match name {
+            "Ni58" | "Ni60" if ni_as_fe => "Fe56",
+            "Ni61" if ni_as_fe => "Fe57",
+            "Ni62" if ni_as_fe => "Fe54",
+            "Ni64" if ni_as_fe => "Fe58",
+            _ => return None,
+        };
+        Some(r)
+    };
+    let resolve = |name: &'static str| -> &'static str {
+        let n = replace(name).unwrap_or(name);
+        if fe57_as_fe56 && n == "Fe57" {
+            "Fe56"
+        } else {
+            n
+        }
+    };
+    let loaded: Vec<(&'static str, &'static str)> = ROD_METAL_TAPES_ENDF8
+        .iter()
+        .copied()
+        .filter(|(n, _)| resolve(n) == *n)
+        .collect();
+    let slot = |name: &'static str| -> usize {
+        let target = resolve(name);
+        11 + loaded
+            .iter()
+            .position(|(n, _)| *n == target)
+            .expect("replacement tape is loaded")
+    };
+    let t = RodMetalNuclides {
+        fe54: slot("Fe54"),
+        fe56: slot("Fe56"),
+        fe57: slot("Fe57"),
+        fe58: slot("Fe58"),
+        cr50: slot("Cr50"),
+        cr52: slot("Cr52"),
+        cr53: slot("Cr53"),
+        cr54: slot("Cr54"),
+        ni58: slot("Ni58"),
+        ni60: slot("Ni60"),
+        ni61: slot("Ni61"),
+        ni62: slot("Ni62"),
+        ni64: slot("Ni64"),
+        mn55: slot("Mn55"),
+        ti46: slot("Ti46"),
+        ti47: slot("Ti47"),
+        ti48: slot("Ti48"),
+        ti49: slot("Ti49"),
+        ti50: slot("Ti50"),
+        si28: slot("Si28"),
+        si29: slot("Si29"),
+        si30: slot("Si30"),
+    };
+    debug_assert!(!ni_as_fe && !fe57_as_fe56 || loaded.len() < RodMetalNuclides::COUNT);
+    if !ni_as_fe && !fe57_as_fe56 {
+        assert_eq!(t, RodMetalNuclides::contiguous(11), "plain plan must be contiguous");
     }
-    // Slots after the Ni block move down by five.
-    let down = |i: usize| i - 5;
-    nee_soon::htr10_rmc::materials::RodMetalNuclides {
-        ni58: c.fe56,
-        ni60: c.fe56,
-        ni61: c.fe57,
-        ni62: c.fe54,
-        ni64: c.fe58,
-        mn55: down(c.mn55),
-        ti46: down(c.ti46),
-        ti47: down(c.ti47),
-        ti48: down(c.ti48),
-        ti49: down(c.ti49),
-        ti50: down(c.ti50),
-        si28: down(c.si28),
-        si29: down(c.si29),
-        si30: down(c.si30),
-        ..c
-    }
+    (loaded, t)
 }
 
 fn main() {
@@ -639,7 +694,7 @@ fn main() {
     );
     let mut mats = nee_soon::htr10_rmc::materials::htr10_material_set(
         NUC,
-        rod_metal_slots(),
+        rod_metal_plan().1,
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron,
