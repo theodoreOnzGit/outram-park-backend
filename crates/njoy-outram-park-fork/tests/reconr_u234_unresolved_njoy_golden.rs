@@ -213,12 +213,21 @@ fn lssf1_materials_are_untouched_by_the_unresolved_reconstruction() {
         (
             "n-092_U_235-ENDF8.0.endf",
             9228,
-            [3.667673747e4, 9.210397313e1, 1.368044198e1, 6.903497000e0],
+            // Re-baselined 2026-09-26 (GitHub #340) to NJOY2016's own values:
+            // RECONR now writes `sigfig(sum, 7)` on NJOY's union grid, and
+            // U-235's 0 K ACE matches NJOY's in every ESZ word (36676.7401,
+            // 92.0664218, 13.680442, 6.90349745 there, before rounding). The
+            // pre-change values were ~~3.667673747e4, 9.210397313e1,
+            // 1.368044198e1, 6.903497000e0~~ -- 4e-4 off NJOY at 1 eV.
+            [3.667674e4, 9.206642e1, 1.368044e1, 6.903497e0],
         ),
         (
             "n-092_U_238.endf",
             9237,
-            [1.437686459e2, 9.570592353e0, 2.130744614e1, 7.089129000e0],
+            // Re-baselined 2026-09-26: our U-238 RECONR PENDF is identical to
+            // NJOY2016's in every MF=3 word (`examples/pendf_stage_vs_njoy.rs`).
+            // Was ~~1.437686459e2, 9.570592353e0, 2.130744614e1~~.
+            [1.437687e2, 9.570561e0, 2.130745e1, 7.089129e0],
         ),
     ];
     const PROBES: [f64; 4] = [1.0e-5, 1.0, 1.0e3, 1.0e6];

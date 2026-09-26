@@ -326,9 +326,18 @@ maturity gate in that file for what this means and how the bar is revised.
      ~400 seeds per arm. (An earlier 32-seed run gave `−41 ± 43`; its seeds are
      a **subset** of these, so it is superseded, not confirmatory.)
 
+     **Re-measured 2026-09-26 at 400 seeds per arm** (commit `3f141992e`):
+     ANISO `−1 ± 9`, ISO `−2 ± 10`, difference **`+2 ± 13 pcm` (0.1 σ)**,
+     unpaired. That supersedes `−38 ± 23`: the worth is consistent with zero
+     and **bounded below 40 pcm at 3 σ**; the predicted negative sign is not
+     supported. Arm means are not comparable with 2026-09-16's -- URR/DBRC
+     became default in between -- only the difference is.
+
      The ISO arm independently reproduces the pre-`op-og56` `+16 ± 11 pcm` to
      **0.3 σ**, which checks the instrument. `RECORDED_PCM = 16.0` predates
-     `op-og56` and this says the current mean is near `−22`; it is **not**
+     `op-og56` and ~~this says the current mean is near `−22`~~ (**CORRECTED
+     2026-09-26**: the 400-seed ANISO arm puts the current mean at `−1 ± 9`,
+     0.1 σ from zero and 1.4 σ from 16); it is **not**
      changed on a 1.6 σ shift, and the drift gate built on it (~693 pcm for a
      single run) is nowhere near tripping.
 

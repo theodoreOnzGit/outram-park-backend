@@ -32,7 +32,9 @@
 //!   *absolute*), which the `1/y²` weights of `s1`/`s2` amplified into a
 //!   1.9 % deficit at `y = 0.03` — H-2 capture 2.3 % low at 1e-5 eV against
 //!   NJOY (bead `op-0xv5`); see `one_over_v_is_preserved_at_low_y`.
-//! - The `hnabb` Taylor-series refinement from the Fortran is not implemented;
+//! - (This bullet is about `bsigma_scalar`, the per-reaction kernel. The
+//!   pipeline's kernel, `joint`, ports SLATEC `erfc` and `hnabb` exactly.)
+//!   The `hnabb` Taylor-series refinement from the Fortran is not implemented;
 //!   the direct difference `h = f_old - f_new` is used throughout. It only
 //!   engages for panels narrower than ~1e-5 in `a` (upstream `toler`), where
 //!   the cancellation error is ~1e-16/Δa of an already-small contribution.
@@ -42,6 +44,7 @@
 //!   it pulls the broadened value back down toward the physical result.
 
 pub mod broadn;
+pub mod joint;
 pub use broadn::{broadn_section, lab_threshold, BroadnTolerances};
 
 use crate::{
@@ -485,7 +488,20 @@ pub fn doppler_broaden_below_with(
 /// upper limit ([`broadening_limit`]). The result carries the same material
 /// header and limit, so it can be broadened again (bootstrap style) if wanted.
 #[must_use]
+///
+/// Since 2026-09-26 this is upstream's own form, [`joint::broadr_joint`]. It
+/// reads the PENDF as text first, as BROADR does
+/// ([`ReconrResult::through_pendf_text`]). It then broadens every
+/// low-threshold reaction together on MT=1's grid, with card 3's defaults
+/// (`errthn = 0.001`, `thnmax = 6.5e6`). The per-reaction walk below remains
+/// only as the fallback for a result with no MT=1 section.
 pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
+    let pendf = result.through_pendf_text();
+    if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::default(), E6PT5) {
+        // BROADR writes a PENDF: energies copied above `thnmax` have been
+        // through `e(k)**2/alpha` (`broadn` label 190) and are printed.
+        return r.through_pendf_text();
+    }
     let thnmax = broadening_limit(result);
     ReconrResult {
         material: result.material.clone(),

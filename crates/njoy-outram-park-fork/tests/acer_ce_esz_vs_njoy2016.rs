@@ -204,12 +204,26 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
     let mut worst = [(0.0f64, 0.0f64); 3];
     let mut matched = 0usize;
     for r in &rows {
-        // Exact equality: both sides parsed the same 12-digit ACE decimal, and
-        // the oracle is written with 17 significant digits so it round-trips.
-        // A binary search that misses means the grid moved, which is itself a
-        // finding -- so it is asserted rather than skipped.
+        // Equality of the value as an ACE file prints it (`1pE20.11`, 12
+        // significant figures), exactly -- a miss means the grid moved, which
+        // is itself a finding, so it is asserted rather than skipped.
+        //
+        // ~~Exact f64 equality: "both sides parsed the same 12-digit ACE
+        // decimal".~~ CORRECTED 2026-09-26: `ours` is an in-memory table and
+        // was never printed, so this compared f64 bits. When the ENDF parser
+        // was made correctly rounded, `3.657000-5` eV stopped carrying the
+        // old double-rounding's extra ulp and the point "left" the grid while
+        // printing identically. The oracle's 17 digits keep that ulp too.
+        let printed = |x: f64| format!("{x:.11e}");
+        let want_e = printed(r.e);
         let i = e
-            .binary_search_by(|p| p.partial_cmp(&r.e).unwrap())
+            .binary_search_by(|p| {
+                if printed(*p) == want_e {
+                    std::cmp::Ordering::Equal
+                } else {
+                    p.partial_cmp(&r.e).unwrap()
+                }
+            })
             .unwrap_or_else(|_| {
                 panic!(
                     "energy {:.17e} MeV is in NJOY's grid and in the oracle, but no longer \
@@ -298,26 +312,37 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
         nu_oracle.len(),
         "NU block length moved off NJOY2016's 347"
     );
+    // Compared as NJOY's Type-1 file prints them (`1pE20.11`), exactly.
+    //
+    // ~~Bit-identical f64 equality.~~ **CORRECTED 2026-09-26**: the oracle is
+    // read from a Type-1 file, which cannot carry upstream `sigfig`'s
+    // `bias = 1.0000000000001` (`util.f90:392`) -- NJOY holds
+    // `1.0000000000001e-11` in memory and prints `1.00000000000E-11`. Bit
+    // equality held only while this port's `sigfig` omitted the bias; once it
+    // delegated to the faithful `mixr::mix::sigfig`, 170 energies differed in
+    // the 14th figure. The printed string is everything the oracle knows, and
+    // equality of it is still exact, not a tolerance.
+    let printed = |x: f64| format!("{x:.11e}");
     let mismatches: Vec<(usize, f64, f64)> = ours_nu
         .iter()
         .zip(&nu_oracle)
         .enumerate()
-        .filter(|(_, (a, b))| a != b)
+        .filter(|(_, (a, b))| printed(**a) != printed(**b))
         .map(|(i, (a, b))| (i, *a, *b))
         .collect();
     assert!(
         mismatches.is_empty(),
-        "the NU block was BIT-IDENTICAL to NJOY2016's on 2026-09-20 and no longer is. \
+        "the NU block was identical to NJOY2016's printed values (1pE20.11) on 2026-09-20 and no longer is. \
          {} of {} values differ; first three: {:?}. Exact equality is asserted \
          deliberately -- this block is copied from the evaluation with one unit \
-         change, so anything other than bit-identical means a real change in how \
+         change, so anything other than an identical printed value means a real change in how \
          it is read or written, not rounding.",
         mismatches.len(),
         nu_oracle.len(),
         &mismatches[..mismatches.len().min(3)]
     );
     println!(
-        "acer vs NJOY2016: NU block {} values, BIT-IDENTICAL",
+        "acer vs NJOY2016: NU block {} values, identical at Type-1 print precision",
         nu_oracle.len()
     );
     // CLOSED 2026-09-20 — the last of the three pinned gaps. This asserted

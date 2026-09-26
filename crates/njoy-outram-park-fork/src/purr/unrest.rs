@@ -290,11 +290,20 @@ pub fn probability_table(
                     let delr = chek1 + chekn;
                     let elo = res.energy - delr;
                     let ehi_res = res.energy + delr;
-                    let i0 = es.partition_point(|&e| e < elo);
-                    let i7 = es.partition_point(|&e| e < ehi_res);
-                    if i0 >= i7 {
+                    // `call fsrch(ehi,es,ne,i7,mfl)`, then
+                    // `call fsrch(elo,es,i7,i0,mfl)`, and the loop runs
+                    // `ie=i0,i7` INCLUSIVE (`purr.f90:1931-1934`). `fsrch`
+                    // returns the last point at or below its argument, so the
+                    // window takes one sample below `elo` as well.
+                    // ~~`partition_point` from the first sample at or above
+                    // `elo`~~ -- CHANGED 2026-09-26: it dropped that sample,
+                    // which moved U-234's first probability band by a count.
+                    let i7u = fsrch(ehi_res, &es);
+                    let i0u = fsrch(elo, &es[..=i7u]);
+                    if i0u == i7u {
                         continue;
                     }
+                    let (i0, i7) = (i0u, i7u + 1);
 
                     let y = ctx * res.total_width / 2.0;
                     let yy = y * y;
@@ -304,7 +313,23 @@ pub fn probability_table(
                     let ccg = szy * res.gg_frac;
                     let ccf = szy * res.gf_frac;
 
-                    for ie in i0..i7 {
+                    // Upstream finds the x <= -100 asymptotic run with
+                    // `fsrch(-100, xs(i0), it, i1, mfl)` and then tests
+                    // `if (i1.le.i0) go to 240` (`purr.f90:1952-1957`), so a
+                    // run of EXACTLY ONE sample is skipped, and the next tier
+                    // starts at `i1+1`: that sample gets nothing from this
+                    // resonance. It can fire only when the window edge,
+                    // x = -(63.66 y + max(63.66 y, 20)), is below -100, i.e.
+                    // y >~ 0.8. At U-234's 1.5 keV the edge is at x ~ -21, so
+                    // it never fires there. Whether it fires in U-235 or
+                    // U-238 was not measured; all three match NJOY with it.
+                    // (`i0 + 1 < i7` always holds here: the window has at
+                    // least two samples, since `i0u == i7u` was skipped.)
+                    let skip_first = y <= 100.0
+                        && ctx * (es[i0] - res.energy) <= -100.0
+                        && ctx * (es[i0 + 1] - res.energy) > -100.0;
+                    let first = if skip_first { i0 + 1 } else { i0 };
+                    for ie in first..i7 {
                         let x = ctx * (es[ie] - res.energy);
                         let (rew, aimw) = line_shape(x, y, yy, table);
                         cap[itemp][ie] += ccg * rew;
@@ -411,7 +436,13 @@ pub fn probability_table(
                 if tot > tmax[itemp] {
                     tmax[itemp] = tot;
                 }
-                let ii = tval[itemp].partition_point(|&v| v < tot).min(nbin - 1);
+                // `call fsrch(tot,tval,nbin,ii,mfl)`, then
+                // `if (mfl.ne.2.and.ii.lt.nbin) ii=ii+1` (`purr.f90:2333-2335`):
+                // a sample EQUAL to an edge goes to the bin above it. The
+                // edges are themselves samples (`es(ibin)`), so ties are
+                // common. ~~`partition_point(|&v| v < tot)`~~ put them below
+                // (CORRECTED 2026-09-26).
+                let ii = tval[itemp].partition_point(|&v| v <= tot).min(nbin - 1);
                 tsum[itemp] += 1.0;
                 tabl[itemp][ii][0] += 1.0;
                 tabl[itemp][ii][1] += tot;
@@ -575,4 +606,36 @@ pub fn probability_table(
         tables,
         convergence,
     })
+}
+
+/// `fsrch` (`purr.f90:2835-2875`): the 0-based index `i` with
+/// `x >= xarray[i]` and `x < xarray[i+1]`; `0` below the first point and
+/// `n-1` above the last. Its bisection is reproduced as written, so ties
+/// resolve as upstream's do.
+pub(super) fn fsrch(x: f64, xarray: &[f64]) -> usize {
+    let n = xarray.len();
+    // Upstream's bisection never terminates for n = 1 with x == xarray(1)
+    // (`i1+1 == i2` cannot become true). One point has one answer.
+    if n == 1 {
+        return 0;
+    }
+    if x < xarray[0] {
+        return 0;
+    }
+    if x > xarray[n - 1] {
+        return n - 1;
+    }
+    let (mut i1, mut i2) = (1usize, n); // 1-based
+    loop {
+        if i1 + 1 == i2 {
+            break;
+        }
+        let mid = (i1 + i2) / 2;
+        if x >= xarray[mid - 1] {
+            i1 = mid;
+        } else {
+            i2 = mid;
+        }
+    }
+    i1 - 1
 }

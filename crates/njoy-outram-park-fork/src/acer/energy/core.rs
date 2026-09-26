@@ -43,6 +43,10 @@ pub enum EnergyLaw {
         /// The photon energy `EG` \[MeV\].
         eg_mev: f64,
     },
+    /// A complete DLW entry from [`crate::acer::acelf6`] -- its own yield
+    /// table and law header included, so the builder writes it **without**
+    /// the generic 9-word header the other variants get.
+    Acelf6(crate::acer::acelf6::DlwEntry),
 }
 
 impl EnergyLaw {
@@ -52,6 +56,7 @@ impl EnergyLaw {
             EnergyLaw::Law3 { .. } => 3,
             EnergyLaw::Law4(_) => 4,
             EnergyLaw::Law2 { .. } => 2,
+            EnergyLaw::Acelf6(e) => e.law,
         }
     }
 
@@ -62,6 +67,7 @@ impl EnergyLaw {
             EnergyLaw::Law3 { .. } => 2,
             EnergyLaw::Law4(l) => l.data_len(),
             EnergyLaw::Law2 { .. } => 2,
+            EnergyLaw::Acelf6(e) => e.words.len() as i32,
         }
     }
 
@@ -73,6 +79,8 @@ impl EnergyLaw {
             EnergyLaw::Law3 { ldat1_mev, ldat2 } => vec![(*ldat1_mev, false), (*ldat2, false)],
             EnergyLaw::Law4(l) => l.serialize(data_start_rel),
             EnergyLaw::Law2 { lp, eg_mev } => vec![(f64::from(*lp), true), (*eg_mev, false)],
+            // For this variant `data_start_rel` is the entry's own first word.
+            EnergyLaw::Acelf6(e) => e.resolve(data_start_rel),
         }
     }
 }
@@ -155,8 +163,9 @@ pub struct Emission {
     pub law: EnergyLaw,
     /// The secondary-neutron **angular** distribution for the ACE AND block, when
     /// it is given *separately* from the energy (MF=4, two-body discrete levels).
-    /// `None` ⇒ isotropic in the emission frame (continuum MF=6 reactions, whose
-    /// correlated angle is a future Law 61/44 upgrade, use this).
+    /// `None` ⇒ isotropic in the emission frame, or -- for an
+    /// [`EnergyLaw::Acelf6`] entry marked `correlated` -- carried by the DLW
+    /// law itself (ACE laws 44/61/66, `LAND = -1`).
     pub angular: Option<ElasticAngular>,
 }
 
@@ -165,11 +174,14 @@ pub struct Emission {
 /// `qi_ev` is the reaction Q \[eV\] (negative for endothermic levels); `awr` the
 /// atomic weight ratio. Ports the inline Law-3 branch of `acelod`.
 pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
+    use crate::mixr::mix::sigfig;
     let x = (awr + 1.0) / awr;
-    let q_mev = qi_ev / EMEV;
+    // `q` is the stored LQR value, `sigfig(Q/1e6, 7)`; both words are
+    // rounded as `acelod` stores them (`acefc.f90:5931-5932`).
+    let q_mev = sigfig(qi_ev / EMEV, 7, 0);
     EnergyLaw::Law3 {
-        ldat1_mev: x * (-q_mev),
-        ldat2: 1.0 / (x * x),
+        ldat1_mev: sigfig(x * (-q_mev), 7, 0),
+        ldat2: sigfig(1.0 / (x * x), 7, 0),
     }
 }
 
@@ -238,6 +250,19 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
         // block, which is exactly what TYR=19 tells the reader.
         if FISSION_MTS.contains(&mt) {
             if let Some(sec) = tape.section(mat, 5, mt) {
+                // NJOY's own `acelf5`: the subsection's p(E) header, rounded
+                // outgoing energies, and the MT=18 tail supplement. See
+                // `crate::acer::acelf5`.
+                let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+                if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(sec, mt, q_mev, TYR_FISSION, true) {
+                    out.push(Emission {
+                        mt,
+                        tyr: TYR_FISSION,
+                        law: EnergyLaw::Acelf6(entry),
+                        angular: None,
+                    });
+                    continue;
+                }
                 if let Ok(law4) = super::mf5::parse_mf5_law4(sec) {
                     out.push(Emission {
                         mt,
@@ -264,8 +289,29 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                 angular,
             });
         } else if let Some(sec) = tape.section(mat, 6, mt) {
-            // Continuum / (n,xn) → Law 4 from the MF=6 neutron spectrum. The angle
-            // is correlated (in MF=6); left isotropic pending a Law 61/44 upgrade.
+            // Continuum / (n,xn): NJOY's own `acelf6` -- law 44 or 61 with the
+            // evaluation's yield table and correlated angle (see
+            // `crate::acer::acelf6`). `q` is the stored LQR value; the ZA
+            // comes off the section's own HEAD record.
+            let iza = sec.rows.first().map_or(0, |r| r[0].round() as i32);
+            let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6(sec, mt, q_mev, iza, true) {
+                let tyr = match entry.tyr {
+                    crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
+                    // Placeholder sign; the builder fills in `100 + L` once
+                    // the DLW layout is known.
+                    crate::acer::acelf6::Acelf6Tyr::Generalized { sign } => sign,
+                };
+                out.push(Emission {
+                    mt,
+                    tyr,
+                    law: EnergyLaw::Acelf6(entry),
+                    angular: None,
+                });
+                continue;
+            }
+            // Fallback for what `acelf6` refuses (a LAW=7 neutron subsection):
+            // the previous energy-only Law 4.
             if let Ok(n) = super::mf6::parse_mf6_law1_neutron(sec) {
                 // A negative ACE TYR marks a centre-of-mass distribution.
                 // `>= 2` because ENDF-6's LCT = 3 (first two particles in the
@@ -284,6 +330,33 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                     angular: None,
                 });
             }
+        }
+    }
+    // `acelod`'s inline Law 3 uses `x = (awr+1)/awr` with `awr` whatever the
+    // angular loop last read (`awr=c2h`, `acefc.f90:5806`): the HEAD AWR of
+    // the last producer, in MTR order, carrying MF=4 or MF=6 -- not MF=1's.
+    // Evaluations differ here (U-234 ENDF/B-VIII.0: 232.0304 in MF=1/3/4,
+    // 232.0300 in MF=6), and on U-234 one level's `ldat1` sits on a
+    // 7th-figure rounding boundary that the difference decides. This is an
+    // upstream quirk reproduced for table parity, not a physics choice; the
+    // difference in the kinematics is 2e-6 relative.
+    let awr_last = out
+        .iter()
+        .rev()
+        .find_map(|e| {
+            let sec = if e.mt == 18 {
+                tape.section(mat, 4, 18).or_else(|| tape.section(mat, 6, 18))
+            } else {
+                tape.section(mat, 4, e.mt).or_else(|| tape.section(mat, 6, e.mt))
+            };
+            sec.and_then(|s| s.rows.first()).map(|r| r[1])
+        })
+        .or_else(|| tape.section(mat, 4, 2).and_then(|s| s.rows.first()).map(|r| r[1]))
+        .unwrap_or(awr);
+    for e in &mut out {
+        if let EnergyLaw::Law3 { .. } = e.law {
+            let qi = partials.iter().find(|p| p.0 == e.mt).map_or(0.0, |p| p.1);
+            e.law = law3_discrete_level(qi, awr_last);
         }
     }
     out

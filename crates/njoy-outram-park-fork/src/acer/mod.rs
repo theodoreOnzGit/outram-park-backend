@@ -78,12 +78,17 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+pub mod acelcp;
 pub mod acesix;
+pub mod acelf5;
+pub mod acelf6;
+pub mod acensd;
 pub mod angular;
 pub mod build;
 pub mod ce_decode;
 pub mod ce_laws;
 pub mod delayed;
+pub mod delayed_blocks;
 pub mod dosimetry;
 pub mod energy;
 pub mod fortran_fmt;
@@ -164,6 +169,7 @@ pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool 
 pub mod read;
 pub mod thermal;
 pub mod photon_read;
+pub mod unr;
 pub mod thermal_read;
 pub mod write;
 
@@ -292,6 +298,14 @@ pub mod jxs {
     /// JXS(19): photon energy distributions (ACE Law 2 discrete lines or
     /// Law 4 continua).
     pub const DLWP: usize = 18;
+    /// JXS(20): **YP** -- `[NYP, MT(1..NYP)]`, the distinct reactions whose
+    /// photon production is a yield (MF=12/16) rather than a cross section
+    /// (`acelpp`, `acefc.f90:8993-9008`).
+    pub const YP: usize = 19;
+    /// JXS(21): **FIS** -- locator of MT=18's own SIG entry when total
+    /// fission is a stored reaction (`fis=next`, `acefc.f90:5495`); `0`
+    /// otherwise, e.g. when the partial chances are stored instead.
+    pub const FIS: usize = 20;
 
     pub const END: usize = 21;
 
@@ -361,6 +375,15 @@ pub fn run() -> Result<(), crate::NjoyError> {
 ///
 /// `kt_mev` is the ACE temperature in MeV — `8.617333262e-5 * T[K] * 1e-6`.
 /// `suffix` is the ZAID suffix digit (`0` for the usual `.00c`).
+///
+/// # This is the deck WITHOUT PURR, so the table carries no URR
+///
+/// `build_full` mirrors NJOY's `RECONR+ACER` / `RECONR+BROADR+ACER` decks and
+/// writes **no UNR block**, so a nuclide read back from its output has no
+/// unresolved-resonance self-shielding. It stays that way because it is what
+/// several byte-parity gates compare against NJOY tables made without PURR.
+/// A table meant for **transport** should come from [`build_full_with_purr`],
+/// which is the `…+PURR+ACER` deck (GitHub #325).
 pub fn build_full(
     tape: &crate::endf::tape::Tape,
     mat: i32,
@@ -368,6 +391,86 @@ pub fn build_full(
     kt_mev: f64,
     suffix: u32,
 ) -> Result<AceTable, crate::NjoyError> {
+    build_deck(tape, mat, recon, kt_mev, suffix, &AceDeck::default())
+}
+
+/// Which NJOY modules a deck runs ahead of ACER, for [`build_deck`].
+///
+/// HEATR is **on** by default: heating is physics the evaluation supplies,
+/// and the workspace rule is that such physics is default-on with ablation an
+/// explicit act. [`AceDeck::without_heatr`] is that act -- it reproduces a
+/// deck with no HEATR module, whose PENDF carries no MT=301, so `acelod`
+/// leaves the ESZ heating column at zero (`acefc.f90:5641-5645`). The
+/// reference tables in `reference-data/ace/reference-njoy/` were made that
+/// way, which is the reason this exists.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AceDeck {
+    heatr: bool,
+    purr: Option<(usize, usize, usize)>,
+    temperature_k: Option<f64>,
+}
+
+impl Default for AceDeck {
+    fn default() -> Self {
+        AceDeck {
+            heatr: true,
+            purr: None,
+            temperature_k: None,
+        }
+    }
+}
+
+impl AceDeck {
+    /// The deck without HEATR: the ESZ heating column is written as zero.
+    pub fn without_heatr(mut self) -> Self {
+        self.heatr = false;
+        self
+    }
+
+    /// Add PURR with `nbin` bands, `nladr` ladders and `nsamp` samples.
+    pub fn with_purr(mut self, nbin: usize, nladr: usize, nsamp: usize) -> Self {
+        self.purr = Some((nbin, nladr, nsamp));
+        self
+    }
+
+    /// The deck's card temperature \[K\] (BROADR's and PURR's `293.6/`).
+    /// PURR samples its ladders at this temperature. Without it, PURR uses
+    /// `kt_mev / k_B`. That is exact only when `kt_mev` was computed from the
+    /// temperature: a kT read back from a table header is printed to five
+    /// figures, and `2.5301e-8 MeV / k_B` is not 293.6 K. That offset moved
+    /// U-234's probability bands in the 5th figure against NJOY2016's
+    /// (measured 2026-09-26).
+    pub fn with_temperature(mut self, temperature_k: f64) -> Self {
+        self.temperature_k = Some(temperature_k);
+        self
+    }
+}
+
+/// Assemble a continuous-energy [`AceTable`] for the given [`AceDeck`]. The
+/// single assembly path behind [`build_full`] and [`build_full_with_purr`].
+pub fn build_deck(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    recon: &crate::reconr::ReconrResult,
+    kt_mev: f64,
+    suffix: u32,
+    deck: &AceDeck,
+) -> Result<AceTable, crate::NjoyError> {
+    const K_BOLTZMANN_MEV: f64 = 8.617_333_262e-11;
+    // ACER reads its cross sections from a PENDF tape, not from memory.
+    let pendf = recon.through_pendf_text();
+    let recon = &pendf;
+    let urr = match deck.purr {
+        Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf(
+            tape,
+            mat,
+            deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
+            nbin,
+            nladr,
+            nsamp,
+        )?,
+        None => None,
+    };
     let angular = match tape.section(mat, 4, 2) {
         Some(s) => Some(crate::acer::angular::parse_elastic_angular(s)?),
         None => None,
@@ -378,23 +481,116 @@ pub fn build_full(
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
     let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
-    let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
-    let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
-        .unwrap_or_default();
-    let emission = crate::heatr::build_emission_spectra(tape, mat);
-    let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
-    let kerma = crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
-        .with_energy_balance(&photons, recon);
+    let kerma = if deck.heatr {
+        let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
+        let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
+            .unwrap_or_default();
+        let emission = crate::heatr::build_emission_spectra(tape, mat);
+        let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
+        Some(
+            crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
+                .with_energy_balance(&photons, recon),
+        )
+    } else {
+        None
+    };
     let nu_block = crate::acer::nu::build(tape, mat)?;
-    Ok(AceTable::from_reconr_full(
+    // Delayed-neutron blocks whenever the evaluation has them, as NJOY writes
+    // them regardless of the rest of the deck (`acefc.f90:6003`). ismooth = 1
+    // is upstream's default (`acer.f90:326`).
+    let delayed = crate::acer::delayed_blocks::build(tape, mat, true)?;
+    let mut table = AceTable::from_reconr_full_with_extras(
         recon,
         kt_mev,
         suffix,
         angular.as_ref(),
         &emissions,
-        Some(&kerma),
+        kerma.as_ref(),
         nu_block.as_deref(),
         crate::acer::has_mt19_distributions(tape, mat),
-        crate::acer::photon_blocks::build(tape, mat).as_deref(),
-    ))
+        crate::acer::photon_blocks::build_with_pendf(tape, mat, recon).as_deref(),
+        urr.as_ref(),
+        delayed.as_ref(),
+    );
+    if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
+        table.insert_gpd(&g);
+    }
+    // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
+    crate::acer::acelcp::append(&mut table, tape, mat, recon);
+    Ok(table)
+}
+
+impl AceTable {
+    /// Insert the GPD block (`JXS(12)`) immediately before MTRP, where
+    /// `acelod` stores it (`acefc.f90:6255-6271`), and shift every locator
+    /// that follows. The photon blocks' internal locators are relative, so
+    /// only the absolute `JXS` entries move.
+    ///
+    /// Does nothing without photon-production blocks, or when `gpd` is not
+    /// one word per ESZ energy.
+    pub fn insert_gpd(&mut self, gpd: &[f64]) {
+        let nes = self.nxs[nxs::NES] as usize;
+        let at = self.jxs[jxs::MTRP];
+        if at <= 0 || gpd.len() != nes || self.jxs[11] != 0 {
+            return;
+        }
+        let pos = (at - 1) as usize;
+        self.xss.splice(pos..pos, gpd.iter().copied());
+        self.xss_is_int.splice(pos..pos, std::iter::repeat_n(false, nes));
+        for k in [
+            jxs::MTRP,
+            jxs::LSIGP,
+            jxs::SIGP,
+            jxs::LANDP,
+            jxs::ANDP,
+            jxs::LDLWP,
+            jxs::DLWP,
+            jxs::YP,
+        ] {
+            if self.jxs[k] >= at {
+                self.jxs[k] += nes as i32;
+            }
+        }
+        self.jxs[11] = at;
+        self.jxs[jxs::END] += nes as i32;
+        self.nxs[nxs::LEN_XSS] += nes as i32;
+    }
+}
+
+/// [`build_full`] **with PURR**: the same table plus the UNR probability-table
+/// block, i.e. NJOY's `RECONR -> BROADR -> PURR -> ACER` deck — GitHub #325.
+///
+/// Until this existed, no ACE table this workspace wrote could carry URR
+/// self-shielding, even though `Nuclide::from_ace` has decoded the block since
+/// GitHub #307. So the round trip `ENDF -> ACER -> read` lost physics that both
+/// ends could handle, and every ACE-route parity study compared different
+/// physics on its two arms.
+///
+/// The tables are generated by
+/// [`UrrProbabilityTables::from_endf`](crate::purr::UrrProbabilityTables::from_endf)
+/// at the table's own temperature (`kt_mev` converted back to kelvin) and
+/// written by [`unr::unr_words`], a port of `acefc.f90:5958-5990`. `nbin`,
+/// `nladr` and `nsamp` are PURR's controls; the reference library in
+/// `reference-data/ace` was made with `20 / 64` bins/ladders (its deck is
+/// `purr / 20 22 23 / MAT 1 1 20 64 /`), and this crate's own verified
+/// comparison uses `20 / 64 / 10000`.
+///
+/// **Cost:** PURR is a Monte Carlo over resonance ladders — ~45 s for U-238's
+/// 83 energies at `20 / 64 / 10000` on one core. That is the price of the
+/// physics, stated rather than used as a reason to default it off.
+///
+/// A nuclide without an unresolved range (`from_endf` returns `None`) gets
+/// exactly the [`build_full`] table: no UNR block and `JXS(23) = 0`, which is
+/// ACE's "no unresolved range" and not an omission.
+pub fn build_full_with_purr(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    recon: &crate::reconr::ReconrResult,
+    kt_mev: f64,
+    suffix: u32,
+    nbin: usize,
+    nladr: usize,
+    nsamp: usize,
+) -> Result<AceTable, crate::NjoyError> {
+    build_deck(tape, mat, recon, kt_mev, suffix, &AceDeck::default().with_purr(nbin, nladr, nsamp))
 }

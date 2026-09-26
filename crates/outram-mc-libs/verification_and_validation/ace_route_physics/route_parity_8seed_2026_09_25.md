@@ -41,6 +41,13 @@ table written here cannot carry URR even though the reader has decoded one since
 is a writer gap, and until it is closed, ablating A is the only symmetric
 comparison available.
 
+> **UPDATE 2026-09-26 — the writer gap is closed (GitHub #325).**
+> `acer::build_full_with_purr` writes the UNR block, verified bit-exact against
+> NJOY's own blocks on U-234/235/238. The statement above was true when these
+> eight seeds were taken and describes this run's route B, which still uses
+> `build_full` (the deck without PURR). A route B built with PURR would carry URR
+> at source and leave only DBRC asymmetric — a different, not-yet-run experiment.
+
 **The seed loop repeats only the transport**, over 8 consecutive seeds, reusing
 the nuclides: the ACE build is ~265 s and the library 607 MB, so paying it once is
 what makes eight seeds affordable at all. Each arm reports the mean over seeds and

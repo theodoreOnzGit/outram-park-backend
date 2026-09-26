@@ -166,7 +166,7 @@ const INFINITE_DILUTION: f64 = 1.0e10;
 /// duplicates freely; upstream removes them later in the sort at
 /// `reconr.f90:856-871`. [`ilist`] removes them on insertion instead, which is
 /// why the loops here run once.
-fn unresolved_grid(range: &UnresolvedRange) -> Vec<f64> {
+pub(crate) fn unresolved_grid(range: &UnresolvedRange) -> Vec<f64> {
     // `ilist` expects a list primed with a sentinel larger than anything that
     // will be inserted (`unresr.f90:753-781`).
     let mut list = vec![f64::MAX];
@@ -282,86 +282,6 @@ const EGRIDU: [f64; 78] = [
     1.0e6, 1.25e6, 1.5e6, 1.7e6, 2.0e6, 2.5e6, 3.0e6, 3.5e6, 4.0e6, 5.0e6, 6.0e6, 7.2e6, 8.5e6,
 ];
 
-/// Bisection depth cap per interval while refining the unresolved grid.
-const MAX_REFINE_DEPTH: usize = 10;
-
-/// Refine `grid` until lin-lin interpolation reproduces all four unresolved
-/// cross sections to within `eps` everywhere.
-///
-/// This is the *"special energy grid chosen to preserve the required
-/// interpolation properties"* of `reconr.f90:82-83`, reached by the same
-/// bisect-until-converged means the resolved range already uses rather than by
-/// reproducing `eunr`'s construction literally. The parameter energies alone
-/// are not enough: U-234 tabulates 10 of them across `1.5e3 .. 1.0e5 eV`, where
-/// NJOY's own PENDF carries 34 points, and interpolating the 10-point grid
-/// leaves up to 8.3e-2 relative error against NJOY at the points in between.
-///
-/// Refinement is driven by the **worst of the four reactions** at each midpoint,
-/// not by the total alone — fission is the smallest and most curved of them on
-/// U-234, and a grid converged only on the total leaves it visibly coarse.
-fn refine_unresolved_grid(
-    range: &UnresolvedRange,
-    grid: Vec<f64>,
-    table: &WTable,
-    eps: f64,
-) -> Result<Vec<(f64, [f64; 4])>, NjoyError> {
-    let eval = |e: f64| -> Result<[f64; 4], NjoyError> {
-        let out = unresolved_cross_sections(
-            std::slice::from_ref(range),
-            e,
-            0.0,
-            &[INFINITE_DILUTION],
-            [0.0; 4],
-            table,
-        )?;
-        Ok(out.first().map_or([0.0; 4], |r| [r[0], r[1], r[2], r[3]]))
-    };
-
-    let mut points: Vec<(f64, [f64; 4])> = Vec::with_capacity(grid.len() * 4);
-    for &e in &grid {
-        points.push((e, eval(e)?));
-    }
-    points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-    let mut out: Vec<(f64, [f64; 4])> = Vec::with_capacity(points.len() * 4);
-    for w in points.windows(2) {
-        let (lo, hi) = (w[0], w[1]);
-        out.push(lo);
-        // Explicit stack rather than recursion, so the depth cap is visible.
-        let mut stack = vec![(lo, hi, 0usize)];
-        let mut inserted: Vec<(f64, [f64; 4])> = Vec::new();
-        while let Some((a, b, depth)) = stack.pop() {
-            if depth >= MAX_REFINE_DEPTH {
-                continue;
-            }
-            let em = 0.5 * (a.0 + b.0);
-            if em <= a.0 || em >= b.0 {
-                continue;
-            }
-            let vm = eval(em)?;
-            let t = (em - a.0) / (b.0 - a.0);
-            let converged = (0..4).all(|k| {
-                let lin = a.1[k] + t * (b.1[k] - a.1[k]);
-                let scale = vm[k].abs().max(1.0e-10);
-                (vm[k] - lin).abs() <= eps * scale
-            });
-            if !converged {
-                inserted.push((em, vm));
-                stack.push((a, (em, vm), depth + 1));
-                stack.push(((em, vm), b, depth + 1));
-            }
-        }
-        inserted.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
-        out.extend(inserted);
-    }
-    if let Some(&last) = points.last() {
-        out.push(last);
-    }
-    out.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    out.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
-    Ok(out)
-}
-
 /// Build the **MF=2/MT=152** unresolved table RECONR writes to the PENDF —
 /// ported from `genunr` (`reconr.f90:1628-1735`).
 ///
@@ -413,90 +333,160 @@ pub fn build_mt152(
     temperature_k: f64,
     eps: f64,
 ) -> Result<Option<Vec<[f64; 6]>>, NjoyError> {
-    let Some(range) = ranges.first() else {
+    let _ = eps;
+    let bkg = |mt: i32, e: f64| {
+        background
+            .iter()
+            .find(|s| s.mt == MtReaction::from_any(mt))
+            .map(|sec| eval_lin_lin(&sec.pairs, e))
+    };
+    let Some(t) = SunrTable::build(ranges, temperature_k, bkg)? else {
         return Ok(None);
     };
-    let table = WTable::new();
+    Ok(Some(t.rows(za, awr, temperature_k)))
+}
 
-    // One merged grid across every range, as `eunr` is a single sorted list.
-    let mut grid: Vec<f64> = Vec::new();
-    for r in ranges {
-        grid.extend(unresolved_grid(r));
-    }
-    grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    grid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
-    if grid.len() < 2 {
-        return Ok(None);
-    }
+/// `genunr`'s table (`reconr.f90:1628-1735`) — the infinitely-dilute
+/// unresolved cross sections on `eunr`, with the MF=3 background added for
+/// `LSSF = 0` — and `sigunr`, which interpolates it (`:1737-1769`).
+///
+/// Upstream's order of rounding is kept, because each step is a `sigfig`:
+/// every range's contribution is rounded as it is accumulated, then each
+/// MF=3 background in tape order (MT=1, 2, 18, 102), and the fifth column is
+/// the total again.
+#[derive(Debug, Clone)]
+pub(crate) struct SunrTable {
+    /// `eunr` and `[total, elastic, fission, capture, total]` at each.
+    pub(crate) rows: Vec<(f64, [f64; 5])>,
+    /// `intunr` (`sunr(6)`).
+    pub(crate) intunr: i32,
+    lssf: i32,
+}
 
-    // `genunr` stores the dilute values on `eunr` itself -- it does not refine
-    // (refinement is this port's addition on the MF=3 side, see
-    // `refine_unresolved_grid`). Storing a refined grid here would be a
-    // different section from the one upstream writes.
-    let mut body: Vec<f64> = Vec::with_capacity(1 + 6 * grid.len());
-    body.push(INFINITE_DILUTION);
-    for &e in &grid {
-        let mut row = [0.0_f64; 4];
+impl SunrTable {
+    /// Build the table. `bkg(mt, e)` is the MF=3 background of `mt` at `e`,
+    /// or `None` when the tape has no such section; upstream reads it with
+    /// `gety1` of the tape's own TAB1.
+    pub(crate) fn build(
+        ranges: &[UnresolvedRange],
+        temperature_k: f64,
+        bkg: impl Fn(i32, f64) -> Option<f64>,
+    ) -> Result<Option<Self>, NjoyError> {
+        let Some(range) = ranges.first() else {
+            return Ok(None);
+        };
+        let table = WTable::new();
+
+        // One merged grid across every range, as `eunr` is a single sorted list.
+        let mut grid: Vec<f64> = Vec::new();
         for r in ranges {
-            if e < r.el || e > r.eh {
-                continue;
-            }
-            let out = unresolved_cross_sections(
-                std::slice::from_ref(r),
-                e,
-                temperature_k,
-                &[INFINITE_DILUTION],
-                [0.0; 4],
-                &table,
-            )?;
-            if let Some(v) = out.first() {
-                // reconr.f90:1683-1687 -- abundance-weighted accumulation.
-                for k in 0..4 {
-                    row[k] += r.abn * v[k];
+            grid.extend(unresolved_grid(r));
+        }
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        grid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
+        if grid.len() < 2 {
+            return Ok(None);
+        }
+
+        let mut rows: Vec<(f64, [f64; 5])> = Vec::with_capacity(grid.len());
+        for &e in &grid {
+            let mut row = [0.0_f64; 5];
+            // `if (mode.ge.11.and.e.ge.elt(j).and.e.lt.eht(j))` (:1672):
+            // the range's own top energy gets no unresolved contribution.
+            for r in ranges {
+                if e < r.el || e >= r.eh {
+                    continue;
+                }
+                let out = unresolved_cross_sections(
+                    std::slice::from_ref(r),
+                    e,
+                    temperature_k,
+                    &[INFINITE_DILUTION],
+                    [0.0; 4],
+                    &table,
+                )?;
+                if let Some(v) = out.first() {
+                    for k in 0..4 {
+                        row[k] = sigfig(row[k] + r.abn * v[k], 7, 0);
+                    }
                 }
             }
+            row[4] = row[0];
+            rows.push((e, row));
         }
-        // reconr.f90:1694-1727 -- add the MF=3 background, LSSF=0 only.
+        // reconr.f90:1694-1727 -- add the MF=3 background, LSSF=0 only, in
+        // tape order, rounding after each addition.
         if range.lssf == 0 {
             for (k, mt) in [(0usize, 1i32), (1, 2), (2, 18), (3, 102)] {
-                if let Some(sec) = background.iter().find(|s| s.mt == MtReaction::from_any(mt)) {
-                    row[k] += eval_lin_lin(&sec.pairs, e);
+                for (e, row) in rows.iter_mut() {
+                    if let Some(b) = bkg(mt, *e) {
+                        row[k] = sigfig(row[k] + b, 7, 0);
+                        if k == 0 {
+                            row[4] = sigfig(row[4] + b, 7, 0);
+                        }
+                    }
                 }
             }
         }
-        for v in row.iter_mut() {
-            *v = sigfig(*v, 7, 0);
-        }
-        body.extend([e, row[0], row[1], row[2], row[3], row[0]]);
+        Ok(Some(SunrTable {
+            rows,
+            intunr: stored_interpolation_law(ranges),
+            lssf: range.lssf,
+        }))
     }
 
-    let nunr = grid.len();
-    let _ = eps;
-    let mut rows: Vec<[f64; 6]> = Vec::with_capacity(2 + body.len().div_ceil(6));
-    // CONT
-    rows.push([
-        za,
-        awr,
-        range.lssf as f64,
-        0.0,
-        0.0,
-        stored_interpolation_law(ranges) as f64,
-    ]);
-    // LIST header
-    rows.push([
-        temperature_k,
-        0.0,
-        N_REACTION_COLUMNS as f64,
-        1.0,
-        (1 + 6 * nunr) as f64,
-        nunr as f64,
-    ]);
-    for chunk in body.chunks(6) {
-        let mut r = [0.0_f64; 6];
-        r[..chunk.len()].copy_from_slice(chunk);
-        rows.push(r);
+    /// `sigunr` (`reconr.f90:1737-1769`): the four cross sections at `e`,
+    /// interpolated with `intunr`; zero outside the table.
+    pub(crate) fn sigunr(&self, e: f64) -> [f64; 4] {
+        let n = self.rows.len();
+        let mut i = 1usize; // 1-based
+        let mut en = 0.0;
+        let mut l2 = 0usize;
+        while i < n && e >= en {
+            i += 1;
+            l2 = i - 1; // 0-based row of `sunr(l2)`
+            en = self.rows[l2].0.abs();
+        }
+        let l1 = l2.saturating_sub(1);
+        let (e1, e2) = (self.rows[l1].0.abs(), self.rows[l2].0.abs());
+        let law = crate::endf::interp::IntLaw::from_code(self.intunr as u32);
+        let mut out = [0.0; 4];
+        for (k, o) in out.iter_mut().enumerate() {
+            if e >= e1 && e <= e2 {
+                *o = crate::endf::interp::terp1(e1, self.rows[l1].1[k], e2, self.rows[l2].1[k], e, law)
+                    .unwrap_or(0.0);
+            }
+        }
+        out
     }
-    Ok(Some(rows))
+
+    /// The MF=2/MT=152 rows as `genunr` lays them out.
+    pub(crate) fn rows(&self, za: f64, awr: f64, temperature_k: f64) -> Vec<[f64; 6]> {
+        let nunr = self.rows.len();
+        let mut body: Vec<f64> = Vec::with_capacity(1 + 6 * nunr);
+        body.push(INFINITE_DILUTION);
+        for (e, r) in &self.rows {
+            body.extend([*e, r[0], r[1], r[2], r[3], r[4]]);
+        }
+        let mut rows: Vec<[f64; 6]> = Vec::with_capacity(2 + body.len().div_ceil(6));
+        // CONT
+        rows.push([za, awr, self.lssf as f64, 0.0, 0.0, self.intunr as f64]);
+        // LIST header
+        rows.push([
+            temperature_k,
+            0.0,
+            N_REACTION_COLUMNS as f64,
+            1.0,
+            (1 + 6 * nunr) as f64,
+            nunr as f64,
+        ]);
+        for chunk in body.chunks(6) {
+            let mut r = [0.0_f64; 6];
+            r[..chunk.len()].copy_from_slice(chunk);
+            rows.push(r);
+        }
+        rows
+    }
 }
 
 /// Reaction columns stored in MF=2/MT=152 (`nx`): total, elastic, fission,
@@ -538,98 +528,62 @@ fn stored_interpolation_law(ranges: &[UnresolvedRange]) -> i32 {
     intunr
 }
 
-/// Add the infinitely-dilute unresolved contribution of every `LSSF = 0` range
-/// to the MF=3 sections.
+/// Add the unresolved contribution of every `LSSF = 0` range to the MF=3
+/// sections, as `resxs` and `emerge` do (`reconr.f90:2240-2569`,
+/// `4786-4815`):
 ///
-/// `LSSF = 1` ranges are skipped, exactly as `genunr` returns early for them
-/// (`reconr.f90:1694`) — their MF=3 already carries the same quantity, and
-/// adding it again would double-count.
+/// - The grid is the union grid inside the range, bisected with `resxs`'s
+///   own test on the function `sigma` returns there. That function is
+///   `sigunr`, the [`SunrTable`] interpolated with `intunr`. The
+///   step-increase rule is off, because it applies only below `eresr`
+///   (`:2413`).
+/// - At each point the value is `sigunr(e)` with **no** MF=3 background for
+///   MT=1, 2, 18/19 and 102 (`emerge`, `:4789-4790`). For `LSSF = 0` the table
+///   already carries the background.
 ///
-/// The five values [`unresolved_cross_sections`] returns are
-/// `[total, elastic, fission, capture, transport]`; the first four map to
-/// MT=1/2/18/102 and transport is unused here. Each is **added to** whatever
-/// MF=3 background is already present at that energy, which is what `genunr`
-/// does after its `lssf` gate ("add on unresolved background from mf3 on endf
-/// tape", `reconr.f90:1695-1697`).
+/// ~~Evaluate the unresolved formula directly at each point, add the
+/// background lin-lin, and refine with this crate's own bisection
+/// (`refine_unresolved_grid`).~~ **REPLACED 2026-09-26** (GitHub #340). That
+/// put points NJOY does not have in U-234's unresolved range (1.55, 1.6 and
+/// 1.775 keV), wrote values unrounded, and kept `eresr` = 1500 eV itself,
+/// which `lunion` drops.
+///
+/// `LSSF = 1` ranges are skipped: `eresh = eresr` then (`:353`), so neither
+/// `resxs` nor `emerge` reaches them.
 pub(super) fn add_unresolved_ranges(
-    sections: &mut [ReconrSection],
+    sections: &mut Vec<ReconrSection>,
     ranges: &[UnresolvedRange],
+    table: &SunrTable,
     eps: f64,
-) -> Result<(), NjoyError> {
-    let table = WTable::new();
-
+    raw: &super::RawMf3,
+    zero_background: (f64, f64),
+) {
     for range in ranges {
         if range.lssf != 0 {
             continue;
         }
-        let mut grid = unresolved_grid(range);
-
-        // The MF=3 background keeps its own energies inside the range. Dropping
-        // them and re-sampling on the unresolved grid alone would erase any
-        // structure the background has in this window -- a threshold opening,
-        // say -- because the replacement grid knows nothing about it. Measured
-        // on U-234: the worst residual against NJOY sat at 4.51800e4 eV, an
-        // energy carried by the background and by NJOY's PENDF but not by the
-        // unresolved parameter grid.
-        {
-            let mut list = std::mem::replace(&mut grid, Vec::new());
-            list.push(f64::MAX);
-            for mt in [
-                MtReaction::Mt1Total,
-                MtReaction::Mt2Elastic,
-                MtReaction::Mt18Fission,
-                MtReaction::Mt102Capture,
-            ] {
-                if let Some(sec) = sections.iter().find(|s| s.mt == mt) {
-                    for &(e, _) in &sec.pairs {
-                        if e > range.el && e < range.eh {
-                            ilist(e, &mut list);
-                        }
-                    }
+        super::rebuild_range_with(
+            sections,
+            range.el,
+            range.eh,
+            Vec::new(),
+            eps,
+            &[],
+            raw,
+            super::RebuildOpts {
+                widen: false,
+                zero_background: Some(zero_background),
+            },
+            |e| {
+                let v = table.sigunr(e);
+                super::RangeDelta {
+                    total: v[0],
+                    elastic: v[1],
+                    fission: v[2],
+                    capture: v[3],
+                    ..super::RangeDelta::default()
                 }
-            }
-            list.retain(|&e| e.is_finite() && e > 0.0 && e < f64::MAX);
-            grid = list;
-        }
-        if grid.len() < 2 {
-            continue;
-        }
-
-        // [(energy, [total, elastic, fission, capture])], adaptively refined.
-        let rows = refine_unresolved_grid(range, grid, &table, eps)?;
-        if rows.is_empty() {
-            continue;
-        }
-
-        for (slot, mt) in [
-            (0usize, MtReaction::Mt1Total),
-            (1, MtReaction::Mt2Elastic),
-            (2, MtReaction::Mt18Fission),
-            (3, MtReaction::Mt102Capture),
-        ] {
-            let Some(sec) = sections.iter_mut().find(|s| s.mt == mt) else {
-                continue;
-            };
-            // Fission is absent from a non-fissionable evaluation's MF=3; a
-            // zero row would otherwise invent an empty section's worth of
-            // points. Upstream only touches sections it finds.
-            if rows.iter().all(|(_, v)| v[slot] == 0.0) {
-                continue;
-            }
-
-            let bg = sec.pairs.clone();
-            let mut merged: Vec<(f64, f64)> = bg
-                .iter()
-                .copied()
-                .filter(|&(e, _)| e < range.el || e > range.eh)
-                .collect();
-            for &(e, v) in &rows {
-                merged.push((e, v[slot] + crate::reconr::eval_lin_lin(&bg, e)));
-            }
-            merged.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            merged.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
-            sec.pairs = merged;
-        }
+            },
+        );
     }
-    Ok(())
 }

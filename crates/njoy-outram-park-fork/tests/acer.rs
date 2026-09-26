@@ -230,17 +230,19 @@ fn esz_total_equals_elastic_plus_partials() {
     };
 
     let sig0 = ace.jxs[jxs::SIG] as usize; // 1-based
+    let lsig0 = ace.jxs[jxs::LSIG] as usize; // 1-based
     for j in 0..nes {
         let mut sum = elastic[j];
         for i in 0..ntr {
-            // Each SIG entry is [IE, NE, σ(1..NE)] laid contiguously; IE=1, NE=nes.
-            let base = (sig0 - 1) + i * (2 + nes);
+            // Each SIG entry is [IE, NE, σ(IE..NES)], located through LSIG.
+            // ~~IE=1, NE=nes~~ -- since 2026-09-26 an entry starts at its
+            // threshold index, as `acelod` stores it; nothing below IE.
+            let base = (sig0 - 1) + (ace.xss[lsig0 - 1 + i] as usize - 1);
             let ie = ace.xss[base] as usize;
             let ne = ace.xss[base + 1] as usize;
-            assert_eq!(ie, 1);
-            assert_eq!(ne, nes);
-            if contributes(mts[i]) {
-                sum += ace.xss[base + 2 + j];
+            assert_eq!(ie + ne - 1, nes, "an entry runs from IE to the grid top");
+            if contributes(mts[i]) && j + 1 >= ie {
+                sum += ace.xss[base + 2 + (j + 1 - ie)];
             }
         }
         let t = total[j];
@@ -375,8 +377,16 @@ fn h2_elastic_angular_block_is_valid() {
     assert!(n >= 1, "H-2 elastic is anisotropic above ~100 eV");
 }
 
-/// Walk the LDLW/DLW blocks and assert every producer's law is well-formed.
-/// Returns (number of Law 3 entries, number of Law 4 entries).
+/// Walk the LDLW/DLW blocks and assert every producer's first law is
+/// well-formed. Returns (number of Law 3 entries, number of tabulated
+/// entries -- laws 4, 44 and 61).
+///
+/// ~~Every entry is `[LNW=0, LAW in {3,4}, IDAT=header+9, NR=0, NE=2, ...,
+/// P=1, P=1]`.~~ CHANGED 2026-09-26: that was this writer's generic header.
+/// Entries now carry NJOY's own (`acelf5`/`acelf6`, and the inline Law 3
+/// header), whose layout is verified word for word against NJOY2016 by
+/// `examples/ace_blocks_vs_reference.rs`; this walker checks the structure
+/// every ACE reader relies on.
 fn check_dlw_block(ace: &AceTable) -> (usize, usize) {
     let nr = ace.nxs[nxs::NR] as usize;
     let ldlw = ace.jxs[jxs::LDLW];
@@ -384,71 +394,79 @@ fn check_dlw_block(ace: &AceTable) -> (usize, usize) {
     assert!(nr > 0 && ldlw > 0 && dlw > 0, "DLW present when NR>0");
 
     let dlw0 = (dlw - 1) as usize; // 0-based DLW start
-    let (mut n_law3, mut n_law4) = (0, 0);
+    let (mut n_law3, mut n_tab) = (0, 0);
 
     for i in 0..nr {
-        // LDLW[i] is a DLW-relative 1-based locator to the law-validity header.
+        // LDLW[i] is a DLW-relative 1-based locator to the law header.
         let loc = ace.xss[(ldlw - 1) as usize + i] as i64;
-        assert!(loc >= 1, "LDLW locator ≥ 1");
+        assert!(loc >= 1, "LDLW locator >= 1");
         let h = dlw0 + (loc as usize) - 1; // 0-based header position
-
-        let lnw = ace.xss[h] as i64;
         let law = ace.xss[h + 1] as i64;
         let idat = ace.xss[h + 2] as i64;
-        let nr_app = ace.xss[h + 3] as i64;
-        let ne_app = ace.xss[h + 4] as i64;
-        assert_eq!(lnw, 0, "single law (LNW=0)");
-        assert!(law == 3 || law == 4, "LAW ∈ {{3,4}}, got {law}");
-        assert_eq!(nr_app, 0);
-        assert_eq!(ne_app, 2, "applicability over an energy range");
-        // Probabilities P=1 at both ends.
-        assert!((ace.xss[h + 7] - 1.0).abs() < 1e-9 && (ace.xss[h + 8] - 1.0).abs() < 1e-9);
+        assert!(
+            matches!(law, 3 | 4 | 44 | 61 | 66),
+            "LAW in {{3,4,44,61,66}}, got {law}"
+        );
+        // Law-applicability table: [NR, (NBT,INT)*NR, NE, E(NE), P(NE)].
+        let nr_app = ace.xss[h + 3] as usize;
+        let ne_app = ace.xss[h + 4 + 2 * nr_app] as usize;
+        assert!(ne_app >= 2, "applicability over an energy range");
+        let e_app = &ace.xss[h + 5 + 2 * nr_app..h + 5 + 2 * nr_app + ne_app];
+        assert!(e_app.windows(2).all(|w| w[1] >= w[0]), "applicability E ascending");
+        assert!(idat > loc, "IDAT past the header");
 
         let d = dlw0 + (idat as usize) - 1; // 0-based law-data position
-        assert_eq!(idat, loc + 9, "IDAT = header + 9 words");
-
-        if law == 3 {
-            n_law3 += 1;
-            // Law 3: [ldat1, ldat2]; slope (A/(A+1))² ∈ (0,1).
-            let ldat2 = ace.xss[d + 1];
-            assert!(
-                ldat2 > 0.0 && ldat2 < 1.0,
-                "Law 3 slope in (0,1), got {ldat2}"
-            );
-        } else {
-            n_law4 += 1;
-            // Law 4: [NR, NE, E_in(NE), L(NE), dists…]. NR=0 here (lin-lin).
-            let nr4 = ace.xss[d] as i64;
-            let ne_pos = d + 1 + if nr4 == 0 { 0 } else { 2 * nr4 as usize };
-            let ne = ace.xss[ne_pos] as usize;
-            assert!(ne >= 1, "Law 4 has incident energies");
-            let e_in = &ace.xss[ne_pos + 1..ne_pos + 1 + ne];
-            let l = &ace.xss[ne_pos + 1 + ne..ne_pos + 1 + 2 * ne];
-            assert!(e_in.windows(2).all(|w| w[1] >= w[0]), "E_in ascending");
-            // Follow each distribution locator and validate its pdf/cdf.
-            for &lf in l {
-                let dp = dlw0 + (lf as usize) - 1;
-                let intt = ace.xss[dp] as i64;
-                assert!(intt == 1 || intt == 2, "INTT ∈ {{1,2}}");
-                let np = ace.xss[dp + 1] as usize;
-                assert!(np >= 1);
-                let cdf = &ace.xss[dp + 2 + 2 * np..dp + 2 + 3 * np];
-                assert!((cdf[np - 1] - 1.0).abs() < 1e-5, "cdf ends at 1");
-                assert!(cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+        match law {
+            3 => {
+                n_law3 += 1;
+                // Law 3: [ldat1, ldat2]; slope (A/(A+1))^2 in (0,1).
+                let ldat2 = ace.xss[d + 1];
+                assert!(ldat2 > 0.0 && ldat2 < 1.0, "Law 3 slope in (0,1), got {ldat2}");
             }
+            4 | 44 | 61 => {
+                n_tab += 1;
+                // [NR, (NBT,INT)*NR, NE, E_in(NE), L(NE), dists...]
+                let nr4 = ace.xss[d] as usize;
+                let ne_pos = d + 1 + 2 * nr4;
+                let ne = ace.xss[ne_pos] as usize;
+                assert!(ne >= 1, "tabulated law has incident energies");
+                let e_in = &ace.xss[ne_pos + 1..ne_pos + 1 + ne];
+                let l = &ace.xss[ne_pos + 1 + ne..ne_pos + 1 + 2 * ne];
+                assert!(e_in.windows(2).all(|w| w[1] >= w[0]), "E_in ascending");
+                for &lf in l {
+                    let dp = dlw0 + (lf as usize) - 1;
+                    // INTT = LEP + 10*ND for the correlated laws.
+                    let intt = ace.xss[dp] as i64 % 10;
+                    assert!(intt == 1 || intt == 2, "INTT in {{1,2}}");
+                    let np = ace.xss[dp + 1] as usize;
+                    assert!(np >= 1);
+                    let cdf = &ace.xss[dp + 2 + 2 * np..dp + 2 + 3 * np];
+                    assert!((cdf[np - 1] - 1.0).abs() < 1e-5, "cdf ends at 1");
+                    assert!(cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+                }
+            }
+            _ => {}
         }
     }
-    (n_law3, n_law4)
+    (n_law3, n_tab)
 }
 
 #[test]
-fn h2_unsupported_law6_producer_is_skipped_gracefully() {
+fn h2_law6_producer_is_written_as_ace_law_66() {
     // H-2's only neutron producer, MT16 (n,2n), uses ENDF MF=6 LAW=6 (n-body
-    // phase space), which is not yet ported. It must be skipped cleanly: NR=0,
-    // no DLW block, and the rest of the table still valid and self-consistent.
+    // phase space). ~~Not yet ported, so it must be skipped cleanly: NR=0, no
+    // DLW block.~~ CHANGED 2026-09-26: `acer::acelf6` writes it as ACE law 66,
+    // which is what NJOY2016 writes for H-2 MT=16 (this crate's CLAUDE.md,
+    // "The ACE reader caught up"), with LAND = -1 and a CM-frame TYR.
     let ace = build_full("n-001_H_002-ENDF8.0.endf", 128);
-    assert_eq!(ace.nxs[nxs::NR], 0, "LAW=6 producer skipped ⇒ no NR");
-    assert_eq!(ace.jxs[jxs::LDLW], 0, "no DLW block");
+    assert_eq!(ace.nxs[nxs::NR], 1, "MT=16 is the one producer");
+    assert!(ace.jxs[jxs::LDLW] > 0, "DLW block present");
+    let ldlw = ace.jxs[jxs::LDLW] as usize;
+    let dlw = ace.jxs[jxs::DLW] as usize;
+    let entry = dlw - 1 + ace.xss[ldlw - 1] as usize - 1;
+    assert_eq!(ace.xss[entry + 1], 66.0, "ACE law 66");
+    let land = ace.jxs[jxs::LAND] as usize;
+    assert_eq!(ace.xss[land], -1.0, "LAND = -1: angle is in the law");
     assert_eq!(ace.jxs[jxs::END] as usize, ace.xss.len());
     assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
 }
@@ -465,7 +483,7 @@ fn u235_full_table_mixes_law3_and_law4() {
     );
     let (n3, n4) = check_dlw_block(&ace);
     assert!(n3 > 5, "several discrete-level Law 3 producers, got {n3}");
-    assert!(n4 >= 1, "at least one Law 4 producer, got {n4}");
+    assert!(n4 >= 1, "at least one tabulated (4/44/61) producer, got {n4}");
 
     // TYR must be non-zero for exactly the NR producers.
     let tyr0 = (ace.jxs[jxs::TYR] - 1) as usize;
@@ -495,10 +513,12 @@ fn u235_discrete_levels_carry_mf4_angular() {
         anisotropic > 5,
         "discrete levels should carry MF=4 angular, got {anisotropic} anisotropic producers"
     );
-    // Every LAND locator is a valid AND-relative index or 0/isotropic.
+    // Every LAND locator is a valid AND-relative index, 0 (isotropic), or
+    // -1: the angle is carried by a correlated DLW law (MF=6 LAW=1/6,
+    // `acefc.f90:5846-5847`) -- ~~never negative~~, stale since `acelf6`.
     assert!(
-        producer_land.iter().all(|&l| l >= 0.0),
-        "no negative producer LAND"
+        producer_land.iter().all(|&l| l >= -1.0),
+        "producer LAND is a locator, 0, or -1"
     );
 }
 

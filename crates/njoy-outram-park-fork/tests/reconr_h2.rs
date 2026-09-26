@@ -117,12 +117,17 @@ fn reconr_produces_all_mf3_sections() {
     for mt in [
         MtReaction::Mt1Total,
         MtReaction::Mt2Elastic,
-        MtReaction::Mt3Nonelastic,
         MtReaction::Mt16N2n,
         MtReaction::Mt102Capture,
     ] {
         assert!(mts.contains(&mt), "missing MF=3 {mt}");
     }
+    // ~~MT=3 as well.~~ CORRECTED 2026-09-26: RECONR writes MT=3 only as a
+    // redundant sum when MF=12 carries MT=3 (`anlyzd`, `reconr.f90:589-591`),
+    // and drops it otherwise (`:1882`). H-2 has no MF=12/MT=3, and NJOY's own
+    // H-2 PENDF (`reference-data/errorr/h2-ENDF8.0-293.6K.pendf`, matched word
+    // for word by `tests/pendf_stages_vs_njoy2016.rs`) carries none.
+    assert!(!mts.contains(&MtReaction::Mt3Nonelastic), "MT=3 must be dropped");
 }
 
 #[test]
@@ -137,35 +142,30 @@ fn reconr_all_xs_nonnegative() {
 }
 
 #[test]
-fn reconr_lin_lin_preserves_point_count() {
-    // All H-2 MF=3 sections use INT=2 (lin-lin), so linearisation should
-    // not add any points — output size equals input size.
+fn reconr_lin_lin_keeps_every_tape_point() {
+    // ~~All H-2 MF=3 sections are lin-lin, so linearisation adds no points
+    // and MT=1 keeps the tape's 178.~~ CORRECTED 2026-09-26: `lunion` also
+    // adds its decade points (1, 2, 5 x 10^n) and the `1+sqrt(5.3*err)` step
+    // cap below `elim` (`reconr.f90:1771-2238`), so NJOY's H-2 grid is larger
+    // than the tape's. What must hold is that every tabulated energy survives.
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
-
-    // MT=1 (total): 178 tabulated points from the fixture
     let total = result
         .sections
         .iter()
         .find(|s| s.mt == MtReaction::Mt1Total)
         .unwrap();
-    assert_eq!(
-        total.pairs.len(),
-        178,
-        "MT=1 should have 178 points (already lin-lin)"
-    );
-
-    // MT=2 (elastic): also 178 points (confirmed from MF=3 MT=2 TAB1 header NP=178)
-    let elastic = result
-        .sections
-        .iter()
-        .find(|s| s.mt == MtReaction::Mt2Elastic)
-        .unwrap();
-    assert_eq!(
-        elastic.pairs.len(),
-        178,
-        "MT=2 should have 178 points (already lin-lin)"
-    );
+    let sec = tape.section(MAT, 3, 1).expect("MF=3/MT=1");
+    let mut cur = njoy_outram_park_fork::endf::records::SectionCursor::new(&sec.rows);
+    cur.read_cont().unwrap();
+    let tab = cur.read_tab1().unwrap();
+    for &(e, _) in &tab.pairs {
+        assert!(
+            total.pairs.iter().any(|&(x, _)| x == e),
+            "tape energy {e} missing from the union grid"
+        );
+    }
+    assert!(total.pairs.len() >= tab.pairs.len());
 }
 
 #[test]

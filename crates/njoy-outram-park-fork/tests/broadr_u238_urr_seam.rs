@@ -107,15 +107,22 @@ fn u238_urr_seam_survives_reconr_and_bounded_broadr() {
         res_side_0k < 0.1,
         "resolved side is MF=3 (0.0) + resonance tail only, got {res_side_0k}"
     );
+    // ~~The tape value 0.52987 exactly.~~ CORRECTED 2026-09-26: `emerge`
+    // evaluates the section at the shaded node 2.000001e4 eV with `gety1`,
+    // which gives NJOY's 0.5298699 (the oracle below), and RECONR now
+    // reproduces NJOY's PENDF word for word (`tests/pendf_stages_vs_njoy2016.rs`).
     assert!(
-        rel(urr_side_0k, urr_value) < 1e-9,
-        "unresolved side at 0 K must be the tape value {urr_value}, got {urr_side_0k}"
+        rel(urr_side_0k, 0.529_869_9) < 1e-9,
+        "unresolved side at 0 K must be NJOY's 0.5298699, got {urr_side_0k}"
     );
 
     // BROADR at 600 K, bounded at thnmax.
     let b = broaden_result(&r, 600.0);
+    // BROADR reads RECONR's PENDF and writes its own, both as text, so the
+    // copy-through is compared as printed (`through_pendf_text`).
+    let r_text = r.through_pendf_text();
     for mt in [1, 2, 18, 102] {
-        let before = &find(&r.sections, mt).pairs;
+        let before = &find(&r_text.sections, mt).pairs;
         let after = &find(&b.sections, mt).pairs;
         // Below thnmax the grid is BROADR's own (`broadn`, broadr.f90:1256-1508:
         // skipped points dropped, midpoints inserted — NJOY thins U-238 from
@@ -139,8 +146,8 @@ fn u238_urr_seam_survives_reconr_and_bounded_broadr() {
         );
     }
     let capb = &find(&b.sections, 102).pairs;
-    // Unresolved side of the seam: untouched.
-    assert!(rel(at(capb, hi), urr_value) < 1e-9);
+    // Unresolved side of the seam: untouched by BROADR.
+    assert!(rel(at(capb, hi), urr_side_0k) < 1e-9);
     // 20–24 keV: the tape's own lin-lin MF=3 (the pre-fix kernel was 41 %
     // low at 20.5 keV and 25 % low at 22 keV here). The only difference left
     // is that the URR-side node sits at the shaded 2.000001e4 rather than at

@@ -336,8 +336,10 @@ fn a_block_running_past_xss_is_refused() {
 /// A decode error here and a PURR bug there would have to agree to pass.
 ///
 /// The comparison is on the **energy range and the LSSF convention**, not on
-/// band values: PURR samples random ladders, so band-by-band equality is not
-/// meaningful and demanding it would be a fake gate. The mean factor is printed
+/// band values. ~~PURR samples random ladders, so band-by-band equality is not
+/// meaningful~~ (CORRECTED 2026-09-26: at NJOY's own deck the bands are equal
+/// word for word, gated by `unr_block_write_vs_njoy2016.rs`). This test runs
+/// reduced statistics for speed, so its bands are not NJOY's. The mean factor is printed
 /// for both so a reader can see how close they land without a threshold being
 /// asserted on a quantity whose scatter has not been characterised.
 #[test]
@@ -356,7 +358,11 @@ fn ace_tables_and_our_own_purr_agree_on_range_and_convention() {
     };
     let tape = Tape::read_file(&path).expect("parse U-238");
     let mat = *tape.materials().first().expect("a material");
-    let ours = UrrProbabilityTables::from_endf(&tape, mat, TEMP_K, 20, 64, 1)
+    // 8 ladders x 1 000 samples. ~~`nsamp = 1`~~ (CORRECTED 2026-09-26): with
+    // one sample, `unrest`'s window always has `i0 == i7` and no resonance
+    // contributes (`purr.f90:1934`). NJOY would write flat bands too. It only
+    // produced structure here while this port's window differed from upstream.
+    let ours = UrrProbabilityTables::from_endf(&tape, mat, TEMP_K, 20, 8, 1_000)
         .expect("our PURR must run")
         .expect("U-238 has an unresolved range, so our PURR must produce tables");
 
@@ -414,9 +420,13 @@ fn ace_tables_and_our_own_purr_agree_on_range_and_convention() {
     }
 
     // The SPREAD is the physics, and both routes must find self-shielding of a
-    // comparable size. Asserted loosely and deliberately: PURR samples random
-    // ladders with its own seed and bin count, so the spreads cannot match
-    // closely and demanding that they should would be a gate that fails for the
+    // comparable size. Asserted loosely and deliberately: this test runs PURR
+    // with `nsamp = 1` for speed, so the spreads cannot match closely.
+    // ~~PURR samples random ladders with its own seed and bin count~~
+    // (CORRECTED 2026-09-26: at NJOY's own deck, 64 ladders x 10 000 samples,
+    // the bands match NJOY's word for word; see
+    // `unr_block_write_vs_njoy2016.rs::purr_generates_njoys_bands_word_for_word`).
+    // Demanding a close match here would be a gate that fails for the
     // wrong reason. What is NOT acceptable is one route finding structure and
     // the other finding none -- an order of magnitude is the honest bound.
     let (Some(sa), Some(sb)) = (spread_factors(&from_ace, mid), spread_factors(&ours, mid))

@@ -189,8 +189,14 @@ pub struct LadderResonance {
 /// two constants, not unified, since the difference is real (if immaterial)
 /// upstream.
 ///
-/// Returns every resonance up to and including the first one whose energy
-/// exceeds `ehigh`.
+/// ~~Returns every resonance up to and including the first one whose energy
+/// exceeds `ehigh`.~~ **CORRECTED 2026-09-26.** Returns every resonance
+/// *below* `ehigh`. The first one above it is still sampled, since its
+/// position and widths consume random numbers, but `ladr2` ends with
+/// `nr=ir-1` (`purr.f90:1785`), so it is not part of the ladder. Returning it
+/// added a resonance past the top of the ladder, and on U-235 its tail reached
+/// the last 174 samples of the first energy's ladder. Measured against
+/// NJOY2016's per-sample cross sections, dumped from an instrumented build.
 pub fn generate_ladder(
     seq: &SequenceLadderParams,
     elow: f64,
@@ -237,7 +243,9 @@ pub fn generate_ladder(
 
         let gg = seq.gg_mean;
         let gt = gn + gf + gg + gx;
-        let done = energy > ehigh;
+        if energy > ehigh {
+            return resonances;
+        }
         resonances.push(LadderResonance {
             energy,
             gn_frac: gn / gt,
@@ -246,9 +254,6 @@ pub fn generate_ladder(
             gx_frac: gx / gt,
             total_width: gt,
         });
-        if done {
-            return resonances;
-        }
     }
 }
 

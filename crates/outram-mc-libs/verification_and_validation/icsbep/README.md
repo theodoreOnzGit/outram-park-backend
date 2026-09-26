@@ -25,6 +25,16 @@
 > well inside ICSBEP's own ±100 pcm band. Record:
 > `continuum_angular/mf6_law1_angular.md`.
 >
+> **⚠ AND EVERY URR-ON NUMBER ABOVE WAS TAKEN ON A DEFECTIVE PURR GRID
+> (added 2026-09-26, GitHub #325).** Our PURR built U-235's unresolved tables on
+> **14** energies where NJOY uses **19**, and U-234's on **10** against **26**: a
+> refinement pass in NJOY's `rdunf2` had never been ported
+> (`njoy-outram-park-fork/verification_and_validation/unr_block_write/`). U-238's
+> grid was right apart from 7th-figure endpoint shading. So Godiva's `−10 ± 9`,
+> Jemima's `−395` and LCT-008's `+139` were all measured with U-235's
+> self-shielding tabulated too coarsely. **How far each moved is not yet
+> measured** and nothing here claims it; a 400-seed Godiva re-run is the first.
+>
 > **HST-009 has NOT been re-measured** and this file claims no value for it. Do
 > not substitute `CLAUDE.md`'s Godiva `+16 ± 11 pcm` for either: that is a
 > 256-seed figure from a different example taken on 2026-09-15, five days before

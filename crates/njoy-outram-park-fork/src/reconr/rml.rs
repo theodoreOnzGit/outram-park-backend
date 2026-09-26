@@ -17,7 +17,12 @@ use super::{rebuild_range, RangeDelta, ReconrSection, MAX_OTHER};
 /// spin/parity/penetrability/channel-amplitude setup — Phase 2 of the
 /// `samm` port), then evaluates `samm::xsformula::cssammy` at every grid
 /// energy, exactly mirroring [`add_rm_range`]'s shape.
-pub(super) fn add_rml_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
+pub(super) fn add_rml_range(
+    sections: &mut Vec<ReconrSection>,
+    range: &EnergyRange,
+    eps: f64,
+    raw: &super::RawMf3,
+) {
     let Some(rml) = &range.rml else { return };
     if rml.section.spin_groups.is_empty() {
         return;
@@ -44,24 +49,9 @@ pub(super) fn add_rml_range(sections: &mut Vec<ReconrSection>, range: &EnergyRan
     // The extra particle-pair channels (reconr.f90:284-290, 331-340,
     // 4762-4767): every pair beyond (gamma, n) that is not fission gets its
     // own MF=3 section contribution, MT 103..107 remapped to 600..800.
-    let other_mts: Vec<i32> = section
-        .particle_pairs
-        .iter()
-        .skip(2)
-        .map(|p| p.mt)
-        .filter(|&mt| mt != 18)
-        .map(|mt| match mt {
-            103 => 600,
-            104 => 650,
-            105 => 700,
-            106 => 750,
-            107 => 800,
-            x => x,
-        })
-        .take(MAX_OTHER)
-        .collect();
+    let other_mts = other_mts_of(&section);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, &other_mts, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &other_mts, raw, |e| {
         let r = crate::samm::xsformula::cssammy(
             &section,
             &setup.kinematics,
@@ -83,37 +73,53 @@ pub(super) fn add_rml_range(sections: &mut Vec<ReconrSection>, range: &EnergyRan
     });
 }
 
-/// Add a halo of energy points around each R-Matrix Limited resonance peak.
+/// R-Matrix Limited nodes, `rdsammy`'s rule (`samm.f90:1150-1177`):
+/// `hw = Γ_γ/2 + Σ_c |Γ_c|/2` (`Γ_γ` not in absolute value, as upstream),
+/// then `E_r`, `E_r ± hw` each kept if strictly inside `(el, eh)`.
 ///
-/// Total width proxy is `|Gamma_gamma| + sum(|Gamma_c|)` over every explicit
-/// channel — [`crate::samm::mf2::RmlResonance`] has no single "total width"
-/// field the way SLBW/Reich-Moore resonances do (LRF=7 channels are
-/// per-spin-group, not a fixed six-column layout), so this sums what's
-/// available per resonance instead.
-fn add_rml_halo_energies(
+/// ~~A halo of `E_r + k·Γ/2` for several k, unrounded~~ -- **REPLACED
+/// 2026-09-26** (GitHub #340); see `reconr::push_sammy_nodes`.
+pub(super) fn add_rml_halo_energies(
     grid: &mut Vec<f64>,
     section: &crate::samm::mf2::RmlSection,
     el: f64,
     eh: f64,
 ) {
-    const OFFSETS: &[f64] = &[
-        -10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0,
-    ];
     for group in &section.spin_groups {
         for res in &group.resonances {
-            if res.energy <= 0.0 {
-                continue;
-            }
-            let gt: f64 =
-                res.gamma_gamma.abs() + res.channel_widths.iter().map(|w| w.abs()).sum::<f64>();
-            let half_g = gt / 2.0;
-            grid.push(res.energy);
-            for &off in OFFSETS {
-                let e = res.energy + off * half_g;
-                if e > el && e < eh && e > 0.0 {
-                    grid.push(e);
-                }
-            }
+            let hw = res.gamma_gamma / 2.0
+                + res.channel_widths.iter().map(|w| w.abs() / 2.0).sum::<f64>();
+            super::push_sammy_nodes(grid, res.energy, hw, el, eh);
         }
     }
+    if el < 0.0253 {
+        grid.push(0.0253);
+    }
+}
+
+/// The extra particle-pair channels of an RML section (`reconr.f90:284-290`,
+/// `331-340`): every pair beyond (gamma, n) that is not fission, with
+/// MT=103-107 remapped to 600-800.
+fn other_mts_of(section: &crate::samm::mf2::RmlSection) -> Vec<i32> {
+    section
+        .particle_pairs
+        .iter()
+        .skip(2)
+        .map(|p| p.mt)
+        .filter(|&mt| mt != 18)
+        .map(|mt| match mt {
+            103 => 600,
+            104 => 650,
+            105 => 700,
+            106 => 750,
+            107 => 800,
+            x => x,
+        })
+        .take(MAX_OTHER)
+        .collect()
+}
+
+/// [`other_mts_of`] for a range, or nothing when its RML data are absent.
+pub(super) fn other_channel_mts(range: &EnergyRange) -> Vec<i32> {
+    range.rml.as_ref().map(|r| other_mts_of(&r.section)).unwrap_or_default()
 }

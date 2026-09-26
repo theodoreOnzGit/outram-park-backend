@@ -17,8 +17,11 @@
 //!
 //! Implemented and wired (via [`build_emissions`] + `AceTable::from_reconr_full`):
 //! - [`parse_mf5_law4`] — MF=5 LF=1 tabulated secondary energy (fission
-//!   χ(E→E')) → **ACE Law 4** (faithful to `acelf5`).
-//! - [`parse_mf6_law1_neutron`] — MF=6 LAW=1 neutron energy pdf `f₀` → **Law 4**.
+//!   χ(E→E')) → **ACE Law 4**. ~~(faithful to `acelf5`)~~ -- it omits
+//!   `acelf5`'s rounding and header; since 2026-09-26 the builder uses
+//!   [`crate::acer::acelf5`] and keeps this only as the fallback.
+//! - [`parse_mf6_law1_neutron`] — MF=6 LAW=1 neutron energy pdf `f₀` → **Law 4**;
+//!   the fallback for what [`crate::acer::acelf6`] refuses (LAW=7).
 //! - [`law3_discrete_level`] — discrete two-body levels (MT51–90) → **ACE Law 3**
 //!   from Q + AWR (the inline `acelod` branch).
 //! - [`EnergyLaw::serialize`] lays these into the LDLW/DLW blocks with the correct
@@ -36,10 +39,15 @@
 //! - [`mf6::parse_mf6_law7_lab_angle_energy`] — MF=6 LAW=7 (lab angle-energy).
 //!
 //! Not yet implemented:
-//! - **Non-elastic angular**: producers are written isotropic. MF=6 LANG=1
-//!   Legendre → **Law 61**, LANG=2 Kalbach-Mann → **Law 44** (`acelf6`).
-//! - **MF=5 LF=12** (Madland-Nix) — needs `acelf5`'s adaptive-linearization
-//!   integral; out of the LF=1/5/7/9/11 scope this pass closed.
+//! - ~~**Non-elastic angular**: producers are written isotropic. MF=6 LANG=1
+//!   Legendre → **Law 61**, LANG=2 Kalbach-Mann → **Law 44** (`acelf6`).~~
+//!   **IMPLEMENTED 2026-09-26** in [`crate::acer::acelf6`], which the ACE
+//!   builder now uses for every MF=6 neutron producer; DLW is word-for-word
+//!   NJOY2016's on U-234 and U-235
+//!   (`verification_and_validation/ace_block_parity/`).
+//! - ~~**MF=5 LF=12** (Madland-Nix) — needs `acelf5`'s adaptive-linearization
+//!   integral.~~ **IMPLEMENTED** -- `madland_nix` and, for the ACE writer,
+//!   [`crate::acer::acelf5`]; unexercised against NJOY.
 //! - ~~**Fission** (MT=18) secondaries — coupled to the ν̄ (NU) block.~~
 //!   **IMPLEMENTED 2026-09-20**, once the NU block landed: Law 4 from MF=5,
 //!   lab frame, `TYR = 19`. Covers the partial chances MT=19/20/21/38 too, for

@@ -62,16 +62,27 @@ const RC1: f64 = 0.123;
 /// See [`RC1`].
 const RC2: f64 = 0.08;
 
+/// NJOY's `third` (`reconr.f90:899`), deliberately not `1.0/3.0`.
+const THIRD: f64 = 0.333333333;
+
 /// Compute the channel radius r_a \[10⁻¹² cm\].
 ///
-/// - `naps == 0`: empirical formula `0.123·(AMASSN·AWR)^{1/3} + 0.08`.
+/// - `naps == 0`: empirical formula `0.123·(AMASSN·AWR)^{0.333333333} + 0.08`
+///   (upstream's exponent literal, see [`THIRD`]).
 /// - `naps == 1`: use `ap` (the ENDF potential scattering radius) directly.
 pub fn channel_radius(awri: f64, naps: i32, ap: f64) -> f64 {
     if naps == 1 {
         ap
     } else {
         let aw = AMASSN_AMU * awri;
-        RC1 * aw.cbrt() + RC2
+        // `ra=rc1*aw**third+rc2` with `third=.333333333e0_kr` -- a decimal
+        // literal, NOT 1/3 (`reconr.f90:899`, and the same in `unresr.f90:901`
+        // and `purr.f90:1309`). ~~`aw.cbrt()`~~ CORRECTED 2026-09-26: for
+        // AWR ~ 235 the exact cube root is ~2e-9 larger, enough to flip a
+        // 7th-figure rounding. Measured on U-235 ENDF/B-VIII.0: no change --
+        // it uses NAPS = 1, where `ra = AP` -- so this is recorded as a
+        // fidelity fix, not as the cause of any residual seen there.
+        RC1 * aw.powf(THIRD) + RC2
     }
 }
 

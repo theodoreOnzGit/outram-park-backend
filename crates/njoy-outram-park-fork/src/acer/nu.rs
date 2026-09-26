@@ -107,6 +107,16 @@ impl NuRepr {
                 Ok(Some(NuRepr::Polynomial(coeffs)))
             }
             2 => {
+                // MT=455 carries its precursor decay constants as a LIST BEFORE
+                // the TAB1 (`acefc.f90:5194-5199`: `if (mta.eq.455) call listio`).
+                // Reading the TAB1 straight after the HEAD, as this did for every
+                // MT, parsed that LIST as the table -- found 2026-09-26 when the
+                // delayed-neutron blocks were first compared against NJOY's
+                // (U-234's DNU came out 15 words against NJOY's 11). The NU block
+                // itself uses only 452/456, which is why nothing had noticed.
+                if mt == 455 {
+                    let _decay_constants = cur.read_list()?;
+                }
                 let tab1 = cur.read_tab1()?;
                 // A single lin-lin range is written as NR=0, which is both what
                 // upstream does (`if (m.ne.1.or.jnt.ne.2)`) and what every

@@ -227,7 +227,10 @@ dividing by the stored pdf would be wrong.
 **ACE output is unchanged.** Law 4 is an energy-only law by definition, so the
 DLW serialisation does not see any of this and the golden ACE comparisons are
 untouched. The angular half exists for a transport consumer, not for the ACE
-writer; turning it into ACE Law 61/44 remains separate work.
+writer; ~~turning it into ACE Law 61/44 remains separate work.~~ **DONE
+2026-09-26** by porting `acelf6` itself (`src/acer/acelf6.rs`) rather than
+converting this representation -- see "The ACE tables reproduce NJOY's"
+below.
 
 **`acer::angular::legendre_cosine_law` is now public** so the continuum path
 reuses the MF=4 linearisation rather than growing a second one that drifts from
@@ -834,3 +837,116 @@ unported "because no evaluation in `reference-data/endf/` uses it". Seven tapes 
 could never have failed. Nothing was degraded (the delayed spectrum is dropped on
 both routes, and ACER linearises those sections into ACE LAW=4), but the comment
 was untrue about the data.
+
+## …and the writer caught up with the reader: the UNR block (2026-09-26, GitHub #325)
+
+The reader could decode the ACE unresolved-range block (`JXS(23)`) and the writer
+could not emit one, so a table built here lost URR self-shielding that both ends
+of the round trip could handle. `acer::unr::unr_words` ports
+`acefc.f90:5958-5990`; `acer::build_full_with_purr` is the `…+PURR+ACER` deck.
+`build_full` is unchanged and still writes none — it is the deck without PURR,
+and byte-parity gates depend on that. Record:
+[`unr_block_write/`](verification_and_validation/unr_block_write/unr_block_write_2026_09_26.md).
+
+**The gate that isolates a writer from a Monte Carlo generator.** PURR's bands
+come from random ladders, ~~so generated tables can never match NJOY's word for
+word~~ (**CORRECTED later 2026-09-26**: `rann` and its seed are ported, so the
+ladders are NJOY's ladders; after six fixes the generated bands match in every
+word -- see "The ACE tables reproduce NJOY's" below). Reading NJOY's own block and writing it back can — and does, **bit-exactly
+on all 3 152 + 2 305 + 10 049 words** of U-234/235/238. Worth copying whenever
+the thing upstream of a writer is stochastic.
+
+**It found a defect upstream of itself.** Our PURR built U-234's tables on 10
+energies (NJOY: 26) and U-235's on 14 (NJOY: 19), because `rdunf2`'s
+"add extra nodes" pass — a fixed ladder of 78 round energies inserted into any
+interval wider than 1.26× — had never been ported, and Case C took the union of
+every `(l, j)` state's points where NJOY takes only the first. U-238's grid is
+fine enough that the pass inserts nothing, so the only comparison that existed
+passed. Fixed; all three now match NJOY's grid to its 7th figure, endpoints
+included (NJOY shades them one unit inward). **This changes the ENDF route's
+default physics for U-235 and U-234**, so every URR-on `k` since 2026-09-20 was
+taken on the old grid — flagged in `outram-mc-libs`' ICSBEP record pending
+re-measurement.
+
+## The ACE tables reproduce NJOY's, block by block (2026-09-26)
+
+**UPDATE, later 2026-09-26 (GitHub #340): the grid is closed.** RECONR and
+BROADR now reproduce NJOY2016's own PENDFs **word for word**:
+- RECONR: U-234, U-238, Si-30, Sr-88, Ar-37, Li-6, C-12;
+- BROADR at 293.6 K: U-234, U-238, H-2, Li-6, Be-9, C-12, F-19, Si-30,
+  Cl-35, Ar-37.
+
+Regression: `tests/pendf_stages_vs_njoy2016.rs`. Instrument:
+`examples/pendf_stage_vs_njoy.rs`. BROADR is now upstream's joint
+multi-reaction walk (`broadr/joint.rs`). At the ACE level:
+- ~~**U-234 at 293.6 K is identical in every word** except PURR's
+  random-ladder band values;~~
+- ~~U-238 and U-235 match in every neutron block;~~
+- ~~what remains is `acelcp` (charged particles), the U-235/U-238 photon-block
+  rounding and PURR bands.~~
+
+**FINAL, later still 2026-09-26: all four reference tables are reproduced in
+every word.** U-234, U-235 and U-238 at 293.6 K (`RECONR+BROADR+PURR+ACER`)
+and U-235 at 0 K match NJOY2016's in NXS, JXS and every XSS word: 449 695,
+6 712 632, 6 247 445 and 15 616 079 words. That includes the PURR bands,
+`acelcp`'s charged-particle blocks and the photon blocks. There is no tolerance
+anywhere in the claim; PURR's bands are deterministic because `rann` and its
+seed are ported.
+
+The PURR bands took six fixes: `fsrch`'s window, the bin-edge tie, MT=153's
+text hand-off, the temperature, `rdf3un`'s LSSF=1 remainder, and `ladr2`'s
+discarded crossing resonance. The temperature and the crossing resonance were
+localised with an **instrumented NJOY2016 build**: a scratch copy of
+`purr.f90` that writes intermediates at full precision, down to every sample
+of one ladder. Each took one run. When
+two stochastic codes disagree, print both codes' intermediates rather than
+reasoning about the statistics. Gate: `tests/unr_block_write_vs_njoy2016.rs`,
+`purr_generates_njoys_bands_word_for_word`.
+
+The record is under `verification_and_validation/ace_block_parity/`. The
+text below is the state earlier the same day; its "still different"
+paragraph is superseded.
+
+~~## ... -- except the energy grid~~
+
+Against NJOY2016's own U-234 (293.6 K, `RECONR+BROADR+PURR+ACER`) and U-235
+(0 K, `RECONR+ACER`) tables in the `reference-data/ace` submodule, **every
+word** of these blocks is now identical at print precision:
+- TYR, LQR, NU;
+- LAND/AND (78 143 and 138 687 words);
+- LDLW/DLW (113 139 and 913 698 words);
+- DNU/BDD/DNEDL/DNED.
+
+Record:
+[`ace_block_parity/`](verification_and_validation/ace_block_parity/ace_block_parity_2026_09_26.md).
+Instrument: `examples/ace_blocks_vs_reference.rs`, whose `... words` rows
+compare a block's words exactly.
+
+**Still different:** the ESZ grid (and so the ESZ and SIG values), GPD
+(`gamsum`), and `acelcp`'s charged-particle production. The grid is the big
+one. NJOY's RECONR puts every reaction on one union grid:
+- `rdf2*` nodes at `sigfig(E_r ± Γ/2, ndig)`;
+- `lunion`'s decade points and `1+sqrt(5.3·err)` step cap;
+- `emerge`.
+
+This crate keeps a grid per section and seeds resonance refinement from a
+halo of its own. Tracked as GitHub #340; it is work, not a tolerance to widen.
+
+Three lessons worth more than the fixes:
+
+- **Two readers for one format is a trap here too.** The ACE writer used
+  `parse_mf4_angular`, the transport route's linearisation, for AND. NJOY
+  writes `ptleg2`'s. Both are sound. Only one is NJOY's. `parse_elastic_angular`
+  is now the ACER-side conversion (`acer::acensd`), and `parse_mf4_angular`
+  stays the transport one.
+- **The ENDF float parser rounded twice** (`m * 10^e`), so `1.11e7 - 1.09e7`
+  came out as 200000.00000000186. That tripped `acelf5`'s strict
+  `dele > 2e5` on U-235's exactly-200-keV fission-spectrum panels. The parser
+  now converts the whole decimal once, as a Fortran formatted read does. Any
+  strict comparison upstream makes against a round number is a place where
+  this mattered.
+- **Several "deliberate divergences" were only divergences.** MT=18 over the
+  partial chances, and the lumped MT=103-107 kept with the tape's Q, were each
+  documented as choices. Both were visible in NJOY's table: MTR, and
+  `LQR = 0` for the redundant sums. Both now follow upstream. A divergence
+  argued from the cross section alone can still show up in another block.

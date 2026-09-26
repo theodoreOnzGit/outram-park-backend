@@ -208,16 +208,22 @@ impl ElasticAngular {
     }
 }
 
-/// Parse an MF=4/MT=2 section into ACE elastic angular distributions.
+/// Parse an MF=4 section (any MT, despite the name) into the **AND words
+/// NJOY's ACER writes** -- the ACE builder's entry point.
 ///
-/// Thin delegate to [`parse_mf4_angular`], which does the work and handles any
-/// MT. Kept under its original name because it is published API; prefer
-/// [`parse_mf4_angular`] in new code, and use it for the inelastic levels.
+/// ~~Thin delegate to [`parse_mf4_angular`] ... prefer [`parse_mf4_angular`]
+/// in new code.~~ **CHANGED 2026-09-26**: this now delegates to
+/// [`super::acensd::parse_mf4_for_acer`], the port of `ptleg2`/`pttab2`/
+/// `acensd`, because every ACE-building path calls it (`build_full`,
+/// `build_emissions`, `interface`) and those must reproduce NJOY's table.
+/// [`parse_mf4_angular`] is unchanged and remains the ENDF transport route's
+/// parser: it tabulates to a looser tolerance and marks isotropic energies as
+/// empty, where ACER writes `-1, 0, +1`.
 ///
 /// # Errors
 /// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
 pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
-    parse_mf4_angular(section)
+    super::acensd::parse_mf4_for_acer(section)
 }
 
 /// Parse an MF=4 section — **any MT** — into ACE tabulated-cosine angular

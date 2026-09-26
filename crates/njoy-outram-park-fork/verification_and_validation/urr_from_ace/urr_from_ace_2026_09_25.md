@@ -155,7 +155,8 @@ implementation.
   gone for URR, so re-running `lct008_ace_roundtrip` should move the ACE arm".
   It is not gone: the UNR block is now *read*, but this workspace's ACE **writer
   never emits one** (GitHub #325), so a round-tripped table still carries no URR
-  and the ACE arm cannot move for that reason. The comparison was instead redone
+  and the ACE arm cannot move for that reason. *(Writer gap closed 2026-09-26 by
+  `acer::build_full_with_purr` — see `../unr_block_write/`.)* The comparison was instead redone
   with URR+DBRC **ablated off the ENDF arm**, over eight seeds:
   `ACE − ENDF = +23.9 ± 125.0 pcm` and `ACE − ENDF(ablated) = −14.5 ± 131.2 pcm`
   — see

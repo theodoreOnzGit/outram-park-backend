@@ -246,6 +246,9 @@ fn mt1_equals_the_sum_of_our_own_partials() {
                 .map(|m| ours.eval_mt(MtReaction::from_any(m), e))
                 .sum();
             let total = ours.eval_mt(MtReaction::Mt1Total, e);
+            // `recout` writes MT=1 as `sigfig(sum, 7, 0)` (`reconr.f90:5308`),
+            // so the sum is compared as written. ~~Unrounded sum, 1e-9.~~
+            let sum = njoy_outram_park_fork::mixr::mix::sigfig(sum, 7, 0);
             let dev = (total - sum).abs() / sum.abs().max(1e-30);
             println!(
                 "  {} at E={e:.3e}: MT=1 {total:.9e} vs summed parts {sum:.9e} ({dev:.2e})",
@@ -267,8 +270,18 @@ fn mt1_equals_the_sum_of_our_own_partials() {
 /// The NJOY value below was measured on 2026-09-14 with the deck committed at
 /// `reference-data/reconr/u234-ENDF8.0-0K-err0.001.njoy-input`, NJOY2016
 /// `ac5adf5f`, gfortran 13.3.0 — regenerate it with that deck to re-derive.
+///
+/// ~~Premise: MT=18 carries the resonance fission and MT=19..21/38 are zero at
+/// 1e-5 eV, so the total must sum MT=18.~~ **REVISED 2026-09-26.** That premise
+/// was this crate's defect, not upstream's behaviour: RECONR drops the tape's
+/// MT=18 when MT=19 is present (`lunion`, `reconr.f90:1893`), adds resonance
+/// fission to MT=19 (`itype = 3`, `:4760`), and rebuilds MT=18 as the sum of
+/// 19/20/21/38 (`:4886`). The crate now does the same. The prediction written
+/// before running it: MT=19 takes exactly the 3.448068842 b MT=18 used to
+/// hold, MT=18 equals the parts' sum, and the total does not move. The NJOY
+/// comparison on the total is unchanged.
 #[test]
-fn u234_total_carries_fission_from_mt18_not_its_zeroed_sub_parts() {
+fn u234_fission_follows_upstreams_mtr18_rule() {
     let Some(ep) = reference_file("endf", "n-092_U_234-ENDF8.0.endf") else {
         eprintln!("skipping: U-234 evaluation absent");
         return;
@@ -287,35 +300,42 @@ fn u234_total_carries_fission_from_mt18_not_its_zeroed_sub_parts() {
     const E: f64 = 1.0e-5;
     /// NJOY2016 MF=3 MT=1 for U-234 at 1e-5 eV (see this test's doc comment).
     const NJOY_TOTAL: f64 = 5.206555e3;
+    /// MT=18 at 1e-5 eV as this crate reconstructed it on 2026-09-14, when the
+    /// resonance fission still sat on MT=18; MT=19's background is zero there.
+    ///
+    /// `emerge` writes it at 7 figures (`reconr.f90:4815`), as NJOY's PENDF
+    /// carries it: 3.448069. ~~3.448068842 unrounded.~~
+    const RESONANCE_FISSION: f64 = 3.448069;
 
     let mt18 = ours.eval_mt(MtReaction::from_any(18), E);
+    let mt19 = ours.eval_mt(MtReaction::from_any(19), E);
     let subs: f64 = [19, 20, 21, 38]
         .iter()
         .map(|&m| ours.eval_mt(MtReaction::from_any(m), E))
         .sum();
     let total = ours.eval_mt(MtReaction::Mt1Total, E);
 
-    println!("  U-234 at {E:e}: MT=18 {mt18:.9e}, MT=19+20+21+38 {subs:.9e}, MT=1 {total:.9e}");
-
-    // The premise: the sub-parts are empty here and MT=18 carries the fission.
-    assert!(
-        mt18 > 1.0,
-        "premise broken: MT=18 is {mt18:.3e}, expected the reconstructed \
-         resonance fission (3.448068842 b on 2026-09-14). If the crate has \
-         moved the resonance contribution onto MT=19..21, this test's rule \
-         -- and rebuild_total_as_sum_of_parts -- must be revisited."
-    );
-    assert!(
-        subs.abs() < 1.0e-12,
-        "premise broken: MT=19+20+21+38 sum to {subs:.3e}, expected 0.0"
+    println!(
+        "  U-234 at {E:e}: MT=18 {mt18:.9e}, MT=19 {mt19:.9e}, \
+         MT=19+20+21+38 {subs:.9e}, MT=1 {total:.9e}"
     );
 
-    // The consequence: the total must contain MT=18's fission.
+    assert!(
+        (mt19 - RESONANCE_FISSION).abs() < 1.0e-12 * RESONANCE_FISSION,
+        "MT=19 at {E:e} is {mt19:.9e}; upstream puts the resonance fission \
+         ({RESONANCE_FISSION} b) on MT=19 when MT=19 is present"
+    );
+    assert!(
+        (mt18 - subs).abs() <= 1.0e-12 * subs.abs(),
+        "MT=18 {mt18:.12e} is not the sum of MT=19/20/21/38 {subs:.12e}"
+    );
+
+    // The consequence: the total must contain the fission exactly once.
     let dev = (total - NJOY_TOTAL).abs() / NJOY_TOTAL;
     assert!(
         dev < 1.0e-5,
         "U-234 MT=1 at {E:e} is {total:.9e} against NJOY's {NJOY_TOTAL:.6e} \
-         ({dev:.2e}). A shortfall of about {mt18:.3e} b means MT=1 is summing \
-         the zeroed MT=19..21/38 instead of MT=18 -- see bn:op-u9jp."
+         ({dev:.2e}). A shortfall or excess of about {mt18:.3e} b means MT=1 \
+         dropped or double-counted fission -- see bn:op-u9jp."
     );
 }

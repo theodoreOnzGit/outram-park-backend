@@ -125,12 +125,12 @@ fn ladder_spacing_has_the_wigner_mean_and_width() {
     assert!(
         ladder[0].energy >= 0.0 && ladder[0].energy < dbar * (4.0 / std::f64::consts::PI).sqrt()
     );
-    // Ladder ends with the first resonance past ehigh, and every width
-    // fraction sums to one.
-    assert!(ladder.last().unwrap().energy > 400_000.0);
-    assert!(ladder[..ladder.len() - 1]
-        .iter()
-        .all(|r| r.energy <= 400_000.0));
+    // ~~Ladder ends with the first resonance past ehigh~~ (CORRECTED
+    // 2026-09-26: `ladr2` samples that resonance and drops it, `nr=ir-1`,
+    // `purr.f90:1785`). Every resonance is at or below ehigh, and the last
+    // is close to it. Every width fraction sums to one.
+    assert!(ladder.iter().all(|r| r.energy <= 400_000.0));
+    assert!(ladder.last().unwrap().energy > 400_000.0 - 10.0 * dbar);
     for r in &ladder {
         let s = r.gn_frac + r.gf_frac + r.gg_frac + r.gx_frac;
         assert!((s - 1.0).abs() < 1e-12, "{s}");
