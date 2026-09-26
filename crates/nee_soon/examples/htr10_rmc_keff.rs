@@ -505,6 +505,23 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         );
         eprintln!("  NOTE: rod-metal nuclides from ENDF/B-VIII.0 in the VII.0 arm");
     }
+    // MODELLING ASSUMPTION (maintainer direction 2026-09-26, "state as a
+    // modelling assumption"): with `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1` the rod
+    // channels are empty helium, so no cell is filled with rod steel, joint
+    // iron or B4C and the rod-metal tapes are not loaded at all. This is what
+    // lets the model run on a checkout without the Ni ENDF/B-VIII.0 tapes
+    // (PR #327: not committed; their IAEA host is unreachable from the remote
+    // session). `main` strips the unused rod-metal components and asserts that
+    // no cell uses those materials.
+    if std::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_ok() {
+        diag.note(
+            "MODELLING ASSUMPTION: withdrawn control rods NOT modelled -- rod \
+             channels empty (helium); rod-metal tapes (Fe, Cr, Ni, Mn, Ti) not loaded"
+                .to_string(),
+        );
+        eprintln!("  ASSUMPTION: no withdrawn rods -- rod-metal tapes not loaded");
+        return Some(v);
+    }
     for (name, file) in nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8 {
         v.push(load!(diag, name, file)?);
     }
@@ -573,7 +590,7 @@ fn main() {
         "  reflector zone: {zone_id} (C {:.4e} x{refl_scale:.3}, natural B {:.4e})",
         z_report.carbon, z_report.natural_boron
     );
-    let mats = nee_soon::htr10_rmc::materials::htr10_material_set(
+    let mut mats = nee_soon::htr10_rmc::materials::htr10_material_set(
         NUC,
         nee_soon::htr10_rmc::materials::RodMetalNuclides::contiguous(11),
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
@@ -597,6 +614,33 @@ fn main() {
     } else {
         assemble_explicit_triso(rings, layers, maj_idx)
     };
+    // The no-withdrawn-rods modelling assumption (see `nuclides`): the rod
+    // metals were not loaded, so drop their components, and PROVE that no
+    // cell is filled with a material that lost them.
+    if nucs.len() == 11 {
+        let mut stripped = Vec::new();
+        for (i, m) in mats.iter_mut().enumerate() {
+            let before = m.components.len();
+            m.components.retain(|c| c.nuclide_idx < nucs.len());
+            if m.components.len() != before {
+                stripped.push(i);
+            }
+        }
+        for c in &core.geometry.cells {
+            if let outram_mc_libs::geometry::cell::CellFill::Material(m) = c.fill {
+                assert!(
+                    !stripped.contains(&m),
+                    "cell {} is filled with material {m} ({}) whose rod-metal nuclides \
+                     were not loaded -- the no-rods assumption does not hold",
+                    c.id,
+                    mats[m].name
+                );
+            }
+        }
+        println!(
+            "  ASSUMPTION: no withdrawn rods; materials {stripped:?} stripped, used by no cell"
+        );
+    }
     println!(
         "  fuel zone: {}",
         if homog {

@@ -147,7 +147,7 @@ impl IdMap {
 /// The tie-breaking direction upstream locates every pixel with
 /// (`include/openmc/plot.h:255`): not aligned with any axis, so a pixel centre
 /// lying exactly on a plane resolves the same way everywhere.
-fn plot_direction() -> Direction {
+pub(crate) fn plot_direction() -> Direction {
     let s = 1.0 / 2.0_f64.sqrt();
     Direction::new(s, s, 0.0)
 }

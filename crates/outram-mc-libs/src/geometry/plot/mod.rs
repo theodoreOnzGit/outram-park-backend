@@ -67,6 +67,7 @@
 pub mod annotate;
 pub mod colour;
 pub mod image;
+pub mod model_plot;
 pub mod raytrace;
 pub mod script;
 pub mod slice;
@@ -77,6 +78,10 @@ pub use colour::{
     RED, WHITE,
 };
 pub use image::{decode_png, ImageData, PngDecodeError};
+pub use model_plot::{
+    AxisUnits, BoundingBox, ColorBy, DomainColour, ModelPlot, ModelPlotError, Outline, Pixels,
+    PlotColour,
+};
 pub use raytrace::{Camera, Projection, SolidRayTracePlot, WireframeRayTracePlot};
 pub use script::{emit_python, sample_slice, ColourBy, Slice};
 pub use slice::{IdMap, MeshLines, PlotBasis, SliceHit, SlicePlot};

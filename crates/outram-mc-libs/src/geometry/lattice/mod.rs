@@ -12,7 +12,6 @@
 //! descends into it exactly as it would a nested universe.
 
 use super::position::{Direction, Position};
-use crate::mathf::RealMath;
 
 /// Lattice type tag. Maps to `openmc::LatticeType`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -281,8 +280,41 @@ impl HexLattice {
 
     /// Width of the skewed square array along each planar axis: `2*n_rings - 1`.
     #[inline]
-    fn n_side(&self) -> usize {
+    pub(crate) fn n_side(&self) -> usize {
         2 * self.n_rings - 1
+    }
+
+    /// Planar flat indices of the tiles in OpenMC's Python **ring order** —
+    /// outermost ring first, each ring clockwise from the top, the centre
+    /// last — i.e. the order `HexLattice.universes` lists them and
+    /// `Lattice.get_unique_universes` (`openmc/lattice.py:110-136`) walks
+    /// them. Recovered by pushing position numbers through the same
+    /// [`fill_level`] walk [`Self::from_rings`] uses, so the two cannot drift.
+    #[must_use]
+    pub fn ring_order_flat_indices(&self) -> Vec<usize> {
+        let n = self.n_rings;
+        let mut next = 0usize;
+        let rings: Vec<Vec<usize>> = (0..n)
+            .map(|j| {
+                let len = if j == n - 1 { 1 } else { 6 * (n - 1 - j) };
+                (0..len)
+                    .map(|_| {
+                        next += 1;
+                        next - 1
+                    })
+                    .collect()
+            })
+            .collect();
+        let side = self.n_side();
+        let mut probe = vec![HEX_NONE; side * side];
+        fill_level(n, self.orientation, &rings, &mut probe);
+        let mut order = vec![usize::MAX; next];
+        for (flat, &pos) in probe.iter().enumerate() {
+            if pos >= 0 {
+                order[pos as usize] = flat;
+            }
+        }
+        order
     }
 
     /// Flat storage index of tile `[ix, iy, iz]`. Ported from
@@ -640,10 +672,12 @@ impl HexLattice {
         }
         let n_side = 2 * n_rings - 1;
         let mut universes = vec![HEX_NONE; n_side * n_side];
-        // Geometry-derived placement (op-6tz.38 fix): map each ring's elements
-        // onto the skewed tiles at that hex-radius via [`fill_level`], so the
-        // fill round-trips through `get_indices`/`universe_at`. (The old
-        // row-order `fill_lattice_x/y` walk mis-placed ring-order input.)
+        // ~~Geometry-derived placement (op-6tz.38 fix)~~ CORRECTED 2026-09-26:
+        // [`fill_level`] converts the rings to upstream's Python row order and
+        // then runs the ported `fill_lattice_x/y`. (The op-6tz.38 walk
+        // mis-placed ring-order input because it skipped that conversion; its
+        // angular replacement round-tripped but started at +x and ran
+        // anticlockwise, where OpenMC starts at the top and runs clockwise.)
         fill_level(n_rings, orientation, rings, &mut universes);
 
         HexLattice {
@@ -727,7 +761,7 @@ impl HexLattice {
                 );
             }
             let slice = &mut universes[iz * block..(iz + 1) * block];
-            // Geometry-derived per-level placement (op-6tz.38 fix); see from_rings.
+            // Upstream's Python-rows-then-fill_lattice path; see from_rings.
             fill_level(n_rings, orientation, rings, slice);
         }
 
@@ -744,98 +778,135 @@ impl HexLattice {
     }
 }
 
-/// Planar centre-of-tile coordinates `(x, y)` of skewed-axial coordinates
-/// `(a, b)` for the given orientation, in flat-to-flat pitch units with the
-/// central tile at `center = 0`.
-fn tile_xy(a: i32, b: i32, orientation: HexOrientation) -> (f64, f64) {
-    let (a, b) = (a as f64, b as f64);
-    let s3 = 3.0_f64.sqrt();
-    match orientation {
-        HexOrientation::Y => (s3 / 2.0 * a, b + a / 2.0),
-        HexOrientation::X => (a + b / 2.0, s3 / 2.0 * b),
-    }
-}
-
-/// Hexagonal ring index (0 = centre) of skewed-axial coordinates `(a, b)`.
-///
-/// This is the cube-coordinate hex distance `(|a| + |b| + |a+b|)/2` — the
-/// number of tiles crossed on a straight walk from the centre. A tile is inside
-/// an `n_rings` hexagon iff its ring index is `<= n_rings - 1`, which is exactly
-/// [`HexLattice::are_valid_indices`] expressed on `(a, b)`.
-fn tile_ring(a: i32, b: i32) -> usize {
-    ((a.abs() + b.abs() + (a + b).abs()) / 2) as usize
-}
-
-/// Flat storage slots of every tile in ring `k` (0 = centre), ordered by
-/// increasing planar angle **starting from +x and proceeding
-/// counter-clockwise**.
-///
-/// This is the geometry-derived placement order [`HexLattice::from_rings`] /
-/// [`HexLattice::from_rings_3d`] use to map a user ring's elements onto skewed
-/// tiles, replacing the row-order walk of [`fill_lattice_y`] / [`fill_lattice_x`]
-/// that caused bead op-6tz.38. Ring `k` (for `k >= 1`) yields exactly `6*k`
-/// slots; ring `0` yields the single central slot. The returned slots are a
-/// disjoint partition of all hexagon tiles across `k = 0..n_rings`, so the fill
-/// is a bijection and hence round-trip-correct.
-///
-/// See the OpenMC-fidelity caveat on [`HexLattice::from_rings`]: the exact
-/// angular start/rotation is best-effort, not verified bit-identical to OpenMC.
-fn ring_slots(n_rings: usize, k: usize, orientation: HexOrientation) -> Vec<usize> {
-    let nr = n_rings as i32;
-    let n_side = (2 * nr - 1) as usize;
-    let mut tiles: Vec<(f64, usize)> = Vec::new();
-    for iy in 0..n_side as i32 {
-        for ix in 0..n_side as i32 {
-            let (a, b) = (ix - (nr - 1), iy - (nr - 1));
-            if tile_ring(a, b) != k {
-                continue;
-            }
-            let (x, y) = tile_xy(a, b, orientation);
-            let mut ang = y.r_atan2(x);
-            if ang < 0.0 {
-                ang += std::f64::consts::TAU;
-            }
-            tiles.push((ang, n_side * iy as usize + ix as usize));
-        }
-    }
-    // All tiles in one ring have distinct angles, so this is a total order.
-    tiles.sort_by(|p, q| p.0.total_cmp(&q.0));
-    tiles.into_iter().map(|(_, slot)| slot).collect()
-}
-
 /// Write one axial level's ring-nested universes into its `(2*n_rings-1)^2`
-/// skewed slice using the geometry-derived [`ring_slots`] placement.
+/// skewed slice, by upstream's Python-rows-then-`fill_lattice` path.
+/// ~~using the geometry-derived `ring_slots` placement~~ (removed 2026-09-26,
+/// see the correction in the body).
 ///
 /// `rings` is outer-ring-first (as accepted by [`HexLattice::from_rings`]); the
 /// outer ring has hex-radius `n_rings-1` and the innermost (single-tile) ring
 /// radius `0`. `out` is a single already-`HEX_NONE`-filled block. The caller
 /// (`from_rings`/`from_rings_3d`) validates ring sizes inline before calling.
 fn fill_level(n_rings: usize, orientation: HexOrientation, rings: &[Vec<usize>], out: &mut [i32]) {
-    for (j, ring) in rings.iter().enumerate() {
-        // Outer-first input → hex-radius counts down; centre (k = 0) is last.
-        let k = n_rings - 1 - j;
-        let slots = ring_slots(n_rings, k, orientation);
-        debug_assert_eq!(
-            ring.len(),
-            slots.len(),
-            "ring {j} (radius {k}) size {} != tile count {}",
-            ring.len(),
-            slots.len()
-        );
-        for (&elem, &slot) in ring.iter().zip(slots.iter()) {
-            out[slot] = elem as i32;
-        }
+    // CORRECTED 2026-09-26: upstream's own two-step path, not a geometric
+    // guess. OpenMC's Python turns the ring lists into the XML row text
+    // (`HexLattice._repr_axial_slice_{x,y}`, `openmc/lattice.py:1625-1835`)
+    // and the C++ reads those words back with `fill_lattice_{x,y}`
+    // (`src/lattice.cpp:555-660`). The earlier `ring_slots` placement
+    // (op-6tz.38) put element 0 of each ring at the first tile anticlockwise
+    // from +x and walked anticlockwise; upstream starts at the top and walks
+    // clockwise. Found by the pixel comparison against OpenMC's `Model.plot`
+    // (`verification_and_validation/python_plotting_parity/`).
+    let words = python_hex_words(n_rings, orientation, rings);
+    match orientation {
+        HexOrientation::Y => fill_lattice_y(n_rings, &words, out),
+        HexOrientation::X => fill_lattice_x(n_rings, &words, out),
     }
+}
+
+/// The universe words of one axial level in the order OpenMC's Python writes
+/// them to `geometry.xml`: a port of `HexLattice._repr_axial_slice_y` /
+/// `_repr_axial_slice_x` (`openmc/lattice.py:1625-1835`, commit d7d3284a1)
+/// without the padding, which the C++ reader skips anyway.
+fn python_hex_words(n_rings: usize, orientation: HexOrientation, rings: &[Vec<usize>]) -> Vec<i32> {
+    let n = n_rings;
+    let u = |r_prime: usize, theta: usize| rings[r_prime][theta] as i32;
+    let rows: Vec<Vec<i32>> = match orientation {
+        HexOrientation::Y => {
+            let mut rows: Vec<Vec<i32>> = vec![Vec::new(); 1 + 4 * (n - 1)];
+            let middle = 2 * (n - 1);
+            rows[middle] = vec![u(n - 1, 0)];
+            for r in 1..n {
+                let r_prime = n - 1 - r;
+                let mut theta = 0;
+                let mut y = middle + 2 * r;
+                for _ in 0..r {
+                    rows[y].push(u(r_prime, theta));
+                    y -= 1;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].push(u(r_prime, theta));
+                    y -= 2;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].push(u(r_prime, theta));
+                    y -= 1;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].insert(0, u(r_prime, theta));
+                    y += 1;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].insert(0, u(r_prime, theta));
+                    y += 2;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].insert(0, u(r_prime, theta));
+                    y += 1;
+                    theta += 1;
+                }
+            }
+            // "Flip the rows" (`rows[::-1]`).
+            rows.reverse();
+            rows
+        }
+        HexOrientation::X => {
+            let mut rows: Vec<Vec<i32>> = vec![Vec::new(); 2 * n - 1];
+            let middle = n - 1;
+            rows[middle] = vec![u(n - 1, 0)];
+            for r in 1..n {
+                let r_prime = n - 1 - r;
+                let mut theta = 0;
+                let mut y = middle;
+                for _ in 0..r {
+                    rows[y].push(u(r_prime, theta));
+                    y += 1;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].insert(0, u(r_prime, theta));
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].insert(0, u(r_prime, theta));
+                    y -= 1;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].insert(0, u(r_prime, theta));
+                    y -= 1;
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].push(u(r_prime, theta));
+                    theta += 1;
+                }
+                for _ in 0..r {
+                    rows[y].push(u(r_prime, theta));
+                    y += 1;
+                    theta += 1;
+                }
+            }
+            rows
+        }
+    };
+    rows.into_iter().flatten().collect()
 }
 
 /// Fill the skewed universe array for a `'y'`-orientation hex lattice from the
 /// flattened ring-order input. Ported from `HexLattice::fill_lattice_y`
 /// (`src/lattice.cpp:598`), for a single axial level (2-D).
 ///
-/// No longer used by `from_rings`/`from_rings_3d` (op-6tz.38 replaced the
+/// ~~No longer used by `from_rings`/`from_rings_3d` (op-6tz.38 replaced the
 /// row-order walk with the geometry-derived [`fill_level`]); retained for
-/// reference against the C++ source.
-#[allow(dead_code)]
+/// reference against the C++ source.~~ **CORRECTED 2026-09-26:** used again,
+/// fed by [`python_hex_words`] — the row order upstream's Python writes, which
+/// is what op-6tz.38's original row-order walk was missing.
 fn fill_lattice_y(n_rings: usize, univ: &[i32], out: &mut [i32]) {
     let nr = n_rings as i32;
     let n_side = (2 * nr - 1) as usize;
@@ -895,10 +966,8 @@ fn fill_lattice_y(n_rings: usize, univ: &[i32], out: &mut [i32]) {
 /// Fill the skewed universe array for an `'x'`-orientation hex lattice. Ported
 /// from `HexLattice::fill_lattice_x` (`src/lattice.cpp:546`), single axial level.
 ///
-/// No longer used by `from_rings`/`from_rings_3d` (op-6tz.38 replaced the
-/// row-order walk with the geometry-derived [`fill_level`]); retained for
-/// reference against the C++ source.
-#[allow(dead_code)]
+/// ~~No longer used by `from_rings`/`from_rings_3d`~~ **CORRECTED 2026-09-26:**
+/// used again, fed by [`python_hex_words`] (see [`fill_lattice_y`]).
 fn fill_lattice_x(n_rings: usize, univ: &[i32], out: &mut [i32]) {
     let nr = n_rings as i32;
     let n_side = (2 * nr - 1) as usize;

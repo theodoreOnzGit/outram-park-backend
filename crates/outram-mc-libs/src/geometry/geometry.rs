@@ -174,6 +174,7 @@ fn outgoing_side(surf: &SurfaceKind, r: Position, u_out: Direction, i_surf: usiz
 /// Read-only after construction; share across threads as `Arc<Geometry>`.
 /// Maps to OpenMC's `model::{surfaces,cells,universes,lattices}` globals plus
 /// `model::root_universe`.
+#[derive(Debug, Clone)]
 pub struct Geometry {
     /// Global surface array; region tokens and `on_surface` index into it.
     pub surfaces: Vec<SurfaceKind>,
