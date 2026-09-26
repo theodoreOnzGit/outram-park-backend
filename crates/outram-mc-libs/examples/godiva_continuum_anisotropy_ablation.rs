@@ -161,6 +161,29 @@
 //! i.e. roughly **400 seeds per arm**. Nothing in this crate currently depends
 //! on the number being resolved rather than bounded.
 //!
+//! # Results (2026-09-26, 400 seeds per arm, commit `3f141992e`)
+//!
+//! | arm | n | mean vs ICSBEP | sd | sem |
+//! |---|---|---|---|---|
+//! | **ANISO** | 400 | **−1 pcm** | 188 | ±9 |
+//! | **ISO** | 400 | **−2 pcm** | 193 | ±10 |
+//! | **difference** (unpaired) | | **+2 pcm** | | **±13 (0.1 sigma)** |
+//!
+//! Paired `sd` 259 again exceeds either arm's, so the unpaired figure is the
+//! one to quote. **This supersedes the 128-seed `−38 ± 23` as the worth**, and
+//! it does not confirm that run's negative central value: at the statistics the
+//! old record said would resolve it, the law's worth is **consistent with zero
+//! and bounded below 40 pcm at 3 sigma**. The "small" half of the prediction
+//! held; the "negative" half is not supported.
+//!
+//! **Not a pooled extension of the 128-seed run.** The code moved between the
+//! two (URR and DBRC default-on from 2026-09-20, the rdfil2-faithful PURR grid,
+//! among others), so both arms shifted: ANISO `−26 → −1`, ISO `+11 → −2`. The
+//! difference is the like-for-like quantity; the arm means are not comparable
+//! across the dates. Also not re-measured on the RECONR/parser changes of
+//! 2026-09-26 (commit `b039d06f3`), which move cross sections at
+//! the 1e-16 level and the lumped MT=103-107 sections.
+//!
 //! ```text
 //! OUTRAM_GODIVA_SEEDS=32 cargo run --release -p outram-mc-libs \
 //!     --features endf-pebble-cases --example godiva_continuum_anisotropy_ablation
