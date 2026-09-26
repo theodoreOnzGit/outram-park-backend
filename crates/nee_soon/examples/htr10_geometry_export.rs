@@ -524,6 +524,7 @@ fn main() {
         c_sic: 7,
         si29: 8,
         si30: 9,
+        b11: 10,
     };
     let cfg = Htr10MaterialConfig::benchmark_default(TEMP_K);
     let mats = htr10_material_set(nuclides, cfg);

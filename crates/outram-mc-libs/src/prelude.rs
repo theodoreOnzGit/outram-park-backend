@@ -10,6 +10,10 @@ pub use crate::geometry::surface::{
 };
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 pub use crate::geometry::universe::Universe;
+pub use crate::geometry::plot::{
+    render_material_slice, Camera, ColourScheme, ImageData, LegendEntry, PlotBasis, PlotColourBy,
+    Rgb, SlicePlot, SolidRayTracePlot, WireframeRayTracePlot,
+};
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
 pub use crate::geometry::geometry::{

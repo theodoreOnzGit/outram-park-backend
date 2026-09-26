@@ -324,7 +324,7 @@ as much as to writing it. A brief that names an approach without first
 checking what exists is the same defect one level up: the agent follows it
 competently and produces a duplicate.
 
-**Why it needs to be a rule.** This workspace is 43 crates, many of them ports
+**Why it needs to be a rule.** This workspace is 44 crates, many of them ports
 of mature codes. The prior is **"this probably exists already"**, not "this
 needs writing". On 2026-08-12 alone, five separate pieces of work were
 specified before checking, and **every one turned out to be already present** —
@@ -370,7 +370,7 @@ problem; it is a false statement that the next reader — human or agent — wil
 act on.
 
 **Why this is a hard rule and not a courtesy.** This workspace's docs are the
-primary interface to 43 crates that no one can hold in their head, and the
+primary interface to 44 crates that no one can hold in their head, and the
 search-before-building rule above *depends on them being true*. A stale
 "missing" claim is the worst kind, because it causes exactly the duplication
 this file exists to prevent: an agent reads "no model exists", believes it,
@@ -643,7 +643,7 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-**43 member crates**, all GPL-3.0 except `kovan` (AGPL-3.0-only). The roster,
+**44 member crates**, all GPL-3.0 except `kovan` (AGPL-3.0-only). The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).

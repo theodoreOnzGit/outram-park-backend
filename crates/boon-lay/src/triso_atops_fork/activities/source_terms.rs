@@ -65,18 +65,19 @@ pub struct FailureFractions {
 }
 
 impl FailureFractions {
-    /// Replace `incremental` with a value computed by the PANAMA-I model
-    /// (`crate::fuel_failure`), leaving the other three untouched.
+    /// Replace `incremental` with a value computed by **boon-lay fuel failure**
+    /// (`crate::fuel_failure`, boon-lay's own implementation of the PANAMA-I
+    /// formulas, not the PANAMA code), leaving the other three untouched.
     ///
     /// ```text
     /// f_inc = 1 − (1 − φ₁)·(1 − φ₂)
     /// ```
     ///
     /// `f_hm`, `f_sic` and `f_inc_sic` are **as-manufactured** properties of a
-    /// fuel product line. PANAMA models neither — its own equivalent, `φ_o`,
-    /// is an input to it too (page -480- of HTA-IB-03/90) — so they stay the
-    /// caller's. Only `f_inc`, the in-service failure fraction, is something
-    /// PANAMA computes.
+    /// fuel product line. The PANAMA-I equations model none of them — their own
+    /// equivalent, `φ_o`, is an input (page -480- of HTA-IB-03/90) — so they
+    /// stay the caller's. Only `f_inc`, the in-service failure fraction, is
+    /// something boon-lay fuel failure computes.
     ///
     /// This is an **additional** route to `f_inc`, not a replacement: a
     /// `RunFile` that sets all four by hand is unaffected, which
@@ -84,8 +85,9 @@ impl FailureFractions {
     ///
     /// # When this is the right thing to do, and when it is not
     ///
-    /// PANAMA computes **accident** failure. Under normal operation its
-    /// answer is many orders of magnitude below a typical as-manufactured
+    /// The PANAMA-I equations describe **accident** failure. Under normal
+    /// operation boon-lay fuel failure's answer is many orders of magnitude
+    /// below a typical as-manufactured
     /// `f_inc`: for HTR-10 it is `10⁻¹⁵`–`10⁻⁶` across the plausible fuel
     /// temperature band against a 3·10⁻⁵ placeholder
     /// (`crate::fuel_failure::htr10`). Using it there would not improve the
@@ -93,11 +95,11 @@ impl FailureFractions {
     /// reported activity by ~10⁷. Use it for a transient; for steady state,
     /// supply fuel-qualification data.
     ///
-    /// PANAMA was also built and validated for **German** TRISO over
-    /// 1600–2500 °C. Applying it elsewhere is an extrapolation and should be
-    /// reported as one.
+    /// The PANAMA-I model was also built and validated (by its authors, on the
+    /// PANAMA code) for **German** TRISO over 1600–2500 °C. Applying these
+    /// formulas elsewhere is an extrapolation and should be reported as one.
     #[must_use]
-    pub fn with_panama_incremental(
+    pub fn with_fuel_failure_incremental(
         self,
         progress: crate::fuel_failure::history::FailureProgress,
     ) -> Self {
@@ -362,9 +364,9 @@ mod tests {
         assert_eq!(sg.graphite_activity, 0.0);
     }
 
-    /// **The hand-entered `RunFile` path is untouched by the PANAMA seam.**
+    /// **The hand-entered `RunFile` path is untouched by the fuel-failure seam.**
     ///
-    /// [`FailureFractions::with_panama_incremental`] is an *additional* route
+    /// [`FailureFractions::with_fuel_failure_incremental`] is an *additional* route
     /// to `f_inc`, not a replacement: a deck that sets all four fields
     /// directly must behave exactly as it did before the constructor existed,
     /// and the three as-manufactured fields must survive the call unchanged.
@@ -380,12 +382,12 @@ mod tests {
         assert!((hand.sum() - 1.0e-4).abs() < 1e-18);
         assert_eq!(hand.incremental, 3.0e-5);
 
-        // The PANAMA route replaces exactly one field.
+        // The boon-lay fuel failure route replaces exactly one field.
         let progress = crate::fuel_failure::history::FailureProgress::at_start(
             uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(7.5e-4),
             uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(0.0),
         );
-        let wired = hand.with_panama_incremental(progress);
+        let wired = hand.with_fuel_failure_incremental(progress);
         assert_eq!(wired.heavy_metal, hand.heavy_metal);
         assert_eq!(wired.sic, hand.sic);
         assert_eq!(
@@ -395,7 +397,7 @@ mod tests {
         );
         assert!(
             (wired.incremental - 7.5e-4).abs() < 1e-15,
-            "f_inc must be the PANAMA in-service fraction, got {}",
+            "f_inc must be the boon-lay fuel failure in-service fraction, got {}",
             wired.incremental
         );
         assert!((wired.sum() - (1.0e-5 + 2.0e-5 + 7.5e-4 + 4.0e-5)).abs() < 1e-15);

@@ -6,6 +6,15 @@
 
 # Module `boon_lay`
 
+# BOON LAY
+
+**BO**mbardment of neutrons **O**n **N**uclides with **L**agrangian
+transport **a**nd transmutation **Y**ields.
+
+TRISO-particle and Lagrangian decay / transmutation simulator, and host of
+the TRISO-ATOPS fork (`triso_atops_fork`), which supplies the fission-product
+release physics that `sembawang` orchestrates.
+
 ## Modules
 
 ## Module `prelude`
@@ -449,7 +458,7 @@ reference.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ComputeType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -465,7 +474,7 @@ reference.
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ComputeType { /* ... */ }
     ```
 
 - **Downcast**
@@ -489,7 +498,7 @@ reference.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ComputeType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -623,7 +632,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ThreadCount { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -639,7 +648,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ThreadCount { /* ... */ }
     ```
 
 - **Downcast**
@@ -663,7 +672,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ThreadCount) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -860,7 +869,7 @@ pub struct DecayLibrary {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayLibrary { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -894,7 +903,7 @@ pub struct DecayLibrary {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DecayLibrary) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1037,7 +1046,7 @@ pub struct NuclideReactionAndDecayData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NuclideReactionAndDecayData { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1075,7 +1084,7 @@ pub struct NuclideReactionAndDecayData {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NuclideReactionAndDecayData) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1175,7 +1184,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> HalfLifeAndDecayEnergyInfo { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1209,7 +1218,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &HalfLifeAndDecayEnergyInfo) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1305,7 +1314,7 @@ pub struct DecayData {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayData { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1339,7 +1348,7 @@ pub struct DecayData {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DecayData) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1489,7 +1498,7 @@ pub enum DecayType {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DecayType { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1524,7 +1533,7 @@ pub enum DecayType {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DecayType) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2023,7 +2032,7 @@ pub struct StochasticDecayChain {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> StochasticDecayChain { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2070,7 +2079,7 @@ pub struct StochasticDecayChain {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &StochasticDecayChain) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2280,7 +2289,7 @@ pub struct SingleNuclideSimulatorMC {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SingleNuclideSimulatorMC { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2314,7 +2323,7 @@ pub struct SingleNuclideSimulatorMC {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SingleNuclideSimulatorMC) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2474,7 +2483,7 @@ pub struct OoRng64(pub u64);
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> OoRng64 { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2509,7 +2518,7 @@ pub struct OoRng64(pub u64);
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &OoRng64) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2712,7 +2721,7 @@ pub struct Vec3 {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Vec3 { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3038,7 +3047,7 @@ buffer layer
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrisoPebbleLayerMaterial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3073,7 +3082,7 @@ buffer layer
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrisoPebbleLayerMaterial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3329,7 +3338,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SphereCrossing { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3364,7 +3373,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SphereCrossing) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3493,7 +3502,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Region { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3528,7 +3537,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Region) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3681,7 +3690,7 @@ pub struct TrisoCell {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrisoCell { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3716,7 +3725,7 @@ pub struct TrisoCell {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrisoCell) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3827,7 +3836,7 @@ pub enum TrisoRegion {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrisoRegion { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3862,7 +3871,7 @@ pub enum TrisoRegion {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrisoRegion) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4345,7 +4354,7 @@ pub struct SingleParticleDiffusionSimulatorMC {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SingleParticleDiffusionSimulatorMC { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4380,7 +4389,7 @@ pub struct SingleParticleDiffusionSimulatorMC {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SingleParticleDiffusionSimulatorMC) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4606,7 +4615,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Transmutation { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4641,7 +4650,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Transmutation) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4772,7 +4781,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DepletionOutcome { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4807,7 +4816,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DepletionOutcome) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4942,7 +4951,7 @@ pub struct EnsembleConfig {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnsembleConfig { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4977,7 +4986,7 @@ pub struct EnsembleConfig {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnsembleConfig) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5250,7 +5259,7 @@ pub struct Snapshot {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Snapshot { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5265,7 +5274,7 @@ pub struct Snapshot {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> Snapshot { /* ... */ }
     ```
 
 - **Downcast**
@@ -5721,7 +5730,7 @@ continues from the reinserted position on the next step.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> HopOutcome { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5766,7 +5775,7 @@ continues from the reinserted position on the next step.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &HopOutcome) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5873,7 +5882,7 @@ pub struct WalkParams {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WalkParams { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5908,7 +5917,7 @@ pub struct WalkParams {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WalkParams) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6075,7 +6084,7 @@ pub struct WoSWalker {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> WoSWalker { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6110,7 +6119,7 @@ pub struct WoSWalker {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &WoSWalker) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6318,7 +6327,7 @@ pub use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/boon-lay/src/lib.rs:43:15: 43:36 (#0) }, crates/boon-lay/src/lib.rs:43:14: 43:37 (#0)), Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/boon-lay/src/lib.rs:43:43: 43:65 (#0) }, crates/boon-lay/src/lib.rs:43:42: 43:66 (#0))], crates/boon-lay/src/lib.rs:43:10: 43:67 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/boon-lay/src/lib.rs:52:15: 52:36 (#0) }, crates/boon-lay/src/lib.rs:52:14: 52:37 (#0)), Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/boon-lay/src/lib.rs:52:43: 52:65 (#0) }, crates/boon-lay/src/lib.rs:52:42: 52:66 (#0))], crates/boon-lay/src/lib.rs:52:10: 52:67 (#0))])]")`
 
 Optional wgpu GPU acceleration for large Walk-on-Spheres ensembles. Compiled
 only off Android (the workspace GPU/Android rule) **and off wasm**; the CPU
@@ -6994,7 +7003,7 @@ pub struct TrisoAtopsNuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TrisoAtopsNuclide { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7028,7 +7037,7 @@ pub struct TrisoAtopsNuclide {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TrisoAtopsNuclide) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7167,7 +7176,7 @@ Any other fission metal not in the groups above. Assigned a fixed nominal
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ElementGroup { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7212,7 +7221,7 @@ Any other fission metal not in the groups above. Assigned a fixed nominal
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ElementGroup) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7384,7 +7393,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SelectionError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7428,7 +7437,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SelectionError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7561,7 +7570,7 @@ inconsistency — see [`upstream_table_parent_decay`].
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParentDecayPolicy { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7577,7 +7586,7 @@ inconsistency — see [`upstream_table_parent_decay`].
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ParentDecayPolicy { /* ... */ }
     ```
 
 - **Downcast**
@@ -7611,7 +7620,7 @@ inconsistency — see [`upstream_table_parent_decay`].
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ParentDecayPolicy) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7714,7 +7723,7 @@ pub struct SelectedNuclide {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SelectedNuclide { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7748,7 +7757,7 @@ pub struct SelectedNuclide {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SelectedNuclide) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8060,7 +8069,7 @@ pub struct KernelGraphiteDiffusion {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> KernelGraphiteDiffusion { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8095,7 +8104,7 @@ pub struct KernelGraphiteDiffusion {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &KernelGraphiteDiffusion) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8198,7 +8207,7 @@ Matrix graphite.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DiffusionMaterial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8243,7 +8252,7 @@ Matrix graphite.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DiffusionMaterial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8884,7 +8893,7 @@ Release from the matrix graphite.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReleaseMaterial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8929,7 +8938,7 @@ Release from the matrix graphite.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ReleaseMaterial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9425,6 +9434,11 @@ pub struct FailureFractions {
 ###### Methods
 
 - ```rust
+  pub fn with_fuel_failure_incremental(self: Self, progress: crate::fuel_failure::history::FailureProgress) -> Self { /* ... */ }
+  ```
+  Replace `incremental` with a value computed by **boon-lay fuel failure**
+
+- ```rust
   pub fn sum(self: &Self) -> f64 { /* ... */ }
   ```
   Sum of all four failure fractions, `f_hm + f_sic + f_inc + f_inc_sic`.
@@ -9449,7 +9463,7 @@ pub struct FailureFractions {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FailureFractions { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9484,7 +9498,7 @@ pub struct FailureFractions {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FailureFractions) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9580,7 +9594,7 @@ pub struct SourceAndGraphite {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SourceAndGraphite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9615,7 +9629,7 @@ pub struct SourceAndGraphite {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SourceAndGraphite) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9787,9 +9801,23 @@ dimensionless this reads `Bq = s^-1 · 1`. Construct with
 `Activity::new::<hertz>(bq)` and read with `.get::<hertz>()` (`hertz == s^-1`;
 the unit name is only a dimension label — the value is in becquerels).
 
-Curies are **not** an SI unit and are not part of `uom`; convert with
-[`becquerels_from_curies`] / [`curies_from_becquerels`] and the [`BQ_PER_CI`]
-constant.
+The curie is not an SI unit. ~~and is not part of `uom`~~ **CORRECTED
+2026-09-21** — `uom` 0.38 *does* carry it: the `Radioactivity` quantity has
+a built-in `@curie` unit, so `Radioactivity::new::<curie>(1.0)` reads
+`3.7e10 Bq` without `3.7e10` being written anywhere. Verified against
+`uom-0.38.0/src/si/radioactivity.rs` and pinned by
+`changi::activity::units::tests::uom_carries_the_curie_so_the_conversion_never_has_to_be_written_out`.
+
+**That does not make this alias wrong, and it is deliberately not being
+changed.** `Activity = Frequency` is code-to-code verified against upstream
+TRISO-ATOPS and human-signed-off; `Radioactivity` is a *different Rust type*
+of the same dimension, so switching would churn every signature in this
+fork for no physics. Convert with [`becquerels_from_curies`] /
+[`curies_from_becquerels`] and the [`BQ_PER_CI`] constant as before.
+
+A downstream crate that prefers `Radioactivity` converts at its own
+boundary — that crossing is the consumer's to own, in one file, not this
+fork's.
 
 ```rust
 pub type Activity = uom::si::f64::Frequency;
@@ -10069,7 +10097,7 @@ pub struct PlantConstants {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PlantConstants { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10197,7 +10225,7 @@ pub struct NodeState {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NodeState { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10336,7 +10364,7 @@ pub struct ParentPools {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ParentPools { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10352,7 +10380,7 @@ pub struct ParentPools {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> ParentPools { /* ... */ }
     ```
 
 - **Downcast**
@@ -10490,7 +10518,7 @@ pub struct NodalActivities {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NodalActivities { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10525,7 +10553,7 @@ pub struct NodalActivities {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NodalActivities) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10632,7 +10660,7 @@ pub struct NodalActivitiesCurie {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NodalActivitiesCurie { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10667,7 +10695,7 @@ pub struct NodalActivitiesCurie {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NodalActivitiesCurie) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10879,7 +10907,7 @@ pub struct AccidentFractions {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AccidentFractions { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10914,7 +10942,7 @@ pub struct AccidentFractions {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AccidentFractions) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11030,7 +11058,7 @@ pub struct NormalOperationNode {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> NormalOperationNode { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11046,7 +11074,7 @@ pub struct NormalOperationNode {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
+    fn default() -> NormalOperationNode { /* ... */ }
     ```
 
 - **Downcast**
@@ -11070,7 +11098,7 @@ pub struct NormalOperationNode {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &NormalOperationNode) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11169,7 +11197,7 @@ Release out of the matrix graphite.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ReleaseMaterial { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11214,7 +11242,7 @@ Release out of the matrix graphite.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ReleaseMaterial) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11682,7 +11710,7 @@ silently improving it.
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TimeUnit { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11735,7 +11763,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TimeUnit) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11880,7 +11908,7 @@ Fields:
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RunFileError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11914,7 +11942,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RunFileError) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12068,7 +12096,7 @@ pub struct RunFile {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RunFile { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12110,7 +12138,7 @@ where
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RunFile) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12248,7 +12276,7 @@ pub struct RunConfig {
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RunConfig { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12282,7 +12310,7 @@ pub struct RunConfig {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RunConfig) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12382,6 +12410,4402 @@ pub use nuclide_model::ElementGroup;
 
 ```rust
 pub use nuclide_model::TrisoAtopsNuclide;
+```
+
+## Module `fuel_failure`
+
+**boon-lay fuel failure** — TRISO coated-particle failure fractions. This
+is boon-lay's own model: a Rust implementation of the *formulas* published
+in the PANAMA-I report (Verfondern & Nabielek, Jülich HTA-IB-03/90, 1990),
+coded agentically by an AI coding agent. It is **not** the PANAMA code, whose
+source this project does not have; see the module docs on naming. Supplies what
+[`triso_atops_fork`]'s `FailureFractions` currently takes as a
+hand-entered number. See the module docs for what is implemented and what
+is deliberately left as an input.
+# boon-lay fuel failure — TRISO coated-particle failure from the PANAMA-I equations
+
+## Naming: this is boon-lay fuel failure, NOT PANAMA
+
+**Call this model "boon-lay fuel failure".** It is boon-lay's own code: a
+Rust implementation of the *formulas* published in the PANAMA-I report
+(Verfondern & Nabielek, HTA-IB-03/90), coded agentically by an AI coding
+agent from the printed equations. **This project does not have the PANAMA
+source code.** The PANAMA Fortran is closed-source and was never consulted,
+so nothing here is PANAMA, a port of it, or a code-to-code match to it.
+
+Keep the two names apart everywhere, because they are different evidence:
+
+- **"PANAMA-I"** (or "the report") means Verfondern & Nabielek's document
+  and **the results it prints** — Tables 1–2, Figs. 1–10. When a test here
+  compares against "PANAMA's curve", it is comparing against the report's
+  *published output*, which is the only PANAMA output this project has.
+- **"boon-lay fuel failure"** (or "this implementation", "the chain")
+  means the code in this module and every number it computes. A result
+  such as "`φ₁ = 1.2·10⁻¹²` for HTR-10" is boon-lay fuel failure's, never
+  "PANAMA's": PANAMA was never run on HTR-10.
+
+Matching the report's printed tables and figures shows the formulas were
+transcribed and assembled faithfully. It does not show agreement with the
+PANAMA code on any case the report does not print.
+
+## The model
+
+A TRISO particle is a pressure vessel. Fission gas and CO accumulate inside
+it, the SiC layer carries the hoop stress, and the particle fails when that
+stress exceeds the SiC strength. The PANAMA-I equations couple three failure
+populations, and boon-lay fuel failure implements them as follows:
+
+| Term | Mechanism | Where it comes from |
+|---|---|---|
+| `φ_o` | as-manufactured defects | not modelled; an input (see [`AS_MANUFACTURED_TARGET`]) |
+| `φ₁` | **pressure-vessel overstress** | [`weibull_failure_fraction`], this module |
+| `φ₂` | SiC **thermal decomposition** above ~2000 °C | [`decomposition`], Eqs (11)–(14b) |
+
+combined by [`total_failure_fraction`].
+
+## What is implemented here, and what is deliberately absent
+
+**Implemented — every equation below was read directly off the source scan
+and is reproduced with its printed equation number:**
+
+| Item | Eq. | Page |
+|---|---|---|
+| Weibull failure probability | (1) | -483- |
+| Induced SiC stress, thin shell | (2) | -484- |
+| Internal gas pressure, ideal gas | (3) | -484- |
+| Failure-population combination | unnumbered | -480- |
+| Booth release `f(τ)`, `F_d` | (4) + unnumbered | -485-/-486- |
+| Molar volume `V_m` | (6a), (6b), (6c) | -491-/-492- |
+| SiC thinning, corrosion rate | (7) | -492- |
+| Strength and modulus after irradiation | (8a)–(9b) | -493-/-494- |
+| Grain-boundary corrosion, **off by default** | (10b), (10c) | -495- |
+| Thermal decomposition | (11)–(14b) | -496-/-497- |
+| The time-stepping driver | §3.1 | -482-/-483- |
+
+~~**Absent, and taken as INPUTS rather than guessed.**~~
+**CORRECTED 2026-09-24** — every correlation this table used to list as
+absent is now implemented in its own module, and the two ambiguities it
+flagged are settled: `t_B` is **seconds** (Fig. 3) and the `f(τ)` series
+groups the whole `1 − exp(…)` into the numerator (Fig. 1). What remains an
+input is what the *report* leaves to the caller — the particle geometry,
+`V_k`, `V_f`, `φ_o`, and the `α`/`β` of Eq (13), which the report says must
+be determined by experiment and supplies two fits for.
+
+**What is NOT verified, stated plainly.** Eqs (11)–(14b) have no figure or
+table in the report to check them against, and Eq (4) has none either
+(only the exact identity `F_d(τ_i, 0) = f(τ_i)`). Against Fig. 6 the chain
+reproduces the eight-variety ordering 8/8 but carries a residual of
+−0.37 … +0.39 decades that runs systematically with `m`; against Fig. 7 it
+holds to 4.9 % through all three temperature stages for 300 h and then
+drifts to a factor 1.90 by 977 h. Both are recorded with numbers in
+`docs/panama-i-units-and-open-questions.md` and pinned by tests in
+[`history`].
+
+## The `ln2` in Eq (1) is load-bearing — do not reach for a stock Weibull
+
+Eq (1) is `φ₁ = 1 − exp[−ln2·(σ_t/σ_o)^m]`, **not** the textbook
+`1 − exp[−(σ/σ_c)^m]`. The `ln2` normalisation makes `σ_o` the **median**
+strength: at `σ_t = σ_o`, `φ₁ = 1 − e^(−ln2) = 0.5` exactly. A stock Weibull
+treats its scale parameter as the *characteristic* strength, where
+`φ = 1 − e^(−1) ≈ 0.632`. Substituting one for the other misplaces the
+strength scale by a factor `(ln2)^(1/m)` — about 4 % at `m = 8` — in a
+direction that flatters the answer and produces no error.
+[`median_is_the_scale_parameter`] pins this.
+
+## Units
+
+Public signatures are `uom`-typed. Two traps from the source's own symbol
+list (-511-): the report prints irradiation and accident temperatures in
+**°C** while every Arrhenius term needs **kelvin**, and it never states the
+conversion. Using `uom` removes that ambiguity at the boundary — a caller
+passes a `ThermodynamicTemperature` and cannot get it wrong.
+
+# Layout
+
+One module per equation group, because a single file was already past 700
+lines with four of the report's correlations implemented and there are a
+dozen more to come:
+
+| Module | Equations | Page |
+|---|---|---|
+| [`geometry`] | `r`, `d_o`, `d_act` | -484- |
+| [`diffusion`] | `D_S`, both kernel types | -487- |
+| [`corrosion`] | (7), `FKOR`, the `v̇` Arrhenius | -492- |
+| [`oxygen`] | (5a)–(5f), `OPF` | -488-/-489- |
+| [`weibull`] | (1) | -483- |
+| [`stress`] | (2) | -484- |
+| [`pressure`] | (3) | -484-/-485- |
+| [`booth`] | `f(τ)`, (4), `τ_i`/`τ_a` | -485-/-486- |
+| [`molar_volume`] | (6a), (6b), (6c) | -491-/-492- |
+| [`strength`] | (8a), (8b), (9a), (9b) | -493-/-494- |
+| [`grain_boundary`] | (10b), (10c) — off by default | -495- |
+| [`decomposition`] | (11), (12), (13), (14a), (14b) | -496-/-497- |
+| [`history`] | the time-stepping driver, §3.1 | -482-/-483- |
+| [`htr10`] | HTR-10 applied to the model — an **extrapolation** | — |
+
+The assembly (`phi_total`) stays here, since it is what binds them.
+Everything is re-exported flat, so a caller writes
+`boon_lay::fuel_failure::weibull_failure_fraction` and never needs to know
+which file it lives in.
+
+# Units: what the report states, and what it does not
+
+Three of the report's own symbols are ambiguous or wrong as printed. Each
+is resolved (or left open) at the point of use, and the register lives in
+`docs/panama-i-units-and-open-questions.md`. In brief:
+
+| Symbol | Printed | Used here | How settled |
+|---|---|---|---|
+| `T_B` | degC (-511-) | **kelvin** | Table 1 reproduces 16/16 on kelvin, 0/16 on degC |
+| `Gamma` | 10^25 m^-2 EDN | same, as bare `f64` | a `log10` fit is only valid in its own units |
+| Eq (3) grouping | bar spans the denominator | `R*T` in the numerator | dimensions; the printed form makes `p` fall with `T` |
+| `t_B` | seconds (-511-) | **seconds** | Fig. 3: seconds 0.0087, days 0.277 |
+
+```rust
+pub mod fuel_failure { /* ... */ }
+```
+
+### Modules
+
+## Module `booth`
+
+**Fission-gas release** — the Booth function `f(τ)` (unnumbered, page
+-485-), Eq (4) for `F_d` (page -485-, Allelein 1983), and the
+dimensionless times `τ_i`, `τ_a` (page -486-).
+
+```text
+f(τ) = 1 − (6/τ)·Σ_{n=1}^∞ (1 − exp(−n²π²τ)) / (n⁴π⁴)
+
+F_d  = [ (τ_i + τ_a)·f(τ_i + τ_a) − τ_a·f(τ_a) ] / τ_i        (4)
+
+τ_i  = D_S(T_B)·t_B      τ_a = D_S(T)·t
+```
+
+`F_d` is the fraction of the stable fission gas that has escaped the kernel
+into the buffer void, and it is what multiplies the fission-gas yield in
+Eq (3). `f` itself is the classical Booth release integral for a sphere
+with a **constant production rate**; Eq (4) differences the
+irradiation-plus-accident release against the accident-only part so that
+what is left is the release attributable to the inventory built up during
+irradiation.
+
+# The printed series has a grouping ambiguity, and only one reading works
+
+On page -485- the fraction bar in the summand spans **only**
+`exp(−n²π²τ) / (n⁴π⁴)`, with the `(1 −` opening outside it. Read
+literally, the summand is `1 − exp(−n²π²τ)/(n⁴π⁴)`, which tends to `1` as
+`n → ∞` — the series **diverges**, and a 1000-term partial sum gives
+`f(0.1) = −6.0·10⁴` instead of a number in `[0, 1]`.
+
+The consistent reading puts the whole `1 − exp(…)` in the numerator, as
+implemented. It is the reading verified below, and it is also the standard
+Booth form.
+
+| reading | `f(0.1)` | `f(0.5)` | `f(1.9)` |
+|---|---|---|---|
+| literal, bar over the exponential only | −5.99997·10⁴ | −1.19990·10⁴ | −3.1569·10³ |
+| **whole `1 − exp(…)` in the numerator** | **0.56365** | **0.86755** | **0.96491** |
+
+## Verification — methodology
+
+Fig. 1 (page -486-) plots `f(τ)` over `τ ∈ [0, 2]` and is therefore a
+direct check on the reading. Digitised by the maintainer 2026-09-24:
+**78 points**, `τ` from 0.0313 to 1.9077, read off the printed curve.
+(The digitiser's y-axis calibration labels the upper gridline `500`; a
+least-squares fit of the digitised ordinate against this implementation,
+forced through the origin and restricted to `τ ≥ 0.15` where the curve is
+not near-vertical, gives a scale of **501.29**, i.e. that gridline is
+`f = 1` to within 0.26 %. The comparison below uses `f = y/500`.)
+
+Pass criterion: the consistent reading within digitisation noise over the
+whole figure; the literal reading excluded by orders of magnitude.
+
+## Verification — results, 2026-09-24
+
+| sample | n | mean \|Δf\| | median | worst |
+|---|---|---|---|---|
+| all digitised points | 78 | **0.0066** | 0.0020 | 0.047 |
+| `τ ≥ 0.15` | 68 | **0.0028** | — | 0.018 |
+
+The worst point is the first one, `τ = 0.0313`, where the curve is nearly
+vertical (`df/dτ ≈ 5`): a 0.009 error in reading `τ` off the page accounts
+for the whole 0.047. On an ordinate running 0 to 1 the `τ ≥ 0.15` figure
+of 0.0028 is digitisation noise. Pinned by
+[`tests::figure_1_is_reproduced`] and
+[`tests::the_literal_grouping_is_excluded`].
+
+## Two analytic checks the figure cannot give
+
+Because `Σ 1/(n⁴π⁴) = ζ(4)/π⁴ = 1/90` exactly, the series rearranges to
+`f = 1 − 1/(15τ) + (6/τ)·Σ exp(−n²π²τ)/(n⁴π⁴)`, giving two limits that are
+independent of the digitisation:
+
+| limit | closed form | agreement |
+|---|---|---|
+| `τ → ∞` | `1 − 1/(15τ)` | 4·10⁻¹² at `τ = 10` |
+| `τ → 0` | `4√(τ/π) − 3τ/2` | 2·10⁻⁷ at `τ = 10⁻⁴` |
+
+Both are pinned by [`tests::the_analytic_limits_are_recovered`]. They also
+fix the *normalisation*, which Fig. 1 alone cannot: a factor-of-two error
+in the `6/τ` pre-factor would still plot as a plausible rising curve.
+
+# Summation cut-off: the report's 1000-term cap is what binds
+
+Page -485- states the "infinite" sum is terminated after **1000 summands
+(caution!)**, or when two consecutive summands differ by no more than
+**10⁻²⁰**. Both are implemented, but the second never fires first: the
+summand tends to `1/(n⁴π⁴)`, whose consecutive differences reach 10⁻²⁰ only
+near `n ≈ 5.3·10³`. The report's own "caution!" is well placed, and the
+measured cost of the cap is:
+
+| `τ` | 1000-term sum | error against the rearranged form |
+|---|---|---|
+| 10⁻² … 10¹ | 0.2107 … 0.9933 | ≤ 2·10⁻⁹ |
+| 10⁻⁴ | 0.02242 | 3·10⁻⁷ |
+| 10⁻⁶ | 0.002276 | ≤ 2·10⁻⁵ (bound `2/(N³π⁴τ)`) |
+| 10⁻⁸ | 6.4·10⁻⁴ | ~4·10⁻⁴ — **larger than the answer** |
+
+So this function is trustworthy for `τ ≳ 10⁻⁵` and degrades below it.
+That limit is the report's algorithm, not an implementation shortcut, and
+it is left in place rather than silently replaced by the rearranged form —
+which is in any case *worse* for small `τ`, since it cancels
+`1/(15τ) ≈ 6.7·10⁶` against itself to produce a number of order 10⁻⁴.
+[`tests::the_thousand_term_cap_is_the_binding_one`] records both facts.
+
+```rust
+pub mod booth { /* ... */ }
+```
+
+### Functions
+
+#### Function `booth_release_function`
+
+The Booth release function `f(τ)` (unnumbered, page -485-).
+
+```text
+f(τ) = 1 − (6/τ)·Σ_{n=1}^∞ (1 − exp(−n²π²τ)) / (n⁴π⁴)
+```
+
+Dimensionless in and out. `f(0) = 0` and `f → 1` as `τ → ∞`; the return is
+clamped to `[0, 1]` only at `τ ≤ 0`, where the expression is undefined —
+everywhere else the series is left to speak for itself, so that a
+mis-transcription shows up as an out-of-range value rather than being
+hidden by a clamp.
+
+Accurate for `τ ≳ 10⁻⁵`; see the module docs for the measured behaviour of
+the report's 1000-term cap below that.
+
+```rust
+pub fn booth_release_function(tau: uom::si::f64::Ratio) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `dimensionless_time`
+
+A dimensionless diffusion time `τ = D_S·t` (page -486-).
+
+Used for both of the report's arguments: `τ_i = D_S(T_B)·t_B` over the
+irradiation and `τ_a = D_S(T)·t` over the accident. `D_S = D_eff/r_o²` is
+a [`Frequency`] (the report prints it in `s⁻¹`) so the product is
+dimensionless by construction and cannot be assembled from the wrong pair
+of quantities.
+
+```rust
+pub fn dimensionless_time(reduced_diffusion: uom::si::f64::Frequency, elapsed: uom::si::f64::Time) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `released_gas_fraction`
+
+**Eq (4)** — the released fraction `F_d` of the stable fission gas
+(page -485-, Allelein 1983).
+
+```text
+F_d = [ (τ_i + τ_a)·f(τ_i + τ_a) − τ_a·f(τ_a) ] / τ_i
+```
+
+- `tau_irradiation` — `τ_i = D_S(T_B)·t_B`.
+- `tau_accident` — `τ_a = D_S(T)·t`.
+
+Applies to Xe and Kr. The argument structure is as printed: `τ_i` appears
+only inside the sum and in the denominator, so `F_d` is a *time-average*
+over the irradiation rather than a release evaluated at its end.
+
+## `τ_i = 0` is not defined by the report
+
+Eq (4) is singular there and the report does not say what to do. This
+returns **zero**, on the grounds that no irradiation means no fission-gas
+inventory to release — and in Eq (3) the same limit carries `F_b = 0`
+alongside, so the pressure is zero either way. That is this
+implementation's convention and not the report's; it is recorded in
+`docs/panama-i-units-and-open-questions.md`.
+
+```rust
+pub fn released_gas_fraction(tau_irradiation: uom::si::f64::Ratio, tau_accident: uom::si::f64::Ratio) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_SUMMANDS`
+
+The report's cap on the number of summands (page -485-).
+
+```rust
+pub const MAX_SUMMANDS: usize = 1000;
+```
+
+#### Constant `SUMMAND_CONVERGENCE`
+
+The report's convergence criterion on consecutive summands (page -485-).
+
+Never the binding one — see the module docs.
+
+```rust
+pub const SUMMAND_CONVERGENCE: f64 = 1.0e-20;
+```
+
+## Module `corrosion`
+
+**SiC layer thinning by volume corrosion** — Eq (7) and the corrosion-rate
+Arrhenius (page -492-, attributed to Montgomery 1981).
+
+```text
+d_act = d_o / (1 + v̇·t/d_o) = d_o / FKOR        (7)
+FKOR(t2) = FKOR(t1) + v̇(T_m)·(t2 − t1)/d_o
+v̇ = A · exp(−179500/(R·T))   [m/s]
+```
+
+`FKOR` is carried forward across time steps rather than recomputed from a
+total elapsed time, which is what lets a **varying** temperature history
+accumulate correctly: each step adds `v̇(T_m)·Δt/d_o` at that step's own
+mean temperature.
+
+# The printed pre-factor is a decade out, and Fig. 4 proves it
+
+The report prints `v̇ = 5.87·10⁻⁷ · exp(−179500/(R·T))`. That value does
+**not** reproduce Fig. 4 on the facing page, which plots this very
+equation for `d_o = 35 µm` at five isothermal temperatures. Checked
+2026-09-24 against a digitisation of all five curves (483 points):
+
+| pre-factor | mean abs error in `d_act/d_o` | worst |
+|---|---|---|
+| `5.87e-7` as printed | 0.12 – 0.51 per curve | 0.51 |
+| **`5.87e-8`** | **0.0055** | 0.0142 |
+
+On an axis running 0 to 1, 0.0055 is digitisation noise. Independently,
+fitting `v̇` freely from the figure gives an activation energy of
+**160.8 kJ/mol** against the printed 179.5 — but with the pre-factor
+corrected the printed activation energy fits every curve, so the free fit
+was absorbing the decade rather than finding a different energy.
+
+[`PRINTED_PREFACTOR`] and [`FIGURE_PREFACTOR`] are both exposed and the
+**figure's** value is the default, because it is the one the report's own
+plotted output is consistent with. This is a departure from the rule used
+for `D_S` in [`super::diffusion`], where the equation was preferred over
+the figure — the difference is that there the two disagreed in *slope*,
+with no single parameter reconciling them, whereas here one factor of ten
+reconciles five curves over a 1000 °C span. That is a typo, not a
+modelling choice.
+
+```rust
+pub mod corrosion { /* ... */ }
+```
+
+### Functions
+
+#### Function `corrosion_rate`
+
+The SiC volume-corrosion rate `v̇` \[m/s\] (page -492-, Montgomery 1981).
+
+Uses [`FIGURE_PREFACTOR`]; see the module docs for why, and
+[`corrosion_rate_with`] to evaluate the printed value instead.
+
+```rust
+pub fn corrosion_rate(temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::Velocity { /* ... */ }
+```
+
+#### Function `corrosion_rate_with`
+
+[`corrosion_rate`] with an explicit pre-factor, so the printed-vs-figure
+discrepancy is reproducible rather than merely documented.
+
+```rust
+pub fn corrosion_rate_with(prefactor: f64, temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::Velocity { /* ... */ }
+```
+
+#### Function `thinning_factor`
+
+`FKOR` after holding at a constant `temperature` for `elapsed`, starting
+from an uncorroded layer (page -492-).
+
+`FKOR = 1 + v̇·t/d_o`, so `d_act = d_o/FKOR`. Starts at 1, never below it.
+
+```rust
+pub fn thinning_factor(initial_thickness: uom::si::f64::Length, temperature: uom::si::f64::ThermodynamicTemperature, elapsed: uom::si::f64::Time) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `advance_thinning_factor`
+
+Advance `FKOR` across one time step at mean temperature `t_m`
+(page -492-):
+
+```text
+FKOR(t2) = FKOR(t1) + v̇(T_m)·(t2 − t1)/d_o
+```
+
+Carried forward rather than recomputed from total elapsed time: that is
+what makes a **varying** temperature history accumulate correctly, since
+each step contributes at its own temperature. Recomputing from `t_total`
+at the current temperature would silently apply the latest temperature to
+the whole history.
+
+```rust
+pub fn advance_thinning_factor(previous: uom::si::f64::Ratio, initial_thickness: uom::si::f64::Length, mean_temperature: uom::si::f64::ThermodynamicTemperature, step: uom::si::f64::Time) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CORROSION_ACTIVATION_J_PER_MOL`
+
+Activation energy in the corrosion-rate Arrhenius, J/mol (page -492-).
+
+```rust
+pub const CORROSION_ACTIVATION_J_PER_MOL: f64 = 179_500.0;
+```
+
+#### Constant `PRINTED_PREFACTOR`
+
+The pre-factor **as printed** on page -492-, `5.87e-7` m/s.
+
+Does not reproduce Fig. 4; see the module docs. Exposed so the
+discrepancy can be reproduced rather than only described.
+
+```rust
+pub const PRINTED_PREFACTOR: f64 = 5.87e-7;
+```
+
+#### Constant `FIGURE_PREFACTOR`
+
+The pre-factor **Fig. 4 is consistent with**, `5.87e-8` m/s — the printed
+value divided by ten. This is the default.
+
+```rust
+pub const FIGURE_PREFACTOR: f64 = 5.87e-8;
+```
+
+## Module `decomposition`
+
+**SiC thermal decomposition** — `φ₂`. The Arrhenius "decay constant"
+(unnumbered, page -495-, Benz 1982), the action integral `ζ` and its
+discrete form Eq (11), the rate constant Eq (12), the failure law Eq (13)
+and its two calibrations Eqs (14a)/(14b) (pages -496-, -497-).
+
+```text
+k        = k_o·exp(−Q/(R·T)),   Q = 556 kJ/mol                 (p-495)
+ζ        = ∫ k(T) dt                                            (p-496)
+ζ(t₂)    = ζ(t₁) + k(T_m)·(t₂ − t₁)                             (11)
+k(T_m)   = (375/d_o)·exp(−556000/(R·T_m))   [s⁻¹]               (12)
+φ₂(t,T)  = 1 − exp(−α·ζ^β)                                      (13)
+α = 0.693 (= ln 2), β = 0.88   loose particles                  (14a)
+α = 0.0001,         β = 4      particles in a sphere            (14b)
+```
+
+Above roughly 2000 °C this is the dominant failure mechanism, and it is
+the one `φ₁` cannot see: SiC decomposes to gaseous Si and solid graphite,
+so the layer stops being a pressure vessel rather than bursting as one.
+
+# `ζ` carries the history; `φ₂` does not accumulate
+
+This is the structural difference from `φ₁`, and the report is explicit
+about it on page -483-: `ζ` increases monotonically step by step and
+`φ₂(t₂)` is then read **directly** off Eq (13) at that `ζ`. Only the
+*rate* `φ̇₂ = Δφ₂/Δt` is formed by differencing. `φ₁`, by contrast, is
+accumulated from positive increments (page -482-).
+
+Accumulating `φ₂` by increments instead would give the same answer for a
+monotone temperature history and a different one for any history that
+cools, which is exactly the case a reactor transient is. See
+[`super::history`], where the two are stepped side by side.
+
+# The units of the 375
+
+Eq (12) prints `375/d_o` with `d_o` in metres and declares the result
+`[s⁻¹]`. For that to hold, **375 must carry units of m/s**: it is the
+`k_o` of the page -495- Arrhenius made concrete, a decomposition front
+velocity divided by the layer it has to eat through. The report never says
+so; it is the only reading that balances, and it is why
+[`decomposition_rate_constant`] takes a `uom` [`Length`] rather than a
+bare number. Recorded in `docs/panama-i-units-and-open-questions.md`.
+
+A consequence worth stating: `k ∝ 1/d_o`, so a 50 µm layer decomposes
+30 % more slowly than a 35 µm one at the same temperature, and `ζ` scales
+with it directly.
+
+# Verification status — no figure in the report checks this group
+
+**Unlike Eqs (7), (8a), (9a), (5a)–(5f), `D_S` and `f(τ)`, nothing here is
+verified against a plotted or tabulated output of the report.** Figs. 10–13's
+reactor cases do not state `d_o`, and the Benz 1982 weight-loss data that
+fixed `Q` is in the missing reference list (page -510-).
+
+Fig. 6 does, however, **exclude one of the two calibrations**. At 1600 °C
+with `d_o = 35 µm`, `ζ(300 h) = 3.6·10⁻³`, which under Eq (14a) gives
+`φ₂ = 4.9·10⁻³` — a floor that every one of Fig. 6's eight curves would sit
+on, where the figure in fact runs from 2·10⁻⁶ to about 5·10⁻³ and spreads
+across three decades. Under Eq (14b) the same `ζ` gives `φ₂ = 1.7·10⁻¹⁴`,
+invisible. So Fig. 6 was computed with the **sphere** calibration (14b), or
+with `φ₂` switched off; it cannot have used (14a). Pinned by
+[`tests::figure_6_excludes_the_loose_particle_calibration`].
+
+What *is* checked here is internal and algebraic, and it is stated as such:
+
+| check | result |
+|---|---|
+| Eq (14a)'s `α = ln 2` makes `ζ = 1` the median | exact, [`tests::alpha_ln2_makes_unit_action_the_median`] |
+| Eq (11) telescopes at constant `T` | 1·10⁻¹² over 30 steps |
+| `Q = 556 kJ/mol` reproduces Benz's stated 1600–2200 °C range as ~4 decades in `k` | 3.76 decades |
+| `k ∝ 1/d_o` | exact |
+
+An order-of-magnitude comparison against Fig. 9 is recorded in the units
+doc; it is **not** a verification, because Fig. 9's caption states neither
+the burnup nor the irradiation history.
+
+```rust
+pub mod decomposition { /* ... */ }
+```
+
+### Types
+
+#### Enum `DecompositionCalibration`
+
+Which of the report's two empirical fits of Eq (13) to use.
+
+The two are not small perturbations of one another — `β` is 0.88 against
+4 — so they disagree by orders of magnitude away from `ζ ≈ 1`. Which one
+applies is a property of the *experiment* being modelled (a loose particle
+in a furnace, or one embedded in a fuel sphere), not a fitting knob.
+
+```rust
+pub enum DecompositionCalibration {
+    LooseParticles,
+    ParticlesInSphere,
+}
+```
+
+##### Variants
+
+###### `LooseParticles`
+
+**Eq (14a)** — loose particles. Ramp tests to 2500 °C on loose
+`UO₂`-TRISO irradiated in DR-S6 (Goodin et al. 1985).
+`α = 0.693 (= ln 2)`, `β = 0.88`.
+
+###### `ParticlesInSphere`
+
+**Eq (14b)** — particles embedded in a fuel sphere (Schenk 1984, AVR
+GO2). `α = 0.0001`, `β = 4`. The report states the result is the same
+for irradiated and unirradiated elements.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn alpha(self: Self) -> f64 { /* ... */ }
+  ```
+  `α` of Eq (13).
+
+- ```rust
+  pub const fn beta(self: Self) -> f64 { /* ... */ }
+  ```
+  `β` of Eq (13).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DecompositionCalibration { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DecompositionCalibration) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `decomposition_rate_constant`
+
+**Eq (12)** — the decomposition rate constant `k(T_m)` \[s⁻¹\]
+(page -496-).
+
+```text
+k(T_m) = (375/d_o)·exp(−556000/(R·T_m))
+```
+
+- `initial_thickness` — `d_o`. The **initial** thickness, not `d_act`:
+  Eq (12) is written against `d_o` and the report does not couple
+  decomposition to the volume-corrosion thinning of Eq (7).
+- `mean_temperature` — `T_m`, the step's mean temperature, in kelvin via
+  `uom`.
+
+Returns zero at non-positive temperature or thickness rather than a NaN or
+an infinity — nothing decomposes at absolute zero, and a vanished layer
+has no rate left to define.
+
+```rust
+pub fn decomposition_rate_constant(initial_thickness: uom::si::f64::Length, mean_temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::Frequency { /* ... */ }
+```
+
+#### Function `advance_action_integral`
+
+**Eq (11)** — advance the action integral `ζ` across one time step
+(page -496-):
+
+```text
+ζ(t₂) = ζ(t₁) + k(T_m)·(t₂ − t₁)
+```
+
+`ζ` is dimensionless (`s⁻¹ × s`) and starts at zero. It is carried
+forward rather than recomputed from the total elapsed time for the same
+reason `FKOR` is in [`super::corrosion`]: each step must contribute at its
+own mean temperature, and `k` spans decades over a transient.
+
+```rust
+pub fn advance_action_integral(previous: uom::si::f64::Ratio, initial_thickness: uom::si::f64::Length, mean_temperature: uom::si::f64::ThermodynamicTemperature, step: uom::si::f64::Time) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `thermal_decomposition_failure_fraction`
+
+**Eq (13)** — the failed fraction from thermal decomposition (page -496-).
+
+```text
+φ₂(t,T) = 1 − exp(−α·ζ^β)
+```
+
+Evaluated **directly** from the running `ζ`, never accumulated from
+increments: `ζ` already carries the whole temperature–time history
+(page -483-).
+
+The form is chosen so that `φ₂ ≤ 1` for any `ζ`. Returns zero for
+`ζ ≤ 0`, where `ζ^β` is not defined for the fractional `β` of Eq (14a).
+
+```rust
+pub fn thermal_decomposition_failure_fraction(action_integral: uom::si::f64::Ratio, calibration: DecompositionCalibration) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `thermal_decomposition_failure_fraction_with`
+
+[`thermal_decomposition_failure_fraction`] with an explicit `α` and `β`.
+
+The report states these "must be empirically determined" and gives two
+fits; a third measurement would come in here rather than by editing the
+enum.
+
+```rust
+pub fn thermal_decomposition_failure_fraction_with(action_integral: uom::si::f64::Ratio, alpha: f64, beta: f64) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DECOMPOSITION_ACTIVATION_J_PER_MOL`
+
+The activation energy `Q` of SiC decomposition, J/mol (page -495-,
+Benz 1982, 63 specimens decomposed between 1600 °C and 2200 °C).
+
+```rust
+pub const DECOMPOSITION_ACTIVATION_J_PER_MOL: f64 = 556_000.0;
+```
+
+#### Constant `DECOMPOSITION_FRONT_VELOCITY_M_PER_S`
+
+Eq (12)'s numerator, \[m/s\] — the `k_o` of the page -495- Arrhenius
+expressed as a front velocity, so that `k_o = 375/d_o` comes out in s⁻¹.
+
+See the module docs: the unit is not printed in the report and this is the
+only reading that balances.
+
+```rust
+pub const DECOMPOSITION_FRONT_VELOCITY_M_PER_S: f64 = 375.0;
+```
+
+## Module `diffusion`
+
+**The reduced diffusion coefficient `D_S`** for fission gases in the
+particle kernel (page -487-).
+
+`D_S = D_eff / r_o^2`, in s^-1 — the Booth equivalent-sphere diffusion
+coefficient divided by the equivalent sphere's radius squared, which is
+the form the release function needs. It feeds the dimensionless times
+`tau_i = D_S(T_B)*t_B` and `tau_a = D_S(T)*t`, and from there the Booth
+series, `F_d`, and Eq (3)'s pressure.
+
+Two correlations, one per kernel type, both printed without equation
+numbers on page -487- and cited by page.
+
+# Verification against Fig. 2 (page -487-)
+
+The figure plots both correlations, so it is a verification target rather
+than a data source. Checked 2026-09-24 against a digitisation of it:
+
+| curve | nominal `F_b` | `F_b` recovered from the fit | mean abs err in `log10(D_S)` |
+|---|---|---|---|
+| 1 % FIMA | 0.01 | 0.0086 | 0.021 |
+| 5 % FIMA | 0.05 | 0.0494 | 0.035 |
+| 10 % FIMA | 0.10 | 0.0950 | 0.013 |
+| 15 % FIMA | 0.15 | 0.1456 | 0.023 |
+
+Each (Th,U)O2 curve recovers **its own printed label** from a blind fit,
+which is a stronger statement than the residuals: it says the burnup term
+`3.24/(1 + 0.11/F_b)` is right in form and not only in magnitude. The 1 %
+curve is the loosest (−13.6 % in `F_b`) and that is expected — the term is
+most sensitive to `F_b` where `F_b` is smallest.
+
+# The UO2 correlation disagrees with the report's own figure
+
+**This is a defect in the source, recorded rather than resolved.** The
+printed Horsley correlation sits *above* the figure's dashed UO2 curve
+everywhere, by a factor that falls monotonically with temperature:
+
+| `10^4/T` | figure | equation | equation / figure |
+|---|---|---|---|
+| 3.19 | 10^−5.69 | 10^−4.89 | **6.4×** |
+| 5.59 | 10^−7.34 | 10^−6.84 | 3.2× |
+| 7.21 | 10^−8.46 | 10^−8.16 | 2.0× |
+| 8.59 | 10^−9.40 | 10^−9.28 | 1.3× |
+
+A blind fit to the plotted curve gives a slope of −0.6875 against the
+equation's −0.8116, so it is a **slope** disagreement, not an offset —
+the two are not reconcilable by a units or a decade error. The
+transcription was checked against the page image directly, and the
+equation reads `log DS = −2.30 − 0.8116·10^4/T` as implemented.
+
+[`reduced_diffusion_coefficient`] implements **the equation**, because for
+a code reconstruction the equation is the specification and the figure is
+illustrative. Anyone comparing against Fig. 2 should expect the offset
+above and should not "fix" it by tuning.
+
+```rust
+pub mod diffusion { /* ... */ }
+```
+
+### Types
+
+#### Enum `KernelKind`
+
+Which kernel the correlation is for. Closed set, enum-dispatched per the
+workspace Rust design rules.
+
+```rust
+pub enum KernelKind {
+    ThoriumUraniumOxide,
+    UraniumOxide,
+}
+```
+
+##### Variants
+
+###### `ThoriumUraniumOxide`
+
+`(Th,U)O2` — Myers 1977. Burnup-dependent.
+
+###### `UraniumOxide`
+
+`UO2` — Horsley 1976. The report states this is **also used for UCO**
+(page -487-). No burnup dependence.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KernelKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KernelKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `reduced_diffusion_coefficient`
+
+The reduced diffusion coefficient `D_S` \[s^-1\] (page -487-).
+
+```text
+(Th,U)O2   log10(D_S) = -5.94 + 3.24/(1 + 0.11/F_b) - 0.5460e4/T
+UO2, UCO   log10(D_S) = -2.30 - 0.8116e4/T
+```
+
+- `temperature` — `T`, in kelvin via `uom`. (The report writes `10^4/T`
+  throughout and its symbol list gives temperatures in degC; kelvin is
+  established in `docs/panama-i-units-and-open-questions.md`.)
+- `burnup` — `F_b`, heavy-metal burnup in FIMA as a **fraction**, not a
+  percent. Fig. 2's curves are labelled `1 % FIMA` … `15 % FIMA`, i.e.
+  `F_b` = 0.01 … 0.15, and those labels are recovered from the figure by
+  [`tests::the_thorium_curves_recover_their_own_burnup_labels`]. Ignored
+  for [`KernelKind::UraniumOxide`].
+
+Returns zero at non-positive temperature rather than a NaN or an infinity:
+`10^4/T` is undefined there and a zero diffusion coefficient is the
+physically right limit (nothing diffuses).
+
+```rust
+pub fn reduced_diffusion_coefficient(kernel: KernelKind, temperature: uom::si::f64::ThermodynamicTemperature, burnup: uom::si::f64::Ratio) -> uom::si::f64::Frequency { /* ... */ }
+```
+
+## Module `geometry`
+
+**The SiC layer's geometry** — Eq (2)'s `r`, `d_o` and `d_act` (page -484-).
+
+Split out because these are the figure-independent facts about a particle:
+every other module here consumes them and none of them depends on the rest.
+
+```rust
+pub mod geometry { /* ... */ }
+```
+
+### Types
+
+#### Struct `SicLayer`
+
+The SiC layer's geometry, from which Eq (2)'s `r` and `d_o` are derived.
+
+Both radii are to the SiC layer itself — `r_i` its inner surface (the outer
+surface of the inner PyC) and `r_a` its outer surface.
+
+```rust
+pub struct SicLayer {
+    pub inner_radius: uom::si::f64::Length,
+    pub outer_radius: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inner_radius` | `uom::si::f64::Length` | Inner radius `r_i` of the SiC layer. |
+| `outer_radius` | `uom::si::f64::Length` | Outer radius `r_a` of the SiC layer. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn mean_radius(self: &Self) -> Length { /* ... */ }
+  ```
+  The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)`
+
+- ```rust
+  pub fn initial_thickness(self: &Self) -> Length { /* ... */ }
+  ```
+  The original layer thickness `d_o = r_a − r_i` (page -484-).
+
+- ```rust
+  pub fn actual_thickness(self: &Self, corrosion_rate: Velocity, elapsed: Time) -> Length { /* ... */ }
+  ```
+  **Eq (7)** — the actual thickness after volume corrosion (page -492-):
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SicLayer { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SicLayer) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `grain_boundary`
+
+**Eqs (10b)/(10c)** — strength loss of the SiC layer by grain-boundary
+corrosion (page -495-).
+
+```text
+m  = m_o·(0.44 + 0.56·exp(−η̇·t))                                (10b)
+η̇  = 0.565·exp(−187400/(R·T))   [s⁻¹]                            (10c)
+```
+
+Fission products attack the SiC grain boundaries, widening the Weibull
+distribution — `m` falls toward `0.44·m_o`, so the *scatter* in strength
+grows while the median `σ_o` is untouched. Since Eq (1) raises
+`σ_t/σ_o` to the power `m`, a smaller `m` lifts the failure fraction
+dramatically in the `σ_t ≪ σ_o` regime where a TRISO particle actually
+sits: Figs. 7 and 8 show it worth **one to two decades** in the release
+fraction at 1600 °C.
+
+# This is OFF by default, and that is the report's own default
+
+Page -495- states plainly that grain-boundary corrosion "is not generally
+taken into consideration, although it can be selected by setting one switch
+per input", and page -499- that **Eq (10a) (`m = m_o`) is normally used in
+place of (10b)**. Both Fig. 7 and Fig. 8 carry `η̇(T) ≡ 0` in their
+captions while plotting a "with grain boundary corrosion" curve alongside
+for comparison.
+
+So [`GrainBoundaryCorrosion::Disabled`] is the default in
+[`super::history`], and that is **not** an instance of the workspace's
+"correct physics is the default setting" rule being waived: the rule is
+about physics the model supplies, and here the source model's own
+specified default is off. Turning it on silently would mean this
+reconstruction stopped reproducing the report. The enum is visible at the
+call site so the choice is made, not inherited.
+
+# `η̇·t` for a varying history is an extension, not the report
+
+Eq (10b) prints `exp(−η̇·t)` with a single rate and a single time, i.e. it
+is written for an isothermal hold. For a varying temperature history the
+natural discrete analogue is to accumulate `∫η̇ dt` exactly as Eq (11)
+accumulates `∫k dt` — and that is what
+[`advance_grain_boundary_exposure`] does. **The report does not state
+this**; it is this implementation's reading, chosen for consistency with
+Eq (11) and because the alternative (evaluating `η̇` at the current
+temperature and multiplying by the total elapsed time) would retroactively
+apply the latest temperature to the whole history. It is recorded as an
+open item in `docs/panama-i-units-and-open-questions.md`, and it collapses
+to the printed form for an isothermal hold — pinned by
+[`tests::the_exposure_reduces_to_the_printed_form_when_isothermal`].
+
+# Verification status
+
+**Not verified against any output of the report.** Figs. 7 and 8 plot the
+"with grain boundary corrosion" curve, but their captions state neither the
+particle geometry, the kernel volume nor the buffer void volume, so the
+absolute release fraction cannot be reproduced without inventing three
+inputs. What can be said is checked and no more: the qualitative direction
+(corrosion raises the failure fraction), the floor at `0.44·m_o`, and the
+`0.565`/`187400` Arrhenius as transcribed.
+
+```rust
+pub mod grain_boundary { /* ... */ }
+```
+
+### Types
+
+#### Enum `GrainBoundaryCorrosion`
+
+Whether the grain-boundary corrosion of Eqs (10b)/(10c) is applied.
+
+[`Disabled`](Self::Disabled) is the default, matching the report's own
+switch (page -495-) and its stated normal use of Eq (10a), `m = m_o`
+(page -499-).
+
+```rust
+pub enum GrainBoundaryCorrosion {
+    Disabled,
+    Enabled,
+}
+```
+
+##### Variants
+
+###### `Disabled`
+
+Eq (10a): `m = m_o`. The report's default, and this crate's.
+
+###### `Enabled`
+
+Eqs (10b)/(10c): `m` decays toward `0.44·m_o`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GrainBoundaryCorrosion { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> GrainBoundaryCorrosion { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GrainBoundaryCorrosion) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `grain_boundary_corrosion_rate`
+
+**Eq (10c)** — the SiC grain-boundary corrosion rate `η̇` \[s⁻¹\]
+(page -495-).
+
+```text
+η̇ = 0.565·exp(−187400/(R·T))
+```
+
+Returns zero at non-positive temperature rather than a NaN.
+
+```rust
+pub fn grain_boundary_corrosion_rate(temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::Frequency { /* ... */ }
+```
+
+#### Function `advance_grain_boundary_exposure`
+
+Advance the accumulated grain-boundary exposure `∫η̇ dt` across one time
+step at its own mean temperature.
+
+Dimensionless, starting at zero, and feeding the `η̇·t` slot of Eq (10b).
+
+**This accumulation is an extension of the printed equation, not the
+printed equation.** Eq (10b) writes a single `η̇·t`; see the module docs.
+
+```rust
+pub fn advance_grain_boundary_exposure(previous: uom::si::f64::Ratio, mean_temperature: uom::si::f64::ThermodynamicTemperature, step: uom::si::f64::Time) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `corroded_weibull_modulus`
+
+**Eq (10b)** — the Weibull modulus after grain-boundary corrosion
+(page -495-):
+
+```text
+m = m_o·(0.44 + 0.56·exp(−η̇·t))
+```
+
+- `end_of_irradiation_modulus` — `m_o`, from
+  [`super::irradiated_weibull_modulus`].
+- `exposure` — the accumulated `∫η̇ dt` from
+  [`advance_grain_boundary_exposure`], or simply `η̇·t` for an isothermal
+  hold.
+
+At zero exposure this returns `m_o` exactly, so Eq (10a) is the `t = 0`
+limit of Eq (10b) rather than a separate branch.
+
+```rust
+pub fn corroded_weibull_modulus(end_of_irradiation_modulus: f64, exposure: uom::si::f64::Ratio) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `GRAIN_BOUNDARY_PREFACTOR_PER_S`
+
+Eq (10c)'s pre-factor, \[s⁻¹\] (page -495-).
+
+```rust
+pub const GRAIN_BOUNDARY_PREFACTOR_PER_S: f64 = 0.565;
+```
+
+#### Constant `GRAIN_BOUNDARY_ACTIVATION_J_PER_MOL`
+
+Eq (10c)'s activation energy, J/mol (page -495-).
+
+```rust
+pub const GRAIN_BOUNDARY_ACTIVATION_J_PER_MOL: f64 = 187_400.0;
+```
+
+#### Constant `RESIDUAL_MODULUS_FRACTION`
+
+The asymptotic floor of Eq (10b): `m → 0.44·m_o` as `η̇·t → ∞`.
+
+```rust
+pub const RESIDUAL_MODULUS_FRACTION: f64 = 0.44;
+```
+
+## Module `history`
+
+**The time-stepping driver** — §3.1, pages -482- and -483-.
+
+Everything else in [`super`] is one equation. This is the assembly: it
+walks a temperature history interval by interval, carries the three
+history variables forward, and reports `φ₁`, `φ₂`, `φ_total` and the
+three rates `φ̇` (page -511-, all `s⁻¹`) at every step.
+
+```text
+per interval [t₁, t₂] at mean temperature T_m:
+
+  FKOR(t₂) = FKOR(t₁) + v̇(T_m)·Δt/d_o                       (p-492)
+  ζ(t₂)    = ζ(t₁)    + k(T_m)·Δt                            (11)
+
+  φ₁ ← φ₁ + max(0, φ₁(t₂,T_m) − φ₁(t₁,T_m))                  (p-482)
+  φ₂  = 1 − exp(−α·ζ(t₂)^β)                                  (13)
+  φ_total = 1 − (1−φ_o)(1−φ₁)(1−φ₂)                          (p-480)
+```
+
+# The two mechanisms are stepped differently, and that is the report's
+
+`φ₁` is **accumulated from positive increments**: page -482- forms
+`φ₁(t₂,T_m) − φ₁(t₁,T_m)` — both ends evaluated at *this* interval's mean
+temperature — and adds it to the running total only if it is positive. So
+`φ₁` is monotone by construction: a particle that has burst does not
+un-burst when the transient cools.
+
+`φ₂` is **not** accumulated. Page -483- is explicit: `ζ` carries the whole
+history, and `φ₂(t₂)` is read straight off Eq (13) at that `ζ`. Only the
+*rate* `φ̇₂` is formed by differencing.
+
+Getting this backwards is invisible on a monotone heat-up — the two agree
+exactly there — and wrong on anything that cools, which is every reactor
+transient the report goes on to compute (Figs. 10–13).
+[`tests::the_two_mechanisms_are_stepped_differently`] pins the
+distinction on a history that cools.
+
+# Verification — methodology and results
+
+## 1. Step-size independence at constant temperature (the report's own claim)
+
+Page -482-: "At a constant temperature, the length of the time interval
+does not influence the computed result." That is a falsifiable statement
+about *this algorithm*, independent of any figure, and it is the sharpest
+check available on the stepping itself — a driver that recomputed `FKOR`
+or `ζ` from total elapsed time, or that accumulated `φ₂`, would fail it.
+
+**Result, 2026-09-24:** 300 h at 1600 °C taken in 1, 12, 300 and 3000
+steps gives `φ_total` agreeing to **2·10⁻¹² relative** (`FKOR` and `ζ` to
+better than 10⁻¹²; the extra digit is the `f(τ)` sum). Pinned by
+[`tests::the_step_length_does_not_matter_at_constant_temperature`].
+
+## 2. Fig. 6 — the first end-to-end check on the whole chain
+
+Fig. 6 (page -500-) is PANAMA's own output for eight SiC varieties at
+1600 °C over ~250 h, and it is the only figure in the report that exercises
+Eqs (1), (8a) and (9a) across a *family* of particles. Page -498- states
+its basis explicitly: the Table 1 "after irradiation" values, computed at
+`T_B = 1000 °C` and `Γ = 1·10²⁵ m⁻² EDN`. Its caption states the kernel
+((Th,U)O₂) and the temperature and nothing else — no geometry, no `V_k`,
+no `V_f`, no `F_b`, no `t_B` — so the **absolute** failure fraction cannot
+be reproduced without inventing four inputs, and inventing them is exactly
+the tuning this workspace forbids.
+
+What the figure *can* verify, with no invented input at all, is the
+consequence of `σ_t(t)` being **common to all eight curves**. Only `σ_o`
+and `m` differ between varieties, so inverting Eq (1) on each digitised
+curve,
+
+```text
+σ_t^(i)(t) = σ_o,i · ( −ln(1 − φ_i(t)) / ln2 )^(1/m_i)
+```
+
+must return the **same** `σ_t(t)` from all eight. That is an eight-fold
+over-determined test of Eq (1) together with Eqs (8a)/(9a).
+
+**Results, 2026-09-24** (467 digitised points, maintainer; 121 of them lie
+below the figure's plotted 10⁻⁶ floor and are excluded from the inversion):
+
+| quantity | measured |
+|---|---|
+| rank order of the eight curves | **8/8 reproduced** |
+| spread top-to-bottom at 248 h | 4.79 decades |
+| recovered common `σ_t` | 132 MPa at 130 h → 163 MPa at 248 h |
+| relative s.d. of `σ_t` across varieties | **9.0 % (130 h) … 11.2 % (248 h)** |
+| per-curve residual in `log₁₀ φ` at one common `σ_t` | **−0.37 … +0.39**, mean \|·\| **0.23** |
+
+Reproducing the ordering and the 4.8-decade spread of eight curves from
+one common stress, to ±0.4 decades, is a real success for Eq (1) and the
+Table 1 degradation. But the residual is **systematic, not random**: it
+runs monotonically with `m_oo`, from −0.37 decades at `m_oo = 5.0` to
++0.39 at `m_oo = 8.5`. Two hypotheses were tested and neither removes it:
+
+- **Fluence.** Removing the Eq (8a)/(9a) degradation entirely (`Γ → 0`)
+  halves the scatter, from 10.1 % to 5.4 % relative s.d. But page -498-
+  states Fig. 6's basis is `Γ = 1·10²⁵`, so this is a *disagreement with
+  the figure*, not a licence to change the input — and `Γ` was not
+  changed.
+- **The plotted floor.** Restricting to points inside the figure's own
+  10⁻⁶ … 10 axis leaves the trend intact (9.0 → 11.2 % against
+  9.3 → 11.3 % unrestricted).
+
+Recorded with numbers in `docs/panama-i-units-and-open-questions.md`.
+Pinned by [`tests::figure_6_recovers_one_common_stress_history`].
+
+## 3. Fig. 7 — the staged history, and the first VALIDATION case
+
+Fig. 7 (page -501-) is the FRJ2-K11/03 heating experiment: **measured**
+⁸⁵Kr release alongside two PANAMA curves. Unlike every check above it has
+a complete stated input set — `σ_oo = 600 MPa`, `m_oo = 6`,
+`T_B = 1160 °C`, `t_B = 260 FPD`, `F_B = 0.09 FIMA`,
+`Γ = 0.05·10²⁵ m⁻² EDN`, `η̇(T) ≡ 0` — and page -498- states the staging
+outright: **100 h at 1400 °C, then 100 h at 1500 °C, then 1600 °C** to
+1000 h. Nothing here was inferred from the curve's slope.
+
+### The load-bearing assumption being inherited
+
+PANAMA computes a particle **failure** fraction; Fig. 7 plots a ⁸⁵Kr
+**release** fraction, and the report puts them on one axis. That equates
+the two — a failed particle releases its whole krypton inventory. **This
+is an assumption inherited from the report, not derived here.** If a
+comparison matches in shape but sits at a constant offset, it is the first
+suspect.
+
+### Code-to-code: does this implementation reproduce PANAMA's own curve?
+
+The absolute level still needs the unstated geometry, so the comparison is
+made on `σ_t` recovered from the `Without Grain Boundary Corrosion` curve
+(the right comparator, since `η̇ ≡ 0`) against the chain's own `σ_t`, with
+**one** free scale — the geometry aggregate `r/(2·d_o·(V_f/V_k))`. No
+physics constant is adjusted.
+
+**Results, 2026-09-24** (71 digitised points):
+
+| window | relative s.d. of `σ_t^PANAMA / σ_t^chain` | max/min |
+|---|---|---|
+| **0–300 h, all three stages** | **4.9 %** | 1.20 |
+| 300–1000 h | 15.4 % | 1.77 |
+| whole run | 21.9 % | 2.17 |
+
+Per stage the ratio is 0.1561 (1400 °C), 0.1473 (1500 °C), 0.1608
+(1600 °C, first 100 h) — within ±4.5 % of each other. **The staging is
+reproduced**: the temperature dependence entering through Eq (5c)'s `OPF`,
+`D_S(T)`, `v̇(T)` and Eq (3)'s explicit `T` all land together across two
+step changes.
+
+**Then it drifts, and that is the finding.** By 977 h PANAMA's implied
+`σ_t` is 282 MPa; with the single scale fixed over 0–300 h the chain
+predicts 148 MPa — a factor **1.90**.
+Diagnosis: PANAMA's curve follows `φ ∝ t^3.21` at late times, i.e.
+`σ_t ∝ t^0.54`, whereas in the chain `F_d` has saturated (0.980 at 296 h,
+0.9999 at 977 h) and `OPF` is constant at fixed temperature, leaving only
+`FKOR` — which rises **4 %** over the last 700 h. Something in PANAMA
+keeps the pressure climbing as `√t` after the Booth release is over, and
+the printed equations do not say what. Recorded as an open item with these
+numbers in `docs/panama-i-units-and-open-questions.md`;
+[`tests::figure_7_reproduces_the_staged_history_then_drifts`] pins both
+halves so neither can be lost.
+
+### Code-to-data: does PANAMA reproduce the experiment?
+
+This part needs no geometry — it compares the nine measured points against
+the report's own two curves.
+
+| comparator | mean residual, `log₁₀` | mean \|·\| | worst |
+|---|---|---|---|
+| `Without Grain Boundary Corrosion` (`η̇ ≡ 0`, the caption's case) | **+0.51** | 0.52 | +1.14 |
+| `With Grain Boundary Corrosion` | −1.49 | 1.49 | −1.85 |
+
+So at 1400–1600 °C PANAMA **under**-predicts FRJ2-K11/03 by half a decade
+with grain-boundary corrosion off, and over-predicts by 1.5 decades with
+it on; the measurement lies between the two, nearer the "without" curve.
+That reproduces page -499-'s own reading — that the with-corrosion model
+"covers the measured values in a conservative approximation" — and it is a
+statement about **PANAMA**, not about this implementation.
+[`tests::figure_7_brackets_the_measurement`] records it.
+
+One digitisation label reads `90% FIMA` where the caption says
+`9.0 % FIMA` and `F_B = 0.09`; 0.09 is used, and the slip is noted.
+
+```rust
+pub mod history { /* ... */ }
+```
+
+### Types
+
+#### Enum `OxygenSource`
+
+Where the step's `OPF` comes from — Eqs (5a)–(5e).
+
+An enum rather than a callback, per the workspace's no-trait-objects rule,
+and because the report's own set of sources is closed.
+
+```rust
+pub enum OxygenSource {
+    Uco,
+    ThoriumUraniumOxide {
+        thorium_to_u235: f64,
+        burnup: uom::si::f64::Ratio,
+    },
+    UraniumOxide {
+        irradiation_temperature: uom::si::f64::ThermodynamicTemperature,
+        irradiation_time: uom::si::f64::Time,
+    },
+    Fixed(uom::si::f64::Ratio),
+}
+```
+
+##### Variants
+
+###### `Uco`
+
+**Eq (5d)** — `UCO`: no oxygen is produced.
+
+###### `ThoriumUraniumOxide`
+
+**Eq (5a)** — `(Th,U)O₂`, from the accident temperature, the
+thorium/²³⁵U ratio `N` and the burnup.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thorium_to_u235` | `f64` | `N`, the thorium/uranium-235 ratio (5 for AVR, 10 for THTR). |
+| `burnup` | `uom::si::f64::Ratio` | `F_b`, heavy-metal burnup in FIMA as a fraction. |
+
+###### `UraniumOxide`
+
+**Eq (5c)** — `UO₂` during heating, from the irradiation history.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `irradiation_temperature` | `uom::si::f64::ThermodynamicTemperature` | `T_B`, the particle surface temperature during irradiation. |
+| `irradiation_time` | `uom::si::f64::Time` | `t_B`, the irradiation time. Enters Eq (5b) in **seconds**. |
+
+###### `Fixed`
+
+A fixed `OPF` supplied by the caller.
+
+For the cases where the report states the value rather than the
+correlation, and for ablating the oxygen term to see what it carries.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::Ratio` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn oxygen_per_fission(self: Self, accident_temperature: ThermodynamicTemperature) -> Ratio { /* ... */ }
+  ```
+  The `OPF` for this step's accident temperature.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OxygenSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OxygenSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ParticleState`
+
+Everything about the particle that does not change during the accident.
+
+All of it is an **input**. The report's figures state some of these and
+not others; where a figure does not state one, this crate takes it from
+the caller rather than inventing a value — see the module docs on Fig. 6.
+
+```rust
+pub struct ParticleState {
+    pub layer: super::geometry::SicLayer,
+    pub compound: super::molar_volume::KernelCompound,
+    pub diffusion_kernel: super::diffusion::KernelKind,
+    pub kernel_volume: uom::si::f64::Volume,
+    pub free_volume: uom::si::f64::Volume,
+    pub burnup: uom::si::f64::Ratio,
+    pub stable_gas_yield: uom::si::f64::Ratio,
+    pub dimensionless_irradiation_time: uom::si::f64::Ratio,
+    pub median_strength: uom::si::f64::Pressure,
+    pub weibull_modulus: f64,
+    pub oxygen: OxygenSource,
+    pub decomposition: super::decomposition::DecompositionCalibration,
+    pub grain_boundary: super::grain_boundary::GrainBoundaryCorrosion,
+    pub as_manufactured: super::FailureFraction,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `layer` | `super::geometry::SicLayer` | The SiC layer geometry — `r`, `d_o`. |
+| `compound` | `super::molar_volume::KernelCompound` | Which compound the kernel is, for Eqs (6a)–(6c). |
+| `diffusion_kernel` | `super::diffusion::KernelKind` | Which `D_S` correlation applies (page -487- uses the `UO₂` relation<br>for `UCO` as well, which is why this is a separate choice from<br>[`ParticleState::compound`]). |
+| `kernel_volume` | `uom::si::f64::Volume` | `V_k`, the kernel volume. |
+| `free_volume` | `uom::si::f64::Volume` | `V_f`, the void volume in the buffer used as free volume (the report<br>takes 50 % of the buffer volume). |
+| `burnup` | `uom::si::f64::Ratio` | `F_b`, heavy-metal burnup in FIMA as a fraction. Feeds both Eq (3) and<br>the `(Th,U)O₂` `D_S` correlation. |
+| `stable_gas_yield` | `uom::si::f64::Ratio` | `F_f`, the stable fission-gas yield. The report's value is<br>[`super::STABLE_FISSION_GAS_YIELD`] = 0.31. |
+| `dimensionless_irradiation_time` | `uom::si::f64::Ratio` | `τ_i = D_S(T_B)·t_B`, the dimensionless irradiation time (page -486-).<br><br>Supplied rather than derived, because it needs `T_B` *and* `t_B` and<br>the report's figures generally give neither. [`irradiation_tau`] builds<br>it when they are known. |
+| `median_strength` | `uom::si::f64::Pressure` | `σ_o`, the SiC median strength at the end of irradiation — Eq (8a),<br>[`super::irradiated_strength`]. |
+| `weibull_modulus` | `f64` | `m_o`, the Weibull modulus at the end of irradiation — Eq (9a),<br>[`super::irradiated_weibull_modulus`]. |
+| `oxygen` | `OxygenSource` | Where `OPF` comes from. |
+| `decomposition` | `super::decomposition::DecompositionCalibration` | Which fit of Eq (13) applies — Eq (14a) or (14b). |
+| `grain_boundary` | `super::grain_boundary::GrainBoundaryCorrosion` | Whether Eqs (10b)/(10c) are applied. **Off by default**, as in the<br>report (page -495-). |
+| `as_manufactured` | `super::FailureFraction` | `φ_o`, the as-manufactured defective fraction. The report's own runs<br>use zero; see [`super::AS_MANUFACTURED_TARGET`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParticleState { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParticleState) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AccidentStep`
+
+One interval of the accident history.
+
+```rust
+pub struct AccidentStep {
+    pub duration: uom::si::f64::Time,
+    pub mean_temperature: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `duration` | `uom::si::f64::Time` | `t₂ − t₁`. |
+| `mean_temperature` | `uom::si::f64::ThermodynamicTemperature` | `T_m`, the mean temperature prevailing over the interval (page -482-). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AccidentStep { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AccidentStep) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FailureProgress`
+
+The state carried across intervals, plus the reported quantities.
+
+```rust
+pub struct FailureProgress {
+    pub elapsed: uom::si::f64::Time,
+    pub thinning_factor: uom::si::f64::Ratio,
+    pub action_integral: uom::si::f64::Ratio,
+    pub grain_boundary_exposure: uom::si::f64::Ratio,
+    pub pressure_vessel: super::FailureFraction,
+    pub thermal_decomposition: super::FailureFraction,
+    pub total: super::FailureFraction,
+    pub pressure_vessel_rate: uom::si::f64::Frequency,
+    pub thermal_decomposition_rate: uom::si::f64::Frequency,
+    pub total_rate: uom::si::f64::Frequency,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `elapsed` | `uom::si::f64::Time` | Accident time elapsed. |
+| `thinning_factor` | `uom::si::f64::Ratio` | `FKOR`, the SiC thinning factor (page -492-). Starts at 1. |
+| `action_integral` | `uom::si::f64::Ratio` | `ζ`, the action integral (Eq 11). Starts at 0. |
+| `grain_boundary_exposure` | `uom::si::f64::Ratio` | `∫η̇ dt`, the grain-boundary exposure. Starts at 0, and stays there<br>unless [`GrainBoundaryCorrosion::Enabled`]. |
+| `pressure_vessel` | `super::FailureFraction` | `φ₁`, accumulated from positive increments (page -482-). |
+| `thermal_decomposition` | `super::FailureFraction` | `φ₂`, read directly off Eq (13) at the current `ζ` (page -483-). |
+| `total` | `super::FailureFraction` | `φ_total` (page -480-). |
+| `pressure_vessel_rate` | `uom::si::f64::Frequency` | `φ̇₁ = Δφ₁/Δt` over the interval just taken \[s⁻¹\] (page -511-). |
+| `thermal_decomposition_rate` | `uom::si::f64::Frequency` | `φ̇₂ = Δφ₂/Δt` \[s⁻¹\]. |
+| `total_rate` | `uom::si::f64::Frequency` | `φ̇_gesamt = Δφ_total/Δt` \[s⁻¹\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn in_service_failure_fraction(self: &Self) -> FailureFraction { /* ... */ }
+  ```
+  The **in-service** failure fraction: `φ₁` and `φ₂` combined, with the
+
+- ```rust
+  pub fn at_start(end_of_irradiation_phi_1: FailureFraction, as_manufactured: FailureFraction) -> Self { /* ... */ }
+  ```
+  The state at `t = 0`: an uncorroded layer, no action integral, and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FailureProgress { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FailureProgress) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AccidentHistory`
+
+The accident driver: a [`ParticleState`] plus the running
+[`FailureProgress`].
+
+```rust
+pub struct AccidentHistory {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(particle: ParticleState, end_of_irradiation_phi_1: FailureFraction) -> Self { /* ... */ }
+  ```
+  Start an accident from the end-of-irradiation state.
+
+- ```rust
+  pub fn particle(self: &Self) -> ParticleState { /* ... */ }
+  ```
+  The particle this history is running.
+
+- ```rust
+  pub fn progress(self: &Self) -> FailureProgress { /* ... */ }
+  ```
+  The current state.
+
+- ```rust
+  pub fn pressure_vessel_failure_at(self: &Self, elapsed: Time, thinning_factor: Ratio, temperature: ThermodynamicTemperature) -> FailureFraction { /* ... */ }
+  ```
+  `φ₁(t, T_m)` for a given elapsed accident time and thinning factor —
+
+- ```rust
+  pub fn pressure_at(self: &Self, elapsed: Time, temperature: ThermodynamicTemperature) -> Pressure { /* ... */ }
+  ```
+  **Eq (3)** — the internal gas pressure at an instant, with `F_d` from
+
+- ```rust
+  pub fn step(self: &mut Self, step: AccidentStep) -> FailureProgress { /* ... */ }
+  ```
+  Advance one interval (pages -482-, -483-, -492-, -496-) and return the
+
+- ```rust
+  pub fn run(self: &mut Self, steps: &[AccidentStep]) -> FailureProgress { /* ... */ }
+  ```
+  Walk a whole temperature history and return the final state.
+
+- ```rust
+  pub fn run_isothermal(self: &mut Self, temperature: ThermodynamicTemperature, total: Time, n: usize) -> FailureProgress { /* ... */ }
+  ```
+  Walk an isothermal hold split into `n` equal intervals — the shape
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AccidentHistory { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AccidentHistory) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `irradiation_tau`
+
+`τ_i = D_S(T_B)·t_B` (page -486-), for the cases where `T_B` and `t_B` are
+both known.
+
+```rust
+pub fn irradiation_tau(kernel: super::diffusion::KernelKind, irradiation_temperature: uom::si::f64::ThermodynamicTemperature, irradiation_time: uom::si::f64::Time, burnup: uom::si::f64::Ratio) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+## Module `htr10`
+
+**HTR-10 applied to boon-lay fuel failure (the PANAMA-I formulas) — an
+EXTRAPOLATION, reported as one.** Every number in this module is computed by
+boon-lay fuel failure, not by PANAMA: the PANAMA code was never run on
+HTR-10, and this project does not have its source.
+
+PANAMA-I was built and validated for **German** TRISO: its reactor cases
+are HTR-Module and HTR-500, its heating experiments are FRJ2-K11/03 and
+AVR GO 2, and page -479- claims good agreement only over 1600–2500 °C.
+HTR-10's fuel is German-lineage — a 60 mm pebble with a 500 µm UO₂ kernel
+and 35 µm SiC — which is why applying the model to it is *defensible*.
+**It is not a validated application, and nothing here should be quoted as
+one.** Two of the inputs are not published for HTR-10 at all and are taken
+from the report's own HTR-Module column, by name.
+
+# What is HTR-10's, what is derived, and what is a stand-in
+
+| Input | Value | Where from |
+|---|---|---|
+| SiC layer `r_i`/`r_a` | 380 / 415 µm | IAEA-TECDOC-1382 pt 2 Table 4-17, via `tampines::pebble_bed::triso::TrisoParticle::htr10` |
+| kernel radius | 250 µm | same |
+| `V_k` | kernel sphere | **derived** from the above |
+| `V_f` | ½ × buffer shell | **derived**; the report's own definition (page -485-) |
+| `F_b` | **0.0851 FIMA** | **derived** from the published 80 000 MWd/t — see [`BURNUP_FIMA`] |
+| `t_B` | **1080 FPD** | **derived** from 10 MW over 27 000 × 5 g HM — see [`RESIDENCE_FULL_POWER_DAYS`] |
+| kernel compound | UO₂, 17 % enriched | IAEA-TECDOC-1382 pt 2 §4 design table |
+| `T_B` | **an input** | HTR-10 publishes a *maximum* fuel temperature, not an average |
+| `σ_oo`/`m_oo` | **834 MPa / 8.02** | **STAND-IN**: EO 1607, the variety the report's own HTR-Module runs use (footnote 1, page -503-) |
+| `Γ` | **1.4·10²⁵ m⁻² EDN** | **STAND-IN**: the report's HTR-Module/HTR-500 value (Table 2, page -504-) |
+
+The two stand-ins are named rather than absorbed. HTR-Module's reference
+particle is a **500 µm UO₂-LTI-TRISO** (footnote 1, page -503-), i.e. the
+same kernel diameter as HTR-10's, at 0.08 FIMA against HTR-10's 0.0851 and
+1020 FPD against 1080 — so it is the closest published case there is. That
+is an argument for the stand-in being *reasonable*, not for it being
+HTR-10's fuel. Picking a Table 1 variety and calling it HTR-10 without
+saying so would be putting one reactor's fuel quality under another's name.
+
+# Result 1 — normal operation: boon-lay fuel failure must NOT replace the `f_inc` placeholder
+
+`htgr_sim_v1`'s `TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS` carries
+`f_inc = 3·10⁻⁵`, documented there as a TRISO-ATOPS reference value rather
+than HTR-10 data, and release scales linearly in it. The obvious move is to
+compute `f_inc` with boon-lay fuel failure instead. **That would be wrong, and by a very
+large margin.**
+
+`φ₁` at the end of irradiation, over the whole plausible fuel-temperature
+band (measured 2026-09-24):
+
+| `T_B` | `OPF` | `F_d` | `σ_t` | `φ₁` |
+|---|---|---|---|---|
+| 700 °C | 1.3·10⁻³ | 0.101 | 6.9 MPa | **2.8·10⁻¹⁵** |
+| 776 °C (HTR-Module's average) | 5.7·10⁻³ | 0.196 | 15.2 MPa | **1.2·10⁻¹²** |
+| 900 °C | 4.1·10⁻² | 0.452 | 46.3 MPa | **5.0·10⁻⁹** |
+| 1000 °C | 0.153 | 0.707 | 103 MPa | **1.6·10⁻⁶** |
+
+So the pressure-vessel mechanism contributes between **10⁻¹⁵ and 10⁻⁶**,
+against a placeholder of 3·10⁻⁵ — seven orders of magnitude at the
+best-supported temperature. Substituting the computed value would divide
+every activity `htgr_sim_v1` reports by about 10⁷.
+
+**The placeholder is not a pressure-vessel number, and that is the point.**
+`3·10⁻⁵` is the same order as the PANAMA-I report's own as-manufactured
+target `φ_o = 6·10⁻⁵` (page -480-) — a *manufacturing and irradiation*
+defect population, which the PANAMA-I equations take as an **input** and do
+not model. The right conclusion is the one already written in that module:
+`f_inc` there needs HTR-10 fuel-qualification data, not a better model.
+boon-lay fuel failure cannot supply it and this crate must not pretend
+otherwise.
+
+# Result 2 — accident: this is where the seam is worth having
+
+Under accident conditions, which is what the PANAMA-I equations are *for*,
+the number stops being negligible. 200 h isothermal, `T_B = 776 °C`, measured 2026-09-24:
+
+| accident `T` | `F_d` | `FKOR` | `σ_t` | `φ₁` | `φ₂` (14b) |
+|---|---|---|---|---|---|
+| 1200 °C | 0.373 | 1.0005 | 50 MPa | 4.53·10⁻⁹ | ~0 |
+| 1400 °C | 0.630 | 1.0030 | 103 MPa | 6.85·10⁻⁷ | ~0 |
+| **1600 °C** | 0.889 | 1.0119 | 178 MPa | **3.10·10⁻⁵** | 3.4·10⁻¹⁵ |
+| 1800 °C | 0.992 | 1.0363 | 262 MPa | 4.46·10⁻⁴ | 3.3·10⁻⁹ |
+| 2000 °C | 1.000 | 1.0906 | 370 MPa | 4.79·10⁻³ | 2.78·10⁻⁴ |
+| 2200 °C | 1.000 | 1.1953 | 536 MPa | 6.07·10⁻² | **0.977** |
+
+**The 1600 °C figure landing on 3.1·10⁻⁵, beside a 3·10⁻⁵ placeholder, is
+a coincidence.** They are different quantities — one is 200 h at HTR-10's
+accident temperature limit, the other is an as-manufactured defect fraction
+for a different fuel line. Reporting the coincidence as agreement would be
+exactly the kind of accident this file exists to avoid.
+
+Two things the table does show, and they are the model's own structure:
+`φ₂` overtakes `φ₁` between 2000 and 2200 °C, matching the report's
+statement (page -508-) that thermal decomposition governs above ~2000 °C;
+and `F_d` saturates by 1800 °C, so above that the growth is all `FKOR` and
+`OPF`.
+
+# Not verified
+
+**Nothing here is compared against published HTR-10 data.** The workspace's
+local literature gives HTR-10's geometry, burnup, enrichment and power but
+**no measured fuel failure fraction, free-uranium fraction or release
+fraction** — so the comparison that would make this a validation could not
+be made, and is not claimed. The nearest available check is the report's
+own statement (page -504-) that HTR-Module depressurised stays below 10⁻⁶
+at 200 h; a *flat* 200 h at 1600 °C gives 3.1·10⁻⁵ here, which is an upper
+bound on a transient that only briefly reaches its peak, so the two are not
+in conflict — but without Fig. 10's temperature history it is not a check
+either. Digitising Fig. 10 would make it one.
+
+```rust
+pub mod htr10 { /* ... */ }
+```
+
+### Modules
+
+## Module `qualification`
+
+**What can be compared against, and what cannot — the fuel-qualification
+question, answered.**
+
+[`super`] applies boon-lay fuel failure (the PANAMA-I formulas) to HTR-10
+and says plainly that no HTR-10 measured failure fraction exists in reach.
+That remains true and is recorded below. (Every `φ₁` below is boon-lay fuel
+failure's, not the PANAMA code's.) What *was* found, on 2026-09-24, is
+that the **fuel line HTR-10's fuel descends from** has open, quantitative
+qualification data sitting in this workspace's own open corpus — and it
+had not been used.
+
+# 1. HTR-10 itself: nothing. Confirmed, twice, and not worked around.
+
+Searched and found **empty** of any measured failure fraction, free-uranium
+fraction or release fraction:
+
+| Searched | Holds | Failure / free-U / release data |
+|---|---|---|
+| `jaeri-conf-96-010-htr10-general-design` | general design | **none** |
+| `iaea-tecdoc-1382` pt 1 and pt 2 | geometry, burnup, enrichment, power | **none** |
+| `li2014-htr10-rmc` | RMC neutronics benchmark | **none** |
+| `pnnl-20869-htgr-codes-and-standards` | codes, standards, leak-before-break | **none** |
+| `crates/nee_soon/src/htr10_rmc/` | core geometry and materials for `k_eff` | **none**; every material at a flat 300.15 K |
+| `crates/changi/src/activity/inventory.rs` | 22-nuclide equilibrium core **inventory** (Bq) | **none** — and its own doc says an inventory is not a source term |
+| `docs/htr10-rmc-verification-suite.md` | `k_eff` at twelve loading heights | **none** |
+
+A regex sweep for `free[ -]?uranium|failure fraction|heavy metal
+contamination` across all ten documents of the local corpus returned
+**zero** matches in every file. `pnnl-20869` mentions fuel failure only in
+prose, and marks it as unverified: its sole quantitative-sounding line is a
+*manufacturer's* claim of no significant release below 2000 °C, followed by
+"if and when this claim can be proven to NRC's satisfaction".
+
+**So a direct code-to-data comparison for HTR-10 is not available, and
+nothing here pretends otherwise.** That is the answer, not an obstacle to
+be routed around.
+
+# 2. German-lineage fuel: there IS data, and it is open
+
+Kugeler, Nabielek & Buckthorpe (2017) — the JRC (V)HTR-Modul safety volume,
+already in this workspace — carries the German LEU UO₂ TRISO qualification
+record. Two things make it relevant rather than merely adjacent:
+
+1. **The PANAMA-I model was built for exactly this fuel.** HTA-IB-03/90's cases are
+   HTR-Module, HTR-500, FRJ2-K11/03 and AVR GO 2. These are the same
+   campaigns.
+2. **The lineage is stated in the source, not inferred here.** Page 38:
+   "Since then, fabrication processes based on those developed by NUKEM
+   have been used to manufacture spherical HTGR fuel elements in China …
+   and in South Africa." HTR-10's fuel is downstream of the AVR 21 / proof-
+   test production line whose numbers appear below.
+
+**This still does not make HTR-10 numbers.** It makes the *stand-in* for
+HTR-10's fuel quality a published measurement with a stated uncertainty,
+instead of a round number. That is a real improvement and it is all it is.
+
+# 3. What this settles about `φ_o`, and about `htgr_sim_v1`'s placeholder
+
+The PANAMA-I equations do **not** model `φ_o`, the as-manufactured
+defective fraction; it is an input (page -480-), and the report offers `6·10⁻⁵` as a target value.
+[`BURN_LEACH_DEFECT_FRACTIONS`] is the measured population that number is
+standing for: **8·10⁻⁶ to 49·10⁻⁶ expected, 20·10⁻⁶ to 64·10⁻⁶ at the
+one-sided upper 95 % limit**, over 2.2 million particles burn-leached.
+
+`htgr_sim_v1`'s `TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS` carries
+`f_hm = 1·10⁻⁵`, `f_sic = 2·10⁻⁵`, `f_inc = 3·10⁻⁵`, `f_inc_sic = 4·10⁻⁵`,
+documented there as TRISO-ATOPS reference values and *not* HTR-10 data.
+Their sum, `1·10⁻⁴`, sits about **1.6× above the worst measured German
+upper-95 % figure (64·10⁻⁶) and about 12× above the best (8·10⁻⁶)**. So the
+placeholder is conservative for German-lineage fuel but of the right order
+— which is a genuinely useful thing to be able to say about it, and could
+not be said before. [`the_triso_atops_placeholders_bracket_the_german_record`]
+pins it.
+
+**This is not a licence to replace those constants.** They are TRISO-ATOPS's
+own reference set, the code-to-code verification in
+`crates/boon-lay/tests/triso_atops_code_to_code.rs` is measured against
+them, and German burn-leach numbers are a *different fuel line's* product
+quality. Changing them would swap a labelled placeholder for an unlabelled
+substitution.
+
+# 4. The one falsifiable check the German record supports
+
+§4.2.4 of the JRC volume states a **burnup ordering at 1600 °C**:
+
+> "High burnup (14 % FIMA) LEU UO₂ TRISO fuels show particle failure during
+> the first 300 hours at 1600 °C. No particle failure was observed in lower
+> burnup compact (11 % FIMA) at 1600 °C."
+
+and, for spherical elements, that the 1600 °C heating tests showed "no
+single particle failures … during the first few hundred hours".
+
+**Caveat stated before the result, because it bounds what the check is
+worth:** the 11 %/14 % pair are *compacts* (prismatic fuel), not spheres;
+Figure 21's spherical elements are 4–9 % FIMA. The PANAMA-I equations have
+no fuel-form parameter, so the check is on the **burnup dependence of the
+pressure-vessel mechanism**, which is fuel-form-independent in the model,
+and not on the compacts as such.
+
+**Prediction, stated before measuring** (2026-09-24): `F_b` enters Eq (3)
+linearly, so `σ_t ∝ F_b` and Eq (1) gives `φ₁ ∝ F_b^m`. Going 11 % → 14 %
+FIMA should therefore raise `φ₁` by `(14/11)^m`, and the 4–9 % spherical
+band should sit well below the 11 % compact.
+
+**Measured, 2026-09-24**, 300 h at 1600 °C, `T_B = 776 °C`, everything else
+as [`super::particle_with`] builds it:
+
+| `F_b` | `φ₁` at 300 h | vs. 11 % FIMA | what the source reports |
+|---|---|---|---|
+| 4 % FIMA (sphere, low) | 2.35·10⁻⁷ | 1/1110 | no single particle failure |
+| 8.51 % FIMA (**HTR-10's own**) | 4.40·10⁻⁵ | 1/5.9 | — (inside the sphere band) |
+| 9 % FIMA (sphere, high) | 6.48·10⁻⁵ | 1/4.0 | no single particle failure |
+| 11 % FIMA (compact) | 2.60·10⁻⁴ | — | **no** particle failure |
+| 14 % FIMA (compact) | 1.39·10⁻³ | **5.32×** | particle failure **within 300 h** |
+
+## The power law holds to three significant figures — with the IRRADIATED
+## modulus, which is the part the prediction got wrong
+
+The prediction above said `m ≈ 8` and therefore `(14/11)^8 ≈ 6.8×`. The
+measurement is **5.32×**, so on its face the prediction missed by 28 %.
+
+It did not. `m = 8.02` is the **unirradiated** modulus; Eq (9a) degrades it,
+and at `T_B = 776 °C` with `Γ = 1.4·10²⁵` the modulus boon-lay fuel
+failure actually applies is **`m = 6.932`** (and `σ_o = 756.1 MPa`, down from 834). Then
+
+```text
+(14/11)^6.932 = 5.32
+```
+
+which is the measured ratio to three significant figures. So `φ₁ ∝ F_b^m`
+is **exact** in this model, and the apparent miss was reading `m` off the
+wrong row of Table 1. [`the_burnup_power_law_uses_the_irradiated_modulus`]
+pins the identity, which makes it a check on Eqs (1), (3) and (9a) acting
+together rather than a curiosity.
+
+**Recorded as a correction to my own prediction rather than quietly
+restated**, per the workspace rule: the prediction was `6.8×` with `m = 8`,
+it was wrong because the wrong `m` was used, and the corrected prediction
+is `5.32×`, which is what was measured.
+
+## What the comparison against the experiment actually supports
+
+Three statements, in decreasing order of how well the data supports them:
+
+1. **The ordering is reproduced.** `φ₁` rises monotonically over the
+   source's five burnups and the 11 % → 14 % step is the steep one.
+2. **The spherical record is consistent.** A KÜFA test on a few spherical
+   elements examines order `10⁴`–`10⁵` particles, so "no single particle
+   failure" bounds `φ₁ ≲ 10⁻⁵`–`10⁻⁴`. boon-lay fuel failure gives
+   `2.3·10⁻⁷ … 6.5·10⁻⁵` over 4–9 % FIMA — **at or below that bound throughout**. HTR-10's own
+   8.51 % FIMA lands at `4.4·10⁻⁵`, inside it.
+3. **The 11 % compact disagrees, mildly.** boon-lay fuel failure gives
+   `2.6·10⁻⁴` where no failure was seen; against a `10⁻⁵`–`10⁻⁴` bound that is an
+   over-prediction of **2.6× to 26×**, i.e. roughly half a decade to 1.4
+   decades. The 14 % compact, at `1.4·10⁻³`, is above the bound and the
+   source reports failure there — so the model and the experiment agree on
+   which side of the threshold that one falls.
+
+**This is not a validation and must not be quoted as one.** The "bound" in
+(2) and (3) is *inferred* from a particle count the source does not state
+for each test, and the 11 %/14 % pair are compacts while the model is
+carrying HTR-10 sphere geometry. What it is: the first time this
+reconstruction has been put next to a measurement of any kind, and it
+survives contact with one, in the conservative direction.
+
+Three things could carry the 11 % over-prediction and none is chosen here:
+
+- the strength stand-in (`σ_oo = 834 MPa`, EO 1607) may be low for the
+  coatings actually tested — `φ₁ ∝ σ_oo^(−m)`, so 15 % more strength is
+  about a decade less failure, which alone would close it;
+- the `Γ = 1.4·10²⁵` fluence stand-in weakens the SiC through Eqs (8a)/(9a),
+  and the compacts' own fluence is not stated;
+- PANAMA-I is a *conservative design* model, and over-predicting failure is
+  the direction a safety code is built to err in.
+
+**No input was changed to close this.** The disagreement is the finding,
+and [`the_burnup_ordering_at_1600c_matches_and_the_level_does_not`] pins
+both halves of it — so a later change that quietly fixes the level by
+moving a stand-in will break the test that records the gap.
+
+```rust
+pub mod qualification { /* ... */ }
+```
+
+### Types
+
+#### Struct `BurnLeachRow`
+
+One row of the German LEU UO₂ TRISO burn-leach record (Table 8, page 40).
+
+```rust
+pub struct BurnLeachRow {
+    pub fuel_element: &'static str,
+    pub year: u16,
+    pub particles_tested: u32,
+    pub defects_found: u32,
+    pub expected_fraction: f64,
+    pub upper_95_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fuel_element` | `&'static str` | Fuel element type, as the table names it. |
+| `year` | `u16` | Year of production. |
+| `particles_tested` | `u32` | Particles burn-leached, `N`. |
+| `defects_found` | `u32` | Defects found, `n`. |
+| `expected_fraction` | `f64` | Expected defect particle fraction `n/N`. |
+| `upper_95_fraction` | `f64` | One-sided upper 95 % limit on `n/N`, by the source's own Eq (19). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BurnLeachRow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BurnLeachRow) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `pressure_vessel_failure_at_burnup`
+
+`φ₁` after `hold` at `accident` for an HTR-10-geometry particle taken to an
+arbitrary burnup — the quantity the §4.2.4 ordering is about.
+
+Everything except `burnup` is [`super::particle`]'s: HTR-10's geometry and
+kernel, the derived residence `t_B`, and the two HTR-Module stand-ins. Only
+the burnup moves, which is what makes the comparison an ordering test of
+one variable rather than a fit.
+
+```rust
+pub fn pressure_vessel_failure_at_burnup(burnup: uom::si::f64::Ratio, irradiation_temperature: uom::si::f64::ThermodynamicTemperature, accident: uom::si::f64::ThermodynamicTemperature, hold: uom::si::f64::Time, steps: usize) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `BURN_LEACH_DEFECT_FRACTIONS`
+
+**The German LEU UO₂ TRISO burn-leach record** — Table 8, page 40 of
+Kugeler, Nabielek & Buckthorpe (2017).
+
+This is *measured* as-manufactured fuel quality for the production line
+HTR-10's fuel descends from, over **2 202 200 particles** in total. It is
+the physical population that the PANAMA-I equations' `φ_o` input stands
+for, and boon-lay fuel failure itself does not compute it.
+
+**What it does to any answer:** `φ_o` enters only through
+`φ_total = 1 − (1−φ_o)(1−φ₁)(1−φ₂)`, so while every term is small the
+total is very nearly `φ_o + φ₁ + φ₂` — additive, not multiplicative. Below
+about 1500 °C, where `φ₁ ≪ 10⁻⁵`, `φ_o` **is** the answer and the accident
+model contributes nothing to it.
+
+The `AVR 21-2` row is the source's "highest-quality fuel ever produced in
+the German fuel development programme" (page 38) and the `Proof test fuel`
+row is the HTR-Module proof-test production — the campaign whose
+`σ_oo`/`m_oo` [`super::STAND_IN_STRENGTH_MPA`] stands in with.
+
+```rust
+pub const BURN_LEACH_DEFECT_FRACTIONS: [BurnLeachRow; 4] = _;
+```
+
+#### Constant `FREE_URANIUM_FRACTIONS`
+
+As-manufactured **free-uranium** fractions `U_free/U_total`, Table 7,
+page 38 of the same source, for matrix types A3-27 and A3-3.
+
+These are the measured counterpart of TRISO-ATOPS's `f_hm`, the heavy-metal
+contamination fraction — uranium outside intact kernels. The source states
+them as campaign upper bounds: GLE-3 `< 50.7·10⁻⁶`, GLE-4/1 `< 43·10⁻⁶`,
+GLE-4/2 `< 8·10⁻⁶`, HTR-Module proof test `< 13.5·10⁻⁶`.
+
+**What it does to any answer:** `f_hm` multiplies `⟨R/B⟩_fail` directly for
+noble gases and halogens (see
+`crate::triso_atops_fork::activities::release_rate`), so release from those
+groups is **linear** in it. The five values below span a factor 6.5, which
+is therefore a factor-6.5 band on any noble-gas release computed with one
+of them.
+
+```rust
+pub const FREE_URANIUM_FRACTIONS: [f64; 5] = _;
+```
+
+#### Constant `BISO_FREE_URANIUM_RANGE`
+
+The earlier German **BISO** free-uranium range, `3·10⁻⁴` to `9·10⁻⁴`
+(page 40, attributed to Kania 1980) — an order of magnitude worse than the
+LEU UO₂ TRISO record above, quoted by the source as the contrast that
+establishes the improvement. Not a stand-in for anything; present so the
+TRISO figures have a scale.
+
+```rust
+pub const BISO_FREE_URANIUM_RANGE: (f64, f64) = _;
+```
+
+#### Constant `KUFA_COMPACT_NO_FAILURE_FIMA`
+
+Burnup of the compact the source reports as showing **no** particle failure
+in the first 300 h at 1600 °C (§4.2.4), as a FIMA fraction.
+
+```rust
+pub const KUFA_COMPACT_NO_FAILURE_FIMA: f64 = 0.11;
+```
+
+#### Constant `KUFA_COMPACT_FAILURE_FIMA`
+
+Burnup of the compact the source reports as **showing** particle failure
+within the first 300 h at 1600 °C (§4.2.4), as a FIMA fraction.
+
+```rust
+pub const KUFA_COMPACT_FAILURE_FIMA: f64 = 0.14;
+```
+
+#### Constant `KUFA_SPHERE_FIMA_RANGE`
+
+The spherical-fuel-element burnup band of the same figure (Figure 21),
+4 % to 9 % FIMA — which brackets HTR-10's derived 8.51 %.
+
+```rust
+pub const KUFA_SPHERE_FIMA_RANGE: (f64, f64) = _;
+```
+
+### Functions
+
+#### Function `sic_layer`
+
+The HTR-10 SiC layer (IAEA-TECDOC-1382 pt 2 Table 4-17).
+
+```rust
+pub fn sic_layer() -> super::geometry::SicLayer { /* ... */ }
+```
+
+#### Function `kernel_volume`
+
+The kernel volume `V_k`, from the published kernel radius.
+
+```rust
+pub fn kernel_volume() -> uom::si::f64::Volume { /* ... */ }
+```
+
+#### Function `free_volume`
+
+The free volume `V_f` — **half the buffer shell**, which is the report's
+own definition of `V_f` (page -485-: "corresponding to 50 % of buffer
+volume"), applied to HTR-10's published buffer.
+
+```rust
+pub fn free_volume() -> uom::si::f64::Volume { /* ... */ }
+```
+
+#### Function `particle`
+
+The HTR-10 particle as boon-lay fuel failure sees it, at a stated
+irradiation temperature.
+
+- `irradiation_temperature` — `T_B`. **An input**: HTR-10 publishes a
+  *maximum* fuel temperature (JAERI-Conf 96-010 states a 700 °C margin to
+  the 1600 °C limit) but no average, and the PANAMA-I equations' `T_B`
+  is an average. The report's HTR-Module average of **776 °C** (Table 2)
+  is the nearest published figure for a comparable core and is what
+  [`tests`] sweeps around; it is not HTR-10's.
+
+Uses [`STAND_IN_STRENGTH_MPA`], [`STAND_IN_WEIBULL_MODULUS`] and
+[`STAND_IN_FLUENCE_E25_PER_M2`] — read their docs before quoting any
+number this produces.
+
+```rust
+pub fn particle(irradiation_temperature: uom::si::f64::ThermodynamicTemperature) -> super::history::ParticleState { /* ... */ }
+```
+
+#### Function `particle_with`
+
+The same particle with `F_b`, `t_B` and `Γ` opened up, for sweeping the
+inputs that HTR-10 does not publish or that a sensitivity study needs.
+
+[`particle`] is this with HTR-10's own derived burnup and residence and the
+HTR-Module fluence stand-in. Everything else — geometry, kernel compound,
+`σ_oo`/`m_oo` — is held at the values [`particle`] uses, because those are
+either HTR-10's own or are swept elsewhere.
+
+**Sweeping `Γ` is a sensitivity, not a calibration.** Eqs (8a)/(9a) make
+both `σ_o` and `m` fall with fluence, so a larger `Γ` weakens the particle
+and raises `φ₁`. The range worth exploring is the one the report's own
+cases span (Table 2), not whatever range makes an answer come out right.
+
+```rust
+pub fn particle_with(irradiation_temperature: uom::si::f64::ThermodynamicTemperature, burnup: uom::si::f64::Ratio, irradiation_time: uom::si::f64::Time, fluence_e25_per_m2: f64) -> super::history::ParticleState { /* ... */ }
+```
+
+#### Function `end_of_irradiation_failure`
+
+`φ₁` at the **end of irradiation** — the value the PANAMA-I report
+assigns to `t = 0` of an accident (page -482-), and the one that matters
+for normal operation.
+
+# Why this is not an accident step of length zero
+
+It uses **Eq (5b)**, not Eq (5c). Eq (5c) is the `OPF` "during heating"
+and carries `−0.404·(10⁴/T − 10⁴/(T_B + 75))`, which does **not** vanish
+at `T = T_B`: the `+75 °C` is the report's kernel-versus-surface
+correction, so Eq (5c) reduces to Eq (5b) at `T = T_B + 75`, the kernel
+temperature, and not at the surface temperature `T_B`. Feeding `T_B`
+through the accident path instead would apply a spurious 0.26-decade
+cooling term and under-state `OPF` by a factor 1.8.
+
+`FKOR = 1` and `τ_a = 0` here: no accident has happened, so there is no
+corrosion and no accident-time gas release.
+
+```rust
+pub fn end_of_irradiation_failure(irradiation_temperature: uom::si::f64::ThermodynamicTemperature) -> super::FailureFraction { /* ... */ }
+```
+
+#### Function `end_of_irradiation_failure_for`
+
+[`end_of_irradiation_failure`] for an arbitrary [`ParticleState`] — the
+form the sweeps need, since they vary `F_b`, `t_B` and `Γ`.
+
+`irradiation_time` must be the same `t_B` the particle was built with:
+Eq (5b)'s `OPF` needs it and [`ParticleState`] does not carry it.
+
+```rust
+pub fn end_of_irradiation_failure_for(p: &super::history::ParticleState, irradiation_temperature: uom::si::f64::ThermodynamicTemperature, irradiation_time: uom::si::f64::Time) -> super::FailureFraction { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `KERNEL_RADIUS_UM`
+
+HTR-10 kernel radius, 250 µm (IAEA-TECDOC-1382 pt 2 Table 4-17).
+
+```rust
+pub const KERNEL_RADIUS_UM: f64 = 250.0;
+```
+
+#### Constant `BUFFER_OUTER_RADIUS_UM`
+
+Buffer outer radius, 340 µm (same source).
+
+```rust
+pub const BUFFER_OUTER_RADIUS_UM: f64 = 340.0;
+```
+
+#### Constant `SIC_INNER_RADIUS_UM`
+
+SiC inner radius (= IPyC outer), 380 µm (same source).
+
+```rust
+pub const SIC_INNER_RADIUS_UM: f64 = 380.0;
+```
+
+#### Constant `SIC_OUTER_RADIUS_UM`
+
+SiC outer radius, 415 µm — a 35 µm layer (same source).
+
+```rust
+pub const SIC_OUTER_RADIUS_UM: f64 = 415.0;
+```
+
+#### Constant `BURNUP_FIMA`
+
+HTR-10 design mean burnup as a **FIMA fraction**, derived from the
+published 80 000 MWd/t (IAEA-TECDOC-1382 pt 2 §4; Li et al. 2014).
+
+Derivation, so it can be checked rather than trusted: at 17 % enrichment
+the heavy-metal molar mass is `0.17·235 + 0.83·238 = 237.5 g/mol`, so one
+tonne holds `2.536·10²⁷` atoms. One per cent of them fissioning at
+200 MeV releases `8.13·10¹⁴ J = 9404 MWd`. Hence
+`80 000 / 9404 = 8.51 % FIMA`.
+
+The 200 MeV is the conventional recoverable energy per fission and is the
+only assumption not taken from the HTR-10 literature; it moves the answer
+by about ±2 % across the usual 195–205 MeV range.
+
+```rust
+pub const BURNUP_FIMA: f64 = 0.0851;
+```
+
+#### Constant `RESIDENCE_FULL_POWER_DAYS`
+
+HTR-10 mean fuel residence at full power, **1080 FPD**, derived.
+
+The core holds 27 000 elements at 5 g heavy metal each (IAEA-TECDOC-1382
+pt 2 §4 design table) — 135 kg — at 10 MW thermal, so the specific power
+is `10/0.135 = 74.07 MW/t` and reaching the design mean 80 000 MWd/t takes
+`80 000/74.07 = 1080` full-power days. Comparable to the report's own
+HTR-Module case (15 passes × 68 d = 1020 FPD).
+
+```rust
+pub const RESIDENCE_FULL_POWER_DAYS: f64 = 1080.0;
+```
+
+#### Constant `STAND_IN_STRENGTH_MPA`
+
+**STAND-IN.** SiC tensile strength before irradiation, 834 MPa — EO 1607,
+the variety the report's own HTR-Module and HTR-500 runs use (footnote 1,
+page -503-; Table 2, page -504-). **Not HTR-10 data**; no `σ_oo` for
+HTR-10's SiC is published in this workspace's literature.
+
+834/8.02 rather than Table 1's 850/8.0: the two disagree and the units doc
+settles on the Fig. 5 / Table 2 pair for reactor reproductions.
+
+```rust
+pub const STAND_IN_STRENGTH_MPA: f64 = 834.0;
+```
+
+#### Constant `STAND_IN_WEIBULL_MODULUS`
+
+**STAND-IN.** Weibull modulus before irradiation, 8.02 — EO 1607, as above.
+
+```rust
+pub const STAND_IN_WEIBULL_MODULUS: f64 = 8.02;
+```
+
+#### Constant `STAND_IN_FLUENCE_E25_PER_M2`
+
+**STAND-IN.** Fast fluence at discharge, `1.4·10²⁵ m⁻² EDN` — the report's
+HTR-Module and HTR-500 value (Table 2, page -504-). **Not HTR-10 data.**
+
+```rust
+pub const STAND_IN_FLUENCE_E25_PER_M2: f64 = 1.4;
+```
+
+## Module `molar_volume`
+
+**Eqs (6a)/(6b)/(6c)** — the molar volume `V_m` of the heavy metal in the
+kernel (pages -491- and -492-).
+
+```text
+(Th,U)O2   V_m = 0.2645 [kg/mol] / 10500 [kg/m³] = 2.51905e-5 m³/mol   (6a)
+UO2        V_m = 0.2672 [kg/mol] / 10960 [kg/m³] = 2.43796e-5 m³/mol   (6b)
+UCO        V_m = 0.2682 [kg/mol] / 10700 [kg/m³] = 2.50654e-5 m³/mol   (6c)
+```
+
+The report defines `V_m` as the weight of one mole of the kernel compound
+divided by its density, and Eq (3) divides by it to turn a burnup in FIMA
+into a number of moles of gas. It is a fixed property of the compound: no
+temperature, no burnup, no irradiation history.
+
+# The third equation is printed as (6b), not (6c)
+
+The UCO relation on page -492- carries the label **(6b)** again — the same
+number already used for `UO₂` on page -491-. It is recorded here as (6c),
+which is what it must be, with the defect noted rather than silently
+renumbered. A reader chasing "Eq (6b)" in the report will find two
+different molar volumes under it. See
+`docs/panama-i-units-and-open-questions.md`.
+
+# Verification
+
+**Self-verifying**: each equation prints its own quotient to six
+significant figures, so the division is a closed check on the
+transcription of both constants. All three reproduce their printed result
+to within 1 part in 10⁵ — see [`tests::the_printed_quotients_are_exact`].
+
+That is the only verification available. There is **no figure or table in
+the report that `V_m` can be checked against independently**, and no
+statement of which compound stoichiometry the molar masses correspond to:
+0.2672 kg/mol is neither `UO₂` at natural enrichment (0.2700) nor `²³⁵UO₂`
+(0.2670), and the report does not say what mixture it assumes. Taken as
+printed.
+
+```rust
+pub mod molar_volume { /* ... */ }
+```
+
+### Types
+
+#### Enum `KernelCompound`
+
+Which kernel compound the molar volume is for.
+
+Three variants, because Eqs (6a)–(6c) give three different values.
+Deliberately **not** the same type as [`super::diffusion::KernelKind`],
+which has two: the `D_S` correlation on page -487- explicitly uses the
+`UO₂` relation for `UCO` as well, while the molar volume does not. Merging
+them would silently give `UCO` the `UO₂` molar volume, a 2.8 % error in
+the gas pressure that nothing would flag.
+
+```rust
+pub enum KernelCompound {
+    ThoriumUraniumOxide,
+    UraniumOxide,
+    UraniumOxycarbide,
+}
+```
+
+##### Variants
+
+###### `ThoriumUraniumOxide`
+
+`(Th,U)O₂` — Eq (6a).
+
+###### `UraniumOxide`
+
+`UO₂` — Eq (6b).
+
+###### `UraniumOxycarbide`
+
+`UCO` — Eq (6c), printed as a second "(6b)".
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn molar_mass_kg_per_mol(self: Self) -> f64 { /* ... */ }
+  ```
+  The molar mass the report divides by, \[kg/mol\].
+
+- ```rust
+  pub const fn density_kg_per_m3(self: Self) -> f64 { /* ... */ }
+  ```
+  The kernel density the report divides by, \[kg/m³\].
+
+- ```rust
+  pub const fn printed_molar_volume_m3_per_mol(self: Self) -> f64 { /* ... */ }
+  ```
+  The value the report prints for the quotient, \[m³/mol\]. Used only to
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KernelCompound { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KernelCompound) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `molar_volume`
+
+**Eqs (6a)/(6b)/(6c)** — the molar volume `V_m` of the heavy metal in the
+kernel (pages -491-, -492-).
+
+Computed from the printed molar mass and density rather than returned as
+the printed quotient, so that the two constants — not a third derived
+number — are what this crate carries.
+
+```rust
+pub fn molar_volume(kernel: KernelCompound) -> uom::si::f64::MolarVolume { /* ... */ }
+```
+
+## Module `oxygen`
+
+**Eqs (5a)–(5f)** — the number of oxygen atoms released per fission,
+`OPF` (pages -488- to -491-).
+
+Oxygen freed when a `UO2` or `(Th,U)O2` kernel fissions forms CO, which
+adds to the internal gas pressure alongside the fission gases themselves.
+`OPF` enters Eq (3) directly, so it sets the **absolute** pressure.
+
+| Eq | Kernel | Regime | Source |
+|---|---|---|---|
+| (5a) | `(Th,U)O2` | any | Strigl 1984 |
+| (5b) | `UO2` | before heating | Proksch 1982 |
+| (5c) | `UO2` | during heating | Proksch 1982 |
+| (5d) | `UCO` | any | zero by assumption |
+| (5e) | all | cap | `OPF_max = 0.625` |
+
+# `t_B` is in SECONDS — settled by Fig. 3
+
+This was the last open units question, and it mattered more than any
+other: `(5b)`/`(5c)` carry `2·log t_B`, so a seconds-vs-days confusion
+moves `log OPF` by about **9.9 decades**, and `OPF` sets the absolute
+pressure for everything downstream.
+
+The report's symbol list (-511-) says seconds. Fig. 3's curve labels say
+`1000 °C, 1000 d`; Figs. 7 and 8's captions say `260 FPD` and `500 FPD`;
+and page -488- gives the correlation's validity range as "66 and 550 full
+power days". Three places in days against one in seconds — so the
+extraction record left it open rather than guessing.
+
+Checked 2026-09-24 against a digitisation of Fig. 3's four labelled `UO2`
+curves, spanning `T_B` 900–1100 °C and `t_B` 500–1000 d:
+
+| reading of `t_B` | mean abs error in `OPF` |
+|---|---|
+| **seconds** | **0.0087** |
+| days | 0.277 — `OPF` collapses to ~0 everywhere |
+
+So the symbol list was right and the labels are simply human-readable:
+the **curve** is titled in days, the **formula** takes seconds. That also
+explains why the printed validity range is in full-power days — it
+describes the experiments, not the argument.
+
+[`oxygen_per_fission_uo2`] therefore takes a `uom` [`Time`] and converts
+internally, so a caller cannot get this wrong at all.
+
+```rust
+pub mod oxygen { /* ... */ }
+```
+
+### Types
+
+#### Enum `HeatingRegime`
+
+Which side of the accident a `UO2` `OPF` is wanted for.
+
+`PartialEq` only: the `DuringHeating` arm carries a temperature, and a
+float has no total equality.
+
+```rust
+pub enum HeatingRegime {
+    BeforeHeating,
+    DuringHeating {
+        temperature: uom::si::f64::ThermodynamicTemperature,
+    },
+}
+```
+
+##### Variants
+
+###### `BeforeHeating`
+
+**Eq (5b)** — the inventory built up during irradiation, before the
+accident begins. Depends only on the irradiation history.
+
+###### `DuringHeating`
+
+**Eq (5c)** — during the accident, at accident temperature `T`. Adds
+the `-0.404*(1e4/T - 1e4/(T_B + 75))` term.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | `T`, the accident temperature. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HeatingRegime { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HeatingRegime) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `oxygen_per_fission_thoria`
+
+**Eq (5a)** — `OPF` for a `(Th,U)O2` kernel (page -488-, Strigl 1984).
+
+```text
+log10(OPF) = 0.96 - 0.442e4/T + 0.4*log10(N) + 0.3*log10(F_b)
+```
+
+- `temperature` — `T`, the accident temperature.
+- `thorium_to_u235` — `N`, the thorium / uranium-235 ratio. The report
+  gives `N = 5` for AVR and `N = 10` for THTR.
+- `burnup` — `F_b`, in FIMA as a fraction.
+
+Unlike the `UO2` correlations this has **no irradiation history** in it at
+all — no `T_B`, no `t_B`. That asymmetry is the report's own: it states
+that oxygen formation in `UO2` "is greatly dependent on the irradiation
+history" and for `(Th,U)O2` it is not.
+
+Capped at [`OPF_MAX`].
+
+```rust
+pub fn oxygen_per_fission_thoria(temperature: uom::si::f64::ThermodynamicTemperature, thorium_to_u235: f64, burnup: uom::si::f64::Ratio) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `oxygen_per_fission_uo2`
+
+**Eqs (5b)/(5c)** — `OPF` for a `UO2` kernel (page -489-, Proksch 1982).
+
+```text
+(5b)  log10(OPF) = -10.08 - 0.85e4/T_B + 2*log10(t_B)
+(5c)  log10(OPF) = -10.08 - 0.85e4/T_B + 2*log10(t_B)
+                   - 0.404*(1e4/T - 1e4/(T_B + 75))
+```
+
+- `irradiation_temperature` — `T_B`, the particle **surface** temperature
+  during irradiation.
+- `irradiation_time` — `t_B`. **Enters the formula in seconds**; taking a
+  `uom` [`Time`] here is deliberate, because this was the one unit in the
+  whole report that three separate places disagreed about. See the module
+  docs.
+
+The report states these are valid for a **constant** irradiation
+temperature, over 66–550 full-power days and `T_B` of 950–1525 °C. Those
+bounds are not enforced: the report itself plots Fig. 3 outside them
+(curves at 1000 d), and silently clamping an input is worse than
+returning what the correlation says.
+
+Capped at [`OPF_MAX`].
+
+```rust
+pub fn oxygen_per_fission_uo2(irradiation_temperature: uom::si::f64::ThermodynamicTemperature, irradiation_time: uom::si::f64::Time, regime: HeatingRegime) -> uom::si::f64::Ratio { /* ... */ }
+```
+
+#### Function `oxygen_per_fission_uco`
+
+**Eq (5d)** — `OPF` for a `UCO` kernel: zero (page -489-).
+
+"No oxygen production is assumed to happen in particles with UCO
+kernels." A function rather than a bare constant so a caller dispatching
+on kernel type reads the same at every arm.
+
+```rust
+pub fn oxygen_per_fission_uco() -> uom::si::f64::Ratio { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `OPF_MAX`
+
+**Eq (5e)** — the upper limit on `OPF`, 0.625 (page -489-).
+
+The report notes that for `(Th,U)O2` this would only be exceeded above
+5700 K, i.e. never in practice; for `UO2` it binds at accident
+temperatures and is visible as the horizontal dashed line in Fig. 3.
+
+```rust
+pub const OPF_MAX: f64 = 0.625;
+```
+
+#### Constant `KERNEL_SURFACE_OFFSET_K`
+
+The `+75 °C` correction in Eq (5c) (page -489-).
+
+`T_B` is the particle **surface** temperature, while the temperature that
+determines release inside a `UO2` TRISO kernel is about 75 degrees higher.
+
+```rust
+pub const KERNEL_SURFACE_OFFSET_K: f64 = 75.0;
+```
+
+## Module `pressure`
+
+**Eq (3)** — internal gas pressure from the ideal gas law (page -484-),
+with the constants printed alongside it on page -485-.
+
+The printed grouping is ambiguous; see [`internal_gas_pressure`] for the
+dimensional argument that settles it.
+
+```rust
+pub mod pressure { /* ... */ }
+```
+
+### Functions
+
+#### Function `internal_gas_pressure`
+
+**Eq (3)** — internal gas pressure from the ideal gas law (page -484-).
+
+```text
+p = (F_d·F_f + OPF) · F_b · R · T / [ (V_f/V_k) · V_m ]      [Pa]
+```
+
+- `released_gas_fraction` — `F_d`, the relevant fraction of fission gas
+  released from the kernel (Eq (4), Allelein 1983 — **not** implemented
+  here; supply it).
+- `stable_gas_yield` — `F_f`, atoms of stable fission gas per fission;
+  [`STABLE_FISSION_GAS_YIELD`] is the report's 0.31.
+- `oxygen_per_fission` — `OPF`, CO-forming oxygen atoms per fission
+  (Eqs (5a)–(5f) — **not** implemented here; supply it, and see the module
+  docs on why).
+- `burnup` — `F_b`, heavy-metal burnup in FIMA.
+- `free_volume` / `kernel_volume` — `V_f` (buffer void) and `V_k`.
+- `molar_volume` — `V_m`, the molar volume of the kernel compound
+  (Eqs (6a)–(6c) — supply it).
+- `temperature` — `T`, in kelvin via `uom`.
+
+## The printed grouping is ambiguous; this is the dimensionally consistent
+reading
+
+As printed, the fraction bar appears to span `(V_f/V_k)·R·T/V_m`, which
+would give `p ∝ 1/(R·T)` — dimensionally wrong, and it would make pressure
+*fall* as the particle heats. Only one grouping is consistent, and it is
+also just `p = nRT/V_f` with `n = (F_d·F_f + OPF)·F_b·V_k/V_m`:
+`(F_d·F_f+OPF)·F_b` is dimensionless (moles of gas per mole of heavy metal),
+`R·T` is Pa·m³/mol, `V_f/V_k` is dimensionless and `V_m` is m³/mol, leaving
+**Pa**. That is what is implemented. [`pressure_is_the_ideal_gas_law`]
+pins it against `nRT/V` computed independently.
+
+```rust
+pub fn internal_gas_pressure(released_gas_fraction: uom::si::f64::Ratio, stable_gas_yield: uom::si::f64::Ratio, oxygen_per_fission: uom::si::f64::Ratio, burnup: uom::si::f64::Ratio, free_volume: uom::si::f64::Volume, kernel_volume: uom::si::f64::Volume, molar_volume: uom::si::f64::MolarVolume, temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::Pressure { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `GAS_CONSTANT_J_PER_MOL_K`
+
+Molar gas constant `R` in J/(mol·K), as printed with Eq (3) on page -485-.
+
+The report's own value, kept rather than substituting a CODATA figure, so
+the arithmetic reproduces the source exactly.
+
+```rust
+pub const GAS_CONSTANT_J_PER_MOL_K: f64 = 8.3143;
+```
+
+#### Constant `STABLE_FISSION_GAS_YIELD`
+
+Fission yield of the stable fission gases `F_f`, printed with Eq (3)
+(page -485-). Dimensionless, atoms per fission.
+
+```rust
+pub const STABLE_FISSION_GAS_YIELD: f64 = 0.31;
+```
+
+## Module `strength`
+
+**Eqs (8a)/(8b)/(9a)/(9b)** — how irradiation degrades the SiC tensile
+strength and the Weibull modulus (pages -493- and -494-, both attributed
+to Allelein 1983).
+
+These are the two correlations that supply [`super::weibull`]'s `sigma_o`
+and `m`, and they are **verified against the report's own Table 1** — see
+`tests::table_1_is_reproduced_exactly`.
+
+```rust
+pub mod strength { /* ... */ }
+```
+
+### Functions
+
+#### Function `irradiated_strength`
+
+**Eq (8a)** — SiC tensile strength after irradiation (page -493-,
+attributed to Allelein 1983), with Eq (8b)'s floor applied.
+
+```text
+sigma_o = sigma_oo * (1 - Gamma / Gamma_s)
+log10(Gamma_s) = 0.556 + 0.065e4 / T_B
+```
+
+- `unirradiated` — `sigma_oo`, the measured strength before irradiation.
+- `fluence_e25_per_m2` — `Gamma`, fast-neutron fluence **in the
+  correlation's own units of 10^25 m^-2 EDN**. Not `uom`-typed on
+  purpose: this is a `log10` fit whose intercept is only meaningful in
+  those units, so a dimensioned argument would imply a freedom of unit
+  choice the correlation does not have. The name carries the unit instead.
+- `irradiation_temperature` — `T_B`, **in kelvin**. The report's symbol
+  list prints `T_B` in degC and never states the conversion; that it is
+  kelvin is established by [`table_1_is_reproduced_exactly`], which
+  reproduces all sixteen of the report's own calculated values only on
+  the kelvin reading.
+
+Returns at least [`MIN_TENSILE_STRENGTH_MPA`].
+
+```rust
+pub fn irradiated_strength(unirradiated: uom::si::f64::Pressure, fluence_e25_per_m2: f64, irradiation_temperature: uom::si::f64::ThermodynamicTemperature) -> uom::si::f64::Pressure { /* ... */ }
+```
+
+#### Function `irradiated_weibull_modulus`
+
+**Eq (9a)** — the Weibull modulus after irradiation (page -494-,
+Allelein 1983), with Eq (9b)'s floor applied.
+
+```text
+m_o = m_oo * (1 - Gamma / Gamma_m)
+log10(Gamma_m) = 0.394 + 0.065e4 / T_B
+```
+
+Same `10^4/T_B` coefficient as [`irradiated_strength`]'s `Gamma_s`; only
+the intercept differs (0.394 against 0.556), so the modulus degrades
+**faster** than the strength -- the distribution widens as it weakens.
+
+Eq (10a) then states `m = m_o`, i.e. this is the modulus that goes into
+[`weibull_failure_fraction`].
+
+Returns at least [`MIN_WEIBULL_MODULUS`].
+
+```rust
+pub fn irradiated_weibull_modulus(unirradiated: f64, fluence_e25_per_m2: f64, irradiation_temperature: uom::si::f64::ThermodynamicTemperature) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MIN_TENSILE_STRENGTH_MPA`
+
+**Eq (8b)** — the floor under the irradiated SiC tensile strength,
+196 MPa (page -494-).
+
+```rust
+pub const MIN_TENSILE_STRENGTH_MPA: f64 = 196.0;
+```
+
+#### Constant `MIN_WEIBULL_MODULUS`
+
+**Eq (9b)** — the floor under the irradiated Weibull modulus, 2
+(page -494-).
+
+```rust
+pub const MIN_WEIBULL_MODULUS: f64 = 2.0;
+```
+
+## Module `stress`
+
+**Eq (2)** — the SiC hoop stress induced by the internal gas pressure
+(page -484-), in both the report's approximate and exact thin-shell forms.
+
+```rust
+pub mod stress { /* ... */ }
+```
+
+### Functions
+
+#### Function `induced_stress`
+
+**Eq (2)** — the SiC hoop stress induced by internal gas pressure, in the
+report's preferred approximate form (page -484-).
+
+```text
+σ_t = r·p / (2·d_o) · (1 + v̇·t/d_o)      [Pa]
+```
+
+The report gives the exact thin-shell result first
+([`induced_stress_exact`]) and then states that this approximation
+"describes the state of affairs more realistically, in particular for small
+actual SiC layer thicknesses" — it is the linearisation of the exact form in
+`v̇t/d_o`, and unlike the exact form it stays finite as the layer thins.
+**This is the one to use**; the exact form is provided for comparison.
+
+Note the model is **thin-shell throughout**. The report contains no
+thick-wall (Lamé) formulation, so none is offered here.
+
+```rust
+pub fn induced_stress(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, corrosion_rate: uom::si::f64::Velocity, elapsed: uom::si::f64::Time) -> uom::si::f64::Pressure { /* ... */ }
+```
+
+#### Function `induced_stress_exact`
+
+The thin-shell stress written through the thickness, `σ_t = r·p/(2·d_act)`
+with `d_act` from Eq (7) (pages -484- and -492-).
+
+## This EQUALS [`induced_stress`]; it is not an alternative to it
+
+Substituting Eq (7)'s `d_act = d_o/(1 + v̇t/d_o)` gives
+`σ_t = r·p·(1 + v̇t/d_o)/(2·d_o)`, which is Eq (2) **exactly**. The
+report's description of Eq (2) as an approximation that "describes the
+state of affairs more realistically" therefore understates it: given
+Eq (7), Eq (2) is not an approximation at all.
+
+What Eq (2) approximates is the *other* form printed on page -484-,
+`d_act = d_o·(1 − v̇·t)`, which is dimensionally inconsistent and
+contradicts Eq (7). See [`SicLayer::actual_thickness`].
+
+Kept as its own function because computing the stress by two routes and
+asserting they agree is a real check on the algebra —
+`tests::the_two_routes_to_the_stress_agree_exactly`. `None` only if the
+thickness is non-positive, which Eq (7) cannot produce; it guards against
+a caller supplying a negative rate.
+
+```rust
+pub fn induced_stress_exact(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, corrosion_rate: uom::si::f64::Velocity, elapsed: uom::si::f64::Time) -> Option<uom::si::f64::Pressure> { /* ... */ }
+```
+
+#### Function `induced_stress_with_thinning_factor`
+
+Eq (2) written against a **carried** `FKOR` rather than an elapsed time
+(pages -484-, -492-):
+
+```text
+σ_t = r·p·FKOR / (2·d_o)      since d_act = d_o/FKOR
+```
+
+[`induced_stress`] recomputes `v̇·t/d_o` from a single rate and a single
+elapsed time, which is only correct for an **isothermal** hold. A varying
+temperature history has to carry `FKOR` forward step by step
+([`super::advance_thinning_factor`]), and this is the entry point that
+takes it. It is what [`super::history`] uses.
+
+`FKOR` starts at 1 (an uncorroded layer) and rises; values below 1 would
+mean a layer that had grown, so they are clamped to 1 rather than
+silently producing a stress lower than the uncorroded one.
+
+```rust
+pub fn induced_stress_with_thinning_factor(layer: &super::geometry::SicLayer, pressure: uom::si::f64::Pressure, thinning_factor: uom::si::f64::Ratio) -> uom::si::f64::Pressure { /* ... */ }
+```
+
+## Module `weibull`
+
+**Eq (1)** — the Weibull pressure-vessel failure law (page -483-).
+
+The `ln2` normalisation is the load-bearing detail; see the function's own
+docs and [`super::strength`] for where its `m` comes from.
+
+```rust
+pub mod weibull { /* ... */ }
+```
+
+### Functions
+
+#### Function `weibull_failure_fraction`
+
+**Eq (1)** — the fraction of particles failed by pressure-vessel overstress
+(page -483-, attributed to Nabielek 1984).
+
+```text
+φ₁(t,T) = 1 − exp[ −ln2 · (σ_t / σ_o)^m ]
+```
+
+- `induced_stress` — `σ_t`, the SiC hoop stress from the internal gas
+  pressure ([`induced_stress`]).
+- `median_strength` — `σ_o`, the SiC tensile strength **at the end of
+  irradiation**. See the module docs: because of the `ln2`, this is the
+  *median* of the strength distribution, not its characteristic value.
+- `weibull_modulus` — `m`, dimensionless.
+
+Returns a fraction in `[0, 1]`; it is `0.5` exactly when
+`induced_stress == median_strength`, for any `m`.
+
+```rust
+pub fn weibull_failure_fraction(induced_stress: uom::si::f64::Pressure, median_strength: uom::si::f64::Pressure, weibull_modulus: f64) -> super::FailureFraction { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `FailureFraction`
+
+A failed-particle fraction, dimensionless and in `[0, 1]`.
+
+```rust
+pub type FailureFraction = uom::si::f64::Ratio;
+```
+
+### Functions
+
+#### Function `total_failure_fraction`
+
+The combination of the three failure populations (page -480-).
+
+```text
+φ_total = 1 − (1 − φ_o)·(1 − φ₁)·(1 − φ₂)
+```
+
+A particle survives only if it survives all three mechanisms, so the
+*survival* probabilities multiply. This is why the result is not the sum:
+summing would double-count particles failed by more than one mechanism and
+can exceed 1.
+
+- `as_manufactured` — `φ_o`. The report's own runs use `0`; see
+  [`AS_MANUFACTURED_TARGET`].
+- `pressure_vessel` — `φ₁`, from [`weibull_failure_fraction`].
+- `thermal_decomposition` — `φ₂`, from
+  [`thermal_decomposition_failure_fraction`]. Passing
+  `Ratio::new::<ratio>(0.0)` models pressure-vessel failure alone, which is
+  non-conservative above ~2000 °C, where the report attributes failure
+  principally to SiC decomposition.
+
+```rust
+pub fn total_failure_fraction(as_manufactured: FailureFraction, pressure_vessel: FailureFraction, thermal_decomposition: FailureFraction) -> FailureFraction { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `AS_MANUFACTURED_TARGET`
+
+The as-manufactured defective fraction `φ_o` used for reactor studies,
+`6·10⁻⁵` (page -480-).
+
+The report's own calculations set `φ_o = 0`; this is the value it states may
+"without difficulty" be used as a target when considering reactor concepts.
+It is offered as a named constant, never as a default — which of the two
+applies is the caller's modelling decision.
+
+```rust
+pub const AS_MANUFACTURED_TARGET: f64 = 6.0e-5;
+```
+
+### Re-exports
+
+#### Re-export `booth_release_function`
+
+```rust
+pub use booth::booth_release_function;
+```
+
+#### Re-export `dimensionless_time`
+
+```rust
+pub use booth::dimensionless_time;
+```
+
+#### Re-export `released_gas_fraction`
+
+```rust
+pub use booth::released_gas_fraction;
+```
+
+#### Re-export `MAX_SUMMANDS`
+
+```rust
+pub use booth::MAX_SUMMANDS;
+```
+
+#### Re-export `SUMMAND_CONVERGENCE`
+
+```rust
+pub use booth::SUMMAND_CONVERGENCE;
+```
+
+#### Re-export `advance_thinning_factor`
+
+```rust
+pub use corrosion::advance_thinning_factor;
+```
+
+#### Re-export `corrosion_rate`
+
+```rust
+pub use corrosion::corrosion_rate;
+```
+
+#### Re-export `thinning_factor`
+
+```rust
+pub use corrosion::thinning_factor;
+```
+
+#### Re-export `advance_action_integral`
+
+```rust
+pub use decomposition::advance_action_integral;
+```
+
+#### Re-export `decomposition_rate_constant`
+
+```rust
+pub use decomposition::decomposition_rate_constant;
+```
+
+#### Re-export `thermal_decomposition_failure_fraction`
+
+```rust
+pub use decomposition::thermal_decomposition_failure_fraction;
+```
+
+#### Re-export `DecompositionCalibration`
+
+```rust
+pub use decomposition::DecompositionCalibration;
+```
+
+#### Re-export `DECOMPOSITION_ACTIVATION_J_PER_MOL`
+
+```rust
+pub use decomposition::DECOMPOSITION_ACTIVATION_J_PER_MOL;
+```
+
+#### Re-export `reduced_diffusion_coefficient`
+
+```rust
+pub use diffusion::reduced_diffusion_coefficient;
+```
+
+#### Re-export `KernelKind`
+
+```rust
+pub use diffusion::KernelKind;
+```
+
+#### Re-export `SicLayer`
+
+```rust
+pub use geometry::SicLayer;
+```
+
+#### Re-export `advance_grain_boundary_exposure`
+
+```rust
+pub use grain_boundary::advance_grain_boundary_exposure;
+```
+
+#### Re-export `corroded_weibull_modulus`
+
+```rust
+pub use grain_boundary::corroded_weibull_modulus;
+```
+
+#### Re-export `grain_boundary_corrosion_rate`
+
+```rust
+pub use grain_boundary::grain_boundary_corrosion_rate;
+```
+
+#### Re-export `GrainBoundaryCorrosion`
+
+```rust
+pub use grain_boundary::GrainBoundaryCorrosion;
+```
+
+#### Re-export `irradiation_tau`
+
+```rust
+pub use history::irradiation_tau;
+```
+
+#### Re-export `AccidentHistory`
+
+```rust
+pub use history::AccidentHistory;
+```
+
+#### Re-export `AccidentStep`
+
+```rust
+pub use history::AccidentStep;
+```
+
+#### Re-export `FailureProgress`
+
+```rust
+pub use history::FailureProgress;
+```
+
+#### Re-export `OxygenSource`
+
+```rust
+pub use history::OxygenSource;
+```
+
+#### Re-export `ParticleState`
+
+```rust
+pub use history::ParticleState;
+```
+
+#### Re-export `molar_volume`
+
+```rust
+pub use molar_volume::molar_volume;
+```
+
+#### Re-export `KernelCompound`
+
+```rust
+pub use molar_volume::KernelCompound;
+```
+
+#### Re-export `oxygen_per_fission_thoria`
+
+```rust
+pub use oxygen::oxygen_per_fission_thoria;
+```
+
+#### Re-export `oxygen_per_fission_uco`
+
+```rust
+pub use oxygen::oxygen_per_fission_uco;
+```
+
+#### Re-export `oxygen_per_fission_uo2`
+
+```rust
+pub use oxygen::oxygen_per_fission_uo2;
+```
+
+#### Re-export `HeatingRegime`
+
+```rust
+pub use oxygen::HeatingRegime;
+```
+
+#### Re-export `OPF_MAX`
+
+```rust
+pub use oxygen::OPF_MAX;
+```
+
+#### Re-export `internal_gas_pressure`
+
+```rust
+pub use pressure::internal_gas_pressure;
+```
+
+#### Re-export `GAS_CONSTANT_J_PER_MOL_K`
+
+```rust
+pub use pressure::GAS_CONSTANT_J_PER_MOL_K;
+```
+
+#### Re-export `STABLE_FISSION_GAS_YIELD`
+
+```rust
+pub use pressure::STABLE_FISSION_GAS_YIELD;
+```
+
+#### Re-export `irradiated_strength`
+
+```rust
+pub use strength::irradiated_strength;
+```
+
+#### Re-export `irradiated_weibull_modulus`
+
+```rust
+pub use strength::irradiated_weibull_modulus;
+```
+
+#### Re-export `MIN_TENSILE_STRENGTH_MPA`
+
+```rust
+pub use strength::MIN_TENSILE_STRENGTH_MPA;
+```
+
+#### Re-export `MIN_WEIBULL_MODULUS`
+
+```rust
+pub use strength::MIN_WEIBULL_MODULUS;
+```
+
+#### Re-export `induced_stress`
+
+```rust
+pub use stress::induced_stress;
+```
+
+#### Re-export `induced_stress_exact`
+
+```rust
+pub use stress::induced_stress_exact;
+```
+
+#### Re-export `induced_stress_with_thinning_factor`
+
+```rust
+pub use stress::induced_stress_with_thinning_factor;
+```
+
+#### Re-export `weibull_failure_fraction`
+
+```rust
+pub use weibull::weibull_failure_fraction;
 ```
 
 ## Re-exports

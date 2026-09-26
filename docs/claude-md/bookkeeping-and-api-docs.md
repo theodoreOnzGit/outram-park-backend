@@ -168,7 +168,7 @@ commit it, then port and diff. `op-w44a.7` did this and it was a real check;
 **A Python script that is a published reproducibility artifact is a different
 question — ask, do not delete.** Where a script exists so that a *journal
 reader* can re-derive a table or figure, replacing it with a Rust binary
-raises the reproduction bar from "run this script" to "build a 43-crate Rust
+raises the reproduction bar from "run this script" to "build a 44-crate Rust
 workspace", and may break a byte-identical copy held in a manuscript
 repository. Raise it with the maintainer rather than applying this rule
 mechanically. `kloc_accounting.py` was exactly that case: it was put to the

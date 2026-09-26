@@ -5,6 +5,29 @@
 //! the release table moved to [`super::thermal_tab`] ("Live thermal state and
 //! FP release"), which replaced the static geometry viewer.
 //!
+//! # The picture is a live plume, evaluated once per screen pixel
+//!
+//! Two maintainer directions, both 2026-09-25, shape what this draws:
+//!
+//! - *"fill the map with single pixels, not the big boxes"* -- the field is
+//!   requested at the map square's own width in **physical screen pixels**,
+//!   so every pixel painted is a separate evaluation of the puff model at that
+//!   pixel's coordinates. It is uploaded as one texture rather than as tens of
+//!   thousands of filled rectangles, which is a rendering choice and changes
+//!   no value.
+//! - *"timestep according to real-time, I want to see a real-time plume"* --
+//!   the field is the **instantaneous** concentration at the plume clock, so
+//!   it grows out of the stack, travels downwind, and settles after one puff
+//!   lifetime. See [`crate::physics::atmospheric_dispersion::DispersionGrid`],
+//!   which spells out why that is a *different quantity* from the
+//!   time-integrated `chi/Q` the table below quotes, despite sharing units.
+//!
+//! The fast-forward buttons move the **plume** clock only. The plant clock is
+//! shown beside it and is never advanced by them -- see
+//! [`crate::physics::atmospheric_dispersion::MapFieldRequest::plume_clock_offset`]
+//! for why the plume may legitimately run ahead and what that must never be
+//! read as.
+//!
 //! # NOT VALIDATED
 //!
 //! The puff model is `changi::puff` (ported from R `puff` 0.1.1), not FLEXPART,
@@ -12,14 +35,106 @@
 //! **per curie of core inventory**. See
 //! [`crate::physics::atmospheric_dispersion`].
 
-use egui::{Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Ui, Vec2};
+use egui::{
+    Align2, Color32, ColorImage, FontId, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions,
+    Ui, Vec2,
+};
 
+use outram_park_digital_twin_engine::app_scaffold::SharedState;
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 
 use super::state::HtgrSnapshot;
 
-/// Draw the dispersion rose: receptors as a polar plot around the release
-/// point, sized and shaded by `chi/Q`.
+/// Fraction of the tab's height the map square takes.
+///
+/// **Maintainer direction, 2026-09-25: "make the map fill like 60% of the
+/// height"**, with the dispersion table below it rather than beside it. A
+/// drawing-layout constant with no physical counterpart, recorded here as
+/// their call so the next reader does not "fix" it back to a square that
+/// fits whatever is left.
+const MAP_HEIGHT_FRACTION: f32 = 0.60;
+
+/// Floor on the map square's side \[points\].
+///
+/// A window short enough that 60 % of it is smaller than this gets a map that
+/// overflows into the tab's two-way scroll area instead of collapsing to an
+/// unreadable thumbnail. Purely a drawing choice.
+const MAP_MIN_SIDE: f32 = 320.0;
+
+/// Steps the plume-clock fast-forward offers \[s of plume clock\].
+///
+/// **Maintainer direction, 2026-09-25: "timesteps of 1-2 hrs at a time".**
+/// One and two hours, plus a one-hour rewind so a jump can be walked back
+/// without restarting.
+const PLUME_JUMPS_S: [(f64, &str); 3] = [
+    (3600.0, "+1 h"),
+    (7200.0, "+2 h"),
+    (-3600.0, "-1 h"),
+];
+
+/// The Map tab's retained state.
+///
+/// Only the field texture and the key it was built for. Everything else the
+/// tab draws is rebuilt per frame from the snapshot, which is the crate's
+/// usual arrangement; a texture is the exception because it is a GPU upload,
+/// and re-uploading a 512 x 512 image every frame would cost more than
+/// computing the field does.
+#[derive(Default)]
+pub struct MapTabState {
+    /// The uploaded `chi/Q` field, one texel per grid cell.
+    texture: Option<TextureHandle>,
+    /// `(cells, plume clock)` the texture was built from. The field changes
+    /// only when one of these does -- see `DispersionGrid` -- so this is the
+    /// complete upload key and not an approximation of one.
+    built_for: Option<(usize, f64)>,
+}
+
+impl MapTabState {
+    /// The texture for this snapshot's field, re-uploading only when the field
+    /// has actually changed.
+    ///
+    /// Returns `None` when there is no field yet, which is the state before
+    /// the first dispersion evaluation. Nothing is substituted in that case:
+    /// an invented plume would look exactly like a computed one.
+    fn field_texture(&mut self, ui: &Ui, s: &HtgrSnapshot) -> Option<&TextureHandle> {
+        let cells = s.dispersion_grid_cells;
+        if cells == 0 || s.dispersion_grid.len() < cells * cells {
+            return None;
+        }
+        let key = (cells, s.dispersion_grid_time_s);
+        if self.built_for != Some(key) || self.texture.is_none() {
+            let peak = s
+                .dispersion_grid
+                .iter()
+                .copied()
+                .fold(0.0_f32, f32::max) as f64;
+            let pixels: Vec<Color32> = s.dispersion_grid[..cells * cells]
+                .iter()
+                .map(|value| log_shade(*value as f64, peak))
+                .collect();
+            let image = ColorImage::new([cells, cells], pixels);
+            match &mut self.texture {
+                // NEAREST, not LINEAR: at one texel per screen pixel there is
+                // nothing to interpolate, and filtering would blur evaluated
+                // values into each other -- which is exactly the "picture of a
+                // plume rather than a readout of one" the rose's docs reject.
+                Some(handle) => handle.set(image, TextureOptions::NEAREST),
+                None => {
+                    self.texture = Some(ui.ctx().load_texture(
+                        "htgr_dispersion_field",
+                        image,
+                        TextureOptions::NEAREST,
+                    ))
+                }
+            }
+            self.built_for = Some(key);
+        }
+        self.texture.as_ref()
+    }
+}
+
+/// Draw the dispersion rose: the evaluated `chi/Q` field, with the receptor
+/// ring, distance rings and sector spokes over it.
 ///
 /// # Why a rose and not a contour plot
 ///
@@ -29,11 +144,18 @@ use super::state::HtgrSnapshot;
 /// exactly the points that were computed and nothing between them. It also
 /// makes the sector structure visible, so nobody mistakes the resolution for
 /// finer than it is.
-fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
-    let size = ui.available_width().min(320.0).max(200.0);
-    let (response, painter) = ui.allocate_painter(Vec2::new(size, size), Sense::hover());
+///
+/// The field underneath it is subject to the same rule and satisfies it the
+/// other way: at one cell per screen pixel there is no gap left to
+/// interpolate across, so nothing on it is drawn that was not evaluated.
+///
+/// Returns the side of the map square actually painted \[points\], which is
+/// what the caller turns into the next frame's resolution request.
+fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, side: f32) -> f32 {
+    let (response, painter) = ui.allocate_painter(Vec2::new(side, side), Sense::hover());
     let rect = response.rect;
     let centre = rect.center();
+    let size = rect.width().min(rect.height());
     let max_radius = size * 0.40;
 
     // White ground, not the dark canvas this used to have (maintainer,
@@ -61,7 +183,7 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
             FontId::proportional(11.0),
             Color32::from_gray(120),
         );
-        return;
+        return rect.width();
     }
 
     // Distance rings, drawn at the real radii so the plot is to scale.
@@ -72,47 +194,28 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
             drawn.push(receptor.distance_m);
         }
     }
-    // --- the evaluated field, one filled square per grid cell ---
+
+    // --- the evaluated field, one texel per grid cell ---
     //
     // Painted FIRST so the rings, spokes and receptor markers sit on top of
     // it. Every cell is a real evaluation of the puff model at that cell's
-    // coordinates (see `atmospheric_dispersion::GRID_CELLS`), so this is a
-    // readout at 4096 points, not an interpolation between 24 -- which is
-    // what the rose's own docs rule out.
-    if s.dispersion_grid_cells > 0 && !s.dispersion_grid.is_empty() {
-        let n = s.dispersion_grid_cells;
-        // The grid spans +/- half_width in metres; the plot spans max_radius
-        // in pixels for `outermost` metres. Scale so the two agree.
-        let grid_px = max_radius * (s.dispersion_grid_half_width_m / outermost) as f32;
-        let cell_px = 2.0 * grid_px / n as f32;
-        let field_peak = s
-            .dispersion_grid
-            .iter()
-            .copied()
-            .fold(0.0_f32, f32::max) as f64;
-
-        for row in 0..n {
-            for column in 0..n {
-                let Some(value) = s.dispersion_grid.get(row * n + column) else {
-                    continue;
-                };
-                let value = *value as f64;
-                if !(value > 0.0) {
-                    continue;
-                }
-                // North-up rows: row 0 is the northernmost, i.e. the TOP of
-                // the screen, so the row index runs straight down.
-                let x0 = centre.x - grid_px + column as f32 * cell_px;
-                let y0 = centre.y - grid_px + row as f32 * cell_px;
-                let cell = Rect::from_min_size(
-                    Pos2::new(x0, y0),
-                    // A hair of overlap, so the grid reads as a field rather
-                    // than as a mesh of separated tiles.
-                    Vec2::new(cell_px + 0.5, cell_px + 0.5),
-                );
-                painter.rect_filled(cell, 0.0, log_shade(value, field_peak));
-            }
-        }
+    // coordinates, so this is a readout at every pixel of the square rather
+    // than an interpolation between 24 -- which is what the rose's own docs
+    // rule out.
+    let field_peak = s
+        .dispersion_grid
+        .iter()
+        .copied()
+        .fold(0.0_f32, f32::max) as f64;
+    let grid_px = max_radius * (s.dispersion_grid_half_width_m / outermost) as f32;
+    if let Some(texture) = state.field_texture(ui, s) {
+        let field_rect = Rect::from_center_size(centre, Vec2::splat(2.0 * grid_px));
+        painter.image(
+            texture.id(),
+            field_rect,
+            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+            Color32::WHITE,
+        );
     }
 
     drawn.sort_by(|a, b| a.partial_cmp(b).expect("finite distances"));
@@ -205,6 +308,25 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot) {
         FontId::proportional(9.0),
         Color32::from_gray(110),
     );
+    // The colour scale, in the one place it cannot be mistaken for anything
+    // else: what the brightest pixel on screen is worth, and how far down the
+    // ramp runs. Without it the picture is a shape with no magnitude, and the
+    // magnitude is the only thing anyone should quote off it.
+    if field_peak > 0.0 {
+        painter.text(
+            Pos2::new(rect.right() - 4.0, rect.bottom() - 4.0),
+            Align2::RIGHT_BOTTOM,
+            format!(
+                "field peak {field_peak:.3e} s/m^3, 4 decades below it to the floor \
+                 ({} x {} cells)",
+                s.dispersion_grid_cells, s.dispersion_grid_cells
+            ),
+            FontId::proportional(9.0),
+            Color32::from_gray(110),
+        );
+    }
+
+    rect.width()
 }
 
 /// Unit-circle position for a compass bearing, `(x east, y north)`.
@@ -217,8 +339,8 @@ fn bearing_to_plot(bearing_deg: f64, radius: f64) -> (f64, f64) {
     (radius * radians.sin(), radius * radians.cos())
 }
 
-/// Shade a receptor by `chi/Q` on a **logarithmic** scale spanning four
-/// decades below the peak.
+/// Shade a receptor or a field cell by `chi/Q` on a **logarithmic** scale
+/// spanning four decades below the peak.
 ///
 /// Linear shading would be actively misleading here: `chi/Q` runs from ~1e-5
 /// on the plume centreline to ~1e-28 upwind, so on a linear scale every
@@ -237,6 +359,86 @@ fn log_shade(value: f64, peak: f64) -> Color32 {
     let decades_below = (peak / value).log10();
     let fraction = (1.0 - decades_below / DECADES).clamp(0.0, 1.0);
     hot_to_cold_colour_mark_1(fraction as f32)
+}
+
+/// Smallest angle between two compass bearings, degrees.
+fn angular_distance(a_deg: f64, b_deg: f64) -> f64 {
+    let diff = (a_deg - b_deg).rem_euclid(360.0);
+    diff.min(360.0 - diff)
+}
+
+/// Format a duration in seconds as `h:mm:ss`, for the two clocks.
+fn clock_text(seconds: f64) -> String {
+    if !seconds.is_finite() {
+        return "--".to_string();
+    }
+    let total = seconds.max(0.0).round() as u64;
+    format!(
+        "{}:{:02}:{:02}",
+        total / 3600,
+        (total % 3600) / 60,
+        total % 60
+    )
+}
+
+/// The plume clock readout and its fast-forward buttons.
+///
+/// # What these buttons move, and what they deliberately do not
+///
+/// They move the **plume** clock. The plant clock beside them is untouched,
+/// and both are on screen at once so the difference cannot be missed.
+///
+/// That split is not a convenience: the plant model cannot skip time (its
+/// timestep is pinned by an advective Courant limit -- see
+/// [`crate::physics::PLANT_TIMESTEP_S`]) and it computes at roughly real time,
+/// so a genuine one-hour plant jump costs an hour. The dispersion field has no
+/// such constraint, because `chi/Q` is a dilution factor that does not depend
+/// on the source at all: jumping its clock is the same closed form evaluated
+/// at a later argument, exact rather than extrapolated
+/// (`atmospheric_dispersion::tests::a_plume_clock_jump_equals_having_run_the_clock_there`
+/// pins that). Maintainer direction, 2026-09-25, chose this split knowing it.
+fn draw_plume_clock(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, s: &HtgrSnapshot) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label(format!("Plant clock {}", clock_text(s.sim_time_s)));
+        ui.separator();
+        ui.label(format!(
+            "Plume clock {}",
+            clock_text(s.dispersion_grid_time_s)
+        ));
+        ui.separator();
+        ui.label("Fast forward the plume:");
+        for (jump_s, label) in PLUME_JUMPS_S {
+            if ui
+                .button(label)
+                .on_hover_text(
+                    "Moves the PLUME clock only. The reactor, the release channel and the \
+                     table below stay on the plant clock -- those depend on the source and \
+                     the plant cannot skip time. chi/Q does not depend on the source, so the \
+                     field at a later clock is exact, not extrapolated.",
+                )
+                .clicked()
+            {
+                let offset = (s.plume_clock_offset_s + jump_s).max(-s.sim_time_s);
+                physics.update(|state| state.plume_clock_offset_s = offset);
+            }
+        }
+        if ui.button("Now").clicked() {
+            physics.update(|state| state.plume_clock_offset_s = 0.0);
+        }
+    });
+    if s.plume_clock_offset_s.abs() > f64::EPSILON {
+        ui.colored_label(
+            Color32::from_rgb(200, 120, 20),
+            format!(
+                "Plume clock is running {} AHEAD of the plant. The map is the plume this \
+                 wind would have produced by then; the plant state, the release and the \
+                 table below are still at the plant clock. The plume settles after one puff \
+                 lifetime (20 min), so past that a further jump changes nothing unless the \
+                 wind does.",
+                clock_text(s.plume_clock_offset_s.abs())
+            ),
+        );
+    }
 }
 
 /// The dispersion table and its caveats.
@@ -259,6 +461,11 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
          DO -- they are per curie of core inventory and per unit of a placeholder leak \
          fraction, i.e. a transfer function, not a consequence, and not figures for any \
          reactor. Research, education and V&V only; no dose quantity is computed.",
+    );
+    ui.label(
+        "These rows are the TIME-INTEGRATED chi/Q at each receptor, over the whole puff run. \
+         The map above is the INSTANTANEOUS field at the plume clock. Both are s/m^3 and \
+         they are different quantities -- do not read a pixel against a row.",
     );
     ui.add_space(4.0);
 
@@ -312,19 +519,69 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
     );
 }
 
-/// Smallest angle between two compass bearings, degrees.
-fn angular_distance(a_deg: f64, b_deg: f64) -> f64 {
-    let diff = (a_deg - b_deg).rem_euclid(360.0);
-    diff.min(360.0 - diff)
+/// Cells per side to ask the dispersion field for, given the map square's side
+/// in points and the display's points-to-pixels ratio.
+///
+/// **One evaluation per physical screen pixel** -- the whole point of the
+/// 2026-09-25 direction. On a HiDPI display a point is more than a pixel, so
+/// asking in points would still paint every cell across two or more pixels,
+/// which is the "big box" being replaced, only smaller.
+///
+/// The physics clamps this to what the host can afford
+/// ([`crate::physics::atmospheric_dispersion::max_grid_cells`]), so an
+/// oversized request costs a coarser map, never a missed physics tick.
+fn requested_cells(side_points: f32, pixels_per_point: f32) -> usize {
+    (side_points * pixels_per_point).round().max(1.0) as usize
+}
+
+/// Whether a new resolution request is worth sending.
+///
+/// A window being dragged changes the map's width by a pixel at a time, and
+/// every changed request invalidates the field cache and forces a fresh
+/// evaluation. A 2 % dead band means a resize settles instead of recomputing
+/// the field on every intermediate width, while any real size change still
+/// gets through. Purely a rate-limiting choice; it cannot change a value.
+fn resolution_request_changed(current: usize, wanted: usize) -> bool {
+    let tolerance = (current as f64 * 0.02).max(2.0);
+    (current as f64 - wanted as f64).abs() > tolerance
 }
 
 /// Draw the whole Map tab: the Gaussian puff dispersion widgets.
-pub fn draw_map(ui: &mut Ui, s: &HtgrSnapshot) {
+///
+/// `view` is the tab's viewport, measured by the caller **outside** the scroll
+/// area -- inside one, the available height is the content's own budget rather
+/// than the window's, so a panel that sized itself from in there would grow
+/// every frame it filled.
+///
+/// Layout is the map square above the table, not beside it (maintainer,
+/// 2026-09-25), with the map at [`MAP_HEIGHT_FRACTION`] of the viewport
+/// height. The combination overflows the viewport by construction, which is
+/// what the caller's two-way scroll area is for.
+pub fn draw_map(
+    ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
+    s: &HtgrSnapshot,
+    state: &mut MapTabState,
+    view: Vec2,
+) {
     ui.heading("Atmospheric dispersion -- Gaussian puff");
-    ui.columns(2, |columns| {
-        draw_dispersion_rose(&mut columns[0], s);
-        draw_dispersion_table(&mut columns[1], s);
-    });
+    draw_plume_clock(ui, physics, s);
+    ui.add_space(4.0);
+
+    let side = (view.y * MAP_HEIGHT_FRACTION).max(MAP_MIN_SIDE);
+    let painted = draw_dispersion_rose(ui, s, state, side);
+
+    // Tell the physics what resolution this map can show. A control input,
+    // written the same way the wind is -- see `HtgrSnapshot::
+    // map_field_cells_requested`.
+    let wanted = requested_cells(painted, ui.ctx().pixels_per_point());
+    if resolution_request_changed(s.map_field_cells_requested, wanted) {
+        physics.update(|state| state.map_field_cells_requested = wanted);
+    }
+
+    ui.add_space(8.0);
+    ui.separator();
+    draw_dispersion_table(ui, s);
 }
 
 #[cfg(test)]
@@ -391,11 +648,30 @@ mod tests {
             four_decades, far_below,
             "beyond four decades the scale must clamp, not keep darkening"
         );
-        // Degenerate inputs must not panic or produce a bright receptor.
-        let floor = Color32::from_gray(45);
-        assert_eq!(log_shade(0.0, peak), floor);
-        assert_eq!(log_shade(-1.0, peak), floor);
-        assert_eq!(log_shade(peak, 0.0), floor);
+        // Degenerate inputs must not panic, must all land on the SAME floor,
+        // and that floor must RECEDE against the map's white ground.
+        //
+        // ~~`let floor = Color32::from_gray(45);`~~ **CORRECTED 2026-09-25.**
+        // This test asserted the near-black floor that belonged to the dark
+        // canvas, and `log_shade` has returned `from_gray(225)` since the
+        // ground went white on 2026-09-24 -- so the test had been failing
+        // ever since, asserting a colour the function could no longer return.
+        // It is now written against the *contract* (one floor, and a light
+        // one) rather than against a grey level restated in two places, so
+        // the next background change cannot silently break it again.
+        let floor = log_shade(0.0, peak);
+        assert_eq!(log_shade(-1.0, peak), floor, "a negative must hit the floor");
+        assert_eq!(log_shade(peak, 0.0), floor, "a zero peak must hit the floor");
+        assert_ne!(floor, at_peak, "the floor must not be the peak colour");
+        // "Light" is the load-bearing half: on a white map the no-value cells
+        // are most of the picture, and a dark floor would make the quiet
+        // sectors the hardest thing to see -- which is backwards, since a
+        // quiet sector is the reassuring result.
+        let (r, g, b) = (floor.r() as u16, floor.g() as u16, floor.b() as u16);
+        assert!(
+            (r + g + b) / 3 >= 200,
+            "the floor must recede on a white ground; got rgb({r}, {g}, {b})"
+        );
     }
 
     /// The downwind filter must select the half-plane the plume is actually
@@ -420,5 +696,41 @@ mod tests {
             assert!((0.0..=180.0).contains(&ab), "got {ab} for ({a}, {b})");
         }
         assert!((angular_distance(359.0, 1.0) - 2.0).abs() < 1e-12);
+    }
+
+    /// The resolution request must be in PHYSICAL PIXELS, and must not
+    /// re-fire on every pixel of a window drag.
+    ///
+    /// Both halves have teeth. Asking in points on a 2x display would paint
+    /// every evaluated cell across four pixels -- the "big box" the
+    /// single-pixel direction replaces, only smaller and harder to notice.
+    /// And a request that changed on every intermediate width would
+    /// invalidate the field cache on every frame of a resize, turning a drag
+    /// into a sustained recomputation.
+    #[test]
+    fn the_resolution_request_is_in_pixels_and_has_a_dead_band() {
+        assert_eq!(requested_cells(320.0, 1.0), 320);
+        assert_eq!(requested_cells(320.0, 2.0), 640, "HiDPI must ask for real pixels");
+        assert_eq!(requested_cells(0.0, 1.0), 1, "a degenerate size must not be zero");
+
+        // A one-pixel wobble on a 500-cell map is inside the dead band; a
+        // real resize is not.
+        assert!(!resolution_request_changed(500, 501));
+        assert!(!resolution_request_changed(500, 495));
+        assert!(resolution_request_changed(500, 560));
+        // The dead band has a floor, so a small map still responds.
+        assert!(resolution_request_changed(64, 80));
+    }
+
+    /// The clock readout must be `h:mm:ss` and must not panic on the `NAN`
+    /// the snapshot carries before the first field.
+    #[test]
+    fn the_clock_reads_out_in_hours_minutes_seconds() {
+        assert_eq!(clock_text(0.0), "0:00:00");
+        assert_eq!(clock_text(59.4), "0:00:59");
+        assert_eq!(clock_text(3600.0), "1:00:00");
+        assert_eq!(clock_text(7265.0), "2:01:05");
+        assert_eq!(clock_text(f64::NAN), "--");
+        assert_eq!(clock_text(-5.0), "0:00:00");
     }
 }

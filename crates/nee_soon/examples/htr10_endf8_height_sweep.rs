@@ -138,6 +138,7 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     c_sic: 7,
     si29: 8,
     si30: 9,
+    b11: 10,
 };
 
 /// Everything one case is. No field has a default and nothing is read from the
@@ -260,7 +261,8 @@ fn rmc_at_height(h_cm: f64) -> Option<f64> {
 /// that correct physics is the default and not an opt-in. There is no ablation
 /// path here on purpose — `htr10_rmc_keff` is where ablations live.
 fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let base =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
 
     macro_rules! load {
         ($diag:expr, $n:expr, $f:expr) => {{
@@ -328,7 +330,10 @@ fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         let out = diag.time_data(
             format!("{name} S(a,b)"),
             DataSource::GeneratedFromLeaprDeck(material.base().to_string()),
-            format!("MAT {}, {TEMP_K:.2} K, generated in-process", material.mat()),
+            format!(
+                "MAT {}, {TEMP_K:.2} K, generated in-process",
+                material.mat()
+            ),
             || {
                 ThermalScattering::from_leapr(material, TEMP_K, name)
                     .map_err(|e| eprintln!("  {name} LEAPR generation FAILED: {e}"))
@@ -356,12 +361,22 @@ fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         // 4: graphite-bound carbon.
         load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
         // 5, 8, 9: natural silicon, bound in SiC.
-        bind(load!(diag, "Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
+        bind(
+            load!(diag, "Si28", "n-014_Si_028-ENDF8.0.endf")?,
+            &si_in_sic,
+        ),
         load!(diag, "B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7: carbon bound in SiC.
         bind(load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-        bind(load!(diag, "Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
-        bind(load!(diag, "Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+        bind(
+            load!(diag, "Si29", "n-014_Si_029-ENDF8.0.endf")?,
+            &si_in_sic,
+        ),
+        bind(
+            load!(diag, "Si30", "n-014_Si_030-ENDF8.0.endf")?,
+            &si_in_sic,
+        ),
+        load!(diag, "B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
     ])
 }
 
@@ -483,7 +498,9 @@ fn run_case(spec: &CaseSpec) {
     match rmc_at_height(bed_height_cm) {
         Some(k) => {
             let dk = (res.k_mean - k) * 1.0e5;
-            println!("  RMC(interp)  = {k:.6}   (headline {RMC_HEADLINE_KEFF:.6} is at 123.576 cm)");
+            println!(
+                "  RMC(interp)  = {k:.6}   (headline {RMC_HEADLINE_KEFF:.6} is at 123.576 cm)"
+            );
             println!("  dk           = {dk:+.0} pcm   (sigma {sigma_pcm:.0} pcm)");
             // One machine-readable line per case, so the figure's CSV is built
             // from the runs rather than retyped from them.
@@ -499,18 +516,35 @@ fn run_case(spec: &CaseSpec) {
     }
 
     let n_hist = res.histories.max(1) as f64;
-    println!("  histories    = {} (planned {})", res.histories,
-             spec.particles * (spec.inactive + spec.active));
-    println!("  collisions   = {} ({:.2} per history)", res.collisions,
-             res.collisions as f64 / n_hist);
-    println!("  lost locate  = {} ({:.3} %)", res.lost_locate,
-             100.0 * res.lost_locate as f64 / n_hist);
-    println!("  stuck events = {} ({:.3} %)", res.stuck_events,
-             100.0 * res.stuck_events as f64 / n_hist);
-    println!("  neg distance = {} (worst {:.4e} cm, level {})",
-             res.neg_dist, res.neg_worst, res.neg_level);
-    println!("  leak vacuum  = {} ({:.3} %)", res.leak_vacuum,
-             100.0 * res.leak_vacuum as f64 / n_hist);
+    println!(
+        "  histories    = {} (planned {})",
+        res.histories,
+        spec.particles * (spec.inactive + spec.active)
+    );
+    println!(
+        "  collisions   = {} ({:.2} per history)",
+        res.collisions,
+        res.collisions as f64 / n_hist
+    );
+    println!(
+        "  lost locate  = {} ({:.3} %)",
+        res.lost_locate,
+        100.0 * res.lost_locate as f64 / n_hist
+    );
+    println!(
+        "  stuck events = {} ({:.3} %)",
+        res.stuck_events,
+        100.0 * res.stuck_events as f64 / n_hist
+    );
+    println!(
+        "  neg distance = {} (worst {:.4e} cm, level {})",
+        res.neg_dist, res.neg_worst, res.neg_level
+    );
+    println!(
+        "  leak vacuum  = {} ({:.3} %)",
+        res.leak_vacuum,
+        100.0 * res.leak_vacuum as f64 / n_hist
+    );
     println!("  wall clock   = {secs:.1} s");
 
     // The entropy trace is the only thing that says whether 5 inactive
@@ -534,7 +568,10 @@ fn run_case(spec: &CaseSpec) {
         );
         println!(
             "ENTROPY,{},{:.4},{:.4},{:+.4}",
-            spec.name, first, last, last - first
+            spec.name,
+            first,
+            last,
+            last - first
         );
     }
 }

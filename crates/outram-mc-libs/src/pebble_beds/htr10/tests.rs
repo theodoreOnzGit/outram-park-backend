@@ -43,6 +43,7 @@ fn nuclides() -> Htr10Nuclides {
         c_sic: 7,
         si29: 8,
         si30: 9,
+        b11: 10,
     }
 }
 

@@ -72,5 +72,11 @@ what this comparison used — the reference here is a committed driver script.
    geometry one.
 3. **`ColourBy::Material` and `ColourBy::Universe` are not cross-checked**, only
    `Cell`.
-4. **No voxel plots, no native rasteriser, no interactive viewer** — explicitly
-   out of scope per the issue.
+4. ~~**No voxel plots, no native rasteriser, no interactive viewer** — explicitly
+   out of scope per the issue.~~ **UPDATED 2026-09-25:** the native rasteriser
+   is now ported (maintainer direction reversed the scope). Limitations 1-3
+   are also addressed there: lattice and multi-cell models, material colouring,
+   overlaps, masks and mesh lines, compared by exact RGB (colour identity, not
+   a mask) — 17 images, 0 differing pixels. See
+   [`../geometry_plotting/README.md`](../geometry_plotting/README.md). Voxel
+   plots and an interactive viewer remain out of scope.

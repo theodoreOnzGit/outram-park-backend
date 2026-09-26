@@ -189,6 +189,8 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     c_sic: 7,
     si29: 8,
     si30: 9,
+    // 10: B-11, the rest of natural boron (gh:#311).
+    b11: 10,
 };
 
 fn env_usize(k: &str, d: usize) -> usize {
@@ -277,6 +279,14 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         ("n-014_Si_029-ENDF7.0.endf", "n-014_Si_030-ENDF7.0.endf")
     } else {
         ("n-014_Si_029-ENDF8.0.endf", "n-014_Si_030-ENDF8.0.endf")
+    };
+    // B-11 from the selected library too (gh:#311). VII.0 tape: IAEA NDS
+    // n_0528_5-B-11; the B-10 from that tree is byte-identical to the committed
+    // VII.0 tape.
+    let f_b11 = if endf7 {
+        "n-005_B_011-ENDF7.0.endf"
+    } else {
+        "n-005_B_011-ENDF8.0.endf"
     };
     let (f_u235, f_u238, f_o16, f_c, f_si28, f_b10, f_tsl) = if endf7 {
         (
@@ -473,6 +483,8 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         bind(load!(diag, "C12", f_c)?, &c_in_sic),
         bind(load!(diag, "Si29", f_si29)?, &si_in_sic),
         bind(load!(diag, "Si30", f_si30)?, &si_in_sic),
+        // 10: B-11 (gh:#311). No thermal law: a trace scatterer in graphite.
+        load!(diag, "B11", f_b11)?,
     ])
 }
 

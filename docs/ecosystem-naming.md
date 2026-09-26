@@ -17,7 +17,7 @@ Singapore MRT station names identify **domains**, not crates.
 
 | Domain | Scope | Rests on |
 |---|---|---|
-| **TUAS** | Boussinesq thermal hydraulics — incompressible, natural and forced circulation, buoyancy-driven flow, molten salt, pipe networks, heat exchangers | `tuas_boussinesq_solver` |
+| **TUAS** — *Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows* (the title of its peer-reviewed paper, doi:10.1016/j.jandt.2025.03.006) | Boussinesq thermal hydraulics — incompressible, natural and forced circulation, buoyancy-driven flow, molten salt, pipe networks, heat exchangers | `tuas_boussinesq_solver` |
 | **TAMPINES** | Thermophysical properties, steam tables, EOS, compressible-flow infrastructure, HEM, balance-of-plant, TH framework | `tampines`, `tampines-steam-tables`, `outram-park-fork-coolprop` |
 | **NEE SOON** | **Neutronics and nuclear data** — the integration crate for that domain, and only that domain | `nee_soon`, composing `njoy-outram-park-fork`, `outram-mc-libs`, `teh-o-prke` |
 | **BEDOK** | **Multiphysics coupling at system level** — TH and neutronics coupled, above 1-D neutronics fidelity but **below CFD fidelity** (CFD-level coupling stays with GeN-Foam in `outram-foam-appbuilder-lib`) | *new* |
@@ -25,13 +25,19 @@ Singapore MRT station names identify **domains**, not crates.
 | **CHANGI** — *Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts* | **Now (research/educational):** atmospheric dispersion, plume transport, radionuclide deposition, ground contamination. **Future, not current:** radiological consequence assessment, dose assessment, emergency-planning support, Level 3 PSA support. Input: source terms from SEMBAWANG. *"What happens after release?"* | `changi` — FLEXPART v10.4 port begun 2026-09-15; surface-layer + deposition kernels verified code-to-code, the rest not yet ported |
 | **REDHILL** — *Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers* | Groundwater transport, geological migration, subsurface radionuclide transport, PFLOTRAN-based workflows, porous-media flow, repository assessment, long-term environmental transport. *"What happens after deposition and infiltration?"* | *new* — depends on `outram-park-fork-pflotran` |
 
-**BEDOK, SEMBAWANG and BOON LAY names.** SEMBAWANG's backronym was set by the maintainer
-on 2026-09-21. BEDOK carries **no backronym**: the name is established by its
-publication, Than, Y. R., & Xiao, S. (2026). *BEDOK: An In-House Numerical
-Reactor Simulator Effort in Singapore.* Energy Engineering, 123(9). Cite that
-paper for BEDOK.
+**BEDOK, SEMBAWANG, BOON LAY and DOVER names.** SEMBAWANG's backronym was set by the maintainer
+on 2026-09-21. ~~BEDOK carries **no backronym**~~ **CORRECTED 2026-09-25** —
+the maintainer set BEDOK's backronym: **B**road-scope **E**nvironment for
+**D**ual-phase advanced reactor **O**peration simulation **K**it. The name is
+also established by its publication, Than, Y. R., & Xiao, S. (2026). *BEDOK:
+An In-House Numerical Reactor Simulator Effort in Singapore.* Energy
+Engineering, 123(9). Cite that paper for BEDOK.
 BOON LAY's backronym, also set 2026-09-21: **BO**mbardment of neutrons **O**n
 **N**uclides with **L**agrangian transport **a**nd transmutation **Y**ields.
+DOVER's backronym, set 2026-09-25: **D**eck-based **O**pen-source
+**V**isualisation **E**ngine for **R**eactors (crate `dover`, an empty
+skeleton; no domain assigned). Its role, also set 2026-09-25: the
+**low-fidelity equivalent of DHOBY GHAUT**; the details are undecided.
 
 Neutronics, fuel performance, CFD, meshing, KOVAN and the remaining crates are
 not yet assigned a domain. That is deliberate: the seven names above cover

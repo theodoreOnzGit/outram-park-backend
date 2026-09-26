@@ -1,5 +1,6 @@
 # CLAUDE.md — boon-lay
 
+
 **BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation
 Yields** — Lagrangian Monte Carlo radionuclide transport for TRISO fuel particles
 in HTGRs and FHRs.
@@ -11,6 +12,51 @@ The standalone source lives at:
 **License:** GPL-3.0 (same as workspace default)
 
 ---
+
+## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
+
+**Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
+`CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
+every crate downstream of them; a crate that newly depends on one of those
+takes the rule into its own `CLAUDE.md` (check with `cargo metadata`).
+
+**Whenever you build or change a complex reactor geometry** — CSG cells and
+surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
+bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
+**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
+before any result computed on it is reported as more than tentative.
+
+- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
+  geometry (cell / material lookup at each pixel, or the mesh itself), never
+  from the named constants. A picture of the constants hides exactly the
+  defects this rule exists to catch.
+- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial (x-y)
+  slices at the heights that matter; and, for nested geometry, zoomed slices at
+  every level down to the smallest (pebble, TRISO particle). Colour by
+  material, with a legend and the key dimensions marked.
+- **Commit the images with the change** (beside the V&V record or the
+  manuscript package) and point the human at them by path in your summary.
+  Regenerate them whenever the geometry changes.
+- **Say what you checked in them, and what you could not** — an image nobody
+  was told to look at checks nothing.
+
+**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
+mirrored from the top and up to 107 cm short; a core cavity that grew with the
+bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
+(gh:#309, #310); and a TRISO lattice holding 8240 particles while reporting
+8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
+found by looking at the built geometry, not by the eigenvalue.
+
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
+CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## What this crate does
 
@@ -86,6 +132,12 @@ src/
       transient.rs                        ← accident variants: booth_transient, breakthrough_transient, rf_graph
     activities/mod.rs                     ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented (`coolant_activity.rs`, `source_terms.rs`), code-to-code verified
     normal_operation/mod.rs               ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented; `normal_operation_node` agrees with upstream to 3.1e-11
+  fuel_failure/                           ← **boon-lay fuel failure**: TRISO particle failure from the PANAMA-I formulas (NOT the PANAMA code)
+    mod.rs                                ← naming rule, model overview, total_failure_fraction
+    weibull / stress / pressure / booth / oxygen / molar_volume / corrosion / strength /
+    grain_boundary / decomposition / diffusion / geometry .rs  ← one module per equation group
+    history.rs                            ← accident time-stepping driver (AccidentHistory)
+    htr10/                                ← HTR-10 application (an extrapolation) + German-lineage qualification data
 ```
 
 ## triso_atops_fork — Eulerian TRISO release (fork of INL TRISO-ATOPS)
@@ -103,6 +155,18 @@ a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq).~~ **CORRECTED
 implemented and covered by `docs/triso-atops-code-to-code.md` (two passes). Full details,
 Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
+
+## fuel_failure — boon-lay fuel failure (NOT PANAMA)
+
+**Name it "boon-lay fuel failure", never "PANAMA", when you mean this code or
+its output.** It is boon-lay's own Rust implementation of the formulas in the
+PANAMA-I report (Verfondern & Nabielek, HTA-IB-03/90), coded agentically from
+the printed equations. This project does not have the PANAMA source code.
+"PANAMA-I" means only the report and the results it prints. So a sentence like
+"PANAMA gives 1.2e-12 for HTR-10" is wrong twice: PANAMA was never run on
+HTR-10, and the number is boon-lay fuel failure's. The naming rule is set out
+in full in `src/fuel_failure/mod.rs`; the units register and open questions are
+in `docs/panama-i-units-and-open-questions.md`, named for the report it audits.
 ---
 
 ## Test coverage notes

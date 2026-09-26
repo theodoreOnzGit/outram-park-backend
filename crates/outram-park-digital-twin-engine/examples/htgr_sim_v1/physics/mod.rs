@@ -376,6 +376,17 @@ pub struct PlantCommands {
     /// poked into the dispersion channel directly, so a headless run and the
     /// GUI drive it identically.
     pub meteorology: atmospheric_dispersion::Meteorology,
+    /// What the Map tab wants of the dispersion **field**: a resolution (one
+    /// cell per screen pixel) and a plume-clock offset (the fast-forward).
+    ///
+    /// A command, for the same reason the meteorology is one: it reaches the
+    /// plant through the single one-way path every other operator input takes,
+    /// so the GUI and a headless run drive the field identically rather than
+    /// the GUI reaching into the channel. See
+    /// [`atmospheric_dispersion::MapFieldRequest`], especially on why the
+    /// plume clock may run ahead of the plant clock and what that must never
+    /// be read as.
+    pub map_field: atmospheric_dispersion::MapFieldRequest,
 }
 
 /// The accident scenario the plant is running.
@@ -447,6 +458,7 @@ impl Default for PlantCommands {
             helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
             meteorology: atmospheric_dispersion::Meteorology::default(),
+            map_field: atmospheric_dispersion::MapFieldRequest::default(),
             scenario: Scenario::Normal,
         }
     }
@@ -797,17 +809,24 @@ pub struct HtgrPlant {
     ///    is. `headless.rs` asserts `run(&cfg) == run(&cfg)`; this is the
     ///    field that would break it. A headless run has no map to draw, so it
     ///    loses nothing.
-    /// 2. **A GUI run has a GPU by construction.** `eframe` does not start
-    ///    without an adapter, so in the only mode that sets this flag the
-    ///    field costs ~2 ms (measured; see `changi::puff::wgsl`'s timing
-    ///    table). That is why this is a mode flag rather than a runtime
-    ///    adapter probe -- probing would ask a question whose answer is
-    ///    already implied by being here at all.
+    /// 2. **A GUI run has a rendering adapter by construction.** `eframe`
+    ///    does not start without one, so in the only mode that sets this flag
+    ///    the field is affordable: measured 2026-09-25 at the live map's own
+    ///    working point (120 puffs, 512 cells), **1.33 ms on the GPU and
+    ///    19.6 ms pooled on 16 cores**. That is why this is a mode flag
+    ///    rather than an adapter probe.
     ///
-    /// Even the CPU path would fit: 15.9 ms pooled at the simulator's 7 260-
-    /// puff working point, against a 100 ms `PHYSICS_TICK`. The flag is about
-    /// determinism and about not doing work nobody is looking at, not about
-    /// affordability.
+    /// ~~Even the CPU path would fit: 15.9 ms pooled at the simulator's
+    /// 7 260-puff working point.~~ **RESTATED 2026-09-25.** That working
+    /// point no longer exists -- the field is instantaneous now, so it sums
+    /// 120 puffs rather than 7 260, and the cost is set by the map's
+    /// resolution instead. The CPU path still fits, which is why
+    /// [`atmospheric_dispersion::max_grid_cells`] rather than this flag is
+    /// what adapts to it: an adapter probe picks the *resolution*, while this
+    /// flag picks whether the 10 Hz refresh happens at all.
+    ///
+    /// The flag remains about determinism and about not doing work nobody is
+    /// looking at, not about affordability.
     pub map_field_live: bool,
     /// Reactor kinetics slot (prompt excursion + delayed-neutron bank).
     pub kinetics: HtgrKinetics,
@@ -987,6 +1006,12 @@ impl HtgrPlant {
             secondary: secondary_commands,
             scenario,
             meteorology: _,
+            // Both of these are consumed by the dispersion block at the end
+            // of this function, which reads them off `commands` directly, so
+            // the corrector loop below never sees them. Named rather than
+            // `..` so a new command field is a compile error here and has to
+            // be routed deliberately.
+            map_field: _,
         } = commands;
 
         // Apply the scenario BEFORE the sim clock advances, so `scenario_time`
@@ -1282,16 +1307,28 @@ impl HtgrPlant {
         }
         // The map field at 10 Hz, but ONLY when a map is actually on screen.
         // See `Self::map_field_live` for why this is the right discriminator
-        // and not an adapter probe: a GUI run has a GPU by construction
-        // (eframe would not have started without one), so the field costs
-        // ~2 ms there, while a headless run has no map to refresh and must
-        // stay free of wall-clock-dependent state. `refresh_field` is itself
-        // a rate limit, not a schedule -- it recomputes only when the
-        // meteorology actually changed -- and the field still updates through
-        // `update`'s own 60 s throttle below either way. This gates CADENCE,
-        // never the model: both paths compute the same numbers.
+        // and not an adapter probe: a GUI run has a rendering adapter by
+        // construction (eframe would not have started without one), so the
+        // field costs 1.3 ms there (measured, 512 cells on the GPU), while a
+        // headless run has no map to refresh and must stay free of
+        // wall-clock-dependent state.
+        //
+        // `refresh_field` is a 10 Hz SCHEDULE, not merely a rate limit:
+        // ~~it recomputes only when the meteorology actually changed~~ --
+        // CORRECTED 2026-09-25, the field is instantaneous now, so the plume
+        // clock advances it on every tick. The field also still updates
+        // through `update`'s own 60 s throttle below either way. This gates
+        // CADENCE, never the model: both paths compute the same numbers.
+        // The map's own request -- resolution and plume clock -- travels with
+        // the commands, same as the wind. Applied before the refresh below so
+        // a resolution change or a fast-forward takes effect on this tick
+        // rather than the next.
+        if commands.map_field != self.dispersion.field_request() {
+            self.dispersion.set_field_request(commands.map_field);
+        }
         if self.map_field_live {
-            self.dispersion.refresh_field();
+            self.dispersion
+                .refresh_field(self.sim_time.get::<second>());
         }
         self.dispersion
             .update(self.sim_time.get::<second>(), &self.release);
@@ -1366,6 +1403,10 @@ impl HtgrPlant {
                 .extend(result.grid.chi_over_q.iter().map(|v| *v as f32));
             s.dispersion_grid_cells = result.grid.cells;
             s.dispersion_grid_half_width_m = result.grid.half_width_m;
+            // The PLUME clock, which is the plant clock plus the operator's
+            // fast-forward offset -- not the plant clock. The Map tab shows
+            // both and says which is which; see `MapFieldRequest`.
+            s.dispersion_grid_time_s = result.grid.plume_time_s;
         }
 
         for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {
@@ -1520,6 +1561,7 @@ mod tests {
             secondary: SecondaryCommands::default(),
             scenario: Scenario::Normal,
             meteorology: atmospheric_dispersion::Meteorology::default(),
+            map_field: atmospheric_dispersion::MapFieldRequest::default(),
         }
     }
 
@@ -1709,7 +1751,239 @@ mod tests {
     /// workstation**, not a property of the model, and it moves with machine
     /// load. It is not asserted on -- a timing assertion would fail on a busy
     /// CI box for no physical reason. What is asserted is that the plant
-    /// survives its own GUI timestep.
+     /// **Where the plant step actually spends its time** -- an instrument,
+    /// not an assertion.
+    ///
+    /// # Why this exists
+    ///
+    /// The simulator computes at roughly real time, which is what forces
+    /// every scheduling decision in the application layer: the 100 ms
+    /// `PHYSICS_TICK`, the map field's separate 10 Hz clock, the resolution
+    /// ceiling in [`atmospheric_dispersion::max_grid_cells`], and the
+    /// maintainer's 2026-09-25 decision to fast-forward the plume clock
+    /// rather than the plant. All of those rest on *which* part of the step
+    /// is expensive, and that had only ever been recorded in a doc comment
+    /// (`crate::app`'s "Where the compute actually goes" table, 2026-08-13),
+    /// with nothing in the repository able to reproduce it. A number that
+    /// decides a design and cannot be re-measured is not evidence.
+    ///
+    /// # Methodology
+    ///
+    /// The whole plant is stepped over a fixed span of plant time at the
+    /// shipped [`PLANT_TIMESTEP_S`], and two of the three channels suspected
+    /// of dominating it are then timed **on their own**, driven with the same
+    /// state the plant hands them:
+    ///
+    /// - the TRISO-ATOPS release channel
+    ///   ([`fission_product_release`]), throttled in the plant to 1 s;
+    /// - the Gaussian puff dispersion channel
+    ///   ([`atmospheric_dispersion`]), throttled to 60 s.
+    ///
+    /// Each is timed at the rate the plant actually calls it over the run, so
+    /// the figures are directly comparable shares of the same wall clock, not
+    /// per-call costs that still have to be multiplied by a cadence.
+    ///
+    /// The step's two loops are then broken down the same way, one level
+    /// deeper: [`primary_loop::HeliumPrimaryLoop::advance_steam_generator`],
+    /// [`primary_loop::HeliumPrimaryLoop::step_hot_leg`] and
+    /// [`secondary_loop::SteamSecondaryLoop::step`] are each timed on the
+    /// plant in the state the run left it, with the arguments
+    /// [`HtgrPlant::step_with_correctors`] passes them, and charged at
+    /// [`PLANT_OUTER_CORRECTORS`] calls per plant step -- which is how often
+    /// the corrector loop really calls them.
+    ///
+    /// This test asserts only that the run completes; the timings are printed.
+    /// A wall-clock assertion would be a flaky test on a shared machine, and
+    /// the point here is the *breakdown*, which is stable, rather than the
+    /// absolute numbers, which are not.
+    ///
+    /// # Results (2026-09-25), 16 logical cores, run alone
+    ///
+    /// | Part | Share of the plant step |
+    /// |---|---|
+    /// | **`primary_loop::advance_steam_generator`** | **~90 %** (23.7 ms per call, once per step) |
+    /// | `secondary_loop::step` (IF97) | 0.44 % (0.057 ms per call, twice per step) |
+    /// | `primary_loop::step_hot_leg` (core energy balance) | 0.03 % |
+    /// | Gaussian puff dispersion (`changi`) | 0.61 % |
+    /// | TRISO-ATOPS release (`boon-lay`) | 0.08 % |
+    ///
+    /// Whole plant: **0.262 s of compute per second of plant time, real-time
+    /// ratio 3.82**.
+    ///
+    /// **Interpretation.** The cost is one function: the steam generator's
+    /// array model. The two channels that *look* expensive -- a TRISO release
+    /// model and a puff dispersion run -- are together under 0.7 %, so moving
+    /// either onto its own thread would buy nothing measurable. Neither is
+    /// the secondary loop, despite doing the IF97 property work, nor the core
+    /// energy balance.
+    ///
+    /// # The first run of this instrument charged the steam generator twice
+    ///
+    /// It reported **181 %** of the step for `advance_steam_generator` -- an
+    /// impossible share, and the instrument's own arithmetic is what exposed
+    /// it. The cause was the multiplicity assumed here, not the timing: the
+    /// hot leg and the secondary loop run once per outer corrector, but the
+    /// steam generator runs **once per plant step**, on the final corrector
+    /// only, because its arrays hold spatial history that cannot be rewound
+    /// (step 3b of [`HtgrPlant::step_with_correctors`], and
+    /// [`PLANT_OUTER_CORRECTORS`] says why). Corrected to 1x, it reads ~90 %,
+    /// which independently reproduces the ~96 % that `primary_loop`'s own doc
+    /// comment has claimed since 2026-08-13 -- a claim that until now nothing
+    /// in the repository could re-measure.
+    #[test]
+    fn where_the_plant_step_spends_its_time() {
+        let plant_seconds = 20.0_f64;
+        let steps = (plant_seconds / PLANT_TIMESTEP_S).round() as usize;
+        let commands = design_commands();
+        let dt = plant_timestep();
+
+        let mut plant = HtgrPlant::new();
+        let started = std::time::Instant::now();
+        for _ in 0..steps {
+            plant.step(dt, commands);
+        }
+        let whole = started.elapsed().as_secs_f64();
+
+        // The TRISO release channel alone, called as often as the plant calls
+        // it over the same span (its throttle is 1 s of plant time).
+        let kernel = plant.core.peak_kernel_temperature();
+        let bed = plant.core.temperature();
+        let release_calls = (plant_seconds
+            / fission_product_release::RELEASE_EVALUATION_INTERVAL_S)
+            .ceil() as usize;
+        let mut release = fission_product_release::TrisoAtopsReleaseChannel::new_htr10();
+        let started = std::time::Instant::now();
+        for call in 0..release_calls {
+            // A fresh time each call so the channel's own throttle does not
+            // turn the loop into one evaluation and 19 early returns.
+            release.update(
+                call as f64 * fission_product_release::RELEASE_EVALUATION_INTERVAL_S,
+                kernel,
+                bed,
+            );
+        }
+        let release_time = started.elapsed().as_secs_f64();
+
+        // The dispersion channel alone, likewise (60 s throttle, so one
+        // evaluation over a 20 s span -- charged in full, which if anything
+        // overstates it).
+        let dispersion_calls = (plant_seconds
+            / atmospheric_dispersion::DISPERSION_EVALUATION_INTERVAL_S)
+            .ceil()
+            .max(1.0) as usize;
+        let mut dispersion = atmospheric_dispersion::AtmosphericDispersionChannel::new();
+        let started = std::time::Instant::now();
+        for call in 0..dispersion_calls {
+            dispersion.update(
+                call as f64 * atmospheric_dispersion::DISPERSION_EVALUATION_INTERVAL_S,
+                &release,
+            );
+        }
+        let dispersion_time = started.elapsed().as_secs_f64();
+
+        // --- inside the plant step: the two loops, timed on their own ---
+        //
+        // Called on the plant in the state the run above left it, with the
+        // same arguments `step_with_correctors` passes, and charged at the
+        // multiplicity the plant actually uses. Timing one call and
+        // multiplying is what makes these shares of the same wall clock as
+        // `whole` above -- so the multiplicity has to be right, and it is not
+        // the same for all three:
+        //
+        // - the hot leg and the secondary loop run once per OUTER CORRECTOR;
+        // - the STEAM GENERATOR runs once per plant step, on the final
+        //   corrector only (step 3b of `step_with_correctors`), because its
+        //   three arrays hold spatial history that cannot be rewound.
+        let per_corrector = PLANT_OUTER_CORRECTORS.max(1);
+        let sg_per_step = 1usize;
+        let inner_repeats = 200usize;
+        let feedwater_enthalpy = plant.secondary.feedwater_enthalpy();
+        let secondary_flow = plant.secondary.mass_flow();
+        let core_outlet = plant.primary.core_outlet_temperature();
+        let core_outlet_from_bed = plant.core.temperature();
+        let duty = plant.primary.steam_generator_duty_to_secondary();
+
+        let started = std::time::Instant::now();
+        for _ in 0..inner_repeats {
+            plant
+                .primary
+                .advance_steam_generator(dt, feedwater_enthalpy, secondary_flow);
+        }
+        let sg_per_call = started.elapsed().as_secs_f64() / inner_repeats as f64;
+
+        let started = std::time::Instant::now();
+        for _ in 0..inner_repeats {
+            plant.primary.step_hot_leg(
+                dt,
+                core_outlet_from_bed,
+                commands.helium_flow_setpoint,
+            );
+        }
+        let hot_leg_per_call = started.elapsed().as_secs_f64() / inner_repeats as f64;
+
+        let started = std::time::Instant::now();
+        for _ in 0..inner_repeats {
+            plant
+                .secondary
+                .step(dt, commands.secondary, duty, core_outlet);
+        }
+        let secondary_per_call = started.elapsed().as_secs_f64() / inner_repeats as f64;
+
+        let sg_total = sg_per_call * sg_per_step as f64 * steps as f64;
+        let hot_leg_total = hot_leg_per_call * per_corrector as f64 * steps as f64;
+        let secondary_total = secondary_per_call * per_corrector as f64 * steps as f64;
+
+        let share = |t: f64| 100.0 * t / whole;
+        println!("PLANT STEP COST BREAKDOWN over {plant_seconds} s of plant time");
+        println!("  steps taken                  {steps}");
+        println!(
+            "  WHOLE PLANT                  {whole:.4} s wall, \
+             {:.4} s wall per plant second, real-time ratio {:.3}",
+            whole / plant_seconds,
+            plant_seconds / whole
+        );
+        println!(
+            "  TRISO-ATOPS release channel  {release_time:.4} s wall over {release_calls} \
+             calls = {:.2} % of the step",
+            share(release_time)
+        );
+        println!(
+            "  Gaussian puff dispersion     {dispersion_time:.4} s wall over \
+             {dispersion_calls} calls = {:.2} % of the step",
+            share(dispersion_time)
+        );
+        println!(
+            "  everything else              {:.2} % -- kinetics, pebble bed, primary loop, \
+             steam generator, secondary, shaft",
+            100.0 - share(release_time) - share(dispersion_time)
+        );
+        println!("  INSIDE the two loops, at {per_corrector} outer correctors per plant step:");
+        println!(
+            "    primary: steam generator   {:.4} ms/call x {sg_per_step} x {steps} = {:.2} % \
+             (primary_loop::advance_steam_generator)",
+            sg_per_call * 1e3,
+            share(sg_total)
+        );
+        println!(
+            "    primary: hot leg + core    {:.4} ms/call x {per_corrector} x {steps} = {:.2} % \
+             (primary_loop::step_hot_leg)",
+            hot_leg_per_call * 1e3,
+            share(hot_leg_total)
+        );
+        println!(
+            "    secondary loop (IF97)      {:.4} ms/call x {per_corrector} x {steps} = {:.2} % \
+             (secondary_loop::step)",
+            secondary_per_call * 1e3,
+            share(secondary_total)
+        );
+
+        assert!(
+            plant.sim_time.get::<second>() > 0.0,
+            "the instrument must actually have stepped the plant"
+        );
+    }
+
+   /// survives its own GUI timestep.
     #[test]
     fn the_whole_plant_steps_at_the_gui_timestep() {
         let mut plant = HtgrPlant::new();

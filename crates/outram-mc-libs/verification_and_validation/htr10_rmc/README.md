@@ -12,6 +12,12 @@ sweep and the constant-cavity ablation. **This page remains the authority for
 how the model was built and corrected**; that one is the authority for how it
 performs across the loading range.
 
+**Images of the built geometry (2026-09-25):**
+[`crates/nee_soon/verification_and_validation/htr10_geometry_images/`](../../../nee_soon/verification_and_validation/htr10_geometry_images/README.md)
+— slices of the assembled `assemble_explicit_triso(14, 25, 0)` core rendered
+with the OpenMC-parity plotter, from the whole R-Z model down to one TRISO
+particle. gh:#309 and gh:#310 are directly visible there.
+
 **Status as of 2026-09-18 (later): the conus was filled with the WRONG
 CONTENTS, and correcting it removes the +3670 pcm overshoot.** `op-5n34`.
 
@@ -235,11 +241,19 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   denser in graphite than the bed above it — the same error with the opposite
   sign, in the one place the model homogenises rather than resolves. It should
   read the realised packing from the assembled lattice — **gh:#309**.
-- **Axially adjacent pebbles are in contact**, joined by a 3.46 cm-diameter
-  disc of shell graphite and a 1.00 cm-diameter disc of fuel zone, so the bed is
-  a stack of welded truncated spheres rather than a sphere packing. Volume
-  fractions are unaffected; pebble-scale Dancoff/chord structure is not —
-  **gh:#310**.
+- **The bed lattice drops the paper's A-B layer offset, so the pebbles
+  INTERPENETRATE.** The paper's cell is a two-ball prism whose layers sit in each
+  other's hollows (interlayer centre distance 6.2102 cm, clear of the 6.0 cm
+  diameter); one ball per tile puts every ball in a column at the same `(x, y)`,
+  so axial neighbours sit at **4.8990 cm centres — 1.101 cm less than a
+  diameter**. The tile cut lands exactly on the plane where the two spheres
+  cross (intersection circle 1.7321 cm radius), so it is the *correct* union and
+  each 2.6816 cm³ "cap" **is the interpenetration lens**; the fuel zones
+  interpenetrate too (intersection circle 0.5 cm, 0.0199 cm³ each). This is the
+  cause of the graphite deficit above: pebbles at 4.899 cm centres cannot occupy
+  0.61 of the volume. **`bed.rs`'s own `is_non_overlapping()` guard cannot see
+  it** — it runs on `HexBedCell::from_paper()`, which passes, and `HexBedCell`
+  has no method that returns the columnar spacing — **gh:#310**.
 - **B-11 is never placed** anywhere in this model (only B-10), which leaves the
   boronated brick ~3.5 % short on atom density. `nee_soon::rod_insertion`
   already splits it correctly — **gh:#311**.

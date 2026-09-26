@@ -7,12 +7,23 @@
 //! toolbox and the Monte Carlo studio — and for any future GUI that drives
 //! physics rather than merely displaying it.
 //!
-//! # STATUS: PLACEHOLDER. Nothing is implemented.
+//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ The LIBRARY is a placeholder; the two studios are examples.
 //!
-//! This crate was created on 2026-09-17 to hold a decision, not code. It has
+//! ~~This crate was created on 2026-09-17 to hold a decision, not code. It has
 //! no GUI, no dependencies, and no behaviour. Do not describe it as providing
 //! anything, and do not cite it as the location of a working studio until
-//! something has actually moved here.
+//! something has actually moved here.~~
+//!
+//! **CORRECTED 2026-09-25** — the library target is still a placeholder: its
+//! only public item is [`EXPANSION`] and `[dependencies]` in `Cargo.toml` is
+//! empty. But both studios **did** move here, as examples, in the commit that
+//! created the crate (`eeaf739b0`, 2026-09-17): `examples/mc_studio/main.rs`
+//! and `examples/mesh_studio/main.rs`, carried by target-gated
+//! dev-dependencies (`eframe`, `egui`, `egui_plot`, and `outram-blender` with
+//! its `mc-export` and `foam-mesh` features). Each has a `--headless` mode and
+//! four `#[test]`s against a committed CSV fixture under `tests/fixtures/`
+//! (`cargo test -p dhoby-ghaut --examples --release`). Verified by reading
+//! `Cargo.toml`, both example files and `git log -- crates/dhoby-ghaut`.
 //!
 //! # Why it exists: the GUI/headless split
 //!
@@ -57,8 +68,9 @@
 //!
 //! # What is expected to move here
 //!
-//! Recorded so the next reader knows the intent, **not** as a claim that any of
-//! it has happened:
+//! ~~Recorded so the next reader knows the intent, **not** as a claim that any of
+//! it has happened:~~ **CORRECTED 2026-09-25** — both items below have moved
+//! (commit `eeaf739b0`, 2026-09-17) and now live in this crate's `examples/`:
 //!
 //! - **MC Studio** — `outram-blender`'s `examples/mc_studio`, the egui app that
 //!   drives surface authoring into Monte Carlo transport.

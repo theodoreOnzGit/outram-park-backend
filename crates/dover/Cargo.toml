@@ -1,0 +1,19 @@
+[package]
+name = "dover"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "DOVER (Deck-based Open-source Visualisation Engine for Reactors). Empty skeleton: the scope is not yet decided and nothing is implemented."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+
+# NO DEPENDENCIES, deliberately. DOVER's scope has not been decided (created
+# 2026-09-25 as an empty skeleton at the maintainer's direction). A dependency
+# would be an architectural claim made before any code exists to justify it,
+# and an unused one is not free: it enters the lock file and every downstream
+# build graph. Add one when something here actually calls into it, with the
+# version taken from the root [workspace.dependencies] (`<dep>.workspace = true`).
+[dependencies]

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 //
-// PANAMA-I reimplementation — provenance
-// --------------------------------------
+// boon-lay fuel failure — provenance
+// ----------------------------------
 // Reference : Verfondern, K. & Nabielek, H., "The Mathematical Basis of the
 //             PANAMA-I Code for Modeling Pressure Vessel Failure of TRISO
 //             Coated Particles under Accident Conditions",
@@ -12,9 +12,12 @@
 //             with citation, as scientific facts. No prose, figure or page of
 //             that document is copied into this repository, and the PDF is not
 //             tracked here. See DATA_POLICY.md.
-// Nature    : an independent Rust implementation of the published model, not a
-//             port of the PANAMA Fortran (which is closed-source and was never
-//             consulted).
+// Nature    : boon-lay fuel failure is boon-lay's own model: a Rust
+//             implementation of the PANAMA-I FORMULAS, coded agentically (by an
+//             AI coding agent, then reviewed) from the published equations. It
+//             is not the PANAMA code and not a port of the PANAMA Fortran
+//             (closed-source, never consulted); call it "boon-lay fuel failure",
+//             and keep "PANAMA-I" for the report and its own printed results.
 
 //! **The time-stepping driver** — §3.1, pages -482- and -483-.
 //!
@@ -380,10 +383,10 @@ impl FailureProgress {
     /// f_inc = 1 − (1 − φ₁)·(1 − φ₂)
     /// ```
     ///
-    /// This is the quantity PANAMA actually computes, and it is what
+    /// This is the quantity the PANAMA-I equations compute, and it is what
     /// [`crate::triso_atops_fork::activities::source_terms::FailureFractions`]
     /// calls `incremental`. [`FailureProgress::total`] differs from it only by
-    /// `φ_o`, which PANAMA takes as an input and does not model.
+    /// `φ_o`, which the PANAMA-I equations take as an input and do not model.
     ///
     /// Both mechanisms are included: a particle whose SiC has thermally
     /// decomposed is no longer a barrier, so it releases its fission gas for

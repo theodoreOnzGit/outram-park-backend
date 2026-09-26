@@ -55,6 +55,12 @@ fission-yields-data = { workspace = true }
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
 # rayon / ratatui: see the wasm target table at the end of this manifest.
 log = { workspace = true }
+# Pure-Rust DEFLATE for the geometry plotter's PNG writer
+# (`src/geometry/plot/image.rs`, gh:#268). NOT a new crate in the build: it is
+# already a non-optional dependency of `njoy-outram-park-fork` above, and builds
+# for Android/Termux and wasm32 there. Named here only so the plot module can
+# call it directly instead of re-exporting it through the data crate.
+miniz_oxide = { workspace = true }
 # Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below). An
 # unconditional (non-gated, non-target-gated) dependency: a terminal UI is
 # Android-in-scope per the workspace CLAUDE.md ("Android portability": only

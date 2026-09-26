@@ -281,6 +281,28 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // pitch is the ball diameter and not the paper cell's 6.6106/9.798.
     // ONE ball per tile, in a tile that is HALF the paper's two-ball prism.
     //
+    // **WHAT THE CLIP ACTUALLY IS (corrected 2026-09-25, gh:#310).** The paper's
+    // cell is a TWO-ball prism with A-B stacking: each layer sits in the hollow
+    // of the one below, offset laterally by pitch/sqrt(3) = 3.8166 cm, so the
+    // interlayer centre distance is hypot(3.8166, 2.4495) = 6.2102 cm -- clear
+    // of the 6.0 cm diameter. One ball per tile DROPS that offset: every ball in
+    // a column sits at the same (x, y), so the axial neighbour distance is just
+    // the tile height, **4.8990 cm, i.e. 1.101 cm LESS than a diameter. The
+    // pebbles interpenetrate.**
+    //
+    // Two spheres at 4.8990 cm centres cross on a circle of radius
+    // sqrt(3.0^2 - 2.4495^2) = 1.7321 cm, and the tile boundary sits exactly on
+    // that mid-plane -- so the cut is the CORRECT union of the two spheres, and
+    // each 2.6816 cm^3 "cap" removed IS the interpenetration lens. Nothing falls
+    // into a void. What is wrong is upstream: pebbles at 4.899 cm centres cannot
+    // occupy 0.61 of the volume, because 4.74 % of each is inside its neighbour.
+    //
+    // `bed.rs`'s `the_reconstructed_cell_is_a_real_packing` would catch this and
+    // does not: it asserts `is_non_overlapping()` on `HexBedCell::from_paper()`,
+    // which passes. `HexBedCell::interlayer_spacing` assumes the A-B offset, so
+    // no method on it returns the columnar 4.8990 -- the type models the paper
+    // while this builds something else.
+    //
     // The ball (6.0 cm across) is taller than the tile (4.899 cm), so the
     // lattice CLIPS it axially -- and that clipping is not cosmetic: it removes
     // two spherical caps of 2.6816 cm^3 each from a 113.0973 cm^3 ball, leaving
@@ -668,9 +690,21 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
 /// the double-heterogeneous model the benchmark actually specifies.
 ///
-/// Four coordinate levels: root → bed hex lattice → pebble universe → TRISO
-/// rect lattice → TRISO particle universe. Depth-3 descent was gated in
-/// `outram-mc-libs` `tests/nested_lattice_depth3.rs`; this is depth 4.
+/// **Open defects in this construction:** gh:#309 (pebble-shell carbon
+/// clipped), gh:#310 (pebbles in axial contact). ~~gh:#311 (no B-11)~~
+/// **CORRECTED 2026-09-25:** #311 is closed and B-11 is placed
+/// (`materials::htr10_material_set`, the `b11` closure). Results
+/// from it are tentative until those are priced — see the module docs,
+/// "Verification status".
+///
+/// ~~Four coordinate levels~~ **CORRECTED 2026-09-25 — three coordinate
+/// levels**: root → (bed hex lattice) → pebble universe → (TRISO rect lattice)
+/// → TRISO particle universe. A lattice selects the next level's universe but
+/// is not a level itself. Verified by locating a kernel in the assembled
+/// 14 x 25 core: `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
+/// (`examples/htr10_geometry_images.rs` prints it). Depth-3 descent was gated
+/// in `outram-mc-libs` `tests/nested_lattice_depth3.rs`, which also counts
+/// `levels.len()`; ~~this is depth 4~~ this is the **same** depth.
 ///
 /// # The TRISO lattice
 ///
@@ -713,6 +747,28 @@ pub fn assemble_explicit_triso(
     // approximation chosen for convenience. Reaching 0.61 needs the paper's
     // offset half-sphere arrangement, which a single-universe tile cannot hold.
     // ONE ball per tile, in a tile that is HALF the paper's two-ball prism.
+    //
+    // **WHAT THE CLIP ACTUALLY IS (corrected 2026-09-25, gh:#310).** The paper's
+    // cell is a TWO-ball prism with A-B stacking: each layer sits in the hollow
+    // of the one below, offset laterally by pitch/sqrt(3) = 3.8166 cm, so the
+    // interlayer centre distance is hypot(3.8166, 2.4495) = 6.2102 cm -- clear
+    // of the 6.0 cm diameter. One ball per tile DROPS that offset: every ball in
+    // a column sits at the same (x, y), so the axial neighbour distance is just
+    // the tile height, **4.8990 cm, i.e. 1.101 cm LESS than a diameter. The
+    // pebbles interpenetrate.**
+    //
+    // Two spheres at 4.8990 cm centres cross on a circle of radius
+    // sqrt(3.0^2 - 2.4495^2) = 1.7321 cm, and the tile boundary sits exactly on
+    // that mid-plane -- so the cut is the CORRECT union of the two spheres, and
+    // each 2.6816 cm^3 "cap" removed IS the interpenetration lens. Nothing falls
+    // into a void. What is wrong is upstream: pebbles at 4.899 cm centres cannot
+    // occupy 0.61 of the volume, because 4.74 % of each is inside its neighbour.
+    //
+    // `bed.rs`'s `the_reconstructed_cell_is_a_real_packing` would catch this and
+    // does not: it asserts `is_non_overlapping()` on `HexBedCell::from_paper()`,
+    // which passes. `HexBedCell::interlayer_spacing` assumes the A-B offset, so
+    // no method on it returns the columnar 4.8990 -- the type models the paper
+    // while this builds something else.
     //
     // The ball (6.0 cm across) is taller than the tile (4.899 cm), so the
     // lattice CLIPS it axially -- and that clipping is not cosmetic: it removes
@@ -787,8 +843,15 @@ pub fn assemble_explicit_triso(
     // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer.
     let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
     let r_part = tr[4];
-    let (pitch_triso, _n_particles) =
-        cubic_pitch_for_count(r_part, r_fuel_zone, 8335, [0.5, 0.5, 0.0]);
+    // ONE offset, used both to COUNT the particles and to BUILD the lattice
+    // (gh:#316). Until 2026-09-25 the count used [0.5, 0.5, 0.0] -- 8340
+    // particles -- while the RectLattice below was built with (i + 0.5) centres
+    // on ALL three axes (26 cells each), which holds only 8240. Every fuel
+    // pebble carried 1.2 % less heavy metal than reported; sampling the built
+    // core measured 0.9875 +/- 0.0014 of the paper-implied kernel fraction,
+    // against 8240/8340 = 0.9880.
+    const TRISO_OFFSET: [f64; 3] = [0.5, 0.5, 0.0];
+    let (pitch_triso, n_particles) = cubic_pitch_for_count(r_part, r_fuel_zone, 8335, TRISO_OFFSET);
     // A cubic lattice spanning the fuel zone; tiles outside it fall through to
     // `outer` = matrix graphite, which is exactly the "not occupied is filled
     // with graphite" the paper specifies.
@@ -812,8 +875,17 @@ pub fn assemble_explicit_triso(
     // -2.8e4 cm), which steps the neutron backwards until it oscillates and the
     // event budget kills it. That single sign error was ending 83 % of all
     // histories. The extra ring of tiles simply carries the matrix universe.
-    let n_triso = ((2.0 * r_fuel_zone / pitch_triso).ceil() as usize).max(1);
-    let lattice_half = 0.5 * n_triso as f64 * pitch_triso;
+    //
+    // Per axis, the cells whose centres sit at `(k + offset) * pitch` and
+    // together COVER [-r_fuel_zone, r_fuel_zone]: an offset of 0.5 gives an
+    // even count centred on a cell face (26 here), 0.0 an odd count centred on
+    // a cell (27 here). The covering rule is the CEIL rule above, per axis.
+    let triso_axis = |off: f64| -> (usize, f64) {
+        let k_lo = (-r_fuel_zone / pitch_triso - off + 0.5).floor();
+        let k_hi = (r_fuel_zone / pitch_triso - off - 0.5).ceil();
+        ((k_hi - k_lo) as usize + 1, (k_lo + off - 0.5) * pitch_triso)
+    };
+    let triso_axes = TRISO_OFFSET.map(triso_axis);
 
     // The bed cylinder must be INSCRIBED in the hexagon the lattice actually
     // tiles, not circumscribed about it.
@@ -1385,19 +1457,20 @@ pub fn assemble_explicit_triso(
     );
     let triso_lattice = RectLattice {
         id: 1,
-        n: [n_triso, n_triso, n_triso],
-        lower_left: Position::new(-lattice_half, -lattice_half, -lattice_half),
+        n: triso_axes.map(|(n, _)| n),
+        lower_left: Position::new(triso_axes[0].1, triso_axes[1].1, triso_axes[2].1),
         pitch: [pitch_triso; 3],
         universes: {
             // Whole-particle rejection, the benchmark's own rule, applied per
             // tile: keep a particle only where it lies wholly inside the zone.
             let r_keep = r_fuel_zone - r_part;
-            let mut v = Vec::with_capacity(n_triso.pow(3));
-            for k in 0..n_triso {
-                for j in 0..n_triso {
-                    for i in 0..n_triso {
-                        let c = |n: usize| -lattice_half + (n as f64 + 0.5) * pitch_triso;
-                        let (x, y, z) = (c(i), c(j), c(k));
+            let [(nx, x0), (ny, y0), (nz, z0)] = triso_axes;
+            let c = |lo: f64, n: usize| lo + (n as f64 + 0.5) * pitch_triso;
+            let mut v = Vec::with_capacity(nx * ny * nz);
+            for k in 0..nz {
+                for j in 0..ny {
+                    for i in 0..nx {
+                        let (x, y, z) = (c(x0, i), c(y0, j), c(z0, k));
                         v.push(if x * x + y * y + z * z <= r_keep * r_keep {
                             3
                         } else {
@@ -1406,6 +1479,12 @@ pub fn assemble_explicit_triso(
                     }
                 }
             }
+            // The built count MUST be the counted one -- the whole of #316.
+            let built = v.iter().filter(|&&u| u == 3).count();
+            assert_eq!(
+                built, n_particles,
+                "TRISO lattice holds {built} particles but {n_particles} were counted"
+            );
             v
         },
         outer: Some(4),

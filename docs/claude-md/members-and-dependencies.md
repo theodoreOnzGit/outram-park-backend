@@ -3,7 +3,7 @@
 
 ## Members
 
-**43 member crates.** The table below is a one-line index: what each crate is
+**44 member crates.** The table below is a one-line index: what each crate is
 for, and whether it is declared mature. **Each crate's own
 `crates/<crate>/CLAUDE.md` and `README.md` are the authority** for its status,
 its bar, its known gaps and its correction history — this table is a pointer,
@@ -53,6 +53,7 @@ applies: only to crates declared mature".
 | `changi` | **CHANGI** — atmospheric dispersion, plume transport, deposition, ground contamination. Two ports: FLEXPART v10.4 (scalar kernels only) and the Gaussian puff model of `Hammerling-Research-Group/puff` (physics complete, MIT→GPL one-way). Plus `changi::activity` (2026-09-21, **not a port, no upstream**): unit-release chi/Q, decay in transit, dry deposition; deposition velocities are uncited placeholders. **Research/education/V&V only** | |
 | `sembawang` | **SEMBAWANG** — ~~source term for CHANGI.~~ **Severe accident and source term, and orchestrator of the offsite chain** (2026-09-21, #235): drives CHANGI today, RAFFLES and REDHILL later; no dose. ~~Placeholder: nothing implemented~~ **CORRECTED 2026-09-21** — the TRISO fission-product **release** path exists (on `boon-lay`'s TRISO-ATOPS fork, under a caller-**prescribed** temperature transient and inventory). **Severe-accident progression (melt, relocation, vessel failure, MCCI, hydrogen, aerosols) is NOT implemented.** No human V&V | |
 | `redhill` | **REDHILL** — groundwater and geological transport of radionuclides after deposition. **Placeholder: nothing implemented** | |
+| `dover` | **DOVER** — *Deck-based Open-source Visualisation Engine for Reactors*. The **low-fidelity counterpart of `dhoby-ghaut`** (maintainer, 2026-09-25); direction: schema-checked TOML input decks, steady-state (DWSIM-like) and dynamic runs. **Empty skeleton**: nothing implemented, no dependencies | |
 | `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → GPL-3.0 is **one-way**. Implemented in part, no human V&V | |
 | `outram-park-mpi` | Pure-Rust **MPICH** subset over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold | |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) + the MC and OpenFOAM export bridges | |

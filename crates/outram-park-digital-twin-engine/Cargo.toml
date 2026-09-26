@@ -160,7 +160,25 @@ boon-lay.workspace = true
 # research, education and V&V only. Never for emergency planning, emergency
 # response, dose assessment for real populations, or Level 3 PSA. No dose
 # quantity of any kind is computed.
-changi.workspace = true
+#
+# `gpu`: dispatches `changi::puff::wgsl::field_auto`'s WGSL kernel through
+# PETIR's headless runner. htgr_sim_v1's Map tab evaluates the dispersion
+# field once per screen pixel at 10 Hz -- 31.5 M kernel evaluations a frame at
+# 512 cells. Measured 2026-09-25 (`cargo run --release -p changi --example
+# field_timing --features gpu`, 16 cores, one adapter): 1.33 ms on the GPU
+# against 19.6 ms pooled. Both fit the 100 ms physics tick on their own, but
+# the plant step already spends ~96 ms of it, so only the GPU figure is small
+# enough to leave real-time pacing alone at full resolution.
+#
+# The CPU path stays mandatory and is what runs when this host has no usable
+# adapter: `outram-mc-libs/CLAUDE.md`'s GPU policy is a hard rule across this
+# workspace (detection at run time, CI must never need a GPU), and
+# `physics::atmospheric_dispersion::max_grid_cells` probes the adapter to pick
+# a resolution the CPU path can also meet. Both paths compute the same field.
+#
+# Android/wasm are unaffected: `petir/wgpu`'s `wgpu` dependency is itself
+# target-gated off both, so enabling this feature there activates nothing.
+changi = { workspace = true, features = ["gpu"] }
 
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)

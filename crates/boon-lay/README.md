@@ -27,6 +27,27 @@ The two are complements, not rivals. The Lagrangian model shows *how* atoms
 get out. The TRISO-ATOPS fork gives the release fractions that the offsite
 chain consumes.
 
+## boon-lay fuel failure (TRISO particle failure)
+
+`fuel_failure` is **boon-lay fuel failure**: boon-lay's own model of how many
+TRISO particles fail, through pressure-vessel overstress and SiC thermal
+decomposition. It was **coded agentically** (by an AI coding agent, then
+reviewed) from the formulas published in the PANAMA-I report (Verfondern &
+Nabielek, Jülich HTA-IB-03/90, 1990).
+
+**It is not PANAMA.** This project does not have the PANAMA source code, which
+is closed-source and was never consulted. Keep the names apart:
+
+- **PANAMA-I** means the report and the results it prints.
+- **boon-lay fuel failure** means this code and every number it computes.
+
+Matching the report's printed tables and figures shows the formulas were
+transcribed faithfully. It does not show agreement with the PANAMA code on any
+case the report does not print. Its output feeds the TRISO-ATOPS fork's
+in-service failure fraction through
+`FailureFractions::with_fuel_failure_incremental`, which is meant for accident
+transients only (see the module docs for why not for normal operation).
+
 ## Where it sits
 
 `boon-lay` supplies the release physics for the offsite chain. `sembawang`

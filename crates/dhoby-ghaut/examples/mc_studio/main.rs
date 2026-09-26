@@ -11,8 +11,12 @@
 //! safety-critical decisions.
 //!
 //! Run (needs the `mc-export` feature → outram-mc-libs + the `sim` backend):
+//! ~~`cargo run -p outram-blender --example mc_studio --features mc-export --release`~~
+//! **CORRECTED 2026-09-25** — the studio moved to `dhoby-ghaut` on 2026-09-17
+//! and `outram-blender` no longer has an `mc_studio` example; the feature now
+//! comes from this crate's own `outram-blender` dev-dependency line:
 //! ```text
-//! cargo run -p outram-blender --example mc_studio --features mc-export --release
+//! cargo run -p dhoby-ghaut --example mc_studio --release
 //! ```
 //!
 //! # Headless mode — required, not optional

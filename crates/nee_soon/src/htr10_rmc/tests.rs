@@ -269,3 +269,90 @@ fn the_axial_stack_matches_terry_at_every_loading() {
         );
     }
 }
+
+/// **Every material carries natural boron, not just its absorber** (gh:#311).
+///
+/// Until 2026-09-25 only B-10 was placed, so the boronated brick (zone 17) was
+/// ~3.5 % short on scattering atoms. Natural boron is 19.9 / 80.1 at.% B-10 /
+/// B-11, so wherever boron appears the atom ratio must be 0.801 / 0.199. The
+/// pebble materials are built on a WEIGHT basis and the reflector zones on an
+/// ATOM basis, so this also checks the two bases agree.
+#[test]
+fn every_boron_bearing_material_carries_natural_b11() {
+    use crate::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+    use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
+    let n = Htr10Nuclides {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        c_free: 3,
+        c_graphite: 4,
+        si28: 5,
+        b10: 6,
+        c_sic: 7,
+        si29: 8,
+        si30: 9,
+        b11: 10,
+    };
+    let want = 0.801 / 0.199;
+    let mats = htr10_material_set(n, Htr10MaterialConfig::benchmark_default(300.15));
+    let mut with_boron = 0;
+    for m in &mats {
+        let sum = |i: usize| -> f64 {
+            m.components
+                .iter()
+                .filter(|c| c.nuclide_idx == i)
+                .map(|c| c.atom_density)
+                .sum()
+        };
+        let (b10, b11) = (sum(n.b10), sum(n.b11));
+        if b10 == 0.0 {
+            assert_eq!(b11, 0.0, "{}: B-11 without B-10", m.name);
+            continue;
+        }
+        with_boron += 1;
+        let r = b11 / b10;
+        assert!(
+            (r / want - 1.0).abs() < 1e-3,
+            "{}: B-11/B-10 = {r:.5}, natural boron gives {want:.5}",
+            m.name
+        );
+    }
+    // Kernel, four graphite layers, three reflector zones, homogenised dummies.
+    assert!(with_boron >= 9, "only {with_boron} materials carry boron");
+}
+
+/// **The TRISO lattice holds the particles it reports** (gh:#316).
+///
+/// The particle count was taken on a grid offset `[0.5, 0.5, 0.0]` (8340) while
+/// the lattice was built with half-integer centres on all three axes, which
+/// holds 8240: every fuel pebble carried 1.2 % less heavy metal than stated.
+/// The builder now asserts built == counted; this pins the count itself and
+/// the non-cubic grid that realises it.
+#[test]
+fn the_built_triso_lattice_holds_the_counted_8340_particles() {
+    use crate::htr10_rmc::core_model::assemble_explicit_triso;
+    use outram_mc_libs::geometry::lattice::Lattice;
+    let c = assemble_explicit_triso(14, 20, 0);
+    let rect = c
+        .geometry
+        .lattices
+        .iter()
+        .find_map(|l| match l {
+            Lattice::Rect(r) => Some(r),
+            _ => None,
+        })
+        .expect("the explicit-TRISO core has a rect lattice");
+    let built = rect.universes.iter().filter(|&&u| u == 3).count();
+    assert_eq!(built, 8340, "TRISO particles per fuel pebble");
+    assert_eq!(rect.n, [26, 26, 27], "offset [0.5, 0.5, 0.0] grid");
+    // The grid must cover the 2.5 cm fuel zone on every axis.
+    for a in 0..3 {
+        let lo = [rect.lower_left.x, rect.lower_left.y, rect.lower_left.z][a];
+        let hi = lo + rect.n[a] as f64 * rect.pitch[a];
+        assert!(
+            lo <= -2.5 && hi >= 2.5,
+            "axis {a}: [{lo}, {hi}] does not cover the zone"
+        );
+    }
+}

@@ -29,6 +29,63 @@
 //! the two ends cannot drift apart and quietly turn a composition difference
 //! into an apparent transport difference.
 //!
+//! # Verification status: TENTATIVE, and what is still open (2026-09-25)
+//!
+//! The twelve-height `k_eff` curve IS now computed against RMC (the "NOT
+//! verifiable now" section below predates the TECDOC reflector model). At
+//! `0454c1ad1b`, 10 000 x [5 + 135], one seed per height, the residual is
+//! `-896 +/- 30` pcm on ENDF/B-VIII.0 and `+288 +/- 31` pcm on ENDF/B-VII.0
+//! (the reference's library), and **drifts `+7` pcm/cm with loading height in
+//! every arm** (gh:#218, results posted there). Treat those numbers as tentative
+//! until the items below are priced or fixed. Each is an issue; none has been
+//! measured unless it says so.
+//!
+//! **Model defects, production path (`assemble_explicit_triso`):**
+//! - gh:#309 — one ball per hex tile clips the pebble shell: 4.76 % of all core
+//!   carbon is missing while the heavy metal is exact (C/U low). Sign on `k`
+//!   not predicted.
+//! - gh:#310 — the lattice drops the A-B layer offset, so axially adjacent
+//!   pebbles touch and their fuel zones meet; pebble-scale self-shielding and
+//!   Dancoff factors are those of welded columns, not a packing. The fix for
+//!   both is the two-ball sub-universe cell `bed.rs` already reconstructs.
+//! - ~~gh:#311 — only B-10 is placed~~ **FIXED 2026-09-25**: B-11 now goes in
+//!   beside B-10 in every material, from the selected library, pinned by
+//!   `every_boron_bearing_material_carries_natural_b11`. Its worth is priced
+//!   on #311. Every k in this section predates it.
+//! - ~~gh:#316 — the built core carried ~1.2 % less heavy metal~~ **FIXED
+//!   2026-09-25**: the TRISO count was taken on one grid offset and the
+//!   lattice built on another (8340 counted, 8240 built). Both now use one
+//!   offset; built == counted is asserted. Resampled: 0.9971 +/- 0.0014 of the
+//!   paper-implied kernel fraction (was 0.9875). Worth **+353 +/- 111 pcm**
+//!   at 122.47 cm (three paired seeds). Every k in this section predates it.
+//! - gh:#218 — the `+7` pcm/cm drift itself. ~~Cause now evidenced by the
+//!   shrunk-pebble ablation (-6.88 +/- 1.48 pcm/cm)~~ **WITHDRAWN
+//!   2026-09-25.** The real fix for #309/#310 (two-ball cell, draft PR #328)
+//!   only moved the slope from about +5.0 to +3.4 pcm/cm (-1.6 +/- 0.9, not
+//!   resolved), so most of the ablation's -6.88 came from its 18 % smaller
+//!   pebble, not from the clip or contact. The drift is still unexplained.
+//!   Ruled out: data library, source convergence, cavity, bottom-reflector
+//!   mirroring, UO2 law source, B-11, TRISO count. Open: the reflector
+//!   (explicit channels, draft PR #327), the height convention of the
+//!   reference.
+//!
+//! **Documented simplifications (not defects, each pushes `k` one way):**
+//! - every reflector region is TECDOC zone 22, the densest graphite in
+//!   Table 4-3, and the boronated zones are not placed — raises `k`;
+//! - the control-rod boring band is solid zone-22 graphite
+//!   (`OUTRAM_HTR10_BORINGS` is off: its core-height composition is unrecorded);
+//! - the core-height reflector zone map is not placed;
+//! - rods fully withdrawn; one temperature (300.15 K) everywhere.
+//!
+//! **Other paths and plumbing:**
+//! - gh:#308 — `assemble` (homogenised fuel) lacks the cavity, conus, bricks and
+//!   annulus of the production path; do not use it for a `k` comparison. It
+//!   feeds `htr10_mgxs_genfoam`.
+//! - gh:#313 — `Cell::temperature` is never read by transport and every cell
+//!   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.
+//! - gh:#312 — the control-rod smeared composition drops the steel sections
+//!   (not exercised by the rods-out benchmark).
+//!
 //! # What this module can verify today, and what it cannot
 //!
 //! Read this before quoting anything from here. The honest scope is narrower

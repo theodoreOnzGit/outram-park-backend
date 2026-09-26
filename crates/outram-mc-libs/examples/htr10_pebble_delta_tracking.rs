@@ -205,6 +205,8 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         bind_sic(load("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
         bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
         bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+        // 10: B-11, the rest of natural boron (gh:#311).
+        load("B11", "n-005_B_011-ENDF8.0.endf")?,
     ])
 }
 
@@ -220,6 +222,7 @@ const NUCLIDES: Htr10Nuclides = Htr10Nuclides {
     c_sic: 7,
     si29: 8,
     si30: 9,
+    b11: 10,
 };
 
 fn main() {

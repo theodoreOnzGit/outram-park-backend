@@ -17,6 +17,7 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     c_sic: 7,
     si29: 8,
     si30: 9,
+    b11: 10,
 };
 
 fn main() {
@@ -65,6 +66,7 @@ fn main() {
             bind_sic(ld("C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
             bind_sic(ld("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
             bind_sic(ld("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
+            ld("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
         ])
     })() else {
         println!("SKIP");

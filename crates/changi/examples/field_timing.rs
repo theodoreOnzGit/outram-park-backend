@@ -62,6 +62,24 @@ const SIMULATOR_WORKING_POINT: usize = 7260;
 /// Puff counts to sweep, bracketing [`SIMULATOR_WORKING_POINT`].
 const PUFF_COUNTS: [usize; 5] = [100, 1_000, SIMULATOR_WORKING_POINT, 20_000, 50_000];
 
+/// Puffs alive at one instant in `htgr_sim_v1`'s **live** map, since
+/// 2026-09-25.
+///
+/// The simulator's map field became the *instantaneous* plume rather than a
+/// run-accumulated one, so it sums only the puffs alive now --
+/// `puff_duration / puff_dt` = `1200 / 10` = 120, the newest emission having
+/// age zero and therefore no sigma. That is 60x fewer than
+/// [`SIMULATOR_WORKING_POINT`], and it is what pays for evaluating the field
+/// once per screen pixel.
+const LIVE_MAP_PUFFS: usize = 120;
+
+/// Grid resolutions to sweep at [`LIVE_MAP_PUFFS`].
+///
+/// 64 is the old map and the current floor; 192 and 512 are the CPU and GPU
+/// ceilings `htgr_sim_v1::physics::atmospheric_dispersion::max_grid_cells`
+/// picks between; 256 is a common one-pixel-per-cell map on a 1440p window.
+const CELL_COUNTS: [usize; 4] = [64, 192, 256, 512];
+
 /// A plume of `n` puffs drifting east, with dispersion growing along the
 /// trajectory — the shape the simulator actually produces, not random noise.
 ///
@@ -172,6 +190,62 @@ fn main() {
             speedup,
             gpu,
             tag
+        );
+    }
+
+    // ---- the live map's own working point: few puffs, many cells ----
+    //
+    // A SECOND sweep rather than a replacement for the first, because the
+    // cost is O(cells^2 * puffs) and the two regimes sit at opposite ends of
+    // it: the table above varies the puffs at a fixed grid, this one varies
+    // the grid at the fixed instantaneous population. The map's resolution
+    // ceiling is chosen from this table, not from that one.
+    println!();
+    println!(
+        "Live map working point: {LIVE_MAP_PUFFS} puffs alive (instantaneous field), \
+         resolution swept"
+    );
+    println!(
+        "{:>8} | {:>12} | {:>12} | {:>12} | {:>7} | {:>12}",
+        "cells", "evaluations", "serial", "pooled", "speedup", "gpu"
+    );
+    println!(
+        "{:->8}-+-{:->12}-+-{:->12}-+-{:->12}-+-{:->7}-+-{:->12}",
+        "", "", "", "", "", ""
+    );
+
+    let states = plume(LIVE_MAP_PUFFS);
+    for &cells in &CELL_COUNTS {
+        let grid = FieldGrid {
+            cells,
+            half_width_m: HALF_WIDTH_M,
+            source_height_m: SOURCE_HEIGHT_M,
+        };
+        let serial = median_time(|| field_serial(&states, &grid));
+        let pooled = median_time(|| field_pooled(&states, &grid));
+        let speedup = serial.as_secs_f64() / pooled.as_secs_f64();
+
+        #[cfg(feature = "gpu")]
+        let gpu = {
+            use changi::puff::wgsl::field_gpu;
+            if field_gpu(&states, &grid).is_some() {
+                let d = median_time(|| field_gpu(&states, &grid).expect("adapter was present"));
+                format!("{:.3} ms", d.as_secs_f64() * 1e3)
+            } else {
+                "no adapter".to_string()
+            }
+        };
+        #[cfg(not(feature = "gpu"))]
+        let gpu = "-".to_string();
+
+        println!(
+            "{:>8} | {:>12} | {:>9.3} ms | {:>9.3} ms | {:>6.1}x | {:>12}",
+            cells,
+            cells * cells * LIVE_MAP_PUFFS,
+            serial.as_secs_f64() * 1e3,
+            pooled.as_secs_f64() * 1e3,
+            speedup,
+            gpu
         );
     }
 
