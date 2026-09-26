@@ -78,6 +78,7 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+pub mod acelcp;
 pub mod acesix;
 pub mod acelf5;
 pub mod acelf6;
@@ -406,11 +407,16 @@ pub fn build_full(
 pub struct AceDeck {
     heatr: bool,
     purr: Option<(usize, usize, usize)>,
+    temperature_k: Option<f64>,
 }
 
 impl Default for AceDeck {
     fn default() -> Self {
-        AceDeck { heatr: true, purr: None }
+        AceDeck {
+            heatr: true,
+            purr: None,
+            temperature_k: None,
+        }
     }
 }
 
@@ -424,6 +430,18 @@ impl AceDeck {
     /// Add PURR with `nbin` bands, `nladr` ladders and `nsamp` samples.
     pub fn with_purr(mut self, nbin: usize, nladr: usize, nsamp: usize) -> Self {
         self.purr = Some((nbin, nladr, nsamp));
+        self
+    }
+
+    /// The deck's card temperature \[K\] (BROADR's and PURR's `293.6/`).
+    /// PURR samples its ladders at this temperature. Without it, PURR uses
+    /// `kt_mev / k_B`. That is exact only when `kt_mev` was computed from the
+    /// temperature: a kT read back from a table header is printed to five
+    /// figures, and `2.5301e-8 MeV / k_B` is not 293.6 K. That offset moved
+    /// U-234's probability bands in the 5th figure against NJOY2016's
+    /// (measured 2026-09-26).
+    pub fn with_temperature(mut self, temperature_k: f64) -> Self {
+        self.temperature_k = Some(temperature_k);
         self
     }
 }
@@ -446,7 +464,7 @@ pub fn build_deck(
         Some((nbin, nladr, nsamp)) => crate::purr::UrrProbabilityTables::from_endf(
             tape,
             mat,
-            kt_mev / K_BOLTZMANN_MEV,
+            deck.temperature_k.unwrap_or(kt_mev / K_BOLTZMANN_MEV),
             nbin,
             nladr,
             nsamp,
@@ -497,6 +515,8 @@ pub fn build_deck(
     if let Some(g) = crate::acer::photon_blocks::gpd(tape, mat, recon) {
         table.insert_gpd(&g);
     }
+    // Charged-particle production, after END (`acelcp`, `acefc.f90:6323`).
+    crate::acer::acelcp::append(&mut table, tape, mat, recon);
     Ok(table)
 }
 

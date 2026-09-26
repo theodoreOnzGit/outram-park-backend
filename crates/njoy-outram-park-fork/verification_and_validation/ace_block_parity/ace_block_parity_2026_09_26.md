@@ -49,17 +49,27 @@ U-238 at 293.6 K (`RECONR -> BROADR -> PURR -> ACER`) and U-235 at 0 K and
 | SIG | **SAME** (65 751) | **SAME** | **SAME** | **SAME** (9 567 354) |
 | NU, LAND/AND, LDLW/DLW | **SAME** | **SAME** | **SAME** | **SAME** |
 | DNU / BDD / DNEDL / DNED | **SAME** | **SAME** | **SAME** | **SAME** |
-| GPD | **SAME** (25 393) | see below | see below | see below |
-| MTRP / LSIGP / SIGP / LANDP / ANDP / LDLWP / DLWP / YP | **SAME** | differ (LO=2) | differ (LO=2) | differ (LO=2) |
-| UNR (LUNR) | grid, flags SAME; band values differ | same | same | absent in both |
-| charged-particle production (`acelcp`, NXS(7)) | absent in both | **missing in ours** | **missing in ours** | **missing in ours** |
+| GPD | **SAME** (25 393) | **SAME** | **SAME** | **SAME** (233 515) |
+| MTRP / LSIGP / SIGP / LANDP / ANDP / LDLWP / DLWP / YP | **SAME** | **SAME** | **SAME** | **SAME** (YP 3 391 686) |
+| UNR (LUNR) | **SAME** (3 152) | **SAME** (10 049) | **SAME** (2 305) | absent in both |
+| charged-particle production (`acelcp`, NXS(7)) | absent in both | **SAME** | **SAME** | **SAME** |
+| **XSS, whole table** | **SAME** (449 695) | **SAME** (6 247 445) | **SAME** (6 712 632) | **SAME** (15 616 079) |
+| JXS | **SAME** | **SAME** | **SAME** | **SAME** |
 
-**U-234 at 293.6 K is identical to NJOY2016's table in every word except
+This table is the **final state, later on 2026-09-26**: all four reference
+tables are reproduced **in every XSS word**, and in NXS and JXS. The rows
+"GPD", photon production, UNR and `acelcp` were different or missing when this
+record was first written; how each closed is under "The last blocks" at the
+end. The whole-table row compares the entire XSS array word for word, so no
+block can differ without it failing.
+
+~~**U-234 at 293.6 K is identical to NJOY2016's table in every word except
 PURR's probability-band values.** Those come from random resonance ladders.
 Our PURR ports upstream's `rann` and seed, and with the same 10 000 samples
 the first band count is 1 068 against NJOY's 1 070. The generator is ported,
 but some input or arithmetic before it is not yet identical; this is not
-closed.
+closed.~~ **SUPERSEDED later 2026-09-26**: the bands match too; see
+"The last blocks" at the end.
 
 The GPD and photon rows for U-235 and U-238 were measured before the MF=12
 `LO = 2` conversion was ported (`photon_blocks::build_with_pendf`,
@@ -79,8 +89,10 @@ Instrument: `examples/pendf_stage_vs_njoy.rs`; regression:
   `reference-data/errorr/*-293.6K.pendf`.
 
 At the start of the day **every** row from AND downward differed on both
-nuclides. The UNR band values cannot match word for word, because PURR samples
-random ladders. The writer is proven exact on NJOY's own bands by
+nuclides. ~~The UNR band values cannot match word for word, because PURR samples
+random ladders.~~ **CORRECTED later 2026-09-26**: they can and do, because
+`rann` and its seed are ported, so the ladders are the same ladders (see "The
+last blocks"). The writer is proven exact on NJOY's own bands by
 `tests/unr_block_write_vs_njoy2016.rs`.
 
 ## What was wrong, in the order found
@@ -157,7 +169,8 @@ behaviour. The upstream reference is given with each.
   this, and are not quoted as agreement.~~
 - ~~**GPD** needs `gamsum` (`acefc.f90:3572-3866`).~~ Ported
   (`photon_blocks::gpd`); U-234 SAME in all 25 393 words.
-- **Charged-particle production** needs `acelcp` (`acefc.f90:9178-11113`).
+- ~~**Charged-particle production** needs `acelcp` (`acefc.f90:9178-11113`).~~
+  Ported (`src/acer/acelcp.rs`); see "The last blocks".
 - **Unexercised paths:** LANG = 11-13, discrete lines (`ND > 0`), multiple
   neutron subsections in `acelf6`, and LF = 7/9/11/12 in `acelf5` are ported
   line for line. None of them is compared against NJOY here, because neither
@@ -220,10 +233,87 @@ the stage comparator. The number in brackets is what it moved.
 
     [U-234 photon blocks and GPD -> SAME.]
 
-**Still open:**
-- `acelcp` (charged-particle production, U-235/U-238);
-- the LO=2 photon conversion, re-measured once it lands;
-- PURR band values;
+**Still open** (as of item 25; see below for what closed):
+- ~~`acelcp` (charged-particle production, U-235/U-238);~~
+- ~~the LO=2 photon conversion, re-measured once it lands;~~
+- ~~PURR band values;~~
 - a multi-subsection LO=1 MF=12 total rebuilt by `convr`. No reference tape
   exercises it; `gpd` returns `None` for such a tape rather than a guessed
   block.
+
+## The last blocks, later 2026-09-26
+
+The same instrument, the same four references. Each item is a divergence from
+the upstream routine that owns it. The bracket is what it moved.
+
+26. **Photon production, U-235 and U-238** (`photon_blocks.rs`):
+    - MF=12 `LO = 2` through `convr`'s cascade (`Lo2Cascade`);
+    - MF=16 law 4 rounding as `acelpp` does it;
+    - MF=6/MT=18 photons skipped when `jp - 10*(jp mod 10) /= 0`, the JP rule.
+
+    [U-235/U-238 GPD, MTRP-DLWP and YP: different -> SAME.]
+27. **`acelcp`, charged-particle production** (`src/acer/acelcp.rs`, a port
+    of `acefc.f90:9178-11113` for the branches these evaluations reach):
+    - HPD, MTRH, TYRH, LSIGH, SIGH;
+    - LANDH (`-1` for MF=6, `0` for isotropic MF=4);
+    - DLWH: law 33 for MF=4, and MF=6 LAW=1 with LANG 1 (`ptleg2`), 2 (law
+      44 via `bachaa`) and 11+ (law 61);
+    - heating and YH, and NXS(7), JXS(29-31).
+
+    Branches no reference reaches are refused, not approximated. [U-235 0 K,
+    U-235/U-238 293.6 K: missing -> SAME.]
+28. **PURR's resonance window is `fsrch`'s** (`unrest`, `purr.f90:1931-1934`).
+    It includes the last sample at or below `elo`. `partition_point` started
+    at the first sample above it. [U-234 LUNR: 2 551 differing words -> 2 415.]
+29. **A sample equal to a bin edge goes to the bin above**
+    (`purr.f90:2333-2335`: `fsrch`, then `ii=ii+1` unless below the first
+    edge). The edges are samples themselves, so ties are common. [2 415 ->
+    2 225.]
+30. **MT=153 is a text hand-off.** PURR writes `sigfig(tabl, 7, 0)` to the
+    PENDF (`purr.f90:505`, `:522`), and ACER sums the probabilities it reads
+    back (`acefc.f90:5978-5979`). The cumulative is therefore a sum of
+    7-figure values. [2 225 -> 2 214; the first band's cumulative became
+    identical.]
+31. **PURR's temperature is the card's 293.6 K.** The comparison example took
+    it from the reference header's kT, which is printed to five figures, and
+    `2.5301e-8 MeV / k_B` is not 293.6 K. This was an instrument defect, not
+    a library one. The fix is `AceDeck::with_temperature`, which the example
+    now uses. Located with an **instrumented NJOY2016 build** (a scratch copy
+    of `purr.f90` that writes `unresx`'s sequence constants, each ladder's
+    means and the unnormalised table at full precision). Its sequence
+    constants were bit-identical to ours and its ladder means agreed to
+    1e-14. So the ladders were the same, and only the table differed. [U-234
+    LUNR 2 214 -> **0**.]
+32. **The LSSF=1 background keeps the competition remainder** as `rdf3un`
+    does: `tol = 1e-6`, and zeroed only without competition or below `ecomp`
+    (`purr.f90:1195-1230`). Ours had `tol = 1e-3` and neither test, so just
+    above U-238's 45 keV inelastic threshold, where the remainder is under
+    0.1 % of the total, it was dropped. [U-238 LUNR 252 differing words
+    (13 energies, 45.1-45.8 keV, values only) -> **0**.]
+33. **`ladr2` samples one resonance past `ehigh` and discards it**
+    (`nr=ir-1`, `purr.f90:1785`). Ours kept it. Found by dumping every
+    sample of one ladder from both codes: the last 174 of 10 000 differed
+    smoothly, one resonance's tail. U-235's fission widths make that tail
+    reach the top of the ladder; U-234's and U-238's do not. [U-235 LUNR
+    1 461 differing words -> **0**.]
+
+Also ported, with no measured effect on these three: upstream skips a single
+sample in the x <= -100 asymptotic run (`if (i1.le.i0) go to 240`). At U-234's
+first energy the window edge is at x ~ -21, so it cannot fire there.
+
+**Which numbers to quote.** The whole-table row: four of four NJOY2016
+reference tables reproduced in every XSS word. The PURR bands are
+deterministic, because `rann` and its seed are ported, so there is no
+statistical allowance anywhere in that claim.
+
+**What it does not establish.** It covers these four decks on three
+evaluations. The unexercised paths listed above are still unexercised, and
+`acelcp` refuses the branches no reference reaches. Nothing here tests a
+nuclide with photon or charged-particle laws outside the ones U-234/235/238
+use.
+
+**Regression gates.** `tests/unr_block_write_vs_njoy2016.rs`,
+`purr_generates_njoys_bands_word_for_word`, generates all three nuclides' bands
+from the evaluations and requires NJOY's words. The whole-table comparison is
+`examples/ace_blocks_vs_reference.rs`. It takes 4 to 8 minutes per 293.6 K
+case, so it is an instrument and not a test.

@@ -257,11 +257,23 @@ impl UrrProbabilityTables {
         let _warmup = rng.next(); // purr.f90:167
         let dop = DopplerTable::new();
 
+        // `rdf3un` settles the competition flags and `ecomp` BEFORE it reduces
+        // the LSSF>0 background, and the reduction depends on both.
+        let (inelastic_competition, absorption_competition) =
+            competition_flags(tape, mat, &energy, &bkg_all);
+        let competes = inelastic_competition >= 0 || absorption_competition >= 0;
+        // `icx`: the first energy whose remainder exceeds `small = 1e-5`
+        // (`purr.f90:1150-1153`).
+        let ecomp = bkg_all
+            .iter()
+            .position(|b| b[0] - b[1] - b[2] - b[3] > 1.0e-5)
+            .map(|i| energy[i]);
+
         let mut points = Vec::with_capacity(energy.len());
         for (k, &e) in energy.iter().enumerate() {
             let inf = infinite_dilution_reference(&ranges, e)?;
             let bkg = if range.lssf > 0 {
-                lssf_reduced_background(bkg_all[k])
+                lssf_reduced_background(bkg_all[k], e, competes, ecomp)
             } else {
                 bkg_all[k]
             };
@@ -279,10 +291,22 @@ impl UrrProbabilityTables {
             )?;
             let t = &res.tables[0];
 
+            // PURR hands its tables to ACER through the PENDF tape: MT=153
+            // stores `sigfig(tabl, 7, 0)` (`purr.f90:505`, and `:522` after
+            // the LSSF=1 division) in 11-column text, and ACER sums the
+            // probabilities it reads back (`acefc.f90:5978-5979`). So the
+            // cumulative is built from the rounded bin probabilities.
+            // ~~Summing the unrounded ones~~ differed from NJOY2016's U-234
+            // table in the 7th figure (CORRECTED 2026-09-26).
+            let mt153 = |x: f64| {
+                use crate::endf::parse::{format_endf_float, parse_endf_float};
+                let r = crate::acer::build::sigfig(x, 7);
+                parse_endf_float(&format_endf_float(r)).unwrap_or(r)
+            };
             let mut cum = Vec::with_capacity(nbin);
             let mut acc = 0.0;
             for p in &t.bin_probability {
-                acc += *p;
+                acc += mt153(*p);
                 cum.push(acc);
             }
             if let Some(last) = cum.last_mut() {
@@ -293,16 +317,17 @@ impl UrrProbabilityTables {
                 .map(|j| {
                     let mut v = [0.0f64; 4];
                     for i in 0..4 {
-                        v[i] = if range.lssf == 1 {
+                        let x = crate::acer::build::sigfig(t.bin_xs[j][i], 7);
+                        v[i] = mt153(if range.lssf == 1 {
                             let sigu = t.bondarenko[0][i];
                             if sigu != 0.0 {
-                                t.bin_xs[j][i] / sigu
+                                x / sigu
                             } else {
                                 1.0
                             }
                         } else {
-                            t.bin_xs[j][i]
-                        };
+                            x
+                        });
                     }
                     v
                 })
@@ -319,9 +344,6 @@ impl UrrProbabilityTables {
             let heating = vec![0.0; value.len()];
             points.push(UrrPoint { cum, value, heating });
         }
-
-        let (inelastic_competition, absorption_competition) =
-            competition_flags(tape, mat, &energy, &bkg_all);
 
         Ok(Some(UrrProbabilityTables {
             lssf: range.lssf,
@@ -595,14 +617,27 @@ fn competition_flags(
 }
 
 /// PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial
-/// backgrounds are zeroed and the total keeps only the competition remainder,
-/// itself dropped when it is within round-off of zero.
-fn lssf_reduced_background(bkg: [f64; 4]) -> [f64; 4] {
-    const TOL: f64 = 1.0e-3;
+/// backgrounds are zeroed and the total keeps only the competition remainder
+/// `total - elastic - fission - capture`. That remainder is kept only when it
+/// exceeds `tol * total` with `tol = 1e-6`, there is competition, and the
+/// energy is at or above `ecomp`. Otherwise it is zeroed.
+///
+/// ~~`TOL = 1e-3`, and no competition or `ecomp` test~~ (CORRECTED
+/// 2026-09-26). Just above U-238's first inelastic level (45 keV) the
+/// remainder is under 0.1 % of the total, so it was dropped where NJOY keeps
+/// it. That changed the band values at 13 of U-238's 83 energies
+/// (45.1-45.8 keV) against NJOY2016's own table.
+fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<f64>) -> [f64; 4] {
+    const TOL: f64 = 1.0e-6; // purr.f90:1100
     let [tot, el, fis, cap] = bkg;
     let remainder = tot - el - fis - cap;
     let keep = if remainder > TOL * tot {
-        remainder
+        let below_ecomp = ecomp.is_none_or(|ec| e < ec);
+        if !competes || below_ecomp {
+            0.0
+        } else {
+            remainder
+        }
     } else {
         0.0
     };

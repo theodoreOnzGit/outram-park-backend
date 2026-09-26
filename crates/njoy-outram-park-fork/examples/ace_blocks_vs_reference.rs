@@ -147,7 +147,14 @@ fn main() {
     };
     let kt = theirs.header.kt_mev;
     let ace = if with_purr {
-        build_deck(&tape, mat, &recon, kt, 0, &AceDeck::default().without_heatr().with_purr(20, 64, 10_000))
+        build_deck(
+            &tape,
+            mat,
+            &recon,
+            kt,
+            0,
+            &AceDeck::default().without_heatr().with_purr(20, 64, 10_000).with_temperature(t_k),
+        )
             .expect("build with PURR")
     } else {
         build_deck(&tape, mat, &recon, kt, 0, &AceDeck::default().without_heatr()).expect("build")
@@ -316,6 +323,21 @@ fn report(name: &str, temp_dir: &str, ours: &RawAceTable, theirs: &RawAceTable, 
     ] {
         verdicts.push((label.into(), raw_span_words(ours, theirs, j)));
     }
+
+    // The whole table: every XSS word and every JXS locator.
+    let whole = if ours.xss == theirs.xss {
+        format!("SAME ({} words, every word)", ours.xss.len())
+    } else {
+        let n = ours.xss.iter().zip(&theirs.xss).filter(|(a, b)| a != b).count()
+            + ours.xss.len().abs_diff(theirs.xss.len());
+        format!("DIFFERENT ({n} words; ours {}, NJOY {})", ours.xss.len(), theirs.xss.len())
+    };
+    verdicts.push(("XSS, whole table".into(), whole));
+    let jd = (0..32).filter(|&i| ours.jxs[i] != theirs.jxs[i]).count();
+    verdicts.push((
+        "JXS".into(),
+        if jd == 0 { "SAME".into() } else { format!("DIFFERENT ({jd} of 32)") },
+    ));
 
     // ── AND / DLW per reaction ─────────────────────────────────────────────
     angular_and_laws(ours, theirs, &co, &ct, &mut verdicts);

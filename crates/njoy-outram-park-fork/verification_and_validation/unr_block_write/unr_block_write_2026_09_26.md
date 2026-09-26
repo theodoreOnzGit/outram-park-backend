@@ -43,7 +43,11 @@ Two decisions:
 Three gates, `tests/unr_block_write_vs_njoy2016.rs`, each against NJOY2016:
 
 1. **The writer, with PURR's randomness removed.** PURR samples resonance
-   ladders, so generated tables cannot match NJOY's band for band. Instead:
+   ladders, ~~so generated tables cannot match NJOY's band for band~~
+   (**CORRECTED later 2026-09-26**: they can, since `rann` and its seed are
+   ported, and they do. See `purr_generates_njoys_bands_word_for_word` in the same test file and
+   `ace_block_parity/`). Isolating the writer is still the sharper test.
+   Instead:
    read NJOY's own UNR block from the reference U-234/235/238 tables, give those
    tables to `unr_words`, and require **every word** — bit pattern and integer
    typing — to equal NJOY's.

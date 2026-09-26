@@ -8,9 +8,10 @@
 //! Two gates, each against NJOY2016 and neither against this crate's reader
 //! alone.
 //!
-//! 1. **The writer, isolated from PURR.** PURR samples resonance ladders, so a
-//!    table *generated* here will not match NJOY's band for band and cannot be
-//!    used to test the writer. Instead: read NJOY's own UNR block out of the
+//! 1. **The writer, isolated from PURR.** PURR samples resonance ladders.
+//!    ~~so a table *generated* here will not match NJOY's band for band~~
+//!    (**CORRECTED 2026-09-26**: it does now, gate 3), but a generated table
+//!    tests the writer and the generator together. So: read NJOY's own UNR block out of the
 //!    reference U-234/235/238 tables in `reference-data/ace` (made by
 //!    `RECONR+BROADR+PURR+ACER`), hand those tables to
 //!    [`unr_words`], and require **every word** — value and integer typing —
@@ -22,6 +23,12 @@
 //!    (`purr.f90:1110-1192`) must reproduce NJOY's flags exactly from the same
 //!    evaluation. PURR's statistical controls are set minimal because the flags
 //!    do not depend on them.
+//!
+//! 3. **PURR itself, from the evaluation.** `UrrProbabilityTables::from_endf`
+//!    at NJOY's deck (293.6 K, 20 bins, 64 ladders, 10 000 samples) must give
+//!    NJOY's UNR block **word for word**. `rann` and its seed are ported, so
+//!    the ladders are the same ladders and there is no statistical excuse:
+//!    every band value is deterministic.
 //!
 //! # Results (2026-09-26)
 //!
@@ -323,4 +330,50 @@ fn build_full_with_purr_writes_a_block_that_reads_back_as_generated() {
         (generated.inelastic_competition, generated.absorption_competition),
         generated.lssf
     );
+}
+
+/// Gate 3: PURR's bands, generated from the ENDF evaluation, equal NJOY's.
+///
+/// **Result, 2026-09-26:** every word identical, U-234 (3 152 words), U-235
+/// (2 305) and U-238 (10 049). Before this held, six divergences from
+/// `unrest`/`ladr2`/`rdf3un` were found and fixed, recorded in
+/// `verification_and_validation/ace_block_parity/`:
+/// - the resonance window's inclusive lower sample (`fsrch`);
+/// - a sample equal to a bin edge going to the bin above;
+/// - MT=153's 7-figure text hand-off before ACER sums the probabilities;
+/// - the temperature (the card's 293.6 K, not a kT read back from a header);
+/// - the LSSF=1 competition remainder (`tol = 1e-6` and the `ecomp` test);
+/// - the ladder's crossing resonance, sampled but not used (`nr=ir-1`).
+#[test]
+fn purr_generates_njoys_bands_word_for_word() {
+    for (name, tape_file, mat) in [
+        ("U234", "n-092_U_234-ENDF8.0.endf", 9225),
+        ("U235", "n-092_U_235-ENDF8.0.endf", 9228),
+        ("U238", "n-092_U_238.endf", 9237),
+    ] {
+        let Some(t) = reference(name) else { return };
+        let Some(path) = reference_endf(tape_file) else {
+            println!("SKIP: {tape_file} absent");
+            return;
+        };
+        let tape = Tape::read_file(&path).expect("parse tape");
+        let tables = UrrProbabilityTables::from_endf(&tape, mat, 293.6, 20, 64, 10_000)
+            .unwrap_or_else(|e| panic!("{name}: PURR: {e}"))
+            .unwrap_or_else(|| panic!("{name}: the evaluation has an unresolved range"));
+        let want = njoy_block(&t);
+        let got = unr_words(&tables);
+        assert_eq!(got.len(), want.len(), "{name}: block length");
+        let printed = |x: f64| format!("{x:.11e}");
+        let bad: Vec<usize> = (0..want.len())
+            .filter(|&i| printed(got[i].0) != printed(want[i].0) || got[i].1 != want[i].1)
+            .collect();
+        println!("{name}: {} of {} UNR words differ from NJOY2016's", bad.len(), want.len());
+        assert!(
+            bad.is_empty(),
+            "{name}: first differing word {} (ours {:e}, NJOY {:e})",
+            bad[0],
+            got[bad[0]].0,
+            want[bad[0]].0
+        );
+    }
 }

@@ -849,8 +849,10 @@ and byte-parity gates depend on that. Record:
 [`unr_block_write/`](verification_and_validation/unr_block_write/unr_block_write_2026_09_26.md).
 
 **The gate that isolates a writer from a Monte Carlo generator.** PURR's bands
-come from random ladders, so generated tables can never match NJOY's word for
-word. Reading NJOY's own block and writing it back can — and does, **bit-exactly
+come from random ladders, ~~so generated tables can never match NJOY's word for
+word~~ (**CORRECTED later 2026-09-26**: `rann` and its seed are ported, so the
+ladders are NJOY's ladders; after six fixes the generated bands match in every
+word -- see "The ACE tables reproduce NJOY's" below). Reading NJOY's own block and writing it back can — and does, **bit-exactly
 on all 3 152 + 2 305 + 10 049 words** of U-234/235/238. Worth copying whenever
 the thing upstream of a writer is stochastic.
 
@@ -877,11 +879,29 @@ BROADR now reproduce NJOY2016's own PENDFs **word for word**:
 Regression: `tests/pendf_stages_vs_njoy2016.rs`. Instrument:
 `examples/pendf_stage_vs_njoy.rs`. BROADR is now upstream's joint
 multi-reaction walk (`broadr/joint.rs`). At the ACE level:
-- **U-234 at 293.6 K is identical in every word** except PURR's
-  random-ladder band values;
-- U-238 and U-235 match in every neutron block;
-- what remains is `acelcp` (charged particles), the U-235/U-238 photon-block
-  rounding and PURR bands.
+- ~~**U-234 at 293.6 K is identical in every word** except PURR's
+  random-ladder band values;~~
+- ~~U-238 and U-235 match in every neutron block;~~
+- ~~what remains is `acelcp` (charged particles), the U-235/U-238 photon-block
+  rounding and PURR bands.~~
+
+**FINAL, later still 2026-09-26: all four reference tables are reproduced in
+every word.** U-234, U-235 and U-238 at 293.6 K (`RECONR+BROADR+PURR+ACER`)
+and U-235 at 0 K match NJOY2016's in NXS, JXS and every XSS word: 449 695,
+6 712 632, 6 247 445 and 15 616 079 words. That includes the PURR bands,
+`acelcp`'s charged-particle blocks and the photon blocks. There is no tolerance
+anywhere in the claim; PURR's bands are deterministic because `rann` and its
+seed are ported.
+
+The PURR bands took six fixes: `fsrch`'s window, the bin-edge tie, MT=153's
+text hand-off, the temperature, `rdf3un`'s LSSF=1 remainder, and `ladr2`'s
+discarded crossing resonance. The temperature and the crossing resonance were
+localised with an **instrumented NJOY2016 build**: a scratch copy of
+`purr.f90` that writes intermediates at full precision, down to every sample
+of one ladder. Each took one run. When
+two stochastic codes disagree, print both codes' intermediates rather than
+reasoning about the statistics. Gate: `tests/unr_block_write_vs_njoy2016.rs`,
+`purr_generates_njoys_bands_word_for_word`.
 
 The record is under `verification_and_validation/ace_block_parity/`. The
 text below is the state earlier the same day; its "still different"
