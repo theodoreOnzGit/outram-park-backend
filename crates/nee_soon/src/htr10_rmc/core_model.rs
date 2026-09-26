@@ -36,7 +36,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCone, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 
-use super::bed::{bed_tile_levels, HexBedCell};
+use super::bed::{bed_tile_levels, hex_ring, BallSite, FuelAssignment, HexBedCell, TwoBallBed};
 
 /// Material slots the assembled geometry expects, in order.
 ///
@@ -44,7 +44,12 @@ use super::bed::{bed_tile_levels, HexBedCell};
 /// `pebble_beds::htr10::fuel_pebble_materials` can be used directly.
 /// Pebble-bed filling fraction stated by Li, Yu & Wei (2014) for the HTR-10
 /// core — the fraction of bed volume occupied by pebbles. Sets the fuel per
-/// unit volume, so the assembled geometry is solved to realise it.
+/// unit volume. ~~so the assembled geometry is solved to realise it~~
+/// **CORRECTED 2026-09-25:** [`assemble_explicit_triso`] realises it by
+/// construction (the paper's two-ball cell, [`HexBedCell::from_paper`], whose
+/// pitch is derived from it); only [`assemble`] still solves its pitch for it.
+/// Also the discharge-tube smear (`mat::HOMOG_DUMMY`), which since the
+/// two-ball cell agrees with the bed it homogenises (sampled 0.6096-0.6097).
 pub const PAPER_FILLING_FRACTION: f64 = 0.61;
 
 /// HTR-10 active core radius \[cm\] — 180 cm diameter (IAEA-TECDOC-1382).
@@ -215,7 +220,7 @@ pub mod mat {
 pub struct AssembledCore {
     /// The geometry.
     pub geometry: Geometry,
-    /// Hex tiles in the bed lattice.
+    /// Hex tiles in the bed lattice (every axial level, conus included).
     pub tiles: usize,
     /// Cells in the geometry.
     pub cells: usize,
@@ -225,9 +230,16 @@ pub struct AssembledCore {
     pub bed_radius: f64,
     /// Bed half-height \[cm\].
     pub bed_half_height: f64,
-    /// Realised hex pitch \[cm\] (solved from the fuel-zone target).
+    /// Hex pitch \[cm\] of the bed lattice. [`assemble_explicit_triso`]: the
+    /// paper's two-ball prism, 6.6106 cm ([`HexBedCell::from_paper`]).
+    /// [`assemble`]: ~~solved from the fuel-zone target~~ still solved so its
+    /// axially clipped one-ball tile realises the paper's fuel-zone fraction,
+    /// 6.6086 cm (gh:#308: that path keeps the one-ball construction).
     pub lat_pitch: f64,
-    /// Axial tile height \[cm\].
+    /// Axial tile height \[cm\]. [`assemble_explicit_triso`]: 9.798 cm, one A-B
+    /// layer pair holding two balls. [`assemble`]: 4.899 cm, one ball. In both
+    /// the bed is `n_axial x 4.899` cm tall, i.e. `2 * bed_half_height`, NOT
+    /// `n_axial * lat_height`.
     pub lat_height: f64,
     /// Bottom of the conus \[cm\] — the deepest fuelled z. Equal to
     /// `-bed_half_height` when no conus is modelled.
@@ -264,8 +276,12 @@ pub struct AssembledCore {
 /// Use [`assemble_explicit_triso`] for anything that reports `k` or feeds
 /// group constants to another solver. gh:#308.
 ///
-/// The bed cell's pitch and layer height come from [`HexBedCell::from_paper`],
-/// so the geometry is the paper's even when the size is scaled down.
+/// ~~The bed cell's pitch and layer height come from [`HexBedCell::from_paper`],
+/// so the geometry is the paper's even when the size is scaled down.~~
+/// **CORRECTED 2026-09-25:** only the layer height does, halved (one ball per
+/// 4.899 cm tile); the pitch is SOLVED (6.6086 cm) so the clipped one-ball
+/// tile realises the paper's fuel-zone fraction, and the pebbles
+/// interpenetrate (gh:#309/#310, fixed in [`assemble_explicit_triso`] only).
 ///
 /// # Parameters
 /// - `n_rings` — a FLOOR on the lattice ring count. The bed radius is fixed at
@@ -277,8 +293,13 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     let cell = HexBedCell::from_paper();
     let r_pebble = cell.ball_diameter * 0.5;
     let r_fuel_zone = 2.5;
-    // One ball per tile -- see assemble_explicit_triso for why the lattice
-    // pitch is the ball diameter and not the paper cell's 6.6106/9.798.
+    // ~~One ball per tile -- see assemble_explicit_triso for why the lattice
+    // pitch is the ball diameter and not the paper cell's 6.6106/9.798.~~
+    // **CORRECTED 2026-09-25:** `assemble_explicit_triso` no longer uses one
+    // ball per tile -- it builds the paper's two-ball prism (gh:#309 step 2,
+    // gh:#310). THIS function still does, with every defect described below
+    // (interpenetrating pebbles, 4.76 % of core carbon missing); it is the
+    // homogenised cost instrument of gh:#308 and is not used for k.
     // ONE ball per tile, in a tile that is HALF the paper's two-ball prism.
     //
     // **WHAT THE CLIP ACTUALLY IS (corrected 2026-09-25, gh:#310).** The paper's
@@ -690,19 +711,64 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
 /// the double-heterogeneous model the benchmark actually specifies.
 ///
-/// **Open defects in this construction:** gh:#309 (pebble-shell carbon
-/// clipped), gh:#310 (pebbles in axial contact). ~~gh:#311 (no B-11)~~
-/// **CORRECTED 2026-09-25:** #311 is closed and B-11 is placed
-/// (`materials::htr10_material_set`, the `b11` closure). Results
-/// from it are tentative until those are priced — see the module docs,
+/// ~~**Open defects in this construction:** gh:#309 (pebble-shell carbon
+/// clipped), gh:#310 (pebbles in axial contact).~~ **FIXED 2026-09-25 — the
+/// bed is now the paper's two-ball prism cell** (see "The bed" below): no ball
+/// is clipped by its own tile, no two balls overlap, and every pebble is the
+/// whole 6 cm sphere. ~~gh:#311 (no B-11)~~ **CORRECTED 2026-09-25:** #311 is
+/// closed and B-11 is placed (`materials::htr10_material_set`, the `b11`
+/// closure). Results from it are tentative — see the module docs,
 /// "Verification status".
 ///
+/// # The bed: two balls per tile (gh:#309 step 2, gh:#310)
+///
+/// The hex lattice tile IS the paper's prism, [`HexBedCell::from_paper`]:
+/// pitch 6.6106 cm, height 9.798 cm = one A-B layer pair, two balls per tile,
+/// packing 0.610. Each tile universe holds pieces of five balls
+/// ([`super::bed::BallSite`]): two A balls on its axis at its top and bottom
+/// faces (half each), and three B balls at alternate vertices at mid-height (a
+/// third each). The spheres are centred OUTSIDE or ON the tile boundary; that
+/// is exact here, because `Geometry::locate` evaluates a tile universe's cell
+/// regions in tile-local coordinates only for points the lattice has already
+/// placed in that tile, so each tile draws exactly its own piece and the
+/// neighbours holding the rest of the same ball draw theirs.
+///
+/// Fuel/dummy is a property of the BALL ([`super::bed::TwoBallBed`]), and a
+/// tile's universe is the variant for its five balls' identities (up to 2^5,
+/// only those used are built), so a ball split across 2 or 3 tiles is the same
+/// kind of pebble in all of them.
+///
+/// Nearest centre distances: in-plane 6.6106 cm, A to B
+/// `hypot(pitch/sqrt(3), height/2)` = 6.2102 cm, A to A (axial) 9.798 cm, all
+/// greater than the 6.0 cm diameter; the smallest gap is 0.210 cm.
+/// `htr10_rmc::tests::no_two_balls_of_the_built_bed_overlap` checks it on the
+/// built geometry.
+///
+/// # Parameters
+/// - `n_rings` — a FLOOR on the lattice ring count (the bed radius is the
+///   physical 90 cm and the lattice is sized to tile it).
+/// - `n_axial` — the fuel LOADING HEIGHT in half-layers of 4.899 cm (one ball
+///   layer each), so the bed is `n_axial x 4.899` cm: 20 / 25 / 41 give
+///   97.980 / 122.474 / 200.858 cm, the same heights as before the two-ball
+///   change. The A-B stacking is anchored at the bed floor (layer 0 is an A
+///   layer), so an odd `n_axial` simply ends on an A layer and an even one on
+///   a B layer; see [`super::bed::TwoBallBed`].
+/// - `majorant_index` — which entry of the caller's majorant table the bed
+///   uses; `usize::MAX` surface-tracks the bed.
+///
+/// Universes: 0 root, [`TRISO_PARTICLE_UNIVERSE`], [`TRISO_MATRIX_UNIVERSE`],
+/// then one per bed-tile fuel mask in use (35 in all at 14 rings, all 32 masks
+/// occur). Tile cell ids encode their role, see [`tile_cell_role`].
+///
 /// ~~Four coordinate levels~~ **CORRECTED 2026-09-25 — three coordinate
-/// levels**: root → (bed hex lattice) → pebble universe → (TRISO rect lattice)
-/// → TRISO particle universe. A lattice selects the next level's universe but
-/// is not a level itself. Verified by locating a kernel in the assembled
-/// 14 x 25 core: `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
-/// (`examples/htr10_geometry_images.rs` prints it). Depth-3 descent was gated
+/// levels**: root → (bed hex lattice) → bed-tile universe (pieces of five
+/// pebbles since 2026-09-25; one pebble before) → (TRISO rect lattice, entered
+/// through the fuel-zone cell's translation to its ball centre) → TRISO
+/// particle universe. A lattice selects the next level's universe but is not a
+/// level itself. Verified by locating a kernel in the assembled 14 x 25 core:
+/// `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
+/// (`examples/htr10_geometry_images.rs` prints it; re-checked on the two-ball
+/// cell 2026-09-25). Depth-3 descent was gated
 /// in `outram-mc-libs` `tests/nested_lattice_depth3.rs`, which also counts
 /// `levels.len()`; ~~this is depth 4~~ this is the **same** depth.
 ///
@@ -728,117 +794,34 @@ pub fn assemble_explicit_triso(
     let r_pebble = cell.ball_diameter * 0.5;
     let r_fuel_zone = 2.5;
 
-    // ONE BALL PER TILE, so the lattice pitch is NOT the paper's cell pitch.
+    // TWO BALLS PER TILE: the lattice tile IS the paper's prism (gh:#309 step
+    // 2, gh:#310, 2026-09-25).
     //
-    // `HexBedCell::from_paper()` describes a two-layer prism holding TWO balls
-    // (half-spheres on each face plus full balls between), pitch 6.6106 and
-    // height 9.798. A hex LATTICE places one universe per tile, so using those
-    // dimensions directly gives packing 0.3050 -- exactly half the stated 0.61,
-    // and the source of a 2x fuel deficit that made the first assembled core
-    // too subcritical to bank a single fission neutron.
+    // ~~ONE BALL PER TILE, so the lattice pitch is NOT the paper's cell
+    // pitch.~~ **REPLACED 2026-09-25.** Until then each tile held one 6 cm
+    // ball in a tile HALF the paper's prism (height 4.899 cm), with the pitch
+    // solved (6.6086 cm) so the clipped fuel zone realised 0.61 (2.5/3)^3.
+    // That construction dropped the paper's A-B lateral offset, so every ball
+    // in a column sat at the same (x, y), 4.899 cm from its axial neighbours:
+    // **the pebbles interpenetrated by 1.101 cm**, the tile face cut each one
+    // on the plane where the two spheres cross, and each sphere lost two
+    // 2.6816 cm^3 lenses -- 4.74 % of every pebble, essentially all of it
+    // carbon. Core graphite was 4.76 % low (0.59988 -> 0.57131), helium 39.0 %
+    // -> 41.9 %, the heavy metal exact to +0.06 %, so C/U was 4.8 % low
+    // (gh:#309); the fuel zones of axial neighbours met on a 1 cm disc
+    // (gh:#310). A shrunk-pebble ablation that removed the overlap changed k
+    // by -6.88 +/- 1.48 pcm/cm across 98-201 cm, equal and opposite to the
+    // gh:#218 height drift.
     //
-    // A one-ball-per-prism lattice cannot reach 0.61 without overlap: its
-    // maximum is pitch = height = one ball diameter, giving
-    //
-    //     packing = V_ball / ((sqrt(3)/2) d^3) = 0.6046
-    //
-    // with neighbouring balls exactly touching. That is 0.9 % below the stated
-    // 0.61, and it is the honest ceiling for this representation rather than an
-    // approximation chosen for convenience. Reaching 0.61 needs the paper's
-    // offset half-sphere arrangement, which a single-universe tile cannot hold.
-    // ONE ball per tile, in a tile that is HALF the paper's two-ball prism.
-    //
-    // **WHAT THE CLIP ACTUALLY IS (corrected 2026-09-25, gh:#310).** The paper's
-    // cell is a TWO-ball prism with A-B stacking: each layer sits in the hollow
-    // of the one below, offset laterally by pitch/sqrt(3) = 3.8166 cm, so the
-    // interlayer centre distance is hypot(3.8166, 2.4495) = 6.2102 cm -- clear
-    // of the 6.0 cm diameter. One ball per tile DROPS that offset: every ball in
-    // a column sits at the same (x, y), so the axial neighbour distance is just
-    // the tile height, **4.8990 cm, i.e. 1.101 cm LESS than a diameter. The
-    // pebbles interpenetrate.**
-    //
-    // Two spheres at 4.8990 cm centres cross on a circle of radius
-    // sqrt(3.0^2 - 2.4495^2) = 1.7321 cm, and the tile boundary sits exactly on
-    // that mid-plane -- so the cut is the CORRECT union of the two spheres, and
-    // each 2.6816 cm^3 "cap" removed IS the interpenetration lens. Nothing falls
-    // into a void. What is wrong is upstream: pebbles at 4.899 cm centres cannot
-    // occupy 0.61 of the volume, because 4.74 % of each is inside its neighbour.
-    //
-    // `bed.rs`'s `the_reconstructed_cell_is_a_real_packing` would catch this and
-    // does not: it asserts `is_non_overlapping()` on `HexBedCell::from_paper()`,
-    // which passes. `HexBedCell::interlayer_spacing` assumes the A-B offset, so
-    // no method on it returns the columnar 4.8990 -- the type models the paper
-    // while this builds something else.
-    //
-    // The ball (6.0 cm across) is taller than the tile (4.899 cm), so the
-    // lattice CLIPS it axially -- and that clipping is not cosmetic: it removes
-    // two spherical caps of 2.6816 cm^3 each from a 113.0973 cm^3 ball, leaving
-    // 107.7342 cm^3. At the paper's own pitch the realised filling fraction is
-    // therefore 0.5811, NOT the 0.610 an unclipped ball would give. (An earlier
-    // comment here claimed the halved height "reproduces the packing exactly";
-    // it does not, and was wrong by 4.74 %.)
-    //
-    // Filling fraction sets the fuel per unit volume, so it is the quantity that
-    // must be right. The pitch is solved so the CLIPPED ball realises the
-    // paper's stated 0.61, giving 6.4520 cm -- 5 % more balls, each 5 % smaller,
-    // for the same fuel density. Inradius 3.2260 cm clears the 3.0 cm ball.
-    //
-    // Setting the pitch to the ball DIAMETER instead also gives ~0.61, but makes
-    // the ball exactly tangent to all six prism faces. That degeneracy is real
-    // and was measured; it is NOT what caused the k = 0 failure (that was the
-    // HexLattice axial-frame defect, see the V&V record), but it is avoided.
-    let lat_height = cell.height * 0.5;
-    let r_ball = 0.5 * cell.ball_diameter;
-    // Volume of a sphere of radius `r` after the tile clips it at +/- height/2.
-    let clipped = |r: f64| {
-        let cap = r - 0.5 * lat_height;
-        let full = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
-        if cap <= 0.0 {
-            full
-        } else {
-            full - 2.0 * std::f64::consts::PI * cap * cap * (3.0 * r - cap) / 3.0
-        }
-    };
-    // TARGET THE FUEL-ZONE VOLUME FRACTION, NOT THE BALL PACKING.
-    //
-    // A 6.0 cm ball cannot sit whole in a 4.899 cm tile, so one-ball-per-tile
-    // MUST clip -- and the clip is wildly uneven: it removes 4.74 % of the ball
-    // but only 0.06 % of the fuel zone, because the caps come off the outer
-    // graphite shell. Solving the pitch so the CLIPPED BALL realises 0.61
-    // therefore over-fuels the bed by +4.91 %, which is spurious reactivity.
-    // (That is exactly what an earlier version of this code did.)
-    //
-    // What the paper's 0.61 actually pins down is fuel per unit volume:
-    // 0.61 * V_fuelzone / V_ball = 0.35301. Solving for THAT gives pitch
-    // 6.6086 cm -- within 0.03 % of the paper's own 6.6106 cm, which is the
-    // check that this is the right target rather than a second arbitrary one.
-    //
-    // Cost, stated rather than hidden: the shell graphite is then clipped
-    // without compensation.
-    //
-    // ~~the bed carries ~4.7 % less pebble-shell moderator than a whole-ball
-    // bed would~~ **CORRECTED 2026-09-25 -- 4.7 % is the deficit in BALL
-    // volume, not in shell volume, and the caps come off the shell almost
-    // entirely.** Recomputed from this function's own numbers: the two caps
-    // remove 5.363 cm^3, of which only 0.080 cm^3 is fuel zone, so
-    // **11.2 % of the pebble-shell graphite is removed**, and the shell's
-    // share of core volume falls from the paper's 0.25699 to 0.22842 --
-    // a **11.1 %** deficit.
-    //
-    // **And that is only the FUEL pebble.** 43 % of the tiles are solid
-    // graphite dummy pebbles with no shell and no fuel zone, and the lattice
-    // clips them identically -- the whole 5.363 cm^3 is graphite there. The
-    // core-level number, which is the one to quote, is: every pebble loses
-    // 4.74 % of its volume, essentially all of it carbon in both types, while
-    // the fuel zone loses 0.061 %. Core graphite volume fraction goes
-    // **0.59988 -> 0.57131, i.e. -4.76 %**, helium 39.0 % -> 41.9 %, and the
-    // heavy metal stays exact to +0.060 % -- so **C/U is 4.8 % low**. Sign on
-    // k is NOT predictable a priori (an over-moderated core loses parasitic
-    // capture as well as moderation) and has not been measured -- gh:#309.
-    let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
-    let lat_pitch = (clipped(r_fuel_zone)
-        / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
-        .sqrt();
+    // Now: pitch and height are the paper's cell, taken straight from
+    // `HexBedCell::from_paper` -- pitch 6.6106 cm (the touching pitch diluted
+    // to the stated 0.61), height 9.798 cm (two close-packed layers, the
+    // paper's stated layer). Nothing is solved or clipped: two whole 6 cm
+    // balls per tile give 0.610 exactly, the fuel zone 0.61 (2.5/3)^3 exactly,
+    // and the shell and dummy graphite with them. The ball sites, the per-ball
+    // identity and the axial phase are `super::bed::TwoBallBed`'s.
+    let lat_pitch = cell.pitch;
+    let lat_height = cell.height;
 
     // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer.
     let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
@@ -920,7 +903,11 @@ pub fn assemble_explicit_triso(
     // reports the untiled fraction against radius.
     let ring_reach = (3.0_f64.sqrt() / 2.0) * lat_pitch;
     let n_rings = n_rings.max((bed_radius / ring_reach).ceil() as usize + 1);
-    let bed_half_height = 0.5 * lat_height * n_axial as f64;
+    // `n_axial` counts HALF-layers (one ball layer, 4.899 cm, each) -- the
+    // loading step the old one-ball tile had -- so the loading heights, and
+    // every comparison against RMC, are unchanged: n 20 / 25 / 41 are still
+    // 97.980 / 122.474 / 200.858 cm. The tile is now a whole layer pair.
+    let bed_half_height = 0.25 * lat_height * n_axial as f64;
     // OUTRAM_HTR10_NOREFL=1 collapses the reflector to zero thickness. With
     // OUTRAM_HTR10_REFLECTIVE=1 and OUTRAM_HTR10_ALLFUEL=1 that makes the model
     // an INFINITE MEDIUM of fuel pebbles at the paper's filling fraction -- the
@@ -978,21 +965,22 @@ pub fn assemble_explicit_triso(
             })
         })
         .collect();
-    // 5: fuel zone, 6: pebble -- in TILE-local coordinates.
-    surfaces.push(SurfaceKind::Sphere(Sphere {
-        x0: 0.0,
-        y0: 0.0,
-        z0: 0.0,
-        r: r_fuel_zone,
-        bc: BoundaryType::Transmissive,
-    }));
-    surfaces.push(SurfaceKind::Sphere(Sphere {
-        x0: 0.0,
-        y0: 0.0,
-        z0: 0.0,
-        r: r_pebble,
-        bc: BoundaryType::Transmissive,
-    }));
+    // 5: fuel zone, 6: pebble -- in TILE-local coordinates, of the ABottom
+    // ball site (0, 0, -height/2). The other four sites' pairs are appended
+    // after surface 21 (`site_surfaces` below), so that 7..21 keep the indices
+    // every caller and test already uses.
+    let site_sphere = |site: BallSite, r: f64| {
+        let [x0, y0, z0] = cell.site_centre(site);
+        SurfaceKind::Sphere(Sphere {
+            x0,
+            y0,
+            z0,
+            r,
+            bc: BoundaryType::Transmissive,
+        })
+    };
+    surfaces.push(site_sphere(BallSite::ABottom, r_fuel_zone));
+    surfaces.push(site_sphere(BallSite::ABottom, r_pebble));
     // 7..9 bed envelope, 10..12 reflector vacuum boundary, 13..14 tile clip.
     surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
         x0: 0.0,
@@ -1144,9 +1132,14 @@ pub fn assemble_explicit_triso(
         r: tube_r,
         bc: BoundaryType::Transmissive,
     }));
-    // OUTRAM_HTR10_REFLECTIVE=1 closes the outer boundary. NOT physical -- it is
-    // a DIAGNOSTIC that separates the two ways k can be low: with no leakage at
-    // all, whatever k remains is pure in-model absorption or lost histories.
+    // 22..29: (fuel zone, pebble) sphere pairs of the ball sites ATop, BEast,
+    // BNorthWest, BSouthWest, in tile-local coordinates. ABottom's pair is 5/6.
+    let mut site_surfaces = [(5usize, 6usize); 5];
+    for (i, &site) in BallSite::ALL.iter().enumerate().skip(1) {
+        site_surfaces[i] = (surfaces.len(), surfaces.len() + 1);
+        surfaces.push(site_sphere(site, r_fuel_zone));
+        surfaces.push(site_sphere(site, r_pebble));
+    }
 
     let ins = |i: usize| RegionToken::HalfSpace {
         surface_idx: i,
@@ -1167,7 +1160,7 @@ pub fn assemble_explicit_triso(
     };
 
     // Universe 3 -- one TRISO particle: five shells then matrix.
-    let cells = vec![
+    let mut cells = vec![
         // 0: the bed (delta-tracked)
         {
             // The bed is the cylinder UNION the conus.
@@ -1342,22 +1335,16 @@ pub fn assemble_explicit_triso(
             mat::BORONATED,
             293.6,
         ),
-        // 3: fuelled pebble -- fuel zone holds the TRISO lattice
-        Cell::fill(3, vec![ins(5)], CellFill::Lattice(1), Position::ZERO),
-        // 3: pebble shell, 4: helium around the fuelled pebble
-        shell(5, 6, mat::GRAPHITE, 4),
-        Cell::material(5, vec![out(6)], mat::HELIUM, 293.6),
-        // 5,6: dummy pebble and its helium
-        Cell::material(6, vec![ins(6)], mat::GRAPHITE, 293.6),
-        Cell::material(7, vec![out(6)], mat::HELIUM, 293.6),
         // 7..12: the TRISO particle's shells, then matrix beyond it
+        // (universe TRISO_PARTICLE_UNIVERSE)
         Cell::material(8, vec![ins(0)], mat::KERNEL, 293.6),
         shell(0, 1, mat::BUFFER, 9),
         shell(1, 2, mat::IPYC, 10),
         shell(2, 3, mat::SIC, 11),
         shell(3, 4, mat::OPYC, 12),
         Cell::material(13, vec![out(4)], mat::GRAPHITE, 293.6),
-        // 13, 14: pure matrix, the TRISO lattice's `outer` universe.
+        // 13, 14: pure matrix, the TRISO lattice's `outer` universe
+        // (TRISO_MATRIX_UNIVERSE).
         //
         // TWO cells, because a cell region cannot be "everything": an empty
         // token stream evaluates to FALSE, not true. A single `out(4)` cell
@@ -1369,92 +1356,169 @@ pub fn assemble_explicit_triso(
         Cell::material(15, vec![ins(4)], mat::GRAPHITE, 293.6),
     ];
 
-    // OUTRAM_HTR10_ALLFUEL=1 makes EVERY tile a fuelled pebble. Not physical --
-    // the first critical core is 57 % fuel / 43 % graphite dummies -- but it is
-    // an ABLATION that bounds how much of a k deficit the dilution can explain.
-    let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
-        1
-    } else {
-        2
-    };
-    // AXIAL EXTENT: the lattice must reach the conus floor, not just the bed.
+
+    // FUEL / DUMMY IDENTITY IS PER BALL (gh:#309 step 2).
     //
-    // `n_axial` is the fuel LOADING HEIGHT and sets `bed_half_height`; it must
-    // not change, or the benchmark's loading height changes with it. But the
-    // lattice is centred on z = 0 and now has to supply tiles all the way down
-    // to `conus_floor`, so it needs enough layers to cover the DEEPER of the
-    // two half-extents. Tiles above the bed top fall outside the bed cell's
-    // region and are simply never reached, which costs build time and nothing
-    // else.
-    //
-    // The centre stays `Position::ZERO`. A bottom-referenced centre is exactly
-    // the defect that once put the lattice 58.79 cm low and silently replaced
-    // 48 % of the bed with dummy pebbles -- do not "optimise" the layer count
-    // by offsetting it.
-    let lattice_half_needed = bed_half_height.max(-conus_floor);
-    let n_axial_lattice = n_axial.max((2.0 * lattice_half_needed / lat_height).ceil() as usize);
-    let mut levels = bed_tile_levels(n_rings, n_axial_lattice, 1, mod_universe);
-    // THE CONUS HOLDS ONLY DUMMY PEBBLES.
-    //
+    // `TwoBallBed` hands the 57:43 split out over the BALLS with volume in the
+    // bed, from the floor up, by the same low-discrepancy rule the tiles used
+    // to get; the conus (every ball centred below the bed floor) is all dummy,
     // Terry et al. (2005) section 2: *"the conus and discharge tube contained
     // only dummy pebbles"* (quoted in
     // `kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md:256`).
+    // Filling the conus with fuel was once worth +4578 +/- 158 pcm.
     //
-    // `bed_tile_levels` applies the core's 57:43 fuel:dummy split to EVERY
-    // level it builds, so extending the lattice down to the conus floor filled
-    // the conus with FUEL. That is not a small error: it was worth
-    // +4578 +/- 158 pcm and overshot the benchmark fivefold. The geometry was
-    // right and the contents were wrong.
+    // OUTRAM_HTR10_ALLFUEL=1 makes EVERY ball fuelled and
+    // OUTRAM_HTR10_FUEL_CONUS=1 gives the conus the 57:43 split too. Neither is
+    // physical; both are ablation arms, kept from the one-ball construction.
+    let assignment = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
+        FuelAssignment::AllFuel
+    } else if std::env::var("OUTRAM_HTR10_FUEL_CONUS").is_ok() {
+        FuelAssignment::FuelledConus
+    } else {
+        FuelAssignment::Paper
+    };
+    // AXIAL EXTENT: the lattice reaches below the conus floor and above the
+    // bed top; `TwoBallBed` places its faces on the A layers (anchored at the
+    // bed floor) and its centre accordingly. `n_axial` stays the fuel LOADING
+    // HEIGHT. Levels outside the bed cell's region are never reached.
     //
-    // Level `k` is centred at `-n/2*h + (k+0.5)*h` about the lattice centre
-    // (z = 0). Any level whose centre lies below the bed bottom is conus, and
-    // every tile in it becomes the dummy universe.
-    //
-    // OUTRAM_HTR10_FUEL_CONUS=1 restores the (incorrect) fuelled conus as an
-    // ablation arm.
-    if std::env::var("OUTRAM_HTR10_FUEL_CONUS").is_err() {
-        let half = 0.5 * n_axial_lattice as f64 * lat_height;
-        for (k, level) in levels.iter_mut().enumerate() {
-            let z = -half + (k as f64 + 0.5) * lat_height;
-            if z < -bed_half_height {
-                for ring in level.iter_mut() {
-                    for u in ring.iter_mut() {
-                        *u = 2; // dummy pebble universe
-                    }
+    // The lattice centre is NOT z = 0 any more, and that is deliberate, not
+    // the old "bottom-referenced centre" defect (which put the lattice 58.79 cm
+    // low and replaced 48 % of the bed with dummies): the centre passed here is
+    // the true mid-height of the stack `TwoBallBed` laid out, and
+    // `the_built_bed_matches_the_two_ball_description` checks every tile centre
+    // of the built lattice against it.
+    let bed = TwoBallBed::new(
+        cell,
+        n_rings,
+        n_axial,
+        HTR10_CONUS_HEIGHT_CM,
+        bed_radius,
+        assignment,
+    );
+    debug_assert!((bed.bed_top - bed_half_height).abs() < 1e-9);
+
+    // One universe per fuel mask in use (bit i = ball site i fuelled). Up to
+    // 2^5 = 32; the all-dummy variant is always built, as the lattice `outer`.
+    let nr = n_rings as i32;
+    let mut mask_universe: [Option<usize>; 32] = [None; 32];
+    let mut masks_used: Vec<u8> = vec![0];
+    let mut tile_masks: Vec<(i32, i32, i32, u8)> = Vec::new();
+    for level in 0..bed.n_levels as i32 {
+        for a in -(nr - 1)..=(nr - 1) {
+            for b in -(nr - 1)..=(nr - 1) {
+                if hex_ring(a, b) > n_rings - 1 {
+                    continue;
                 }
+                let m = bed.tile_mask(a, b, level);
+                if !masks_used.contains(&m) {
+                    masks_used.push(m);
+                }
+                tile_masks.push((a, b, level, m));
             }
         }
     }
-    let levels = levels;
-    let tiles: usize = levels.iter().flatten().map(|r| r.len()).sum();
-    let bed_lattice = HexLattice::from_rings_3d(
+    masks_used.sort_unstable();
+    let mut universes = vec![
+        // Root order: bed, graphite reflector, bored control-rod band,
+        // discharge tube, cavity, coolant annulus, boronated bricks.
+        Universe {
+            id: 0,
+            cell_indices: vec![0, 1, 2, 3, 4, 5, 6],
+        },
+        Universe {
+            id: TRISO_PARTICLE_UNIVERSE as i32,
+            cell_indices: vec![7, 8, 9, 10, 11, 12],
+        },
+        Universe {
+            id: TRISO_MATRIX_UNIVERSE as i32,
+            cell_indices: vec![13, 14],
+        },
+    ];
+    for &m in &masks_used {
+        let u = universes.len();
+        let base = 10 * i32::from(m);
+        let mut idx = Vec::new();
+        let mut helium_region = Vec::new();
+        for (i, &site) in BallSite::ALL.iter().enumerate() {
+            let (fz, pb) = site_surfaces[i];
+            let [x, y, z] = cell.site_centre(site);
+            let id = base + i as i32;
+            if m & (1 << i) != 0 {
+                // Fuel zone: the TRISO lattice, translated to the ball centre.
+                idx.push(cells.len());
+                cells.push(Cell::fill(
+                    TILE_FUEL_ZONE_CELL_ID + id,
+                    vec![ins(fz)],
+                    CellFill::Lattice(1),
+                    Position::new(x, y, z),
+                ));
+                idx.push(cells.len());
+                cells.push(shell(fz, pb, mat::GRAPHITE, TILE_FUEL_SHELL_CELL_ID + id));
+            } else {
+                idx.push(cells.len());
+                cells.push(Cell::material(
+                    TILE_DUMMY_BALL_CELL_ID + id,
+                    vec![ins(pb)],
+                    mat::GRAPHITE,
+                    293.6,
+                ));
+            }
+            helium_region.push(out(pb));
+            if i > 0 {
+                helium_region.push(RegionToken::Intersection);
+            }
+        }
+        idx.push(cells.len());
+        cells.push(Cell::material(
+            TILE_HELIUM_CELL_ID + base,
+            helium_region,
+            mat::HELIUM,
+            293.6,
+        ));
+        mask_universe[m as usize] = Some(u);
+        universes.push(Universe {
+            id: u as i32,
+            cell_indices: idx,
+        });
+    }
+    let outer_universe = mask_universe[0].expect("the all-dummy variant is always built");
+
+    // Placeholder levels in `from_rings_3d`'s ring layout (it validates the ring
+    // sizes), then every tile's universe written by its (a, b, level) index, so
+    // no ring/element ordering convention sits between a tile and its balls.
+    let placeholder: Vec<Vec<Vec<usize>>> = (0..bed.n_levels)
+        .map(|_| {
+            (0..n_rings)
+                .rev()
+                .map(|r| vec![outer_universe; if r == 0 { 1 } else { 6 * r }])
+                .collect()
+        })
+        .collect();
+    let mut bed_lattice = HexLattice::from_rings_3d(
         0,
         HexOrientation::Y,
-        // The lattice CENTRE, not its bottom tile.
-        //
-        // `HexLattice::center_offset` already centres the axial stack about
-        // this point -- tile `i` sits at `center.z - (n_axial/2 - i - 0.5)*h`
-        // -- so passing a bottom-referenced z shifts the WHOLE stack down by
-        // `bed_half_height - h/2`. At 25 layers that put the lattice in
-        // z = [-120.03, +2.45] against a bed cell of [-61.24, +61.24]: they
-        // overlapped over only 52 % of the bed, and the other 48 % silently
-        // took the lattice's `outer` universe, i.e. DUMMY GRAPHITE PEBBLES.
-        //
-        // Measured with `examples/htr10_fuel_fraction.rs` (which leaves the
-        // untiled region empty so it can be counted): the untiled fraction was
-        // a flat 0.48 at EVERY radius including r = 0, which is what
-        // distinguishes an axial offset from a radial coverage shortfall.
-        Position::ZERO,
+        Position::new(0.0, 0.0, bed.lattice_centre_z()),
         lat_pitch,
         lat_height,
-        &levels,
+        &placeholder,
         // See the OUTRAM_HTR10_NO_OUTER note in `assemble`.
         if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
             None
         } else {
-            Some(2)
+            Some(outer_universe)
         },
     );
+    for &(a, b, level, m) in &tile_masks {
+        let i = [a + nr - 1, b + nr - 1, level];
+        debug_assert!(bed_lattice.are_valid_indices(i));
+        let flat = bed_lattice.flat_index(i);
+        bed_lattice.universes[flat] =
+            mask_universe[m as usize].expect("every used mask has a universe") as i32;
+    }
+    let tiles = tile_masks.len();
+
+    let (tp, tm) = (TRISO_PARTICLE_UNIVERSE, TRISO_MATRIX_UNIVERSE);
     let triso_lattice = RectLattice {
         id: 1,
         n: triso_axes.map(|(n, _)| n),
@@ -1472,51 +1536,28 @@ pub fn assemble_explicit_triso(
                     for i in 0..nx {
                         let (x, y, z) = (c(x0, i), c(y0, j), c(z0, k));
                         v.push(if x * x + y * y + z * z <= r_keep * r_keep {
-                            3
+                            tp
                         } else {
-                            4
+                            tm
                         });
                     }
                 }
             }
             // The built count MUST be the counted one -- the whole of #316.
-            let built = v.iter().filter(|&&u| u == 3).count();
+            let built = v.iter().filter(|&&u| u == tp).count();
             assert_eq!(
                 built, n_particles,
                 "TRISO lattice holds {built} particles but {n_particles} were counted"
             );
             v
         },
-        outer: Some(4),
+        outer: Some(tm),
     };
 
     let geometry = Geometry {
         surfaces,
         cells,
-        universes: vec![
-            // Root order: bed, graphite reflector, bored control-rod band,
-            // discharge tube, cavity, coolant annulus, boronated bricks.
-            Universe {
-                id: 0,
-                cell_indices: vec![0, 1, 2, 3, 4, 5, 6],
-            },
-            Universe {
-                id: 1,
-                cell_indices: vec![7, 8, 9],
-            }, // fuelled pebble
-            Universe {
-                id: 2,
-                cell_indices: vec![10, 11],
-            }, // dummy pebble
-            Universe {
-                id: 3,
-                cell_indices: vec![12, 13, 14, 15, 16, 17],
-            }, // TRISO particle
-            Universe {
-                id: 4,
-                cell_indices: vec![18, 19],
-            }, // matrix (lattice outer)
-        ],
+        universes,
         lattices: vec![Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)],
         root_universe: 0,
     };
@@ -1534,5 +1575,54 @@ pub fn assemble_explicit_triso(
         cavity_top,
         refl_top,
         refl_bottom,
+    }
+}
+
+/// Universe index of one TRISO particle (kernel, four coatings, matrix
+/// beyond) in [`assemble_explicit_triso`]'s geometry — what the TRISO
+/// `RectLattice` places where a whole particle fits.
+pub const TRISO_PARTICLE_UNIVERSE: usize = 1;
+
+/// Universe index of plain matrix graphite, the TRISO lattice's `outer` and
+/// its non-particle tiles.
+pub const TRISO_MATRIX_UNIVERSE: usize = 2;
+
+/// Cell-id bases of the pebble cells inside a bed tile universe of
+/// [`assemble_explicit_triso`]. A tile cell's id is `base + 10*mask + site`
+/// (`site` the index in [`BallSite::ALL`], `mask` the tile's 5-bit fuel mask),
+/// or `base + 10*mask` for the helium cell. Read back with
+/// [`tile_cell_role`].
+pub const TILE_FUEL_ZONE_CELL_ID: i32 = 1000;
+/// See [`TILE_FUEL_ZONE_CELL_ID`].
+pub const TILE_FUEL_SHELL_CELL_ID: i32 = 2000;
+/// See [`TILE_FUEL_ZONE_CELL_ID`].
+pub const TILE_DUMMY_BALL_CELL_ID: i32 = 3000;
+/// See [`TILE_FUEL_ZONE_CELL_ID`].
+pub const TILE_HELIUM_CELL_ID: i32 = 4000;
+
+/// What a cell of a bed tile universe is: which kind of pebble a point in it
+/// belongs to. Lets a sampler measure the realised fuel-BALL fraction from the
+/// assembled geometry rather than from the assignment that built it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TileCellRole {
+    /// Inside a fuelled pebble's 2.5 cm fuel zone (the TRISO lattice).
+    FuelZone,
+    /// In a fuelled pebble's fuel-free graphite shell.
+    FuelShell,
+    /// Inside a dummy (all-graphite) pebble.
+    DummyBall,
+    /// Helium between pebbles.
+    Helium,
+}
+
+/// The role of a bed-tile cell from its id, or `None` for any other cell.
+#[must_use]
+pub fn tile_cell_role(cell_id: i32) -> Option<TileCellRole> {
+    match cell_id.div_euclid(1000) {
+        1 => Some(TileCellRole::FuelZone),
+        2 => Some(TileCellRole::FuelShell),
+        3 => Some(TileCellRole::DummyBall),
+        4 => Some(TileCellRole::Helium),
+        _ => None,
     }
 }

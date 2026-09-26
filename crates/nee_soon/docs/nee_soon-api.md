@@ -2496,11 +2496,14 @@ measured unless it says so.
   offset; built == counted is asserted. Resampled: 0.9971 +/- 0.0014 of the
   paper-implied kernel fraction (was 0.9875). Worth **+353 +/- 111 pcm**
   at 122.47 cm (three paired seeds). Every k in this section predates it.
-- gh:#218 — the `+7` pcm/cm drift itself. Ruled out so far: nuclear data
-  (library term flat), source convergence, the cavity treatment, the
-  bottom-reflector mirroring (fixed `d619b2e77e`, worth `+27 +/- 42` pcm, no
-  slope) and the UO2 law source. Open candidates: the uniform zone-22 radial
-  reflector, #309, #310.
+- gh:#218 — the `+7` pcm/cm drift itself. **Cause now evidenced
+  (2026-09-25):** a shrunk-pebble ablation with no #309 clip and no #310
+  axial contact (all volume fractions the paper's) changes k by
+  `-6.88 +/- 1.48` pcm/cm across 98-201 cm, equal and opposite to the
+  drift. Its absolute offset mixes in an 18 % smaller pebble, so the fix is
+  #309's two-ball cell with the real 6 cm pebble, re-measured across the
+  range. Already ruled out: data library, source convergence, cavity,
+  bottom-reflector mirroring, UO2 law source, B-11, TRISO count.
 
 **Documented simplifications (not defects, each pushes `k` one way):**
 - every reflector region is TECDOC zone 22, the densest graphite in
@@ -2622,6 +2625,16 @@ It reproduces the paper's stated *invariants*. It does **not** claim to be
 their exact unit-cell tiling, which their text does not determine. Any
 write-up must say so.
 
+# Where it is built (2026-09-25)
+
+[`TwoBallBed`] builds this cell as the transported bed of
+`core_model::assemble_explicit_triso`: the hex tile IS the cell (two whole
+balls per tile, A-B stacked), with fuel/dummy assigned per ball (gh:#309
+step 2, gh:#310). Until then the lattice held one ball per half-height tile,
+which dropped the A-B offset and made the pebbles interpenetrate.
+[`bed_tile_levels`] (one identity per TILE) remains only for the
+homogenised `core_model::assemble`.
+
 ```rust
 pub mod bed { /* ... */ }
 ```
@@ -2696,6 +2709,16 @@ pub struct HexBedCell {
   pub fn fuel_and_moderator_balls(self: &Self, core_diameter_cm: f64, core_height_cm: f64) -> (f64, f64) { /* ... */ }
   ```
   Fuel and moderator balls in the core at the paper's 0.57/0.43 ratio.
+
+- ```rust
+  pub fn vertex_radius(self: &Self) -> f64 { /* ... */ }
+  ```
+  Tile centre to vertex distance \[cm\], `pitch/sqrt(3)` — the lateral
+
+- ```rust
+  pub fn site_centre(self: &Self, site: BallSite) -> [f64; 3] { /* ... */ }
+  ```
+  Tile-local centre \[cm\] of `site` in a `HexOrientation::Y` lattice of
 
 ###### Trait Implementations
 
@@ -2956,6 +2979,777 @@ A moderator / dummy pebble (graphite only).
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `BallSite`
+
+One of the five ball sites a **two-ball** hex tile holds a piece of.
+
+The tile is the paper's prism ([`HexBedCell::from_paper`]): flat-to-flat
+`pitch`, height `height` = one A-B layer pair. In tile-local coordinates
+(tile centre at the origin, a `HexOrientation::Y` lattice, whose vertices
+sit at polar angles 0, 60, ..., 300 degrees and distance `pitch/sqrt(3)`):
+
+| site | centre | shared by |
+|---|---|---|
+| `ABottom` | `(0, 0, -height/2)` | this tile and the one below (half each) |
+| `ATop` | `(0, 0, +height/2)` | this tile and the one above (half each) |
+| `BEast` | `(pitch/sqrt(3), 0, 0)` — the 0 degree vertex | the three tiles meeting there (a third each) |
+| `BNorthWest` | the 120 degree vertex | three tiles |
+| `BSouthWest` | the 240 degree vertex | three tiles |
+
+`2 x 1/2 + 3 x 1/3 = 2` balls per tile. The B layer uses **alternate**
+vertices only; the other three (60, 180, 300 degrees) are empty, which is
+what makes the stacking A-B rather than a column.
+
+```rust
+pub enum BallSite {
+    ABottom,
+    ATop,
+    BEast,
+    BNorthWest,
+    BSouthWest,
+}
+```
+
+##### Variants
+
+###### `ABottom`
+
+A-layer ball on the tile axis at the bottom face.
+
+###### `ATop`
+
+A-layer ball on the tile axis at the top face.
+
+###### `BEast`
+
+B-layer ball at the 0 degree vertex, mid-height.
+
+###### `BNorthWest`
+
+B-layer ball at the 120 degree vertex, mid-height.
+
+###### `BSouthWest`
+
+B-layer ball at the 240 degree vertex, mid-height.
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BallSite { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &BallSite) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BallSite) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &BallSite) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `BallId`
+
+A ball of the global bed, named by the tile that **owns** it.
+
+`(a, b)` are the skewed axial hex coordinates of a tile, with the central
+tile at `(0, 0)` (`a = ix - (n_rings-1)`, `b = iy - (n_rings-1)` in
+`HexLattice`'s index triplet). An A ball belongs to a column and a face; a
+B ball to the tile whose `BEast` vertex it sits on. Every piece of one ball,
+in every tile that holds a piece of it, resolves to the SAME `BallId` — that
+is what makes the fuel/dummy identity per ball rather than per tile.
+
+```rust
+pub enum BallId {
+    A {
+        a: i32,
+        b: i32,
+        face: i32,
+    },
+    B {
+        a: i32,
+        b: i32,
+        level: i32,
+    },
+}
+```
+
+##### Variants
+
+###### `A`
+
+A-layer ball on the axis of column `(a, b)`, on the bottom face of
+lattice level `face` (so the top face of level `face - 1`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `i32` | Skewed hex coordinate. |
+| `b` | `i32` | Skewed hex coordinate. |
+| `face` | `i32` | Face index, 0 = bottom face of lattice level 0. |
+
+###### `B`
+
+B-layer ball at the `BEast` vertex of tile `(a, b)`, mid-height of
+lattice level `level`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `i32` | Skewed hex coordinate of the owning tile. |
+| `b` | `i32` | Skewed hex coordinate of the owning tile. |
+| `level` | `i32` | Lattice level. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BallId { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &BallId) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BallId) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &BallId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `FuelAssignment`
+
+How fuel and dummy identities are handed out over the balls.
+
+```rust
+pub enum FuelAssignment {
+    Paper,
+    FuelledConus,
+    AllFuel,
+}
+```
+
+##### Variants
+
+###### `Paper`
+
+The paper and Terry (2005): 57:43 over every ball with volume inside
+the bed cylinder, the conus (every ball centred below the bed floor)
+all dummy.
+
+###### `FuelledConus`
+
+ABLATION: the conus takes the 57:43 split too (`OUTRAM_HTR10_FUEL_CONUS`).
+
+###### `AllFuel`
+
+ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FuelAssignment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FuelAssignment) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TwoBallBed`
+
+**The HTR-10 bed as the paper's two-ball prism cell**, with a fuel/dummy
+identity for every BALL (gh:#309 step 2, gh:#310).
+
+NEW WORK, not a port.
+
+# Axial layout
+
+Ball layers sit every `height/2` = 4.899 cm, alternating A (on the tile
+axis, at the tile faces) and B (at alternate vertices, at mid-height). The
+bed of `n_axial` half-layers spans `[-n_axial*height/4, +n_axial*height/4]`
+and its ball layers are centred at `bed_bottom + (j + 1/2) * height/2`,
+`j = 0 .. n_axial-1`, so each layer is centred in its own 4.899 cm slab and
+the laterally-averaged filling fraction of the bed slab is exactly the
+cell's 0.61 (the lateral average is periodic with period `height/2`, and
+the bed is a whole number of periods).
+
+**The stacking phase is anchored at the bed FLOOR**: layer `j = 0` is
+always an A layer. The bed floor is fixed hardware (the top of the conus),
+so a taller loading only adds layers on top and everything below is
+identical at every loading, exactly as in the reactor's loading sequence.
+An odd `n_axial` therefore ends on an A layer and an even one on a B layer;
+nothing else distinguishes them.
+
+The lattice runs from below the conus floor to above the bed top, so every
+ball that has volume in the bed or the conus is present — including the
+layer centred 2.449 cm above the bed top, whose lower 0.55 cm is inside the
+bed and replaces the top layer's upper 0.55 cm, which the bed plane clips
+off. (Without it the top slab would be under-packed.)
+
+# Fuel/dummy identity
+
+Assigned to BALLS, never to tiles: every tile holding a piece of a ball
+(2 for an A ball, 3 for a B ball) sees the same identity, because each
+reads it from [`Self::is_fuel`] through the ball's [`BallId`].
+
+Under [`FuelAssignment::Paper`] the eligible balls are those centred above
+the bed floor with volume inside the bed cylinder (centre within one ball
+radius of it, radially and at the top). Balls centred below the floor are
+the conus and are all dummy (Terry 2005 s2). The eligible balls are taken
+in **layer order from the floor up, then by distance from the axis, then by
+angle**, and ball `n` is fuel when `floor((n+1) f) > floor(n f)`, `f = 0.57`
+— the same low-discrepancy (Bresenham) rule [`bed_tile_levels`] used for
+tiles. That order makes the split right in every prefix of layers and of
+every annulus, and, because it runs from the floor up, a taller loading
+never reshuffles the balls below it.
+
+```rust
+pub struct TwoBallBed {
+    pub cell: HexBedCell,
+    pub n_rings: usize,
+    pub n_levels: usize,
+    pub z_bottom: f64,
+    pub bed_radius: f64,
+    pub bed_bottom: f64,
+    pub bed_top: f64,
+    pub conus_floor: f64,
+    pub assignment: FuelAssignment,
+    pub eligible_balls: usize,
+    pub fuel_balls: usize,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `HexBedCell` | The unit cell (pitch 6.6106 cm, height 9.798 cm, 6 cm balls). |
+| `n_rings` | `usize` | Hex rings in the lattice (including the central tile). |
+| `n_levels` | `usize` | Axial lattice levels, each one A-B pair (`cell.height`) tall. |
+| `z_bottom` | `f64` | z \[cm\] of the bottom face of lattice level 0. |
+| `bed_radius` | `f64` | Bed cylinder radius \[cm\]. |
+| `bed_bottom` | `f64` | Bed floor \[cm\] (= top of the conus). |
+| `bed_top` | `f64` | Bed top \[cm\]. |
+| `conus_floor` | `f64` | Conus floor \[cm\]. |
+| `assignment` | `FuelAssignment` | The rule the identities were assigned by. |
+| `eligible_balls` | `usize` | Balls that took part in the 57:43 split. |
+| `fuel_balls` | `usize` | Of which fuelled. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(cell: HexBedCell, n_rings: usize, n_axial: usize, conus_height: f64, bed_radius: f64, assignment: FuelAssignment) -> Self { /* ... */ }
+  ```
+  Build the bed.
+
+- ```rust
+  pub fn lattice_centre_z(self: &Self) -> f64 { /* ... */ }
+  ```
+  z \[cm\] of the lattice centre, to pass to `HexLattice::from_rings_3d`.
+
+- ```rust
+  pub fn centre(self: &Self, id: BallId) -> [f64; 3] { /* ... */ }
+  ```
+  Global centre \[cm\] of ball `id`.
+
+- ```rust
+  pub fn is_fuel(self: &Self, id: BallId) -> bool { /* ... */ }
+  ```
+  Whether ball `id` is fuelled. Balls outside the lattice's range are
+
+- ```rust
+  pub fn tile_balls(self: &Self, a: i32, b: i32, level: i32) -> [BallId; 5] { /* ... */ }
+  ```
+  The five balls tile `(a, b, level)` holds pieces of, in
+
+- ```rust
+  pub fn tile_mask(self: &Self, a: i32, b: i32, level: i32) -> u8 { /* ... */ }
+  ```
+  Fuel mask of tile `(a, b, level)`: bit `i` set when the ball at
+
+- ```rust
+  pub fn all_balls(self: &Self) -> Vec<BallId> { /* ... */ }
+  ```
+  Every ball any tile of the lattice holds a piece of, in a deterministic
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TwoBallBed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `close_packed_layer_spacing`
@@ -2990,6 +3784,12 @@ expects.
 
 NEW WORK, not a port.
 
+**Used only by the one-ball-per-tile `core_model::assemble` since
+2026-09-25.** The explicit-TRISO bed assigns identities per BALL through
+[`TwoBallBed`], because in the two-ball cell a tile holds pieces of five
+balls and a per-tile identity would make one pebble part fuel, part
+graphite.
+
 # The paper's recipe
 
 > hexagonal prism unit cells assembled as layers, layer height 9.798 cm …
@@ -3015,6 +3815,49 @@ seed-dependent, and a code-to-code comparison should not be.
 
 ```rust
 pub fn bed_tile_levels(n_rings: usize, n_axial: usize, fuel_universe: usize, moderator_universe: usize) -> Vec<Vec<Vec<usize>>> { /* ... */ }
+```
+
+#### Function `tile_ball`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The ball at `site` of tile `(a, b)` in lattice level `level`.
+
+The vertex ownership follows from the Y-orientation tile centres
+`(sqrt(3)/2 a, b + a/2) * pitch`: tile `(a, b)`'s 120 degree vertex is the
+0 degree vertex of tile `(a-1, b+1)`, and its 240 degree vertex that of
+`(a-1, b)`. Checked numerically by
+`every_tile_resolves_a_shared_ball_to_one_position` below.
+
+```rust
+pub fn tile_ball(a: i32, b: i32, level: i32, site: BallSite) -> BallId { /* ... */ }
+```
+
+#### Function `tile_xy`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Planar centre \[cm\] of tile `(a, b)` in a `HexOrientation::Y` lattice
+centred on the origin — the same arithmetic as `HexLattice::center_offset`.
+
+```rust
+pub fn tile_xy(a: i32, b: i32, pitch: f64) -> [f64; 2] { /* ... */ }
+```
+
+#### Function `hex_ring`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Hexagonal ring index (0 = centre) of skewed coordinates `(a, b)`.
+
+```rust
+pub fn hex_ring(a: i32, b: i32) -> usize { /* ... */ }
 ```
 
 #### Function `count_tiles`
@@ -3434,13 +4277,13 @@ pub struct AssembledCore {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `geometry` | `outram_mc_libs::geometry::geometry::Geometry` | The geometry. |
-| `tiles` | `usize` | Hex tiles in the bed lattice. |
+| `tiles` | `usize` | Hex tiles in the bed lattice (every axial level, conus included). |
 | `cells` | `usize` | Cells in the geometry. |
 | `universes` | `usize` | Universes in the geometry. |
 | `bed_radius` | `f64` | Bed cylinder radius \[cm\]. |
 | `bed_half_height` | `f64` | Bed half-height \[cm\]. |
-| `lat_pitch` | `f64` | Realised hex pitch \[cm\] (solved from the fuel-zone target). |
-| `lat_height` | `f64` | Axial tile height \[cm\]. |
+| `lat_pitch` | `f64` | Hex pitch \[cm\] of the bed lattice. [`assemble_explicit_triso`]: the<br>paper's two-ball prism, 6.6106 cm ([`HexBedCell::from_paper`]).<br>[`assemble`]: ~~solved from the fuel-zone target~~ still solved so its<br>axially clipped one-ball tile realises the paper's fuel-zone fraction,<br>6.6086 cm (gh:#308: that path keeps the one-ball construction). |
+| `lat_height` | `f64` | Axial tile height \[cm\]. [`assemble_explicit_triso`]: 9.798 cm, one A-B<br>layer pair holding two balls. [`assemble`]: 4.899 cm, one ball. In both<br>the bed is `n_axial x 4.899` cm tall, i.e. `2 * bed_half_height`, NOT<br>`n_axial * lat_height`. |
 | `conus_floor` | `f64` | Bottom of the conus \[cm\] — the deepest fuelled z. Equal to<br>`-bed_half_height` when no conus is modelled. |
 | `cavity_top` | `f64` | Top of the empty core cavity \[cm\], i.e. where the axial reflector<br>begins. Equals `bed_half_height` when no reflector is built. |
 | `refl_top` | `f64` | Top of the whole assembled model \[cm\]: cavity top + the 130 cm axial<br>reflector. Equals `bed_half_height` when no reflector is built. |
@@ -3528,6 +4371,162 @@ pub struct AssembledCore {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `TileCellRole`
+
+What a cell of a bed tile universe is: which kind of pebble a point in it
+belongs to. Lets a sampler measure the realised fuel-BALL fraction from the
+assembled geometry rather than from the assignment that built it.
+
+```rust
+pub enum TileCellRole {
+    FuelZone,
+    FuelShell,
+    DummyBall,
+    Helium,
+}
+```
+
+##### Variants
+
+###### `FuelZone`
+
+Inside a fuelled pebble's 2.5 cm fuel zone (the TRISO lattice).
+
+###### `FuelShell`
+
+In a fuelled pebble's fuel-free graphite shell.
+
+###### `DummyBall`
+
+Inside a dummy (all-graphite) pebble.
+
+###### `Helium`
+
+Helium between pebbles.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TileCellRole { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TileCellRole) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `cavity_above_bed`
@@ -3594,8 +4593,12 @@ are never referenced. Against [`assemble_explicit_triso`] that is roughly
 Use [`assemble_explicit_triso`] for anything that reports `k` or feeds
 group constants to another solver. gh:#308.
 
-The bed cell's pitch and layer height come from [`HexBedCell::from_paper`],
-so the geometry is the paper's even when the size is scaled down.
+~~The bed cell's pitch and layer height come from [`HexBedCell::from_paper`],
+so the geometry is the paper's even when the size is scaled down.~~
+**CORRECTED 2026-09-25:** only the layer height does, halved (one ball per
+4.899 cm tile); the pitch is SOLVED (6.6086 cm) so the clipped one-ball
+tile realises the paper's fuel-zone fraction, and the pebbles
+interpenetrate (gh:#309/#310, fixed in [`assemble_explicit_triso`] only).
 
 # Parameters
 - `n_rings` — a FLOOR on the lattice ring count. The bed radius is fixed at
@@ -3613,19 +4616,64 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
 the double-heterogeneous model the benchmark actually specifies.
 
-**Open defects in this construction:** gh:#309 (pebble-shell carbon
-clipped), gh:#310 (pebbles in axial contact). ~~gh:#311 (no B-11)~~
-**CORRECTED 2026-09-25:** #311 is closed and B-11 is placed
-(`materials::htr10_material_set`, the `b11` closure). Results
-from it are tentative until those are priced — see the module docs,
+~~**Open defects in this construction:** gh:#309 (pebble-shell carbon
+clipped), gh:#310 (pebbles in axial contact).~~ **FIXED 2026-09-25 — the
+bed is now the paper's two-ball prism cell** (see "The bed" below): no ball
+is clipped by its own tile, no two balls overlap, and every pebble is the
+whole 6 cm sphere. ~~gh:#311 (no B-11)~~ **CORRECTED 2026-09-25:** #311 is
+closed and B-11 is placed (`materials::htr10_material_set`, the `b11`
+closure). Results from it are tentative — see the module docs,
 "Verification status".
 
+# The bed: two balls per tile (gh:#309 step 2, gh:#310)
+
+The hex lattice tile IS the paper's prism, [`HexBedCell::from_paper`]:
+pitch 6.6106 cm, height 9.798 cm = one A-B layer pair, two balls per tile,
+packing 0.610. Each tile universe holds pieces of five balls
+([`super::bed::BallSite`]): two A balls on its axis at its top and bottom
+faces (half each), and three B balls at alternate vertices at mid-height (a
+third each). The spheres are centred OUTSIDE or ON the tile boundary; that
+is exact here, because `Geometry::locate` evaluates a tile universe's cell
+regions in tile-local coordinates only for points the lattice has already
+placed in that tile, so each tile draws exactly its own piece and the
+neighbours holding the rest of the same ball draw theirs.
+
+Fuel/dummy is a property of the BALL ([`super::bed::TwoBallBed`]), and a
+tile's universe is the variant for its five balls' identities (up to 2^5,
+only those used are built), so a ball split across 2 or 3 tiles is the same
+kind of pebble in all of them.
+
+Nearest centre distances: in-plane 6.6106 cm, A to B
+`hypot(pitch/sqrt(3), height/2)` = 6.2102 cm, A to A (axial) 9.798 cm, all
+greater than the 6.0 cm diameter; the smallest gap is 0.210 cm.
+`htr10_rmc::tests::no_two_balls_of_the_built_bed_overlap` checks it on the
+built geometry.
+
+# Parameters
+- `n_rings` — a FLOOR on the lattice ring count (the bed radius is the
+  physical 90 cm and the lattice is sized to tile it).
+- `n_axial` — the fuel LOADING HEIGHT in half-layers of 4.899 cm (one ball
+  layer each), so the bed is `n_axial x 4.899` cm: 20 / 25 / 41 give
+  97.980 / 122.474 / 200.858 cm, the same heights as before the two-ball
+  change. The A-B stacking is anchored at the bed floor (layer 0 is an A
+  layer), so an odd `n_axial` simply ends on an A layer and an even one on
+  a B layer; see [`super::bed::TwoBallBed`].
+- `majorant_index` — which entry of the caller's majorant table the bed
+  uses; `usize::MAX` surface-tracks the bed.
+
+Universes: 0 root, [`TRISO_PARTICLE_UNIVERSE`], [`TRISO_MATRIX_UNIVERSE`],
+then one per bed-tile fuel mask in use (35 in all at 14 rings, all 32 masks
+occur). Tile cell ids encode their role, see [`tile_cell_role`].
+
 ~~Four coordinate levels~~ **CORRECTED 2026-09-25 — three coordinate
-levels**: root → (bed hex lattice) → pebble universe → (TRISO rect lattice)
-→ TRISO particle universe. A lattice selects the next level's universe but
-is not a level itself. Verified by locating a kernel in the assembled
-14 x 25 core: `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
-(`examples/htr10_geometry_images.rs` prints it). Depth-3 descent was gated
+levels**: root → (bed hex lattice) → bed-tile universe (pieces of five
+pebbles since 2026-09-25; one pebble before) → (TRISO rect lattice, entered
+through the fuel-zone cell's translation to its ball centre) → TRISO
+particle universe. A lattice selects the next level's universe but is not a
+level itself. Verified by locating a kernel in the assembled 14 x 25 core:
+`path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
+(`examples/htr10_geometry_images.rs` prints it; re-checked on the two-ball
+cell 2026-09-25). Depth-3 descent was gated
 in `outram-mc-libs` `tests/nested_lattice_depth3.rs`, which also counts
 `levels.len()`; ~~this is depth 4~~ this is the **same** depth.
 
@@ -3644,6 +4692,18 @@ symmetry shells). That is +0.060 % in fuel volume.
 pub fn assemble_explicit_triso(n_rings: usize, n_axial: usize, majorant_index: usize) -> AssembledCore { /* ... */ }
 ```
 
+#### Function `tile_cell_role`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The role of a bed-tile cell from its id, or `None` for any other cell.
+
+```rust
+pub fn tile_cell_role(cell_id: i32) -> Option<TileCellRole> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `PAPER_FILLING_FRACTION`
@@ -3654,7 +4714,12 @@ The first five mirror `DhUniverse::pebble`'s TRISO layer order so
 `pebble_beds::htr10::fuel_pebble_materials` can be used directly.
 Pebble-bed filling fraction stated by Li, Yu & Wei (2014) for the HTR-10
 core — the fraction of bed volume occupied by pebbles. Sets the fuel per
-unit volume, so the assembled geometry is solved to realise it.
+unit volume. ~~so the assembled geometry is solved to realise it~~
+**CORRECTED 2026-09-25:** [`assemble_explicit_triso`] realises it by
+construction (the paper's two-ball cell, [`HexBedCell::from_paper`], whose
+pitch is derived from it); only [`assemble`] still solves its pitch for it.
+Also the discharge-tube smear (`mat::HOMOG_DUMMY`), which since the
+two-ball cell agrees with the bed it homogenises (sampled 0.6096-0.6097).
 
 ```rust
 pub const PAPER_FILLING_FRACTION: f64 = 0.61;
@@ -3823,6 +4888,61 @@ Natural-boron atom density \[atoms/b·cm\] of the same zones 31–40.
 
 ```rust
 pub const HTR10_BORED_BORON: f64 = 0.340640E-06;
+```
+
+#### Constant `TRISO_PARTICLE_UNIVERSE`
+
+Universe index of one TRISO particle (kernel, four coatings, matrix
+beyond) in [`assemble_explicit_triso`]'s geometry — what the TRISO
+`RectLattice` places where a whole particle fits.
+
+```rust
+pub const TRISO_PARTICLE_UNIVERSE: usize = 1;
+```
+
+#### Constant `TRISO_MATRIX_UNIVERSE`
+
+Universe index of plain matrix graphite, the TRISO lattice's `outer` and
+its non-particle tiles.
+
+```rust
+pub const TRISO_MATRIX_UNIVERSE: usize = 2;
+```
+
+#### Constant `TILE_FUEL_ZONE_CELL_ID`
+
+Cell-id bases of the pebble cells inside a bed tile universe of
+[`assemble_explicit_triso`]. A tile cell's id is `base + 10*mask + site`
+(`site` the index in [`BallSite::ALL`], `mask` the tile's 5-bit fuel mask),
+or `base + 10*mask` for the helium cell. Read back with
+[`tile_cell_role`].
+
+```rust
+pub const TILE_FUEL_ZONE_CELL_ID: i32 = 1000;
+```
+
+#### Constant `TILE_FUEL_SHELL_CELL_ID`
+
+See [`TILE_FUEL_ZONE_CELL_ID`].
+
+```rust
+pub const TILE_FUEL_SHELL_CELL_ID: i32 = 2000;
+```
+
+#### Constant `TILE_DUMMY_BALL_CELL_ID`
+
+See [`TILE_FUEL_ZONE_CELL_ID`].
+
+```rust
+pub const TILE_DUMMY_BALL_CELL_ID: i32 = 3000;
+```
+
+#### Constant `TILE_HELIUM_CELL_ID`
+
+See [`TILE_FUEL_ZONE_CELL_ID`].
+
+```rust
+pub const TILE_HELIUM_CELL_ID: i32 = 4000;
 ```
 
 ## Module `control_rod`

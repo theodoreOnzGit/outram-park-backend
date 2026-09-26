@@ -73,8 +73,10 @@
 //!
 //! > *"the conus and discharge tube contained only **dummy** pebbles"*
 //!
-//! The conus is part of the bed hex lattice, and `bed_tile_levels` applies the
-//! core's 57:43 fuel:dummy split to every level. Extending the lattice to the
+//! The conus is part of the bed hex lattice, and `bed_tile_levels` applied the
+//! core's 57:43 fuel:dummy split to every level. (Since 2026-09-25 the
+//! explicit-TRISO bed assigns fuel per BALL through `bed::TwoBallBed`, with
+//! the conus all-dummy by construction.) Extending the lattice to the
 //! conus floor therefore filled it with fuel. The geometry was right; the
 //! contents were not. Correcting it is worth **-5177 +/- 420 pcm (12 sigma)**.
 //!
@@ -141,7 +143,9 @@ const TEMP_K: f64 = 300.15;
 ///
 /// Kept as the historical comparison point, but **do not compare against it
 /// blind** -- see [`rmc_at_height`]. The bed this example builds is
-/// `lat_height * n_axial` tall, which at the default layer count is NOT
+/// `n_axial x 4.899` cm tall (`2 * bed_half_height`; ~~`lat_height *
+/// n_axial`~~, which stopped being true on 2026-09-25 when the tile became the
+/// two-ball 9.798 cm prism), which at the default layer count is NOT
 /// 123.576 cm, and RMC's own curve is steep enough (~270 pcm/cm near this
 /// point) that the mismatch is a real systematic rather than a rounding
 /// detail.
@@ -153,7 +157,7 @@ const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
 /// # Why this exists
 ///
 /// The example compared every result against the single 123.576 cm point while
-/// building a bed of `lat_height * n_axial` cm. At the default 25 layers that
+/// building a bed of `n_axial x 4.899` cm. At the default 25 layers that
 /// bed is **122.474 cm**, and RMC's curve interpolates there to **1.000676**
 /// rather than 1.004288 -- so **+361 pcm of the reported disagreement was the
 /// comparison point, not the model**. The curve rises ~270 pcm/cm through this
@@ -728,7 +732,8 @@ fn main() {
         println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
     }
 
-    // Height-matched comparison. The bed is `lat_height * n_axial` tall; RMC's
+    // Height-matched comparison. The bed is `2 * bed_half_height` = `n_axial x
+    // 4.899` cm tall (not `lat_height * n_axial` since the two-ball tile); RMC's
     // curve is sampled at ITS heights, so comparing against a point the model
     // does not occupy imports a systematic worth ~270 pcm per cm of mismatch.
     let bed_height_cm = core.bed_half_height * 2.0;

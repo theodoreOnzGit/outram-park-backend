@@ -23,18 +23,20 @@
 //! | File | Slice |
 //! |---|---|
 //! | `htr10_rz_full.png` | x-z (R-Z) through the axis, whole model |
-//! | `htr10_xy_bed_mid.png` | x-y at bed mid-height (z = 0) |
+//! | `htr10_xy_bed_mid.png` | x-y at bed mid-height (z = 0, an A layer) |
+//! | `htr10_xy_b_layer.png` | x-y, 40 cm square, one ball layer above the zoom pebble: a B layer, whose balls are each split across three tiles |
 //! | `htr10_xy_conus.png` | x-y at the conus mid-height |
 //! | `htr10_xy_cavity.png` | x-y at the core-cavity mid-height |
 //! | `htr10_xz_pebbles.png` | x-z, 30 cm square round one fuel pebble: several pebbles |
-//! | `htr10_xz_one_pebble.png` | x-z through one fuel pebble (and a row of its TRISO): its clipped shell |
+//! | `htr10_xz_one_pebble.png` | x-z through one fuel pebble (and a row of its TRISO): whole since the two-ball cell (it was clipped at the tile faces before, gh:#309) |
 //! | `htr10_xy_one_pebble.png` | x-y through the same pebble: its TRISO lattice |
 //! | `htr10_xy_triso.png` | x-y, 0.8 cm square: a few TRISO particles and their coatings |
+//! | `htr10_xz_bed_floor.png` | x-z through a TRISO row, 30 cm square centred on the bed floor: fuel only in balls centred above it |
 //! | `htr10_xz_conus_pebbles.png` | x-z through a TRISO row, 30 cm square at the conus mid-height: are the conus pebbles fuelled? |
 //! | `htr10_xy_bed_wall.png` | x-y at z = 0, 24 cm square at the bed wall (x = 90 cm) |
 //! | `htr10_xz_conus_wall.png` | x-z at y = 0, 30 cm square on the conus slope |
 //!
-//! The case size is the **reported** 14 rings x 25 layers (as
+//! The case size is the **reported** 14 rings x 25 half-layers (as
 //! `htr10_geometry_export`), overridable with `OUTRAM_HTR10_RINGS` /
 //! `OUTRAM_HTR10_LAYERS`.
 //!
@@ -79,8 +81,11 @@ fn palette() -> Vec<(Rgb, &'static str)> {
 /// The centre of a fuel pebble near `(x, y, z)` and of one TRISO particle in
 /// it, read off the located path: the leaf level is the particle universe
 /// (entered through the TRISO lattice, its frame offset is the particle
-/// centre) and the level above it the pebble universe (entered through the bed
-/// lattice, its offset is the pebble centre).
+/// centre) and the level above it the bed-tile universe (entered through the
+/// bed lattice, its offset is the TILE centre). Since the two-ball cell
+/// (2026-09-25) a pebble is centred on a tile face or vertex, not the tile
+/// centre, so the pebble centre is the tile offset PLUS the translation of
+/// the fuel-zone fill cell the point was found in.
 fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)> {
     // A 2-D scan: the TRISO lattice puts particle centres at HALF-pitch
     // offsets in x and y (`TRISO_OFFSET = [0.5, 0.5, 0.0]` in `core_model`), so
@@ -92,7 +97,8 @@ fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)
             if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
                 let n = path.levels.len();
                 if path.material == Some(mat::KERNEL) && n >= 3 {
-                    let peb = path.levels[n - 2].offset;
+                    let tile = &path.levels[n - 2];
+                    let peb = tile.offset + g.cells[tile.cell].translation;
                     let part = path.levels[n - 1].offset;
                     // Printed because `assemble_explicit_triso`'s docs once
                     // claimed four levels; the located path is the evidence.
@@ -269,6 +275,36 @@ fn main() {
             [1000, 1000],
         ),
         "X-Z THROUGH A TRISO ROW, CONUS MID-HEIGHT",
+    );
+    // The bed FLOOR, cut through the same TRISO row: the per-BALL identity
+    // rule makes every ball centred above z = -bed_half_height eligible for
+    // fuel and every ball centred below it (the conus) a dummy, so fuel may
+    // appear only in balls whose centre lies above the floor.
+    render(
+        "htr10_xz_bed_floor.png",
+        SlicePlot::new(
+            PlotBasis::Xz,
+            Position::new(0.0, part.y, -core.bed_half_height),
+            [30.0, 30.0],
+            [1000, 1000],
+        ),
+        "X-Z THROUGH A TRISO ROW AT THE BED FLOOR",
+    );
+    // A B layer (mid-height of a tile, 4.899 cm above the A layer at the
+    // pebble found above) in plan, 40 cm square: B balls sit at alternate
+    // vertices of the tile hexagons, so the plan pattern is again hexagonal
+    // but shifted by pitch/sqrt(3) in x from the A layer's.
+    render(
+        "htr10_xy_b_layer.png",
+        SlicePlot::new(
+            PlotBasis::Xy,
+            // Half a tile (one ball layer) above the pebble's centre plane;
+            // the TRISO grid has a particle plane through each pebble centre.
+            Position::new(peb.x, peb.y, peb.z + 0.5 * core.lat_height),
+            [40.0, 40.0],
+            [1000, 1000],
+        ),
+        "X-Y, 40 CM, A B-LAYER (Z = PEBBLE + 4.899)",
     );
     render(
         "htr10_xy_triso.png",
