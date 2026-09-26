@@ -841,3 +841,7 @@ has **not** been done. The conus effect (+4578 +/- 158 pcm) is about ten times t
 combined single-run sigma, so it is resolved by a single pair and is safe to
 quote as an effect. The *residual* after it is not similarly safe, and no
 sub-sigma difference anywhere in this record should be quoted as a result.
+
+## 2026-09-26: fast VII.0/VIII.0 ablation on the explicit-reflector geometry
+
+Six single-seed fast runs (2000 x [30 + 70]) at n = 20, 25, 41 on both libraries, on PR #327's explicit reflector with Ni and Fe-57 substituted in the rod steel. Critical loading: **VIII.0 -2365 pcm, VII.0 -922 pcm** height-matched. See [`fast_ablation_2026_09_26.md`](fast_ablation_2026_09_26.md).
