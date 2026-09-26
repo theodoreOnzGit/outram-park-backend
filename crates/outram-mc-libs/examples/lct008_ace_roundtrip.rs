@@ -316,6 +316,12 @@ fn main() {
     // once and looping the cheap part is what makes a multi-seed statement
     // affordable at all. N = 1 reproduces the single-seed behaviour exactly.
     let n_seeds = arg_usize(&args, "--seeds").unwrap_or(1).max(1);
+    // `--purr` builds route B with `build_full_with_purr` (GitHub #325), so the
+    // ACE arm carries URR probability tables AT SOURCE, as the ENDF arm does.
+    // That changes what the right control is: only DBRC is then asymmetric, so
+    // the third arm ablates DBRC alone. Without the flag the example is exactly
+    // the configuration the eight-seed record was taken with.
+    let purr = args.iter().any(|a| a == "--purr");
 
     let mut st = Stages::default();
     let wall = Instant::now();
@@ -361,7 +367,7 @@ fn main() {
         st.broadr += t.elapsed();
 
         let t = Instant::now();
-        let ace = build_ace(&tape, mat, &recon);
+        let ace = build_ace(&tape, mat, &recon, purr);
         st.ace_build += t.elapsed();
 
         let out = scratch.join(format!("{name}.ace"));
@@ -494,19 +500,37 @@ fn main() {
     //
     // `via_endf` is CONSUMED rather than cloned: arm A's transport is already
     // done, and a third copy of U-238's 284 415-point grid is hundreds of MB.
+    // With `--purr` route B carries URR itself, so only DBRC is asymmetric and
+    // only DBRC comes off; without it both do. Either way the arm asserts it
+    // carries exactly what route B carries, so it cannot silently stop being
+    // the control it is labelled as.
     let via_endf_ablated: Vec<Nuclide> = via_endf
         .into_iter()
-        .map(|n| n.without_urr_probability_tables().without_dbrc())
+        .map(|n| {
+            if purr {
+                n.without_dbrc()
+            } else {
+                n.without_urr_probability_tables().without_dbrc()
+            }
+        })
         .collect();
     let n_urr = via_endf_ablated
         .iter()
         .filter(|n| n.has_urr_probability_tables())
         .count();
     let n_dbrc = via_endf_ablated.iter().filter(|n| n.has_dbrc()).count();
+    let n_urr_ace = via_ace.iter().filter(|n| n.has_urr_probability_tables()).count();
     assert_eq!(
         (n_urr, n_dbrc),
-        (0, 0),
-        "the ablated arm must carry neither term, or it is not the control it claims to be"
+        (n_urr_ace, 0),
+        "the ablated arm must carry the ACE arm's URR and no DBRC, or it is not the \
+         control it claims to be"
+    );
+    println!(
+        "\n  route B {} PURR: ACE arm carries URR on {n_urr_ace} nuclide(s); the control \
+         arm ablates {}",
+        if purr { "WITH" } else { "WITHOUT" },
+        if purr { "DBRC only" } else { "URR and DBRC" }
     );
     let mut k_abl: Vec<f64> = Vec::new();
     let mut std_abl = 0.0;
@@ -561,12 +585,13 @@ fn main() {
     let s_ace_vs_abl = sig(r_ace.k_std, r_abl.k_std);
     println!("\n  THE ASYMMETRY, PRICED (GitHub #307 item 5)");
     println!(
-        "    ENDF ablated : k_eff = {:.5} +/- {:.5}   (URR off, DBRC off)",
-        r_abl.k_mean, r_abl.k_std
+        "    ENDF ablated : k_eff = {:.5} +/- {:.5}   ({})",
+        r_abl.k_mean, r_abl.k_std, if purr { "DBRC off; URR on, as in route B" } else { "URR off, DBRC off" }
     );
     println!(
-        "    ablated - ENDF : {d_abl_vs_endf:+.1} +/- {s_abl_vs_endf:.1} pcm ({:.2} sigma)          -- the worth of URR+DBRC here",
-        d_abl_vs_endf.abs() / s_abl_vs_endf.max(1e-12)
+        "    ablated - ENDF : {d_abl_vs_endf:+.1} +/- {s_abl_vs_endf:.1} pcm ({:.2} sigma)          -- the worth of {} here",
+        d_abl_vs_endf.abs() / s_abl_vs_endf.max(1e-12),
+        if purr { "DBRC" } else { "URR+DBRC" }
     );
     println!(
         "    ACE - ablated  : {d_ace_vs_abl:+.1} +/- {s_ace_vs_abl:.1} pcm ({:.2} sigma)          -- the routes with the SAME physics",
@@ -677,7 +702,16 @@ fn main() {
 /// so this example, `njoy`'s own `write_ace.rs` and `lct008_keff.rs` cannot
 /// drift apart (the three copies this replaced were identical, and that is
 /// exactly the state in which one quietly stops being).
-fn build_ace(tape: &Tape, mat: i32, recon: &ReconrResult) -> AceTable {
-    njoy_outram_park_fork::acer::build_full(tape, mat, recon, KT_MEV, 0)
-        .expect("assemble ACE")
+fn build_ace(tape: &Tape, mat: i32, recon: &ReconrResult, purr: bool) -> AceTable {
+    if purr {
+        // The reference library's own PURR settings (`purr / MAT 1 1 20 64 /`)
+        // with this crate's verified sample count.
+        njoy_outram_park_fork::acer::build_full_with_purr(
+            tape, mat, recon, KT_MEV, 0, 20, 64, 10_000,
+        )
+        .expect("assemble ACE with PURR")
+    } else {
+        njoy_outram_park_fork::acer::build_full(tape, mat, recon, KT_MEV, 0)
+            .expect("assemble ACE")
+    }
 }
