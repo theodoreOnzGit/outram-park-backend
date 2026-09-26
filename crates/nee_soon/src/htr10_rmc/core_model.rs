@@ -379,7 +379,11 @@ pub struct AssembledCore {
     /// [`HTR10_BOTTOM_REFLECTOR_CM`] for why the old mirrored bottom was wrong.
     /// With a reflector, `refl_top - refl_bottom` is [`HTR10_MODEL_HEIGHT_CM`]
     /// at every loading.
-    pub refl_bottom: f64,
+    pub refl_bottom: f64,    /// The ball-level description of the bed (every ball's centre, identity and
+    /// presence) that [`assemble_explicit_triso`] built its lattice from;
+    /// `None` for the one-ball [`assemble`]. Added 2026-09-26 so plots can cut
+    /// through ball centres chosen from the built bed rather than from constants.
+    pub bed: Option<TwoBallBed>,
 }
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
@@ -826,6 +830,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         },
         refl_top,
         refl_bottom,
+        bed: None,
     }
 }
 
@@ -1645,6 +1650,7 @@ pub fn assemble_explicit_triso(
         cavity_top,
         refl_top,
         refl_bottom,
+        bed: Some(bed),
     }
 }
 

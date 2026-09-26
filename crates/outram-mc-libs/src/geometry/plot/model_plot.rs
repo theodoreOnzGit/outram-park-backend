@@ -646,9 +646,13 @@ pub struct ModelPlot {
     /// Title set on the axes after upstream's drawing (`None` = no title,
     /// as upstream). An addition for annotated figures; not in `Model.plot`.
     pub title: Option<String>,
-    /// PNG the script writes when run with no argument. `savefig` is called
-    /// with matplotlib defaults, as a caller of `Model.plot` would.
+    /// PNG the script writes when run with no argument.
     pub default_output: String,
+    /// Keyword arguments for the final `plt.savefig` — the caller's call, not
+    /// part of `Model.plot`. Empty (matplotlib defaults) for the parity cases;
+    /// `bbox_inches='tight'` keeps upstream's outside-the-axes legend
+    /// (`bbox_to_anchor=(1.05, 1)`) in the file.
+    pub savefig_kwargs: Vec<(String, String)>,
 }
 
 impl ModelPlot {
@@ -677,6 +681,7 @@ impl ModelPlot {
             imshow_kwargs: Vec::new(),
             title: None,
             default_output: "plot.png".into(),
+            savefig_kwargs: Vec::new(),
         }
     }
 
@@ -778,6 +783,12 @@ impl ModelPlot {
     /// # Errors
     /// The checks `Model.plot` makes before it draws ([`ModelPlotError`]).
     pub fn emit(&self, geom: &Geometry, materials: &[Material]) -> Result<String, ModelPlotError> {
+        self.validate()?;
+        let (cells, mats, _) = self.id_map(geom, materials)?;
+        self.emit_with_id_map(geom, materials, &cells, &mats)
+    }
+
+    fn validate(&self) -> Result<(), ModelPlotError> {
         if matches!(self.pixels, Pixels::Total(0))
             || matches!(self.pixels, Pixels::Exact([0, _] | [_, 0]))
         {
@@ -790,8 +801,26 @@ impl ModelPlot {
         for d in self.colors.iter().flatten() {
             Self::check_colour(&d.colour)?;
         }
+        Ok(())
+    }
+
+    /// [`Self::emit`] with an id map the caller already has from
+    /// [`Self::id_map`] (same plot settings), so a caller that inspects the
+    /// map first — e.g. to list only the materials present — does not locate
+    /// every pixel twice.
+    ///
+    /// # Errors
+    /// As [`Self::emit`].
+    pub fn emit_with_id_map(
+        &self,
+        geom: &Geometry,
+        materials: &[Material],
+        cells: &[i32],
+        mats: &[i32],
+    ) -> Result<String, ModelPlotError> {
+        self.validate()?;
         let (origin, width, pixels) = self.resolved(geom);
-        let (cells, mats, _) = self.id_map(geom, materials)?;
+        assert_eq!(cells.len(), pixels[0] * pixels[1], "id map does not match the plot settings");
 
         // `colorize` domains, in get_all_cells / get_all_materials order.
         let seeded: Option<Vec<(i32, String)>> = match (&self.colors, self.seed) {
@@ -855,8 +884,8 @@ impl ModelPlot {
             "def _arr(s):\n    return np.frombuffer(zlib.decompress(base64.b64decode(s)), dtype='<i4')\n"
         );
         let _ = writeln!(w, "V_PIX, H_PIX = {}, {}", pixels[1], pixels[0]);
-        let _ = writeln!(w, "_CELLS = '{}'", b64_zlib_i32(&cells));
-        let _ = writeln!(w, "_MATS = '{}'", b64_zlib_i32(&mats));
+        let _ = writeln!(w, "_CELLS = '{}'", b64_zlib_i32(cells));
+        let _ = writeln!(w, "_MATS = '{}'", b64_zlib_i32(mats));
         let _ = writeln!(
             w,
             "id_map = np.zeros((V_PIX, H_PIX, 3), dtype=np.int32)\n\
@@ -947,9 +976,14 @@ impl ModelPlot {
         if let Some(t) = &self.title {
             let _ = writeln!(s, "axes.set_title({t:?})");
         }
+        let extra: String = self
+            .savefig_kwargs
+            .iter()
+            .map(|(k, v)| format!(", {k}={v}"))
+            .collect();
         let _ = writeln!(
             s,
-            "plt.savefig(sys.argv[1] if len(sys.argv) > 1 else {:?})",
+            "plt.savefig(sys.argv[1] if len(sys.argv) > 1 else {:?}{extra})",
             self.default_output
         );
         Ok(s)

@@ -39,6 +39,7 @@ pub mod dh_universe;
 pub mod pebble_beds;
 pub mod stochastic;
 pub mod depletion;
+pub mod plotter;
 /// Optional headless GPU compute (wgpu) for embarrassingly-parallel MC kernels.
 /// Desktop gets the real path; Android gets a CPU-only shim. GPU is acceleration
 /// only — the CPU raw-`f64` path stays the trusted, deterministic reference.

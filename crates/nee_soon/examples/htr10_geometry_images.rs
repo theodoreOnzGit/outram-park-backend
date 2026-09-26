@@ -60,56 +60,9 @@ fn env_usize(k: &str, d: usize) -> usize {
         .unwrap_or(d)
 }
 
-/// Material palette, indexed by [`mat`]. Chosen so the TRISO layers read as a
-/// warm-to-cool sequence from the kernel out and the graphites stay grey/brown.
+/// The shared palette (moved to the library 2026-09-26).
 fn palette() -> Vec<(Rgb, &'static str)> {
-    let mut p = vec![(Rgb::new(0, 0, 0), ""); mat::COUNT];
-    p[mat::KERNEL] = (Rgb::new(220, 20, 20), "UO2 KERNEL");
-    p[mat::BUFFER] = (Rgb::new(255, 150, 0), "BUFFER PYC");
-    p[mat::IPYC] = (Rgb::new(250, 225, 0), "IPYC");
-    p[mat::SIC] = (Rgb::new(40, 160, 40), "SIC");
-    p[mat::OPYC] = (Rgb::new(0, 190, 200), "OPYC");
-    p[mat::GRAPHITE] = (Rgb::new(95, 95, 95), "MATRIX / SHELL GRAPHITE");
-    p[mat::HELIUM] = (Rgb::new(205, 230, 255), "HELIUM");
-    p[mat::REFLECTOR] = (Rgb::new(150, 115, 80), "REFLECTOR GRAPHITE");
-    p[mat::BORONATED] = (Rgb::new(130, 40, 160), "BORONATED CARBON");
-    p[mat::BORED_GRAPHITE] = (Rgb::new(190, 160, 120), "BORED REFLECTOR GRAPHITE");
-    p[mat::HOMOG_DUMMY] = (Rgb::new(60, 70, 150), "HOMOG. DUMMY PEBBLES");
-    // The Table 4-3 zones that keep their own composition (2026-09-25): one
-    // colour each, so every zone boundary of Fig. 4.10 shows in a slice.
-    let zone_colours: [(Rgb, &'static str); 24] = [
-        (Rgb::new(120, 90, 60), "ZONE 0 CONUS SURROUND"),
-        (Rgb::new(170, 60, 190), "ZONE 1 TOP BORONATED"),
-        (Rgb::new(175, 140, 100), "ZONE 2 TOP REFLECTOR"),
-        (Rgb::new(255, 240, 170), "ZONE 3 COLD HE CHAMBER"),
-        (Rgb::new(185, 150, 105), "ZONE 4 TOP REFLECTOR"),
-        (Rgb::new(140, 105, 70), "ZONE 8 BOTTOM"),
-        (Rgb::new(160, 120, 80), "ZONE 9 BOTTOM"),
-        (Rgb::new(200, 90, 90), "ZONE 10 BOTTOM (B)"),
-        (Rgb::new(190, 110, 90), "ZONE 11 BOTTOM (B)"),
-        (Rgb::new(210, 100, 120), "ZONE 12 BOTTOM (B)"),
-        (Rgb::new(150, 130, 90), "ZONE 13 BOTTOM"),
-        (Rgb::new(230, 200, 120), "ZONE 14 HOT GAS CHAMBER"),
-        (Rgb::new(250, 225, 150), "ZONE 15 HOT GAS CHAMBER"),
-        (Rgb::new(130, 115, 85), "ZONE 16 BOTTOM"),
-        (Rgb::new(95, 75, 55), "ZONE 18 CARBON BRICK"),
-        (Rgb::new(150, 50, 170), "ZONE 19 BORONATED"),
-        (Rgb::new(165, 130, 95), "ZONE 20"),
-        (Rgb::new(220, 190, 140), "ZONE 21"),
-        (Rgb::new(115, 125, 70), "ZONES 24/51/68 (B)"),
-        (Rgb::new(215, 175, 120), "ZONE 29 X1.29978"),
-        (Rgb::new(100, 140, 80), "ZONE 42 X1.29978"),
-        (Rgb::new(225, 185, 130), "ZONE 48"),
-        (Rgb::new(200, 170, 110), "ZONE 57"),
-        (Rgb::new(90, 130, 90), "ZONE 60 X1.16051"),
-    ];
-    for (i, c) in zone_colours.into_iter().enumerate() {
-        p[mat::ZONE_TABLE_FIRST + i] = c;
-    }
-    p[mat::ROD_B4C] = (Rgb::new(20, 20, 20), "ROD B4C");
-    p[mat::ROD_STEEL] = (Rgb::new(170, 180, 195), "ROD STEEL");
-    p[mat::ROD_IRON] = (Rgb::new(90, 100, 115), "ROD IRON");
-    p
+    nee_soon::htr10_rmc::plots::palette()
 }
 
 /// The centre of a fuel pebble near `(x, y, z)` and of one TRISO particle in
