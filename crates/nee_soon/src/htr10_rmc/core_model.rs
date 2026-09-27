@@ -1424,6 +1424,9 @@ pub fn assemble_explicit_triso(
     // the true mid-height of the stack `TwoBallBed` laid out, and
     // `the_built_bed_matches_the_two_ball_description` checks every tile centre
     // of the built lattice against it.
+    // OUTRAM_HTR10_REJECT_SIDE_WALL=1 (gh:#331 ablation, 2026-09-27): also
+    // reject balls crossing the r = 90 cm side wall instead of cutting them.
+    let reject_side_wall = std::env::var("OUTRAM_HTR10_REJECT_SIDE_WALL").is_ok();
     let bed = TwoBallBed::new_with_tube(
         cell,
         n_rings,
@@ -1436,6 +1439,11 @@ pub fn assemble_explicit_triso(
         }),
         assignment,
     );
+    let bed = if reject_side_wall {
+        bed.rejecting_side_wall_crossers()
+    } else {
+        bed
+    };
     debug_assert!((bed.bed_top - bed_half_height).abs() < 1e-9);
 
     // One universe per (fuel mask, presence mask) in use: bit i = ball site i

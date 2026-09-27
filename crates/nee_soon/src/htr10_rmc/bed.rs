@@ -481,6 +481,9 @@ pub struct TwoBallBed {
     pub tube: Option<DischargeTube>,
     /// Balls removed by the rejection rule (0 without a tube).
     pub rejected_balls: usize,
+    /// Of [`Self::rejected_balls`], those removed at the bed side wall by
+    /// [`Self::rejecting_side_wall_crossers`] (0 by default).
+    pub side_wall_rejected: usize,
     a_fuel: Vec<bool>,
     b_fuel: Vec<bool>,
     a_present: Vec<bool>,
@@ -597,6 +600,7 @@ impl TwoBallBed {
             fuel_balls: 0,
             tube,
             rejected_balls: 0,
+            side_wall_rejected: 0,
             a_fuel: vec![false; w * w * (n_levels + 1)],
             b_fuel: vec![false; w * w * n_levels],
             a_present: vec![true; w * w * (n_levels + 1)],
@@ -676,6 +680,40 @@ impl TwoBallBed {
             }
         }
         self.rejected_balls = n;
+    }
+
+    /// **Side-wall rejection (gh:#331 ablation, 2026-09-27).** Also remove
+    /// every ball in the bed cylinder that crosses its side wall
+    /// (`rho + R > bed_radius`, centre above the bed floor), then re-draw the
+    /// 57:43 fuel assignment over the balls that remain, exactly as the tube
+    /// rejection does. The default keeps the CSG cut at the wall; Li, Yu & Wei
+    /// (2014) say the array's outer boundary is the reflector's inner surface
+    /// and reject balls at the cone and tube, but are silent on the side wall.
+    /// This is the other reading, built so the two can be priced against each
+    /// other. It is not a claim that it is the right one.
+    #[must_use]
+    pub fn rejecting_side_wall_crossers(mut self) -> Self {
+        let r = 0.5 * self.cell.ball_diameter;
+        let mut n = 0;
+        for id in self.all_balls() {
+            let [x, y, z] = self.centre(id);
+            let rho = x.hypot(y);
+            let crosses = rho + r > self.bed_radius && rho - r < self.bed_radius;
+            if z >= self.bed_bottom && z - r < self.bed_top && crosses && self.is_present(id) {
+                n += 1;
+                match self.slot(id) {
+                    Some((true, i)) => self.a_present[i] = false,
+                    Some((false, i)) => self.b_present[i] = false,
+                    None => {}
+                }
+            }
+        }
+        self.rejected_balls += n;
+        self.side_wall_rejected = n;
+        self.a_fuel.iter_mut().for_each(|f| *f = false);
+        self.b_fuel.iter_mut().for_each(|f| *f = false);
+        self.assign();
+        self
     }
 
     /// z \[cm\] of the lattice centre, to pass to `HexLattice::from_rings_3d`.
