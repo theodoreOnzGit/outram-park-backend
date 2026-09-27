@@ -2023,7 +2023,24 @@ mod tests {
 
         // The TRISO release channel alone, called as often as the plant calls
         // it over the same span (its throttle is 1 s of plant time).
-        let kernel = plant.core.peak_kernel_temperature();
+        // A REPRESENTATIVE kernel temperature, not the plant's own -- and that is
+        // a fix, not a shortcut (2026-09-27).
+        //
+        // `plant.core.peak_kernel_temperature()` returns `Option`, and at the
+        // shipped opening condition it is **`None`**: the excursion takes the bed
+        // to ~2589 K within 8 s (gh:#318) and the pebble solver cannot resolve a
+        // kernel there. A `None` kernel gives the release channel nothing, an
+        // empty release channel makes `dispersion.update` return early, and both
+        // this block's release and dispersion timers then charge 0.0000 s for
+        // work that never happened -- which is exactly what they did, and what
+        // was briefly read as "the dispersion is free".
+        //
+        // Charging a representative 1100 K instead measures the cost of the model
+        // ACTUALLY RUNNING, which is what this breakdown is for. It is an upper
+        // bound on the plant's own cost at a resolved kernel, and it is honest
+        // about being a stand-in rather than the plant's state. The plant's real
+        // thermal state is the subject of gh:#318, not of a timing breakdown.
+        let kernel = Some(ThermodynamicTemperature::new::<kelvin>(1100.0));
         let bed = plant.core.temperature();
         let release_calls = (plant_seconds
             / fission_product_release::RELEASE_EVALUATION_INTERVAL_S)
@@ -2041,22 +2058,51 @@ mod tests {
         }
         let release_time = started.elapsed().as_secs_f64();
 
-        // The dispersion channel alone, likewise (60 s throttle, so one
-        // evaluation over a 20 s span -- charged in full, which if anything
-        // overstates it).
+        // The dispersion channel alone, likewise -- charged in full for every
+        // evaluation the throttle allows over the span, which if anything
+        // overstates it.
+        //
+        // COUNTING the evaluations that actually ran is not bookkeeping, it is the
+        // fix for a real defect -- CORRECTED 2026-09-27.
+        //
+        // `AtmosphericDispersionChannel::update` returns EARLY, doing nothing, when
+        // the release channel has produced no source term yet. This loop had no
+        // way to tell that apart from a fast evaluation, so it reported
+        // `0.0000 s wall over N calls = 0.00 %` either way -- and that zero was
+        // read on 2026-09-27 as evidence the dispersion side was free, which in
+        // turn was used to argue a throttle could be removed. A standalone
+        // measurement of the same call
+        // (`atmospheric_dispersion::tests::what_one_dispersion_evaluation_costs`)
+        // puts one evaluation at **26.8 ms**.
+        //
+        // So the number this block prints must be accompanied by proof that the
+        // model ran. `update` already returns `bool` for exactly this; nobody was
+        // reading it.
         let dispersion_calls = (plant_seconds
             / atmospheric_dispersion::DISPERSION_EVALUATION_INTERVAL_S)
             .ceil()
             .max(1.0) as usize;
         let mut dispersion = atmospheric_dispersion::AtmosphericDispersionChannel::new();
+        let mut dispersion_evaluated = 0usize;
         let started = std::time::Instant::now();
         for call in 0..dispersion_calls {
-            dispersion.update(
+            if dispersion.update(
                 call as f64 * atmospheric_dispersion::DISPERSION_EVALUATION_INTERVAL_S,
                 &release,
-            );
+            ) {
+                dispersion_evaluated += 1;
+            }
         }
         let dispersion_time = started.elapsed().as_secs_f64();
+        assert!(
+            dispersion_evaluated > 0,
+            "the dispersion channel never actually evaluated: {dispersion_calls} calls to \
+             `update` all returned false, so the {dispersion_time:.4} s it was charged is the \
+             cost of an EARLY RETURN and not of the model. That is how this block came to \
+             report dispersion as 0.00 % of the plant step on 2026-09-27 while a standalone \
+             measurement of one evaluation gave 26.8 ms. Check that the release channel here \
+             has a source term."
+        );
 
         // --- inside the plant step: the two loops, timed on their own ---
         //
@@ -2126,7 +2172,8 @@ mod tests {
         );
         println!(
             "  Gaussian puff dispersion     {dispersion_time:.4} s wall over \
-             {dispersion_calls} calls = {:.2} % of the step",
+             {dispersion_evaluated}/{dispersion_calls} calls that EVALUATED = {:.2} % of the \
+             step",
             share(dispersion_time)
         );
         println!(

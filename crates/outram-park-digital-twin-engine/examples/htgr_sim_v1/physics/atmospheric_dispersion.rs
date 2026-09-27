@@ -570,24 +570,46 @@ impl DispersionResult {
 /// How often the dispersion model is re-run \[s of plant time\].
 ///
 /// # ~~Why this is much slower than everything else in the plant~~
-/// # MEASURED 2026-09-27: it is 0.00 % of the plant step
+/// # MEASURED 2026-09-27: ~10 % of the plant step, not "far and away the most"
+/// # (and the first attempt at this measurement said 0.00 % and was WRONG)
 ///
 /// ~~"A puff run is `O(steps * puffs_alive * receptors)`, and with 24 receptors
 /// over a 20-minute puff lifetime it is **far and away the most expensive thing
-/// this simulator would do per step**."~~ **CORRECTED 2026-09-27 — false, and
-/// now measurably so.**
+/// this simulator would do per step**."~~ **CORRECTED 2026-09-27 — overstated by
+/// about an order of magnitude.** It is ~10 % of the plant step against the steam
+/// generator's ~100 %. This correction was itself wrong on its first attempt, which
+/// claimed 0.00 %; see the table's second column and the note below it.
 ///
 /// `tests::where_the_plant_step_spends_its_time`, over 20 s of plant time:
 ///
-/// | Component | Share of the plant step |
-/// |---|---|
-/// | **Gaussian puff dispersion** | **0.00 %** |
-/// | TRISO-ATOPS release channel | 0.00 % |
-/// | primary: steam generator | **100.12 %** (26.46 ms/call) |
-/// | primary: hot leg + core | 0.03 % |
-/// | secondary loop (IF97) | 0.40 % |
+/// | Component | ~~First reading~~ | **CORRECTED, evaluations verified** |
+/// |---|---|---|
+/// | **Gaussian puff dispersion** | ~~0.00 %~~ | **10.26 %** (54.3 ms/call, 10/10 evaluated) |
+/// | TRISO-ATOPS release channel | ~~0.00 %~~ | **0.09 %** |
+/// | primary: steam generator | 100.12 % (26.46 ms/call) | **102.23 %** (27.05 ms/call) |
+/// | primary: hot leg + core | 0.03 % | 0.03 % |
+/// | secondary loop (IF97) | 0.40 % | 0.36 % |
 ///
-/// The struck claim was true when it was written and has been overtaken twice:
+/// # The first column was measured WRONG, and finding out why mattered
+///
+/// Both `0.00 %` readings were the cost of an **early return**, not of the model.
+/// `plant.core.peak_kernel_temperature()` returns `None` once the bed passes the
+/// nuclear-graphite correlations' 2000 K ceiling (gh:#350, gh:#351) — which it does
+/// within ~4 s at the shipped opening condition — a `None` kernel leaves the release
+/// channel empty, and [`AtmosphericDispersionChannel::update`] returns early on an
+/// empty release channel. The breakdown charged 0.0000 s for work that never ran,
+/// and **nothing checked**.
+///
+/// `tests::where_the_plant_step_spends_its_time` now counts the calls that actually
+/// evaluated, **asserts the count is non-zero**, and prints `N/M calls that
+/// EVALUATED`, so this cannot recur silently. It charges a representative 1100 K
+/// kernel, because the plant's own is `None`.
+///
+/// The honest conclusion is narrower than either earlier one: the steam generator
+/// dominates by roughly a factor of **10**, not by everything — and the dispersion
+/// is not free either. ~10 % of the plant step at the 2 s interval, ~0.3 % at 60 s.
+///
+/// The originally struck claim was true when written and has been overtaken twice:
 /// the map field moved to a WGSL kernel on the GPU (0.67 ms at the 64-cell
 /// default, 9.09 ms even at 512 cells — `cargo plume-timing`), and the population
 /// the ring walks fell from ~7 260 puffs to the 120 alive at an instant when the
@@ -652,7 +674,56 @@ impl DispersionResult {
 /// change on its own, and the release rate follows the kernel temperature,
 /// which moves on the bed's ~184 s time constant. Nothing the model reads can
 /// meaningfully change faster than this.
-pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 60.0;
+pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
+
+// ── ~~60.0~~ ~~10 Hz~~ -> 2.0 s of plant time, CHANGED 2026-09-27 ────────────
+//
+// **Maintainer direction**, in two steps on the same day: *"Receptor ring should
+// update at 10 Hz"*, then, on seeing what it cost, *"once every 2 s then"*.
+//
+// This is **plant** time, not wall clock — unlike [`FIELD_REFRESH_INTERVAL_S`],
+// which is wall clock so the map stays responsive under a pause or a
+// fast-forward. Plant time is right here because what the ring reports depends on
+// the release rate, which is driven by the kernel temperature on the bed's
+// ~184 s time constant.
+//
+// # What 10 Hz cost, measured
+//
+// Set to every plant tick and measured with
+// `tests::where_the_plant_step_spends_its_time` over 20 s of plant time:
+//
+// |  | 60 s throttle | every tick |
+// |---|---|---|
+// | whole plant, wall | 5.2863 s | **6.0722 s** |
+// | real-time ratio | 3.783 | **3.294** |
+// | dispersion calls | 1 | 200 |
+//
+// So every-tick cost about **13 % of the real-time ratio** — 0.79 s over 200
+// calls, ~3.9 ms per call. Note that is far LESS than the 26.819 ms
+// `tests::what_one_dispersion_evaluation_costs` measures for a standalone
+// `evaluate`, and the difference is not explained: in the plant many calls hit the
+// grid cache, so they are not all doing the same work. **Both numbers stand as
+// measured and the discrepancy is open** rather than being averaged into one
+// figure that matches neither.
+//
+// 2.0 s of plant time is 20 plant ticks, so the ring costs ~5 % of what every
+// tick did while still refreshing thirty times per minute — well inside any
+// transient a reader is watching, and 30x more responsive than the 60 s it
+// replaced.
+//
+// **If the speed is wanted back**, in increasing order of effort:
+//
+//  1. Note the ring's *live* column already updates at 60 fps independently of
+//     this throttle ([`ReceptorResult::instantaneous_chi_over_q`]), so the
+//     question is only how stale the TIME-INTEGRATED column and the activity
+//     columns may be. An interval of 1 s costs 2.7 % of plant-time compute
+//     instead of ~100 %, for a lag nobody has yet shown to be visible.
+//  2. `dilution_factors` is called **twice** per evaluation (air at receptor
+//     height, ground at `z = 0`) and the ground set exists only for deposition.
+//     If deposition is not on screen, that is half the cost.
+//  3. The ring walk is `O(steps x puffs x receptors)` of the same Gaussian kernel
+//     the field already runs on the GPU at 83x the CPU rate. It has never been
+//     dispatched there.
 
 /// How often the Map tab's `chi/Q` **field** is allowed to refresh \[s of
 /// **wall-clock** time\], as distinct from [`DISPERSION_EVALUATION_INTERVAL_S`],
@@ -1908,28 +1979,39 @@ mod tests {
         let release = release_at(1200.0);
         let mut channel = AtmosphericDispersionChannel::new();
 
+        // Times are DERIVED from the interval, not written as literals --
+        // CORRECTED 2026-09-27. This test hardcoded 30 s and 60 s, which encoded
+        // the old 60 s throttle, so it went red the moment
+        // `DISPERSION_EVALUATION_INTERVAL_S` was changed to 2 s on maintainer
+        // direction. What the test means is "half an interval" and "a full
+        // interval"; saying so makes it survive the next cadence change, and a
+        // failure then would be a real one.
+        let interval = DISPERSION_EVALUATION_INTERVAL_S;
+
         assert!(
             channel.update(0.0, &release),
             "the first call must evaluate"
         );
         assert!(channel.latest().is_some());
         assert!(
-            !channel.update(30.0, &release),
-            "half an interval later must NOT re-evaluate"
+            !channel.update(0.5 * interval, &release),
+            "half an interval later ({} s) must NOT re-evaluate",
+            0.5 * interval
         );
         assert!(
-            channel.update(60.0, &release),
-            "a full interval later must re-evaluate"
+            channel.update(interval, &release),
+            "a full interval later ({interval} s) must re-evaluate"
         );
 
         // Moving the wind forces a re-evaluation, because it is the input the
-        // result is most sensitive to.
+        // result is most sensitive to. Just after a full interval, so the only
+        // thing that could allow it is the meteorology change itself.
         channel.set_meteorology(Meteorology {
             direction_from: Angle::new::<degree>(90.0),
             ..Meteorology::default()
         });
         assert!(
-            channel.update(61.0, &release),
+            channel.update(interval + 0.1 * interval, &release),
             "a wind change must force a re-evaluation inside the throttle"
         );
 
