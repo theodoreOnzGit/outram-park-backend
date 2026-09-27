@@ -33,6 +33,33 @@ before any result computed on it is reported as more than tentative.
 - **Say what you checked in them, and what you could not** — an image nobody
   was told to look at checks nothing.
 
+### SHOW the pictures to the maintainer, every time (HARD RULE, this crate)
+
+**Maintainer direction, 2026-09-27:** *"whenever u make changes to geometry or
+new geometry, show me visuals of what the geometry is like."* Binds
+`outram-mc-libs` only (geometry built with this crate's CSG, lattices, TRISO
+and pebble-bed types, including models assembled in other crates such as
+`nee_soon::htr10_rmc`).
+
+- **Trigger:** any change to an existing geometry, or any new geometry. That
+  covers surfaces, cells, universes, lattices, fills, pebble or TRISO
+  arrangements, reflector zones, and channels. A refactor that should not
+  change the geometry counts too: show the before and after so the "no
+  change" is visible.
+- **Committing the images is not showing them.** Hand them over in the
+  conversation itself: send the PNGs to the maintainer (e.g. `SendUserFile`
+  with `display: "render"`), or publish a page that shows them. Do this
+  **before** reporting any result computed on the geometry, and before calling
+  the change done.
+- **Draw with the ported plotter** (`geometry::plot`: `ModelPlot` for the
+  OpenMC-`Model.plot` look, or `render_material_slice`) from the assembled
+  geometry. Colour by material, with a legend and cm axes. For nested
+  geometry, go down to the smallest level.
+- **One line per image** saying what it shows and what you checked in it. Say
+  what you could not check.
+- **Not a substitute for tests.** The pictures are for a human to catch what no
+  diagnostic reports. Keep the tests.
+
 **Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
 mirrored from the top and up to 107 cm short; a core cavity that grew with the
 bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
