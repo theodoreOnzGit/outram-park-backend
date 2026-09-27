@@ -27,12 +27,43 @@
 //! | `boundaries_between_single_phase_regions.rs:20,23,60,63,106` "p in (p,s) point is outside validity range" | `p` below 16.529 MPa / above 100 MPa inside the `p >= 16.529 MPa` branch | unreachable: that branch is only entered when `16.529 MPa <= p <= 100 MPa` already holds |
 //! | `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:30,33,75,78` "entropy of p,s point is outside validity range" | `s` outside the Region-3/4 boundary entropy band | unreachable inside the gate: the Region-1 and Region-2 tests immediately above them already returned for every `s` outside that band |
 //! | `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:123,151` "pressure of p,s point is outside validity range" | `p` outside `[p_sat(273.15 K), p_sat(623.15 K)]` in the `p < 16.529 MPa` branch | pressure gate plus the branch condition |
-//! | `ps_flash_eqm/mod.rs:64,154` `todo!("region 5 ps flash not implemented")` | `ps_flash_region` returning `Region5` | unreachable: `ps_flash_region` has no code path that returns `Region5` |
+//! | ~~`ps_flash_eqm/mod.rs:64,154` `todo!("region 5 ps flash not implemented")`~~ **GONE 2026-09-27** | ~~`ps_flash_region` returning `Region5`~~ | ~~unreachable: `ps_flash_region` has no code path that returns `Region5`~~ **CORRECTED** — the panic sites no longer exist, and the premise was false: `ps_flash_region` *does* return `Region5`. See the note below. |
 //!
 //! The last four rows are "unreachable" arguments rather than direct gates,
 //! so they were checked empirically as well — see the V&V note in
 //! [`super::tests`]: a 273 609-point sweep of the accepted set found zero
 //! surviving panics across all ten wrapped functions.
+//!
+//! ### ~~Region 5 is unreachable from `ps_flash_region`~~ — **CORRECTED 2026-09-27**
+//!
+//! The 2026-08-11 trace above was true when written and is now wrong in both
+//! halves. Commit `2ab91fefc3` (2026-09-14, "(p,h), (p,s) and (h,s) now cover
+//! Region 5") deleted both `todo!("region 5 ps flash not implemented")` arms and
+//! gave `ps_flash_region` an explicit `is_above_isotherm_t_1073_15` branch that
+//! **returns `FwdEqnRegion::Region5`**.
+//!
+//! **What was verified by running** (not by reading the source):
+//! `does_the_ps_flash_reach_region_5_and_does_the_checked_facade` in
+//! `tests/boundary_273_15_repro.rs` builds a Region 5 state from the IAPWS
+//! *forward* equation — `s_tp_eqm_single_phase(1500 K, 1 MPa) =
+//! 9.33359 kJ/(kg K)` — and reports `ps_flash_region(p, s) == Region5` and
+//! `t_ps_eqm(p, s) = 1500.0000 K` (`|dT/T| = 6.0e-9`). `grep -rn 'todo!'` over
+//! `ps_flash_eqm/` now returns nothing.
+//!
+//! **This does not change what THIS facade accepts, and that is the point.**
+//! [`check_ps_envelope`] still caps `s` at the **1073.15 K** isotherm, so the
+//! same test measures `try_t_ps_eqm` at that state returning
+//! `Err(OutOfRange { quantity: "specific entropy", value: 9333.5885,
+//! min: -0.0884, max: 8502.3497, unit: "J/(kg K)" })`. Region 5 is therefore
+//! reachable through the **unchecked** `(p,s)` entry points and refused by the
+//! checked ones — the panic-surface argument in the table above survives, its
+//! stated reason does not.
+//!
+//! And, as with `lambda_ph_eqm`'s Region 5 correction: IAPWS-IF97 publishes **no**
+//! backward `(p,s)` equation for Region 5, so the unchecked path's temperature is
+//! this crate's own Chebyshev fit, verified only against the forward equations it
+//! inverts. A dispatch that succeeds outside a correlation's published scope is an
+//! extrapolation and must be read as one.
 //!
 //! ## The `p == p_sat(273.15 K)` trap — fixed 2026-08-11 (bead `op-znjx`)
 //!
@@ -160,11 +191,31 @@ pub fn check_ps_envelope(p: Pressure, s: SpecificHeatCapacity) -> Result<()> {
     Ok(())
 }
 
-/// Checked temperature T (K) from a `(p,s)` flash (Regions 1-4; Region 5
-/// is not implemented for this flash path and lies outside the entropy
-/// window). Valid range: the `(p,s)` envelope in
-/// [`check_ps_envelope`]. Agrees exactly with [`t_ps_eqm`] for in-range
-/// input.
+/// Checked temperature T (K) from a `(p,s)` flash (Regions 1-4). Valid range:
+/// the `(p,s)` envelope in [`check_ps_envelope`]. Agrees exactly with
+/// [`t_ps_eqm`] for in-range input.
+///
+/// ~~Region 5 is not implemented for this flash path and lies outside the
+/// entropy window.~~ **CORRECTED 2026-09-27** — the two halves of that sentence
+/// had opposite fates, and the first was already false when it was written down:
+///
+/// - **"not implemented for this flash path" — STALE.** Commit `2ab91fefc3`
+///   (2026-09-14) implemented it. Measured by running
+///   `does_the_ps_flash_reach_region_5_and_does_the_checked_facade`
+///   (`tests/boundary_273_15_repro.rs`): from a Region 5 state built with the
+///   forward equation (`T = 1500 K`, `p = 1 MPa`,
+///   `s = 9.33359 kJ/(kg K)`), the unchecked `t_ps_eqm` returns
+///   **1500.0000 K**, `|dT/T| = 6.0e-9`.
+/// - **"lies outside the entropy window" — STILL TRUE.** The same run has
+///   `try_t_ps_eqm` at that state returning `Err(OutOfRange { quantity:
+///   "specific entropy", value: 9333.5885, min: -0.0884, max: 8502.3497,
+///   unit: "J/(kg K)" })`, because [`check_ps_envelope`] evaluates its upper
+///   bound on the **1073.15 K** isotherm (`T_R5_LOWER_KELVIN`).
+///
+/// So a caller who needs Region 5 through `(p,s)` must use the unchecked
+/// [`t_ps_eqm`] and accept that it *panics* rather than erring outside the
+/// envelope — and must read the result as this crate's own Chebyshev fit, since
+/// IAPWS-IF97 publishes no backward `(p,s)` equation for Region 5 at all.
 pub fn try_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> Result<ThermodynamicTemperature> {
     check_ps_envelope(p, s)?;
     Ok(t_ps_eqm(p, s))

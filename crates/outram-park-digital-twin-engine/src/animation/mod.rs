@@ -32,6 +32,11 @@
 //! object is launched, and each crosses once and leaves. It animates single
 //! pebbles sent up a refuelling chute or down a defuelling chute, under the
 //! same direction-from-flow, speed-from-transit-time contract.
+//! [`PebbleHandling`] pairs the two paths with their tally, and is the state the
+//! `[Add pebble]` / `[Remove pebble]` buttons drive in both the widget studio
+//! and `htgr_sim_v1` — **read its docs before touching it**, because on
+//! `htgr_sim_v1` those buttons change the DRAWING only, by the maintainer's
+//! call of 2026-09-27 (GitHub issue #347).
 //!
 //! ## Where tracer state lives
 //!
@@ -461,10 +466,257 @@ impl PebbleTransits {
     }
 }
 
+/// What drives one pebble-transit path: the flow whose **sign** sets the
+/// direction, and the time one pebble takes to cross.
+///
+/// Passed to [`PebbleHandling::advance`] rather than stored on it, so a
+/// consumer that lets a user tune these (the widget studio's sliders) and one
+/// that uses the illustrative figures ([`htr10_illustrative_pebble_drives`])
+/// share the same state type.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PebbleTransitDrive {
+    /// Flow driving the transit. Only its **sign** matters to the animation:
+    /// forward, stopped, or back the way it came.
+    pub mass_flow: MassRate,
+    /// Time one pebble takes to cross the whole path.
+    pub transit_time: Time,
+}
+
+/// Pebble refuelling and defuelling transits, plus the running tally of
+/// completed ones.
+///
+/// # This is a DRAWING mechanism, and on `htgr_sim_v1` it is drawing ONLY
+///
+/// **Maintainer's call, 2026-09-27 (GitHub issue #347).** Asked what the
+/// `htgr_sim_v1` `[Add pebble]` / `[Remove pebble]` buttons should do, the
+/// maintainer chose **schematic animation only, with no physics coupling**.
+/// That is permitted route 1 of the two in this crate's `CLAUDE.md`
+/// ("The only two ways a hardcoded value is permitted" — the maintainer asked
+/// for it), and it is recorded here so a later reader does not "fix" it back
+/// into physics.
+///
+/// Two options were considered and **not** taken, recorded in #347 so they are
+/// not re-litigated: making the live pebble inventory operator-commanded
+/// (`one_node::pebble_count()`, against which several V&V numbers are
+/// recorded), and modelling HTR-10's real online refuelling (which needs a
+/// burnup or residence-time state the one-node bed does not carry). Either
+/// remains available later.
+///
+/// **A consumer must therefore say on screen that these buttons change the
+/// drawing only.** A control that looks like it changes the plant and does not
+/// is the same class of defect as a hardcoded animation: it cannot be wrong on
+/// screen, so it can never reveal a fault, and a user will reasonably read a
+/// pebble leaving as inventory changing.
+///
+/// # What is still derived
+///
+/// The *motion* obeys the crate's hard rule unchanged: each transit travels in
+/// the direction of the sign of its driving flow and crosses in exactly one
+/// transit time ([`PebbleTransits`]). Stop the driving flow and the pebbles
+/// park; reverse it and they go back out the way they came. What the
+/// maintainer's call fixes is that no **plant** quantity is driven *from* the
+/// buttons — not the other way round.
+///
+/// # Where the state lives
+///
+/// Same rule as [`TracerTrain`]: widgets are rebuilt every repaint, so this is
+/// owned outside the widget and copied in at build time. A consumer either
+/// owns it on its own state struct (the widget studio) or parks it in `egui`'s
+/// per-context store via
+/// `components::htr10_reactor_schematic::pebble_handling_controls`
+/// (`htgr_sim_v1`). That module is `egui`-side and gated off Android, which is
+/// why the state itself lives here instead.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PebbleHandling {
+    refuel: PebbleTransits,
+    defuel: PebbleTransits,
+    added: usize,
+    removed: usize,
+}
+
+impl PebbleHandling {
+    /// Nothing in flight, nothing counted.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Send one pebble up the refuelling chute — one `[Add pebble]` press.
+    pub fn request_add(&mut self) {
+        self.refuel.launch();
+    }
+
+    /// Send one pebble down the defuelling route — one `[Remove pebble]`
+    /// press.
+    pub fn request_remove(&mut self) {
+        self.defuel.launch();
+    }
+
+    /// Advance both paths by one animation frame of `dt`, accumulating the
+    /// transits that completed.
+    ///
+    /// Order within a frame does not matter: the two paths are independent.
+    pub fn advance(&mut self, dt: Time, refuel: PebbleTransitDrive, defuel: PebbleTransitDrive) {
+        self.added += self
+            .refuel
+            .advance(dt, refuel.transit_time, refuel.mass_flow);
+        self.removed += self
+            .defuel
+            .advance(dt, defuel.transit_time, defuel.mass_flow);
+    }
+
+    /// Pebbles on their way up the refuelling chute, for
+    /// `Htr10ReactorSchematic::with_refuel_pebbles`.
+    pub fn refuel_transits(&self) -> &PebbleTransits {
+        &self.refuel
+    }
+
+    /// Pebbles on their way out of the defuelling route, for
+    /// `Htr10ReactorSchematic::with_defuel_pebbles`.
+    pub fn defuel_transits(&self) -> &PebbleTransits {
+        &self.defuel
+    }
+
+    /// How many pebbles have completed the refuelling chute into the core.
+    ///
+    /// A count of drawn transits, not a plant inventory — see the type docs.
+    pub fn added(&self) -> usize {
+        self.added
+    }
+
+    /// How many pebbles have left through the defuelling opening.
+    ///
+    /// A count of drawn transits, not a plant inventory — see the type docs.
+    pub fn removed(&self) -> usize {
+        self.removed
+    }
+
+    /// Whether anything is moving, so a caller can keep frames coming.
+    pub fn in_flight(&self) -> bool {
+        !self.refuel.is_empty() || !self.defuel.is_empty()
+    }
+
+    /// The one-line tally a consumer prints under the buttons.
+    ///
+    /// Spelled here rather than in each consumer so the two read identically.
+    pub fn tally_text(&self) -> String {
+        format!(
+            "drawn transits: {} in, {} out; in flight: {} up the chute, {} down the discharge",
+            self.added,
+            self.removed,
+            self.refuel.len(),
+            self.defuel.len()
+        )
+    }
+}
+
+/// Illustrative drives for HTR-10's refuelling and defuelling animation.
+///
+/// **Every one of these four numbers is a DISPLAY CHOICE, not plant data.**
+/// The HTR-10 plant-data sheet records no pneumatic lift flow, no discharge
+/// rate and no pebble transit time, so there is nothing to derive them from —
+/// and pebbles cross the real core over weeks on a 5-pass recirculation route,
+/// which no watchable animation can represent at scale. They are stated here,
+/// once, so a consumer cannot quietly pick its own and so a reader meets them
+/// labelled: lift 0.01 kg/s over 6 s, discharge 0.01 kg/s over 8 s. Only the
+/// **sign** of each flow reaches the drawing.
+///
+/// The widget studio overrides them with sliders, which is the point of a
+/// studio; `htgr_sim_v1` uses them as-is (maintainer's call, 2026-09-27 —
+/// see [`PebbleHandling`]).
+pub fn htr10_illustrative_pebble_drives() -> (PebbleTransitDrive, PebbleTransitDrive) {
+    (
+        PebbleTransitDrive {
+            mass_flow: MassRate::new::<kilogram_per_second>(0.01),
+            transit_time: Time::new::<second>(6.0),
+        },
+        PebbleTransitDrive {
+            mass_flow: MassRate::new::<kilogram_per_second>(0.01),
+            transit_time: Time::new::<second>(8.0),
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use uom::si::mass::kilogram;
+
+    /// [`PebbleHandling`] must count a transit only when it *completes*, and
+    /// must keep the two paths independent.
+    ///
+    /// **Methodology.** A harness check on the shared pebble-handling state, not
+    /// physics V&V: nothing here is compared against a reference, because the
+    /// drives are labelled display choices (see
+    /// [`htr10_illustrative_pebble_drives`]). Launch one refuelling pebble and
+    /// one defuelling pebble, advance with the illustrative drives (6 s and 8 s
+    /// transits) in 1 s steps, and record when each tally increments.
+    ///
+    /// **Results (2026-09-27).** With 1 s steps the refuelling tally is still 0
+    /// after 6 steps and reads 1 after 7 (the transit completes strictly past
+    /// position 1, so 6.0 s is not yet arrival); the defuelling tally is still 0
+    /// after 7 and reads 1 after 9. Both paths are empty afterwards, and
+    /// neither tally moved on the other's arrival. Interpretation: the tallies
+    /// count completed drawn transits, the two paths do not interfere, and the
+    /// crossing time really is the transit time rather than a frame count.
+    #[test]
+    fn pebble_handling_counts_a_transit_only_when_it_completes() {
+        let (refuel, defuel) = htr10_illustrative_pebble_drives();
+        let mut handling = PebbleHandling::new();
+        handling.request_add();
+        handling.request_remove();
+        assert!(handling.in_flight());
+
+        let step = Time::new::<second>(1.0);
+        let mut added_at = None;
+        let mut removed_at = None;
+        for tick in 1..=12 {
+            handling.advance(step, refuel, defuel);
+            if added_at.is_none() && handling.added() == 1 {
+                added_at = Some(tick);
+            }
+            if removed_at.is_none() && handling.removed() == 1 {
+                removed_at = Some(tick);
+            }
+        }
+
+        assert_eq!(added_at, Some(7), "6 s lift transit should land on tick 7");
+        assert_eq!(
+            removed_at,
+            Some(9),
+            "8 s discharge transit should land on tick 9"
+        );
+        assert_eq!(handling.added(), 1);
+        assert_eq!(handling.removed(), 1);
+        assert!(!handling.in_flight(), "both paths should have emptied");
+    }
+
+    /// A zero driving flow must PARK a pebble rather than guess a speed — the
+    /// same contract [`PebbleTransits`] has, checked through the shared state
+    /// the two consumers use.
+    ///
+    /// **Methodology.** Launch one pebble, advance 100 s with a zero lift flow,
+    /// and assert it has neither moved nor been counted. A harness check, not
+    /// physics V&V.
+    ///
+    /// **Results (2026-09-27).** Position stayed at 0.0 over 100 one-second
+    /// steps and the tally stayed at 0. Interpretation: direction and speed come
+    /// from the drive, so a stopped drive stops the drawing, which is what makes
+    /// the animation a readout rather than decoration.
+    #[test]
+    fn a_stopped_drive_parks_the_pebble_instead_of_moving_it() {
+        let stopped = PebbleTransitDrive {
+            mass_flow: MassRate::new::<kilogram_per_second>(0.0),
+            transit_time: Time::new::<second>(6.0),
+        };
+        let mut handling = PebbleHandling::new();
+        handling.request_add();
+        for _ in 0..100 {
+            handling.advance(Time::new::<second>(1.0), stopped, stopped);
+        }
+        assert_eq!(handling.added(), 0);
+        let positions: Vec<f64> = handling.refuel_transits().positions().collect();
+        assert_eq!(positions, vec![0.0]);
+    }
 
     fn kgs(v: f64) -> MassRate {
         MassRate::new::<kilogram_per_second>(v)

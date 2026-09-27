@@ -2,6 +2,32 @@
 //! ([`outram_park_digital_twin_engine::components`]) in the arrangement an
 //! HTR-10-style pebble-bed HTGR actually has.
 //!
+//! # SUPERSEDED -- [`draw_schematic`] IS NOT DRAWN ANY MORE (verified 2026-09-27)
+//!
+//! **Read this before editing anything below.** The v1 schematic this module
+//! draws was replaced by the v1.1 plant view on 2026-09-22, and
+//! [`draw_schematic`] now has **no callers anywhere in the workspace** --
+//! verified by grepping every `*.rs` and `*.md` outside `target/` on
+//! 2026-09-27, which finds only its own definition and one passing mention in a
+//! comment further down this file. `rustc` does not warn about it, because a
+//! free `pub fn` in a `pub mod` of a *binary* crate escapes the `dead_code`
+//! lint, so the file looks live and is not.
+//!
+//! **The panel a reader sees is [`crate::app::plant_v1_1::draw_plant_v1_1`]**,
+//! reached through [`crate::app::panels::draw_schematic_panel`], and it builds
+//! [`Htr10ReactorSchematic`](outram_park_digital_twin_engine::components::Htr10ReactorSchematic)
+//! -- the *simplified* HTR-10 widget with the refuelling and defuelling chutes
+//! -- not the [`Htr10ReactorVesselVisual`] cut-away this module uses. A change
+//! to what the plant schematic shows belongs there. Adding it here draws
+//! nothing: that is exactly the trap GitHub issue #347's first session walked
+//! into.
+//!
+//! What still earns this file its place: [`SchematicTracers`] and
+//! [`feed_and_condensate_temps`] are used by `plant_v1_1`, and the tests at the
+//! bottom still run. Kept rather than deleted for those, and because the
+//! layout reasoning in these module docs is the record of how the arrangement
+//! was corrected (GitHub issue #154).
+//!
 //! ## The arrangement is the point
 //!
 //! The defining feature of this plant is not the equipment list, it is the

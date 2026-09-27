@@ -13,6 +13,9 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
 use outram_park_digital_twin_engine::app_scaffold::{CsvSnapshotPanel, PanelSet, SharedState};
+use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
+    pebble_handling_controls, pebble_handling_id,
+};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
 use crate::app::plant_v1_1::draw_plant_v1_1;
@@ -318,6 +321,8 @@ pub fn draw_controls(
         );
     }
 
+    draw_pebble_handling_controls(ui);
+
     draw_secondary_controls(ui, physics, snapshot, *display_unit);
 
     ui.add_space(12.0);
@@ -386,6 +391,63 @@ pub fn draw_controls(
          inventories are illustrative, not a specific licensed design. Not \
          validated; not for any operational, licensing or safety use.",
     );
+}
+
+/// The **[Add pebble]** / **[Remove pebble]** buttons, and the label that says
+/// what they do not do.
+///
+/// # These change the DRAWING only, and that is the maintainer's call
+///
+/// **Maintainer direction, 2026-09-27 (GitHub issue #347).** Asked what these
+/// buttons should do, the maintainer chose **schematic animation only, with no
+/// physics coupling**: a pebble is drawn travelling up the refuelling chute or
+/// down the defuelling route of
+/// [`Htr10ReactorSchematic`](outram_park_digital_twin_engine::components::Htr10ReactorSchematic),
+/// and **no physical number moves**. That is permitted route 1 of the two in
+/// this crate's `CLAUDE.md` ("The only two ways a hardcoded value is
+/// permitted" — the maintainer asked for it), recorded here so a later reader
+/// does not "fix" it back into physics.
+///
+/// Two options were considered and **not** chosen, recorded in #347 so they are
+/// not re-litigated: making the live inventory operator-commanded
+/// (`physics::pebble_bed::pebble_count()`, which is called from about ten sites
+/// and against which several V&V numbers are recorded), and modelling HTR-10's
+/// real online refuelling, which needs a burnup or residence-time state the
+/// one-node bed does not carry.
+///
+/// # Why the label is the load-bearing part
+///
+/// A control that looks like it changes the plant and does not is the same
+/// class of defect as a hardcoded animation: it cannot be wrong on screen, so
+/// it can never reveal a fault — and a user will reasonably read a pebble
+/// leaving as inventory changing. So the caption says so in as many words, and
+/// it **quotes `physics::pebble_bed::pebble_count()`** rather than the literal
+/// 27 000, so the figure it calls fixed is the one the model actually uses.
+///
+/// # Where the state lives
+///
+/// In `egui`'s per-context store, not on
+/// [`HtgrSimApp`](crate::app::HtgrSimApp): this panel is handed only the shared
+/// physics state and a display unit, and the drawing that consumes the transits
+/// is in a different panel
+/// ([`crate::app::plant_v1_1::draw_plant_v1_1`]). Both sides reach it through
+/// the engine's `pebble_handling_id`, and the engine advances it at most once
+/// per frame whichever panel gets there first — so a pebble does not freeze
+/// mid-chute while the operator is on another tab.
+fn draw_pebble_handling_controls(ui: &mut Ui) {
+    ui.add_space(12.0);
+    ui.separator();
+    ui.label(egui::RichText::new("Pebble handling \u{2014} drawing only").strong());
+    pebble_handling_controls(ui, pebble_handling_id());
+    ui.small(format!(
+        "[Add pebble] lifts one pebble up the refuelling chute; [Remove pebble] sends one, \
+         highlighted, down the defuelling route and out. THESE CHANGE THE DRAWING ONLY. The \
+         bed inventory is fixed at the derived {:.0} fuel elements and no physical number \
+         moves - not filling fraction, thermal mass, heat-transfer area, reactivity or any \
+         time constant. Animation-only was the maintainer's call, 2026-09-27 (GitHub issue \
+         #347).",
+        crate::physics::pebble_bed::pebble_count()
+    ));
 }
 
 /// Secondary-side operator controls: the feedwater station and the condenser.

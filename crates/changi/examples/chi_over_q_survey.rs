@@ -19,7 +19,9 @@
 
 use changi::activity::chi_over_q::{dilution_factors, StabilitySource};
 use changi::puff::climatology::MEAN_WIND_SPEED_M_PER_S;
-use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
+use changi::puff::simulate::{
+    constant_wind, AdvectionPolicy, EmissionPolicy, Receptor, RunConfig, Source,
+};
 use changi::puff::stability::StabilityClass;
 use uom::si::f64::{Frequency, Length, Time, Velocity};
 use uom::si::frequency::hertz;
@@ -64,6 +66,7 @@ fn main() {
         puff_duration: Time::new::<second>(PUFF_LIFETIME_S),
         start_hour: 12,
         emission_policy: EmissionPolicy::OnePuffPerEmission,
+        advection: AdvectionPolicy::default(),
     };
 
     let source = Source {

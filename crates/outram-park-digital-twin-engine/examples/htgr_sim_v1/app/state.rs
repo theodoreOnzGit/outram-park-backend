@@ -66,6 +66,31 @@ pub struct ReceptorSnapshot {
     /// Dilution factor `chi/Q` in s/m^3 -- independent of the source, and
     /// therefore of every inventory and leak-rate input in the chain.
     pub chi_over_q: f64,
+    /// **Instantaneous** `chi/Q` at this receptor \[s/m^3\] — the LIVE one.
+    ///
+    /// # Two chi/Q on one row, deliberately
+    ///
+    /// [`Self::chi_over_q`] above is the **time-integrated** dilution factor from
+    /// `changi::activity::dilution_factors`. It is what the activity columns are
+    /// built on, and it refreshes on the dispersion channel's 60 s throttle
+    /// because it costs `O(steps x puffs x receptors)` twice over.
+    ///
+    /// This one is the instantaneous field sampled at the same point, refreshing
+    /// with the map at 10 Hz (maintainer direction 2026-09-27: *"sampling
+    /// datapoints at those positions in the ring is useful and needs a live
+    /// update"*).
+    ///
+    /// **They are different quantities and will not agree** — one is s/m^3
+    /// accumulated over a whole puff run, the other s/m^3 standing at an instant.
+    /// Both carry the same units, which is exactly why they are named apart and
+    /// why the table labels them.
+    ///
+    /// This is the one that **does** agree with the map: it comes from the same
+    /// kernel and the same puff population the grid is painted from, so a row and
+    /// the cell under it are the same number. `DispersionGrid`'s warning that a
+    /// cell must not be compared to a table row applies to `chi_over_q`, not to
+    /// this.
+    pub instantaneous_chi_over_q: f64,
     /// Time-integrated air concentration, Bq.s/m^3 per Ci of core inventory.
     /// Not a concentration at any reactor.
     pub air_bq_s_per_m3: f64,
@@ -301,8 +326,15 @@ pub struct HtgrSnapshot {
     /// Published separately from [`Self::sim_time_s`] precisely because the
     /// two can differ -- the operator can run the plume ahead of the plant.
     /// The Map tab shows both. See
-    /// [`crate::physics::atmospheric_dispersion::MapFieldRequest`] for why
-    /// that is exact for the field and for what it must never be read as.
+    /// [`crate::physics::atmospheric_dispersion::MapFieldRequest`] for what a
+    /// displaced plume clock must never be read as.
+    ///
+    /// ~~"for why that is exact for the field"~~ **CORRECTED 2026-09-27.** It
+    /// is not exact. Since gh:#344 the field is a **marched** Lagrangian puff
+    /// population, so a clock ahead of the plant has been marched under the
+    /// wind currently in force -- an extrapolation under "this wind held" --
+    /// and a clock moved *backwards* has had the population cleared and
+    /// re-marched from the stack, because the march is not invertible.
     pub dispersion_grid_time_s: f64,
     /// Cells per side the Map tab is asking the dispersion field for.
     ///
@@ -320,9 +352,16 @@ pub struct HtgrSnapshot {
     /// A **control input**, written by the GUI's jump buttons. It moves the
     /// dispersion field only. The plant, the release channel and the receptor
     /// table stay on the plant clock, because those depend on the source and
-    /// the plant genuinely cannot skip time; the field does not depend on the
-    /// source at all, so evaluating it later is the same closed form at a
-    /// later argument. See
+    /// the plant genuinely cannot skip time, whereas the field does not depend
+    /// on the source at all and so can be moved without the plant computing
+    /// the interval.
+    ///
+    /// ~~"so evaluating it later is the same closed form at a later
+    /// argument"~~ **CORRECTED 2026-09-27**: the field is now a marched puff
+    /// population with history, so a positive offset is marched under the
+    /// current wind (an extrapolation, not an exact evaluation) and a negative
+    /// one clears and restarts the population. The Map tab states both at the
+    /// buttons; see
     /// [`crate::physics::atmospheric_dispersion::MapFieldRequest::plume_clock_offset`].
     pub plume_clock_offset_s: f64,
     /// Operator wind speed, m/s, driving the dispersion model.

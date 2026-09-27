@@ -59,9 +59,13 @@
 
 
 use egui::{Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Ui, Vec2};
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
 
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
+use outram_park_digital_twin_engine::components::LegendUnit;
 
+use super::panels::{temperature_display, temperature_unit_symbol};
 use super::state::HtgrSnapshot;
 use crate::physics::reactor_model::htr10_rz_geometry::{
     axial_ticks_cm, htr10_rz_zones, radial_ticks_cm, Htr10RzZone, ZoneMaterial,
@@ -88,12 +92,17 @@ const COLOUR_SCALE_HOT_K: f64 = 1400.0;
 ///
 /// Returns a flat grey for `NAN`, which is how an unresolved quantity reaches
 /// this tab -- see the module doc on why nothing falls back to the bed.
-fn temperature_colour(kelvin: f64) -> Color32 {
-    if !kelvin.is_finite() {
+///
+/// The parameter is `value_k`, not `kelvin`: this module imports `uom`'s
+/// `kelvin` unit marker (for [`format_temperature`]), and a parameter of that
+/// name shadows it.
+fn temperature_colour(value_k: f64) -> Color32 {
+    if !value_k.is_finite() {
         return Color32::from_gray(90);
     }
-    let hotness =
-        ((kelvin - COLOUR_SCALE_COLD_K) / (COLOUR_SCALE_HOT_K - COLOUR_SCALE_COLD_K)).clamp(0.0, 1.0);
+    let hotness = ((value_k - COLOUR_SCALE_COLD_K)
+        / (COLOUR_SCALE_HOT_K - COLOUR_SCALE_COLD_K))
+        .clamp(0.0, 1.0);
     hot_to_cold_colour_mark_1(hotness as f32)
 }
 
@@ -132,7 +141,7 @@ fn zone_temperature_k(material: ZoneMaterial, s: &HtgrSnapshot) -> Option<f64> {
 }
 
 /// Draw the R-Z core cross-section, coloured from the live snapshot.
-fn draw_live_cross_section(ui: &mut Ui, s: &HtgrSnapshot) {
+fn draw_live_cross_section(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
     let zones = htr10_rz_zones();
     let r_max = radial_ticks_cm().iter().cloned().fold(0.0_f64, f64::max);
     let z_max = axial_ticks_cm().iter().cloned().fold(0.0_f64, f64::max);
@@ -187,8 +196,8 @@ fn draw_live_cross_section(ui: &mut Ui, s: &HtgrSnapshot) {
             Align2::CENTER_CENTER,
             format!(
                 "bed {}\nkernel {}",
-                format_kelvin(s.bed_temperature_k),
-                format_kelvin(s.peak_kernel_temperature_k)
+                format_temperature(unit, s.bed_temperature_k),
+                format_temperature(unit, s.peak_kernel_temperature_k)
             ),
             FontId::proportional(11.0),
             Color32::from_gray(20),
@@ -222,13 +231,59 @@ fn polygon_centroid(vertices: &[(f64, f64)]) -> (f64, f64) {
     (cx / (3.0 * area2), cy / (3.0 * area2))
 }
 
-/// Format a kelvin scalar, rendering `NAN` as `--`.
+/// Format a snapshot temperature scalar in the operator's display unit,
+/// rendering `NAN` as `--`.
 ///
 /// The `--` is load-bearing: it is what the two placeholder fidelity tiers
 /// show instead of a fabricated fuel temperature.
-fn format_kelvin(k: f64) -> String {
-    if k.is_finite() {
-        format!("{k:.1} K")
+///
+/// # Why this takes a unit (added 2026-09-27, maintainer request)
+///
+/// ~~`fn format_kelvin(k: f64) -> String` -- hardcoded ` K`.~~ This tab, which
+/// carries the TRISO-ATOPS interface, was the **only** screen in the simulator
+/// that ignored the operator's temperature-display choice: the schematic, the
+/// plots, the diagnostics table and the colour legend all followed
+/// [`LegendUnit`] already, so switching to degrees Celsius left the fuel
+/// temperatures alone in kelvin beside them. That is the classic way to read a
+/// 973 as a Celsius number.
+///
+/// It reuses [`temperature_display`] rather than formatting here, so the tab
+/// cannot drift from the rest of the GUI, and the guarantee that function
+/// documents carries over unchanged: the value is rewrapped into a `uom`
+/// [`ThermodynamicTemperature`] first, so the toggle can only choose **which
+/// `uom` accessor runs**, never scale a raw number. The display unit reaches
+/// nothing but the string -- it is not in [`HtgrSnapshot`] and not in
+/// `PlantCommands`, so no correlation, controller or solver can see it.
+fn format_temperature(unit: LegendUnit, value_k: f64) -> String {
+    if value_k.is_finite() {
+        temperature_display(
+            unit,
+            ThermodynamicTemperature::new::<kelvin>(value_k),
+            1,
+        )
+    } else {
+        "--".to_string()
+    }
+}
+
+/// Format a temperature **interval** (a rise, a drop, an offset) in the
+/// operator's display unit, rendering `NAN` as `--`.
+///
+/// # An interval is NOT a temperature, and must not go through the converter
+///
+/// `10 K` of rise is `10 degC` of rise: the two scales differ by an offset, and
+/// an offset cancels in a difference. So the magnitude is passed through
+/// **unconverted** and only the printed symbol changes. Handing a difference to
+/// [`format_temperature`] would subtract 273.15 from it and report a 10 K rise
+/// as a `-263.15 degC` one -- which is exactly the error this crate's `uom`
+/// discipline exists to catch, and is the reason this is a separate function
+/// with its own name rather than a `decimals` argument on the one above.
+///
+/// The `+` sign is kept: on a profile table the direction of the step is the
+/// information, and an unsigned column reads as a magnitude.
+fn format_temperature_interval(unit: LegendUnit, delta_k: f64) -> String {
+    if delta_k.is_finite() {
+        format!("{:+.2} {}", delta_k, temperature_unit_symbol(unit))
     } else {
         "--".to_string()
     }
@@ -242,7 +297,7 @@ fn format_kelvin(k: f64) -> String {
 /// because a 0.46 mm particle inside a 30 mm ball is four pixels at any size
 /// this panel can be. **That exaggeration is a drawing choice and is labelled
 /// on screen as one** -- the temperatures it carries are not exaggerated.
-fn draw_pebble_drilldown(ui: &mut Ui, s: &HtgrSnapshot) {
+fn draw_pebble_drilldown(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
     let size = ui.available_width().min(300.0).max(180.0);
     let (response, painter) = ui.allocate_painter(Vec2::new(size, size), Sense::hover());
     let rect = response.rect;
@@ -290,7 +345,7 @@ fn draw_pebble_drilldown(ui: &mut Ui, s: &HtgrSnapshot) {
     painter.text(
         centre,
         Align2::CENTER_CENTER,
-        format_kelvin(s.peak_kernel_temperature_k),
+        format_temperature(unit, s.peak_kernel_temperature_k),
         FontId::proportional(11.0),
         Color32::from_gray(15),
     );
@@ -315,7 +370,7 @@ fn mean_finite(a: f64, b: f64) -> f64 {
 
 /// The solved profile as a table, surface outward-in, with the drop across
 /// each region.
-fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot) {
+fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
     egui::Grid::new("htgr_map_profile_grid")
         .num_columns(3)
         .striped(true)
@@ -328,9 +383,11 @@ fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot) {
             let mut previous = f64::NAN;
             let row = |ui: &mut Ui, name: &str, value: f64, previous: &mut f64| {
                 ui.label(name);
-                ui.label(format_kelvin(value));
+                ui.label(format_temperature(unit, value));
+                // A RISE, so it goes through the interval formatter: see that
+                // function's doc on why a difference must not be converted.
                 let delta = if value.is_finite() && previous.is_finite() {
-                    format!("{:+.2} K", value - *previous)
+                    format_temperature_interval(unit, value - *previous)
                 } else {
                     "--".to_string()
                 };
@@ -351,12 +408,9 @@ fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot) {
     ui.add_space(4.0);
     ui.label(format!(
         "Bed node (ball volume average): {}   |   kernel above the node: {}",
-        format_kelvin(s.bed_temperature_k),
-        if s.kernel_offset_k.is_finite() {
-            format!("{:+.2} K", s.kernel_offset_k)
-        } else {
-            "--".to_string()
-        }
+        format_temperature(unit, s.bed_temperature_k),
+        // An OFFSET, not a temperature -- interval formatter.
+        format_temperature_interval(unit, s.kernel_offset_k)
     ));
     ui.label(format!(
         "Kernel Doppler channel: {:+.4} $  (zero at the design point by construction; \
@@ -366,7 +420,7 @@ fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot) {
 }
 
 /// The TRISO-ATOPS release table.
-fn draw_release_table(ui: &mut Ui, s: &HtgrSnapshot) {
+fn draw_release_table(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
     ui.label(
         "TRISO-ATOPS fission-product release, evaluated at the peak kernel temperature. \
          EVERY VALUE IS PER CURIE OF THAT NUCLIDE'S CORE INVENTORY -- this model derives no \
@@ -374,7 +428,7 @@ fn draw_release_table(ui: &mut Ui, s: &HtgrSnapshot) {
     );
     ui.label(format!(
         "Last evaluated at kernel {}",
-        format_kelvin(s.release_evaluated_at_kernel_k)
+        format_temperature(unit, s.release_evaluated_at_kernel_k)
     ));
     ui.add_space(4.0);
 
@@ -420,7 +474,7 @@ fn draw_release_table(ui: &mut Ui, s: &HtgrSnapshot) {
 }
 
 /// Draw the colour scale, so a reader can decode the map.
-fn draw_colour_legend(ui: &mut Ui) {
+fn draw_colour_legend(ui: &mut Ui, unit: LegendUnit) {
     let (response, painter) =
         ui.allocate_painter(Vec2::new(ui.available_width().min(320.0), 26.0), Sense::hover());
     let rect = response.rect;
@@ -439,14 +493,14 @@ fn draw_colour_legend(ui: &mut Ui) {
     painter.text(
         Pos2::new(rect.left(), rect.bottom()),
         Align2::LEFT_BOTTOM,
-        format!("{COLOUR_SCALE_COLD_K:.0} K"),
+        format_temperature(unit, COLOUR_SCALE_COLD_K),
         FontId::proportional(9.0),
         Color32::from_gray(160),
     );
     painter.text(
         Pos2::new(rect.right(), rect.bottom()),
         Align2::RIGHT_BOTTOM,
-        format!("{COLOUR_SCALE_HOT_K:.0} K"),
+        format_temperature(unit, COLOUR_SCALE_HOT_K),
         FontId::proportional(9.0),
         Color32::from_gray(160),
     );
@@ -483,7 +537,7 @@ fn zone_render_polygons(zone: &Htr10RzZone) -> Vec<Vec<(f64, f64)>> {
 }
 
 /// Draw the whole "Live thermal state and FP release" tab.
-pub fn draw_thermal(ui: &mut Ui, s: &HtgrSnapshot) {
+pub fn draw_thermal(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
     ui.heading("Live thermal state and fission-product release");
     ui.label(
         "The published HTR-10 R-Z benchmark geometry, coloured from the live plant state, then \
@@ -492,21 +546,21 @@ pub fn draw_thermal(ui: &mut Ui, s: &HtgrSnapshot) {
          temperature for -- not missing data, not modelled.",
     );
     ui.separator();
-    draw_colour_legend(ui);
+    draw_colour_legend(ui, unit);
     ui.separator();
 
     ui.columns(2, |columns| {
         columns[0].label("Core, R-Z (cm)");
-        draw_live_cross_section(&mut columns[0], s);
+        draw_live_cross_section(&mut columns[0], s, unit);
 
         columns[1].label("Pebble and coated particle");
-        draw_pebble_drilldown(&mut columns[1], s);
+        draw_pebble_drilldown(&mut columns[1], s, unit);
         columns[1].add_space(6.0);
-        draw_profile_table(&mut columns[1], s);
+        draw_profile_table(&mut columns[1], s, unit);
     });
 
     ui.separator();
-    draw_release_table(ui, s);
+    draw_release_table(ui, s, unit);
 }
 
 #[cfg(test)]
@@ -524,8 +578,9 @@ mod tests {
     /// carries no sign that anything is missing.
     #[test]
     fn an_unresolved_pebble_renders_as_dashes_not_as_the_bed() {
-        assert_eq!(format_kelvin(f64::NAN), "--");
-        assert_eq!(format_kelvin(950.0), "950.0 K");
+        assert_eq!(format_temperature(LegendUnit::Kelvin, f64::NAN), "--");
+        assert_eq!(format_temperature(LegendUnit::Celsius, f64::NAN), "--");
+        assert_eq!(format_temperature(LegendUnit::Kelvin, 950.0), "950.0 K");
         // A half-resolved profile must not average its way to a number.
         assert!(mean_finite(900.0, f64::NAN).is_nan());
         assert!(mean_finite(f64::NAN, 900.0).is_nan());
@@ -534,6 +589,59 @@ mod tests {
         // which is the same grey unmodelled structure gets -- so an
         // unresolved kernel cannot be mistaken for a cold one.
         assert_eq!(temperature_colour(f64::NAN), Color32::from_gray(90));
+    }
+
+    /// The temperature-display toggle must reach this tab, and a temperature
+    /// **interval** must not be converted.
+    ///
+    /// # Methodology
+    ///
+    /// Two properties, both checkable without a window:
+    ///
+    /// 1. **The toggle is wired.** The same scalar formatted in each unit must
+    ///    give different strings, carrying the right symbol, and the Celsius
+    ///    value must be the kelvin one less 273.15 -- i.e. the conversion is
+    ///    the `uom` one, not a relabelling.
+    /// 2. **An interval is offset-free.** A 50 K rise is a 50 degC rise. The
+    ///    interval formatter must therefore print the *same magnitude* in both
+    ///    units and change only the symbol. This is the assertion that would
+    ///    catch a future edit routing a difference through
+    ///    [`format_temperature`], which would report a 50 K rise as
+    ///    `-223.15 degC`.
+    ///
+    /// # Results (2026-09-27)
+    ///
+    /// | Input | Kelvin | Celsius |
+    /// |---|---|---|
+    /// | `973.15` (a temperature) | `973.1 K` | `700.0 degC` |
+    /// | `+50.0` (an interval) | `+50.00 K` | `+50.00 degC` |
+    ///
+    /// **Interpretation.** The TRISO-ATOPS tab now follows the operator's unit
+    /// choice like every other screen, and the one place where naive reuse
+    /// would have introduced a 273.15 error is pinned against it.
+    #[test]
+    fn the_display_unit_reaches_this_tab_and_intervals_are_not_converted() {
+        // (1) A temperature converts.
+        let k = format_temperature(LegendUnit::Kelvin, 973.15);
+        let c = format_temperature(LegendUnit::Celsius, 973.15);
+        // `973.1`, not `973.2`: 973.15 is not representable in binary and
+        // lands just below the half, so `{:.1}` rounds down. Recorded as
+        // measured rather than nudged -- it is the formatter's real behaviour.
+        assert_eq!(k, "973.1 K");
+        assert_eq!(c, "700.0 \u{b0}C");
+        assert_ne!(k, c, "the toggle must actually change the rendered string");
+
+        // (2) An interval does NOT convert -- same number, different symbol.
+        let dk = format_temperature_interval(LegendUnit::Kelvin, 50.0);
+        let dc = format_temperature_interval(LegendUnit::Celsius, 50.0);
+        assert_eq!(dk, "+50.00 K");
+        assert_eq!(dc, "+50.00 \u{b0}C");
+        assert!(
+            dk.starts_with("+50.00") && dc.starts_with("+50.00"),
+            "a temperature interval has the same magnitude in K and degC; got {dk} and {dc}"
+        );
+        // And an unresolved interval stays unresolved rather than printing +0.
+        assert_eq!(format_temperature_interval(LegendUnit::Celsius, f64::NAN), "--");
     }
 
     /// The colour scale must be monotone and must clamp rather than wrap.

@@ -7,11 +7,17 @@
 //! The two run modes: concentration at named sensors, and on a regular grid.
 //!
 //! Both march a fixed time step, emit a puff every `puff_dt`, advect every live
-//! puff analytically from its own emission time, and sum the contributions.
-//! They differ in *where* concentrations are evaluated and — more consequentially
-//! — in *how they are reduced in time*: sensor mode averages over each output
-//! interval, grid mode samples instantaneously at the end of it. See
-//! [`simulate_grid_mode`] for why that asymmetry matters.
+//! puff, and sum the contributions. They differ in *where* concentrations are
+//! evaluated and — more consequentially — in *how they are reduced in time*:
+//! sensor mode averages over each output interval, grid mode samples
+//! instantaneously at the end of it. See [`simulate_grid_mode`] for why that
+//! asymmetry matters.
+//!
+//! **How a puff is advected is a policy** — see [`AdvectionPolicy`]. The
+//! default integrates each puff's own trajectory step by step with the wind
+//! that actually blows, so a puff *turns* when the wind turns and remembers
+//! where it had got to. Upstream's analytic `source + u_emit * age` is retained
+//! as the bug-compatible variant the code-to-code fixture asks for by name.
 
 use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};
 use uom::si::length::meter;
@@ -24,6 +30,83 @@ use uom::si::velocity::meter_per_second;
 use super::concentration::{gaussian_puff_concentration, gaussian_puff_methane_ppm};
 use super::stability::{stability_class, StabilityClass, StabilitySet};
 use super::wind::{wind_speed, WindComponents};
+
+/// How a live puff's position and dispersion distance are obtained.
+///
+/// # Why this exists — a puff that cannot turn is not Lagrangian
+///
+/// Upstream places a puff analytically: it stores the wind sampled at the
+/// puff's **moment of emission** and, forever after, puts the puff at
+/// `source + (u, v) * age`. A puff therefore flies a perfectly straight line on
+/// the wind of its birth, and **never responds to the wind again**. For the
+/// steady wind upstream's own examples run at that is exact and free. For a
+/// wind that veers — which is the case a puff model is reached for in the first
+/// place — it is wrong: a plume that should bend into a dog-leg stays a
+/// straight ray, and the model has no memory of where each puff had actually
+/// got to.
+///
+/// A *Lagrangian* treatment is the fix, and it is what the word already
+/// promises: each puff is a parcel carrying its own state, and its position is
+/// the **integral of the wind it has actually experienced**,
+///
+/// ```text
+/// (x, y)_{n+1} = (x, y)_n + (u, v)(t_n) * dt
+/// ```
+///
+/// so the wind changing rotates only what happens *next*. History is state, not
+/// something recomputed from the present.
+///
+/// # Dispersion distance: PATH LENGTH, not net displacement
+///
+/// The second half of the fix, and the easier one to miss. Pasquill–Gifford
+/// `sigma_y`, `sigma_z` grow with the distance a puff has travelled *through
+/// the turbulent field*. On a straight trajectory that is the same number as
+/// the straight-line distance from the source, which is why upstream can write
+/// `hypot(dx, dy)` and be right. On a curved trajectory the two part company,
+/// and net displacement is the wrong one — a puff blown 500 m east and then
+/// 500 m back west has dispersed for 1 km of travel while sitting 0 m from the
+/// stack, and `hypot` would call it undispersed.
+///
+/// [`Self::LagrangianTrajectory`] therefore accumulates **path length**
+/// alongside position. [`Self::UpstreamFrozenWind`] keeps `hypot`, because on
+/// its straight ray the two agree identically and the fixture compares digits.
+///
+/// # The two agree exactly for a constant wind — by construction
+///
+/// Marching `dx += u * dt` for `n` steps gives `u * n * dt = u * age`, so on a
+/// constant wind the Lagrangian population sits exactly where the analytic one
+/// does, and the accumulated path equals `|U| * age`. The difference is
+/// therefore confined to precisely the case upstream gets wrong.
+///
+/// It is **not bit-identical**: `n` accumulated additions do not round the same
+/// way as one multiplication. That is the whole reason the bug-compatible
+/// variant has to exist rather than being inferred — `tests/puff_code_to_code.rs`
+/// compares against upstream R near machine epsilon, and a summation-order
+/// difference of a few ulps would read as a translation error.
+/// `tests::the_two_advection_policies_agree_on_a_constant_wind` measures the
+/// actual agreement.
+///
+/// # Which is the default, and why
+///
+/// [`Self::LagrangianTrajectory`], because the workspace rule is that physics
+/// the model is meant to represent is applied unless a caller explicitly
+/// ablates it, and an ablation must be a visible act rather than the default
+/// state. Same reasoning, and the same shape, as [`EmissionPolicy`] in this
+/// file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AdvectionPolicy {
+    /// **Default.** Integrate each puff's trajectory with the wind that
+    /// actually blows at each step, accumulating position and path length. A
+    /// puff turns when the wind turns, and keeps the position it had reached.
+    #[default]
+    LagrangianTrajectory,
+    /// **Bug-compatible.** Upstream's analytic placement: the wind is frozen at
+    /// emission and the puff is put at `source + u_emit * age`, with dispersion
+    /// distance `hypot` of that displacement. A puff never turns. Required to
+    /// reproduce upstream's numbers digit for digit, and used by the
+    /// code-to-code fixture for exactly that reason.
+    UpstreamFrozenWind,
+}
 
 /// How many puffs an emission event produces when the stability class is
 /// ambiguous.
@@ -117,6 +200,9 @@ pub struct RunConfig {
     pub start_hour: u32,
     /// Which emission policy to apply. See [`EmissionPolicy`].
     pub emission_policy: EmissionPolicy,
+    /// How puffs are advected. See [`AdvectionPolicy`]; the default is the
+    /// Lagrangian trajectory, and upstream's frozen wind must be asked for.
+    pub advection: AdvectionPolicy,
 }
 
 /// One live puff.
@@ -126,13 +212,81 @@ pub struct RunConfig {
 /// the public API and is not re-exported — the visibility is the minimum that
 /// lets one crate-internal consumer reuse this loop, and no field or method of
 /// it changed when that consumer was added.
+///
+/// # The trajectory fields are DISPLACEMENTS from the source, not absolute
+///
+/// `dx_m`, `dy_m` are measured from the emitting source's position, so a puff
+/// does not need to know where it was born and [`emit_with_classes`] does not
+/// need the [`Source`] passed to it. Every source emits into its own `live`
+/// vector and the wind is source-independent, so a source-relative trajectory
+/// is exactly as general as an absolute one — and it keeps the `pub(crate)`
+/// emission interface [`crate::activity`] shares unchanged.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Puff {
     pub(crate) time_emitted_s: f64,
+    /// Wind at the **moment of emission**. Read only by
+    /// [`AdvectionPolicy::UpstreamFrozenWind`]; the Lagrangian path has already
+    /// integrated it into `dx_m`/`dy_m` and does not look back at it.
     pub(crate) wind_u: f64,
+    /// See [`Self::wind_u`].
     pub(crate) wind_v: f64,
+    /// Eastward displacement from the source \[m\], integrated step by step.
+    pub(crate) dx_m: f64,
+    /// Northward displacement from the source \[m\], integrated step by step.
+    pub(crate) dy_m: f64,
+    /// **Path length** travelled \[m\] — the argument Pasquill–Gifford wants.
+    /// Not `hypot(dx, dy)`: see [`AdvectionPolicy`] on why net displacement is
+    /// the wrong distance once a trajectory curves.
+    pub(crate) path_m: f64,
     pub(crate) class: StabilityClass,
     pub(crate) mass_kg: f64,
+}
+
+/// A puff's displacement from its source and its dispersion distance, under
+/// whichever [`AdvectionPolicy`] is in force.
+///
+/// Returns `(dx, dy, distance)` in metres. This is the **single** place the
+/// policy is read, so the two call sites that need a puff's position
+/// ([`sum_over_puffs`] and [`puff_unit_response`]) cannot disagree about it.
+fn puff_offset(p: &Puff, policy: AdvectionPolicy, elapsed_s: f64) -> (f64, f64, f64) {
+    match policy {
+        AdvectionPolicy::LagrangianTrajectory => (p.dx_m, p.dy_m, p.path_m),
+        AdvectionPolicy::UpstreamFrozenWind => {
+            let age = elapsed_s - p.time_emitted_s;
+            let dx = p.wind_u * age;
+            let dy = p.wind_v * age;
+            (dx, dy, dx.hypot(dy))
+        }
+    }
+}
+
+/// Advance every live puff by one step of `dt` on `wind`.
+///
+/// A no-op under [`AdvectionPolicy::UpstreamFrozenWind`], whose positions are
+/// derived from age on demand and must not be marched.
+///
+/// Forward Euler on the wind at the **start** of the interval the puff
+/// traverses, which is the sample upstream would have indexed had it advected
+/// at all. It is exact for a constant wind (see [`AdvectionPolicy`]) and
+/// first-order in `dt` otherwise; `sim_dt` is 10 s at this crate's working
+/// points, against wind that changes on minutes, so the truncation error is far
+/// below the dispersion model's own fidelity. Stated rather than assumed.
+pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy) {
+    if policy == AdvectionPolicy::UpstreamFrozenWind {
+        return;
+    }
+    let u = wind.u.get::<meter_per_second>();
+    let v = wind.v.get::<meter_per_second>();
+    let dt_s = dt.get::<second>();
+    let step_dx = u * dt_s;
+    let step_dy = v * dt_s;
+    // The length of THIS leg, accumulated — not recomputed from the endpoints.
+    let leg = step_dx.hypot(step_dy);
+    for p in live.iter_mut() {
+        p.dx_m += step_dx;
+        p.dy_m += step_dy;
+        p.path_m += leg;
+    }
 }
 
 /// Concentration at each sensor, averaged over each output interval.
@@ -219,6 +373,12 @@ pub(crate) fn emit_with_classes(
         time_emitted_s: elapsed_s,
         wind_u: wind.u.get::<meter_per_second>(),
         wind_v: wind.v.get::<meter_per_second>(),
+        // A newly emitted puff is AT its source and has travelled nothing. It is
+        // advected for the first time on the next step, which is what makes the
+        // marched position equal `u * age` on a constant wind.
+        dx_m: 0.0,
+        dy_m: 0.0,
+        path_m: 0.0,
         class: set.primary(),
         mass_kg: q_per_puff,
     };
@@ -238,13 +398,18 @@ pub(crate) fn emit_with_classes(
 }
 
 /// Total concentration at one receptor from every live puff, in ppm.
-fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: f64) -> f64 {
+fn sum_over_puffs(
+    live: &[Puff],
+    source: Source,
+    receptor: Receptor,
+    elapsed_s: f64,
+    policy: AdvectionPolicy,
+) -> f64 {
     let mut total = 0.0;
     for p in live {
-        let age = elapsed_s - p.time_emitted_s;
-        let px = source.x.get::<meter>() + p.wind_u * age;
-        let py = source.y.get::<meter>() + p.wind_v * age;
-        let travel = (px - source.x.get::<meter>()).hypot(py - source.y.get::<meter>());
+        let (dx, dy, travel) = puff_offset(p, policy, elapsed_s);
+        let px = source.x.get::<meter>() + dx;
+        let py = source.y.get::<meter>() + dy;
         total += gaussian_puff_methane_ppm(
             Mass::new::<kilogram>(p.mass_kg),
             p.class,
@@ -270,26 +435,29 @@ fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: 
 /// puff's actual contribution multiplies it back in; a caller building a
 /// unit-release response (which is why this exists) does not want it at all.
 ///
-/// It repeats [`sum_over_puffs`]'s advection — `px = source.x + u·age` —
-/// rather than calling it, and that duplication is deliberate.
-/// `sum_over_puffs` goes through [`gaussian_puff_methane_ppm`], whose `1e6 *
-/// 1.524` is methane-specific and whose multiply order is what the code-to-code
-/// fixture compares against upstream R. Routing it through this function would
-/// change that arithmetic to chase a two-line saving. **If the advection is
-/// ever corrected, both copies must move together** — they are pinned to agree
-/// by `activity::chi_over_q::tests::unit_response_agrees_with_the_ported_sum`.
+/// It repeats [`sum_over_puffs`]'s *kernel call* rather than calling it, and
+/// that duplication is deliberate. `sum_over_puffs` goes through
+/// [`gaussian_puff_methane_ppm`], whose `1e6 * 1.524` is methane-specific and
+/// whose multiply order is what the code-to-code fixture compares against
+/// upstream R. Routing it through this function would change that arithmetic to
+/// chase a two-line saving.
+///
+/// **The advection itself is no longer duplicated** — CORRECTED 2026-09-27.
+/// Both sites now call [`puff_offset`], so the policy cannot be applied
+/// inconsistently. The struck instruction below is kept because it is what the
+/// fix was: ~~"If the advection is ever corrected, both copies must move
+/// together"~~ — there is one copy now. The two remain pinned to agree by
+/// `activity::chi_over_q::tests::unit_response_agrees_with_the_ported_sum`.
 pub(crate) fn puff_unit_response(
     p: &Puff,
     source: Source,
     receptor: Receptor,
     elapsed_s: f64,
+    policy: AdvectionPolicy,
 ) -> f64 {
-    let age = elapsed_s - p.time_emitted_s;
-    let sx = source.x.get::<meter>();
-    let sy = source.y.get::<meter>();
-    let px = sx + p.wind_u * age;
-    let py = sy + p.wind_v * age;
-    let travel = (px - sx).hypot(py - sy);
+    let (dx, dy, travel) = puff_offset(p, policy, elapsed_s);
+    let px = source.x.get::<meter>() + dx;
+    let py = source.y.get::<meter>() + dy;
     gaussian_puff_concentration(
         Mass::new::<kilogram>(1.0),
         p.class,
@@ -308,6 +476,13 @@ pub(crate) fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool {
 }
 
 /// Advance the puff population for one step: emit, age, and drop the expired.
+///
+/// **Advection is NOT done here.** It belongs between steps, on the wind that
+/// blew during the interval just traversed, and this function is called *at* a
+/// step with that step's own wind. The two run modes therefore call
+/// [`advect`] themselves before calling this — see [`simulate_sensor_mode`]'s
+/// loop for the ordering and why it makes the marched position equal `u * age`
+/// on a constant wind.
 fn step_population(
     live: &mut Vec<Puff>,
     step: usize,
@@ -381,12 +556,21 @@ pub fn simulate_sensor_mode(
         let mut live: Vec<Puff> = Vec::new();
         for step in 0..n_steps {
             let elapsed = (step as f64) * sim_dt;
+            // Advect first, on the wind that blew over the interval just
+            // traversed, THEN emit — so a puff emitted at this step starts at
+            // its source with zero travel, and one emitted `k` steps ago has
+            // been advected exactly `k` times. On a constant wind that is
+            // `u * age`, identical to upstream's analytic placement.
+            if step > 0 {
+                advect(&mut live, wind[step - 1], config.sim_dt, config.advection);
+            }
             step_population(&mut live, step, elapsed, wind[step], config, emission_rate);
             if live.is_empty() {
                 continue;
             }
             for (j, sensor) in sensors.iter().enumerate() {
-                per_step[step][j] += sum_over_puffs(&live, *source, *sensor, elapsed);
+                per_step[step][j] +=
+                    sum_over_puffs(&live, *source, *sensor, elapsed, config.advection);
             }
         }
     }
@@ -508,6 +692,10 @@ pub fn simulate_grid_mode(
         let mut live: Vec<Puff> = Vec::new();
         for step in 0..n_steps {
             let elapsed = (step as f64) * sim_dt;
+            // Advect then emit — see `simulate_sensor_mode`'s loop.
+            if step > 0 {
+                advect(&mut live, wind[step - 1], config.sim_dt, config.advection);
+            }
             step_population(&mut live, step, elapsed, wind[step], config, emission_rate);
             if live.is_empty() {
                 continue;
@@ -525,7 +713,8 @@ pub fn simulate_grid_mode(
                 continue;
             }
             for (g, receptor) in grid.iter().enumerate() {
-                out[output_idx - 1][g] += sum_over_puffs(&live, *source, *receptor, elapsed);
+                out[output_idx - 1][g] +=
+                    sum_over_puffs(&live, *source, *receptor, elapsed, config.advection);
             }
         }
     }
@@ -555,6 +744,7 @@ mod tests {
             puff_duration: Time::new::<second>(1200.0),
             start_hour,
             emission_policy: policy,
+            advection: AdvectionPolicy::default(),
         }
     }
 
@@ -572,6 +762,199 @@ mod tests {
             y: Length::new::<meter>(10.0),
             z: Length::new::<meter>(2.0),
         }]
+    }
+
+    /// The Lagrangian default must be the default, and a **veering wind must
+    /// bend the plume** rather than sweeping the whole of it onto the new
+    /// bearing.
+    ///
+    /// # Why this test is the point of the whole `AdvectionPolicy` change
+    ///
+    /// Reported 2026-09-27: *"when puff particles go around, and the wind
+    /// direction changes, the puffs don't seem to remember their last known
+    /// location."* Under [`AdvectionPolicy::UpstreamFrozenWind`] that is
+    /// exactly right, and it is upstream's model: a puff's position is
+    /// *recomputed* from its age every time it is evaluated, so it has no
+    /// memory at all — it only looks as though it does while the wind holds
+    /// still.
+    ///
+    /// # Methodology
+    ///
+    /// One puff, emitted at `t = 0`, `sim_dt = 10 s`. The wind blows **due east
+    /// at 5 m/s for 10 steps (100 s)**, then turns **due north at 5 m/s for 10
+    /// steps**. No dispersion kernel is involved: the advection is checked
+    /// directly on the puff's own state, because that is where the defect
+    /// lives.
+    ///
+    /// Predicted, stated before measuring — a real Lagrangian parcel must end
+    /// at the **corner of the dog-leg**, `(500 m east, 500 m north)`, having
+    /// travelled a **path length of 1000 m**, with a net displacement of only
+    /// `707.1 m`. The frozen-wind puff must instead sit at
+    /// `(1000 m east, 0)` — 1000 m along the wind of its *birth*, with the
+    /// second leg never having happened.
+    ///
+    /// # Results (measured 2026-09-27)
+    ///
+    /// | Quantity | Lagrangian | Frozen wind (upstream) |
+    /// |---|---|---|
+    /// | `dx` | **500.0 m** | 1000.0 m |
+    /// | `dy` | **500.0 m** | 0.0 m |
+    /// | dispersion distance | **1000.0 m** (path) | 1000.0 m (`hypot`) |
+    /// | net displacement | 707.1 m | 1000.0 m |
+    ///
+    /// Both match the prediction exactly. Note the dispersion distance agrees
+    /// by coincidence at this particular geometry — the legs are equal — while
+    /// the *positions* are 500 m apart. A test written on the distance alone
+    /// would have passed against the bug.
+    ///
+    /// **Interpretation.** The Lagrangian puff turns and keeps the position it
+    /// had reached; the frozen-wind puff is teleported onto a ray it never
+    /// flew. The path length, not the net displacement, is what feeds
+    /// Pasquill–Gifford — `1000 m` against `707.1 m`, a 41 % error in
+    /// dispersion distance that grows without bound as a trajectory doubles
+    /// back.
+    #[test]
+    fn a_veering_wind_bends_a_lagrangian_puff_and_teleports_an_upstream_one() {
+        assert_eq!(
+            AdvectionPolicy::default(),
+            AdvectionPolicy::LagrangianTrajectory,
+            "correct physics is the default; an ablation must be asked for by name"
+        );
+
+        let dt = Time::new::<second>(10.0);
+        let east = WindComponents {
+            u: Velocity::new::<meter_per_second>(5.0),
+            v: Velocity::new::<meter_per_second>(0.0),
+        };
+        let north = WindComponents {
+            u: Velocity::new::<meter_per_second>(0.0),
+            v: Velocity::new::<meter_per_second>(5.0),
+        };
+
+        // One puff, emitted on the easterly. Its stored emission wind is east,
+        // which is what the frozen-wind policy will keep using.
+        let mut live = Vec::new();
+        emit(
+            &mut live,
+            0.0,
+            east,
+            &cfg(EmissionPolicy::OnePuffPerEmission, 12),
+            MassRate::new::<kilogram_per_second>(1.0),
+        );
+
+        for _ in 0..10 {
+            advect(&mut live, east, dt, AdvectionPolicy::LagrangianTrajectory);
+        }
+        for _ in 0..10 {
+            advect(&mut live, north, dt, AdvectionPolicy::LagrangianTrajectory);
+        }
+        let elapsed = 200.0;
+        let p = live[0];
+
+        let (dx_l, dy_l, dist_l) = puff_offset(&p, AdvectionPolicy::LagrangianTrajectory, elapsed);
+        let (dx_u, dy_u, dist_u) = puff_offset(&p, AdvectionPolicy::UpstreamFrozenWind, elapsed);
+        println!(
+            "VEERING WIND (east 100 s, then north 100 s), one puff at t = {elapsed} s\n  \
+             Lagrangian : dx = {dx_l:.1} m, dy = {dy_l:.1} m, path = {dist_l:.1} m, \
+             net displacement = {:.1} m\n  \
+             frozen wind: dx = {dx_u:.1} m, dy = {dy_u:.1} m, hypot = {dist_u:.1} m",
+            dx_l.hypot(dy_l),
+        );
+
+        // The Lagrangian puff is at the corner of the dog-leg.
+        assert!((dx_l - 500.0).abs() < 1e-9, "dx = {dx_l}, wanted 500 m");
+        assert!((dy_l - 500.0).abs() < 1e-9, "dy = {dy_l}, wanted 500 m");
+        // Its dispersion distance is the PATH, 1000 m, not the 707.1 m chord.
+        assert!((dist_l - 1000.0).abs() < 1e-9, "path = {dist_l}, wanted 1000 m");
+        assert!(
+            dist_l > dx_l.hypot(dy_l),
+            "on a bent trajectory the path {dist_l} must exceed the net displacement {}",
+            dx_l.hypot(dy_l)
+        );
+
+        // The frozen-wind puff never turned: still due east, second leg lost.
+        assert!((dx_u - 1000.0).abs() < 1e-9, "dx = {dx_u}, wanted 1000 m");
+        assert!(dy_u.abs() < 1e-9, "dy = {dy_u}, wanted 0 m -- it never turned");
+        // And it is half a kilometre from where the parcel actually is.
+        assert!(
+            (dx_u - dx_l).hypot(dy_u - dy_l) > 490.0,
+            "the two policies must disagree on a veering wind; they are only \
+             {:.1} m apart",
+            (dx_u - dx_l).hypot(dy_u - dy_l)
+        );
+    }
+
+    /// The two advection policies must agree on a **constant** wind, which is
+    /// what makes the Lagrangian default safe to ship over a verified port.
+    ///
+    /// # Methodology
+    ///
+    /// The identity is algebraic: marching `dx += u*dt` for `n` steps gives
+    /// `u*n*dt = u*age`. So on a constant wind the marched population must sit
+    /// where upstream's analytic one does, and the accumulated path must equal
+    /// `|U|*age`. Checked over a full 1200 s puff lifetime at 10 s steps (120
+    /// advections, the simulator's own working point) on a wind with both
+    /// components non-zero, so a bug in either axis shows.
+    ///
+    /// Asserted at **1e-9 relative**, not at zero: `n` accumulated additions do
+    /// not round the same way as one multiplication, and the residual is real
+    /// floating-point summation error rather than a modelling difference.
+    ///
+    /// # Results (measured 2026-09-27)
+    ///
+    /// Wind `(u, v) = (3.0, -1.5) m/s`, 120 steps of 10 s, `age = 1200 s`:
+    ///
+    /// | Quantity | Analytic | Marched | Relative |
+    /// |---|---|---|---|
+    /// | `dx` | 3600 m | 3600 m | printed by the test |
+    /// | `dy` | -1800 m | -1800 m | printed by the test |
+    /// | distance | 4024.92 m | 4024.92 m | printed by the test |
+    ///
+    /// **Interpretation.** The Lagrangian default reproduces upstream's answer
+    /// wherever upstream's assumption holds, so switching the default changes
+    /// no result computed on a steady wind — including every number in
+    /// `docs/puff-code-to-code.md`, whose fixture is constant-wind throughout.
+    /// It is nonetheless **not bit-identical**, which is why that fixture pins
+    /// [`AdvectionPolicy::UpstreamFrozenWind`] explicitly rather than relying
+    /// on this agreement.
+    #[test]
+    fn the_two_advection_policies_agree_on_a_constant_wind() {
+        let dt = Time::new::<second>(10.0);
+        let wind = WindComponents {
+            u: Velocity::new::<meter_per_second>(3.0),
+            v: Velocity::new::<meter_per_second>(-1.5),
+        };
+        let mut live = Vec::new();
+        emit(
+            &mut live,
+            0.0,
+            wind,
+            &cfg(EmissionPolicy::OnePuffPerEmission, 12),
+            MassRate::new::<kilogram_per_second>(1.0),
+        );
+        let steps = 120;
+        for _ in 0..steps {
+            advect(&mut live, wind, dt, AdvectionPolicy::LagrangianTrajectory);
+        }
+        let elapsed = steps as f64 * dt.get::<second>();
+        let p = live[0];
+        let (dx_l, dy_l, dist_l) = puff_offset(&p, AdvectionPolicy::LagrangianTrajectory, elapsed);
+        let (dx_u, dy_u, dist_u) = puff_offset(&p, AdvectionPolicy::UpstreamFrozenWind, elapsed);
+        let rel = |a: f64, b: f64| if b == 0.0 { a.abs() } else { (a - b).abs() / b.abs() };
+        println!(
+            "CONSTANT WIND ({} , {}) m/s over {elapsed} s in {steps} steps\n  \
+             analytic: dx = {dx_u:.6} m, dy = {dy_u:.6} m, dist = {dist_u:.6} m\n  \
+             marched : dx = {dx_l:.6} m, dy = {dy_l:.6} m, dist = {dist_l:.6} m\n  \
+             relative: dx {:.2e}, dy {:.2e}, dist {:.2e}",
+            wind.u.get::<meter_per_second>(),
+            wind.v.get::<meter_per_second>(),
+            rel(dx_l, dx_u),
+            rel(dy_l, dy_u),
+            rel(dist_l, dist_u),
+        );
+        assert!(rel(dx_l, dx_u) < 1e-9, "dx: {dx_l} against {dx_u}");
+        assert!(rel(dy_l, dy_u) < 1e-9, "dy: {dy_l} against {dy_u}");
+        assert!(rel(dist_l, dist_u) < 1e-9, "distance: {dist_l} against {dist_u}");
     }
 
     /// The default policy conserves mass; the bug-compatible one does not.

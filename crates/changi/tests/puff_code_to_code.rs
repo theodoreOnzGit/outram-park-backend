@@ -88,7 +88,8 @@
 use changi::puff::concentration::gaussian_puff_methane_ppm;
 use changi::puff::dispersion::pasquill_gifford_sigmas;
 use changi::puff::simulate::{
-    constant_wind, simulate_grid_mode, simulate_sensor_mode, EmissionPolicy, Receptor, RunConfig,
+    constant_wind, simulate_grid_mode, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy,
+    Receptor, RunConfig,
     Source,
 };
 use changi::puff::stability::{is_day, stability_class, StabilityClass, StabilitySet};
@@ -577,6 +578,15 @@ fn decode_scenario(a: &[f64]) -> SimScenario {
             puff_duration: Time::new::<second>(a[9]),
             start_hour: hour,
             emission_policy: EmissionPolicy::UpstreamRecycleStabilityClasses,
+            // And upstream's frozen-wind advection, for the same reason as the
+            // emission policy: this fixture reproduces what the R computes,
+            // digit for digit. The Lagrangian default agrees physically on the
+            // fixture's constant wind but accumulates `u*dt` n times instead of
+            // multiplying once, so it differs in the last few ulps -- which at
+            // this comparison's near-epsilon tolerances would read as a
+            // translation error. The corrected default is pinned separately by
+            // `simulate::tests::the_two_advection_policies_agree_on_a_constant_wind`.
+            advection: AdvectionPolicy::UpstreamFrozenWind,
         },
         source: Source {
             x: Length::new::<meter>(a[10]),

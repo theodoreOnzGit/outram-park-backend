@@ -68,6 +68,7 @@ fn main() -> eframe::Result<()> {
     // recording the pre-refactor reference baseline (bead op-fbou) and for
     // regression tests. See `headless`.
     let args: Vec<String> = std::env::args().collect();
+
     if args.iter().any(|a| a == "--headless") {
         let nums: Vec<usize> = args[1..]
             .iter()

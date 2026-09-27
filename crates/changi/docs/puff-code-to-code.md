@@ -129,9 +129,67 @@ the suite catches it.
 
 ## Upstream defects found
 
-Four, all still present at `5213d58`. None has been reported upstream; the
-workspace rule is that the deliverable for a third-party defect is a report, not
-a patch, and the report has not been made yet.
+~~Four~~ **Five**, all still present at `5213d58`. None has been reported
+upstream; the workspace rule is that the deliverable for a third-party defect is
+a report, not a patch, and the report has not been made yet.
+
+### 5. A puff is advected by the wind of its birth and never turns — added 2026-09-27
+
+**Found from a user report, not from the fixture**, which is why it survived a
+verification pass that agrees with upstream to machine epsilon: the fixture is
+constant-wind throughout, and this defect is invisible on a constant wind.
+
+Upstream places a live puff analytically. `simulate_sensor_mode` stores
+`wind_u`, `wind_v` in the puff's own data-frame row **at emission** and then, at
+every later step, computes
+
+```r
+x_p <- x_0 + puff$wind_u * (current_elapsed - puff$time_emitted)
+y_p <- y_0 + puff$wind_v * (current_elapsed - puff$time_emitted)
+total_dist <- sqrt((x_p - x_0)^2 + (y_p - y_0)^2)
+```
+
+A puff therefore flies a straight ray on the wind that was blowing when it was
+released, for its whole 1200 s life, **and never responds to the wind again**.
+The position is *recomputed from age* on every evaluation rather than carried,
+so the model holds no trajectory state at all. Two consequences:
+
+1. **A veering wind cannot bend the plume.** What should become a dog-leg stays
+   a straight ray on the old bearing.
+2. **The dispersion distance is the chord, not the path.** `total_dist` is
+   `hypot` of the net displacement, which equals the distance travelled only
+   while the trajectory is straight. A puff blown out and partly back has
+   dispersed for its whole path while sitting much closer to the source.
+
+Both are fixed by `AdvectionPolicy::LagrangianTrajectory`, which is this port's
+**default**: each puff carries `(dx, dy)` and an accumulated **path length**,
+integrated `dx += u(t)·dt` step by step. Upstream's behaviour is retained as
+`AdvectionPolicy::UpstreamFrozenWind` and is what this fixture pins.
+
+**Measured, one puff, wind due east at 5 m/s for 100 s then due north at 5 m/s
+for 100 s** (`simulate::tests::a_veering_wind_bends_a_lagrangian_puff_and_teleports_an_upstream_one`):
+
+| Quantity | Lagrangian (this port's default) | Frozen wind (upstream) |
+|---|---|---|
+| `dx` | **500.0 m** | 1000.0 m |
+| `dy` | **500.0 m** | 0.0 m |
+| dispersion distance | **1000.0 m** (path) | 1000.0 m (chord) |
+| net displacement | 707.1 m | 1000.0 m |
+
+The two puffs are **500 m apart**. Note that the dispersion *distance* happens
+to agree here because the two legs are equal — a test written on the distance
+alone would have passed against the defect.
+
+**The change moves no constant-wind number.** Marching `dx += u·dt` for `n`
+steps is `u·n·dt = u·age`, so the two policies are algebraically identical
+whenever the wind holds still. Measured over a full 1200 s lifetime at 10 s
+steps on `(u, v) = (3.0, -1.5) m/s`: `dx` and `dy` agree **exactly**, the
+distance to **2.8e-15 relative**
+(`simulate::tests::the_two_advection_policies_agree_on_a_constant_wind`). It is
+*not* bit-identical — accumulated addition does not round like one
+multiplication — which is precisely why this fixture sets
+`AdvectionPolicy::UpstreamFrozenWind` by name instead of relying on the
+agreement. Every result in this document is therefore unchanged.
 
 ### 1. `gpuff`'s `U` parameter is never read
 

@@ -181,7 +181,7 @@
 //! down, and marks over the pebbles obscure the one region a reader most wants
 //! to see.
 
-use crate::animation::{PebbleTransits, TracerTrain};
+use crate::animation::{htr10_illustrative_pebble_drives, PebbleHandling, PebbleTransits, TracerTrain};
 use crate::components::htr10_conus_packing::{CONUS_SLAB, PEBBLE_RADIUS_M, SLAB_DEPTH_M};
 use crate::components::htr10_reactor_vessel::{
     blend_rgb, depth_shade, draw_triso_pebble, BED_BACKDROP, PEBBLE_MATRIX,
@@ -189,9 +189,11 @@ use crate::components::htr10_reactor_vessel::{
 use crate::components::temperature_colour;
 use std::f32::consts::PI;
 use egui::{
-    Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget,
+    Color32, Context, FontId, Id, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui,
+    Vec2, Widget,
 };
-use uom::si::f64::ThermodynamicTemperature;
+use uom::si::f64::{ThermodynamicTemperature, Time};
+use uom::si::time::second;
 
 // ── Radial partition, in centimetres ────────────────────────────────────────
 //
@@ -1901,10 +1903,245 @@ impl Widget for Htr10ReactorSchematic {
     }
 }
 
+// ── Shared pebble-handling glue ─────────────────────────────────────────────
+//
+// Factored out of `examples/widget_studio/test_reactors_tab.rs` on 2026-09-27
+// (GitHub issue #347), which owned the only copy of "two buttons, advance the
+// transits, print a tally". `htgr_sim_v1` needed the same thing, and a second
+// copy would have drifted from the first. The state itself is in
+// `crate::animation::PebbleHandling`, which is `egui`-free so it keeps building
+// for Android; only the buttons and the per-context parking live here.
+
+/// Longest animation timestep [`pebble_handling_controls`] will take in one
+/// frame, in seconds.
+///
+/// Same reason and same value as
+/// [`crate::components::control_rod_drive::MAX_ANIMATION_TIMESTEP_SECONDS`]:
+/// `egui`'s frame time can be enormous after the window was hidden or the
+/// process suspended, and feeding that straight in would teleport a pebble
+/// across its whole chute in one frame.
+pub const MAX_PEBBLE_ANIMATION_TIMESTEP_SECONDS: f64 = 0.1;
+
+/// The `egui` [`Id`] under which an HTR-10 plant view parks its pebble-handling
+/// animation.
+///
+/// Spelled once, here, because the **buttons and the drawing are usually in
+/// different panels** — in `htgr_sim_v1` the buttons are in the left-hand
+/// controls panel and the vessel is in the central panel — so both sides have
+/// to agree on the id, and neither can derive it from its own `Ui`. A consumer
+/// drawing two independent HTR-10s passes its own id instead.
+pub fn pebble_handling_id() -> Id {
+    Id::new("htr10_pebble_handling")
+}
+
+/// Per-context pebble-handling state, plus the input time it was last advanced
+/// at.
+///
+/// The time stamp is what makes the advance **once per frame** no matter how
+/// many panels touch the state that frame. `Context::input(|i| i.time)` is
+/// fixed for the whole frame, so the first caller advances and every later one
+/// only reads. Without it, a frame in which both the controls panel and the
+/// plant view ran would step the animation twice, and a frame in which the
+/// plant view was on a hidden tab would not step it at all — pebbles would
+/// freeze mid-chute until the operator switched back.
+#[derive(Debug, Clone, PartialEq, Default)]
+struct ParkedPebbleHandling {
+    handling: PebbleHandling,
+    last_input_time_s: f64,
+}
+
+/// Load the pebble-handling state parked under `id`, advance it at most once
+/// this frame, store it back, and return it.
+///
+/// The timestep is `egui`'s smoothed `stable_dt`, clamped to
+/// [`MAX_PEBBLE_ANIMATION_TIMESTEP_SECONDS`]. Repaints are requested while
+/// anything is in flight, so the transit completes even in an application that
+/// repaints on demand — the same contract as
+/// [`crate::components::control_rod_drive::slewed_control_rod_insertion`],
+/// whose per-context parking idiom this follows.
+///
+/// The drives are [`htr10_illustrative_pebble_drives`]; everything they contain
+/// is a labelled display choice, not plant data.
+///
+/// **This animates the drawing and nothing else** (maintainer's call,
+/// 2026-09-27, GitHub issue #347 — see [`PebbleHandling`]). A caller must say
+/// so on screen next to its buttons.
+pub fn advanced_pebble_handling(ctx: &Context, id: Id) -> PebbleHandling {
+    let mut parked = ctx
+        .data_mut(|d| d.get_temp::<ParkedPebbleHandling>(id))
+        .unwrap_or_default();
+
+    let now_s = ctx.input(|i| i.time);
+    if now_s > parked.last_input_time_s {
+        parked.last_input_time_s = now_s;
+        let dt_s = f64::from(ctx.input(|i| i.stable_dt))
+            .clamp(0.0, MAX_PEBBLE_ANIMATION_TIMESTEP_SECONDS);
+        let (refuel, defuel) = htr10_illustrative_pebble_drives();
+        parked
+            .handling
+            .advance(Time::new::<second>(dt_s), refuel, defuel);
+    }
+
+    if parked.handling.in_flight() {
+        ctx.request_repaint();
+    }
+
+    let handling = parked.handling.clone();
+    ctx.data_mut(|d| d.insert_temp(id, parked));
+    handling
+}
+
+/// The shared **[add pebble]** / **[remove pebble]** button pair and its tally
+/// line, operating on caller-owned state.
+///
+/// Used directly by a consumer that already owns a [`PebbleHandling`] on its
+/// own state struct (the widget studio, which also drives its own tunable
+/// drives); a consumer with nowhere to put it calls
+/// [`pebble_handling_controls`] instead, which parks the state in the `egui`
+/// context and then calls this.
+///
+/// **The caller owns the honesty caption**, because what is and is not coupled
+/// differs between consumers, and a caption that lives in the library would be
+/// wrong for one of them. It must be there: these buttons change the DRAWING
+/// (see [`PebbleHandling`]), and a control that looks like it changes the plant
+/// and does not can never reveal a fault.
+pub fn pebble_handling_buttons(ui: &mut Ui, handling: &mut PebbleHandling) {
+    ui.horizontal(|ui| {
+        if ui
+            .button("Add pebble")
+            .on_hover_text(
+                "Lifts one pebble pneumatically up the refuelling chute into the core. \
+                 Changes the DRAWING only.",
+            )
+            .clicked()
+        {
+            handling.request_add();
+        }
+        if ui
+            .button("Remove pebble")
+            .on_hover_text(
+                "Sends one pebble, highlighted, down the defuelling route and out of the \
+                 opening. Changes the DRAWING only.",
+            )
+            .clicked()
+        {
+            handling.request_remove();
+        }
+    });
+    ui.label(egui::RichText::new(handling.tally_text()).small().weak());
+}
+
+/// [`pebble_handling_buttons`] against the state parked under `id`, advanced
+/// for this frame first.
+///
+/// For a consumer whose controls panel has no mutable animation state of its
+/// own — `htgr_sim_v1`'s `draw_controls` is handed only its shared physics
+/// state — so the buttons in one panel and the vessel in another reach the same
+/// [`PebbleHandling`] through the `egui` context. Returns the state after the
+/// clicks, so the same call can both draw the buttons and feed
+/// [`Htr10ReactorSchematic::with_refuel_pebbles`] if one panel does both.
+pub fn pebble_handling_controls(ui: &mut Ui, id: Id) -> PebbleHandling {
+    let mut handling = advanced_pebble_handling(ui.ctx(), id);
+    pebble_handling_buttons(ui, &mut handling);
+    let parked = ParkedPebbleHandling {
+        handling: handling.clone(),
+        last_input_time_s: ui.ctx().input(|i| i.time),
+    };
+    ui.ctx().data_mut(|d| d.insert_temp(id, parked));
+    handling
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use uom::si::thermodynamic_temperature::kelvin;
+
+    /// The parked pebble-handling state must survive repaints and advance
+    /// **exactly once per frame**, however many panels touch it.
+    ///
+    /// **Methodology.** A harness check on the shared glue, not physics V&V.
+    /// Run a headless `egui` context. Launch one refuelling pebble into the
+    /// parked state, then call [`advanced_pebble_handling`] twice within the
+    /// same frame and compare the positions it reports; then run another frame
+    /// and call it again. Two calls in one frame must report the same position
+    /// (a double step would run the animation at twice speed whenever both the
+    /// controls panel and the plant view drew), and the call after a new frame
+    /// must report a larger one (a widget-owned state would report 0.0 every
+    /// time).
+    ///
+    /// **Results (2026-09-27).** First frame: 0.0027778 of the chute after the
+    /// first call, and **the same 0.0027778** after the second call in that
+    /// frame. Second frame: 0.0055556, exactly twice the first and strictly
+    /// greater. Both are far short of 1.0, so nothing teleported. (The step is
+    /// one `RawInput::default()` frame at the context's 1/60 s predicted dt over
+    /// the 6 s lift transit, i.e. 1/360.) Interpretation: the state is genuinely parked outside the
+    /// widget, it is stepped once per frame no matter which panel gets there
+    /// first, and a pebble therefore does not freeze mid-chute while the
+    /// operator is on another tab nor race when two panels are visible.
+    #[test]
+    fn the_parked_pebble_handling_advances_once_per_frame() {
+        let ctx = Context::default();
+        let id = Id::new("pebble_handling_test");
+
+        let first = |ctx: &Context| -> f64 {
+            advanced_pebble_handling(ctx, id)
+                .refuel_transits()
+                .positions()
+                .next()
+                .expect("one pebble in flight")
+        };
+
+        let _ = ctx.run_ui(egui::RawInput::default(), |_| {});
+        ctx.data_mut(|d| {
+            let mut parked = d.get_temp::<ParkedPebbleHandling>(id).unwrap_or_default();
+            parked.handling.request_add();
+            d.insert_temp(id, parked);
+        });
+
+        let same_frame_a = first(&ctx);
+        let same_frame_b = first(&ctx);
+        assert_eq!(
+            same_frame_a, same_frame_b,
+            "a second call in the same frame stepped the animation again"
+        );
+        assert!(
+            same_frame_a > 0.0 && same_frame_a < 1.0,
+            "pebble should have started travelling without teleporting, got {same_frame_a}"
+        );
+
+        let _ = ctx.run_ui(egui::RawInput::default(), |_| {});
+        let next_frame = first(&ctx);
+        assert!(
+            next_frame > same_frame_a,
+            "state did not survive the repaint: {same_frame_a} -> {next_frame}"
+        );
+    }
+
+    /// The illustrative drives must move a pebble FORWARD, so the buttons are
+    /// visibly doing something.
+    ///
+    /// **Methodology.** A harness check. Advance a [`PebbleHandling`] one second
+    /// with [`htr10_illustrative_pebble_drives`] and assert both paths moved off
+    /// the inlet. Guards against a future edit setting a drive flow to zero,
+    /// which would silently make both buttons do nothing on screen — the exact
+    /// failure GitHub issue #347's caption promises does not happen.
+    ///
+    /// **Results (2026-09-27).** Refuelling position 0.1667 (1 s of a 6 s
+    /// transit), defuelling 0.1250 (1 s of 8 s). Interpretation: both drives are
+    /// forward and the crossing times are the stated 6 s and 8 s.
+    #[test]
+    fn the_illustrative_drives_actually_move_a_pebble() {
+        let (refuel, defuel) = htr10_illustrative_pebble_drives();
+        let mut handling = PebbleHandling::new();
+        handling.request_add();
+        handling.request_remove();
+        handling.advance(Time::new::<second>(1.0), refuel, defuel);
+
+        let up = handling.refuel_transits().positions().next().unwrap();
+        let out = handling.defuel_transits().positions().next().unwrap();
+        assert!((up - 1.0 / 6.0).abs() < 1e-12, "lift moved {up}");
+        assert!((out - 1.0 / 8.0).abs() < 1e-12, "discharge moved {out}");
+    }
 
     fn kelvins(v: f64) -> ThermodynamicTemperature {
         ThermodynamicTemperature::new::<kelvin>(v)

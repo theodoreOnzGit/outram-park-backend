@@ -67,7 +67,9 @@
 
 use changi::activity::chi_over_q::{dilution_factors, StabilitySource};
 use changi::activity::survey::{survey, total_released, DepositionVelocities};
-use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
+use changi::puff::simulate::{
+    constant_wind, AdvectionPolicy, EmissionPolicy, Receptor, RunConfig, Source,
+};
 use changi::puff::stability::StabilityClass;
 use sembawang::accident::release::{accident_release, PlantParameters};
 use sembawang::chain::pad_for_dispersion;
@@ -138,6 +140,7 @@ fn main() {
         puff_duration: Time::new::<second>(PUFF_LIFETIME_S),
         start_hour: 12,
         emission_policy: EmissionPolicy::OnePuffPerEmission,
+        advection: AdvectionPolicy::default(),
     };
     let source = Source {
         x: Length::new::<meter>(0.0),

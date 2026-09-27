@@ -778,7 +778,9 @@ impl eframe::App for HtgrSimApp {
                     Panel::Schematic => {} // drawn above, outside this scroll area
                     Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
                     Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot),
+                    Panel::Thermal => {
+                        thermal_tab::draw_thermal(ui, &snapshot, display_unit)
+                    }
                     Panel::Map => {
                         map_tab::draw_map(ui, &self.physics, &snapshot, &mut self.map_state, view)
                     }
