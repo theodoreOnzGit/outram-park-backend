@@ -44,6 +44,76 @@ use super::reflector::zone_composition;
 /// natural boron.
 pub const B10_OF_NATURAL: f64 = 0.199;
 
+/// Graphite thermal scattering law, S(α,β), applied to every graphite region
+/// on the ENDF/B-VIII.0 path (VII.0 has one graphite law only).
+///
+/// **Default: [`GraphiteLaw::Reactor30P`]** (maintainer decision 2026-09-27).
+/// The choice rests on density and was not made to match k. HTR-10 graphite is
+/// porous. The reflector is 1.76 g/cm³ ([`super::reflector::REFLECTOR_GRAPHITE_DENSITY`],
+/// TECDOC-1382), against a crystal density of about 2.25 g/cm³, so its
+/// porosity is about **22 %**. Hawari's reactor-graphite laws (Hawari &
+/// Gillette, NDS 118 (2014) 176; ENDF/B-VIII.0) are tabulated at 10 % and 30 %
+/// porosity only, and 30 % is the nearer. Neither is exact, and no law at 22 %
+/// exists to interpolate to.
+///
+/// The "porosity" in these laws is vacancy disorder in the molecular-dynamics
+/// phonon spectrum (atoms removed at random; the coherent elastic part is
+/// kept crystalline). It is **not** a bulk-density scaling. The carbon atom
+/// density of each material is set separately and does not change with this
+/// choice.
+///
+/// **Comparison caveat.** Li, Yu & Wei (2014) used ENDF/B-VII.0, whose only
+/// graphite law is crystalline. Against RMC this default therefore carries a
+/// TSL term as well as the VII-vs-VIII library term. The fast single-seed
+/// worth at n = 25 was +947 ± 483 pcm against crystalline
+/// (`outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`).
+/// A pooled re-measurement is in progress. [`GraphiteLaw::Crystalline`] is the
+/// explicit ablation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GraphiteLaw {
+    /// Ideal crystalline graphite, VIII.0 MAT 30. The like-for-like law for a
+    /// VII.0 reference. Ablation only.
+    Crystalline,
+    /// Hawari reactor graphite, 10 % porosity, VIII.0 MAT 31.
+    Reactor10P,
+    /// Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
+    #[default]
+    Reactor30P,
+}
+
+impl GraphiteLaw {
+    /// Parse `crystalline`, `10P` or `30P`, the values accepted by
+    /// `OUTRAM_HTR10_GRAPHITE_TSL`.
+    pub fn from_name(s: &str) -> Option<Self> {
+        match s {
+            "crystalline" => Some(Self::Crystalline),
+            "10P" => Some(Self::Reactor10P),
+            "30P" => Some(Self::Reactor30P),
+            _ => None,
+        }
+    }
+
+    /// Tape file name in `reference-data/endf/`.
+    pub fn tape(self) -> &'static str {
+        match self {
+            Self::Crystalline => "tsl-crystalline-graphite.endf",
+            Self::Reactor10P => "tsl-reactor-graphite-10P.endf",
+            Self::Reactor30P => "tsl-reactor-graphite-30P.endf",
+        }
+    }
+
+    /// MAT number as it appears in the tape's control columns. The 10P and
+    /// 30P tapes' header text says MAT 35 and 36, but the records carry 31
+    /// and 32, and these are the values the loader matches.
+    pub fn mat(self) -> i32 {
+        match self {
+            Self::Crystalline => 30,
+            Self::Reactor10P => 31,
+            Self::Reactor30P => 32,
+        }
+    }
+}
+
 /// Everything the material set depends on, stated rather than read from the
 /// environment — see the module docs.
 #[derive(Debug, Clone, Copy)]

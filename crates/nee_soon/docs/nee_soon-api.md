@@ -2494,9 +2494,13 @@ and the sampling evidence: the V&V record
 **SUPERSEDED as "current" 2026-09-26:** those residuals predate the
 explicit reflector (PR #327). On it (fast single-seed runs, 2000 x
 [30 + 70], rod-steel Ni -> Fe and Fe-57 -> Fe-56 stated as assumptions),
-the residual at 122.47 cm is `-2365` pcm on ENDF/B-VIII.0 and `-922` pcm
-on VII.0, i.e. roughly -4000 pcm from the numbers above; the drift is still
-there (`+10.2 +/- 4.0` pcm/cm on VIII.0). Record:
+the residual at the critical loading is ~~`-2365` pcm on ENDF/B-VIII.0 and
+`-922` pcm on VII.0~~ **`-2726` pcm on ENDF/B-VIII.0 and `-1283` pcm on
+VII.0** (CORRECTED 2026-09-27, gh:#333: matched on the paper's whole-ball
+height; `n_axial = 25` IS the paper's 123.576 cm loading), roughly -4000 pcm
+from the numbers above; the drift is still there (~~`+10.2`~~ `+13.2 +/- 4.0`
+pcm/cm on VIII.0). Every "height-matched" residual in this section (and in
+#218) used the volume-equivalent height and is low by 165-480 pcm. Record:
 `crates/outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`.
 
 **Model defects, production path (`assemble_explicit_triso`):**
@@ -2559,9 +2563,15 @@ discharge tube holds explicit whole graphite balls, with Li (2014)'s
 rejection of balls crossing the cone or tube. What the specification does
 not give (channel azimuths, the contents of the absorber-ball and
 irradiation channels, the internal structure of zones 0-4, 8-16, 19-21,
-48, 57) is listed in [`reflector_geometry`]'s module docs. **No `k` has
-been computed on this geometry yet, and it has not yet been drawn** (the
-crate's geometry-drawing rule): treat it as unverified.
+48, 57) is listed in [`reflector_geometry`]'s module docs, and was
+settled by the maintainer on 2026-09-27 (gh:#330: 18 degree convention,
+KLAK and irradiation channels empty; gh:#332: those zones as the TECDOC
+gives them). ~~**No `k` has been computed on this geometry yet, and it has
+not yet been drawn**~~ **CORRECTED 2026-09-27:** it has been drawn
+(`verification_and_validation/htr10_python_plots/`) and first priced at
+fast statistics
+(`outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`).
+It is still an AI-drafted model awaiting human review.
 
 **Other paths and plumbing:**
 - gh:#308 — `assemble` (homogenised fuel) lacks the cavity, conus, bricks and
@@ -2584,7 +2594,15 @@ derivable from other quantities they state. Every such closure is a genuine
 code-to-code check that our reconstruction matches theirs, and none of them
 needs a transport solve. [`GeometryClosure`] carries them.
 
-## NOT verifiable now — the k-eff curve
+## ~~NOT verifiable now~~ — the k-eff curve
+
+**CORRECTED 2026-09-27:** the blocker described below is gone. The
+TECDOC-1382 reflector is modelled (Table 4-3 zones, then every boring
+explicit, draft PR #327), and the curve is computed against RMC at the
+paper's own heights (gh:#333). See the "CURRENT NUMBERS" and the
+SUPERSEDED note below and
+`crates/outram-mc-libs/verification_and_validation/htr10_rmc/`. The
+original text follows, unchanged, for the record.
 
 The paper's Tables 3 and 4 give `k_eff` against fuel-loading height, which is
 the headline result. **We cannot reproduce it yet, and the blocker is the
@@ -3638,6 +3656,7 @@ pub struct TwoBallBed {
     pub fuel_balls: usize,
     pub tube: Option<DischargeTube>,
     pub rejected_balls: usize,
+    pub side_wall_rejected: usize,
     // Some fields omitted
 }
 ```
@@ -3659,6 +3678,7 @@ pub struct TwoBallBed {
 | `fuel_balls` | `usize` | Of which fuelled. |
 | `tube` | `Option<DischargeTube>` | The discharge tube below the conus, and with it Li's whole-ball<br>rejection, or `None` (see [`DischargeTube`]). |
 | `rejected_balls` | `usize` | Balls removed by the rejection rule (0 without a tube). |
+| `side_wall_rejected` | `usize` | Of [`Self::rejected_balls`], those removed at the bed side wall by<br>[`Self::rejecting_side_wall_crossers`] (0 by default). |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -3689,6 +3709,11 @@ pub struct TwoBallBed {
   pub fn tile_present_mask(self: &Self, a: i32, b: i32, level: i32) -> u8 { /* ... */ }
   ```
   Presence mask of tile `(a, b, level)`: bit `i` set when the ball at
+
+- ```rust
+  pub fn rejecting_side_wall_crossers(self: Self) -> Self { /* ... */ }
+  ```
+  **Side-wall rejection (gh:#331 ablation, 2026-09-27).** Also remove
 
 - ```rust
   pub fn lattice_centre_z(self: &Self) -> f64 { /* ... */ }
@@ -3847,7 +3872,12 @@ ball whole, as the rule intends.
 (r = 90 cm) above the conus. Li says only that the array's outer boundary is
 the side reflector's inner surface, not whether wall-crossing balls are cut
 or removed. Those keep the CSG cut (the treatment before this), and the
-choice is the maintainer's.
+~~choice is the maintainer's.~~
+**DECIDED 2026-09-27 (maintainer, gh:#331): keep the cut.** Li states the
+finished core's filling fraction is 61 %; the cut bed measures 0.6089, while
+rejecting wall-crossers ([`TwoBallBed::rejecting_side_wall_crossers`], kept
+as an ablation) drops it to 0.5737. *"Packing fraction wrong already changes
+too much."*
 
 `None` in [`TwoBallBed::new_with_tube`] (the `OUTRAM_HTR10_HOMOG_TUBE`
 ablation) builds no tube balls and applies no rejection: the cone then cuts
@@ -4381,20 +4411,26 @@ duct and channel voids, i.e. the duct overlaps none of them, and this
 layout honours that. The assignment of the 20 inner-ring positions to 10
 rods, 3 irradiation and 7 KLAK channels is likewise a convention. It
 matters for the one-rod worth problems (B32, B42), not for B1.
+**ACCEPTED 2026-09-27 (maintainer, gh:#330): "18 degree pitch is
+acceptable"**, so this convention is the model.
 
 **Contents.** B1 is defined with no rod inserted (p. 242), and the rods'
 withdrawn position is given (lower end at 119.2 cm), so the rods ARE in
 their channels, in the top reflector, with their B4C, steel sleeves and
 iron joints as explicit geometry. The absorber-ball system is a reserve
 shutdown system, so its channels are empty. The irradiation channels are
-empty. Nothing is said about either; both are open items.
+empty. Nothing is said about either; ~~both are open items~~ **DECIDED
+2026-09-27 (maintainer, gh:#330): leave them empty.**
 
 **Zones whose internal structure is unspecified** (the cold helium chamber,
 zone 3; the bottom structures, zones 0 and 8-16; the partly-void layers 21,
 29, 48, 57): these are explicit REGIONS at their Fig. 4.10 positions, but
 each carries the source's own Table 4-3 composition because no geometry
 for their contents is given anywhere. That is the source's homogenisation,
-not ours, and it is recorded as an open item.
+not ours. ~~It is recorded as an open item.~~ **ACCEPTED 2026-09-27
+(maintainer, gh:#332): model these zones as TECDOC-1382 gives them.** No
+source documents their internals, so the TECDOC composition is the
+justified choice.
 
 # Coordinates
 
@@ -5328,7 +5364,9 @@ Zones 0-4, 8-16, 19-21, 48 and 57 are **homogenised by the source**:
 it gives no geometry for what is inside them (the cold helium chamber,
 the hot-gas borings under the conus, the bottom structures). They are
 explicit regions at their Fig. 4.10 positions carrying the source's
-composition. That is an open item, not a modelling choice made here.
+composition. ~~That is an open item~~ **Accepted 2026-09-27 (maintainer,
+gh:#332)** as the model: undocumented internals are modelled as the
+TECDOC gives them. Not a modelling choice made here.
 
 ```rust
 pub const TABLE_4_3_ZONES: [(usize, f64); 24] = _;
@@ -6561,6 +6599,202 @@ pub const TI: [f64; 5] = _;
 
 ### Types
 
+#### Enum `GraphiteLaw`
+
+Graphite thermal scattering law, S(α,β), applied to every graphite region
+on the ENDF/B-VIII.0 path (VII.0 has one graphite law only).
+
+**Default: [`GraphiteLaw::Reactor30P`]** (maintainer decision 2026-09-27).
+The choice rests on density and was not made to match k. HTR-10 graphite is
+porous. The reflector is 1.76 g/cm³ ([`super::reflector::REFLECTOR_GRAPHITE_DENSITY`],
+TECDOC-1382), against a crystal density of about 2.25 g/cm³, so its
+porosity is about **22 %**. Hawari's reactor-graphite laws (Hawari &
+Gillette, NDS 118 (2014) 176; ENDF/B-VIII.0) are tabulated at 10 % and 30 %
+porosity only, and 30 % is the nearer. Neither is exact, and no law at 22 %
+exists to interpolate to.
+
+The "porosity" in these laws is vacancy disorder in the molecular-dynamics
+phonon spectrum (atoms removed at random; the coherent elastic part is
+kept crystalline). It is **not** a bulk-density scaling. The carbon atom
+density of each material is set separately and does not change with this
+choice.
+
+**Comparison caveat.** Li, Yu & Wei (2014) used ENDF/B-VII.0, whose only
+graphite law is crystalline. Against RMC this default therefore carries a
+TSL term as well as the VII-vs-VIII library term. The fast single-seed
+worth at n = 25 was +947 ± 483 pcm against crystalline
+(`outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`).
+A pooled re-measurement is in progress. [`GraphiteLaw::Crystalline`] is the
+explicit ablation.
+
+```rust
+pub enum GraphiteLaw {
+    Crystalline,
+    Reactor10P,
+    Reactor30P,
+}
+```
+
+##### Variants
+
+###### `Crystalline`
+
+Ideal crystalline graphite, VIII.0 MAT 30. The like-for-like law for a
+VII.0 reference. Ablation only.
+
+###### `Reactor10P`
+
+Hawari reactor graphite, 10 % porosity, VIII.0 MAT 31.
+
+###### `Reactor30P`
+
+Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_name(s: &str) -> Option<Self> { /* ... */ }
+  ```
+  Parse `crystalline`, `10P` or `30P`, the values accepted by
+
+- ```rust
+  pub fn tape(self: Self) -> &'static str { /* ... */ }
+  ```
+  Tape file name in `reference-data/endf/`.
+
+- ```rust
+  pub fn mat(self: Self) -> i32 { /* ... */ }
+  ```
+  MAT number as it appears in the tape's control columns. The 10P and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Htr10MaterialConfig`
 
 Everything the material set depends on, stated rather than read from the
@@ -7594,13 +7828,54 @@ pub fn heavy_metal_per_ball() -> f64 { /* ... */ }
 The paper's single RMC `k_eff` curve against fuel-loading height, Tables 3
 and 4 (`(height_cm, k_eff)`).
 
-One curve, not two — see the module docs on the duplicated column. The MCNP
+One curve, not two — see the module docs on the duplicated column. ~~The MCNP
 columns are deliberately **not** carried here: they are a second code's
 results on a third model, and mixing them in would invite a comparison that
-is not ours to make.
+is not ours to make.~~ **CHANGED 2026-09-27 (maintainer direction: "save
+mcnp data too since it's there, just so we have a rough gauge"):** they are
+now carried separately, in [`MCNP_TABLE3_KEFF_VS_HEIGHT`] and
+[`MCNP_TABLE4_KEFF_VS_HEIGHT`]. RMC stays the reference.
+
+Heights are the paper's convention: bottom of the lowest ball to top of the
+highest, `9.798 N + 6.0` cm (gh:#333).
 
 ```rust
 pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = _;
+```
+
+#### Constant `MCNP_TABLE3_KEFF_VS_HEIGHT`
+
+MCNP `k_eff` against loading height as printed in the paper's **Table 3**
+(captioned "Critical result 1 (vacuum)"), `(height_cm, k_eff)`.
+
+**A rough gauge, not a reference.** Li, Yu & Wei describe these as the
+results *"of MCNP reported in paper listed in reference"*, i.e. MCNP on a
+different, independently built model (*"model used in this calculation is
+constructed relatively independently"*), with no uncertainty quoted. Use
+them to see how far two codes on two models already spread, which bounds
+how much agreement with RMC alone can mean: the paper's own RMC-MCNP
+differences reach 0.95 %. Do not fit to them and do not replace RMC with
+them.
+
+Both Tables 3 and 4 are captioned "(vacuum)" while the text says the
+calculations were for vacuum *and* helium, so one caption is wrong and it
+is not known which table is which (see the module docs). They are kept
+under their table numbers for that reason. Transcribed 2026-09-27;
+`the_mcnp_columns_reproduce_the_papers_relative_differences` re-derives the
+paper's "Re-diff" column from them.
+
+```rust
+pub const MCNP_TABLE3_KEFF_VS_HEIGHT: &[(f64, f64)] = _;
+```
+
+#### Constant `MCNP_TABLE4_KEFF_VS_HEIGHT`
+
+MCNP `k_eff` against loading height from the paper's **Table 4** (also
+captioned "(vacuum)"; see [`MCNP_TABLE3_KEFF_VS_HEIGHT`] for what these are
+and are not).
+
+```rust
+pub const MCNP_TABLE4_KEFF_VS_HEIGHT: &[(f64, f64)] = _;
 ```
 
 ## Module `mgxs`

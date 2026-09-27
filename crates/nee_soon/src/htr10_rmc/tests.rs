@@ -708,3 +708,29 @@ fn the_mcnp_columns_reproduce_the_papers_relative_differences() {
         }
     }
 }
+
+/// **Pins the graphite S(α,β) default.** Maintainer decision 2026-09-27:
+/// 30 %-porosity reactor graphite, chosen on density (see
+/// [`super::materials::GraphiteLaw`]). Without this test the default can drift
+/// back to crystalline unnoticed. The tape name and MAT are checked against
+/// the tape itself, because a wrong MAT makes the loader fail and every nuclide
+/// silently drop out.
+#[test]
+fn the_default_graphite_law_is_30p_reactor_graphite() {
+    use super::materials::GraphiteLaw;
+    let law = GraphiteLaw::default();
+    assert_eq!(law, GraphiteLaw::Reactor30P);
+    assert_eq!(law.tape(), "tsl-reactor-graphite-30P.endf");
+    assert_eq!(GraphiteLaw::from_name("crystalline"), Some(GraphiteLaw::Crystalline));
+    assert_eq!(GraphiteLaw::from_name("bogus"), None);
+    let tape = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../reference-data/endf")
+        .join(law.tape());
+    let Ok(text) = std::fs::read_to_string(&tape) else {
+        eprintln!("SKIP tape check: {} not in this checkout", tape.display());
+        return;
+    };
+    let line = text.lines().nth(2).expect("tape has a header record");
+    let mat: i32 = line[66..70].trim().parse().expect("MAT field");
+    assert_eq!(mat, law.mat(), "MAT in {} is {mat}", law.tape());
+}

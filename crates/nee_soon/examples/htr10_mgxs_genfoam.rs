@@ -55,6 +55,7 @@ use nee_soon::genfoam_xs::to_nuclear_data_input;
 use nee_soon::htr10_rmc::core_model::{
     assemble, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
 };
+use nee_soon::htr10_rmc::materials::GraphiteLaw;
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
@@ -104,9 +105,11 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     let dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let load = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, TEMP_K, 1.0e-3).ok();
+    // Graphite law: `GraphiteLaw::default()` (30P since 2026-09-27).
+    let law = GraphiteLaw::default();
     let sab = ThermalScattering::from_endf_file(
-        dir.join("tsl-crystalline-graphite.endf").to_str()?,
-        30,
+        dir.join(law.tape()).to_str()?,
+        law.mat(),
         TEMP_K,
         "c_Graphite",
     )

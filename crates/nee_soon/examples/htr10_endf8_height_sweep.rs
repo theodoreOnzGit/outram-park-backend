@@ -109,6 +109,7 @@ use std::time::Instant;
 
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat, HTR10_CORE_CAVITY_CM};
 use nee_soon::htr10_rmc::materials::{
+    GraphiteLaw,
     htr10_material_set, Htr10MaterialConfig, RodMetalNuclides, ROD_METAL_TAPES_ENDF8,
 };
 use nee_soon::htr10_rmc::reflector::zone_composition;
@@ -285,19 +286,21 @@ fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         }};
     }
 
-    // Crystalline graphite, MAT 30 in ENDF/B-VIII.0. (VII.0 ships it as MAT 31;
-    // passing the wrong one returns Err and silently drops the whole set.)
+    // Graphite law: `GraphiteLaw::default()`, 30 %-porosity reactor graphite
+    // (MAT 32) since 2026-09-27; crystalline (MAT 30) before. See
+    // `nee_soon::htr10_rmc::materials::GraphiteLaw`.
+    let law = GraphiteLaw::default();
     let sab = diag.time_data(
         "graphite S(a,b)",
-        DataSource::File(base.join("tsl-crystalline-graphite.endf")),
-        format!("MAT 30, {TEMP_K:.2} K"),
+        DataSource::File(base.join(law.tape())),
+        format!("MAT {}, {TEMP_K:.2} K", law.mat()),
         || {
-            let p = base.join("tsl-crystalline-graphite.endf");
+            let p = base.join(law.tape());
             if !p.exists() {
                 eprintln!("  graphite S(a,b): tape not in this checkout");
                 return None;
             }
-            ThermalScattering::from_endf_file(p.to_str()?, 30, TEMP_K, "graphite")
+            ThermalScattering::from_endf_file(p.to_str()?, law.mat(), TEMP_K, "graphite")
                 .map_err(|e| eprintln!("  graphite S(a,b) load FAILED: {e}"))
                 .ok()
         },

@@ -140,6 +140,24 @@ ENDF/B-VII.0, which has only a crystalline graphite law. So crystalline is the
 like-for-like choice for comparing against RMC, whatever real HTR-10 graphite
 is.
 
+**Maintainer decision, 2026-09-27: 30P is the VIII.0 default from now on.**
+The basis is density, not k. HTR-10 graphite is 1.76 g/cm³ (reflector,
+TECDOC-1382), against about 2.25 g/cm³ for the crystal, so it is about 22 %
+porous. Hawari's laws come at 10 % and 30 % only, and 30 % is the nearer. The
+"porosity" in these laws is vacancy disorder in the phonon spectrum, not a
+bulk-density scaling: each material's carbon atom density is set separately
+and unchanged. The default is pinned by
+`nee_soon::htr10_rmc::tests::the_default_graphite_law_is_30p_reactor_graphite`
+and lives in `nee_soon::htr10_rmc::materials::GraphiteLaw`. `crystalline`
+remains available as the explicit ablation.
+
+**Every VIII.0 number earlier in this document, and every earlier HTR-10
+VIII.0 number in the V&V record, was measured with crystalline graphite.**
+They are kept as measured. On the fast single-seed runs above, the new default
+would read about −1779 pcm against RMC at n = 25, not −2726. The pooled study
+below gives the default's number properly. Against Li's VII.0 reference, the
+residual now contains a TSL term as well as the library term.
+
 **Follow-up (maintainer direction: "313 pcm is still significant … worth a
 closer look"):** a pooled study is running. It uses 4 new seeds per arm
 (20260927–30) at 10 000 × [40 + 100], for crystalline and 10P first and then

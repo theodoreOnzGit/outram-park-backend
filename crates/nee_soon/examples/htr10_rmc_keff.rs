@@ -127,6 +127,7 @@ use std::time::Instant;
 
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
 use nee_soon::htr10_rmc::reflector::zone_composition;
+use nee_soon::htr10_rmc::materials::GraphiteLaw;
 use outram_mc_libs::material::nuclide::Nuclide;
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::material::thermal::ThermalScattering;
@@ -241,7 +242,8 @@ fn env_usize(k: &str, d: usize) -> usize {
 /// - `OUTRAM_HTR10_U238_JENDL=1` swaps U-238 to the JENDL-3.3 evaluation.
 ///   **This is not the VII.0 offset** and must never be quoted as one. It is a
 ///   different-library bound on the dominant absorber.
-/// - `OUTRAM_HTR10_NO_SAB=1` drops the crystalline-graphite S(alpha,beta) and
+/// - `OUTRAM_HTR10_NO_SAB=1` drops the graphite S(alpha,beta) (30P by default
+///   since 2026-09-27, crystalline before; `OUTRAM_HTR10_GRAPHITE_TSL`) and
 ///   leaves carbon as a free gas. Primarily a HARNESS check: in a
 ///   graphite-moderated system this must be worth a large, resolved amount. If
 ///   it came back near zero, the thermal scattering law would not be engaged
@@ -339,21 +341,28 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
             "tsl-crystalline-graphite.endf",
         )
     };
-    // `OUTRAM_HTR10_GRAPHITE_TSL=10P|30P` (VIII.0 only, 2026-09-27) takes the
-    // graphite thermal law from Hawari et al.'s REACTOR-graphite evaluations
-    // (10 % or 30 % porosity, ENDF/B-VIII.0 MAT 31 / 32 in these tapes) instead
-    // of the ideal crystalline one (MAT 30). A physics choice, not a knob to
-    // tune: HTR-10 graphite (~1.73 g/cm3 against 2.25 for the crystal, i.e.
-    // ~23 % porosity) is porous. VII.0 has one graphite law only.
+    // `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P` (VIII.0 only). The
+    // DEFAULT is 30P, Hawari's 30 %-porosity reactor graphite (maintainer
+    // decision 2026-09-27, on density: HTR-10 graphite at 1.76 g/cm3 is ~22 %
+    // porous, and 30P is the nearer tabulated law). Before that date the
+    // default was crystalline, and every earlier VIII.0 number in the V&V
+    // record was measured with crystalline graphite. `crystalline` is the
+    // explicit ablation, and the like-for-like law for Li's VII.0 reference.
+    // See `nee_soon::htr10_rmc::materials::GraphiteLaw`.
     let graphite_choice = std::env::var("OUTRAM_HTR10_GRAPHITE_TSL").ok();
-    let (f_tsl, tsl_mat_viii) = match (endf7, graphite_choice.as_deref()) {
-        (false, Some("10P")) => ("tsl-reactor-graphite-10P.endf", 31),
-        (false, Some("30P")) => ("tsl-reactor-graphite-30P.endf", 32),
-        (false, Some(other)) if other != "crystalline" => {
-            panic!("OUTRAM_HTR10_GRAPHITE_TSL must be crystalline, 10P or 30P, got {other}")
-        }
-        (true, Some(_)) => panic!("OUTRAM_HTR10_GRAPHITE_TSL applies to ENDF/B-VIII.0 only"),
-        _ => (f_tsl, 30),
+    let law = match graphite_choice.as_deref() {
+        None => GraphiteLaw::default(),
+        Some(v) => GraphiteLaw::from_name(v).unwrap_or_else(|| {
+            panic!("OUTRAM_HTR10_GRAPHITE_TSL must be crystalline, 10P or 30P, got {v}")
+        }),
+    };
+    if endf7 && graphite_choice.is_some() {
+        panic!("OUTRAM_HTR10_GRAPHITE_TSL applies to ENDF/B-VIII.0 only");
+    }
+    let (f_tsl, tsl_mat_viii) = if endf7 {
+        (f_tsl, 0)
+    } else {
+        (law.tape(), law.mat())
     };
     if !endf7 {
         diag.note(format!("graphite S(a,b): {f_tsl} (MAT {tsl_mat_viii})"));
