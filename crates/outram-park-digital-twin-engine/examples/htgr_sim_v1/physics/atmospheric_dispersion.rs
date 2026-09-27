@@ -569,13 +569,48 @@ impl DispersionResult {
 
 /// How often the dispersion model is re-run \[s of plant time\].
 ///
-/// # Why this is much slower than everything else in the plant
+/// # ~~Why this is much slower than everything else in the plant~~
+/// # MEASURED 2026-09-27: it is 0.00 % of the plant step
 ///
-/// A puff run is `O(steps * puffs_alive * receptors)`, and with 24 receptors
-/// over a 20-minute puff lifetime it is far and away the most expensive thing
-/// this simulator would do per step — while being *quasi-steady* in exactly the
-/// sense [`super::fission_product_release`] is: it carries no state between
-/// calls, so running it more often integrates nothing more accurately.
+/// ~~"A puff run is `O(steps * puffs_alive * receptors)`, and with 24 receptors
+/// over a 20-minute puff lifetime it is **far and away the most expensive thing
+/// this simulator would do per step**."~~ **CORRECTED 2026-09-27 — false, and
+/// now measurably so.**
+///
+/// `tests::where_the_plant_step_spends_its_time`, over 20 s of plant time:
+///
+/// | Component | Share of the plant step |
+/// |---|---|
+/// | **Gaussian puff dispersion** | **0.00 %** |
+/// | TRISO-ATOPS release channel | 0.00 % |
+/// | primary: steam generator | **100.12 %** (26.46 ms/call) |
+/// | primary: hot leg + core | 0.03 % |
+/// | secondary loop (IF97) | 0.40 % |
+///
+/// The struck claim was true when it was written and has been overtaken twice:
+/// the map field moved to a WGSL kernel on the GPU (0.67 ms at the 64-cell
+/// default, 9.09 ms even at 512 cells — `cargo plume-timing`), and the population
+/// the ring walks fell from ~7 260 puffs to the 120 alive at an instant when the
+/// field became instantaneous on 2026-09-25. What actually dominates is the
+/// steam generator, at 26.46 ms per plant step — a quarter of the 100 ms tick on
+/// its own — which is what `super::primary_loop`'s "~96 % of this plant's
+/// compute" has said all along. The two claims contradicted each other and this
+/// is the one that was wrong.
+///
+/// **This matters beyond tidiness.** The interval below is justified by the
+/// struck sentence, so the justification is gone even though the interval may
+/// still be defensible on the quasi-steady argument that follows. And because the
+/// ring's time-integrated `chi/Q` refreshes only on this throttle, a claim about
+/// cost that is off by everything is the reason that column cannot be live —
+/// see [`ReceptorResult::instantaneous_chi_over_q`], which had to be added
+/// alongside it rather than replacing it. **Whether this throttle should exist
+/// at all is now an open question and a maintainer decision**, not something to
+/// infer from a cost that has been measured at zero.
+///
+/// The dispersion run remains *quasi-steady* in exactly the sense
+/// [`super::fission_product_release`] is: it carries no state between calls, so
+/// running it more often integrates nothing more accurately. That argument is
+/// untouched by the measurement and is the one the interval now rests on alone.
 ///
 /// 60 s is chosen against the physics: the dispersion result depends on the
 /// wind and the release rate, the wind is an operator input that does not
