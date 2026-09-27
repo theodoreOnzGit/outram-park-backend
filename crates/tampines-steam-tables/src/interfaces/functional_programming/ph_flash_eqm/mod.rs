@@ -14,19 +14,45 @@ use crate::thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_est
 
 use super::pt_flash_eqm::FwdEqnRegion;
 
-/// Panic message for a `(p,h)` flash that lands in IAPWS-IF97 Region 5
-/// (ultra-high-temperature steam, T = 1073.15 K to 2273.15 K).
+/// Obtains temperature given pressure and enthalpy.
 ///
-/// IAPWS-IF97 (see Wagner & Kretzschmar, *International Steam Tables*, 2019)
-/// provides **no backward `(p,h)` (or `(p,s)`) correlation for Region 5** — the
-/// released backward equations cover Regions 1, 2 and 3 only. This crate does
-/// **not** substitute a home-grown numerical inversion of the Region 5 forward
-/// enthalpy, so a `(p,h)` flash into Region 5 is *deliberately* unsupported for
-/// this physics/standards reason, not merely unfinished. Callers that already
-/// know the temperature should use the Region 5 forward `(T,p)` equations
-/// (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...) directly.
+/// # ~~Region 5 is *deliberately* unsupported~~ — **CORRECTED 2026-09-27**
 ///
-/// obtains temperature given pressure and enthalpy
+/// This doc block used to describe a *panic message* (the constant it documented
+/// is long gone; the text was left stranded on this function) and read:
+///
+/// > ~~IAPWS-IF97 (see Wagner & Kretzschmar, *International Steam Tables*, 2019)
+/// > provides **no backward `(p,h)` (or `(p,s)`) correlation for Region 5** — the
+/// > released backward equations cover Regions 1, 2 and 3 only. This crate does
+/// > **not** substitute a home-grown numerical inversion of the Region 5 forward
+/// > enthalpy, so a `(p,h)` flash into Region 5 is *deliberately* unsupported for
+/// > this physics/standards reason, not merely unfinished.~~
+///
+/// **The first sentence is still true; the conclusion is not.** IAPWS-IF97
+/// indeed publishes no Region 5 backward equation — but commit `2ab91fefc3`
+/// (2026-09-14) made this crate substitute exactly the home-grown inversion the
+/// old text disclaims: `t_ph_eqm` now dispatches Region 5 to the in-house
+/// Chebyshev fit `t_ph_5`.
+///
+/// **Verified by running**, not by reading:
+/// `tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5` builds
+/// a Region 5 state forward at `T = 1500 K`, `p = 1 MPa`
+/// (`h = 5218.863 kJ/kg`) and gets `t_ph_eqm(p, h) = 1499.999 K` — no panic.
+/// `region_5_ph_flash_round_trips_through_the_in_house_correlation`
+/// (`interfaces/tests_and_examples/ph_flash_region4_edge_and_region5.rs`) pins
+/// the same round trip at 0.5 MPa to 1e-4 relative, and that test *used to*
+/// assert the panic this doc described.
+///
+/// **What is genuinely still refused**, and is pinned by
+/// `region_5_above_its_pressure_limit_is_still_refused`: above Region 5's own
+/// 50 MPa ceiling (Regions 1-4 run to 100 MPa, Region 5 does not) and above the
+/// 2273.15 K isotherm — those are outside IF97 altogether, not merely outside a
+/// backward equation.
+///
+/// **Read the Region 5 number as a fit, not a standard.** A dispatch that
+/// succeeds is not a value IAPWS stands behind. Callers that already know the
+/// temperature should still prefer the Region 5 forward `(T,p)` equations
+/// (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...), which are IF97.
 pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
     let region = ph_flash_region(p, h);
 
@@ -929,8 +955,35 @@ pub use crate::dynamic_viscosity::mu_ph_eqm;
 /// Combines the IAPWS thermal-conductivity correlation's dilute-gas
 /// (`lambda_0`), residual (`lambda_1`) and critical-enhancement (`lambda_2`)
 /// terms, evaluated at the temperature/density/quality resolved from the
-/// `(p,h)` flash via [`ph_flash_region`]. Valid over the same `(p,h)` range
-/// as the rest of this module (Regions 1-4; Region 5 is unsupported).
+/// `(p,h)` flash via [`ph_flash_region`].
+///
+/// # ~~"Regions 1-4; Region 5 is unsupported"~~ -- CORRECTED 2026-09-27
+///
+/// **Region 5 works.** Measured at `T = 1500 K, p = 1 MPa`: `lambda_ph_eqm`
+/// returns **0.16748 W/(m*K)** with no panic, and `t_ph_eqm` recovers 1499.999 K
+/// from the forward Region 5 enthalpy of 5218.863 kJ/kg
+/// (`tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5`).
+///
+/// The struck claim predates commit `2ab91fefc3` ("(p,h), (p,s) and (h,s) now
+/// cover Region 5") and was never updated. All three properties the critical-
+/// enhancement term needs now dispatch there --
+/// `cp_tp_eqm_single_phase -> cp_tp_5`, `cv_tp_eqm_single_phase -> cv_tp_5`,
+/// `kappa_t_tp_eqm -> kappa_t_tp_5` -- and `region_fwd_eqn_single_phase` has a
+/// `Region5` arm.
+///
+/// # But RUNNING is not the same as being VALID
+///
+/// **IAPWS R15-11, the thermal-conductivity release, is stated for
+/// `273.16 K <= T <= 1173.15 K`.** Region 5 runs to **2273.15 K**, so between
+/// roughly 1173 K and 2273 K this function returns an **extrapolation of the
+/// correlation**, not a tabulated value. That is a physics limit, not a dispatch
+/// limit, and no amount of region plumbing removes it. A caller relying on
+/// `lambda` above 1173.15 K is extrapolating and should say so.
+///
+/// The **low** end has its own, separate defect: a `(p,h)` point the validity
+/// guard accepts can invert to a temperature ~18 mK below the 273.15 K floor,
+/// which this function then hands to a strict `(T,p)` region lookup that panics.
+/// See `tests/boundary_273_15_repro.rs` and GitHub #342.
 pub fn lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermalConductivity {
     let t = t_ph_eqm(p, h);
     let x = x_ph_flash(p, h);

@@ -11,8 +11,15 @@ and the Haiku dogfooding hard rule) **are in force for this crate**. See the
 maturity gate in that file for what this means and how the bar is revised.
 
 - **2026-09-05 — mature.** Evidence class: **cross-code / reference-standard
-  comparison** against IAPWS-IF97, supported by unit tests. **1027 tests pass,
-  0 fail, 17 ignored.**
+  comparison** against IAPWS-IF97, supported by unit tests. ~~**1027 tests pass,
+  0 fail, 17 ignored.**~~ **CORRECTED 2026-09-27 — 1041 pass, 0 fail, 14
+  ignored** (1055 test functions), measured by running
+  `cargo test --release -j 3 -p tampines-steam-tables --lib`:
+  `test result: ok. 1041 passed; 0 failed; 14 ignored; 0 measured; 0 filtered
+  out; finished in 47.25s`. The **0 fail** is what this bar rests on and it
+  still holds; only the counts had drifted. (The "Current suite status" section
+  below independently claimed 940/0/13 — two different stale counts in one
+  file, which is why neither should be trusted without a run.)
 
   The bar differs by code path, and conflating them would overstate the crate:
 
@@ -140,11 +147,17 @@ Practical consequences for an agent or a CI step:
 - **Report what you measured.** If a run was killed, say it was killed and how
   long it got — never convert that into a pass or a fail count.
 
-**Current suite status (measured 2026-08-11, `cargo test --release --lib`,
-after the Marviken work of bead `op-21g.16` landed):** **940 passed, 0 failed,
-13 ignored** (953 test functions). List the ignored ones
-with `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`
-rather than trusting any count written down in a document.
+**Current suite status** — ~~measured 2026-08-11, `cargo test --release --lib`,
+after the Marviken work of bead `op-21g.16` landed: **940 passed, 0 failed,
+13 ignored** (953 test functions).~~ **CORRECTED 2026-09-27** — measured by
+running `cargo test --release -j 3 -p tampines-steam-tables --lib`:
+**1041 passed, 0 failed, 14 ignored** (1055 test functions), in 47.25 s. The
+suite grew by 102 test functions and by one `#[ignore]` since the 2026-08-11
+figure; nothing had reported either. List the ignored ones
+with `cargo test --release -j 3 -p tampines-steam-tables --lib -- --ignored --list`
+rather than trusting any count written down in a document — **including this
+one**, which was wrong for six weeks, and including the 13-row ignore table
+below, which is dated 2026-08-11 and now undercounts by one.
 
 ## Code layout
 
@@ -196,7 +209,8 @@ single-phase ones (see the region-filtering note below, and bead `op-21g.2`,
 which is a candidate for closure on those grounds). All Moody isobars
 (0.25 – 30.0 × p_ref) are active.
 
-**Ignored tests — the complete list, 13 of them** (regenerated 2026-08-11 from
+**Ignored tests — ~~the complete list, 13 of them~~ 14 of them, list regenerated
+2026-09-27** (was: 13, regenerated 2026-08-11 from
 `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`, which
 is authoritative; `grep -rnE '^\s*#\[ignore' src/` returns 15 hits because one of
 them sits inside a `/* … */` block comment and is not compiled at all):
@@ -216,6 +230,7 @@ them sits inside a `/* … */` block comment and is not compiled at all):
 | `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_300k_10mpa` | **Known error** — PR EOS 7 % off vs NIST at Pr = 2.94 |
 | `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa` | **Known error** — PR EOS 26 % off vs NIST at 200 K / 5 MPa |
 | `openfoam_source::thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess` | **Known error** — Newton stalls at ~1152 K; JANAF discontinuity at `Tcommon` |
+| `steam_turbine_equations::mean_flow_stages::tests::diagnose_multistage_expansion` | **ADDED TO THIS TABLE 2026-09-27** — Diagnostic. It is the **14th** ignore and was missing, so this table's "complete at 13" claim was false. Found by running `cargo test --release -j 3 -p tampines-steam-tables --lib -- --ignored --list`, which printed `14 tests, 0 benchmarks`. |
 
 One diagnostic is ignored by design. Three unfinished ones are real gaps and all
 three sit on the **wet-steam** path — the same path the turbine work depends on.
@@ -417,8 +432,30 @@ in-dome (Region 4) points; the subcooled branch is a documented HEM limitation
   `Result::Err(NonConvergent)`.
 - **Low pressure (p < 611.657 Pa, triple-point pressure):** R1/R2 equations are
   extrapolated and not validated below the triple point.
-- **R5 boundary:** results above 2273 K are extrapolations, not IF97. The
-  library returns `OutOfRange` by default.
+- **R5 boundary:** ~~results above 2273 K are extrapolations, not IF97. The
+  library returns `OutOfRange` by default.~~ **CORRECTED 2026-09-27** —
+  **verified by running**
+  `tests/boundary_273_15_repro.rs::the_checked_ph_facade_still_refuses_region_5_and_the_2273_k_ceiling_panics`
+  (`cargo test --release -j 3 -p tampines-steam-tables --test
+  boundary_273_15_repro -- --nocapture`):
+  - Above 2273.15 K there is **no IF97 formulation at all**, so a result there
+    would not be an "extrapolation" of anything — and the **unchecked**
+    functional API does not return `OutOfRange`, it **panics**: `(p,h) point
+    lies above the 2273.15 K isotherm, the upper temperature bound of
+    IAPWS-IF97 Region 5.` `OutOfRange` comes only from the
+    `interfaces::checked::*` facade, which is a thin wrapper most callers here
+    do not go through.
+  - **Region 5 itself (1073.15–2273.15 K) is now reachable**, which this bullet
+    predates: commit `2ab91fefc3` (2026-09-14) gave `(p,h)`, `(p,s)` and `(h,s)`
+    Region 5 arms. Measured `t_ph_eqm(1 MPa, 5218.863 kJ/kg) = 1499.999 K` and
+    `t_ps_eqm(1 MPa, 9.33359 kJ/(kg K)) = 1500.0000 K`. **These are in-house
+    Chebyshev fits, not IAPWS values** — IAPWS-IF97 publishes no Region 5
+    backward equation — so treat them as correlations verified against the
+    Region 5 *forward* equations only.
+  - The **checked** facade still refuses Region 5 (its `h`/`s` window stops at
+    the 1073.15 K isotherm): measured `try_t_ph_eqm` → `Err(OutOfRange {
+    quantity: "specific enthalpy", value: 5218862.9, max: 4156132.3, .. })`.
+    The checked and unchecked APIs therefore differ by the whole of Region 5.
 - **Transport near saturation:** the IAPWS R12-08 / R15-11 critical-enhancement
   terms for μ and λ are intentionally omitted in the fast path; enable them
   when accuracy very close to Tc matters.
