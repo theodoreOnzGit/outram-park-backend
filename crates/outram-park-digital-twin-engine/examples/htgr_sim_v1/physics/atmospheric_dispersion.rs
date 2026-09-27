@@ -665,15 +665,18 @@ impl DispersionResult {
 ///
 /// **Not claimed:** that 60 s is the *right* interval. It is justified by the
 /// quasi-steady argument, and 26.8 ms is cheap enough that a much shorter one
-/// would also be affordable — 1 s would cost 2.7 % of plant-time compute. Nobody
-/// has measured whether the activity columns visibly lag at 60 s, and that is the
-/// question to ask if they feel stale, rather than removing the throttle outright.
+/// would also be affordable — 1 s would cost 2.7 % of plant-time compute.
 ///
-/// 60 s is chosen against the physics: the dispersion result depends on the
-/// wind and the release rate, the wind is an operator input that does not
-/// change on its own, and the release rate follows the kernel temperature,
-/// which moves on the bed's ~184 s time constant. Nothing the model reads can
-/// meaningfully change faster than this.
+/// ~~"60 s is chosen against the physics"~~ **CORRECTED 2026-09-27** — this
+/// prose still argued for 60 s after the value had been changed to 2 s on
+/// maintainer direction (the changelog block below records the change; this
+/// paragraph was missed). The physical argument it made is unchanged and still
+/// the reason a coarse interval is *defensible*: the result depends on the wind
+/// and the release rate, the wind is an operator input that does not change on
+/// its own, and the release rate follows the kernel temperature, which moves on
+/// the bed's ~184 s time constant. Nothing the model reads changes faster than
+/// that. 2 s is therefore comfortably inside the physics and was chosen for
+/// responsiveness, not because 60 s was wrong.
 pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
 
 // ── ~~60.0~~ ~~10 Hz~~ -> 2.0 s of plant time, CHANGED 2026-09-27 ────────────
@@ -825,6 +828,57 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
 /// own clock. Tying them together would silently freeze the map on a paused plant.
 pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
 
+/// The step [`AtmosphericDispersionChannel::advance_population`] marches the map
+/// field's puff population at \[s of **plant** time\] -- **one plant timestep,
+/// and deliberately NOT `RunConfig::sim_dt`.**
+///
+/// # Why this is split off (maintainer direction, 2026-09-27)
+///
+/// `RunConfig::sim_dt` was doing two unrelated jobs that want opposite values:
+///
+/// 1. **the march granularity here**, which must be no coarser than the plant
+///    time one refresh covers, or the plume clock cannot move at all;
+/// 2. **`changi::activity::dilution_factors`' quadrature** for the receptor
+///    ring, whose cost is `O(steps x puffs x receptors)` with
+///    `steps = duration / sim_dt`, run twice (air and ground).
+///
+/// At `sim_dt` = 10 s job (1) was **broken, and visibly so**:
+/// [`AtmosphericDispersionChannel::refresh_field`] advances the target by
+/// [`crate::physics::PLANT_TIMESTEP_S`] = 0.1 s, so the march's
+/// `while clock + dt <= target` loop **did not execute for 100 consecutive
+/// refreshes and then jumped 10 s at once**. Because [`FieldKey`] is keyed on
+/// the population's own clock, the field genuinely did not redraw in between --
+/// the plume moved in 10 s lurches, which is the stutter the maintainer
+/// reported. The evidence was already sitting in a *passing* test:
+/// `tests::the_field_refresh_fits_in_a_frame` marches to
+/// `600.0 + i * FIELD_REFRESH_INTERVAL_S` and every one of those five marches
+/// was a no-op, so it timed `compute_field` against a frozen population.
+///
+/// Setting `sim_dt` = 0.1 s would fix (1) and cost **100x** on (2) -- 12 001
+/// steps against 121, about 3.5e7 `puff_unit_response` calls per ring update,
+/// serial on the physics thread behind only
+/// [`DISPERSION_EVALUATION_INTERVAL_S`]'s 2 s of plant time. And driving the
+/// *puff* spacing that fine would be worse still: `puff_dt` = 0.1 s puts the cap
+/// at 12 000 puffs, which is 100x on the field as well (133 ms on the GPU, ~2 s
+/// pooled, against a 0.1 s budget) for a quadrature that is already converged at
+/// 120 -- `puff_dt` is a discretisation of the release, not a frame rate.
+///
+/// So the two are separate constants and each takes the value its own job needs.
+///
+/// # Derived, not written as `0.1`
+///
+/// Read from [`crate::physics::PLANT_TIMESTEP_S`] per this crate's rule that
+/// motion is taken from the physics and never hardcoded: **one march step per
+/// plant step** is precisely what makes the plume advance on every tick. A
+/// fast-forward burst or a [`MapFieldRequest::plume_clock_offset`] jump simply
+/// takes proportionally more steps, which is cheap -- the population is capped
+/// at 120 puffs and a step is six flops per puff.
+///
+/// This is *plant* time, so it is read from the plant's timestep and **not**
+/// from [`FIELD_REFRESH_INTERVAL_S`], which is wall clock. See that constant on
+/// why the two must not be tied together.
+const FIELD_MARCH_DT_S: f64 = crate::physics::PLANT_TIMESTEP_S;
+
 /// ~~Everything a cached field depends on.~~ **What has MOVED since the field
 /// was last drawn** -- CORRECTED 2026-09-27.
 ///
@@ -900,9 +954,12 @@ struct FieldKey {
 /// - ~~"a two-hour fast-forward costs exactly what the first minute does"~~ --
 ///   it now costs the march. Measured cheap: the population is capped at
 ///   `puff_duration / puff_dt` = 120 puffs and a step is six flops per puff, so
-///   an hour of catch-up at `sim_dt` = 10 s is 360 steps x 120 puffs ~ 260 k
-///   flops -- far below the field evaluation it feeds, which is 65 536 cells x
-///   120 puffs.
+///   an hour of catch-up is ~~"at `sim_dt` = 10 s ... 360 steps x 120 puffs ~
+///   260 k flops"~~ **CORRECTED 2026-09-27** -- the march now steps at
+///   [`FIELD_MARCH_DT_S`] = 0.1 s, not `sim_dt` = 10 s, so an hour is 36 000
+///   steps x 120 puffs ~ **26 M flops**. Still far below the field evaluation it
+///   feeds, which is 65 536 cells x 120 puffs, and paid only on a deliberate
+///   clock jump; an ordinary tick marches a single step.
 #[derive(Debug, Clone, Copy)]
 struct FieldPuff {
     /// Eastward displacement from the stack \[m\], integrated step by step.
@@ -913,8 +970,39 @@ struct FieldPuff {
     /// `hypot(dx, dy)`: on a bent trajectory they differ, and the chord
     /// under-reports how far the puff has dispersed.
     path_m: f64,
-    /// Age \[s\], for retirement at `puff_duration`.
-    age_s: f64,
+    /// The march step this puff was emitted on -- **an integer, not an
+    /// accumulated age.**
+    ///
+    /// # Why this is not `age_s: f64` any more (CORRECTED 2026-09-27)
+    ///
+    /// ~~"Age \[s\], for retirement at `puff_duration`."~~ accumulated by
+    /// `p.age_s += dt` once per march step. That was survivable at the old
+    /// 10 s step (120 additions over a 1200 s lifetime) and **fails at the
+    /// [`FIELD_MARCH_DT_S`] = 0.1 s step**, where the same lifetime is 12 000
+    /// additions and the plume clock is 72 000 of them out at the 7 200 s the
+    /// tests march to.
+    ///
+    /// Measured before the fix: the accumulated clock is **2.2e-9 off by
+    /// t = 3600 s**, which overruns the `1e-9` window the emission test used,
+    /// so emissions began to be *missed* while drifted ages crossed
+    /// `puff_duration` and `retain` retired the survivors. The population
+    /// collapsed to **zero puffs -- a blank plume** rather than merely a
+    /// slightly wrong count, which is the failure mode worth naming: it is
+    /// silent, it is far from `t = 0`, and no test reached it.
+    ///
+    /// Age is now `(population_steps - emitted_step) * dt`, an exact integer
+    /// difference scaled once, so retirement lands on the step it should at any
+    /// march step and for any run length.
+    emitted_step: u64,
+}
+
+impl FieldPuff {
+    /// Age \[s\] at a given march-step count -- an exact integer difference
+    /// scaled once, rather than a value accumulated per step. See
+    /// [`FieldPuff::emitted_step`].
+    fn age_s(&self, now_steps: u64) -> f64 {
+        now_steps.saturating_sub(self.emitted_step) as f64 * FIELD_MARCH_DT_S
+    }
 }
 
 /// The dispersion channel: fixed site inputs, operator meteorology, and the
@@ -946,7 +1034,17 @@ pub struct AtmosphericDispersionChannel {
     /// it is marched.
     puffs: Vec<FieldPuff>,
     /// The plume clock \[s\] the population in [`Self::puffs`] stands at.
+    ///
+    /// **Derived from [`Self::population_steps`]**, never accumulated -- see
+    /// [`FieldPuff::emitted_step`] for the drift this avoids and what it cost
+    /// when it did not.
     population_clock_s: f64,
+    /// The number of [`FIELD_MARCH_DT_S`] steps the population has been marched.
+    ///
+    /// The clock of record. `population_clock_s` is this times the step, which
+    /// is an exact multiply onto the decimal grid rather than 72 000 additions
+    /// that miss it.
+    population_steps: u64,
 }
 
 impl AtmosphericDispersionChannel {
@@ -964,6 +1062,7 @@ impl AtmosphericDispersionChannel {
             last_field_refresh: None,
             puffs: Vec::new(),
             population_clock_s: 0.0,
+            population_steps: 0,
         }
     }
 
@@ -1088,7 +1187,9 @@ impl AtmosphericDispersionChannel {
         let config = self.run_config();
         self.advance_population(&config, self.plume_time_s(sim_time_s));
         // Keyed on the population's own clock, not the requested plume time:
-        // the march lands on a multiple of `sim_dt`, and it is what was drawn.
+        // the march lands on a multiple of `FIELD_MARCH_DT_S` (not `sim_dt` --
+        // corrected 2026-09-27 when the two were split), and it is what was
+        // drawn.
         let key = FieldKey {
             meteorology: self.meteorology,
             cells: self.field_cells(),
@@ -1129,8 +1230,9 @@ impl AtmosphericDispersionChannel {
         // The LIVE ring sample is refreshed here TOO, and that is a bug fix --
         // CORRECTED 2026-09-27. `instantaneous_chi_over_q_at_ring` was computed
         // only inside `collect`, which runs in `evaluate`, which is on
-        // `DISPERSION_EVALUATION_INTERVAL_S`'s 60 s throttle. So the column
-        // documented and advertised as *live* refreshed once a plant minute --
+        // `DISPERSION_EVALUATION_INTERVAL_S`'s throttle (60 s when this was
+        // found; 2 s now). So the column documented and advertised as *live*
+        // refreshed once a plant minute --
         // the very thing it was added to stop. Recomputing it beside the field is
         // what actually makes it live, because the field's clock is the fast one.
         //
@@ -1257,17 +1359,41 @@ impl AtmosphericDispersionChannel {
     /// The puff run configuration.
     ///
     /// `sim_dt` 10 s, `puff_dt` 10 s, over a 1200 s run with a 1200 s puff
-    /// lifetime — upstream's own default lifetime. At 3 m/s a puff covers
+    /// lifetime — upstream's own default lifetime.
+    ///
+    /// **`sim_dt` here serves the receptor ring ONLY** (2026-09-27). It sets
+    /// `changi::activity::dilution_factors`' quadrature, where the cost is
+    /// `O(steps x puffs x receptors)` and 10 s is both sufficient and 100x
+    /// cheaper than 0.1 s. The map field's puff population is marched at
+    /// [`FIELD_MARCH_DT_S`] instead — see that constant for why the two were
+    /// split, and why refining `puff_dt` is *not* the way to a smooth plume. At 3 m/s a puff covers
     /// 3.6 km in that time, which carries it past the outermost 1 km ring with
     /// margin, so no receptor is truncated by a puff being dropped mid-flight.
     /// [`tests::the_run_outlasts_the_outermost_receptor`] pins that.
     fn run_config(&self) -> RunConfig {
         RunConfig {
-            // maintainer note: I changed this to 0.1s and 1.0s 
-            // so as to ensure smooth simulation 
-            // For agents: pls don't change 
-            sim_dt: Time::new::<second>(0.1),
-            puff_dt: Time::new::<second>(1.0),
+            // Maintainer note, 2026-09-27: *"I'm trying to change sim_dt and
+            // puff_dt to 0.1s each... but it may hang things"*, to get a smooth
+            // map. RESOLVED by splitting the knob rather than refining it --
+            // `sim_dt` stays coarse here and the map marches at
+            // `FIELD_MARCH_DT_S`. Both of the values originally wanted here are
+            // measured, and neither buys smoothness:
+            //
+            // | `sim_dt` | ring evaluation | verdict |
+            // |---|---|---|
+            // | 10 s  | **27.8 ms**  | 1.4 % of plant-time compute on the 2 s throttle |
+            // | 1.0 s | **262.6 ms** | 2.6x the 100 ms plant tick -- laggy |
+            // | 0.1 s | ~2.6 s (extrapolated, 100x) | hangs |
+            //
+            // `puff_dt` = 0.1 s is worse still: the cap is `puff_duration /
+            // puff_dt`, so it puts 12 000 puffs in the field (133 ms GPU, ~2 s
+            // pooled, against a 0.1 s budget) to refine a superposition already
+            // converged at 120. Neither knob was ever the frame rate -- the
+            // march step was. See `FIELD_MARCH_DT_S`, and
+            // `tests::the_plume_advances_on_every_field_refresh_whatever_sim_dt_is`
+            // which fails if the two are recoupled.
+            sim_dt: Time::new::<second>(10.0),
+            puff_dt: Time::new::<second>(10.0),
             output_dt: Time::new::<second>(60.0),
             duration: Time::new::<second>(1200.0),
             puff_duration: Time::new::<second>(1200.0),
@@ -1342,8 +1468,9 @@ impl AtmosphericDispersionChannel {
     /// a step function and nothing here records where it has been. So a catch-up
     /// march covering an interval during which the wind moved applies the
     /// *latest* wind to the whole of it. At the 10 Hz refresh
-    /// ([`FIELD_REFRESH_INTERVAL_S`]) that interval is a tenth of a second and
-    /// the error is negligible; across a deliberate plume-clock jump (see
+    /// ([`FIELD_REFRESH_INTERVAL_S`]) that interval is a tenth of a second --
+    /// exactly one [`FIELD_MARCH_DT_S`] step, so an ordinary tick applies one
+    /// wind to one step and the error is not merely negligible but absent; across a deliberate plume-clock jump (see
     /// [`MapFieldRequest::plume_clock_offset`]) it is not, and the jump is
     /// therefore an extrapolation under "the wind holds", not a prediction.
     /// **Said plainly rather than hidden**, because the closed form it replaced
@@ -1362,7 +1489,10 @@ impl AtmosphericDispersionChannel {
     /// often this runs, and skipping a call only makes the next march longer.
     /// See [`FieldPuff`] for the measured cost.
     fn advance_population(&mut self, config: &RunConfig, target_s: f64) {
-        let dt = config.sim_dt.get::<second>();
+        // The march step is THIS channel's own, not `config.sim_dt` -- see
+        // `FIELD_MARCH_DT_S` for why the two were split and what `sim_dt` still
+        // owns (the receptor ring's quadrature, which wants the coarse value).
+        let dt = FIELD_MARCH_DT_S;
         let puff_dt = config.puff_dt.get::<second>();
         let lifetime = config.puff_duration.get::<second>();
         if dt <= 0.0 || puff_dt <= 0.0 {
@@ -1370,19 +1500,31 @@ impl AtmosphericDispersionChannel {
         }
         let target = target_s.max(0.0);
 
+        // Everything below counts STEPS, never accumulated seconds. See
+        // `FieldPuff::emitted_step` for the drift that forced this and the blank
+        // plume it produced.
+        let target_steps = (target / dt + 1e-9).floor() as u64;
+        // `round`, so a `puff_dt` that is not an exact multiple of the march
+        // step lands on the nearest whole number of steps instead of silently
+        // truncating the emission interval. At the shipped 10 s / 0.1 s this is
+        // exactly 100.
+        let steps_per_emission = (puff_dt / dt).round().max(1.0) as u64;
+        let lifetime_steps = (lifetime / dt).round() as u64;
+
         // A rewind is a reset -- see the doc comment.
-        if target + 1e-9 < self.population_clock_s {
+        if target_steps < self.population_steps {
             self.puffs.clear();
+            self.population_steps = 0;
             self.population_clock_s = 0.0;
         }
         // Seed the t = 0 emission once, so the population is never empty at a
         // clock the plume has reached.
-        if self.puffs.is_empty() && self.population_clock_s == 0.0 {
+        if self.puffs.is_empty() && self.population_steps == 0 {
             self.puffs.push(FieldPuff {
                 dx_m: 0.0,
                 dy_m: 0.0,
                 path_m: 0.0,
-                age_s: 0.0,
+                emitted_step: 0,
             });
         }
 
@@ -1396,30 +1538,38 @@ impl AtmosphericDispersionChannel {
         // is what would turn the path back into a chord.
         let leg = step_dx.hypot(step_dy);
 
-        while self.population_clock_s + dt <= target + 1e-9 {
+        while self.population_steps < target_steps {
             for p in self.puffs.iter_mut() {
                 p.dx_m += step_dx;
                 p.dy_m += step_dy;
                 p.path_m += leg;
-                p.age_s += dt;
             }
-            self.population_clock_s += dt;
-            if (self.population_clock_s % puff_dt).abs() < 1e-9
-                || (self.population_clock_s % puff_dt - puff_dt).abs() < 1e-9
-            {
+            self.population_steps += 1;
+            // An integer test on the step count, NOT `clock % puff_dt` against a
+            // float tolerance: at this march step the accumulated clock was
+            // 2.2e-9 out by t = 3600 s and overran the 1e-9 window, so
+            // emissions were missed. `FieldPuff::emitted_step` has the measured
+            // account.
+            if self.population_steps % steps_per_emission == 0 {
                 self.puffs.push(FieldPuff {
                     dx_m: 0.0,
                     dy_m: 0.0,
                     path_m: 0.0,
-                    age_s: 0.0,
+                    emitted_step: self.population_steps,
                 });
             }
             // `<=`, not `<`: the puff at age exactly `puff_duration` is kept,
             // which is what makes the settled count `puff_duration / puff_dt`
             // rather than that plus one. See
             // `tests::the_instantaneous_population_is_capped_by_the_puff_lifetime`.
-            self.puffs.retain(|p| p.age_s <= lifetime);
+            // Exact in integers, so it lands on the intended step at any run
+            // length rather than drifting across the boundary.
+            let now = self.population_steps;
+            self.puffs
+                .retain(|p| now.saturating_sub(p.emitted_step) <= lifetime_steps);
         }
+        // Derived from the step count by one multiply -- not accumulated.
+        self.population_clock_s = self.population_steps as f64 * dt;
     }
 
     /// The flattened puff states the map field sums over -- **the marched
@@ -1497,9 +1647,9 @@ impl AtmosphericDispersionChannel {
     /// dilution factor from `changi::activity::dilution_factors`. That is the
     /// right quantity for the activity and deposition columns, but it is
     /// expensive — `O(steps x puffs x receptors)`, run twice (air and ground) —
-    /// which is why it sits behind [`DISPERSION_EVALUATION_INTERVAL_S`]'s 60 s
-    /// throttle. A number that refreshes once a plant minute is not a live
-    /// readout.
+    /// which is why it sits behind [`DISPERSION_EVALUATION_INTERVAL_S`]'s
+    /// throttle — ~~60 s~~ **2 s since 2026-09-27**. Even at 2 s a number that
+    /// refreshes on the ring's cadence is not a live readout.
     ///
     /// This is the live one. It sums the **instantaneous** field at each
     /// receptor, so it refreshes with the field at
@@ -2382,7 +2532,9 @@ mod tests {
     ///
     /// # Methodology
     ///
-    /// One channel at 3 m/s, `sim_dt` 10 s, class held fixed so the stability
+    /// One channel at 3 m/s, marching at [`FIELD_MARCH_DT_S`] = 0.1 s
+    /// (~~`sim_dt` 10 s~~ **CORRECTED 2026-09-27**: `sim_dt` no longer sets the
+    /// march step -- see that constant), class held fixed so the stability
     /// lookup cannot confound the geometry.
     ///
     /// 1. Wind **from the north** for 600 s. A met-convention north wind blows
@@ -2431,15 +2583,16 @@ mod tests {
 
         // Leg 1: wind FROM the north, so the plume runs SOUTH.
         channel.advance_population(&config, 600.0);
+        let steps_after_leg_1 = channel.population_steps;
         let after_leg_1 = *channel
             .puffs
             .iter()
-            .max_by(|a, b| a.age_s.partial_cmp(&b.age_s).unwrap())
+            .min_by_key(|p| p.emitted_step)
             .expect("the population must not be empty after 600 s");
         println!(
             "after leg 1 (wind FROM north, 600 s): oldest puff dx = {:.1} m, dy = {:.1} m, \\
              path = {:.1} m, age = {:.0} s",
-            after_leg_1.dx_m, after_leg_1.dy_m, after_leg_1.path_m, after_leg_1.age_s
+            after_leg_1.dx_m, after_leg_1.dy_m, after_leg_1.path_m, after_leg_1.age_s(steps_after_leg_1)
         );
         assert!(
             after_leg_1.dy_m < -1.0 && after_leg_1.dx_m.abs() < 1e-9,
@@ -2455,10 +2608,11 @@ mod tests {
             ..channel.meteorology()
         });
         channel.advance_population(&config, 1200.0);
+        let steps_after_leg_2 = channel.population_steps;
         let oldest = *channel
             .puffs
             .iter()
-            .max_by(|a, b| a.age_s.partial_cmp(&b.age_s).unwrap())
+            .min_by_key(|p| p.emitted_step)
             .expect("the population must not be empty after 1200 s");
         println!(
             "after leg 2 (wind FROM west,  600 s): oldest puff dx = {:.1} m, dy = {:.1} m, \\
@@ -2468,7 +2622,7 @@ mod tests {
             oldest.dy_m,
             oldest.path_m,
             oldest.dx_m.hypot(oldest.dy_m),
-            oldest.age_s
+            oldest.age_s(steps_after_leg_2)
         );
 
         // THE assertion: the southward leg is remembered, not rewritten.
@@ -2694,6 +2848,92 @@ mod tests {
     /// ([`tests::what_one_dispersion_evaluation_costs`]), which is what stays
     /// behind [`DISPERSION_EVALUATION_INTERVAL_S`] precisely because it does not
     /// fit a frame.
+    /// **V&V, and the regression guard for the stutter this split exists to
+    /// fix: the plume must MOVE on every field refresh, at any `sim_dt`.**
+    ///
+    /// # What went wrong, and why a test has to hold it
+    ///
+    /// `RunConfig::sim_dt` used to set the march step. At its 10 s value,
+    /// `advance_population`'s `while clock + dt <= target` loop **could not
+    /// execute at all** for a target advanced by one
+    /// [`FIELD_REFRESH_INTERVAL_S`], so the population sat still for 100
+    /// consecutive refreshes and then jumped 10 s. Because [`FieldKey`] is keyed
+    /// on the population clock, the field did not redraw in between: the plume
+    /// visibly lurched.
+    ///
+    /// Nothing caught it. `tests::the_map_field_fits_inside_a_sixty_fps_frame`
+    /// marches to `600.0 + i * FIELD_REFRESH_INTERVAL_S` and every one of those
+    /// five marches was a silent no-op, so it timed `compute_field` against a
+    /// frozen population and passed. The fix (see [`FIELD_MARCH_DT_S`]) is only
+    /// half the job; this is the half that keeps it fixed.
+    ///
+    /// # Methodology
+    ///
+    /// Take the shipped config, assert `sim_dt` is the **coarse** ring value so
+    /// the test would fail if the two knobs were ever recoupled, then march ten
+    /// consecutive [`FIELD_REFRESH_INTERVAL_S`] increments from a settled 600 s
+    /// plume. After each one, require that (a) the population clock advanced by
+    /// exactly that increment, and (b) the oldest puff actually displaced.
+    ///
+    /// Pass criterion: every one of the ten refreshes moves both. A single
+    /// no-op fails, which is precisely the defect.
+    ///
+    /// # Results (2026-09-27)
+    ///
+    /// Passes with `sim_dt` = 10 s and [`FIELD_MARCH_DT_S`] = 0.1 s: all ten
+    /// refreshes advance the clock by 0.1 s and displace the plume by 0.3 m at
+    /// the 3 m/s default wind. Before the split the same loop produced **ten
+    /// no-ops** — zero clock movement and zero displacement.
+    #[test]
+    fn the_plume_advances_on_every_field_refresh_whatever_sim_dt_is() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        let config = channel.run_config();
+
+        // The point of the split: the ring's step stays coarse. If someone
+        // recouples the two knobs, this is the line that says so.
+        assert!(
+            config.sim_dt.get::<second>() > FIELD_MARCH_DT_S,
+            "sim_dt ({} s) is the RING's quadrature step and must stay coarser \
+             than the field's march step ({} s) -- see FIELD_MARCH_DT_S",
+            config.sim_dt.get::<second>(),
+            FIELD_MARCH_DT_S
+        );
+
+        channel.advance_population(&config, 600.0);
+        let mut clock = 600.0;
+        let oldest = |c: &AtmosphericDispersionChannel| {
+            let p = *c
+                .puffs
+                .iter()
+                .min_by_key(|p| p.emitted_step)
+                .expect("the population must not be empty at a settled clock");
+            (p.dx_m, p.dy_m)
+        };
+
+        for i in 1..=10 {
+            let before_clock = channel.population_clock_s;
+            let before_pos = oldest(&channel);
+            clock += FIELD_REFRESH_INTERVAL_S;
+            channel.advance_population(&config, clock);
+            let moved_clock = channel.population_clock_s - before_clock;
+            let after_pos = oldest(&channel);
+            let displaced = (after_pos.0 - before_pos.0).hypot(after_pos.1 - before_pos.1);
+            println!(
+                "refresh {i:>2}: clock +{moved_clock:.4} s, oldest puff moved {displaced:.4} m"
+            );
+            assert!(
+                (moved_clock - FIELD_REFRESH_INTERVAL_S).abs() < 1e-9,
+                "refresh {i} advanced the plume clock by {moved_clock} s, expected \
+                 {FIELD_REFRESH_INTERVAL_S} s -- a no-op here IS the stutter"
+            );
+            assert!(
+                displaced > 1e-9,
+                "refresh {i} left the plume where it was ({displaced} m); the field \
+                 would redraw an identical frame"
+            );
+        }
+    }
+
     #[test]
     fn the_map_field_fits_inside_a_sixty_fps_frame() {
         const FRAME_60_MS: f64 = 1000.0 / 60.0;
@@ -2752,8 +2992,13 @@ mod tests {
     }
 
     /// **MEASUREMENT: what one full dispersion evaluation actually costs**, so the
-    /// 60 s throttle is a decision about a measured number rather than a
+    /// throttle is a decision about a measured number rather than a
     /// recollection.
+    ///
+    /// **Taken while `DISPERSION_EVALUATION_INTERVAL_S` was 60 s**; it is 2 s
+    /// since 2026-09-27, so the "% of plant-time compute" figure below is 30x
+    /// larger now. The per-call median is a property of the evaluation and is
+    /// unaffected. Left as it was run, per the workspace rule on receipts.
     ///
     /// # Why this had to be measured before the throttle could be touched
     ///
