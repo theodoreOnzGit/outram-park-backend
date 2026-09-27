@@ -1263,8 +1263,11 @@ impl AtmosphericDispersionChannel {
     /// [`tests::the_run_outlasts_the_outermost_receptor`] pins that.
     fn run_config(&self) -> RunConfig {
         RunConfig {
-            sim_dt: Time::new::<second>(10.0),
-            puff_dt: Time::new::<second>(10.0),
+            // maintainer note: I changed this to 0.1s and 1.0s 
+            // so as to ensure smooth simulation 
+            // For agents: pls don't change 
+            sim_dt: Time::new::<second>(0.1),
+            puff_dt: Time::new::<second>(1.0),
             output_dt: Time::new::<second>(60.0),
             duration: Time::new::<second>(1200.0),
             puff_duration: Time::new::<second>(1200.0),
