@@ -107,6 +107,44 @@ k = 0.980195 ± 0.003496 (−2048 pcm). The rods (B4C, steel, iron) are worth
   explicit dummy tube are all candidates; they were not ablated one at a time
   here.
 
+## Graphite thermal scattering law (added 2026-09-27)
+
+**Question.** The model uses the ENDF/B-VIII.0 **crystalline** graphite
+S(α,β) (MAT 30) for every graphite region. VIII.0 also ships Hawari's
+reactor-graphite laws at 10 % and 30 % porosity (MAT 31, 32), which carry the
+disorder of a real porous graphite. How much k rides on that choice?
+
+**Prediction, posted on gh:#218 before the runs:** k goes up for 10P and further
+up for 30P, by a few hundred pcm (no more than about 1000 pcm).
+
+**Method.** VIII.0, n = 25 (123.576 cm, the critical loading), with the same
+geometry, modelling assumptions, seed (20260917) and fast statistics as the
+table above. `OUTRAM_HTR10_GRAPHITE_TSL=10P|30P` swaps the law in every graphite
+material and changes nothing else.
+
+| Graphite S(α,β) | k | Δk vs RMC [pcm] | vs crystalline [pcm] |
+|---|---|---|---|
+| crystalline (default) | 0.977026 ± 0.003604 | −2726 | — |
+| reactor graphite 10P | 0.980160 ± 0.003360 | −2413 | **+313 ± 493 (0.6σ)** |
+| reactor graphite 30P | 0.986496 ± 0.003220 | −1779 | **+947 ± 483 (2.0σ)** |
+
+All three runs had 0 lost locates, 0 stuck events and 0 negative distances.
+
+**Reading.** The central values follow the predicted order, crystalline < 10P
+< 30P, and fall within the predicted size. **Neither difference is resolved**:
+these are single fast runs, and 2σ on one seed is not a measurement. The
+predicted sign is not yet confirmed.
+
+**Which law is right is a separate question from this sensitivity.** Li used
+ENDF/B-VII.0, which has only a crystalline graphite law. So crystalline is the
+like-for-like choice for comparing against RMC, whatever real HTR-10 graphite
+is.
+
+**Follow-up (maintainer direction: "313 pcm is still significant … worth a
+closer look"):** a pooled study is running. It uses 4 new seeds per arm
+(20260927–30) at 10 000 × [40 + 100], for crystalline and 10P first and then
+30P. Results will be added here.
+
 ## MCNP as a rough gauge (added 2026-09-27)
 
 The paper also prints MCNP results from an independently built model, with no
