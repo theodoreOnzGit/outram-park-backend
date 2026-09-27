@@ -496,8 +496,26 @@ pub fn doppler_broaden_below_with(
 /// (`errthn = 0.001`, `thnmax = 6.5e6`). The per-reaction walk below remains
 /// only as the fallback for a result with no MT=1 section.
 pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
+    broaden_result_with_tolerance(result, temp_k, BroadnTolerances::default().errthn)
+}
+
+/// [`broaden_result`] with BROADR's fractional thinning tolerance `errthn`
+/// (card 3) set by the caller instead of upstream's `0.001`.
+///
+/// `errmax` and `errint` follow from it by upstream's own rule
+/// ([`BroadnTolerances::with_errthn`]: `10 x` and `/ 20000`). A larger
+/// `errthn` keeps fewer broadened points, so the table is smaller and faster
+/// to build and to search, and less accurate between points: an
+/// **approximation**, not an optimization. `broaden_result(r, t)` is exactly
+/// `broaden_result_with_tolerance(r, t, 0.001)`.
+///
+/// `errthn` is dimensionless and must be positive; `0.001` is NJOY's default
+/// and what every reference deck in this workspace uses. It applies to the
+/// joint walk only: the per-reaction fallback, taken when the result has no
+/// MT=1 section, keeps its own fixed tolerance.
+pub fn broaden_result_with_tolerance(result: &ReconrResult, temp_k: f64, errthn: f64) -> ReconrResult {
     let pendf = result.through_pendf_text();
-    if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::default(), E6PT5) {
+    if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5) {
         // BROADR writes a PENDF: energies copied above `thnmax` have been
         // through `e(k)**2/alpha` (`broadn` label 190) and are printed.
         return r.through_pendf_text();

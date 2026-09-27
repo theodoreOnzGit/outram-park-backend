@@ -108,6 +108,21 @@ pub fn bench_run_size(n_particles: usize, n_inactive: usize, n_active: usize) ->
     )
 }
 
+/// The [`SpeedTier`](crate::material::speed::SpeedTier) a benchmark example
+/// should build its nuclides at, from `OUTRAM_SPEED` (`standard`, `fast` or
+/// `very-fast`).
+///
+/// Unset means the default tier (`Fast`, which is exact), so an example's
+/// results do not depend on whether the variable is set unless a caller asks
+/// for `very-fast`. An unrecognised value **panics** with the list of valid
+/// ones, rather than silently running a tier the caller did not ask for.
+pub fn bench_speed() -> crate::material::speed::SpeedTier {
+    match std::env::var("OUTRAM_SPEED") {
+        Ok(v) => v.parse().unwrap_or_else(|e| panic!("OUTRAM_SPEED: {e}")),
+        Err(_) => crate::material::speed::SpeedTier::default(),
+    }
+}
+
 /// Report the transport-loss channels of a [`KeffResult`] to stderr.
 ///
 /// **What this is for.** A Monte Carlo history that is lost, or that exhausts

@@ -427,6 +427,11 @@
 //!     --example lct008_keff -- [--clad-omission-bound] [--particles N]
 //!                              [--dbrc] [--urr]
 //! ```
+//!
+//! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
+//! Unset means `fast` (the default, exactly the same `k` as `standard`);
+//! `very-fast` coarsens RECONR/BROADR to 1 %, an approximation whose
+//! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 //!
 //! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
@@ -706,6 +711,7 @@ fn main() {
         lower: Position::new(-R_CORE, -R_CORE, Z_LO),
         upper: Position::new(R_CORE, R_CORE, Z_HI),
     };
+    eprintln!("  speed tier: {} (OUTRAM_SPEED)", outram_mc_libs::vv::bench_speed());
     eprintln!(
         "\n  {} histories/gen, {} inactive + {} active generations",
         settings.n_particles, settings.n_inactive, settings.n_active
@@ -1179,8 +1185,8 @@ fn load(name: &str, file: &str) -> Nuclide {
     let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
     eprint!("  reconstructing {name:<6} … ");
     let t0 = Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-        .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+    let n = Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
+        .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n
 }

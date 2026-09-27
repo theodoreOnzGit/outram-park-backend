@@ -194,10 +194,35 @@ impl ReconrResult {
     /// Uses linear interpolation on the lin-lin grid. Returns `0.0` if
     /// `mt` is not present or `e` is outside the tabulated range.
     pub fn eval_mt(&self, mt: MtReaction, e: f64) -> f64 {
-        let sec = match self.sections.iter().find(|s| s.mt == mt) {
-            Some(s) => s,
-            None => return 0.0,
-        };
+        match self.section_index(mt) {
+            Some(idx) => self.eval_section(idx, e),
+            None => 0.0,
+        }
+    }
+
+    /// Position of reaction `mt`'s section in [`Self::sections`], or `None` if
+    /// the evaluation does not carry it.
+    ///
+    /// For callers that evaluate the same reaction many times: look the section
+    /// up once here, then call [`Self::eval_section`] with the index, instead of
+    /// [`Self::eval_mt`], which repeats this linear search on every call.
+    pub fn section_index(&self, mt: MtReaction) -> Option<usize> {
+        self.sections.iter().position(|s| s.mt == mt)
+    }
+
+    /// Evaluate the cross section \[b\] of section `idx` at energy `e` \[eV\].
+    ///
+    /// Exactly what [`Self::eval_mt`] computes once it has found the section:
+    /// `eval_mt` delegates here, so the two give the same value to the bit.
+    /// Zero below a threshold section's first point; lin-lin interpolation
+    /// inside; clamped to the endpoint above the last point.
+    ///
+    /// # Panics
+    ///
+    /// If `idx` is not a valid index into [`Self::sections`]. Take it from
+    /// [`Self::section_index`] on this same result.
+    pub fn eval_section(&self, idx: usize, e: f64) -> f64 {
+        let sec = &self.sections[idx];
         // BELOW THE FIRST TABULATED POINT THE CROSS SECTION IS ZERO, NOT THE
         // FIRST POINT'S VALUE.
         //
