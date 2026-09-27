@@ -74,7 +74,13 @@ Rods removed at n = 25 (VIII.0): 0.980195 ± 0.003496, **−2409 pcm** (was −2
 Every run: 0 lost locates, 0 stuck events, 0 negative distances. Shannon
 entropy over the active generations moved by at most 0.05 bits. Transport took
 930–1640 s per run. Nuclear-data processing took about 280–400 s per run
-(gh:#341).
+(gh:#341). **Hardware:** a claude.ai cloud-session container, measured on
+2026-09-27 as Intel Xeon @ 2.10 GHz, 4 logical cores (1 thread per core),
+15 GiB RAM, Linux, CPU only, with all cores used (`ThreadCount::Auto`). The
+session's container restarted once during these runs, and the
+earlier container's specs were not recorded, so "same class" is assumed and
+not verified. These seconds are **not** comparable with timings taken on the
+maintainer's desktop.
 
 **Ablation at the critical loading (VIII.0): the rods themselves.** With the
 withdrawn rods removed (channels empty; `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1`):

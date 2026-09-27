@@ -46,6 +46,37 @@ pub struct HardwareInfo {
     /// Target OS string from [`std::env::consts::OS`] (e.g. `"linux"`,
     /// `"windows"`, `"macos"`, `"android"`).
     pub os: String,
+    /// CPU model string (`model name` in `/proc/cpuinfo`), or `None` where
+    /// that file does not exist (Windows, macOS, wasm). Added 2026-09-27: a
+    /// core count alone does not say whether a timing came from a 2.1 GHz
+    /// cloud Xeon or a desktop, and timings are otherwise not comparable.
+    pub cpu_model: Option<String>,
+    /// Total RAM in GiB (`MemTotal` in `/proc/meminfo`), or `None` where that
+    /// file does not exist.
+    pub memory_gib: Option<f64>,
+}
+
+/// `model name` from `/proc/cpuinfo`, if the file exists and carries one.
+fn detect_cpu_model() -> Option<String> {
+    let text = std::fs::read_to_string("/proc/cpuinfo").ok()?;
+    text.lines()
+        .find(|l| l.starts_with("model name") || l.starts_with("Hardware"))
+        .and_then(|l| l.split_once(':'))
+        .map(|(_, v)| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+/// `MemTotal` from `/proc/meminfo` in GiB, if the file exists.
+fn detect_memory_gib() -> Option<f64> {
+    let text = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let kib: f64 = text
+        .lines()
+        .find(|l| l.starts_with("MemTotal:"))?
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()?;
+    Some(kib / (1024.0 * 1024.0))
 }
 
 /// Detect the GPU adapter (desktop path): probe `wgpu` and format the adapter
@@ -76,15 +107,21 @@ impl HardwareInfo {
             gpu: detect_gpu(),
             cpu_logical_cores,
             os: std::env::consts::OS.to_string(),
+            cpu_model: detect_cpu_model(),
+            memory_gib: detect_memory_gib(),
         }
     }
 
     /// A one-line hardware headline, e.g.
-    /// `"NVIDIA GeForce RTX 3050 / Vulkan, 12 cores, linux"` or
-    /// `"CPU only, 8 cores, android"`.
+    /// `"NVIDIA GeForce RTX 3050 / Vulkan, 12 cores, linux, <CPU model>, 31.3 GiB RAM"`
+    /// or `"CPU only, 8 cores, android, CPU model unknown, RAM unknown"`.
     pub fn headline(&self) -> String {
         let gpu = self.gpu.as_deref().unwrap_or("CPU only");
-        format!("{gpu}, {} cores, {}", self.cpu_logical_cores, self.os)
+        let cpu = self.cpu_model.as_deref().unwrap_or("CPU model unknown");
+        let mem = self
+            .memory_gib
+            .map_or_else(|| "RAM unknown".to_string(), |g| format!("{g:.1} GiB RAM"));
+        format!("{gpu}, {} cores, {}, {cpu}, {mem}", self.cpu_logical_cores, self.os)
     }
 }
 
@@ -341,6 +378,8 @@ mod tests {
             gpu: Some("Test GPU / Vulkan".into()),
             cpu_logical_cores: 8,
             os: "linux".into(),
+            cpu_model: None,
+            memory_gib: None,
         };
         // Small batch: GPU slower. Large batch: GPU faster (synthetic crossover).
         for (bs, multi, gpu) in [(1_000usize, 0.10f64, 1.00f64), (1_000_000, 5.00, 2.00)] {
@@ -381,6 +420,8 @@ mod tests {
             gpu: None,
             cpu_logical_cores: 4,
             os: "linux".into(),
+            cpu_model: None,
+            memory_gib: None,
         };
         rep2.push(PerfRow {
             batch_size: 1000,
@@ -430,6 +471,8 @@ mod tests {
             gpu: None,
             cpu_logical_cores: 2,
             os: "linux".into(),
+            cpu_model: None,
+            memory_gib: None,
         };
         rep.push(row);
         let csv = rep.to_csv();

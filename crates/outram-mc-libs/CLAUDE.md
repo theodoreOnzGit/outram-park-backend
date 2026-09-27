@@ -78,6 +78,37 @@ against `openmc --plot`
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
+## Every timing carries its hardware (HARD RULE, this crate)
+
+**Maintainer direction, 2026-09-27:** *"when doing timing runs, make sure to
+record hardware specs. Otherwise timing numbers r useless."* This binds
+`outram-mc-libs`, including models from other crates that run on its
+transport (e.g. `nee_soon::htr10_rmc`) and the V&V records under this crate.
+
+- **Trigger:** any wall-clock, throughput or speed-up number that gets
+  recorded or quoted. That covers V&V docs, doc comments, issue comments,
+  `CLAUDE.md` and summaries to the maintainer.
+- **Record, next to the number:** CPU model, logical cores, the thread count
+  the run actually used, RAM, OS, and GPU (or "CPU only"). Add whether the
+  machine was shared or loaded when that is known.
+  `perf_report::HardwareInfo::headline()` gives all of these except threads
+  and load.
+- **Automatic for `RunDiagnostics`:** since 2026-09-27 every record, and the
+  console summary, carries a `hardware` line. It is pinned by
+  `run_diagnostics::tests::every_record_names_its_hardware`. Copy that line
+  into the V&V doc with the timing. The record itself is gitignored.
+- **Compare timings across machines only as ratios measured on the same
+  machine.** For example, "3.2× faster" is only meaningful when both arms ran
+  on one host. Never compare absolute seconds from two hosts.
+- **Timings recorded before this rule mostly have no hardware.** Some were
+  taken on a faster desktop and some in cloud containers. When you quote one,
+  mark it `hardware not recorded`. Do not guess the host.
+
+**Why.** Seconds are a property of the machine as much as of the code. HTR-10
+runs in this crate were timed on both the maintainer's desktop and 4-core
+cloud containers, and without the host a slowdown or a speed-up cannot be told
+apart from a change of computer.
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
@@ -608,7 +639,7 @@ nobody reaches for is, in practice, an optimisation the code does not have.
   45 of them away. `Material::macro_xs_total` already does this, so the
   flight-distance path and all five delta-tracking sites are covered.
 - **Measured worth, LCT-008, 11 nuclides, 5000 × [30 + 70]:** transport
-  **64.2 s → 20.1 s (3.2×)**, `k_eff` **byte-identical**. That closed most of
+  **64.2 s → 20.1 s (3.2×)**, `k_eff` **byte-identical** (hardware not recorded). That closed most of
   the 8.4× gap against OpenMC the 2026-09-24 sweep measured.
 - **An optimisation that changes the answer is a bug, not a trade.**
   `tests/total_fast_path_matches_full.rs` asserts the two paths are **exactly**

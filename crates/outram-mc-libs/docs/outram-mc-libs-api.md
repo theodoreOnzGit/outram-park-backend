@@ -4626,7 +4626,7 @@ pub struct Cell {
 | `id` | `i32` | User-facing cell id (for reporting/tallies). |
 | `region` | `Vec<RegionToken>` | Region definition as an RPN token stream (see [`RegionToken`]). |
 | `fill` | `CellFill` | What the cell is filled with. |
-| `temperature` | `f64` | Temperature of this cell in Kelvin (passed to the Doppler XS lookup). |
+| `temperature` | `f64` | Temperature of this cell in Kelvin.<br><br>~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport<br>does not read this field.** Cross sections are looked up at the<br>material's temperature and broadened at the nuclide's build<br>temperature; free-gas kinematics use the run's<br>`KeffSettings::temperature_k`. Changing it to 1200 K leaves `k`<br>bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's<br>declared temperature for callers and a future per-cell treatment (OpenMC<br>has one); see `docs/temperatures.md`. |
 | `translation` | `super::position::Position` | Rigid translation \[cm\] applied to a fill universe's local frame<br>(`coord.r -= translation`). Zero for material cells and untranslated fills.<br>Mirrors `Cell::translation_` in `src/cell.cpp`. |
 | `tracking` | `Option<TrackingMethod>` | How particles are transported through this region, or `None` to<br>**inherit** from the enclosing region.<br><br>`None` and `Some(TrackingMethod::Surface)` are deliberately different:<br>the first inherits, the second is an explicit override that carves a<br>surface-tracked island out of a delta-tracked parent — a control-rod<br>channel inside a pebble bed being exactly that case. Collapsing them<br>into a bare `TrackingMethod` makes every nested universe silently reset<br>its parent's choice, since `Surface` is the common default.<br><br>NEW WORK, no OpenMC counterpart. |
 
@@ -14602,7 +14602,7 @@ pub struct Material {
 | `id` | `i32` |  |
 | `name` | `String` |  |
 | `components` | `Vec<NuclideComponent>` |  |
-| `temperature` | `f64` | Temperature in Kelvin (passed straight to the WMP Doppler evaluator). |
+| `temperature` | `f64` | Temperature in Kelvin, passed to every cross-section lookup for this<br>material. **Only windowed-multipole (`Core`) nuclides use it** (the WMP<br>Doppler evaluator); a pointwise nuclide (from ENDF reconstruction or an<br>ACE table) is already broadened at its build temperature and ignores<br>it. Verified 2026-09-27: set to 1200 K on ACE nuclides, `k` is<br>bit-identical (`tests/temperature_precedence.rs`,<br>`docs/temperatures.md`). |
 
 ##### Implementations
 
@@ -34673,7 +34673,7 @@ pub struct KeffSettings {
 | `n_particles` | `usize` | Neutron histories per generation. More ⇒ lower per-generation noise. |
 | `n_inactive` | `usize` | Inactive (source-convergence) generations, discarded from the k tally. |
 | `n_active` | `usize` | Active generations averaged into the reported eigenvalue. |
-| `temperature_k` | `f64` | Material/data temperature \[K\] used for Doppler-broadened lookups. |
+| `temperature_k` | `f64` | Run temperature \[K\].<br><br>**What it does depends on the driver** (see `docs/temperatures.md`):<br>- in the CSG drivers (`transport_csg`) it is the **free-gas elastic<br>  kinematics** temperature (`Nuclide::free_gas_kt`) only; cross sections<br>  are looked up at each material's own temperature;<br>- in the simple drivers of this module it is also the temperature cross<br>  sections are looked up at.<br><br>In neither does it re-broaden a pointwise nuclide. Keep it equal to the<br>temperature the nuclides were built at, or the target motion and the<br>broadened cross sections describe different materials. ~~Material/data<br>temperature used for Doppler-broadened lookups.~~ (Clarified<br>2026-09-27.) |
 | `seed` | `u64` | Master RNG seed. Fixed seed ⇒ bit-reproducible run. |
 | `watt_a` | `f64` | Watt fission-spectrum parameter `a` \[eV\] for banked neutron energies. |
 | `watt_b` | `f64` | Watt fission-spectrum parameter `b` \[eV⁻¹\]. |
@@ -35102,7 +35102,7 @@ pub fn run_keff_gpu(radius_cm: f64, material: &crate::material::material::Materi
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:735:11: 735:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:735:10: 735:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:748:11: 748:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:748:10: 748:33 (#0))])]")`
 
 The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
 
@@ -35152,7 +35152,7 @@ pub fn run_keff_gpu_inner(ctx: &crate::gpu::GpuContext, radius_cm: f64, material
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:922:11: 922:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:922:10: 922:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:935:11: 935:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:935:10: 935:33 (#0))])]")`
 
 **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
 the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
@@ -35228,7 +35228,7 @@ pub fn run_keff_event_cpu_mirror(radius_cm: f64, material: &crate::material::mat
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1278:11: 1278:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1278:10: 1278:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1291:11: 1291:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1291:10: 1291:33 (#0))])]")`
 
 **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
 op-u6s.8 deep-penetration path. Desktop / non-Android only.
@@ -61170,6 +61170,8 @@ pub struct HardwareInfo {
     pub gpu: Option<String>,
     pub cpu_logical_cores: usize,
     pub os: String,
+    pub cpu_model: Option<String>,
+    pub memory_gib: Option<f64>,
 }
 ```
 
@@ -61180,6 +61182,8 @@ pub struct HardwareInfo {
 | `gpu` | `Option<String>` | GPU adapter as `"<name> / <backend>"` (e.g. `"NVIDIA GeForce RTX 3050 /<br>Vulkan"`), or `None` when no usable GPU adapter is present (headless<br>server, CI with no loader, or Android — where the report reads<br>"CPU only"). |
 | `cpu_logical_cores` | `usize` | Logical CPU cores via [`std::thread::available_parallelism`] (the count<br>[`crate::physics::compute::ThreadCount::Auto`] resolves to); `1` if the<br>query fails. |
 | `os` | `String` | Target OS string from [`std::env::consts::OS`] (e.g. `"linux"`,<br>`"windows"`, `"macos"`, `"android"`). |
+| `cpu_model` | `Option<String>` | CPU model string (`model name` in `/proc/cpuinfo`), or `None` where<br>that file does not exist (Windows, macOS, wasm). Added 2026-09-27: a<br>core count alone does not say whether a timing came from a 2.1 GHz<br>cloud Xeon or a desktop, and timings are otherwise not comparable. |
+| `memory_gib` | `Option<f64>` | Total RAM in GiB (`MemTotal` in `/proc/meminfo`), or `None` where that<br>file does not exist. |
 
 ##### Implementations
 
@@ -62147,6 +62151,11 @@ pub struct RunDiagnostics {
   pub fn failures(self: &Self) -> Vec<&DataItem> { /* ... */ }
   ```
   Any data item that failed to load.
+
+- ```rust
+  pub fn hardware(self: &Self) -> &HardwareInfo { /* ... */ }
+  ```
+  The host this record was started on.
 
 - ```rust
   pub fn render(self: &Self) -> String { /* ... */ }

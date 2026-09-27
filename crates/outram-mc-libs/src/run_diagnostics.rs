@@ -35,7 +35,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use crate::perf_report::LOCAL_PERF_DIR;
+use crate::perf_report::{HardwareInfo, LOCAL_PERF_DIR};
 
 /// Where one piece of nuclear data came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,6 +96,9 @@ pub struct RunDiagnostics {
     data: Vec<DataItem>,
     phases: Vec<Phase>,
     notes: Vec<String>,
+    /// The host, detected when the record is started. Every timing in the
+    /// record is meaningless without it (maintainer rule, 2026-09-27).
+    hardware: HardwareInfo,
 }
 
 impl RunDiagnostics {
@@ -110,6 +113,7 @@ impl RunDiagnostics {
             data: Vec::new(),
             phases: Vec::new(),
             notes: Vec::new(),
+            hardware: HardwareInfo::detect(),
         }
     }
 
@@ -182,12 +186,19 @@ impl RunDiagnostics {
         self.data.iter().filter(|d| !d.ok).collect()
     }
 
+    /// The host this record was started on.
+    #[must_use]
+    pub fn hardware(&self) -> &HardwareInfo {
+        &self.hardware
+    }
+
     /// Render the record.
     #[must_use]
     pub fn render(&self) -> String {
         let mut s = String::new();
         let _ = writeln!(s, "# outram-mc run diagnostics — {}", self.label);
         let _ = writeln!(s, "\nstarted_unix,{}", self.started_unix);
+        let _ = writeln!(s, "hardware,{}", self.hardware.headline());
         let _ = writeln!(s, "data_seconds,{:.3}", self.data_seconds());
         let _ = writeln!(s, "transport_seconds,{:.3}", self.phase_seconds());
         let total = self.data_seconds() + self.phase_seconds();
@@ -254,6 +265,7 @@ impl RunDiagnostics {
     /// Print the summary to stdout — the two totals, separated, and any failure.
     pub fn print_summary(&self) {
         println!("\n  --- timing, data processing vs transport ---");
+        println!("  hardware     : {}", self.hardware.headline());
         println!("  nuclear data : {:8.1} s", self.data_seconds());
         println!("  transport    : {:8.1} s", self.phase_seconds());
         println!(
@@ -330,6 +342,23 @@ impl AsRef<Path> for DataSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Maintainer rule 2026-09-27: timings without hardware specs are useless,
+    /// so every rendered record must name the host.
+    #[test]
+    fn every_record_names_its_hardware() {
+        let r = RunDiagnostics::new("hw");
+        let text = r.render();
+        let line = text
+            .lines()
+            .find(|l| l.starts_with("hardware,"))
+            .expect("record carries a hardware line");
+        assert!(line.contains(" cores, "), "{line}");
+        if std::path::Path::new("/proc/cpuinfo").exists() {
+            assert!(r.hardware().cpu_model.is_some(), "{line}");
+            assert!(r.hardware().memory_gib.is_some_and(|g| g > 0.0), "{line}");
+        }
+    }
 
     #[test]
     fn a_failed_item_is_recorded_not_dropped() {
