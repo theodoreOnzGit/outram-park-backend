@@ -609,8 +609,43 @@ impl DispersionResult {
 ///
 /// The dispersion run remains *quasi-steady* in exactly the sense
 /// [`super::fission_product_release`] is: it carries no state between calls, so
-/// running it more often integrates nothing more accurately. That argument is
-/// untouched by the measurement and is the one the interval now rests on alone.
+/// running it more often integrates nothing more accurately.
+///
+/// # Then MEASURED PROPERLY, 2026-09-27: 26.8 ms per call, and it STAYS
+///
+/// The maintainer asked for this throttle to come out. It has been carried out
+/// for **half** of the dispersion side and refused for the other half, on a
+/// measurement rather than on the struck claim above.
+///
+/// `tests::what_one_dispersion_evaluation_costs` times one full
+/// [`AtmosphericDispersionChannel::evaluate`] with a **populated** release
+/// channel — populated deliberately, because `update` returns early on an empty
+/// one and that early return is what the 0.00 % reading above actually measured:
+///
+/// | | Value |
+/// |---|---|
+/// | one full evaluation | **26.819 ms** (median of 5, after a warm-up) |
+/// | steam generator, for scale | 26.46 ms/call = 100.12 % of the plant step |
+/// | as a share of a 100 ms tick | **27 %** |
+/// | as a share of a 60 fps frame | **161 % — does not fit** |
+///
+/// So the two halves of "the dispersion" differ by a factor of **37**: the map
+/// field is 0.731 ms on the GPU and now runs at 60 fps
+/// ([`FIELD_REFRESH_INTERVAL_S`]), while the receptor ring's time-integrated
+/// `chi/Q` plus the activity survey is 26.8 ms and would cost real-time ratio
+/// directly at any interactive rate. Lumping them under one word is what made the
+/// original claim above look plausible for as long as it did.
+///
+/// **What this throttle still governs**, therefore, is only the expensive half:
+/// two `dilution_factors` runs (air at receptor height, ground at `z = 0`) and
+/// the activity survey. The live column a reader watches is **not** on it — see
+/// [`ReceptorResult::instantaneous_chi_over_q`], refreshed beside the field.
+///
+/// **Not claimed:** that 60 s is the *right* interval. It is justified by the
+/// quasi-steady argument, and 26.8 ms is cheap enough that a much shorter one
+/// would also be affordable — 1 s would cost 2.7 % of plant-time compute. Nobody
+/// has measured whether the activity columns visibly lag at 60 s, and that is the
+/// question to ask if they feel stale, rather than removing the throttle outright.
 ///
 /// 60 s is chosen against the physics: the dispersion result depends on the
 /// wind and the release rate, the wind is an operator input that does not
@@ -636,7 +671,8 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 60.0;
 ///
 /// So the field is rate-limited on **wall-clock** time, not plant time: a
 /// paused or fast-forwarded simulation must not change how responsive the map
-/// feels to a hand on the slider. `0.1 s` is the 10 Hz the Map tab targets.
+/// feels to a hand on the slider. ~~`0.1 s` is the 10 Hz the Map tab
+/// targets.~~ **CHANGED 2026-09-27 to 60 fps** — see the section below.
 ///
 /// # ~~This is purely a rate limit, not a schedule~~ -- CORRECTED 2026-09-25
 ///
@@ -659,7 +695,48 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 60.0;
 /// screen until the next one is ready. The resolution ceiling that keeps it
 /// affordable is [`max_grid_cells`], and it is a cadence choice, never a model
 /// choice.
-pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
+///
+/// # ~~0.1 s (10 Hz)~~ -> 60 fps, CHANGED 2026-09-27 on measured cost
+///
+/// **Maintainer direction:** *"I want you to do at least a 30 fps, ideally
+/// 60 fps, otherwise update map at 10 Hz just like rest of the plant"* — for the
+/// map.
+///
+/// 60 fps is affordable, and by a wide margin, because the field is on the GPU.
+/// Measured with `cargo plume-timing` at the shipped 120-puff instantaneous
+/// population:
+///
+/// | Cells | Evaluations | GPU | Share of a 16.7 ms frame |
+/// |---|---|---|---|
+/// | **64** (the default) | 0.49 M | **0.67 ms** | **4 %** |
+/// | 192 | 4.4 M | 0.91 ms | 5 % |
+/// | 256 | 7.9 M | 2.01 ms | 12 % |
+/// | 512 | 31.5 M | 9.09 ms | 54 % |
+///
+/// So even the 512-cell ceiling fits a 60 fps frame, and the default fits it
+/// twenty-five times over. The live ring sample refreshed alongside it adds
+/// 2 880 kernel evaluations against the field's 491 520 — noise.
+///
+/// # What is NOT on this clock, and why the throttle next door stays
+///
+/// This constant governs the **field only** — [`Self::refresh_field`], which
+/// calls [`AtmosphericDispersionChannel::compute_field`]. It does **not** govern
+/// the receptor ring's time-integrated `chi/Q` or the activity survey: those live
+/// in `evaluate` behind [`DISPERSION_EVALUATION_INTERVAL_S`], and
+/// `tests::what_one_dispersion_evaluation_costs` measures one full evaluation at
+/// **26.819 ms** — within noise of the steam generator's 26.46 ms, which is
+/// 100.12 % of the plant step. At 60 fps that does not fit in a frame at all, and
+/// at 10 Hz it would be 27 % of every tick.
+///
+/// That is why the maintainer's "take the throttle out" could only be carried out
+/// for **half** of the dispersion side. The expensive half stays throttled, and
+/// the reason is a measurement rather than the (now struck) claim that used to
+/// justify it.
+///
+/// `1.0 / 60.0` rather than a rounded `0.0167`: the rate limit should be the frame
+/// interval exactly, or it drifts against the display by a fraction of a frame
+/// every frame.
+pub const FIELD_REFRESH_INTERVAL_S: f64 = 1.0 / 60.0;
 
 /// ~~Everything a cached field depends on.~~ **What has MOVED since the field
 /// was last drawn** -- CORRECTED 2026-09-27.
@@ -954,14 +1031,33 @@ impl AtmosphericDispersionChannel {
         // passed or failed on which tests ran before it. It failed when run
         // alone and passed in a full run.
         //
-        // Measuring from COMPLETION gives the genuine 100 ms gap the constant's
-        // doc describes -- "keeps a dragged slider from triggering a field
-        // evaluation per frame" -- and makes the test independent of host speed.
+        // Measuring from COMPLETION gives the genuine frame-interval gap the
+        // constant's doc describes -- "keeps a dragged slider from triggering a
+        // field evaluation per frame" -- and makes the test independent of host
+        // speed. Since 2026-09-27 that interval is one 60 fps frame, not 100 ms.
         self.last_field_refresh = Some(std::time::Instant::now());
         // So a snapshot written before the next `update()` picks up the fresh
         // field rather than the one `latest` was built with.
+        //
+        // The LIVE ring sample is refreshed here TOO, and that is a bug fix --
+        // CORRECTED 2026-09-27. `instantaneous_chi_over_q_at_ring` was computed
+        // only inside `collect`, which runs in `evaluate`, which is on
+        // `DISPERSION_EVALUATION_INTERVAL_S`'s 60 s throttle. So the column
+        // documented and advertised as *live* refreshed once a plant minute --
+        // the very thing it was added to stop. Recomputing it beside the field is
+        // what actually makes it live, because the field's clock is the fast one.
+        //
+        // It costs 24 receptors x at most 120 puffs = 2 880 kernel evaluations
+        // against the field's 491 520, so it rides along for free.
+        //
+        // Sampled BEFORE taking the `&mut` on `latest`: it reads `self`
+        // immutably, and the borrow checker will not allow both at once.
+        let live = self.instantaneous_chi_over_q_at_ring(&config);
         if let Some(latest) = &mut self.latest {
             latest.grid = grid;
+            for (slot, value) in latest.receptors.iter_mut().zip(live.iter()) {
+                slot.instantaneous_chi_over_q = *value;
+            }
         }
         true
     }
@@ -2452,6 +2548,190 @@ mod tests {
              factor of 3 and not tighter.",
             live[down],
             cell
+        );
+    }
+
+    /// **V&V: the map field, plus the live ring sample refreshed with it, fits
+    /// inside one 60 fps frame** — the gate for
+    /// [`FIELD_REFRESH_INTERVAL_S`]'s cadence.
+    ///
+    /// # Methodology
+    ///
+    /// Maintainer direction 2026-09-27: the map is to run at 30 fps minimum,
+    /// 60 fps ideally, otherwise 10 Hz like the rest of the plant. The constant
+    /// was set to 60 fps on the strength of `cargo plume-timing`'s GPU numbers;
+    /// this asserts it on *this* host, through the simulator's own call path
+    /// rather than through changi's example.
+    ///
+    /// Times [`AtmosphericDispersionChannel::refresh_field`]'s actual work — the
+    /// population march, [`AtmosphericDispersionChannel::compute_field`], and the
+    /// live ring sample that now rides along with it — at the shipped resolution.
+    /// Five samples, median, after a warm-up absorbing the one-off GPU adapter
+    /// probe (423 ms, once per process, not a per-frame cost).
+    ///
+    /// Pass criterion: the median is under **one 30 fps frame (33.3 ms)**, which
+    /// is the maintainer's stated *minimum*. The 60 fps target (16.7 ms) is
+    /// reported and not asserted, deliberately: this runs on whatever host CI or
+    /// a laptop provides, and a hard 60 fps gate would be the same
+    /// load-sensitive mistake already corrected once today in
+    /// `tampines`' exchanger timing test. The fallback the maintainer named —
+    /// 10 Hz — is what a host that misses 60 fps degrades to, and it degrades by
+    /// simply refreshing less often, with the last field left on screen.
+    ///
+    /// # Results
+    ///
+    /// Printed. Compare against the 26.8 ms of a FULL evaluation
+    /// ([`tests::what_one_dispersion_evaluation_costs`]), which is what stays
+    /// behind [`DISPERSION_EVALUATION_INTERVAL_S`] precisely because it does not
+    /// fit a frame.
+    #[test]
+    fn the_map_field_fits_inside_a_sixty_fps_frame() {
+        const FRAME_60_MS: f64 = 1000.0 / 60.0;
+        const FRAME_30_MS: f64 = 1000.0 / 30.0;
+
+        let mut channel = AtmosphericDispersionChannel::new();
+        let config = channel.run_config();
+        let key = FieldKey {
+            meteorology: channel.meteorology(),
+            cells: channel.field_cells(),
+            plume_time_s: 600.0,
+        };
+        channel.advance_population(&config, 600.0);
+        // Warm-up: the GPU adapter probe and the first allocation.
+        let _ = channel.compute_field(&config, &key);
+
+        let mut samples = Vec::new();
+        for i in 0..5 {
+            let target = 600.0 + i as f64 * FIELD_REFRESH_INTERVAL_S;
+            let t = std::time::Instant::now();
+            channel.advance_population(&config, target);
+            let grid = channel.compute_field(&config, &key);
+            let live = channel.instantaneous_chi_over_q_at_ring(&config);
+            samples.push(t.elapsed().as_secs_f64() * 1.0e3);
+            assert_eq!(grid.cells, key.cells);
+            assert_eq!(live.len(), RECEPTOR_COUNT);
+        }
+        samples.sort_by(f64::total_cmp);
+        let median = samples[samples.len() / 2];
+
+        println!(
+            "MAP FIELD FRAME BUDGET ({} cells, GPU path: {})\n  \
+             samples (ms) = {:?}\n  \
+             median       = {median:.3} ms  =  {:.1} % of a 60 fps frame ({FRAME_60_MS:.1} ms), \
+             {:.1} % of a 30 fps frame\n  \
+             for contrast, ONE FULL evaluation (ring + activity + field) = ~26.8 ms, \
+             which is {:.0} % of a 60 fps frame -- it does NOT fit, and stays throttled",
+            key.cells,
+            changi::puff::wgsl::has_gpu_field(),
+            samples
+                .iter()
+                .map(|v| (v * 1000.0).round() / 1000.0)
+                .collect::<Vec<_>>(),
+            100.0 * median / FRAME_60_MS,
+            100.0 * median / FRAME_30_MS,
+            100.0 * 26.8 / FRAME_60_MS,
+        );
+
+        assert!(
+            median < FRAME_30_MS,
+            "the map field takes {median:.3} ms, over one 30 fps frame ({FRAME_30_MS:.1} ms), \
+             which is the maintainer's stated MINIMUM. FIELD_REFRESH_INTERVAL_S is set to \
+             60 fps and cannot be honoured on this host -- either lower the resolution \
+             ceiling (max_grid_cells) or set the interval back to the 10 Hz fallback."
+        );
+    }
+
+    /// **MEASUREMENT: what one full dispersion evaluation actually costs**, so the
+    /// 60 s throttle is a decision about a measured number rather than a
+    /// recollection.
+    ///
+    /// # Why this had to be measured before the throttle could be touched
+    ///
+    /// Three numbers were in circulation on 2026-09-27 and no two agreed:
+    ///
+    /// - `DISPERSION_EVALUATION_INTERVAL_S`'s own (now struck) doc: the ring is
+    ///   *"far and away the most expensive thing this simulator would do per
+    ///   step"*.
+    /// - `tests::where_the_plant_step_spends_its_time`'s 2026-09-25 record:
+    ///   **0.61 %** of the plant step.
+    /// - The same test re-run 2026-09-27: **0.00 %**, but *"over 1 calls"* — and
+    ///   `update` returns early when the release channel is empty, so that may
+    ///   have measured a call that never ran the model at all.
+    ///
+    /// 0.61 % of a plant step, at one call per 60 s of plant time, back-solves to
+    /// roughly **96 ms per call** — which, run every 0.1 s tick instead, would
+    /// more than double the plant step. Or it is ~0 and the throttle costs
+    /// nothing to remove. Those are opposite conclusions from the same evidence,
+    /// so neither can be acted on.
+    ///
+    /// # Methodology
+    ///
+    /// Time [`AtmosphericDispersionChannel::evaluate`] directly, with a
+    /// **populated** release channel (so the early return cannot be mistaken for
+    /// a cheap evaluation), at the shipped configuration. Five calls, median
+    /// reported, after one warm-up that absorbs the one-off GPU adapter probe —
+    /// measured separately at 423 ms and a startup cost, not a per-call one.
+    ///
+    /// `evaluate` is the whole job: two `dilution_factors` runs (air at receptor
+    /// height, ground at `z = 0`), the activity survey, and the map field.
+    ///
+    /// Asserts only that the call is **under 100 ms**, the plant tick — the
+    /// threshold above which removing the throttle would visibly cost real-time
+    /// ratio. It is a decision input, not a performance target, and it is
+    /// deliberately loose because the absolute number is host-specific while the
+    /// comparison against the tick is what the decision turns on.
+    ///
+    /// # Results
+    ///
+    /// Printed by this test. Compare against the steam generator's measured
+    /// **26.46 ms per call**, which is 100.12 % of the plant step.
+    #[test]
+    fn what_one_dispersion_evaluation_costs() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        let release = release_at(1100.0);
+        assert!(
+            !release.latest().is_empty(),
+            "the release channel must be POPULATED, or `evaluate` measures an early return"
+        );
+
+        // Warm-up: absorbs the one-off GPU adapter probe (423 ms, once per
+        // process) and the first field allocation.
+        let _ = channel.evaluate(0.0, &release);
+
+        let mut samples = Vec::new();
+        for i in 0..5 {
+            let t = std::time::Instant::now();
+            let result = channel.evaluate(60.0 * (i + 1) as f64, &release);
+            samples.push(t.elapsed().as_secs_f64() * 1.0e3);
+            // Use the result so nothing can be optimised away.
+            assert!(!result.receptors.is_empty());
+        }
+        samples.sort_by(f64::total_cmp);
+        let median = samples[samples.len() / 2];
+
+        println!(
+            "ONE DISPERSION EVALUATION (populated release, shipped config)\n  \
+             samples (ms) = {:?}\n  \
+             median       = {median:.3} ms per call\n  \
+             plant tick   = {} ms; steam generator = 26.46 ms/call (100.12 % of the step)\n  \
+             at 10 Hz this would be {:.1} % of a tick; on the 60 s throttle it is {:.4} % \
+             of plant-time compute",
+            samples
+                .iter()
+                .map(|v| (v * 1000.0).round() / 1000.0)
+                .collect::<Vec<_>>(),
+            crate::physics::PLANT_TIMESTEP_S * 1.0e3,
+            100.0 * median / (crate::physics::PLANT_TIMESTEP_S * 1.0e3),
+            100.0 * median / (DISPERSION_EVALUATION_INTERVAL_S * 1.0e3),
+        );
+
+        assert!(
+            median < 100.0,
+            "one dispersion evaluation costs {median:.3} ms, at or above the \
+             {} ms plant tick. Removing DISPERSION_EVALUATION_INTERVAL_S's throttle would \
+             then cost real-time ratio directly, so the throttle is doing real work and the \
+             decision to remove it must be revisited.",
+            crate::physics::PLANT_TIMESTEP_S * 1.0e3
         );
     }
 
