@@ -220,7 +220,7 @@ use secondary_loop::{SecondaryCommands, SteamSecondaryLoop};
 use turbine_generator::TurbineGeneratorShaft;
 
 /// **Control-rod bank insertion the simulator opens at**, ~~0.6035~~
-/// ~~0.780927~~ ~~0.50~~ ~~0.40~~ **0.30** (fraction, dimensionless).
+/// ~~0.780927~~ ~~0.50~~ ~~0.40~~ ~~0.30~~ **0.45** (fraction, dimensionless).
 ///
 /// This constant has had five values and the prose below had drifted behind
 /// all of them, so the struck-through history is kept deliberately: a reader
@@ -367,7 +367,7 @@ use turbine_generator::TurbineGeneratorShaft;
 /// One physical quantity, two values, 11.7 % apart. Every dollar figure above
 /// depends on which one is used; the pcm figures do not. Not fixed here.
 ///
-pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.30;
+pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 
 /// Fraction of rated helium flow the simulator opens at:
 /// ~~0.30~~ **1.00** **CHANGED 2026-09-27**.
