@@ -475,3 +475,14 @@ outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "
 # workspace root.)
 [profile.dev.package."*"]
 opt-level = 2
+
+# Release optimisation plus line tables, for perf / valgrind profiling
+# (`scripts/profile-icsbep.sh`). `inherits = "release"` keeps every codegen
+# setting of the release profile; the addition here is debug line info, which
+# does not change the generated code. The script also passes
+# `-C force-frame-pointers=yes` so `perf` can walk stacks, and that DOES
+# reserve a register (typically a few percent). Builds into
+# `target/profiling/`, leaving `target/release/` untouched.
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"

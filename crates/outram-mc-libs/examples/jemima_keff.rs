@@ -267,18 +267,17 @@ fn main() {
     let geom = build_geometry();
     check_geometry(&geom);
 
+    // OUTRAM_NPART overrides the per-generation population. Fission-source
+    // UNDERSAMPLING bias scales as ~1/N per generation and is a BIAS, not
+    // variance -- pooling seeds does not remove it, exactly like the
+    // convergence bias tested above. 5000/generation is small, so this is
+    // a live candidate. Raising N must leave k unchanged if it is absent.
+    // OUTRAM_NINACTIVE / OUTRAM_NACTIVE likewise (`vv::bench_run_size`).
+    let (n_particles, n_inactive, n_active) = outram_mc_libs::vv::bench_run_size(5000, 40, 120);
     let settings = KeffSettings {
-        // OUTRAM_NPART overrides the per-generation population. Fission-source
-        // UNDERSAMPLING bias scales as ~1/N per generation and is a BIAS, not
-        // variance -- pooling seeds does not remove it, exactly like the
-        // convergence bias tested above. 5000/generation is small, so this is
-        // a live candidate. Raising N must leave k unchanged if it is absent.
-        n_particles: std::env::var("OUTRAM_NPART")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(5000),
-        n_inactive: 40,
-        n_active: 120,
+        n_particles,
+        n_inactive,
+        n_active,
         temperature_k: TEMP_K,
         compute: ComputeType::CpuMultiThread(Default::default()),
         ..KeffSettings::default()

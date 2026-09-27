@@ -1514,15 +1514,28 @@ fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) 
     let Some(total_sec) = sections.iter_mut().find(|s| s.mt == MtReaction::Mt1Total) else {
         return;
     };
+    // The match rule is "the FIRST pair within 1e-10 relative of e".
+    // ~~`pairs.iter_mut().find(..)` per grid energy~~ (CHANGED 2026-09-27): a
+    // linear scan per energy is O(N^2), and on U-235's ~1.2 M-point grid it
+    // was 51 % of Godiva's whole-run CPU time (perf, see
+    // `docs/profiling/icsbep_2026_09_27.md`). TAB1 abscissae are
+    // non-decreasing, so a binary search to just below the window, then the
+    // SAME predicate scanned forward, finds the same first match. The window
+    // is taken at twice the tolerance so rounding in `e - tol` cannot skip a
+    // pair the exact predicate would accept.
+    let pairs = &mut total_sec.pairs;
     for (e, v) in sums {
         // Replace the value at this grid energy; points outside the
         // reconstruction grid keep whatever the background gave them, exactly
         // as every other target does.
-        if let Some(slot) = total_sec
-            .pairs
-            .iter_mut()
-            .find(|(x, _)| (*x - e).abs() <= 1e-10 * e.abs().max(1.0))
-        {
+        let tol = 1e-10 * e.abs().max(1.0);
+        let start = pairs.partition_point(|&(x, _)| x < e - 2.0 * tol);
+        let hit = pairs[start..]
+            .iter()
+            .take_while(|&&(x, _)| x <= e + 2.0 * tol)
+            .position(|&(x, _)| (x - e).abs() <= tol)
+            .map(|k| start + k);
+        if let Some(slot) = hit.map(|i| &mut pairs[i]) {
             // `recout` writes each redundant sum as `sigfig(tot, 7, 0)`
             // (reconr.f90:5308), MT=1 included.
             slot.1 = sigfig(v, 7, 0);

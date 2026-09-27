@@ -253,10 +253,13 @@ fn main() {
         TEMP_K,
     );
 
+    // Defaults 5000 x [40 + 120]; OUTRAM_NPART / OUTRAM_NINACTIVE /
+    // OUTRAM_NACTIVE override them for profiling (`vv::bench_run_size`).
+    let (n_particles, n_inactive, n_active) = outram_mc_libs::vv::bench_run_size(5000, 40, 120);
     let settings = KeffSettings {
-        n_particles: 5000,
-        n_inactive: 40,
-        n_active: 120,
+        n_particles,
+        n_inactive,
+        n_active,
         temperature_k: TEMP_K,
         compute: ComputeType::CpuMultiThread(Default::default()),
         ..KeffSettings::default()
