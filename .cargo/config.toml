@@ -73,3 +73,34 @@ runner = ["bash", "-c", "d=$PWD; while [ ! -f \"$d/scripts/wasi-run.mjs\" ] && [
 # has been run -- see the "Long-running tests" HARD RULE in CLAUDE.md.
 [alias]
 quick-test = ["test", "--release", "--lib", "--tests", "--no-default-features"]
+
+# ── plume-timing: measure the Gaussian puff field WITH the GPU path ──────────
+#
+# Maintainer direction, 2026-09-27: config-gate it, so a GPU timing run is not
+# something an invocation has to remember to ask for.
+#
+# `changi`'s `gpu` feature is deliberately OFF by default (it matches
+# `petir/wgpu`'s own default, and `petir/wgpu` is target-gated off Android and
+# wasm). `outram-park-digital-twin-engine` already enables it, so the simulator
+# runs the WGSL kernel — but `cargo run -p changi --example field_timing`
+# selects only `changi`, whose default has the feature off, and so silently
+# measures the CPU `field_pooled` path instead. Its own output says
+# `gpu feature: OFF`, which is easy to read past.
+#
+# That is exactly how a measurement came to be reported as the simulator's cost
+# when it was not: on 2026-09-27 the CPU numbers from a bare
+# `cargo run -p changi --example field_timing` were quoted while the simulator
+# was on the GPU path all along.
+#
+# An alias rather than flipping a crate's default features: this changes what a
+# DEVELOPER invocation does, not what a consumer of `changi` gets, so Android
+# and wasm consumers still have to opt in rather than opt out.
+#
+#     cargo plume-timing
+#
+# Note it re-resolves features for `changi` alone, so the first run after a
+# workspace build rebuilds the changi + petir + wgpu stack.
+plume-timing = [
+    "run", "--release", "-p", "changi", "--features", "gpu",
+    "--example", "field_timing",
+]

@@ -144,3 +144,8 @@ crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/
 # comparison it belongs to would skip rather than fail.
 !reference-data/acer/*.ace
 !reference-data/acer/*.ace.gz
+
+# perf(1) output from profiling runs (cargo flamegraph / perf record).
+# Never committed: it is host- and run-specific, and large.
+perf.data
+perf.data.old
