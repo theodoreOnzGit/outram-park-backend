@@ -27,7 +27,8 @@ use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use changi::activity::survey::{survey, DepositionVelocities};
 use changi::puff::concentration::METHANE_PPM_PER_KG_PER_M3;
 use changi::puff::simulate::{
-    constant_wind, simulate_sensor_mode, EmissionPolicy, Receptor, RunConfig, Source,
+    constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy, Receptor, RunConfig,
+    Source,
 };
 use changi::puff::stability::StabilityClass;
 use uom::si::f64::{Frequency, Length, MassRate, Radioactivity, Time, Velocity};
@@ -69,6 +70,7 @@ fn config(duration_s: f64) -> RunConfig {
         puff_duration: Time::new::<second>(1200.0),
         start_hour: 12,
         emission_policy: EmissionPolicy::OnePuffPerEmission,
+        advection: AdvectionPolicy::default(),
     }
 }
 

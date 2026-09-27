@@ -59,7 +59,7 @@ use uom::si::time::second;
 use super::units::DilutionFactor;
 use crate::flexpart::decay::surviving_fraction;
 use crate::puff::simulate::{
-    emit_with_classes, emits_at, puff_unit_response, Puff, Receptor, RunConfig, Source,
+    advect, emit_with_classes, emits_at, puff_unit_response, Puff, Receptor, RunConfig, Source,
 };
 use crate::puff::stability::{stability_class, StabilityClass, StabilitySet};
 use crate::puff::wind::{wind_speed, WindComponents};
@@ -288,6 +288,14 @@ pub fn dilution_factors(
         for step in 0..n_steps {
             let elapsed = (step as f64) * sim_dt;
 
+            // Advect on the wind that blew over the interval just traversed,
+            // then emit — the same ordering `puff::simulate`'s two run modes
+            // use, and for the same reason. A no-op under
+            // `AdvectionPolicy::UpstreamFrozenWind`.
+            if step > 0 {
+                advect(&mut live, wind[step - 1], config.sim_dt, config.advection);
+            }
+
             if emits_at(step, elapsed, config.puff_dt.get::<second>()) {
                 let before = live.len();
                 let set = stability.set(wind[step], config.start_hour);
@@ -318,7 +326,8 @@ pub fn dilution_factors(
                     continue;
                 }
                 for (r, receptor) in receptors.iter().enumerate() {
-                    let response = puff_unit_response(p, *source, *receptor, elapsed);
+                    let response =
+                        puff_unit_response(p, *source, *receptor, elapsed, config.advection);
                     if response == 0.0 {
                         continue;
                     }
@@ -378,7 +387,9 @@ fn segment_of(bounds: &[f64], t: f64) -> Option<usize> {
 mod tests {
     use super::*;
     use crate::puff::concentration::METHANE_PPM_PER_KG_PER_M3;
-    use crate::puff::simulate::{constant_wind, simulate_sensor_mode, EmissionPolicy};
+    use crate::puff::simulate::{
+        constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy,
+    };
     use uom::si::f64::{Mass, Velocity};
     use uom::si::mass::kilogram;
     use uom::si::velocity::meter_per_second;
@@ -408,6 +419,7 @@ mod tests {
             puff_duration: Time::new::<second>(600.0),
             start_hour: 12,
             emission_policy: EmissionPolicy::OnePuffPerEmission,
+            advection: AdvectionPolicy::default(),
         }
     }
 

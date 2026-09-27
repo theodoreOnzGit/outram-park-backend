@@ -44,7 +44,8 @@
 use changi::puff::climatology::{SingaporeWind, MEAN_WIND_SPEED_M_PER_S};
 use changi::puff::concentration::{gaussian_puff_concentration, METHANE_PPM_PER_KG_PER_M3};
 use changi::puff::simulate::{
-    constant_wind, simulate_sensor_mode, EmissionPolicy, Receptor, RunConfig, Source,
+    constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy, Receptor, RunConfig,
+    Source,
 };
 use changi::puff::stability::StabilitySet;
 use changi::puff::wind::wind_speed;
@@ -135,6 +136,7 @@ fn part_1_a_single_leak() {
         puff_duration: s(1200.0), // track each puff for 20 minutes
         start_hour: 14,           // mid-afternoon
         emission_policy: EmissionPolicy::default(),
+        advection: AdvectionPolicy::default(),
     };
 
     let n_steps = 61;
@@ -300,6 +302,7 @@ fn part_3_the_one_deliberate_divergence() {
                     puff_duration: s(1200.0),
                     start_hour: hour,
                     emission_policy: policy,
+                    advection: AdvectionPolicy::default(),
                 };
                 simulate_sensor_mode(
                     &[source],
