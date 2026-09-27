@@ -1511,6 +1511,7 @@ impl HtgrPlant {
                 slot.bearing_deg = r.bearing_deg;
                 slot.distance_m = r.distance_m;
                 slot.chi_over_q = r.chi_over_q;
+                slot.instantaneous_chi_over_q = r.instantaneous_chi_over_q;
                 slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
                 slot.ground_bq_per_m2 = r.ground_bq_per_m2;
             }

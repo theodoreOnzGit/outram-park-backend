@@ -284,44 +284,64 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     // plume centreline as black. The scale is therefore logarithmic over four
     // decades below the peak, and that is stated on screen rather than left
     // for a reader to infer from a picture that would otherwise mislead.
-    let peak = s
-        .receptors
-        .iter()
-        .map(|r| r.chi_over_q)
-        .fold(0.0_f64, f64::max);
+    // ~~24 shaded receptor discs, one per (bearing, distance) pair~~
+    // **REMOVED 2026-09-27**, maintainer direction: *"receptor ring doesn't need
+    // to be there now, just want a ring showing distances and a central arrow
+    // showing wind direction."*
+    //
+    // They were a 24-point sampling of a quantity the field now renders at every
+    // pixel, drawn ON TOP of that field -- so they occluded the very thing they
+    // were a coarse summary of, and their log-shaded fill invited being read as
+    // a second, disagreeing picture of the same plume. Worse, they shaded on the
+    // TIME-INTEGRATED `chi_over_q` while the field underneath is instantaneous:
+    // two different quantities in one image, distinguishable only by shape.
+    //
+    // The sampled numbers are NOT gone -- the maintainer asked for them live, and
+    // they are in the table below, now including an INSTANTANEOUS column that
+    // does agree with the field cell under it. What is gone is drawing them over
+    // the map. `log_shade` survives because the field still uses it.
 
-    for receptor in &s.receptors {
-        if receptor.distance_m <= 0.0 {
-            continue;
-        }
-        let (x, y) = bearing_to_plot(receptor.bearing_deg, receptor.distance_m / outermost);
-        let at = Pos2::new(
-            centre.x + max_radius * x as f32,
-            // Screen y grows downward while north is up, so the plot y is
-            // negated. Not a sign error -- the inverse of one.
-            centre.y - max_radius * y as f32,
-        );
-        let shade = log_shade(receptor.chi_over_q, peak);
-        painter.circle_filled(at, 6.0, shade);
-        painter.circle_stroke(at, 6.0, Stroke::new(0.8, Color32::from_gray(60)));
-    }
-
-    // The wind arrow, drawn pointing the way the plume TRAVELS -- the opposite
-    // of the meteorological "from" bearing the operator dials in. Derived from
-    // the snapshot, never from the layout.
+    // The wind arrow, drawn CENTRALLY and pointing the way the plume TRAVELS --
+    // the opposite of the meteorological "from" bearing the operator dials in.
+    // Derived from the snapshot, never from the layout.
+    //
+    // Now the only overlay besides the distance rings, so it carries the whole
+    // "which way is the wind going" job and is drawn to be read at a glance:
+    // a shaft from the stack, a filled head, and the bearing in words.
     let travel_deg = s.wind_from_deg + 180.0;
     let (wx, wy) = bearing_to_plot(travel_deg, 1.0);
     let tip = Pos2::new(
         centre.x + max_radius * 1.08 * wx as f32,
         centre.y - max_radius * 1.08 * wy as f32,
     );
-    painter.line_segment([centre, tip], Stroke::new(2.5, Color32::from_rgb(20, 90, 190)));
+    let wind_colour = Color32::from_rgb(20, 90, 190);
+    painter.line_segment([centre, tip], Stroke::new(3.0, wind_colour));
+
+    // Arrowhead: two short segments back down the shaft, rotated +/- 25 deg.
+    // Built from the arrow's OWN direction rather than from screen axes, so it
+    // stays correct at every bearing.
+    let (dx, dy) = (tip.x - centre.x, tip.y - centre.y);
+    let len = (dx * dx + dy * dy).sqrt().max(1.0);
+    let (ux, uy) = (dx / len, dy / len);
+    let head = (max_radius * 0.12).max(6.0);
+    for sign in [-1.0_f32, 1.0] {
+        let a = sign * 25.0_f32.to_radians();
+        let (ca, sa) = (a.cos(), a.sin());
+        // Rotate the REVERSED unit vector, so the barbs trail behind the tip.
+        let (bx, by) = (-ux * ca - -uy * sa, -ux * sa + -uy * ca);
+        painter.line_segment(
+            [tip, Pos2::new(tip.x + head * bx, tip.y + head * by)],
+            Stroke::new(3.0, wind_colour),
+        );
+    }
+    // The stack itself, so the arrow visibly starts AT the release point.
+    painter.circle_filled(centre, 3.0, wind_colour);
     painter.text(
-        tip,
+        Pos2::new(tip.x, tip.y + 10.0),
         Align2::CENTER_CENTER,
-        "plume",
+        format!("plume -> {travel_deg:.0} deg"),
         FontId::proportional(9.0),
-        Color32::from_rgb(20, 90, 190),
+        wind_colour,
     );
 
     painter.text(
@@ -568,13 +588,17 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
     ui.add_space(4.0);
 
     egui::Grid::new("htgr_map_dispersion_grid")
-        .num_columns(5)
+        // 6, not 5: the LIVE chi/Q column was added 2026-09-27 beside the
+        // time-integrated one. Both are shown because they are different
+        // quantities, not two renderings of one.
+        .num_columns(6)
         .striped(true)
         .show(ui, |ui| {
             for heading in [
                 "Bearing",
                 "Distance",
-                "chi/Q [s/m^3]",
+                "chi/Q LIVE [s/m^3]",
+                "chi/Q integrated [s/m^3]",
                 "Air [Bq.s/m^3 per Ci]",
                 "Ground [Bq/m^2 per Ci]",
             ] {
@@ -584,9 +608,17 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
 
             // Only the downwind half is tabulated: 24 rows is a wall, and the
             // upwind receptors are 20+ orders below the centreline and carry
-            // no information a reader acts on. The ROSE shows all 24, so
-            // nothing is hidden -- this is a table-length choice, not a
-            // filter on what was computed.
+            // no information a reader acts on.
+            //
+            // ~~"The ROSE shows all 24, so nothing is hidden."~~
+            // **CORRECTED 2026-09-27** -- the rose no longer plots receptors at
+            // all (maintainer direction; it shows the field, the distance rings
+            // and the wind arrow). So the upwind half is now genuinely not on
+            // screen anywhere. That is still a table-length choice and not a
+            // filter on what was COMPUTED -- all 24 are evaluated, and the field
+            // behind the rings covers the upwind side at every pixel -- but the
+            // old sentence's reassurance no longer applies and is struck rather
+            // than left to mislead.
             let travel_deg = (s.wind_from_deg + 180.0).rem_euclid(360.0);
             let mut rows: Vec<&super::state::ReceptorSnapshot> = s
                 .receptors
@@ -604,6 +636,9 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
             for r in rows {
                 ui.label(format!("{:.0} deg", r.bearing_deg));
                 ui.label(format!("{:.0} m", r.distance_m));
+                // LIVE first, because it is the one that refreshes at 10 Hz and
+                // the one that agrees with the map cell under the same point.
+                ui.label(format!("{:.4e}", r.instantaneous_chi_over_q));
                 ui.label(format!("{:.4e}", r.chi_over_q));
                 ui.label(format!("{:.3e}", r.air_bq_s_per_m3));
                 ui.label(format!("{:.3e}", r.ground_bq_per_m2));
@@ -612,8 +647,12 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
         });
     ui.add_space(4.0);
     ui.label(
-        "Downwind half shown; the rose above plots all 24 receptors. Ground deposition is DRY \
-         only -- wet scavenging is not ported, so it is not an upper bound.",
+        "Downwind half shown. LIVE chi/Q is the INSTANTANEOUS field sampled at each point and \
+         refreshes with the map; it is the same number as the map cell under that point. \
+         Integrated chi/Q is the TIME-INTEGRATED dilution factor over the whole puff run and \
+         refreshes on the 60 s dispersion throttle -- the activity columns are built on THAT \
+         one. The two share units and will not agree. Ground deposition is DRY only -- wet \
+         scavenging is not ported, so it is not an upper bound.",
     );
 }
 

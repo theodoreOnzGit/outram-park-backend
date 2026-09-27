@@ -66,6 +66,31 @@ pub struct ReceptorSnapshot {
     /// Dilution factor `chi/Q` in s/m^3 -- independent of the source, and
     /// therefore of every inventory and leak-rate input in the chain.
     pub chi_over_q: f64,
+    /// **Instantaneous** `chi/Q` at this receptor \[s/m^3\] — the LIVE one.
+    ///
+    /// # Two chi/Q on one row, deliberately
+    ///
+    /// [`Self::chi_over_q`] above is the **time-integrated** dilution factor from
+    /// `changi::activity::dilution_factors`. It is what the activity columns are
+    /// built on, and it refreshes on the dispersion channel's 60 s throttle
+    /// because it costs `O(steps x puffs x receptors)` twice over.
+    ///
+    /// This one is the instantaneous field sampled at the same point, refreshing
+    /// with the map at 10 Hz (maintainer direction 2026-09-27: *"sampling
+    /// datapoints at those positions in the ring is useful and needs a live
+    /// update"*).
+    ///
+    /// **They are different quantities and will not agree** — one is s/m^3
+    /// accumulated over a whole puff run, the other s/m^3 standing at an instant.
+    /// Both carry the same units, which is exactly why they are named apart and
+    /// why the table labels them.
+    ///
+    /// This is the one that **does** agree with the map: it comes from the same
+    /// kernel and the same puff population the grid is painted from, so a row and
+    /// the cell under it are the same number. `DispersionGrid`'s warning that a
+    /// cell must not be compared to a table row applies to `chi_over_q`, not to
+    /// this.
+    pub instantaneous_chi_over_q: f64,
     /// Time-integrated air concentration, Bq.s/m^3 per Ci of core inventory.
     /// Not a concentration at any reactor.
     pub air_bq_s_per_m3: f64,

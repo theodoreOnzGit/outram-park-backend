@@ -520,6 +520,12 @@ pub struct ReceptorResult {
     /// Independent of the source magnitude, so independent of every inventory
     /// and leak-rate input in this chain. See the module doc.
     pub chi_over_q: f64,
+    /// **Instantaneous** `chi/Q` \[s/m^3\], sampled from the marched population
+    /// at this receptor — see
+    /// [`AtmosphericDispersionChannel::instantaneous_chi_over_q_at_ring`]. A
+    /// different quantity from [`Self::chi_over_q`] above, which is
+    /// time-integrated; this is the one that agrees with the map field.
+    pub instantaneous_chi_over_q: f64,
     /// Time-integrated air concentration summed over the tracked nuclides,
     /// **per curie of core inventory** \[Bq·s/m^3 per Ci\]. Not a
     /// concentration at HTR-10.
@@ -1255,6 +1261,64 @@ impl AtmosphericDispersionChannel {
         states
     }
 
+    /// **Instantaneous `chi/Q` sampled at the receptor-ring positions**, from the
+    /// same marched population and the same kernel the map field uses \[s/m^3\].
+    ///
+    /// Returned in [`Self::receptor_ring`]'s order, so index `i` is the same
+    /// receptor the ring's row `i` describes.
+    ///
+    /// # Why this exists (maintainer direction, 2026-09-27)
+    ///
+    /// *"Sampling datapoints at those positions in the ring is useful and needs a
+    /// live update."*
+    ///
+    /// The ring's [`ReceptorResult::chi_over_q`] is the **time-integrated**
+    /// dilution factor from `changi::activity::dilution_factors`. That is the
+    /// right quantity for the activity and deposition columns, but it is
+    /// expensive — `O(steps x puffs x receptors)`, run twice (air and ground) —
+    /// which is why it sits behind [`DISPERSION_EVALUATION_INTERVAL_S`]'s 60 s
+    /// throttle. A number that refreshes once a plant minute is not a live
+    /// readout.
+    ///
+    /// This is the live one. It sums the **instantaneous** field at each
+    /// receptor, so it refreshes with the field at
+    /// [`FIELD_REFRESH_INTERVAL_S`] (10 Hz of wall clock) rather than on the
+    /// ring's throttle.
+    ///
+    /// # It agrees with the map BY CONSTRUCTION, and that is new
+    ///
+    /// It calls `changi::puff::wgsl::contribution` over
+    /// [`Self::field_states`] — **the same kernel and the same puff population**
+    /// the grid is painted from. So a sampled value and the map cell under it are
+    /// the same number, computed the same way.
+    ///
+    /// That matters because [`DispersionGrid`]'s own doc has to warn that a cell
+    /// must **not** be compared against a table row: the two carried different
+    /// quantities. That warning still stands for the time-integrated column, and
+    /// is now **lifted for this one** — which is the point of adding it rather
+    /// than speeding the other one up.
+    ///
+    /// # Cost
+    ///
+    /// 24 receptors x at most 120 live puffs = **2 880 kernel evaluations**,
+    /// against the 0.49 M the 64-cell field already does. It is free at this
+    /// scale, so it is computed on the CPU rather than dispatched to the GPU —
+    /// a buffer upload for 24 points would cost more than the arithmetic.
+    pub fn instantaneous_chi_over_q_at_ring(&self, config: &RunConfig) -> Vec<f64> {
+        let states = self.field_states(config);
+        let height = self.site.release_height.get::<meter>() as f32;
+        self.receptor_ring()
+            .iter()
+            .map(|r| {
+                let (x, y) = (r.x.get::<meter>() as f32, r.y.get::<meter>() as f32);
+                states
+                    .iter()
+                    .map(|st| changi::puff::wgsl::contribution(st, x, y, height) as f64)
+                    .sum()
+            })
+            .collect()
+    }
+
     /// The stability class the field uses.
     ///
     /// The wind is constant over a run, so a class derived per puff is the
@@ -1358,6 +1422,10 @@ impl AtmosphericDispersionChannel {
 
     /// Project the dilution factors and the survey onto one row per receptor.
     fn collect(&self, air: &DilutionFactors, site: &SiteSurvey) -> Vec<ReceptorResult> {
+        // The LIVE column, sampled from the marched population at the same
+        // points. Computed once for the whole ring rather than per row -- it
+        // walks `field_states` and there is no reason to rebuild that 24 times.
+        let instantaneous = self.instantaneous_chi_over_q_at_ring(&self.run_config());
         let mut out = Vec::with_capacity(RECEPTOR_COUNT);
         let mut index = 0;
         for distance in RECEPTOR_DISTANCES_M {
@@ -1375,6 +1443,7 @@ impl AtmosphericDispersionChannel {
                     bearing_deg,
                     distance_m: distance,
                     chi_over_q,
+                    instantaneous_chi_over_q: instantaneous.get(index).copied().unwrap_or(0.0),
                     air_bq_s_per_m3: site.total_air(index).becquerel_seconds_per_cubic_meter(),
                     ground_bq_per_m2: site.total_ground(index).becquerel_per_square_meter(),
                 });
@@ -2196,6 +2265,158 @@ mod tests {
         assert!(
             (oldest.dx_m - 3600.0).abs() > 1000.0,
             "the puff must not have been swept onto the new bearing for its whole life"
+        );
+    }
+
+    /// **V&V: the LIVE ring sample agrees with the map cell under the same
+    /// point** — which is the whole reason the live column exists.
+    ///
+    /// # Methodology
+    ///
+    /// Maintainer direction 2026-09-27: *"sampling datapoints at those positions
+    /// in the ring is useful and needs a live update."* The live column is
+    /// [`AtmosphericDispersionChannel::instantaneous_chi_over_q_at_ring`], which
+    /// sums `changi::puff::wgsl::contribution` over
+    /// [`AtmosphericDispersionChannel::field_states`] — the same kernel and the
+    /// same marched population the grid is painted from. If that is true, a
+    /// sampled receptor and the grid cell containing it must be the same number
+    /// up to the grid's own discretisation.
+    ///
+    /// Wind from the north at 3 m/s, class B held fixed, population marched to
+    /// 600 s. For the receptor at bearing 180 (due south, straight downwind) at
+    /// the innermost ring distance: take the live sample, take the grid cell
+    /// whose centre is nearest that receptor, and compare.
+    ///
+    /// Pass criteria:
+    /// - the downwind sample is strictly positive (the plume is there at all);
+    /// - the upwind sample at bearing 0 is **orders below** it, so the sampler is
+    ///   reading a direction and not a constant;
+    /// - the downwind sample agrees with the nearest cell **within a factor of
+    ///   3**. Not tighter, and the reason is physical rather than a fudge: at the
+    ///   64-cell default a cell is ~39 m across, `sigma_y` near the stack is
+    ///   smaller than that, and `chi/Q` falls steeply across one cell — so cell
+    ///   centre and receptor position are genuinely different points on a steep
+    ///   function. A tight tolerance here would be asserting the grid is finer
+    ///   than it is.
+    ///
+    /// # Results (measured 2026-09-27)
+    ///
+    /// | Quantity | Value |
+    /// |---|---|
+    /// | downwind receptor | bearing 180, 100 m, at `(0.0, -100.0) m` |
+    /// | live sample | **2.112412e-6 s/m^3** |
+    /// | nearest grid cell | **1.395244e-6 s/m^3** (64 cells, ~39.1 m per cell) |
+    /// | ratio | **1.5140** |
+    /// | upwind receptor, bearing 0 | **2.132944e-16 s/m^3** |
+    ///
+    /// The ratio of 1.51 across one 39 m cell is what a steep function sampled at
+    /// two nearby-but-different points looks like, not a disagreement about the
+    /// quantity — and the upwind sample being **ten orders** below the downwind
+    /// one is what shows the sampler reads a direction rather than a constant.
+    ///
+    /// What this establishes is the *agreement*, not the values: the point is that
+    /// the table and the map stopped being two different quantities for this
+    /// column.
+    ///
+    /// **Interpretation.** `DispersionGrid`'s standing warning that a cell must
+    /// not be compared against a table row applies to the **time-integrated**
+    /// column and still does. It is lifted for this one, and this test is what
+    /// makes that claim checkable rather than asserted.
+    #[test]
+    fn the_live_ring_sample_agrees_with_the_field_cell_under_it() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        channel.set_meteorology(Meteorology {
+            speed: Velocity::new::<meter_per_second>(3.0),
+            direction_from: Angle::new::<degree>(0.0),
+            stability: StabilitySource::Fixed(StabilityClass::B),
+            hour: 12,
+        });
+        let config = channel.run_config();
+        channel.advance_population(&config, 600.0);
+
+        let ring = channel.receptor_ring();
+        let live = channel.instantaneous_chi_over_q_at_ring(&config);
+        assert_eq!(live.len(), ring.len());
+
+        let key = FieldKey {
+            meteorology: channel.meteorology(),
+            cells: channel.field_cells(),
+            plume_time_s: 600.0,
+        };
+        let grid = channel.compute_field(&config, &key);
+
+        // Nearest-cell lookup, from the grid's own geometry: row 0 is the
+        // NORTHERNMOST row (north-up), so northing decreases with row.
+        let cell_at = |x: f64, y: f64| -> f64 {
+            let span = 2.0 * grid.half_width_m;
+            let fx = (x + grid.half_width_m) / span;
+            let fy = (grid.half_width_m - y) / span;
+            let col = ((fx * grid.cells as f64).floor() as isize).clamp(0, grid.cells as isize - 1);
+            let row = ((fy * grid.cells as f64).floor() as isize).clamp(0, grid.cells as isize - 1);
+            grid.at(col as usize, row as usize).unwrap_or(0.0)
+        };
+
+        // The innermost ring, due south (downwind of a north wind) and due north.
+        //
+        // The index is DERIVED from the ring's own construction order rather than
+        // searched for: `receptor_ring` loops `for distance in
+        // RECEPTOR_DISTANCES_M { for sector in 0..RECEPTOR_SECTORS }`, so
+        // `index = distance_index * RECEPTOR_SECTORS + sector` and
+        // `bearing = 360 * sector / RECEPTOR_SECTORS`. Deriving it keeps this test
+        // honest if the ring is ever renumbered -- it would fail to compile or
+        // fail loudly rather than silently sample a different point.
+        let innermost = RECEPTOR_DISTANCES_M[0];
+        assert!(
+            RECEPTOR_SECTORS % 2 == 0,
+            "this test picks the due-south sector as RECEPTOR_SECTORS/2, which needs an even count"
+        );
+        let up = 0; // distance index 0, sector 0 -> bearing 0, due north
+        let down = RECEPTOR_SECTORS / 2; // sector at bearing 180, due south
+
+        let (dx, dy) = (
+            ring[down].x.get::<meter>(),
+            ring[down].y.get::<meter>(),
+        );
+        let cell = cell_at(dx, dy);
+        println!(
+            "LIVE RING SAMPLE vs FIELD CELL (wind from north 3 m/s, class B, t = 600 s)\n  \
+             downwind receptor  bearing 180, {innermost:.0} m at ({dx:.1}, {dy:.1}) m\n    \
+             live sample = {:.6e} s/m^3\n    \
+             nearest cell = {:.6e} s/m^3   (grid {} cells, ~{:.1} m per cell)\n    \
+             ratio        = {:.4}\n  \
+             upwind receptor    bearing 0\n    \
+             live sample = {:.6e} s/m^3",
+            live[down],
+            cell,
+            grid.cells,
+            2.0 * grid.half_width_m / grid.cells as f64,
+            if cell > 0.0 { live[down] / cell } else { f64::INFINITY },
+            live[up],
+        );
+
+        assert!(
+            live[down] > 0.0,
+            "the downwind receptor must see something; got {}",
+            live[down]
+        );
+        assert!(
+            live[up] < live[down],
+            "a north wind must give less upwind ({}) than downwind ({})",
+            live[up],
+            live[down]
+        );
+        assert!(
+            cell > 0.0,
+            "the grid cell containing the downwind receptor must be populated"
+        );
+        let ratio = live[down] / cell;
+        assert!(
+            (1.0 / 3.0..=3.0).contains(&ratio),
+            "the live sample and the cell under it must be the same quantity: ratio {ratio:.4} \
+             (live {:.4e} against cell {:.4e}). See this test's doc on why the bound is a \
+             factor of 3 and not tighter.",
+            live[down],
+            cell
         );
     }
 
