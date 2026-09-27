@@ -1027,4 +1027,4 @@ sub-sigma difference anywhere in this record should be quoted as a result.
 
 ## 2026-09-26: fast VII.0/VIII.0 ablation on the explicit-reflector geometry
 
-Six single-seed fast runs (2000 x [30 + 70]) at n = 20, 25, 41 on both libraries, on PR #327's explicit reflector with Ni and Fe-57 substituted in the rod steel. Critical loading: **VIII.0 -2365 pcm, VII.0 -922 pcm** height-matched. See [`fast_ablation_2026_09_26.md`](fast_ablation_2026_09_26.md).
+Six single-seed fast runs (2000 x [30 + 70]) at n = 20, 25, 41 on both libraries, on PR #327's explicit reflector with Ni and Fe-57 substituted in the rod steel. Critical loading: ~~**VIII.0 -2365 pcm, VII.0 -922 pcm** height-matched~~ **VIII.0 -2726 pcm, VII.0 -1283 pcm** (CORRECTED 2026-09-27, gh:#333: the paper's heights are whole-ball extents, so `n_axial = 25` is its 123.576 cm point; every earlier height-matched residual on this page is 165-480 pcm too high). See [`fast_ablation_2026_09_26.md`](fast_ablation_2026_09_26.md).

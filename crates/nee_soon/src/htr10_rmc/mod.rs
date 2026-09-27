@@ -56,9 +56,13 @@
 //! **SUPERSEDED as "current" 2026-09-26:** those residuals predate the
 //! explicit reflector (PR #327). On it (fast single-seed runs, 2000 x
 //! [30 + 70], rod-steel Ni -> Fe and Fe-57 -> Fe-56 stated as assumptions),
-//! the residual at 122.47 cm is `-2365` pcm on ENDF/B-VIII.0 and `-922` pcm
-//! on VII.0, i.e. roughly -4000 pcm from the numbers above; the drift is still
-//! there (`+10.2 +/- 4.0` pcm/cm on VIII.0). Record:
+//! the residual at the critical loading is ~~`-2365` pcm on ENDF/B-VIII.0 and
+//! `-922` pcm on VII.0~~ **`-2726` pcm on ENDF/B-VIII.0 and `-1283` pcm on
+//! VII.0** (CORRECTED 2026-09-27, gh:#333: matched on the paper's whole-ball
+//! height; `n_axial = 25` IS the paper's 123.576 cm loading), roughly -4000 pcm
+//! from the numbers above; the drift is still there (~~`+10.2`~~ `+13.2 +/- 4.0`
+//! pcm/cm on VIII.0). Every "height-matched" residual in this section (and in
+//! #218) used the volume-equivalent height and is low by 165-480 pcm. Record:
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`.
 //!
 //! **Model defects, production path (`assemble_explicit_triso`):**

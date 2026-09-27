@@ -156,17 +156,43 @@ const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
 ///
 /// # Why this exists
 ///
-/// The example compared every result against the single 123.576 cm point while
+/// ~~The example compared every result against the single 123.576 cm point while
 /// building a bed of `n_axial x 4.899` cm. At the default 25 layers that
 /// bed is **122.474 cm**, and RMC's curve interpolates there to **1.000676**
 /// rather than 1.004288 -- so **+361 pcm of the reported disagreement was the
-/// comparison point, not the model**. The curve rises ~270 pcm/cm through this
-/// region, so a 1.1 cm mismatch is worth more than several of the physics terms
-/// the V&V record ablates.
+/// comparison point, not the model**.~~
+///
+/// **CORRECTED 2026-09-27 (gh:#333) -- that "correction" was itself the
+/// error.** Li, Yu & Wei (2014) step the loading by whole prism layers
+/// (*"the step size of fuel addition is selected as the height of a layer
+/// i.e. 9.798 cm in order to avoid fractional fuel or moderator balls"*) and
+/// complete the top layer's balls (*"the top layer is formed by adding half
+/// spheres to each ball present in this layer"*). Every tabulated height is
+/// `9.798 N + 6.0` cm: `N` prisms carry `2N + 1` ball layers (faces and
+/// mid-planes), whose whole-ball extent is `(2N) x 4.899 + 6.0` cm. The paper's
+/// height is therefore **bottom of the lowest ball to top of the highest**.
+///
+/// Measured on the built two-ball bed (2026-09-27): `n_axial` = 25 gives 25
+/// whole fuelled ball layers whose extent is **123.576 cm** -- exactly the
+/// paper's critical loading, so the right reference is the tabulated
+/// **1.004288**, not an interpolation at the volume-equivalent 122.474 cm. In
+/// general `n_axial` maps to `4.899 (n_axial - 1) + 6.0` cm ([`paper_height`]).
+/// (The bed also holds a 0.55 cm cap of a 26th layer under the bed-top plane:
+/// shell graphite plus ~0.05 cm of fuel zone. Not in the paper's model; noted,
+/// not priced.) The curve rises ~270 pcm/cm here, so the mapping mattered:
+/// -361 pcm at n = 25, -477 at n = 20, -165 at n = 41.
 ///
 /// Returns `None` outside the tabulated range \[94.182, 201.960\] cm rather
 /// than extrapolating: past the ends the curve flattens and a linear
 /// extension would invent reactivity.
+/// The paper's loading height for a bed built with `n_axial` ball layers:
+/// whole-ball extent, `(n_axial - 1)` layer pitches of 4.899 cm plus one ball
+/// diameter (gh:#333, see [`rmc_at_height`]).
+fn paper_height(bed_height_cm: f64) -> f64 {
+    let pitch = nee_soon::htr10_rmc::table1::LAYER_HEIGHT_CM / 2.0;
+    bed_height_cm - pitch + nee_soon::htr10_rmc::table1::BALL_DIAMETER_CM
+}
+
 fn rmc_at_height(h_cm: f64) -> Option<f64> {
     let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
     if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
@@ -915,11 +941,15 @@ fn main() {
     // 4.899` cm tall (not `lat_height * n_axial` since the two-ball tile); RMC's
     // curve is sampled at ITS heights, so comparing against a point the model
     // does not occupy imports a systematic worth ~270 pcm per cm of mismatch.
-    let bed_height_cm = core.bed_half_height * 2.0;
+    // CORRECTED 2026-09-27 (gh:#333): matched on the paper's whole-ball
+    // extent, not the volume-equivalent height.
+    let volume_height_cm = core.bed_half_height * 2.0;
+    let bed_height_cm = paper_height(volume_height_cm);
     let rmc_here = rmc_at_height(bed_height_cm);
     match rmc_here {
         Some(k) => println!(
-            "\n  HEIGHT-MATCHED: bed is {bed_height_cm:.3} cm -> RMC(interp) = {k:.6}\n  \
+            "\n  HEIGHT-MATCHED: bed {volume_height_cm:.3} cm (volume) = {bed_height_cm:.3} cm \
+             ball extent (paper's convention, gh:#333) -> RMC(interp) = {k:.6}\n  \
              (the {RMC_KEFF:.6} headline is RMC at 123.576 cm; difference {:+.0} pcm \
              is comparison point, NOT model)",
             (RMC_KEFF - k) * 1.0e5
