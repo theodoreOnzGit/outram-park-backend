@@ -840,7 +840,12 @@ fn main() {
         n_inactive: env_usize("OUTRAM_HTR10_INACTIVE", 30),
         n_active: env_usize("OUTRAM_HTR10_ACTIVE", 70),
         temperature_k: TEMP_K,
-        seed: 20260917,
+        // `OUTRAM_HTR10_SEED=n` replaces the default seed, so a multi-seed
+        // study can run one seed per process (resumable, one log per seed).
+        seed: std::env::var("OUTRAM_HTR10_SEED")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(20260917),
         // `OUTRAM_HTR10_THREADS=n` pins the thread count; default stays Auto.
         //
         // This exists because thread-count independence is **tested for
@@ -890,8 +895,8 @@ fn main() {
     };
 
     println!(
-        "  {histories} histories x [{} inactive + {} active]\n",
-        settings.n_inactive, settings.n_active
+        "  {histories} histories x [{} inactive + {} active], seed {}\n",
+        settings.n_inactive, settings.n_active, settings.seed
     );
     println!(
         "  nuclear data processed in {:.1} s ({} items)",
