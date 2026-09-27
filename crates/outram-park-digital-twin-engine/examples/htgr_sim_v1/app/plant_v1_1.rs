@@ -39,7 +39,9 @@ use outram_park_digital_twin_engine::components::control_rod_drive::slewed_contr
 use outram_park_digital_twin_engine::components::htr10_plant::{
     draw_htr10_plant, SecondaryLoopView, SecondaryTracers,
 };
-use outram_park_digital_twin_engine::components::htr10_reactor_schematic::EQUILIBRIUM_BED_HEIGHT_CM;
+use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
+    advanced_pebble_handling, pebble_handling_id, EQUILIBRIUM_BED_HEIGHT_CM,
+};
 use outram_park_digital_twin_engine::components::{Htr10ReactorSchematic, Htr10SteamGeneratorVisual};
 use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
 use uom::si::ratio::ratio;
@@ -307,6 +309,8 @@ fn draw_plant_at(
     );
     let rods = slewed.max(snapshot.scram_insertion_fraction as f32);
 
+    let pebbles = advanced_pebble_handling(ui.ctx(), pebble_handling_id());
+
     // Every helium pass carries the primary train, as every v1 helium run
     // does: one loop, one flow, one residence time.
     let reactor = Htr10ReactorSchematic::new(
@@ -326,7 +330,30 @@ fn draw_plant_at(
     .with_plenum_tracer(primary)
     .with_cold_plenum_tracer(primary)
     .with_hot_duct_tracer(primary)
-    .with_cold_duct_tracer(primary);
+    .with_cold_duct_tracer(primary)
+    // ── Pebble handling: the DRAWING only (GitHub issue #347) ────────────
+    //
+    // The refuelling chute and the defuelling route are already drawn by this
+    // widget, and `animation::PebbleHandling` already owns the transit
+    // kinematics, so the [Add pebble] / [Remove pebble] buttons in the controls
+    // panel reach them through the engine's shared helper rather than through
+    // anything of this simulator's own. Nothing here touches a physical
+    // quantity: the bed inventory stays at the derived
+    // `physics::pebble_bed::pebble_count()`, and so do the filling fraction,
+    // thermal mass, heat-transfer area, reactivity and every time constant.
+    //
+    // **Animation-only was the maintainer's call, 2026-09-27** -- permitted
+    // route 1 of the two in this crate's `CLAUDE.md` ("the maintainer asked for
+    // it"), recorded so a later reader does not "fix" it back into physics. The
+    // two options NOT taken (an operator-commanded `pebble_count()`, and real
+    // online refuelling with burnup) are recorded in #347.
+    //
+    // The state is parked in the `egui` context, not on the app struct, because
+    // the buttons are in a different panel from this drawing -- see
+    // `pebble_handling_id`. `advanced_pebble_handling` steps it at most once
+    // per frame regardless of which panel gets there first.
+    .with_refuel_pebbles(pebbles.refuel_transits().clone())
+    .with_defuel_pebbles(pebbles.defuel_transits().clone());
 
     let (feedwater_temp, condensate_temp) = feed_and_condensate_temps(snapshot);
     let steam_temp = k(snapshot.sg_steam_outlet_temp_k);

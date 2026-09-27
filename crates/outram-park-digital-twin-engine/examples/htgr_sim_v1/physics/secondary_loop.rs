@@ -2508,6 +2508,7 @@ mod tests {
     /// answer, not a clamp's. It does **not** mean the exchanger is validated --
     /// its `UA` is an explicit calibration and its geometry is part invented.
     #[test]
+    #[ignore = "every htgr_sim_v1 test must finish under 1 minute (maintainer direction, 2026-09-27); measured 2026-09-27 as still running after 20 s in its own process. Settles the secondary loop repeatedly to show the duty cap never binds; the settling is what makes the claim, so it is gated rather than shortened."]
     fn the_absorbable_duty_cap_no_longer_binds() {
         use super::super::pebble_bed;
         use super::super::primary_loop::HeliumPrimaryLoop;

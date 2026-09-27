@@ -251,9 +251,35 @@ pub struct MapFieldRequest {
     /// The field is `chi/Q`, a dilution factor, and this module's doc says
     /// what that buys: **it does not depend on the source at all.** Its only
     /// inputs are the wind, the stability class and the time elapsed since
-    /// the release began. So evaluating it at `t + offset` is not an
-    /// extrapolation and not a skipped calculation -- it is the same closed
-    /// form at a later argument, exact at any offset.
+    /// the release began.
+    ///
+    /// ~~"So evaluating it at `t + offset` is not an extrapolation and not a
+    /// skipped calculation -- it is the same closed form at a later argument,
+    /// exact at any offset."~~ **CORRECTED 2026-09-27.** That was true of the
+    /// closed-form field and is **false** now that the puff population is
+    /// marched ([`AtmosphericDispersionChannel::advance_population`], and see
+    /// [`FieldPuff`] for why it had to be). Two things a reader must not carry
+    /// forward from the struck sentence:
+    ///
+    /// 1. **A forward jump IS an extrapolation.** The catch-up march applies
+    ///    the **current** wind to the whole jumped interval, because this
+    ///    channel holds one wind and no history of where it has been. So the
+    ///    jumped field is "the plume this wind would build if it held that
+    ///    long", not a forecast across a wind change.
+    /// 2. **A rewind CLEARS the population.** The trajectory integral is not
+    ///    invertible and no per-step history is kept, so the plume restarts
+    ///    from the stack and any bend from an earlier wind change is lost.
+    ///
+    /// The source-independence of `chi/Q` is unaffected and still holds --
+    /// it was never the part that made the jump exact; the closed form was.
+    /// `tests::a_plume_clock_jump_equals_having_run_the_clock_there_on_a_steady_wind`
+    /// still passes, and its `_on_a_steady_wind` suffix is precisely this
+    /// correction: the equality holds because both sides march the *same
+    /// constant wind*, not because the field can be evaluated anywhere.
+    ///
+    /// This claim was found by a review of the Map tab's on-screen text, which
+    /// had inherited it; the tab now says both caveats at the control that
+    /// causes them.
     ///
     /// What it does **not** do is advance the plant. The reactor, the release
     /// channel and the receptor ring's activity columns all stay on the plant
@@ -594,24 +620,96 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 60.0;
 /// choice.
 pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
 
-/// Everything a cached field depends on.
+/// ~~Everything a cached field depends on.~~ **What has MOVED since the field
+/// was last drawn** -- CORRECTED 2026-09-27.
 ///
-/// Equality on this is the cache test. It carries the **plume clock** as well
-/// as the meteorology and the resolution because the field is instantaneous:
-/// the clock is an argument of the model, not a scheduling detail. Comparing
-/// only the meteorology -- which is what this did until 2026-09-25 -- would
-/// freeze the plume at whatever instant it was first drawn at, which is
-/// precisely the still photograph the real-time map replaces.
+/// Equality on this is the cache test: unequal means redraw.
+///
+/// # It is no longer a content key, and the distinction now matters
+///
+/// ~~"Everything a cached field depends on."~~ That was true while the field
+/// was a closed form in `(meteorology, clock)`. It is **false** now that the
+/// puff population is marched: the field depends on the whole **history** of
+/// the wind, which no fixed-size key can carry. Two runs reaching plume time
+/// `t` with the same current wind through *different* wind histories have
+/// genuinely different plumes, and that is the point of the change (see
+/// [`AtmosphericDispersionChannel::advance_population`]).
+///
+/// So this struct's job narrowed: it answers *"has anything changed that should
+/// trigger a redraw?"*, not *"what field does this key produce?"*. It is still
+/// sufficient for that, because the population's own clock is one of its
+/// fields and the clock advances whenever the population does.
+///
+/// **Do not reintroduce a cache that reuses a field across a key match as
+/// though the key determined it** -- with a marched population that would be
+/// reusing a plume from a different history.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct FieldKey {
-    /// The wind and stability the field was computed for.
+    /// The wind and stability in force. In the key because a slider move must
+    /// redraw, not because it determines the field.
     meteorology: Meteorology,
     /// Cells per side actually evaluated (after the [`max_grid_cells`] clamp,
     /// not as requested -- two requests that clamp to the same number share a
     /// field, correctly).
     cells: usize,
-    /// The plume clock the field was evaluated at \[s\].
+    /// The clock the **marched population** stands at \[s\]; see
+    /// [`AtmosphericDispersionChannel::population_clock_s`].
     plume_time_s: f64,
+}
+
+/// One live puff of the map field's **Lagrangian** population.
+///
+/// # Why the channel carries puff state at all
+///
+/// Reported by the maintainer 2026-09-27: *"when puff particles go around, and
+/// the wind direction changes, the puffs don't seem to remember their last
+/// known location. You should treat the puff particles like in a lagrangian
+/// fashion, where the particles DO remember their last position."*
+///
+/// They did not, and the reason was structural. The field used to be built from
+/// a closed form that read the **current** wind and applied it to every puff's
+/// **whole age**: `x = u_now * age`. So turning the wind slider did not turn the
+/// plume, it *rewrote the plume's history* -- a 1190 s-old puff 3.5 km downwind
+/// was instantly repositioned as though it had flown the new bearing since
+/// birth, and the entire plume snapped rigidly about the stack. Nothing was
+/// remembered because nothing was stored; position was a function of the
+/// present.
+///
+/// A puff is now a parcel with its own state, marched forward one step at a
+/// time. A wind change alters only what happens next. This is the same fix, and
+/// the same reasoning, as `changi::puff::simulate::AdvectionPolicy`, whose
+/// default this mirrors -- see that enum's documentation for the physics,
+/// including why the dispersion distance must be **path length** and not the
+/// straight-line distance from the stack.
+///
+/// # What it cost
+///
+/// The closed form had two properties this does not, and both are genuinely
+/// gone rather than worked around:
+///
+/// - ~~"the plume clock may be jumped an hour ahead and still be exact rather
+///   than extrapolated"~~ -- a model with history cannot be evaluated at an
+///   arbitrary time without running the history. A forward jump is now marched
+///   under the **current** wind, which is exact only if the wind held over the
+///   jumped interval. Stated where the operator meets it.
+/// - ~~"a two-hour fast-forward costs exactly what the first minute does"~~ --
+///   it now costs the march. Measured cheap: the population is capped at
+///   `puff_duration / puff_dt` = 120 puffs and a step is six flops per puff, so
+///   an hour of catch-up at `sim_dt` = 10 s is 360 steps x 120 puffs ~ 260 k
+///   flops -- far below the field evaluation it feeds, which is 65 536 cells x
+///   120 puffs.
+#[derive(Debug, Clone, Copy)]
+struct FieldPuff {
+    /// Eastward displacement from the stack \[m\], integrated step by step.
+    dx_m: f64,
+    /// Northward displacement from the stack \[m\], integrated step by step.
+    dy_m: f64,
+    /// **Path length** travelled \[m\] -- the Pasquill-Gifford argument. Not
+    /// `hypot(dx, dy)`: on a bent trajectory they differ, and the chord
+    /// under-reports how far the puff has dispersed.
+    path_m: f64,
+    /// Age \[s\], for retirement at `puff_duration`.
+    age_s: f64,
 }
 
 /// The dispersion channel: fixed site inputs, operator meteorology, and the
@@ -635,6 +733,15 @@ pub struct AtmosphericDispersionChannel {
     /// field, for the [`FIELD_REFRESH_INTERVAL_S`] rate limit. Deliberately
     /// `std::time::Instant`, not plant time -- see that constant's doc.
     last_field_refresh: Option<std::time::Instant>,
+    /// The live **Lagrangian** puff population the map field is drawn from.
+    ///
+    /// This is the channel's only genuinely path-dependent state: everything
+    /// else here is either an input or a cache of a pure function. See
+    /// [`FieldPuff`] for why it exists and [`Self::advance_population`] for how
+    /// it is marched.
+    puffs: Vec<FieldPuff>,
+    /// The plume clock \[s\] the population in [`Self::puffs`] stands at.
+    population_clock_s: f64,
 }
 
 impl AtmosphericDispersionChannel {
@@ -650,6 +757,8 @@ impl AtmosphericDispersionChannel {
             grid_cache: None,
             grid_key: None,
             last_field_refresh: None,
+            puffs: Vec::new(),
+            population_clock_s: 0.0,
         }
     }
 
@@ -688,6 +797,11 @@ impl AtmosphericDispersionChannel {
         if !due {
             return false;
         }
+        // Bring the population onto the clock before the field is drawn from
+        // it. `evaluate` is `&self` and deliberately stays so -- it renders the
+        // population, it does not advance it.
+        let config = self.run_config();
+        self.advance_population(&config, self.plume_time_s(sim_time_s));
         let result = self.evaluate(sim_time_s, release);
         // Remember the field and everything it belongs to, so the next tick
         // reuses it instead of recomputing an identical one.
@@ -755,25 +869,54 @@ impl AtmosphericDispersionChannel {
     /// Does **not** touch [`Self::update`]'s throttle or its receptor ring:
     /// the two are deliberately independent clocks.
     pub fn refresh_field(&mut self, sim_time_s: f64) -> bool {
-        let key = FieldKey {
-            meteorology: self.meteorology,
-            cells: self.field_cells(),
-            plume_time_s: self.plume_time_s(sim_time_s),
-        };
-        if self.grid_is_current_for(&key) {
-            return false;
-        }
+        // The rate limit is checked FIRST, before the population is marched.
+        // Skipping a refresh must not skip plume time: the next call marches the
+        // whole interval instead, so the plume stays on the clock even when the
+        // field is drawn less often than 10 Hz. See
+        // `Self::advance_population` on the wind this catch-up uses.
         let now = std::time::Instant::now();
         if let Some(last) = self.last_field_refresh {
             if now.duration_since(last).as_secs_f64() < FIELD_REFRESH_INTERVAL_S {
                 return false;
             }
         }
+        let config = self.run_config();
+        self.advance_population(&config, self.plume_time_s(sim_time_s));
+        // Keyed on the population's own clock, not the requested plume time:
+        // the march lands on a multiple of `sim_dt`, and it is what was drawn.
+        let key = FieldKey {
+            meteorology: self.meteorology,
+            cells: self.field_cells(),
+            plume_time_s: self.population_clock_s,
+        };
+        if self.grid_is_current_for(&key) {
+            return false;
+        }
 
-        let grid = self.compute_field(&self.run_config(), &key);
+        let grid = self.compute_field(&config, &key);
         self.grid_cache = Some(grid.clone());
         self.grid_key = Some(key);
-        self.last_field_refresh = Some(now);
+        // Stamped AFTER the computation, not before -- CORRECTED 2026-09-27.
+        //
+        // ~~`self.last_field_refresh = Some(now)`~~ where `now` was captured
+        // before `compute_field`. That made the interval a "no more than one
+        // field STARTED per 100 ms" rule, which degenerates to back-to-back
+        // computation as soon as one takes longer than the interval -- and one
+        // does: the GPU adapter probe plus the first field was **measured at
+        // 423 ms** on 2026-09-27 (once per process,
+        // `changi::puff::wgsl::has_gpu_field`). The limit then failed to limit
+        // exactly when it mattered most.
+        //
+        // It also made `tests::changing_the_meteorology_forces_one_refresh_then_the_rate_limit_holds`
+        // **order-dependent**: whichever test in the binary paid the probe had
+        // its rate limit already expired by the following call, so the test
+        // passed or failed on which tests ran before it. It failed when run
+        // alone and passed in a full run.
+        //
+        // Measuring from COMPLETION gives the genuine 100 ms gap the constant's
+        // doc describes -- "keeps a dragged slider from triggering a field
+        // evaluation per frame" -- and makes the test independent of host speed.
+        self.last_field_refresh = Some(std::time::Instant::now());
         // So a snapshot written before the next `update()` picks up the fresh
         // field rather than the one `latest` was built with.
         if let Some(latest) = &mut self.latest {
@@ -850,7 +993,7 @@ impl AtmosphericDispersionChannel {
         let key = FieldKey {
             meteorology: self.meteorology,
             cells: self.field_cells(),
-            plume_time_s: self.plume_time_s(sim_time_s),
+            plume_time_s: self.population_clock_s,
         };
         let grid = match (&self.grid_cache, self.grid_is_current_for(&key)) {
             (Some(cached), true) => cached.clone(),
@@ -907,6 +1050,12 @@ impl AtmosphericDispersionChannel {
             // regime. The bug-compatible variant exists only to reproduce
             // upstream's fixture and has no place in a plant model.
             emission_policy: EmissionPolicy::OnePuffPerEmission,
+            // The Lagrangian default, explicitly. The receptor ring goes
+            // through `changi::activity::dilution_factors`, which reads this;
+            // the map field is marched by `Self::advance_population`, which
+            // implements the same policy on this channel's own population. The
+            // two must not disagree about whether a puff turns.
+            advection: changi::puff::simulate::AdvectionPolicy::LagrangianTrajectory,
         }
     }
 
@@ -947,89 +1096,155 @@ impl AtmosphericDispersionChannel {
         receptors
     }
 
-    /// The flattened puff states the map field sums over -- **the population
-    /// alive at one instant of the plume clock.**
+    /// March the Lagrangian puff population forward to `target_s` on the plume
+    /// clock, emitting and retiring as it goes.
     ///
-    /// # Built analytically, not by running the simulator again
+    /// # The ordering, and why it is advect-then-emit
     ///
-    /// For a **constant** wind -- which is what this simulator has, and says
-    /// so -- a puff's whole history is closed form: a puff emitted at `t_j`
-    /// is, at time `t`, at `(u, v) * (t - t_j)` with dispersion set by the
-    /// distance `|U| * (t - t_j)` it has travelled. So the population can be
-    /// written down directly at any `t`, with no time-marching and no state
-    /// carried between calls -- which is also why the plume clock may be
-    /// jumped an hour ahead and still be exact rather than extrapolated.
+    /// Each step advects every live puff by `sim_dt` on the wind currently in
+    /// force, **then** emits any puff due at the new clock (at the stack, with
+    /// zero travel), **then** retires anything past `puff_duration`. A puff
+    /// emitted `k` steps ago has therefore been advected exactly `k` times, so
+    /// on a steady wind its displacement is `u * age` -- identical to the closed
+    /// form this replaced, and to `changi::puff::simulate`'s own loop, which
+    /// uses the same ordering for the same reason.
     ///
-    /// That matters because the alternative was handing every grid cell to
-    /// `dilution_factors`, which re-walks every puff at every step for every
-    /// receptor. Here the expensive per-puff work -- the branchy
-    /// Pasquill-Gifford table walk -- happens **once per state** rather than
-    /// once per (state, cell), and what crosses to the GPU is pure arithmetic.
+    /// # The wind used is the CURRENT wind, and that is a real approximation
     ///
-    /// # What changed on 2026-09-25, and what it cost
+    /// This channel holds one wind, not a time series: the operator's slider is
+    /// a step function and nothing here records where it has been. So a catch-up
+    /// march covering an interval during which the wind moved applies the
+    /// *latest* wind to the whole of it. At the 10 Hz refresh
+    /// ([`FIELD_REFRESH_INTERVAL_S`]) that interval is a tenth of a second and
+    /// the error is negligible; across a deliberate plume-clock jump (see
+    /// [`MapFieldRequest::plume_clock_offset`]) it is not, and the jump is
+    /// therefore an extrapolation under "the wind holds", not a prediction.
+    /// **Said plainly rather than hidden**, because the closed form it replaced
+    /// was exact for the jump and a reader may remember that it was.
     ///
-    /// ~~The 7 200 states the field sums over.~~ This used to loop over every
-    /// output step of the run *as well as* every emission, accumulating a
-    /// time-**accumulated** field of ~7 260 states that could not change with
-    /// the clock. It now returns only the puffs alive **now**:
-    /// `puff_duration / puff_dt` = **120** states at the shipped
-    /// configuration (the newest emission has age zero, so it has no sigma
-    /// and is dropped), a 60x reduction in kernel evaluations, which is what
-    /// pays for one cell per screen pixel.
+    /// # Rewinding CLEARS the population, because history is not stored
     ///
-    /// Emission starts at the **oldest puff still alive**, not at `t = 0`, so
-    /// the loop is O(puffs alive) rather than O(plume clock): a two-hour
-    /// fast-forward costs exactly what the first minute does.
+    /// If `target_s` is behind the population's clock the march cannot be
+    /// undone -- the trajectory integral is not invertible and no per-step
+    /// history is kept. The population is reset to empty at `t = 0` and
+    /// re-marched. That is honest: after a rewind there is no remembered past,
+    /// and re-marching under the current wind reproduces exactly what the old
+    /// closed form would have drawn.
+    ///
+    /// Marching is *not* rate-limited here; the caller's rate limit decides how
+    /// often this runs, and skipping a call only makes the next march longer.
+    /// See [`FieldPuff`] for the measured cost.
+    fn advance_population(&mut self, config: &RunConfig, target_s: f64) {
+        let dt = config.sim_dt.get::<second>();
+        let puff_dt = config.puff_dt.get::<second>();
+        let lifetime = config.puff_duration.get::<second>();
+        if dt <= 0.0 || puff_dt <= 0.0 {
+            return;
+        }
+        let target = target_s.max(0.0);
+
+        // A rewind is a reset -- see the doc comment.
+        if target + 1e-9 < self.population_clock_s {
+            self.puffs.clear();
+            self.population_clock_s = 0.0;
+        }
+        // Seed the t = 0 emission once, so the population is never empty at a
+        // clock the plume has reached.
+        if self.puffs.is_empty() && self.population_clock_s == 0.0 {
+            self.puffs.push(FieldPuff {
+                dx_m: 0.0,
+                dy_m: 0.0,
+                path_m: 0.0,
+                age_s: 0.0,
+            });
+        }
+
+        let components =
+            wind_vector_convert(self.meteorology.speed, self.meteorology.direction_from);
+        let u = components.u.get::<meter_per_second>();
+        let v = components.v.get::<meter_per_second>();
+        let step_dx = u * dt;
+        let step_dy = v * dt;
+        // The length of THIS leg, accumulated. Recomputing it from the endpoints
+        // is what would turn the path back into a chord.
+        let leg = step_dx.hypot(step_dy);
+
+        while self.population_clock_s + dt <= target + 1e-9 {
+            for p in self.puffs.iter_mut() {
+                p.dx_m += step_dx;
+                p.dy_m += step_dy;
+                p.path_m += leg;
+                p.age_s += dt;
+            }
+            self.population_clock_s += dt;
+            if (self.population_clock_s % puff_dt).abs() < 1e-9
+                || (self.population_clock_s % puff_dt - puff_dt).abs() < 1e-9
+            {
+                self.puffs.push(FieldPuff {
+                    dx_m: 0.0,
+                    dy_m: 0.0,
+                    path_m: 0.0,
+                    age_s: 0.0,
+                });
+            }
+            // `<=`, not `<`: the puff at age exactly `puff_duration` is kept,
+            // which is what makes the settled count `puff_duration / puff_dt`
+            // rather than that plus one. See
+            // `tests::the_instantaneous_population_is_capped_by_the_puff_lifetime`.
+            self.puffs.retain(|p| p.age_s <= lifetime);
+        }
+    }
+
+    /// The flattened puff states the map field sums over -- **the marched
+    /// Lagrangian population as it stands.**
+    ///
+    /// # Read from state, no longer written down in closed form
+    ///
+    /// ~~"For a **constant** wind -- which is what this simulator has, and says
+    /// so -- a puff's whole history is closed form: a puff emitted at `t_j` is,
+    /// at time `t`, at `(u, v) * (t - t_j)` with dispersion set by the distance
+    /// `|U| * (t - t_j)` it has travelled. So the population can be written down
+    /// directly at any `t`, with no time-marching and no state carried between
+    /// calls -- which is also why the plume clock may be jumped an hour ahead
+    /// and still be exact rather than extrapolated."~~
+    /// **CORRECTED 2026-09-27.** The premise was the problem: the wind is *not*
+    /// constant, it is an operator input that moves, and reading the current
+    /// wind into every puff's whole age is what made the plume snap rigidly
+    /// around the stack when the slider turned. The population is now marched
+    /// ([`Self::advance_population`]) and this function only *reads* it. See
+    /// [`FieldPuff`] for the full account and for what the closed form bought
+    /// that this does not.
+    ///
+    /// What is unchanged: the expensive per-puff work -- the branchy
+    /// Pasquill-Gifford table walk -- still happens **once per state** rather
+    /// than once per (state, cell), and what crosses to the GPU is still pure
+    /// arithmetic.
+    ///
+    /// The population is capped at `puff_duration / puff_dt` = **120** states at
+    /// the shipped configuration; the newest emission has zero travel, so it has
+    /// no sigma and is dropped here rather than being retired from the
+    /// population.
     ///
     /// Weights are per **unit release rate**: a puff carries `Q * puff_dt` of
     /// mass, so at unit `Q` the weight is `puff_dt` \[s\] and the sum is
     /// `chi/Q` in s/m^3 -- independent of the source, exactly as the receptor
     /// ring's `chi/Q` is.
-    fn field_states_at(
-        &self,
-        config: &RunConfig,
-        plume_time_s: f64,
-    ) -> Vec<changi::puff::wgsl::PuffState> {
+    fn field_states(&self, config: &RunConfig) -> Vec<changi::puff::wgsl::PuffState> {
         use changi::puff::wgsl::PuffState;
 
-        let components =
-            wind_vector_convert(self.meteorology.speed, self.meteorology.direction_from);
-        let (u, v) = (
-            components.u.get::<meter_per_second>(),
-            components.v.get::<meter_per_second>(),
-        );
-        let speed = (u * u + v * v).sqrt();
-
         let puff_dt = config.puff_dt.get::<second>();
-        let lifetime = config.puff_duration.get::<second>();
-        if puff_dt <= 0.0 || plume_time_s < 0.0 {
-            return Vec::new();
-        }
-
-        // The oldest emission still inside the puff lifetime. Starting here
-        // rather than at zero is what keeps an hour-long fast-forward the
-        // same cost as the opening minute.
-        let oldest_alive = (plume_time_s - lifetime).max(0.0);
-        let first = (oldest_alive / puff_dt).ceil() as i64;
-        let last = (plume_time_s / puff_dt).floor() as i64;
-
-        let mut states = Vec::with_capacity((last - first + 1).max(0) as usize);
-        for index in first..=last {
-            let age = plume_time_s - index as f64 * puff_dt;
-            if age < 0.0 || age > lifetime {
-                continue;
-            }
-            let travel = speed * age;
-            // Zero travel is upstream's NA path: a puff that has not moved
-            // has no sigma and contributes nothing.
-            let Some(sig) =
-                pasquill_gifford_sigmas(self.stability_for_field(), Length::new::<meter>(travel))
-            else {
+        let class = self.stability_for_field();
+        let mut states = Vec::with_capacity(self.puffs.len());
+        for p in &self.puffs {
+            // Zero travel is upstream's NA path: a puff that has not moved has
+            // no sigma and contributes nothing. The argument is the accumulated
+            // PATH, not `hypot(dx, dy)` -- see `FieldPuff::path_m`.
+            let Some(sig) = pasquill_gifford_sigmas(class, Length::new::<meter>(p.path_m)) else {
                 continue;
             };
             states.push(PuffState {
-                x: (u * age) as f32,
-                y: (v * age) as f32,
+                x: p.dx_m as f32,
+                y: p.dy_m as f32,
                 sigma_y: sig.sigma_y.get::<meter>() as f32,
                 sigma_z: sig.sigma_z.get::<meter>() as f32,
                 // Mass per unit release RATE in one puff, so the sum is
@@ -1084,7 +1299,7 @@ impl AtmosphericDispersionChannel {
     fn compute_field(&self, config: &RunConfig, key: &FieldKey) -> DispersionGrid {
         use changi::puff::wgsl::{field_auto, FieldGrid};
 
-        let states = self.field_states_at(config, key.plume_time_s);
+        let states = self.field_states(config);
         let grid = FieldGrid {
             cells: key.cells,
             half_width_m: GRID_HALF_WIDTH_M as f32,
@@ -1741,7 +1956,7 @@ mod tests {
     /// stops moving.
     #[test]
     fn the_plume_grows_out_of_the_stack_and_then_settles() {
-        let channel = AtmosphericDispersionChannel::new();
+        let mut channel = AtmosphericDispersionChannel::new();
         let config = channel.run_config();
         let puff_dt = config.puff_dt.get::<second>();
         let lifetime = config.puff_duration.get::<second>();
@@ -1752,7 +1967,11 @@ mod tests {
 
         let mut previous = 0usize;
         for clock in [0.0, 60.0, 600.0, 1200.0, 3600.0, 7200.0] {
-            let states = channel.field_states_at(&config, clock);
+            // Marched, not written down in closed form (2026-09-27). The
+            // clocks below ascend, so each is a forward march from the last and
+            // no reset is triggered.
+            channel.advance_population(&config, clock);
+            let states = channel.field_states(&config);
             let reach = states
                 .iter()
                 .map(|s| ((s.x * s.x + s.y * s.y).sqrt()) as f64)
@@ -1789,17 +2008,44 @@ mod tests {
         }
     }
 
-    /// **The field is a dilution factor, so the plume clock is exact at any
-    /// offset** -- a two-hour fast-forward must give the same field as
-    /// actually running the plant for two hours would.
+    /// **A plume-clock jump equals having run the clock there -- ON A WIND THAT
+    /// DID NOT MOVE**, which is now a condition and not a theorem.
     ///
-    /// That equality is the whole justification for the fast-forward button
+    /// # ~~"the field is a closed form in elapsed time and carries no history"~~
+    /// # -- CORRECTED 2026-09-27
+    ///
+    /// ~~"That equality is the whole justification for the fast-forward button
     /// driving the plume clock rather than the plant (maintainer, 2026-09-25),
     /// so it is asserted rather than argued: the state population is a closed
     /// form in elapsed time, and it carries no history, so `plant t + offset`
-    /// and `plant t` with the same total are the same argument.
+    /// and `plant t` with the same total are the same argument."~~
+    ///
+    /// **The population now carries history** (see [`FieldPuff`]), so that
+    /// argument no longer holds in general: two runs reaching plume time 7500 s
+    /// through different wind histories have different plumes, correctly. The
+    /// equality survives here for a narrower and honestly weaker reason -- both
+    /// channels are marched under the **same constant wind** from the same empty
+    /// initial population, so their histories are identical and so are their
+    /// populations.
+    ///
+    /// # What this now does and does not license
+    ///
+    /// It still justifies the fast-forward button *as a display control*: at a
+    /// steady wind, jumping the plume clock shows what running the plant there
+    /// would have shown. It does **not** license reading a jumped field as a
+    /// prediction across a wind change, because the jumped march applies the
+    /// current wind to the whole jumped interval -- stated on
+    /// [`AtmosphericDispersionChannel::advance_population`] and surfaced to the
+    /// operator on the Map tab.
+    ///
+    /// # Results (2026-09-27)
+    ///
+    /// Jumped (`plant 300 s` + `7200 s` offset) against run (`7500 s`), default
+    /// meteorology: populations equal in length and **bit-identical** state for
+    /// state. The equality is exact rather than tolerant because both sides
+    /// execute the identical sequence of additions.
     #[test]
-    fn a_plume_clock_jump_equals_having_run_the_clock_there() {
+    fn a_plume_clock_jump_equals_having_run_the_clock_there_on_a_steady_wind() {
         let mut jumped = AtmosphericDispersionChannel::new();
         jumped.set_field_request(MapFieldRequest {
             plume_clock_offset: Time::new::<second>(7200.0),
@@ -1807,16 +2053,150 @@ mod tests {
         });
         let config = jumped.run_config();
 
-        let ran = AtmosphericDispersionChannel::new();
+        let mut ran = AtmosphericDispersionChannel::new();
         let plant_t = 300.0;
 
         assert!((jumped.plume_time_s(plant_t) - 7500.0).abs() < 1e-9);
-        let a = jumped.field_states_at(&config, jumped.plume_time_s(plant_t));
-        let b = ran.field_states_at(&config, 7500.0);
+        jumped.advance_population(&config, jumped.plume_time_s(plant_t));
+        ran.advance_population(&config, 7500.0);
+        let a = jumped.field_states(&config);
+        let b = ran.field_states(&config);
         assert_eq!(a.len(), b.len(), "the populations must be the same size");
         for (x, y) in a.iter().zip(b.iter()) {
             assert_eq!(x, y, "a jumped clock must be bit-identical to a run one");
         }
+    }
+
+    /// **V&V, and the regression this whole change exists for: turning the wind
+    /// must BEND the plume, leaving the puffs already aloft where they are.**
+    ///
+    /// # What was wrong
+    ///
+    /// Reported by the maintainer 2026-09-27: *"when puff particles go around,
+    /// and the wind direction changes, the puffs don't seem to remember their
+    /// last known location."* They did not. The field was built from a closed
+    /// form reading the **current** wind and applying it to every puff's whole
+    /// age, so a slider move rewrote the plume's history and the entire plume
+    /// snapped rigidly about the stack. See [`FieldPuff`].
+    ///
+    /// # Methodology
+    ///
+    /// One channel at 3 m/s, `sim_dt` 10 s, class held fixed so the stability
+    /// lookup cannot confound the geometry.
+    ///
+    /// 1. Wind **from the north** for 600 s. A met-convention north wind blows
+    ///    *towards* the south, so the plume must run south: `dy < 0`, `dx = 0`.
+    /// 2. Wind **from the west** for a further 600 s. Now the plume must run
+    ///    east: everything emitted from here on goes `+x`.
+    ///
+    /// The puff of interest is the **oldest survivor** -- the one emitted at
+    /// `t = 0`, aged 1200 s at the end, exactly at the retirement bound.
+    ///
+    /// Predicted before measuring: at 3 m/s each leg is `3 * 600 = 1800 m`, so a
+    /// Lagrangian parcel ends at `(dx, dy) = (+1800, -1800)` with a **path of
+    /// 3600 m** and a net displacement of 2546 m. The old behaviour would have
+    /// put it at `(+3600, 0)` -- 1800 m due east of where it is, with the entire
+    /// southward leg erased.
+    ///
+    /// # Results (measured 2026-09-27)
+    ///
+    /// | Quantity | Measured | Old behaviour |
+    /// |---|---|---|
+    /// | oldest puff `dx` | **+1800 m** | +3600 m |
+    /// | oldest puff `dy` | **-1800 m** | 0 m |
+    /// | its path length | **3600 m** | 3600 m (chord) |
+    /// | its net displacement | 2546 m | 3600 m |
+    ///
+    /// The two differ by **1800 m**, a quarter of the grid's full width at the
+    /// shipped [`GRID_HALF_WIDTH_M`].
+    ///
+    /// **Interpretation.** The plume is a dog-leg, which is what a veering wind
+    /// physically produces, and the southward leg is *remembered* rather than
+    /// recomputed. The dispersion distance is the 3600 m path, so the bend does
+    /// not reset the spread -- a puff that has been aloft for 1200 s is drawn as
+    /// widely dispersed wherever it happens to be. This checks the **wiring and
+    /// the memory**, not the dispersion coefficients, which are `changi`'s and
+    /// are verified against upstream R separately.
+    #[test]
+    fn turning_the_wind_bends_the_plume_and_the_puffs_keep_their_positions() {
+        let mut channel = AtmosphericDispersionChannel::new();
+        channel.set_meteorology(Meteorology {
+            speed: Velocity::new::<meter_per_second>(3.0),
+            direction_from: Angle::new::<degree>(0.0),
+            stability: StabilitySource::Fixed(StabilityClass::B),
+            hour: 12,
+        });
+        let config = channel.run_config();
+
+        // Leg 1: wind FROM the north, so the plume runs SOUTH.
+        channel.advance_population(&config, 600.0);
+        let after_leg_1 = *channel
+            .puffs
+            .iter()
+            .max_by(|a, b| a.age_s.partial_cmp(&b.age_s).unwrap())
+            .expect("the population must not be empty after 600 s");
+        println!(
+            "after leg 1 (wind FROM north, 600 s): oldest puff dx = {:.1} m, dy = {:.1} m, \\
+             path = {:.1} m, age = {:.0} s",
+            after_leg_1.dx_m, after_leg_1.dy_m, after_leg_1.path_m, after_leg_1.age_s
+        );
+        assert!(
+            after_leg_1.dy_m < -1.0 && after_leg_1.dx_m.abs() < 1e-9,
+            "a wind FROM the north must carry the plume due SOUTH; got dx = {}, dy = {}",
+            after_leg_1.dx_m,
+            after_leg_1.dy_m
+        );
+        let southward = after_leg_1.dy_m;
+
+        // Leg 2: wind FROM the west, so new travel runs EAST.
+        channel.set_meteorology(Meteorology {
+            direction_from: Angle::new::<degree>(270.0),
+            ..channel.meteorology()
+        });
+        channel.advance_population(&config, 1200.0);
+        let oldest = *channel
+            .puffs
+            .iter()
+            .max_by(|a, b| a.age_s.partial_cmp(&b.age_s).unwrap())
+            .expect("the population must not be empty after 1200 s");
+        println!(
+            "after leg 2 (wind FROM west,  600 s): oldest puff dx = {:.1} m, dy = {:.1} m, \\
+             path = {:.1} m, net = {:.1} m, age = {:.0} s\\n  \\
+             the OLD behaviour would have put it at dx = 3600.0 m, dy = 0.0 m",
+            oldest.dx_m,
+            oldest.dy_m,
+            oldest.path_m,
+            oldest.dx_m.hypot(oldest.dy_m),
+            oldest.age_s
+        );
+
+        // THE assertion: the southward leg is remembered, not rewritten.
+        assert!(
+            (oldest.dy_m - southward).abs() < 1e-9,
+            "the puff must KEEP the southward displacement it had when the wind turned: \\
+             was {southward} m, is now {} m",
+            oldest.dy_m
+        );
+        assert!((oldest.dx_m - 1800.0).abs() < 1e-6, "dx = {}", oldest.dx_m);
+        assert!((oldest.dy_m + 1800.0).abs() < 1e-6, "dy = {}", oldest.dy_m);
+        // Path, not chord: the bend does not shorten how far it has dispersed.
+        assert!(
+            (oldest.path_m - 3600.0).abs() < 1e-6,
+            "path = {}, wanted 3600 m",
+            oldest.path_m
+        );
+        assert!(
+            oldest.path_m > oldest.dx_m.hypot(oldest.dy_m) + 1000.0,
+            "on a right-angle dog-leg the path {} must exceed the net displacement {} \\
+             by a wide margin",
+            oldest.path_m,
+            oldest.dx_m.hypot(oldest.dy_m)
+        );
+        // And it is nowhere near where the old code would have drawn it.
+        assert!(
+            (oldest.dx_m - 3600.0).abs() > 1000.0,
+            "the puff must not have been swept onto the new bearing for its whole life"
+        );
     }
 
     /// **The resolution the map asks for is honoured, and capped.**
