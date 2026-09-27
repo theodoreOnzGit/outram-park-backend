@@ -248,7 +248,9 @@ pub mod mat {
     /// it gives no geometry for what is inside them (the cold helium chamber,
     /// the hot-gas borings under the conus, the bottom structures). They are
     /// explicit regions at their Fig. 4.10 positions carrying the source's
-    /// composition. That is an open item, not a modelling choice made here.
+    /// composition. ~~That is an open item~~ **Accepted 2026-09-27 (maintainer,
+    /// gh:#332)** as the model: undocumented internals are modelled as the
+    /// TECDOC gives them. Not a modelling choice made here.
     pub const TABLE_4_3_ZONES: [(usize, f64); 24] = [
         (0, 1.0),
         (1, 1.0),

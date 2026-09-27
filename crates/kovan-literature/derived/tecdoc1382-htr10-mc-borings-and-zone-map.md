@@ -190,7 +190,8 @@ zone 22's density either way (§ 3).
 
 **The state of the absorber balls is not stated** for any problem. The KLAK
 system is the reserve shutdown system (pp. 236, 238), so its channels are
-taken as empty. That is an assumption, and it is listed as an open item.
+taken as empty. That is an assumption. ~~It is listed as an open item.~~
+**Accepted 2026-09-27 (maintainer, gh:#330): leave them empty.**
 
 ## Status
 

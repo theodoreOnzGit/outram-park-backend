@@ -125,9 +125,15 @@
 //! rejection of balls crossing the cone or tube. What the specification does
 //! not give (channel azimuths, the contents of the absorber-ball and
 //! irradiation channels, the internal structure of zones 0-4, 8-16, 19-21,
-//! 48, 57) is listed in [`reflector_geometry`]'s module docs. **No `k` has
-//! been computed on this geometry yet, and it has not yet been drawn** (the
-//! crate's geometry-drawing rule): treat it as unverified.
+//! 48, 57) is listed in [`reflector_geometry`]'s module docs, and was
+//! settled by the maintainer on 2026-09-27 (gh:#330: 18 degree convention,
+//! KLAK and irradiation channels empty; gh:#332: those zones as the TECDOC
+//! gives them). ~~**No `k` has been computed on this geometry yet, and it has
+//! not yet been drawn**~~ **CORRECTED 2026-09-27:** it has been drawn
+//! (`verification_and_validation/htr10_python_plots/`) and first priced at
+//! fast statistics
+//! (`outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`).
+//! It is still an AI-drafted model awaiting human review.
 //!
 //! **Other paths and plumbing:**
 //! - gh:#308 — `assemble` (homogenised fuel) lacks the cavity, conus, bricks and

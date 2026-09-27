@@ -47,20 +47,26 @@
 //! layout honours that. The assignment of the 20 inner-ring positions to 10
 //! rods, 3 irradiation and 7 KLAK channels is likewise a convention. It
 //! matters for the one-rod worth problems (B32, B42), not for B1.
+//! **ACCEPTED 2026-09-27 (maintainer, gh:#330): "18 degree pitch is
+//! acceptable"**, so this convention is the model.
 //!
 //! **Contents.** B1 is defined with no rod inserted (p. 242), and the rods'
 //! withdrawn position is given (lower end at 119.2 cm), so the rods ARE in
 //! their channels, in the top reflector, with their B4C, steel sleeves and
 //! iron joints as explicit geometry. The absorber-ball system is a reserve
 //! shutdown system, so its channels are empty. The irradiation channels are
-//! empty. Nothing is said about either; both are open items.
+//! empty. Nothing is said about either; ~~both are open items~~ **DECIDED
+//! 2026-09-27 (maintainer, gh:#330): leave them empty.**
 //!
 //! **Zones whose internal structure is unspecified** (the cold helium chamber,
 //! zone 3; the bottom structures, zones 0 and 8-16; the partly-void layers 21,
 //! 29, 48, 57): these are explicit REGIONS at their Fig. 4.10 positions, but
 //! each carries the source's own Table 4-3 composition because no geometry
 //! for their contents is given anywhere. That is the source's homogenisation,
-//! not ours, and it is recorded as an open item.
+//! not ours. ~~It is recorded as an open item.~~ **ACCEPTED 2026-09-27
+//! (maintainer, gh:#332): model these zones as TECDOC-1382 gives them.** No
+//! source documents their internals, so the TECDOC composition is the
+//! justified choice.
 //!
 //! # Coordinates
 //!
