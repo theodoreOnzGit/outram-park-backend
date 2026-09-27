@@ -1088,8 +1088,15 @@ fn main() {
             (entropy_mesh.n_bins() as f64).log2()
         );
     }
-    println!("\n  Gate is 500-1000 pcm. This is a REDUCED core ({rings} rings x {layers} layers),");
-    println!("  not the 123.576 cm loading, and carries the VIII.0-vs-VII.0 offset.");
+    // CORRECTED 2026-09-27: this used to say every run was "a REDUCED core,
+    // not the 123.576 cm loading". Both halves were false: the bed radius is
+    // always the physical 90 cm (`rings` is only a floor, see
+    // `core_model::assemble`), and `layers = 25` IS the 123.576 cm loading
+    // in the paper's whole-ball-extent convention (gh:#333).
+    println!(
+        "\n  Gate is 500-1000 pcm. Full-radius bed, {layers} layers = {bed_height_cm:.3} cm \
+         (paper's convention); VIII.0 runs carry the VIII.0-vs-VII.0 offset."
+    );
 
     // Data-processing time and transport time, reported separately, and the
     // full provenance record written to a file. If any data item failed to
