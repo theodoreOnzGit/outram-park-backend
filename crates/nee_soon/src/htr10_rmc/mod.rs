@@ -150,7 +150,15 @@
 //! code-to-code check that our reconstruction matches theirs, and none of them
 //! needs a transport solve. [`GeometryClosure`] carries them.
 //!
-//! ## NOT verifiable now — the k-eff curve
+//! ## ~~NOT verifiable now~~ — the k-eff curve
+//!
+//! **CORRECTED 2026-09-27:** the blocker described below is gone. The
+//! TECDOC-1382 reflector is modelled (Table 4-3 zones, then every boring
+//! explicit, draft PR #327), and the curve is computed against RMC at the
+//! paper's own heights (gh:#333). See the "CURRENT NUMBERS" and the
+//! SUPERSEDED note below and
+//! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/`. The
+//! original text follows, unchanged, for the record.
 //!
 //! The paper's Tables 3 and 4 give `k_eff` against fuel-loading height, which is
 //! the headline result. **We cannot reproduce it yet, and the blocker is the
@@ -203,10 +211,16 @@ pub mod plots;
 /// The paper's single RMC `k_eff` curve against fuel-loading height, Tables 3
 /// and 4 (`(height_cm, k_eff)`).
 ///
-/// One curve, not two — see the module docs on the duplicated column. The MCNP
+/// One curve, not two — see the module docs on the duplicated column. ~~The MCNP
 /// columns are deliberately **not** carried here: they are a second code's
 /// results on a third model, and mixing them in would invite a comparison that
-/// is not ours to make.
+/// is not ours to make.~~ **CHANGED 2026-09-27 (maintainer direction: "save
+/// mcnp data too since it's there, just so we have a rough gauge"):** they are
+/// now carried separately, in [`MCNP_TABLE3_KEFF_VS_HEIGHT`] and
+/// [`MCNP_TABLE4_KEFF_VS_HEIGHT`]. RMC stays the reference.
+///
+/// Heights are the paper's convention: bottom of the lowest ball to top of the
+/// highest, `9.798 N + 6.0` cm (gh:#333).
 pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
     (94.182, 0.894_693),
     (103.980, 0.937_122),
@@ -220,6 +234,57 @@ pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
     (182.364, 1.133_878),
     (192.162, 1.147_570),
     (201.960, 1.162_230),
+];
+
+/// MCNP `k_eff` against loading height as printed in the paper's **Table 3**
+/// (captioned "Critical result 1 (vacuum)"), `(height_cm, k_eff)`.
+///
+/// **A rough gauge, not a reference.** Li, Yu & Wei describe these as the
+/// results *"of MCNP reported in paper listed in reference"*, i.e. MCNP on a
+/// different, independently built model (*"model used in this calculation is
+/// constructed relatively independently"*), with no uncertainty quoted. Use
+/// them to see how far two codes on two models already spread, which bounds
+/// how much agreement with RMC alone can mean: the paper's own RMC-MCNP
+/// differences reach 0.95 %. Do not fit to them and do not replace RMC with
+/// them.
+///
+/// Both Tables 3 and 4 are captioned "(vacuum)" while the text says the
+/// calculations were for vacuum *and* helium, so one caption is wrong and it
+/// is not known which table is which (see the module docs). They are kept
+/// under their table numbers for that reason. Transcribed 2026-09-27;
+/// `the_mcnp_columns_reproduce_the_papers_relative_differences` re-derives the
+/// paper's "Re-diff" column from them.
+pub const MCNP_TABLE3_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
+    (94.182, 0.888_56),
+    (103.980, 0.930_52),
+    (113.778, 0.969_98),
+    (123.576, 1.003_3),
+    (133.374, 1.033_66),
+    (143.172, 1.058_4),
+    (152.970, 1.085_12),
+    (162.768, 1.102_9),
+    (172.566, 1.122_37),
+    (182.364, 1.139_04),
+    (192.162, 1.158_46),
+    (201.960, 1.171_93),
+];
+
+/// MCNP `k_eff` against loading height from the paper's **Table 4** (also
+/// captioned "(vacuum)"; see [`MCNP_TABLE3_KEFF_VS_HEIGHT`] for what these are
+/// and are not).
+pub const MCNP_TABLE4_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
+    (94.182, 0.890_44),
+    (103.980, 0.931_44),
+    (113.778, 0.969_73),
+    (123.576, 1.004_79),
+    (133.374, 1.032_33),
+    (143.172, 1.060_3),
+    (152.970, 1.082_7),
+    (162.768, 1.102_18),
+    (172.566, 1.122_48),
+    (182.364, 1.137_83),
+    (192.162, 1.156_83),
+    (201.960, 1.169_73),
 ];
 
 /// Design characteristics from the paper's **Table 1**.

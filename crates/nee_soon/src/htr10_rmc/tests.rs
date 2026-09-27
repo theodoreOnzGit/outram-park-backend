@@ -672,3 +672,39 @@ fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
     assert!((pack - 0.61).abs() < 5.0 * 0.0008, "filling fraction {pack:.5}");
     assert!((fb - 0.57).abs() < 5.0 * 0.001, "fuel-ball volume fraction {fb:.5}");
 }
+
+/// **The MCNP columns are transcribed correctly** (2026-09-27): the paper's
+/// own "Re-diff" column, `|RMC - MCNP| / RMC`, is re-derived from our RMC and
+/// MCNP tables and must match the printed value to its last digit (6 decimal
+/// places, so within 1e-6 after rounding). A digit slip in either table fails
+/// this.
+#[test]
+fn the_mcnp_columns_reproduce_the_papers_relative_differences() {
+    use super::{MCNP_TABLE3_KEFF_VS_HEIGHT, MCNP_TABLE4_KEFF_VS_HEIGHT, RMC_KEFF_VS_HEIGHT};
+    // Printed "Re-diff" columns of Tables 3 and 4, row order as the tables.
+    let t3 = [
+        0.006855, 0.007045, 0.002246, 0.000984, 0.002835, 0.001451, 0.006187, 0.005039,
+        0.006813, 0.004553, 0.00949, 0.008346,
+    ];
+    let t4 = [
+        0.004754, 0.006063, 0.002503, 0.0005, 0.001545, 0.003249, 0.003943, 0.004383,
+        0.006912, 0.003485, 0.008069, 0.006453,
+    ];
+    for (mcnp, printed, name) in [
+        (MCNP_TABLE3_KEFF_VS_HEIGHT, t3, "Table 3"),
+        (MCNP_TABLE4_KEFF_VS_HEIGHT, t4, "Table 4"),
+    ] {
+        assert_eq!(mcnp.len(), RMC_KEFF_VS_HEIGHT.len());
+        for ((&(h, k_rmc), &(h_m, k_mcnp)), &p) in RMC_KEFF_VS_HEIGHT.iter().zip(mcnp).zip(&printed) {
+            assert_eq!(h, h_m, "{name}: heights differ");
+            let rd = (k_rmc - k_mcnp).abs() / k_rmc;
+            // The paper prints up to 6 decimals and drops trailing zeros.
+            let decimals = format!("{p}").split('.').nth(1).map_or(0, str::len) as i32;
+            let tol = 0.5 * 10f64.powi(-decimals) + 1e-12;
+            assert!(
+                (rd - p).abs() <= tol,
+                "{name} at {h} cm: Re-diff {rd:.7} but the paper prints {p}"
+            );
+        }
+    }
+}

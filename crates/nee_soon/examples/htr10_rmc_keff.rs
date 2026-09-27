@@ -961,6 +961,28 @@ fn main() {
         ),
     }
 
+    // A rough gauge only (maintainer direction 2026-09-27): the paper's MCNP
+    // columns, from an independently built model. RMC stays the reference.
+    let at = |c: &[(f64, f64)]| -> Option<f64> {
+        c.windows(2).find_map(|w| {
+            let ((h0, k0), (h1, k1)) = (w[0], w[1]);
+            (h0..=h1)
+                .contains(&bed_height_cm)
+                .then(|| k0 + (bed_height_cm - h0) / (h1 - h0) * (k1 - k0))
+        })
+    };
+    if let (Some(m3), Some(m4)) = (
+        at(nee_soon::htr10_rmc::MCNP_TABLE3_KEFF_VS_HEIGHT),
+        at(nee_soon::htr10_rmc::MCNP_TABLE4_KEFF_VS_HEIGHT),
+    ) {
+        println!(
+            "  GAUGE (not a reference): MCNP at this height, Table 3 {m3:.6} ({:+.0} pcm), \
+             Table 4 {m4:.6} ({:+.0} pcm)",
+            (res.k_mean - m3) * 1.0e5,
+            (res.k_mean - m4) * 1.0e5
+        );
+    }
+
     let pcm = (res.k_mean - RMC_KEFF) * 1.0e5;
     if let Some(k) = rmc_here {
         println!(

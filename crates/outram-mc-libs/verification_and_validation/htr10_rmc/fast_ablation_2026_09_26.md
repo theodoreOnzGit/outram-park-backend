@@ -102,6 +102,31 @@ k = 0.980195 ± 0.003496 (−2048 pcm). The rods (B4C, steel, iron) are worth
   explicit dummy tube are all candidates; they were not ablated one at a time
   here.
 
+## MCNP as a rough gauge (added 2026-09-27)
+
+The paper also prints MCNP results from an independently built model, with no
+uncertainty (`MCNP_TABLE3_KEFF_VS_HEIGHT`, `MCNP_TABLE4_KEFF_VS_HEIGHT`; both
+tables are captioned "(vacuum)", so which is helium is unknown). **They are a
+gauge, not a reference.** The same six runs against them:
+
+| n | paper height [cm] | MCNP T3 | MCNP T4 | VIII.0 − T3 / T4 [pcm] | VII.0 − T3 / T4 [pcm] |
+|---|---|---|---|---|---|
+| 20 | 99.081 (interp.) | 0.909540 | 0.910940 | −2437 / −2577 | −1629 / −1769 |
+| 25 | 123.576 | 1.003300 | 1.004790 | −2627 / −2776 | −1184 / −1333 |
+| 41 | 201.960 | 1.171930 | 1.169730 | −2681 / −2461 | −1490 / −1270 |
+
+**What the gauge shows.** Against either MCNP column the residual is roughly
+flat with height. From 99 to 202 cm it changes by −244 / +116 pcm on VIII.0
+(about −2.4 / +1.1 pcm/cm), against +13.2 pcm/cm relative to RMC. That is
+because RMC's own difference from MCNP grows with height: 0.10 % / 0.05 % at the
+critical point, and 0.83 % / 0.65 % at 201.96 cm (the paper's Re-diff column).
+
+This is **a hint for gh:#218, not a result**. The runs are single-seed, MCNP
+used a different model and gives no error, and a drift that tracks RMC-vs-MCNP
+could equally be a trait of RMC's model or of ours. It does say that the
+drift should not be assumed to be our model's defect until the reference's own
+spread is accounted for.
+
 ## gh:#333, settled from the paper (2026-09-27)
 
 Li, Yu & Wei (2014), text of the HTR 2014 paper:
