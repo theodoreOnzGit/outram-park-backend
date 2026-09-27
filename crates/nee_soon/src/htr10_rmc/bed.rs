@@ -511,7 +511,12 @@ pub struct TwoBallBed {
 /// (r = 90 cm) above the conus. Li says only that the array's outer boundary is
 /// the side reflector's inner surface, not whether wall-crossing balls are cut
 /// or removed. Those keep the CSG cut (the treatment before this), and the
-/// choice is the maintainer's.
+/// ~~choice is the maintainer's.~~
+/// **DECIDED 2026-09-27 (maintainer, gh:#331): keep the cut.** Li states the
+/// finished core's filling fraction is 61 %; the cut bed measures 0.6089, while
+/// rejecting wall-crossers ([`TwoBallBed::rejecting_side_wall_crossers`], kept
+/// as an ablation) drops it to 0.5737. *"Packing fraction wrong already changes
+/// too much."*
 ///
 /// `None` in [`TwoBallBed::new_with_tube`] (the `OUTRAM_HTR10_HOMOG_TUBE`
 /// ablation) builds no tube balls and applies no rejection: the cone then cuts
@@ -690,7 +695,10 @@ impl TwoBallBed {
     /// (2014) say the array's outer boundary is the reflector's inner surface
     /// and reject balls at the cone and tube, but are silent on the side wall.
     /// This is the other reading, built so the two can be priced against each
-    /// other. It is not a claim that it is the right one.
+    /// other. It is not a claim that it is the right one. **Decided against
+    /// 2026-09-27 (maintainer, gh:#331):** it drops the bed's filling fraction
+    /// to 0.5737 against Li's stated 61 % (the cut gives 0.6089), so the cut
+    /// stays the default and this stays an ablation only.
     #[must_use]
     pub fn rejecting_side_wall_crossers(mut self) -> Self {
         let r = 0.5 * self.cell.ball_diameter;

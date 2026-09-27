@@ -37,7 +37,9 @@
 2. **Rod-steel Fe-57 → Fe-56** (`OUTRAM_HTR10_FE57_AS_FE56=1`). Reconstructing Fe-57
    (LRF=7, 3 particle pairs) was OOM-killed at 13.4 GB (gh:#339).
 3. Channel azimuths, channel contents, side-wall clipping and homogenised zones
-   are as in PR #327, with the open questions in gh:#330, #331 and #332.
+   are as in PR #327, with the open questions in gh:#330, ~~#331~~ and #332.
+   (#331 decided 2026-09-27: balls crossing the side wall are cut, not
+   rejected, because rejection breaks Li's stated 61 % filling fraction.)
 
 ## Results
 
