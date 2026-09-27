@@ -68,6 +68,11 @@ Agreement gate for this code-to-code reference is **500–1000 pcm**.
 
 ## 2. Results — the eigenvalue curve
 
+> **SUPERSEDED 2026-09-25** by the two-ball prism cell — see §8 and the V&V
+> record. The curve below is the one-ball-per-tile bed (interpenetrating
+> pebbles, 4.76 % of core carbon missing) and predates the B-11 and TRISO-count
+> fixes as well. Kept as the record of what was measured then.
+
 `htr10_rmc_curve_2026-09-24.csv`:
 
 ```csv
@@ -289,6 +294,19 @@ entire difference is the cavity treatment.
 
 ## 8. What has moved since
 
+- **2026-09-25: the bed is the paper's two-ball prism cell (gh:#309 step 2,
+  gh:#310). EVERY CURVE IN §2 AND §7 IS SUPERSEDED BY IT.** The one-ball tile
+  made axial pebbles interpenetrate and left core carbon 4.76 % low; the
+  two-ball cell restores whole pebbles and the carbon. At 10 000 x [5 + 135],
+  14 rings, three seeds per height, VIII.0: residual **+1626 +/- 50** (97.98
+  cm), **+1646 +/- 62** (122.47 cm), **+1958 +/- 33** (200.86 cm) pcm — the
+  model moved from below RMC to above it by 2231-2413 pcm. The slope fell from
+  about +5.0 to **+3.41 +/- 0.54 pcm/cm**, a change of -1.63 +/- 0.94 that is
+  not resolved: **the drift did not largely disappear, as predicted; it is
+  still open.** The twelve-height single-seed re-run was started and cut short
+  (no point completed). Methodology, sampling evidence and interpretation are in
+  `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`,
+  "The two-ball prism cell". Nothing was adjusted towards the reference.
 - **2026-09-25: the bottom reflector was MIRRORED from the top, and is now
   placed from the reactor.** The outer box was symmetric about the bed
   mid-height, so the bottom plane rode up with the bed and the bottom
