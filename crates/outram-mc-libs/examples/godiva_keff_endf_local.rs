@@ -82,6 +82,11 @@
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example godiva_keff_endf_local
 //! ```
+//!
+//! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
+//! Unset means `fast` (the default, exactly the same `k` as `standard`);
+//! `very-fast` coarsens RECONR/BROADR to 1 %, an approximation whose
+//! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -106,8 +111,8 @@ fn main() {
     .map(|(name, file)| {
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
-        let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-            .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+        let n = Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
+            .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
         println!(
             "  {name}: reconstructed in {:.1} s",
             t.elapsed().as_secs_f64()
@@ -143,16 +148,20 @@ fn main() {
         ],
     };
 
+    // Defaults 5000 x [40 + 120]; OUTRAM_NPART / OUTRAM_NINACTIVE /
+    // OUTRAM_NACTIVE override them for profiling (`vv::bench_run_size`).
+    let (n_particles, n_inactive, n_active) = outram_mc_libs::vv::bench_run_size(5000, 40, 120);
     let settings = KeffSettings {
-        n_particles: 5000,
-        n_inactive: 40,
-        n_active: 120,
+        n_particles,
+        n_inactive,
+        n_active,
         temperature_k: TEMP_K,
         ..KeffSettings::default()
     };
 
     let radius_cm = 8.7407;
     println!("Godiva bare-sphere Keff — HIGH fidelity, ENDF/B-VIII.0  (r = {radius_cm} cm)");
+    eprintln!("  speed tier: {} (OUTRAM_SPEED)", outram_mc_libs::vv::bench_speed());
     println!(
         "  {} histories/gen, {} inactive + {} active generations\n",
         settings.n_particles, settings.n_inactive, settings.n_active

@@ -153,23 +153,19 @@ impl Material {
     /// one component with positive total XS; the RNG draw is clamped to the last
     /// component to stay in bounds against floating-point round-off.
     pub fn sample_nuclide(&self, e: f64, seed: &mut u64, nuclides: &[Nuclide]) -> usize {
+        // `selection_total` is `xs_at_energy(..).total` on SpeedTier::Standard
+        // and the exactly-equal total-only path on the faster tiers, so the
+        // nuclide chosen for a given random number is the same on every exact
+        // tier.
         let sigma_t: f64 = self
             .components
             .iter()
-            .map(|c| {
-                c.atom_density
-                    * nuclides[c.nuclide_idx]
-                        .xs_at_energy(e, self.temperature)
-                        .total
-            })
+            .map(|c| c.atom_density * nuclides[c.nuclide_idx].selection_total(e, self.temperature))
             .sum();
         let xi = prn(seed) * sigma_t;
         let mut acc = 0.0;
         for (i, c) in self.components.iter().enumerate() {
-            acc += c.atom_density
-                * nuclides[c.nuclide_idx]
-                    .xs_at_energy(e, self.temperature)
-                    .total;
+            acc += c.atom_density * nuclides[c.nuclide_idx].selection_total(e, self.temperature);
             if xi < acc {
                 return i;
             }

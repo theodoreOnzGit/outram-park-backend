@@ -656,6 +656,43 @@ nobody reaches for is, in practice, an optimisation the code does not have.
 apply:** make the cheap path the default, prove it exact with a test, and
 record the measured worth rather than asserting one.
 
+### `SpeedTier`: Standard / Fast / VeryFast (2026-09-27, gh:#349)
+
+Maintainer request: one selector for a faster transport and nuclear-data
+path. `material::speed::SpeedTier`, chosen per nuclide with
+`Nuclide::from_endf_file_with_speed` (or `with_speed`, lookup only), and by
+`OUTRAM_SPEED=standard|fast|very-fast` in the four ICSBEP examples.
+
+- **`Fast` is the default**, by the rule above: it is exact. Two changes, both
+  in the lookup:
+  - `Material::sample_nuclide` uses `total_at_energy` (the rule above was not
+    applied there; it evaluated every nuclide's full set **twice** per
+    collision to read `.total`);
+  - reaction sections are found by position resolved at construction
+    (`ReconrResult::section_index` / `eval_section`), not by a linear search
+    per call. `eval_mt` delegates to the same `eval_section`, so both tiers
+    run one interpolation.
+- **`Standard`** is the unoptimized reference, kept so `Fast` can be checked
+  against it. `tests/speed_tier_fast_is_exact.rs` requires **bit identity**:
+  every `MicroXS` field, `total_at_energy`, `sample_inelastic`, and
+  `sample_nuclide`'s picks, on U-238, U-234, F-19 and H-1 with
+  `c_H_in_H2O`.
+- **`VeryFast`** is `Fast` plus RECONR and BROADR at tolerance **0.01**
+  instead of NJOY's 0.001. That is an approximation, so it is never a
+  default. `0.01` was fixed in advance as "one decade coarser" and not tuned.
+  Its measured Δk per benchmark is in `docs/profiling/speed_tiers_2026_09_27.md`;
+  read it before quoting a `VeryFast` k. From 32-seed ensembles:
+  - fast systems: Godiva +7 ± 41 pcm, Jemima −18 ± 42 pcm, no shift;
+  - thermal systems: HST-009 −57 ± 35 pcm and LCT-008 −65 ± 40 pcm, both
+    low, combined −61 ± 26 pcm (a combination chosen after seeing the
+    data).
+
+**Decision recorded:** the maintainer's first framing was "Standard, Fast,
+VeryFast" with Standard implicitly the default. The rule above ("the
+cheapest correct path is the default") was applied instead, because `Fast`
+is exact. Flip `#[default]` in `speed.rs` if that is not what was meant; the
+exactness test does not depend on which tier is the default.
+
 
 ### Units: raw `f64`, not `uom`
 Unlike `outram-foam-basic-lib` (which uses `uom` for thermophysics), this crate uses

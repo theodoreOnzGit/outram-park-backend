@@ -430,6 +430,12 @@ is the check; it must stay at 10 passed.
   **CORRECTED 2026-09-20** — the pipeline is now RECONR + BROADR **+ PURR +
   DBRC**, and the 112.1 s is *measured* on 4 cores with all four on, so it is
   lower than the ~145 s the note used to quote, not higher.
+  **RE-MEASURED 2026-09-27** (Godiva's three actinides, same pipeline, 4
+  cores): **245 s** on the code of that date, then **80 s** after an O(N^2)
+  write-back in `reconr::rebuild_total_as_sum_of_parts` was removed. The 112.1
+  s above was true when taken; the RECONR union-grid port that followed made
+  the grids larger, and the quadratic step grew with them. Profiles and
+  method: [`profiling/icsbep_2026_09_27.md`](profiling/icsbep_2026_09_27.md).
 - Long runs: the workspace `CLAUDE.md` warns that a killed long run is **not a
   failing test**. Do not report a timeout as a failure, and never loosen a
   tolerance because a run was inconvenient.

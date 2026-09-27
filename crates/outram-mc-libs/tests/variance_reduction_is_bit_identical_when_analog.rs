@@ -37,7 +37,49 @@
 //! | first generation | `9.34800339898639976e-1` |
 //! | last generation | `9.65455778325547076e-1` |
 //!
-//! Reproduced bit-for-bit on the #258 tree. The `k` itself is **not** a
+//! Reproduced bit-for-bit on the #258 tree, and on every later commit up to
+//! and including `fa807985f`.
+//!
+//! ## Re-recorded 2026-09-27: the data moved, not the analog path
+//!
+//! The pin fingerprints the data as well as the RNG stream. U-235 and U-238
+//! come from `reference-data/endf/` through this workspace's own
+//! RECONR/BROADR/PURR, and the unresolved-range probability tables are applied
+//! by default. So a correction to the data processing moves it, just as an
+//! extra RNG draw would. The test was not in the per-commit suite that
+//! #325 ran, and was found red on 2026-09-27.
+//!
+//! **Bisected** over the 220 commits `27d919bad..9cde16109` (restricted to
+//! commits touching `njoy-outram-park-fork`, `outram-mc-libs` or the
+//! manifests). The first commit giving the new value is `3f141992e`
+//! ("write the ACE UNR block, and fix the PURR energy grid it exposed",
+//! #325). Its parent `fa807985f` reproduces the table above bit for bit.
+//! `3f141992e` changes **no file under `crates/outram-mc-libs/src`**. It moves
+//! PURR's unresolved-range energy grid onto NJOY's (`unresr.f90` `rdunf2`:
+//! U-235 goes from 14 to 19 energies, U-238's endpoints shift in the 7th
+//! figure), so U-235's and U-238's self-shielding factors change and every
+//! history that reaches the unresolved range afterwards diverges.
+//! Consistent with that, the **first generation is unchanged to the bit**;
+//! the streams split later.
+//!
+//! Recorded on `3f141992e`, and reproduced bit for bit on `9cde16109` and on
+//! the #349 `SpeedTier` tree, both at the default `Fast` tier and with the
+//! nuclides forced to `Standard`:
+//!
+//! | quantity | ~~`9b861a861`~~ superseded | from `3f141992e` |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.91850110380556260e-1`~~ | `9.95570887535907723e-1` |
+//! | `k_std` | ~~`4.20512201888097875e-3`~~ | `4.30366582278130655e-3` |
+//! | first generation | `9.34800339898639976e-1` | `9.34800339898639976e-1` (unchanged) |
+//! | last generation | ~~`9.65455778325547076e-1`~~ | `1.00505888346187144e0` |
+//!
+//! **What this means for the next failure.** An analog-path regression and a
+//! data correction look the same to this test. When it fails, bisect before
+//! re-recording, and re-record only when the first bad commit changes data
+//! and not transport. The test prints all four values, so re-recording takes
+//! one run.
+//!
+//! The `k` itself is **not** a
 //! physics claim — 55 active generations of 2000 histories on a bare sphere is
 //! far too noisy to say anything about Godiva, and this file makes no such
 //! claim. It is a fingerprint of the RNG stream.
@@ -62,11 +104,13 @@ use outram_mc_libs::physics::variance_reduction::VarianceReduction;
 const R_FUEL: f64 = 8.7407;
 const TEMP: f64 = 293.6;
 
-/// Measured on `9b861a861`, before #258. Exact, not approximate.
-const K_MEAN_PRE_258: f64 = 9.918_501_103_805_562_60e-1;
-const K_STD_PRE_258: f64 = 4.205_122_018_880_978_75e-3;
+/// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
+/// approximate. The values measured on `9b861a861` itself are kept in the
+/// module docs; see "Re-recorded 2026-09-27" there for why these differ.
+const K_MEAN_PRE_258: f64 = 9.955_708_875_359_077_23e-1;
+const K_STD_PRE_258: f64 = 4.303_665_822_781_306_55e-3;
 const K_GEN_FIRST_PRE_258: f64 = 9.348_003_398_986_399_76e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.654_557_783_255_470_76e-1;
+const K_GEN_LAST_PRE_258: f64 = 1.005_058_883_461_871_44e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
@@ -166,6 +210,12 @@ fn the_analog_path_is_bit_identical_to_the_pre_258_build() {
 
     let r = run_keff_csg(&geom, &mats, &nucs, source(), &st, None);
     println!("k_mean = {:.17e} (recorded {K_MEAN_PRE_258:.17e})", r.k_mean);
+    println!("k_std = {:.17e} (recorded {K_STD_PRE_258:.17e})", r.k_std);
+    println!("first generation = {:.17e} (recorded {K_GEN_FIRST_PRE_258:.17e})", r.k_by_generation[0]);
+    println!(
+        "last generation = {:.17e} (recorded {K_GEN_LAST_PRE_258:.17e})",
+        r.k_by_generation.last().unwrap()
+    );
 
     assert_eq!(
         r.k_mean, K_MEAN_PRE_258,

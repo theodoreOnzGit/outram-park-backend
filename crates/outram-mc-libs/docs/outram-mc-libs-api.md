@@ -14292,6 +14292,20 @@ pub struct Bank {
 - **WasmNotSync**
 ## Module `material`
 
+Materials and the nuclear data behind them.
+
+- [`nuclide`]: one nuclide's cross sections and secondary-particle laws
+  ([`Nuclide`](nuclide::Nuclide)), from embedded, ENDF, ACE or HDF5 data.
+- [`material`]: a mixture of nuclides at atom densities, and the
+  macroscopic cross sections of that mixture.
+- [`thermal`]: bound-atom S(alpha,beta) thermal scattering.
+- [`reaction`]: reaction identifiers used across the above.
+- [`speed`]: [`SpeedTier`](speed::SpeedTier), trading accuracy for speed in
+  nuclear-data processing and cross-section lookup.
+
+Geometry, sources and tallies live in their own modules; transport itself
+is in [`crate::physics`].
+
 ```rust
 pub mod material { /* ... */ }
 ```
@@ -15252,11 +15266,32 @@ pub struct Nuclide {
 - ```rust
   pub fn from_ace(table: &njoy_outram_park_fork::acer::read::RawAceTable, name: &str) -> Result<Self, NjoyError> { /* ... */ }
   ```
-  Build a nuclide from an ENDF tape **already in hand** — no network, no
+  Build a nuclide from a **continuous-energy ACE table**.
 
 - ```rust
   pub fn from_tape(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, name: &str, temp_k: f64, tolerance: f64) -> Result<Self, NjoyError> { /* ... */ }
   ```
+  Build a nuclide from an ENDF tape **already in hand** — no network, no
+
+- ```rust
+  pub fn from_tape_with_speed(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, name: &str, temp_k: f64, speed: SpeedTier) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  Build a nuclide from an ENDF tape at a [`SpeedTier`]: the tier's
+
+- ```rust
+  pub fn from_endf_file_with_speed(path: &std::path::Path, name: &str, temp_k: f64, speed: SpeedTier) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  Build a nuclide from an ENDF **file** at a [`SpeedTier`]. The file's
+
+- ```rust
+  pub fn with_speed(self: Self, speed: SpeedTier) -> Self { /* ... */ }
+  ```
+  Set which transport lookup path this nuclide uses ([`SpeedTier`]).
+
+- ```rust
+  pub fn speed(self: &Self) -> SpeedTier { /* ... */ }
+  ```
+  The [`SpeedTier`] this nuclide's transport lookup uses.
 
 - ```rust
   pub fn continuum_law(self: &Self, mt: i32) -> Option<&ContinuumEmission> { /* ... */ }
@@ -16124,6 +16159,274 @@ pub trait Reaction {
 - `q_value`
 - `sample_secondary`: Sample secondary neutron state post-reaction.
 
+## Module `speed`
+
+[`SpeedTier`]: how much a nuclide may trade for speed.
+
+One selector covers both halves of a run: how a [`Nuclide`] is built from
+ENDF (nuclear-data processing) and how its cross sections are looked up
+during transport.
+
+| tier | results vs `Standard` | what changes |
+|---|---|---|
+| [`Standard`](SpeedTier::Standard) | the reference | nothing: the unoptimized lookup, kept to check `Fast` against |
+| [`Fast`](SpeedTier::Fast) (**default**) | **identical**, to the last digit | exact optimizations of the transport lookup |
+| [`VeryFast`](SpeedTier::VeryFast) | **approximate**, shift measured | `Fast`, plus a coarser RECONR/BROADR tolerance |
+
+`Fast` is the default because it is exact: this crate's rule is that the
+cheapest *correct* path is the default, not an opt-in (`CLAUDE.md`,
+maintainer direction 2026-09-25). `VeryFast` is never a default, because it
+is not correct to NJOY's tolerance.
+
+Choose it when the nuclide is built, with
+[`Nuclide::from_endf_file_with_speed`], or on an existing nuclide with
+[`Nuclide::with_speed`] (transport lookup only; see its docs).
+
+Measured costs and speed-ups: `docs/profiling/speed_tiers_2026_09_27.md`.
+
+[`Nuclide`]: crate::material::nuclide::Nuclide
+[`Nuclide::from_endf_file_with_speed`]: crate::material::nuclide::Nuclide::from_endf_file_with_speed
+[`Nuclide::with_speed`]: crate::material::nuclide::Nuclide::with_speed
+
+```rust
+pub mod speed { /* ... */ }
+```
+
+### Types
+
+#### Enum `SpeedTier`
+
+How much a nuclide may trade for speed: `Standard`, `Fast` or `VeryFast`.
+
+`Fast` is the default. `Standard` is the unoptimized reference that `Fast`
+must reproduce exactly. `VeryFast` is an approximation whose effect on `k`
+is measured and recorded, never assumed.
+
+```rust
+pub enum SpeedTier {
+    Standard,
+    Fast,
+    VeryFast,
+}
+```
+
+##### Variants
+
+###### `Standard`
+
+The reference path: the code as it was before these optimizations,
+kept so that `Fast` can be checked against it.
+
+- **Nuclear data:** RECONR and BROADR at NJOY's tolerance, `0.001`.
+- **Transport:** each cross section is found by searching the reaction
+  list on every call, and choosing a collision nuclide evaluates each
+  nuclide's full cross-section set.
+
+###### `Fast`
+
+**The default.** Exact optimizations: every number is the same as
+`Standard`'s, so a seeded run gives the same `k` to the last digit.
+
+- **Nuclear data:** identical to `Standard`.
+- **Transport:** reaction positions are resolved once when the nuclide
+  is built rather than searched for on every call, and choosing a
+  collision nuclide evaluates only each nuclide's total cross section
+  ([`Nuclide::total_at_energy`], which equals
+  `xs_at_energy(..).total` exactly). The interpolation arithmetic is
+  shared with `Standard`, not duplicated.
+
+[`Nuclide::total_at_energy`]: crate::material::nuclide::Nuclide::total_at_energy
+
+###### `VeryFast`
+
+`Fast`, plus an **approximation** in the nuclear data.
+
+- **Nuclear data:** RECONR and BROADR at tolerance `0.01`, one decade
+  coarser than NJOY's `0.001`, so each table carries fewer points and is
+  built and searched faster. Cross sections between points are accurate
+  to about 1 % instead of 0.1 %.
+- **Transport:** as `Fast`.
+
+The value `0.01` was chosen before measuring, as "one decade coarser",
+and was not tuned to a benchmark. Its measured effect on the four ICSBEP
+benchmarks is recorded in `docs/profiling/speed_tiers_2026_09_27.md`;
+read it before quoting a `VeryFast` result as a benchmark comparison.
+
+Measured 2026-09-27, 32 seeds each, `VeryFast - Fast`:
+
+| case | dk |
+|---|---|
+| Godiva | +7 +- 41 pcm |
+| Jemima | -18 +- 42 pcm |
+| HST-009 | -57 +- 35 pcm |
+| LCT-008 | -65 +- 40 pcm |
+
+No single shift is resolved, but both thermal systems move low. Their
+combination, formed after seeing them, is -61 +- 26 pcm. Allow for a
+thermal bias of that order.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn data_tolerance(self: Self) -> f64 { /* ... */ }
+  ```
+  Fractional reconstruction tolerance for RECONR and BROADR at this tier
+
+- ```rust
+  pub fn is_exact(self: Self) -> bool { /* ... */ }
+  ```
+  `true` if this tier gives the same numbers as `Standard` (`Standard`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+    `standard`, `fast` or `very-fast`: the spelling [`str::parse`] accepts.
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **FromStr**
+  - ```rust
+    fn from_str(s: &str) -> Result<Self, <Self as >::Err> { /* ... */ }
+    ```
+    Parse `standard`, `fast` or `very-fast`, ignoring case; `veryfast` and
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `thermal`
 
 S(α,β) thermal scattering tables — the bound-atom scattering treatment.
@@ -63175,6 +63478,36 @@ pooled `sem` is `sd/√n`, so 7 seeds reach ~70 pcm on a case with
 pub fn bench_seeds() -> usize { /* ... */ }
 ```
 
+#### Function `bench_run_size`
+
+A benchmark example's run size, overridable from the environment:
+`OUTRAM_NPART` (histories per generation), `OUTRAM_NINACTIVE` and
+`OUTRAM_NACTIVE` (generations). Each variable that is unset or unparsable
+leaves that example's own default in place, so a plain run is unchanged.
+
+For profiling and cost studies (`scripts/profile-icsbep.sh callgrind` runs
+under valgrind at a few hundred histories), not for quoting `k`: a reduced
+run is not converged and its eigenvalue means nothing.
+
+```rust
+pub fn bench_run_size(n_particles: usize, n_inactive: usize, n_active: usize) -> (usize, usize, usize) { /* ... */ }
+```
+
+#### Function `bench_speed`
+
+The [`SpeedTier`](crate::material::speed::SpeedTier) a benchmark example
+should build its nuclides at, from `OUTRAM_SPEED` (`standard`, `fast` or
+`very-fast`).
+
+Unset means the default tier (`Fast`, which is exact), so an example's
+results do not depend on whether the variable is set unless a caller asks
+for `very-fast`. An unrecognised value **panics** with the list of valid
+ones, rather than silently running a tier the caller did not ask for.
+
+```rust
+pub fn bench_speed() -> crate::material::speed::SpeedTier { /* ... */ }
+```
+
 #### Function `report_transport_losses`
 
 Report the transport-loss channels of a [`KeffResult`] to stderr.
@@ -63659,6 +63992,12 @@ pub use crate::material::nuclide::MicroXS;
 
 ```rust
 pub use crate::material::nuclide::Nuclide;
+```
+
+#### Re-export `SpeedTier`
+
+```rust
+pub use crate::material::speed::SpeedTier;
 ```
 
 #### Re-export `CoherentElasticTable`
@@ -64307,7 +64646,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:100:11: 100:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:100:10: 100:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:101:11: 101:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:101:10: 101:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -64353,7 +64692,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:110:11: 110:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:110:10: 110:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:111:11: 111:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:111:10: 111:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -64387,7 +64726,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:118:11: 118:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:118:10: 118:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:119:11: 119:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:119:10: 119:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -64439,7 +64778,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:130:11: 130:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:130:10: 130:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:131:11: 131:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:131:10: 131:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;

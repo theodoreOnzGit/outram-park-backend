@@ -111,6 +111,11 @@
 //! OUTRAM_GODIVA_SEEDS=256 cargo run --release -p outram-mc-libs \
 //!     --features endf-pebble-cases --example godiva_keff_ensemble
 //! ```
+//!
+//! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
+//! Unset means `fast` (the default, exactly the same `k` as `standard`);
+//! `very-fast` coarsens RECONR/BROADR to 1 %, an approximation whose
+//! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -180,8 +185,8 @@ mod desktop {
                 );
                 return;
             };
-            let nuc = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-                .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+            let nuc = Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
+                .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
             // OUTRAM_FROZEN_NUBAR=1 freezes nu-bar(E) at thermal. Paired with
             // the same knob on Jemima: the WORTH RATIO between the two cases is
             // the measurement, not either number alone. The inelastic ablation

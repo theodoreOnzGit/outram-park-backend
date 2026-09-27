@@ -505,4 +505,9 @@ strip = "none"
 # frame is attributed to its caller. `perf` recovers them from DWARF, so this
 # stays at the release default rather than being lowered -- a profile of code
 # with inlining disabled is a profile of a program nobody ships.
+#
+# Also used by `scripts/profile-icsbep.sh` (perf + valgrind on the ICSBEP
+# cases), which adds `-C force-frame-pointers=yes`. That branch had defined
+# this profile with `debug = "line-tables-only"`; the merge keeps `debug = 2`,
+# a superset, so the script is unaffected.
 

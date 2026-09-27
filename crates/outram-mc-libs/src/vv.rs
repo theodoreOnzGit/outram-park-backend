@@ -85,6 +85,44 @@ pub fn bench_seeds() -> usize {
         .unwrap_or(1)
 }
 
+/// A benchmark example's run size, overridable from the environment:
+/// `OUTRAM_NPART` (histories per generation), `OUTRAM_NINACTIVE` and
+/// `OUTRAM_NACTIVE` (generations). Each variable that is unset or unparsable
+/// leaves that example's own default in place, so a plain run is unchanged.
+///
+/// For profiling and cost studies (`scripts/profile-icsbep.sh callgrind` runs
+/// under valgrind at a few hundred histories), not for quoting `k`: a reduced
+/// run is not converged and its eigenvalue means nothing.
+pub fn bench_run_size(n_particles: usize, n_inactive: usize, n_active: usize) -> (usize, usize, usize) {
+    let get = |var: &str, default: usize| {
+        std::env::var(var)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .filter(|&n: &usize| n >= 1)
+            .unwrap_or(default)
+    };
+    (
+        get("OUTRAM_NPART", n_particles),
+        get("OUTRAM_NINACTIVE", n_inactive),
+        get("OUTRAM_NACTIVE", n_active),
+    )
+}
+
+/// The [`SpeedTier`](crate::material::speed::SpeedTier) a benchmark example
+/// should build its nuclides at, from `OUTRAM_SPEED` (`standard`, `fast` or
+/// `very-fast`).
+///
+/// Unset means the default tier (`Fast`, which is exact), so an example's
+/// results do not depend on whether the variable is set unless a caller asks
+/// for `very-fast`. An unrecognised value **panics** with the list of valid
+/// ones, rather than silently running a tier the caller did not ask for.
+pub fn bench_speed() -> crate::material::speed::SpeedTier {
+    match std::env::var("OUTRAM_SPEED") {
+        Ok(v) => v.parse().unwrap_or_else(|e| panic!("OUTRAM_SPEED: {e}")),
+        Err(_) => crate::material::speed::SpeedTier::default(),
+    }
+}
+
 /// Report the transport-loss channels of a [`KeffResult`] to stderr.
 ///
 /// **What this is for.** A Monte Carlo history that is lost, or that exhausts

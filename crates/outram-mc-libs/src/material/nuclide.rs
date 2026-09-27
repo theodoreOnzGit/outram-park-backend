@@ -16,6 +16,7 @@
 /// This "CE particle, MG data above the ceiling" seam is described in
 /// `docs/keff-doppler-roadmap.md`. The transport kernel only ever calls
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
+use crate::material::speed::SpeedTier;
 use crate::material::thermal::ThermalScattering;
 use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
@@ -140,6 +141,61 @@ struct InelasticLevel {
     q: f64,
     /// `true` for the continuum channel (MT=91, or a lone lumped MT=4 fallback).
     continuum: bool,
+    /// Position of this reaction's section in the nuclide's `recon.sections`,
+    /// for the indexed lookup of [`SpeedTier::Fast`]. Kept on the level itself
+    /// so a builder that drops levels (`without_inelastic`) drops their indices
+    /// with them and nothing can go stale.
+    section: usize,
+}
+
+/// Positions of the reactions the transport lookup reads, in
+/// `recon.sections`, resolved once when a `Pointwise` nuclide is built. Used by
+/// [`SpeedTier::Fast`] and [`SpeedTier::VeryFast`] in place of the per-call
+/// search [`ReconrResult::eval_mt`] does; `None` means the evaluation has no
+/// such section, and reads as `0.0` exactly as `eval_mt` would.
+///
+/// Safe to precompute: `XsSource` is private and nothing mutates `recon` after
+/// construction, so the positions cannot go stale.
+#[derive(Debug, Clone, Default)]
+struct SectionIndex {
+    mt1: Option<usize>,
+    mt2: Option<usize>,
+    mt5: Option<usize>,
+    mt16: Option<usize>,
+    mt17: Option<usize>,
+    mt18: Option<usize>,
+    mt27: Option<usize>,
+    mt101: Option<usize>,
+    /// One slot per entry of [`DISAPPEARANCE`], in the same order, so the
+    /// indexed absorption sum adds the same terms (absent ones as `0.0`) in
+    /// the same order as the searched one, and rounds identically.
+    disappearance: [Option<usize>; 15],
+}
+
+impl SectionIndex {
+    fn new(recon: &ReconrResult) -> Self {
+        let at = |mt: MtReaction| recon.section_index(mt);
+        SectionIndex {
+            mt1: at(MtReaction::Mt1Total),
+            mt2: at(MtReaction::Mt2Elastic),
+            mt5: at(MtReaction::Mt5NAny),
+            mt16: at(MtReaction::Mt16N2n),
+            mt17: at(MtReaction::Mt17N3n),
+            mt18: at(MtReaction::Mt18Fission),
+            mt27: at(MtReaction::Mt27Absorption),
+            mt101: at(MtReaction::Mt101AbsorptionTotal),
+            disappearance: DISAPPEARANCE.map(at),
+        }
+    }
+}
+
+/// `recon.eval_section(idx, e)`, or `0.0` for a reaction the evaluation does
+/// not carry: exactly [`ReconrResult::eval_mt`]'s value, without its search.
+fn eval_at(recon: &ReconrResult, idx: Option<usize>, e: f64) -> f64 {
+    match idx {
+        Some(i) => recon.eval_section(i, e),
+        None => 0.0,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -176,6 +232,10 @@ enum XsSource {
     Pointwise {
         /// Full-range reconstructed + broadened MF=3 sections (`eval_mt`).
         recon: ReconrResult,
+        /// Where the reactions the lookup reads sit in `recon.sections`, for the
+        /// indexed ([`SpeedTier::Fast`]) path. Built from `recon` at
+        /// construction.
+        index: SectionIndex,
         /// The inelastic scattering channels (MT=51…91) extracted from `recon`,
         /// precomputed once so [`Nuclide::sample_inelastic`] and the inelastic σ
         /// sum stay cheap. Empty ⇒ no resolved inelastic (falls back to elastic).
@@ -287,6 +347,10 @@ pub struct Nuclide {
     /// physics the data carries, so the workspace rule puts it on rather than
     /// behind a builder.
     delayed: Option<DelayedData>,
+    /// Which lookup path transport uses for this nuclide ([`SpeedTier`]).
+    /// The default tier (`Fast`, exact) unless built or set otherwise, with
+    /// [`Nuclide::from_endf_file_with_speed`] or [`Nuclide::with_speed`].
+    speed: SpeedTier,
 }
 
 /// Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
@@ -466,6 +530,7 @@ impl Nuclide {
             elastic_0k: Vec::new(),
             delayed: None,
             prompt_only: false,
+            speed: SpeedTier::default(),
         })
     }
 
@@ -1452,27 +1517,6 @@ impl Nuclide {
         Self::from_tape(&tape, mat, name, temp_k, tolerance)
     }
 
-    /// Build a nuclide from an ENDF tape **already in hand** — no network, no
-    /// feature gate.
-    ///
-    /// This is the local half of [`Self::from_endf`]: RECONR to pointwise
-    /// σ(E), Doppler-broaden to `temp_k`, then pull ν̄, χ, the inelastic level
-    /// structure and the elastic angular distribution off the same tape.
-    /// `from_endf` is this function with a download bolted to the front.
-    ///
-    /// `mat` is the ENDF material number, `tolerance` the RECONR
-    /// reconstruction tolerance (1e-3 is a reasonable default), and `temp_k`
-    /// the temperature to broaden to \[K\].
-    ///
-    /// Most callers want [`Self::from_endf_file`] instead, which reads the
-    /// file and finds `mat` for you. Reach for this one when you already hold
-    /// a [`Tape`](njoy_outram_park_fork::endf::tape::Tape) — several nuclides
-    /// off one tape, or a tape that did not come from a file.
-    ///
-    /// # Errors
-    ///
-    /// [`NjoyError`] if the tape lacks the sections RECONR needs, or the
-    /// evaluation uses a resonance format RECONR does not reconstruct.
     /// Build a nuclide from a **continuous-energy ACE table**.
     ///
     /// The third construction path, beside [`Self::from_core`] (the embedded
@@ -1800,6 +1844,7 @@ impl Nuclide {
             nu,
             chi,
             xs: XsSource::Pointwise {
+                index: SectionIndex::new(&recon),
                 recon,
                 inel,
                 elastic_angular,
@@ -1869,6 +1914,7 @@ impl Nuclide {
             // that the table carries no delayed data (`JXS(24) == 0`), which is
             // every non-fissionable nuclide.
             delayed: DelayedData::from_ace(table)?,
+            speed: SpeedTier::default(),
         }
         // **Default ON, matching the ENDF route.** `with_dbrc` is a no-op when
         // `elastic_0k` is empty (a broadened table), so this is correct for
@@ -1878,6 +1924,30 @@ impl Nuclide {
         .with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 
+    /// Build a nuclide from an ENDF tape **already in hand** — no network, no
+    /// feature gate.
+    ///
+    /// This is the local half of [`Self::from_endf`]: RECONR to pointwise
+    /// σ(E), Doppler-broaden to `temp_k`, then pull ν̄, χ, the inelastic level
+    /// structure and the elastic angular distribution off the same tape.
+    /// `from_endf` is this function with a download bolted to the front.
+    ///
+    /// `mat` is the ENDF material number, `tolerance` the RECONR
+    /// reconstruction tolerance (1e-3 is a reasonable default), and `temp_k`
+    /// the temperature to broaden to \[K\].
+    ///
+    /// Most callers want [`Self::from_endf_file`] instead, which reads the
+    /// file and finds `mat` for you. Reach for this one when you already hold
+    /// a [`Tape`](njoy_outram_park_fork::endf::tape::Tape) — several nuclides
+    /// off one tape, or a tape that did not come from a file.
+    ///
+    /// The nuclide uses the default [`SpeedTier`] (`Fast`, exact). To choose
+    /// another, use [`Self::from_tape_with_speed`] or [`Self::with_speed`].
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError`] if the tape lacks the sections RECONR needs, or the
+    /// evaluation uses a resonance format RECONR does not reconstruct.
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
@@ -1885,7 +1955,106 @@ impl Nuclide {
         temp_k: f64,
         tolerance: f64,
     ) -> Result<Self, NjoyError> {
-        use njoy_outram_park_fork::broadr::broaden_result;
+        // BROADR at NJOY's own `errthn = 0.001` whatever the RECONR tolerance,
+        // as this constructor always has.
+        Self::from_tape_with_broadr_tolerance(tape, mat, name, temp_k, tolerance, 1.0e-3)
+    }
+
+    /// Build a nuclide from an ENDF tape at a [`SpeedTier`]: the tier's
+    /// RECONR/BROADR tolerance ([`SpeedTier::data_tolerance`]) for the
+    /// nuclear data, and its lookup path for transport.
+    ///
+    /// Otherwise identical to [`Self::from_tape`] at tolerance `1e-3`, which
+    /// it equals for [`SpeedTier::Fast`] (the default). `temp_k` is the
+    /// material temperature \[K\].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_tape`].
+    pub fn from_tape_with_speed(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        name: &str,
+        temp_k: f64,
+        speed: SpeedTier,
+    ) -> Result<Self, NjoyError> {
+        let tol = speed.data_tolerance();
+        Ok(Self::from_tape_with_broadr_tolerance(tape, mat, name, temp_k, tol, tol)?.with_speed(speed))
+    }
+
+    /// Build a nuclide from an ENDF **file** at a [`SpeedTier`]. The file's
+    /// first material is used, as in [`Self::from_endf_file`].
+    ///
+    /// - [`SpeedTier::Fast`] (the default): the same nuclide as
+    ///   `from_endf_file(path, name, temp_k, 1.0e-3)`, with the optimized
+    ///   transport lookup that gives the same numbers as `Standard`.
+    /// - [`SpeedTier::Standard`]: the same data with the unoptimized
+    ///   reference lookup, for checking `Fast` against.
+    /// - [`SpeedTier::VeryFast`]: RECONR and BROADR at tolerance `0.01`
+    ///   instead of `0.001` (an approximation), and the fast lookup.
+    ///
+    /// `temp_k` is the material temperature \[K\] the data is broadened to.
+    ///
+    /// ```no_run
+    /// use outram_mc_libs::material::nuclide::Nuclide;
+    /// use outram_mc_libs::material::speed::SpeedTier;
+    ///
+    /// let u235 = Nuclide::from_endf_file_with_speed(
+    ///     std::path::Path::new("reference-data/endf/n-092_U_235-ENDF8.0.endf"),
+    ///     "U235",
+    ///     293.6,          // K
+    ///     SpeedTier::Fast, // same k as Standard, faster transport
+    /// )?;
+    /// # Ok::<(), outram_mc_libs::NjoyError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_endf_file`].
+    pub fn from_endf_file_with_speed(
+        path: &std::path::Path,
+        name: &str,
+        temp_k: f64,
+        speed: SpeedTier,
+    ) -> Result<Self, NjoyError> {
+        let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(path)?;
+        let mat = tape.materials().first().copied().ok_or_else(|| {
+            NjoyError::Download(format!("{} contains no ENDF material", path.display()))
+        })?;
+        Self::from_tape_with_speed(&tape, mat, name, temp_k, speed)
+    }
+
+    /// Set which transport lookup path this nuclide uses ([`SpeedTier`]).
+    ///
+    /// This changes **only the lookup**: the cross-section data already built
+    /// is kept as it is. So `with_speed(SpeedTier::Fast)` on any nuclide gives
+    /// the same numbers faster, while `with_speed(SpeedTier::VeryFast)` on a
+    /// nuclide built at NJOY's tolerance does **not** make its data coarser;
+    /// for that, build it with [`Self::from_endf_file_with_speed`].
+    ///
+    /// A no-op on the LOW (`Core`) tier, whose lookup has no per-reaction
+    /// search to skip.
+    pub fn with_speed(mut self, speed: SpeedTier) -> Self {
+        self.speed = speed;
+        self
+    }
+
+    /// The [`SpeedTier`] this nuclide's transport lookup uses.
+    pub fn speed(&self) -> SpeedTier {
+        self.speed
+    }
+
+    /// [`Self::from_tape`] with BROADR's thinning tolerance `broadr_errthn`
+    /// chosen separately from RECONR's `tolerance` (both dimensionless).
+    fn from_tape_with_broadr_tolerance(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        name: &str,
+        temp_k: f64,
+        tolerance: f64,
+        broadr_errthn: f64,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::broadr::broaden_result_with_tolerance;
         use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 
         // 2. RECONR at 0 K.
@@ -1922,7 +2091,7 @@ impl Nuclide {
         //    bounded at upstream's `thnmax` (top of the resolved region) so
         //    SIGMA1 never runs across the resolved/unresolved seam or over the
         //    energy-averaged data above it (njoy `op-sdbk`).
-        let recon = broaden_result(&recon0, temp_k);
+        let recon = broaden_result_with_tolerance(&recon0, temp_k, broadr_errthn);
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
         //    non-fissionable nuclide, which has no MF=1/452 section).
@@ -2012,6 +2181,7 @@ impl Nuclide {
             nu,
             chi,
             xs: XsSource::Pointwise {
+                index: SectionIndex::new(&recon),
                 recon,
                 inel,
                 elastic_angular,
@@ -2032,6 +2202,7 @@ impl Nuclide {
             // NOT a zero delayed fraction, which would read as a measurement.
             delayed: DelayedData::from_tape(tape, mat)?,
             prompt_only: false,
+            speed: SpeedTier::default(),
         };
 
         // CORRECT PHYSICS IS THE DEFAULT (workspace hard rule, 2026-09-20).
@@ -2299,11 +2470,30 @@ impl Nuclide {
             }
         }
         match &self.xs {
+            XsSource::Pointwise { recon, index, .. } if self.speed.indexed_lookup() => {
+                eval_at(recon, index.mt1, e)
+            }
             XsSource::Pointwise { recon, .. } => recon.eval_mt(MtReaction::Mt1Total, e),
             // The LOW tier already carries a tabulated total; its `MicroXS`
             // construction is a handful of field copies, not 46 searches, so
             // there is nothing to gain from a separate path.
             _ => self.base_xs_at_energy(e, temp_k).total,
+        }
+    }
+
+    /// The total cross section \[b\] used to choose this nuclide as a
+    /// collision partner at energy `e` \[eV\] and temperature `temp_k` \[K\].
+    ///
+    /// `xs_at_energy(e, temp_k).total` on [`SpeedTier::Standard`], the
+    /// unoptimized reference, which evaluates every channel to read one;
+    /// [`Self::total_at_energy`] on the faster tiers, which computes only the
+    /// total and equals it exactly (pinned by
+    /// `tests/total_fast_path_matches_full.rs`).
+    pub(crate) fn selection_total(&self, e: f64, temp_k: f64) -> f64 {
+        if self.speed.indexed_lookup() {
+            self.total_at_energy(e, temp_k)
+        } else {
+            self.xs_at_energy(e, temp_k).total
         }
     }
 
@@ -2364,6 +2554,31 @@ impl Nuclide {
                     }
                 }
             }
+            XsSource::Pointwise {
+                recon, inel, index, ..
+            } if self.speed.indexed_lookup() => {
+                // SpeedTier::Fast: the Standard arm below, term for term, with
+                // each section found by its precomputed position instead of a
+                // search. Same values, same summation order.
+                let total = eval_at(recon, index.mt1, e);
+                let elastic = eval_at(recon, index.mt2, e);
+                let fission = eval_at(recon, index.mt18, e);
+                let inelastic: f64 = inel.iter().map(|l| recon.eval_section(l.section, e)).sum();
+                let n2n = eval_at(recon, index.mt16, e);
+                let n3n = eval_at(recon, index.mt17, e);
+                let mt5 = eval_at(recon, index.mt5, e);
+                MicroXS {
+                    total,
+                    elastic,
+                    fission,
+                    absorption: absorption_mt27_indexed(recon, index, fission, e),
+                    inelastic,
+                    n2n,
+                    n3n,
+                    mt5,
+                    nu_fission: fission * self.nu_bar(e),
+                }
+            }
             XsSource::Pointwise { recon, inel, .. } => {
                 let total = recon.eval_mt(MtReaction::Mt1Total, e);
                 let elastic = recon.eval_mt(MtReaction::Mt2Elastic, e);
@@ -2411,14 +2626,24 @@ impl Nuclide {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
             return Inelastic::Continuum { q: 0.0 };
         };
-        let total: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
+        // `SpeedTier::Fast` evaluates each level by its stored position rather
+        // than searching for it; the value is the same either way.
+        let indexed = self.speed.indexed_lookup();
+        let level_xs = |l: &InelasticLevel| {
+            if indexed {
+                recon.eval_section(l.section, e)
+            } else {
+                recon.eval_mt(l.mt, e)
+            }
+        };
+        let total: f64 = inel.iter().map(level_xs).sum();
         if !(total > 0.0) {
             return Inelastic::Continuum { q: 0.0 };
         }
         let xi = prn(seed) * total;
         let mut cum = 0.0;
         for l in inel {
-            cum += recon.eval_mt(l.mt, e);
+            cum += level_xs(l);
             if xi < cum {
                 return if l.continuum {
                     Inelastic::Continuum { q: l.q }
@@ -2993,8 +3218,41 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
     if mt101 > 0.0 {
         return fission + mt101;
     }
-    // MT 102 (n,γ) plus every charged-particle disappearance partial present.
-    const DISAPPEARANCE: [Mt; 15] = [
+    // MT 102 (n,γ) plus every charged-particle disappearance partial present
+    // (the list is module-level, [`DISAPPEARANCE`], so the indexed path shares it).
+    fission
+        + DISAPPEARANCE
+            .iter()
+            .map(|&mt| recon.eval_mt(mt, e))
+            .sum::<f64>()
+}
+
+/// [`absorption_mt27`] with the section positions resolved in advance
+/// ([`SpeedTier::Fast`]). Same rule, same terms, same summation order, so the
+/// same value to the bit.
+fn absorption_mt27_indexed(recon: &ReconrResult, index: &SectionIndex, fission: f64, e: f64) -> f64 {
+    let mt27 = eval_at(recon, index.mt27, e);
+    if mt27 > 0.0 {
+        return mt27;
+    }
+    let mt101 = eval_at(recon, index.mt101, e);
+    if mt101 > 0.0 {
+        return fission + mt101;
+    }
+    fission
+        + index
+            .disappearance
+            .iter()
+            .map(|&i| eval_at(recon, i, e))
+            .sum::<f64>()
+}
+
+/// MT 102 (n,γ) plus every charged-particle disappearance partial, the parts
+/// [`absorption_mt27`] sums when an evaluation carries neither MT=27 nor
+/// MT=101.
+const DISAPPEARANCE: [MtReaction; 15] = {
+    use njoy_outram_park_fork::MtReaction as Mt;
+    [
         Mt::Mt102Capture,
         Mt::Mt103Np,
         Mt::Mt104Nd,
@@ -3010,13 +3268,8 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
         Mt::Mt115NProtonD,
         Mt::Mt116NProtonT,
         Mt::Mt117NDAlpha,
-    ];
-    fission
-        + DISAPPEARANCE
-            .iter()
-            .map(|&mt| recon.eval_mt(mt, e))
-            .sum::<f64>()
-}
+    ]
+};
 
 /// Sample a fission-neutron birth energy \[eV\] from χ at incident energy `e_in`
 /// \[eV\] — dispatches over every [`FissionSpectrum`] law this port reconstructs:
@@ -3585,19 +3838,22 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     let mut levels: Vec<InelasticLevel> = recon
         .sections
         .iter()
-        .filter_map(|s| {
+        .enumerate()
+        .filter_map(|(section, s)| {
             let n = s.mt.number();
             if (51..=90).contains(&n) {
                 Some(InelasticLevel {
                     mt: s.mt,
                     q: s.qi,
                     continuum: false,
+                    section,
                 })
             } else if n == 91 {
                 Some(InelasticLevel {
                     mt: s.mt,
                     q: s.qi,
                     continuum: true,
+                    section,
                 })
             } else {
                 None
@@ -3608,11 +3864,12 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     // Fallback: only the lumped MT=4 total inelastic is present (no resolved
     // levels) — treat it as one continuum channel rather than dropping it.
     if levels.is_empty() {
-        if let Some(s) = recon.sections.iter().find(|s| s.mt.number() == 4) {
+        if let Some((section, s)) = recon.sections.iter().enumerate().find(|(_, s)| s.mt.number() == 4) {
             levels.push(InelasticLevel {
                 mt: s.mt,
                 q: s.qi,
                 continuum: true,
+                section,
             });
         }
     }
