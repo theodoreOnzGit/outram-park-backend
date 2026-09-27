@@ -767,11 +767,25 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
 /// affordable is [`max_grid_cells`], and it is a cadence choice, never a model
 /// choice.
 ///
-/// # ~~0.1 s (10 Hz)~~ -> 60 fps, CHANGED 2026-09-27 on measured cost
+/// # ~~0.1 s (10 Hz)~~ ~~60 fps~~ -> **back to 0.1 s (10 Hz)**, 2026-09-27
 ///
-/// **Maintainer direction:** *"I want you to do at least a 30 fps, ideally
-/// 60 fps, otherwise update map at 10 Hz just like rest of the plant"* — for the
-/// map.
+/// **Maintainer direction**, in two steps on the same day: *"I want you to do at
+/// least a 30 fps, ideally 60 fps, otherwise update map at 10 Hz just like rest of
+/// the plant"*, then, after seeing it run at 60 fps, *"can you change map field to
+/// 10 Hz"*.
+///
+/// So 10 Hz is the shipped cadence — the fallback the first direction named, taken
+/// deliberately rather than because 60 fps was unaffordable. **It is affordable**:
+/// the measurements below stand, and the field uses 4.4 % of a 60 fps frame. The
+/// choice is the maintainer's and is about how the map should feel next to a plant
+/// that ticks at 10 Hz, not about cost.
+///
+/// Consequence worth knowing: the live ring column
+/// ([`ReceptorResult::instantaneous_chi_over_q`]) is refreshed beside the field, so
+/// it follows this constant too — it is now a 10 Hz readout, not a 60 fps one. It
+/// remains far more responsive than the time-integrated column on
+/// [`DISPERSION_EVALUATION_INTERVAL_S`]'s 2 s interval, which is the distinction
+/// that matters.
 ///
 /// 60 fps is affordable, and by a wide margin, because the field is on the GPU.
 /// Measured with `cargo plume-timing` at the shipped 120-puff instantaneous
@@ -804,10 +818,12 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
 /// the reason is a measurement rather than the (now struck) claim that used to
 /// justify it.
 ///
-/// `1.0 / 60.0` rather than a rounded `0.0167`: the rate limit should be the frame
-/// interval exactly, or it drifts against the display by a fraction of a frame
-/// every frame.
-pub const FIELD_REFRESH_INTERVAL_S: f64 = 1.0 / 60.0;
+/// `0.1` matches [`crate::physics::PLANT_TIMESTEP_S`] in value but is deliberately
+/// **not** written as that constant: this one is **wall-clock** and the plant's is
+/// **plant time**. They coincide at a 1:1 real-time ratio and diverge the moment the
+/// plant is paused or fast-forwarded, which is the whole reason the field is on its
+/// own clock. Tying them together would silently freeze the map on a paused plant.
+pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
 
 /// ~~Everything a cached field depends on.~~ **What has MOVED since the field
 /// was last drawn** -- CORRECTED 2026-09-27.
@@ -2637,13 +2653,22 @@ mod tests {
     /// inside one 60 fps frame** — the gate for
     /// [`FIELD_REFRESH_INTERVAL_S`]'s cadence.
     ///
-    /// # Methodology
+    /// # This measures HEADROOM, not the shipped cadence
     ///
-    /// Maintainer direction 2026-09-27: the map is to run at 30 fps minimum,
-    /// 60 fps ideally, otherwise 10 Hz like the rest of the plant. The constant
-    /// was set to 60 fps on the strength of `cargo plume-timing`'s GPU numbers;
-    /// this asserts it on *this* host, through the simulator's own call path
-    /// rather than through changi's example.
+    /// [`FIELD_REFRESH_INTERVAL_S`] is **0.1 s (10 Hz)** as shipped — the
+    /// maintainer set it to 60 fps and then back to 10 Hz on 2026-09-27, the
+    /// fallback their own direction named. So this test no longer gates the
+    /// cadence; it gates the *cost*, against frame budgets the field is not
+    /// currently asked to meet.
+    ///
+    /// That is still worth having, and is the reason it was not deleted with the
+    /// 60 fps setting: it is the evidence that raising the cadence is a free
+    /// decision rather than a performance question, and it is what would catch a
+    /// future change making the field expensive enough that 10 Hz stops being
+    /// comfortable. A test that only checked the shipped 100 ms budget would pass
+    /// with a 99 ms field and tell nobody anything.
+    ///
+    /// # Methodology
     ///
     /// Times [`AtmosphericDispersionChannel::refresh_field`]'s actual work — the
     /// population march, [`AtmosphericDispersionChannel::compute_field`], and the
