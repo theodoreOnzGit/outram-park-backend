@@ -127,7 +127,20 @@ pub struct KeffSettings {
     pub n_inactive: usize,
     /// Active generations averaged into the reported eigenvalue.
     pub n_active: usize,
-    /// Material/data temperature \[K\] used for Doppler-broadened lookups.
+    /// Run temperature \[K\].
+    ///
+    /// **What it does depends on the driver** (see `docs/temperatures.md`):
+    /// - in the CSG drivers (`transport_csg`) it is the **free-gas elastic
+    ///   kinematics** temperature (`Nuclide::free_gas_kt`) only; cross sections
+    ///   are looked up at each material's own temperature;
+    /// - in the simple drivers of this module it is also the temperature cross
+    ///   sections are looked up at.
+    ///
+    /// In neither does it re-broaden a pointwise nuclide. Keep it equal to the
+    /// temperature the nuclides were built at, or the target motion and the
+    /// broadened cross sections describe different materials. ~~Material/data
+    /// temperature used for Doppler-broadened lookups.~~ (Clarified
+    /// 2026-09-27.)
     pub temperature_k: f64,
     /// Master RNG seed. Fixed seed ⇒ bit-reproducible run.
     pub seed: u64,

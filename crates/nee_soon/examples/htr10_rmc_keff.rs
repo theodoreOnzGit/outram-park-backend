@@ -339,13 +339,33 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
             "tsl-crystalline-graphite.endf",
         )
     };
+    // `OUTRAM_HTR10_GRAPHITE_TSL=10P|30P` (VIII.0 only, 2026-09-27) takes the
+    // graphite thermal law from Hawari et al.'s REACTOR-graphite evaluations
+    // (10 % or 30 % porosity, ENDF/B-VIII.0 MAT 31 / 32 in these tapes) instead
+    // of the ideal crystalline one (MAT 30). A physics choice, not a knob to
+    // tune: HTR-10 graphite (~1.73 g/cm3 against 2.25 for the crystal, i.e.
+    // ~23 % porosity) is porous. VII.0 has one graphite law only.
+    let graphite_choice = std::env::var("OUTRAM_HTR10_GRAPHITE_TSL").ok();
+    let (f_tsl, tsl_mat_viii) = match (endf7, graphite_choice.as_deref()) {
+        (false, Some("10P")) => ("tsl-reactor-graphite-10P.endf", 31),
+        (false, Some("30P")) => ("tsl-reactor-graphite-30P.endf", 32),
+        (false, Some(other)) if other != "crystalline" => {
+            panic!("OUTRAM_HTR10_GRAPHITE_TSL must be crystalline, 10P or 30P, got {other}")
+        }
+        (true, Some(_)) => panic!("OUTRAM_HTR10_GRAPHITE_TSL applies to ENDF/B-VIII.0 only"),
+        _ => (f_tsl, 30),
+    };
+    if !endf7 {
+        diag.note(format!("graphite S(a,b): {f_tsl} (MAT {tsl_mat_viii})"));
+        eprintln!("  graphite S(a,b): {f_tsl} (MAT {tsl_mat_viii})");
+    }
     // The graphite thermal tape's MAT differs between releases: VIII.0's
     // crystalline graphite is MAT 30 (ZA 130), VII.0's is MAT 31 (ZA 131).
     // Passing the wrong one makes `from_endf_file` return Err and the whole
     // nuclide set silently become `None`, which surfaces as the misleading
     // "reference-data/endf/ not in this checkout" -- so it is selected here
     // rather than hardcoded.
-    let tsl_mat = if endf7 { 31 } else { 30 };
+    let tsl_mat = if endf7 { 31 } else { tsl_mat_viii };
     let sab = diag.time_data(
         "graphite S(a,b)",
         DataSource::File(base.join(f_tsl)),

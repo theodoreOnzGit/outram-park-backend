@@ -166,7 +166,16 @@ pub struct Cell {
     pub region: Vec<RegionToken>,
     /// What the cell is filled with.
     pub fill: CellFill,
-    /// Temperature of this cell in Kelvin (passed to the Doppler XS lookup).
+    /// Temperature of this cell in Kelvin.
+    ///
+    /// ~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport
+    /// does not read this field.** Cross sections are looked up at the
+    /// material's temperature and broadened at the nuclide's build
+    /// temperature; free-gas kinematics use the run's
+    /// `KeffSettings::temperature_k`. Changing it to 1200 K leaves `k`
+    /// bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's
+    /// declared temperature for callers and a future per-cell treatment (OpenMC
+    /// has one); see `docs/temperatures.md`.
     pub temperature: f64,
     /// Rigid translation \[cm\] applied to a fill universe's local frame
     /// (`coord.r -= translation`). Zero for material cells and untranslated fills.

@@ -64,7 +64,13 @@ pub struct Material {
     pub id: i32,
     pub name: String,
     pub components: Vec<NuclideComponent>,
-    /// Temperature in Kelvin (passed straight to the WMP Doppler evaluator).
+    /// Temperature in Kelvin, passed to every cross-section lookup for this
+    /// material. **Only windowed-multipole (`Core`) nuclides use it** (the WMP
+    /// Doppler evaluator); a pointwise nuclide (from ENDF reconstruction or an
+    /// ACE table) is already broadened at its build temperature and ignores
+    /// it. Verified 2026-09-27: set to 1200 K on ACE nuclides, `k` is
+    /// bit-identical (`tests/temperature_precedence.rs`,
+    /// `docs/temperatures.md`).
     pub temperature: f64,
 }
 
