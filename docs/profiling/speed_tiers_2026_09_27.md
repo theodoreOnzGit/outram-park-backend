@@ -126,13 +126,20 @@ the usual "fast scoping" setting); it was not adjusted afterwards.
 | Godiva | 32 / 32 | +12 +- 32 pcm vs benchmark (sd 180) | +19 +- 26 pcm (sd 145) | **+7 +- 41 pcm** (+0.2 sigma), unpaired |
 | Jemima | 32 | 0.99699 (sd 163 pcm) | 0.99682 (sd 196 pcm) | **-18 +- 42 pcm** (-0.4 sigma), paired |
 | HST-009 | 32 | 0.99962 (sd 152 pcm) | 0.99905 (sd 171 pcm) | **-57 +- 35 pcm** (-1.6 sigma), paired |
-| LCT-008 cheap | running | | | not yet measured |
+| LCT-008 cheap | 32 | 1.00182 (sd 136 pcm) | 1.00118 (sd 169 pcm) | **-65 +- 40 pcm** (-1.6 sigma), paired |
 
-**Interpretation.** On the three measured cases the approximation is not
-resolved: every shift is within 1.6 sigma, and the resolution of these
-ensembles is 35-42 pcm. That bounds the VeryFast bias to roughly
-**|dk| < 100 pcm (2 sigma)** on these systems; it does not show the bias is
-zero. HST-009, the one thermal solution here, has the largest shift and is
-the case to re-measure with more seeds before VeryFast is used where
-100 pcm matters. Quote `Fast` (or `Standard`, identical) numbers for V&V;
-VeryFast numbers are for scoping only.
+**Interpretation.** No single case resolves the approximation: every shift
+is within 1.6 sigma, at a resolution of 35-42 pcm. But the pattern is not
+uniform. The two **fast** systems (Godiva, Jemima) show nothing (+7 and -18
+pcm). The two **thermal** systems (HST-009, LCT-008) both shift the same way,
+-57 and -65 pcm. Their inverse-variance weighted mean is **-61 +- 26 pcm
+(-2.3 sigma)**. That combination was made after seeing the per-case numbers,
+so it is a pointer rather than a measurement, but the likely reading is that
+the coarser data grid biases thermal systems low by some tens of pcm. A
+larger dedicated ensemble on one thermal case is the test that can confirm or
+refute it.
+
+**Which numbers to quote.** V&V results are quoted at `Fast` (identical to
+`Standard`). VeryFast is for scoping runs only; on thermal systems allow for
+a bias of order -60 pcm, and on all four cases here it stays below about
+100 pcm.

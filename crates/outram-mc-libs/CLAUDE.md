@@ -622,7 +622,11 @@ path. `material::speed::SpeedTier`, chosen per nuclide with
   instead of NJOY's 0.001. That is an approximation, so it is never a
   default. `0.01` was fixed in advance as "one decade coarser" and not tuned.
   Its measured Δk per benchmark is in `docs/profiling/speed_tiers_2026_09_27.md`;
-  read it before quoting a `VeryFast` k.
+  read it before quoting a `VeryFast` k. From 32-seed ensembles:
+  - fast systems: Godiva +7 ± 41 pcm, Jemima −18 ± 42 pcm, no shift;
+  - thermal systems: HST-009 −57 ± 35 pcm and LCT-008 −65 ± 40 pcm, both
+    low, combined −61 ± 26 pcm (a combination chosen after seeing the
+    data).
 
 **Decision recorded:** the maintainer's first framing was "Standard, Fast,
 VeryFast" with Standard implicitly the default. The rule above ("the

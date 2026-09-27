@@ -14518,6 +14518,19 @@ and was not tuned to a benchmark. Its measured effect on the four ICSBEP
 benchmarks is recorded in `docs/profiling/speed_tiers_2026_09_27.md`;
 read it before quoting a `VeryFast` result as a benchmark comparison.
 
+Measured 2026-09-27, 32 seeds each, `VeryFast - Fast`:
+
+| case | dk |
+|---|---|
+| Godiva | +7 +- 41 pcm |
+| Jemima | -18 +- 42 pcm |
+| HST-009 | -57 +- 35 pcm |
+| LCT-008 | -65 +- 40 pcm |
+
+No single shift is resolved, but both thermal systems move low. Their
+combination, formed after seeing them, is -61 +- 26 pcm. Allow for a
+thermal bias of that order.
+
 ##### Implementations
 
 ###### Methods
