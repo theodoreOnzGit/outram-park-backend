@@ -217,17 +217,21 @@ mod linux {
         }
         println!("\n| arm | seeds | pooled k | sem [pcm] | seed sd [pcm] | vs RMC [pcm] | vs {} [pcm] |", arms[0]);
         println!("|---|---|---|---|---|---|---|");
-        let base = pooled.first().map(|p| (p.2, p.4));
+        // (mean, sem, n) of the baseline arm. A difference only gets a sigma
+        // when BOTH arms have >= 2 seeds; a one-seed arm's sem of 0 is not
+        // "no uncertainty", and quoting the other arm's sem alone overstates
+        // the significance (it printed 5.9 sigma on 2026-09-27 for this reason).
+        let base = pooled.first().map(|p| (p.2, p.4, p.1));
         for (arm, n, mean, sd, sem, dk) in &pooled {
             if *n == 0 {
                 println!("| {arm} | 0 | — | — | — | — | — |");
                 continue;
             }
             let vs_base = match base {
-                Some((b, bs)) if arm != &arms[0] && b.is_finite() => {
+                Some((b, bs, bn)) if arm != &arms[0] && b.is_finite() => {
                     let d = (mean - b) * 1e5;
                     let e = (sem * sem + bs * bs).sqrt() * 1e5;
-                    if e > 0.0 {
+                    if *n > 1 && bn > 1 && e > 0.0 {
                         format!("{d:+.0} ± {e:.0} ({:.1}σ)", d / e)
                     } else {
                         format!("{d:+.0} (no sem: needs ≥ 2 seeds per arm)")
