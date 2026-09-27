@@ -354,9 +354,13 @@ mod tests {
             .find(|l| l.starts_with("hardware,"))
             .expect("record carries a hardware line");
         assert!(line.contains(" cores, "), "{line}");
-        if std::path::Path::new("/proc/cpuinfo").exists() {
+        // Detection is Linux-only; elsewhere the fields are None and the line
+        // says "unknown", which still names cores, OS and GPU.
+        if cfg!(target_os = "linux") {
             assert!(r.hardware().cpu_model.is_some(), "{line}");
             assert!(r.hardware().memory_gib.is_some_and(|g| g > 0.0), "{line}");
+        } else {
+            assert!(r.hardware().cpu_model.is_none(), "{line}");
         }
     }
 

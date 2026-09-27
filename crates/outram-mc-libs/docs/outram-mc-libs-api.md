@@ -61182,8 +61182,8 @@ pub struct HardwareInfo {
 | `gpu` | `Option<String>` | GPU adapter as `"<name> / <backend>"` (e.g. `"NVIDIA GeForce RTX 3050 /<br>Vulkan"`), or `None` when no usable GPU adapter is present (headless<br>server, CI with no loader, or Android — where the report reads<br>"CPU only"). |
 | `cpu_logical_cores` | `usize` | Logical CPU cores via [`std::thread::available_parallelism`] (the count<br>[`crate::physics::compute::ThreadCount::Auto`] resolves to); `1` if the<br>query fails. |
 | `os` | `String` | Target OS string from [`std::env::consts::OS`] (e.g. `"linux"`,<br>`"windows"`, `"macos"`, `"android"`). |
-| `cpu_model` | `Option<String>` | CPU model string (`model name` in `/proc/cpuinfo`), or `None` where<br>that file does not exist (Windows, macOS, wasm). Added 2026-09-27: a<br>core count alone does not say whether a timing came from a 2.1 GHz<br>cloud Xeon or a desktop, and timings are otherwise not comparable. |
-| `memory_gib` | `Option<f64>` | Total RAM in GiB (`MemTotal` in `/proc/meminfo`), or `None` where that<br>file does not exist. |
+| `cpu_model` | `Option<String>` | CPU model string (`model name` in `/proc/cpuinfo`). Detected on<br>**Linux only**; `None` everywhere else, including Android. Added 2026-09-27: a<br>core count alone does not say whether a timing came from a 2.1 GHz<br>cloud Xeon or a desktop, and timings are otherwise not comparable. |
+| `memory_gib` | `Option<f64>` | Total RAM in GiB (`MemTotal` in `/proc/meminfo`). Detected on **Linux<br>only**; `None` elsewhere. |
 
 ##### Implementations
 

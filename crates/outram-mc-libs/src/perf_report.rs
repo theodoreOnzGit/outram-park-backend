@@ -46,27 +46,37 @@ pub struct HardwareInfo {
     /// Target OS string from [`std::env::consts::OS`] (e.g. `"linux"`,
     /// `"windows"`, `"macos"`, `"android"`).
     pub os: String,
-    /// CPU model string (`model name` in `/proc/cpuinfo`), or `None` where
-    /// that file does not exist (Windows, macOS, wasm). Added 2026-09-27: a
+    /// CPU model string (`model name` in `/proc/cpuinfo`). Detected on
+    /// **Linux only**; `None` everywhere else, including Android. Added 2026-09-27: a
     /// core count alone does not say whether a timing came from a 2.1 GHz
     /// cloud Xeon or a desktop, and timings are otherwise not comparable.
     pub cpu_model: Option<String>,
-    /// Total RAM in GiB (`MemTotal` in `/proc/meminfo`), or `None` where that
-    /// file does not exist.
+    /// Total RAM in GiB (`MemTotal` in `/proc/meminfo`). Detected on **Linux
+    /// only**; `None` elsewhere.
     pub memory_gib: Option<f64>,
 }
 
-/// `model name` from `/proc/cpuinfo`, if the file exists and carries one.
+/// `model name` from `/proc/cpuinfo`. **Linux only** (maintainer direction
+/// 2026-09-27); `None` if the file has no such line.
+#[cfg(target_os = "linux")]
 fn detect_cpu_model() -> Option<String> {
     let text = std::fs::read_to_string("/proc/cpuinfo").ok()?;
     text.lines()
-        .find(|l| l.starts_with("model name") || l.starts_with("Hardware"))
+        .find(|l| l.starts_with("model name"))
         .and_then(|l| l.split_once(':'))
         .map(|(_, v)| v.trim().to_string())
         .filter(|v| !v.is_empty())
 }
 
-/// `MemTotal` from `/proc/meminfo` in GiB, if the file exists.
+/// Not detected off Linux: always `None`, and the headline says
+/// "CPU model unknown".
+#[cfg(not(target_os = "linux"))]
+fn detect_cpu_model() -> Option<String> {
+    None
+}
+
+/// `MemTotal` from `/proc/meminfo`, in GiB. **Linux only.**
+#[cfg(target_os = "linux")]
 fn detect_memory_gib() -> Option<f64> {
     let text = std::fs::read_to_string("/proc/meminfo").ok()?;
     let kib: f64 = text
@@ -77,6 +87,12 @@ fn detect_memory_gib() -> Option<f64> {
         .parse()
         .ok()?;
     Some(kib / (1024.0 * 1024.0))
+}
+
+/// Not detected off Linux: always `None`, and the headline says "RAM unknown".
+#[cfg(not(target_os = "linux"))]
+fn detect_memory_gib() -> Option<f64> {
+    None
 }
 
 /// Detect the GPU adapter (desktop path): probe `wgpu` and format the adapter

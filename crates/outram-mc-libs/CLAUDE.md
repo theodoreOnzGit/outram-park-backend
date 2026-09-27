@@ -92,7 +92,8 @@ transport (e.g. `nee_soon::htr10_rmc`) and the V&V records under this crate.
   the run actually used, RAM, OS, and GPU (or "CPU only"). Add whether the
   machine was shared or loaded when that is known.
   `perf_report::HardwareInfo::headline()` gives all of these except threads
-  and load.
+  and load. CPU model and RAM are **detected on Linux only**. Elsewhere they
+  read "unknown", and you write them in by hand.
 - **Automatic for `RunDiagnostics`:** since 2026-09-27 every record, and the
   console summary, carries a `hardware` line. It is pinned by
   `run_diagnostics::tests::every_record_names_its_hardware`. Copy that line
