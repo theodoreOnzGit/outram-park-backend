@@ -169,6 +169,47 @@ closer look"):** a pooled study is running. It uses 4 new seeds per arm
 (20260927–30) at 10 000 × [40 + 100], for crystalline and 10P first and then
 30P. Results will be added here.
 
+### Pooled result, crystalline vs 10P (2026-09-27)
+
+**Method.** Four fresh seeds per arm (20260927–30), 10 000 × [40 + 100] per
+run (1.0 M active histories), VIII.0, n = 25 (123.576 cm; RMC
+height-matched 1.004286). Geometry and modelling assumptions are as above. Each
+arm was passed explicitly (`OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P`), one
+process per (arm, seed), via `nee_soon/examples/htr10_pooled_study.rs`.
+**Hardware:** Intel Xeon @ 2.10 GHz, 4 cores, 15.7 GiB RAM, CPU only, Linux,
+all cores used. The first crystalline run predates the hardware line, but it
+ran on the same container. Transport took 3968–4177 s per run.
+
+| seed | crystalline k | 10P k | 10P − crystalline [pcm] |
+|---|---|---|---|
+| 20260927 | 0.977741 ± 0.001166 | 0.981748 ± 0.001245 | +401 |
+| 20260928 | 0.978908 ± 0.001367 | 0.982789 ± 0.001186 | +388 |
+| 20260929 | 0.978754 ± 0.001246 | 0.982939 ± 0.001178 | +419 |
+| 20260930 | 0.978311 ± 0.001096 | 0.983225 ± 0.001130 | +491 |
+
+| arm | pooled k | sem (seed scatter) [pcm] | seed sd [pcm] | vs RMC [pcm] |
+|---|---|---|---|---|
+| crystalline | 0.978429 | 26 | 52 | **−2586** |
+| 10P | 0.982675 | 32 | 64 | **−2161** |
+
+**10P − crystalline = +425 pcm.** The uncertainty depends on the estimator.
+From the seed scatter it is ±42 pcm (10σ). A more conservative figure uses
+each run's own sigma (about 122 pcm, i.e. about 61 pcm per 4-seed arm) and
+gives about ±86 pcm (4.9σ). Four seeds are too few to prefer the scatter
+estimate, so **quote +425 ± 86 pcm**. Every run had 0 lost locates, 0 stuck
+events and 0 negative distances. The Shannon entropy moved by at most 0.03 bits
+over the active generations.
+
+**Against the prediction** (up, a few hundred pcm): **met**, in sign and in
+magnitude. The fast run's +313 ± 493 agrees to 0.2σ. The pooled crystalline
+arm (0.978429) agrees with the fast crystalline run (0.977026 ± 0.003604) to
+0.4σ. That checks the fast baseline.
+
+**Interpretation.** The graphite thermal law is a resolved, several-hundred-pcm
+term at the critical loading. With the crystalline law, the pooled residual
+against RMC is −2586 ± 26 pcm (sampling only). That is the VIII.0,
+like-for-like-TSL number.
+
 ## MCNP as a rough gauge (added 2026-09-27)
 
 The paper also prints MCNP results from an independently built model, with no
