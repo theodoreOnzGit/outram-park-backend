@@ -210,6 +210,62 @@ term at the critical loading. With the crystalline law, the pooled residual
 against RMC is −2586 ± 26 pcm (sampling only). That is the VIII.0,
 like-for-like-TSL number.
 
+### Pooled result, 30P, and the full three-arm comparison (2026-09-27)
+
+Same method, seeds and hardware as the crystalline-vs-10P study above. The
+container restarted at 14:18 UTC and killed the 30P seed-20260928 run
+mid-transport. The driver re-ran it from the start, and no partial result is
+used. Transport took 4088–4286 s per run.
+
+| seed | crystalline k | 10P k | 30P k | 30P − cryst [pcm] | 30P − 10P [pcm] |
+|---|---|---|---|---|---|
+| 20260927 | 0.977741 | 0.981748 | 0.984807 ± 0.001136 | +707 | +306 |
+| 20260928 | 0.978908 | 0.982789 | 0.985988 ± 0.001163 | +708 | +320 |
+| 20260929 | 0.978754 | 0.982939 | 0.986482 ± 0.001389 | +773 | +354 |
+| 20260930 | 0.978311 | 0.983225 | 0.984652 ± 0.001194 | +634 | +143 |
+
+| arm | pooled k | within-run σ, 4 seeds [pcm] | vs RMC 1.004286 [pcm] |
+|---|---|---|---|
+| crystalline | 0.978429 | 61 | −2586 |
+| 10P | 0.982675 | 59 | −2161 |
+| **30P (default since 2026-09-27)** | **0.985482** | **61** | **−1880** |
+
+Quoted uncertainties use the within-run sigmas, as for 10P. The seed-scatter
+values (sem 26, 32 and 45 pcm) are smaller, but four seeds cannot support them.
+
+- **10P − crystalline = +425 ± 85 pcm (5.0σ)**
+- **30P − crystalline = +705 ± 86 pcm (8.2σ)**
+- **30P − 10P = +281 ± 85 pcm (3.3σ)**
+
+Every 30P run had 0 lost locates, 0 stuck events and 0 negative distances. The
+Shannon entropy moved by at most 0.03 bits over the active generations.
+
+**Against the prediction** (k up for 10P, further up for 30P, a few hundred pcm
+and no more than about 1000): **met on all three counts.** The fast
+single-seed values (+313 ± 493 and +947 ± 483) agree with the pooled ones to
+0.2σ and 0.5σ.
+
+**What to quote.**
+- **The model's default is 30P: −1880 pcm against RMC at the critical loading**
+  (VIII.0, fast-pooled statistics, 4 seeds × 1.0 M active histories).
+- **The like-for-like-TSL number is crystalline: −2586 pcm.** Li's VII.0
+  reference had no other graphite law.
+- The graphite law therefore accounts for **+705 ± 86 pcm** of the difference
+  between those two numbers. That is about a quarter of the crystalline
+  residual.
+
+**A bracket, not a correction.** HTR-10 graphite is about 22 % porous, between
+the two tabulated laws and nearer 30 %. If k varied linearly with porosity
+between 10 % and 30 % (an assumption this study cannot test with two points), a
+22 % law would sit about 0.4 × 281 ≈ 110 pcm below 30P. Read the 30P default as
+possibly overstating k by up to about 100 pcm for that reason. This is not
+applied to any number; it is a stated limitation of choosing the nearest
+tabulated law.
+
+**Still single-height, and not the gh:#336 re-run.** These are fast-pooled
+numbers at n = 25 only. The height drift and the other heights have not been
+re-measured with the new default.
+
 ## MCNP as a rough gauge (added 2026-09-27)
 
 The paper also prints MCNP results from an independently built model, with no
