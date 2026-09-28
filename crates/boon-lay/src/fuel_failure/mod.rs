@@ -93,8 +93,11 @@
 //! (only the exact identity `F_d(τ_i, 0) = f(τ_i)`). Against Fig. 6 the chain
 //! reproduces the eight-variety ordering 8/8 but carries a residual of
 //! −0.37 … +0.39 decades that runs systematically with `m`; against Fig. 7 it
-//! holds to 4.9 % through all three temperature stages for 300 h and then
-//! drifts to a factor 1.90 by 977 h. Both are recorded with numbers in
+//! holds to ~~4.9 %~~ **4.7 %** through all three temperature stages for 300 h and then
+//! drifts to a factor ~~1.90~~ **1.87** by 977 h (**CORRECTED 2026-09-28**
+//! on the re-digitised Fig. 7, whose true seven-decade scale put the old
+//! data one decade high; the ratios barely moved because an offset only
+//! rescales the implied stress). Both are recorded with numbers in
 //! `docs/panama-i-units-and-open-questions.md` and pinned by tests in
 //! [`history`].
 //!

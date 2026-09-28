@@ -69,11 +69,20 @@
 //!
 //! # Verification status
 //!
-//! **Not verified against any output of the report.** Figs. 7 and 8 plot the
-//! "with grain boundary corrosion" curve, but their captions state neither the
-//! particle geometry, the kernel volume nor the buffer void volume, so the
-//! absolute release fraction cannot be reproduced without inventing three
-//! inputs. What can be said is checked and no more: the qualitative direction
+//! ~~**Not verified against any output of the report.**~~ **CORRECTED
+//! 2026-09-28:** checked against the report's own Fig. 7 by a geometry-free
+//! identity. The `with` and `without` curves are one calculation with and
+//! without Eq (10b), so inverting Eq (1) on each (with this module's `m`)
+//! must return one `σ_t`. On the re-digitised Fig. 7 (true seven-decade
+//! scale) the mean ratio over 300–900 h is **0.973**, with `∫η̇ dt`
+//! accumulated over the staged history
+//! (`history::tests::figure_7_redigitised_two_curves_connect_at_the_true_scale`).
+//! Fig. 8 gives 1.005 under the same one-decade correction but has not been
+//! re-digitised, so it is not counted. That identity checks the (10b)/(10c)
+//! pair against the report's output. It does not check the absolute release
+//! fraction: the captions state neither the particle geometry, the kernel
+//! volume nor the buffer void volume, so that cannot be reproduced without
+//! inventing three inputs. Also checked: the qualitative direction
 //! (corrosion raises the failure fraction), the floor at `0.44·m_o`, and the
 //! `0.565`/`187400` Arrhenius as transcribed.
 
