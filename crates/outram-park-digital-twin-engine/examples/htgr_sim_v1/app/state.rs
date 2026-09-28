@@ -51,10 +51,12 @@ pub const TRACKED_RELEASE_NUCLIDES: usize = 5;
 
 /// One receptor's atmospheric dispersion result, projected onto the snapshot.
 ///
-/// **`chi_over_q` is the quotable number**; the two activity fields are on the
-/// release channel's per-curie-of-core-inventory basis *and* per unit of a
-/// placeholder leak fraction, so they are a transfer function rather than a
-/// consequence. See [`crate::physics::atmospheric_dispersion`], whose binding
+/// **`chi_over_q` is the quotable number**; the per-Ci activity fields are on
+/// the release channel's per-curie-of-core-inventory basis ~~*and* per unit of a
+/// placeholder leak fraction~~ (**CORRECTED 2026-09-28**: the published ~1 %/day
+/// circuit leak is multiplied in, not divided out), so they are a transfer
+/// function rather than a consequence. The `_absolute` fields carry the same
+/// survey on the absolute (Bq) basis — still not a source term. See [`crate::physics::atmospheric_dispersion`], whose binding
 /// scope limit applies: research, education and V&V only, and **no dose
 /// quantity of any kind**.
 #[derive(Clone, Copy, Debug, Default)]
@@ -72,8 +74,9 @@ pub struct ReceptorSnapshot {
     ///
     /// [`Self::chi_over_q`] above is the **time-integrated** dilution factor from
     /// `changi::activity::dilution_factors`. It is what the activity columns are
-    /// built on, and it refreshes on the dispersion channel's 60 s throttle
-    /// because it costs `O(steps x puffs x receptors)` twice over.
+    /// built on, and it refreshes on the dispersion channel's ~~60 s~~ 2 s
+    /// throttle (**CORRECTED 2026-09-28**: `DISPERSION_EVALUATION_INTERVAL_S`
+    /// is 2.0 since 2026-09-27) because it costs `O(steps x puffs x receptors)` twice over.
     ///
     /// This one is the instantaneous field sampled at the same point, refreshing
     /// with the map at 10 Hz (maintainer direction 2026-09-27: *"sampling
@@ -98,6 +101,13 @@ pub struct ReceptorSnapshot {
     /// `changi` does not port wet scavenging, so this is **not** an upper
     /// bound; rain would raise it.
     pub ground_bq_per_m2: f64,
+    /// Time-integrated air concentration on the **absolute** basis \[Bq·s/m^3\],
+    /// summed over the five tracked nuclides; `NAN` when the absolute arm is
+    /// unavailable. Not a concentration at any reactor and never a dose input.
+    pub air_bq_s_per_m3_absolute: f64,
+    /// Dry ground deposition on the **absolute** basis \[Bq/m^2\]; `NAN` when
+    /// unavailable. Same caveats.
+    pub ground_bq_per_m2_absolute: f64,
 }
 
 /// How many receptors the dispersion channel publishes. Matches
@@ -405,6 +415,15 @@ pub struct HtgrSnapshot {
     /// Plant time of the most recent dispersion evaluation, seconds; `NAN`
     /// before the first.
     pub dispersion_evaluated_at_s: f64,
+    /// Release rate to atmosphere, **per-Ci** basis \[Bq/s per Ci of core
+    /// inventory\], summed over the tracked nuclides. Instantaneous `chi/Q`
+    /// × this is the map's per-Ci concentration. `NAN` before the first run.
+    pub dispersion_source_rate_per_ci_bq_per_s: f64,
+    /// Release rate to atmosphere, **absolute** basis \[Bq/s\], summed over
+    /// the tracked nuclides; `NAN` before the first run or when the absolute
+    /// arm is unavailable. Instantaneous `chi/Q` × this is the map's default
+    /// field, an instantaneous air concentration \[Bq/m^3\].
+    pub dispersion_source_rate_absolute_bq_per_s: f64,
     /// Whether the reactor protection system is armed.
     ///
     /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
@@ -741,6 +760,8 @@ impl Default for HtgrSnapshot {
             wind_from_deg: 0.0,
             stability_class: "",
             dispersion_evaluated_at_s: f64::NAN,
+            dispersion_source_rate_per_ci_bq_per_s: f64::NAN,
+            dispersion_source_rate_absolute_bq_per_s: f64::NAN,
             reactivity_margin_dollars: 0.0,
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,

@@ -1541,7 +1541,12 @@ impl HtgrPlant {
                 slot.instantaneous_chi_over_q = r.instantaneous_chi_over_q;
                 slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
                 slot.ground_bq_per_m2 = r.ground_bq_per_m2;
+                slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
+                slot.ground_bq_per_m2_absolute = r.ground_bq_per_m2_absolute.unwrap_or(f64::NAN);
             }
+            s.dispersion_source_rate_per_ci_bq_per_s = result.source_rate_per_ci_bq_per_s;
+            s.dispersion_source_rate_absolute_bq_per_s =
+                result.source_rate_absolute_bq_per_s.unwrap_or(f64::NAN);
             // Reuse the allocation across ticks: the grid is a fixed size and
             // this runs on every write.
             s.dispersion_grid.clear();

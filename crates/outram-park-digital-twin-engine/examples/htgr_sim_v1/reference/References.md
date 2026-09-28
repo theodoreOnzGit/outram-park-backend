@@ -92,3 +92,72 @@ exposed by `buangkok::published::normal_operation_dose_by_distance`, provenance 
 and it computes no dose. So the
 concentrations here are still a circuit leak driven through a dispersion
 model, not a source term, and `chi/Q` is still the only quotable output.
+
+## Map-tab colour-scale anchors — `app::map_tab` (added 2026-09-28)
+
+**Indicative colour-scale anchors, NOT a dose calculation.** Nothing in this
+simulator computes or displays a dose (dose belongs to `buangkok`). The two
+coefficients below are used for one thing only: placing the default floor and
+top of the Map tab's logarithmic colour scale (maintainer direction,
+2026-09-28).
+
+| Quantity | Value | Source |
+|---|---|---|
+| K-40, ingestion, adult, committed effective dose equivalent per unit intake | **5.02e-9 Sv/Bq** | FGR-11 Table 2.2, row K-40 (f1 = 1.0), column "Effective", printed p. 156 (PDF p. 164) |
+| Cs-137, ingestion, adult, committed effective dose equivalent per unit intake | **1.35e-8 Sv/Bq** | FGR-11 Table 2.2 cont'd, row Cs-137 (f1 = 1.0), column "Effective", printed p. 166 (PDF p. 174) |
+| "Banana equivalent dose" | 0.1 µSv | **Not from FGR-11** — the informal convention the maintainer named as the anchor; recorded as a convention, not a measurement |
+
+**Source.** K. F. Eckerman, A. B. Wolbarst, A. C. B. Richardson, *Limiting
+Values of Radionuclide Intake and Air Concentration and Dose Conversion Factors
+for Inhalation, Submersion, and Ingestion*, Federal Guidance Report No. 11,
+EPA-520/1-88-020, U.S. Environmental Protection Agency, 1988.
+URL: `https://www.epa.gov/sites/default/files/2015-05/documents/520-1-88-020.pdf`.
+A U.S. government report, freely distributed by the EPA. Accessed 2026-09-28
+(the epa.gov download and the maintainer's local copy are byte-identical,
+SHA-256 `3d5479f4…8b74`). Cited, not redistributed — no PDF is committed.
+
+**Processing.** The PDF's OCR text layer garbles exponents (e.g. the Cs-137
+"Effective" entry extracts as `1.35 10..`), so both values were read off the
+rendered table pages (PDF pp. 164 and 174 at 110 dpi), not from the text layer
+and not from memory.
+
+**Why FGR-11 and not FGR-13.** FGR-13 (*Cancer Risk Coefficients for
+Environmental Exposure to Radionuclides*, EPA 402-R-99-001, 1999) was checked
+as well. Its Chapter 2 tables are cancer **risk** coefficients per Bq — e.g.
+Table 2.2a, "Mortality and morbidity risk coefficients for ingestion of water
+and food", printed p. 84 (PDF p. 101), K-40 tap-water mortality 4.30e-10 per
+Bq — not dose per unit intake, and no Sv/Bq table for K-40 or Cs-137 was found
+in the report text. A risk coefficient is not a dose coefficient, so FGR-13
+could not supply the anchor. FGR-11's coefficients are ICRP-30 "Reference
+Man" (adult, occupational basis) values — adequate for an indicative anchor
+and nothing more. No ICRP publication was used.
+
+**Arithmetic.**
+
+```text
+floor ("≈ banana")            = 1.0e-7 Sv / 5.02e-9 Sv/Bq = 19.92 Bq  (K-40, ingested)
+top   ("≈ 1 Sv-equivalent")   = 1.0 Sv    / 1.35e-8 Sv/Bq = 7.407e7 Bq (Cs-137, ingested)
+span                          = log10(7.407e7 / 19.92)    = 6.570 decades
+```
+
+**Disagreement, reported rather than tuned away.** The maintainer's anchor was
+stated as "~15 Bq of K-40, ~0.1 µSv". Through FGR-11 those are not the same
+point: 15 Bq × 5.02e-9 = 7.5e-8 Sv, and 0.1 µSv / 5.02e-9 = 19.9 Bq. The floor
+is derived from the cited coefficient, so it is 19.9 Bq (0.12 decade above
+15 Bq on the log scale).
+
+**Unit caveat.** The anchors are Bq of *intake*. The map paints an
+instantaneous air concentration in Bq/m^3 (or Bq/m^3 per Ci). The anchors are
+placed **numerically** on that scale; this is not a unit conversion, and no
+breathing rate or dose is applied.
+
+**What it means on screen (measured 2026-09-28).** At a 1200 K kernel the
+absolute release rate is 9.5 Bq/s (five tracked nuclides) and the peak
+instantaneous concentration on the receptor ring is 1.7e-4 Bq/m^3 — about five
+decades below the default floor. On the default scale a normal-operation plume
+therefore paints nothing; the map says so, and the "minimum reading" slider
+brings it into view.
+
+Constants and tests: `FGR11_K40_INGESTION_SV_PER_BQ`,
+`FGR11_CS137_INGESTION_SV_PER_BQ`, `banana_anchor`, `one_sievert_anchor`,
+`tests::the_slider_defaults_are_the_cited_anchors` in `app/map_tab.rs`.

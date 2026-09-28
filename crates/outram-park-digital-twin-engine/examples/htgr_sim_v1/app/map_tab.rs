@@ -34,18 +34,42 @@
 //! read as: a forward jump is marched under the **current** wind, so it is an
 //! extrapolation under "this wind holds" rather than an exact evaluation at a
 //! later argument; and a **rewind clears the population**, because the march
-//! is not invertible and no per-step history is kept. (Note for the next
+//! is not invertible and no per-step history is kept. ~~(Note for the next
 //! reader: `MapFieldRequest::plume_clock_offset`'s own doc comment still
-//! carries the superseded "exact at any offset" wording. It is in
-//! `physics/atmospheric_dispersion.rs`, which this session was instructed not
-//! to edit -- reported rather than fixed, 2026-09-27.)
+//! carries the superseded "exact at any offset" wording. [...] reported rather
+//! than fixed, 2026-09-27.)~~ **CORRECTED 2026-09-28** -- re-checked: that
+//! doc comment now strikes the "exact at any offset" wording and carries the
+//! two caveats, so the note no longer applies.
+//!
+//! # What the map paints, and in which unit (maintainer direction, 2026-09-28)
+//!
+//! The physics field is the instantaneous `chi/Q` \[s/m^3\]. The map multiplies
+//! it by a release rate and paints the product, on one of three bases chosen
+//! by a toggle ([`MapBasis`]):
+//!
+//! | Basis | Painted quantity | Unit |
+//! |---|---|---|
+//! | **Absolute** (default) | instantaneous air concentration, 5 tracked nuclides | Bq/m^3 |
+//! | Per Ci | the same, per curie of core inventory | Bq/m^3 per Ci |
+//! | `chi/Q` | the source-independent dilution factor (the pre-2026-09-28 map) | s/m^3 |
+//!
+//! Absolute falls back to per-Ci when the release channel has no absolute arm.
+//! The colour scale is set by two sliders -- a floor and a span in decades --
+//! whose absolute-basis defaults are the **indicative** anchors
+//! [`banana_anchor`] and [`one_sievert_anchor`], derived from US EPA
+//! Federal Guidance Report No. 11. **They are colour-scale anchors, not a dose
+//! calculation**: nothing on this tab computes or displays a dose (dose belongs
+//! to `buangkok`), and the anchors are activities of intake placed numerically
+//! on a Bq/m^3 scale, which is not a unit conversion. See
+//! [`FGR11_K40_INGESTION_SV_PER_BQ`] for the derivation.
 //!
 //! # NOT VALIDATED
 //!
 //! The puff model is `changi::puff` (ported from R `puff` 0.1.1), not FLEXPART,
-//! and it is driven by the release the thermal tab shows, which is itself
-//! **per curie of core inventory**. See
-//! [`crate::physics::atmospheric_dispersion`].
+//! and it is driven by the release the thermal tab shows. The absolute basis is
+//! the release channel's absolute arm (Liu & Cao 2002 inventory through
+//! TRISO-ATOPS reference failure fractions and a primary-circuit leak) and is
+//! **not a source term**. See [`crate::physics::atmospheric_dispersion`].
 
 use egui::{
     Align2, Color32, ColorImage, FontId, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions,
@@ -87,11 +111,293 @@ const MAP_MIN_SIDE: f32 = 320.0;
 /// because the trajectory integral is not invertible and no per-step history
 /// is kept. The button stays -- the clock really does go back -- but it is a
 /// restart, and the hover text says so.
-const PLUME_JUMPS_S: [(f64, &str); 3] = [
-    (3600.0, "+1 h"),
-    (7200.0, "+2 h"),
-    (-3600.0, "-1 h"),
-];
+const PLUME_JUMPS_S: [(f64, &str); 3] = [(3600.0, "+1 h"), (7200.0, "+2 h"), (-3600.0, "-1 h")];
+
+/// US EPA **Federal Guidance Report No. 11** committed effective dose
+/// equivalent per unit intake for **K-40, ingestion**, adult \[Sv/Bq\]:
+/// **5.02 x 10^-9**.
+///
+/// # Source (DATA_POLICY provenance)
+///
+/// K. F. Eckerman, A. B. Wolbarst and A. C. B. Richardson, *Limiting Values
+/// of Radionuclide Intake and Air Concentration and Dose Conversion Factors for
+/// Inhalation, Submersion, and Ingestion*, Federal Guidance Report No. 11,
+/// EPA-520/1-88-020, US EPA, 1988. **Table 2.2** "Exposure-to-Dose Conversion
+/// Factors for Ingestion", row K-40 (f1 = 1.0), column **Effective**; printed
+/// page **156** (PDF page 164). A US government report, freely distributed by
+/// epa.gov (`https://www.epa.gov/sites/default/files/2015-05/documents/520-1-88-020.pdf`),
+/// accessed 2026-09-28; the value was read off the rendered table page, not
+/// typed from memory (the PDF's OCR text layer is unreliable for exponents).
+///
+/// # Why FGR-11 and not FGR-13
+///
+/// FGR-13 (EPA 402-R-99-001, 1999) was also checked (the maintainer's local
+/// copy, read with `pdftotext -layout`): its Chapter 2 tables are **cancer
+/// risk coefficients per Bq** -- e.g. Table 2.2a "Mortality and morbidity risk
+/// coefficients for ingestion of water and food", printed page 84 (PDF page
+/// 101), K-40 tap-water mortality 4.30e-10 **per Bq** -- not dose per unit
+/// intake. A risk coefficient is not Sv/Bq, and no Sv/Bq table for K-40 or
+/// Cs-137 was found in the report text, so FGR-13 could not supply the
+/// anchor. FGR-11's coefficients are for ICRP-30 "Reference Man"
+/// (adult, occupational basis) -- adequate for an **indicative colour anchor**
+/// and nothing more.
+///
+/// # What it is used for, and what it is NOT
+///
+/// Only to place [`banana_anchor`]. **No dose is computed or displayed from the
+/// map.** Research, education and V&V only (`RESPONSIBLE_USE.md`).
+pub const FGR11_K40_INGESTION_SV_PER_BQ: f64 = 5.02e-9;
+
+/// FGR-11 **Cs-137, ingestion**, adult, committed effective dose equivalent
+/// per unit intake \[Sv/Bq\]: **1.35 x 10^-8**.
+///
+/// Same report as [`FGR11_K40_INGESTION_SV_PER_BQ`]: **Table 2.2, Cont'd.**,
+/// row Cs-137 (f1 = 1.0), column **Effective**, printed page **166** (PDF page
+/// 174), accessed 2026-09-28, read off the rendered page.
+///
+/// Cs-137 ingestion is the one representative nuclide/pathway chosen for the
+/// top anchor: it is one of the five nuclides this simulator tracks and the
+/// long-lived one a map of deposited activity is usually read against. Another
+/// nuclide or pathway would move [`one_sievert_anchor`] by its coefficient
+/// ratio -- which is exactly why the anchor is labelled indicative.
+pub const FGR11_CS137_INGESTION_SV_PER_BQ: f64 = 1.35e-8;
+
+/// The "banana equivalent dose" convention, **0.1 µSv** \[Sv\].
+///
+/// **Not from FGR-11** -- it is the informal public-communication convention
+/// the maintainer named as the anchor (2026-09-28, "~15 Bq of K-40, ~0.1 µSv").
+/// Recorded as that, not as a measurement.
+pub const BANANA_EQUIVALENT_DOSE_SV: f64 = 1.0e-7;
+
+/// One sievert \[Sv\], the top anchor's nominal level.
+pub const ONE_SIEVERT_SV: f64 = 1.0;
+
+/// **"≈ banana"** colour-scale floor \[Bq\]:
+/// `BANANA_EQUIVALENT_DOSE_SV / FGR11_K40_INGESTION_SV_PER_BQ`
+/// = 1.0e-7 / 5.02e-9 = **19.92 Bq** of K-40.
+///
+/// # The two halves of the maintainer's anchor disagree, and the derived one is used
+///
+/// The request gave both "~15 Bq of K-40" and "~0.1 µSv". Through FGR-11's
+/// coefficient those are not the same point: 15 Bq x 5.02e-9 Sv/Bq = 7.5e-8 Sv,
+/// and 0.1 µSv / 5.02e-9 = 19.9 Bq. The anchor is **derived from the cited
+/// coefficient** (the instruction), so it is 19.9 Bq, and the ~25 % gap to
+/// "~15 Bq" is reported rather than tuned away. On a log colour scale spanning
+/// 6.6 decades it is 0.12 decade.
+///
+/// Indicative colour anchor only -- not a dose calculation.
+pub fn banana_anchor() -> f64 {
+    BANANA_EQUIVALENT_DOSE_SV / FGR11_K40_INGESTION_SV_PER_BQ
+}
+
+/// **"≈ 1 Sv-equivalent"** colour-scale top \[Bq\]:
+/// `ONE_SIEVERT_SV / FGR11_CS137_INGESTION_SV_PER_BQ` = 1 / 1.35e-8 =
+/// **7.407e7 Bq** of Cs-137 ingested.
+///
+/// Indicative colour anchor only -- not a dose calculation.
+pub fn one_sievert_anchor() -> f64 {
+    ONE_SIEVERT_SV / FGR11_CS137_INGESTION_SV_PER_BQ
+}
+
+/// Which quantity the map paints. See the module doc's table.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MapBasis {
+    /// Instantaneous air concentration \[Bq/m^3\], absolute basis. Default.
+    #[default]
+    Absolute,
+    /// Instantaneous air concentration per curie of core inventory
+    /// \[Bq/m^3 per Ci\].
+    PerCi,
+    /// The source-independent dilution factor `chi/Q` \[s/m^3\] -- the map as
+    /// it was before 2026-09-28, kept because it is the one quantity here that
+    /// is not hostage to a source-term input, and because it still draws a
+    /// plume when the release channel is empty.
+    ChiOverQ,
+}
+
+impl MapBasis {
+    const ALL: [MapBasis; 3] = [MapBasis::Absolute, MapBasis::PerCi, MapBasis::ChiOverQ];
+
+    fn index(self) -> usize {
+        match self {
+            MapBasis::Absolute => 0,
+            MapBasis::PerCi => 1,
+            MapBasis::ChiOverQ => 2,
+        }
+    }
+
+    /// The painted quantity's true unit.
+    fn unit(self) -> &'static str {
+        match self {
+            MapBasis::Absolute => "Bq/m^3",
+            MapBasis::PerCi => "Bq/m^3 per Ci",
+            MapBasis::ChiOverQ => "s/m^3",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            MapBasis::Absolute => "Absolute [Bq/m^3]",
+            MapBasis::PerCi => "Per Ci of core inventory [Bq/m^3 per Ci]",
+            MapBasis::ChiOverQ => "chi/Q [s/m^3]",
+        }
+    }
+
+    /// The factor that turns instantaneous `chi/Q` \[s/m^3\] into this
+    /// basis: a release rate \[Bq/s\] or \[Bq/s per Ci\], or 1. `NAN` when
+    /// the rate is not available.
+    fn factor(self, s: &HtgrSnapshot) -> f64 {
+        match self {
+            MapBasis::Absolute => s.dispersion_source_rate_absolute_bq_per_s,
+            MapBasis::PerCi => s.dispersion_source_rate_per_ci_bq_per_s,
+            MapBasis::ChiOverQ => 1.0,
+        }
+    }
+}
+
+/// The basis actually painted: the requested one, except that **Absolute
+/// falls back to Per Ci** when the absolute release rate is unavailable
+/// (maintainer direction, 2026-09-28). Never falls back silently -- the
+/// caller shows a label when the two differ.
+fn effective_basis(requested: MapBasis, s: &HtgrSnapshot) -> MapBasis {
+    if requested == MapBasis::Absolute && !s.dispersion_source_rate_absolute_bq_per_s.is_finite() {
+        MapBasis::PerCi
+    } else {
+        requested
+    }
+}
+
+/// The value the map paints for one `chi/Q` sample on `basis`. The texture
+/// and the absolute table's LIVE column both call this, so a row and the
+/// pixel under it cannot disagree by construction.
+fn field_value(chi_over_q: f64, basis: MapBasis, s: &HtgrSnapshot) -> f64 {
+    chi_over_q * basis.factor(s)
+}
+
+/// The map's logarithmic colour scale: a **floor** (the minimum reading that
+/// gets a colour) and a **span** in decades above it; the top is
+/// `floor * 10^span`. Values at or below the floor are drawn in the light
+/// "no reading" grey, values above the top clamp to the top colour.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColourScale {
+    /// Minimum reading, in the map's unit.
+    pub floor: f64,
+    /// Additional range above the floor \[decades\].
+    pub span_decades: f64,
+}
+
+impl ColourScale {
+    /// Floor slider range, in the map's unit. Wide enough to hold every basis:
+    /// `chi/Q` peaks near 1e-5 s/m^3 and the absolute anchors are 2e1-7e7.
+    /// A drawing range, not physics.
+    pub const FLOOR_MIN: f64 = 1.0e-15;
+    /// See [`Self::FLOOR_MIN`].
+    pub const FLOOR_MAX: f64 = 1.0e12;
+    /// Span slider range \[decades\]. One decade is the least that still
+    /// shows a gradient; twelve is more than the ~7-decade anchor span with
+    /// margin. A drawing range, not physics.
+    pub const SPAN_MIN: f64 = 1.0;
+    /// See [`Self::SPAN_MIN`].
+    pub const SPAN_MAX: f64 = 12.0;
+
+    /// Build a scale, clamping both inputs into the slider ranges. A
+    /// non-finite or non-positive floor goes to [`Self::FLOOR_MIN`]; a
+    /// non-finite span to [`Self::SPAN_MIN`].
+    pub fn clamped(floor: f64, span_decades: f64) -> Self {
+        let floor = if floor.is_finite() && floor > 0.0 {
+            floor.clamp(Self::FLOOR_MIN, Self::FLOOR_MAX)
+        } else {
+            Self::FLOOR_MIN
+        };
+        let span_decades = if span_decades.is_finite() {
+            span_decades.clamp(Self::SPAN_MIN, Self::SPAN_MAX)
+        } else {
+            Self::SPAN_MIN
+        };
+        Self {
+            floor,
+            span_decades,
+        }
+    }
+
+    /// `floor * 10^span`.
+    pub fn top(&self) -> f64 {
+        self.floor * 10f64.powf(self.span_decades)
+    }
+
+    /// Fraction up the ramp, `None` at or below the floor (or non-finite).
+    fn fraction(&self, value: f64) -> Option<f64> {
+        if !(value > self.floor) || !value.is_finite() {
+            return None;
+        }
+        Some(((value / self.floor).log10() / self.span_decades).clamp(0.0, 1.0))
+    }
+
+    /// Colour for `value`.
+    fn shade(&self, value: f64) -> Color32 {
+        match self.fraction(value) {
+            // Light, not dark: on a white ground "no reading" must recede.
+            None => NO_READING_GREY,
+            Some(f) => hot_to_cold_colour_mark_1(f as f32),
+        }
+    }
+}
+
+/// The "below the floor / no value" colour.
+const NO_READING_GREY: Color32 = Color32::from_gray(225);
+
+/// The cited anchors as a scale: floor [`banana_anchor`], top
+/// [`one_sievert_anchor`], span `log10(top / floor)` = 6.570 decades.
+pub fn anchor_scale() -> ColourScale {
+    ColourScale::clamped(
+        banana_anchor(),
+        (one_sievert_anchor() / banana_anchor()).log10(),
+    )
+}
+
+/// The pre-2026-09-28 convention: four decades below the field peak.
+fn peak_scale(peak: f64) -> ColourScale {
+    ColourScale::clamped(peak * 1.0e-4, 4.0)
+}
+
+/// The default scale for `basis` until the operator moves a slider.
+///
+/// - **Absolute**: the cited anchors, [`anchor_scale`].
+/// - **Per Ci**: the same anchors carried onto the per-Ci basis by the ratio of
+///   the two release rates (per-Ci / absolute), so a colour means the same
+///   absolute concentration on both bases; when the absolute rate is not
+///   available there is nothing to carry them by, and the old four-decades-
+///   below-peak scale is used instead.
+/// - **chi/Q**: four decades below the peak, as the map always drew it.
+fn default_scale(basis: MapBasis, s: &HtgrSnapshot, field_peak: f64) -> ColourScale {
+    match basis {
+        MapBasis::Absolute => anchor_scale(),
+        MapBasis::PerCi => {
+            let (per_ci, abs) = (
+                s.dispersion_source_rate_per_ci_bq_per_s,
+                s.dispersion_source_rate_absolute_bq_per_s,
+            );
+            if per_ci.is_finite() && abs.is_finite() && per_ci > 0.0 && abs > 0.0 {
+                let a = anchor_scale();
+                ColourScale::clamped(a.floor * per_ci / abs, a.span_decades)
+            } else {
+                peak_scale(field_peak)
+            }
+        }
+        MapBasis::ChiOverQ => peak_scale(field_peak),
+    }
+}
+
+/// What a texture was built from. A **change detector**, not a content key --
+/// see [`MapTabState::built_for`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct TextureKey {
+    cells: usize,
+    plume_time_s: f64,
+    basis: MapBasis,
+    factor: f64,
+    scale: ColourScale,
+}
 
 /// The Map tab's retained state.
 ///
@@ -102,45 +408,66 @@ const PLUME_JUMPS_S: [(f64, &str); 3] = [
 /// computing the field does.
 #[derive(Default)]
 pub struct MapTabState {
-    /// The uploaded `chi/Q` field, one texel per grid cell.
+    /// The uploaded field, one texel per grid cell.
     texture: Option<TextureHandle>,
-    /// `(cells, plume clock)` the texture was built from.
+    /// What the texture was built from.
     ///
     /// ~~"The field changes only when one of these does -- see
     /// `DispersionGrid` -- so this is the complete upload key and not an
     /// approximation of one."~~ **CORRECTED 2026-09-27.** With a marched puff
     /// population (gh:#344) the field depends on the whole *history* of the
     /// wind, which no fixed-size key can carry; the physics side says exactly
-    /// this about its own `FieldKey`. This pair is a **change detector**, not a
+    /// this about its own `FieldKey`. This is a **change detector**, not a
     /// content key. It is sufficient for that, and only for that, because the
     /// population's clock advances whenever the population does -- so a moved
     /// plume always arrives with a new clock. Do not reuse a texture across a
-    /// key match as though the key determined the field.
-    built_for: Option<(usize, f64)>,
+    /// key match as though the key determined the field. Since 2026-09-28 it
+    /// also carries the basis, the release-rate factor and the colour scale,
+    /// because each of those changes the painted colours without moving the
+    /// clock.
+    built_for: Option<TextureKey>,
+    /// The basis the operator asked for (default Absolute).
+    basis: MapBasis,
+    /// Operator-set colour scale per basis, indexed by [`MapBasis::index`].
+    /// `None` until a slider is touched: the default then tracks
+    /// [`default_scale`], which for Per Ci moves with the release rates.
+    scales: [Option<ColourScale>; 3],
 }
 
 impl MapTabState {
+    /// The scale in force for `basis`.
+    fn scale_for(&self, basis: MapBasis, s: &HtgrSnapshot, field_peak: f64) -> ColourScale {
+        self.scales[basis.index()].unwrap_or_else(|| default_scale(basis, s, field_peak))
+    }
+
     /// The texture for this snapshot's field, re-uploading only when the field
-    /// has actually changed.
+    /// or the way it is painted has changed.
     ///
     /// Returns `None` when there is no field yet, which is the state before
     /// the first dispersion evaluation. Nothing is substituted in that case:
     /// an invented plume would look exactly like a computed one.
-    fn field_texture(&mut self, ui: &Ui, s: &HtgrSnapshot) -> Option<&TextureHandle> {
+    fn field_texture(
+        &mut self,
+        ui: &Ui,
+        s: &HtgrSnapshot,
+        basis: MapBasis,
+        scale: ColourScale,
+    ) -> Option<&TextureHandle> {
         let cells = s.dispersion_grid_cells;
         if cells == 0 || s.dispersion_grid.len() < cells * cells {
             return None;
         }
-        let key = (cells, s.dispersion_grid_time_s);
+        let key = TextureKey {
+            cells,
+            plume_time_s: s.dispersion_grid_time_s,
+            basis,
+            factor: basis.factor(s),
+            scale,
+        };
         if self.built_for != Some(key) || self.texture.is_none() {
-            let peak = s
-                .dispersion_grid
-                .iter()
-                .copied()
-                .fold(0.0_f32, f32::max) as f64;
             let pixels: Vec<Color32> = s.dispersion_grid[..cells * cells]
                 .iter()
-                .map(|value| log_shade(*value as f64, peak))
+                .map(|chi| scale.shade(field_value(*chi as f64, basis, s)))
                 .collect();
             let image = ColorImage::new([cells, cells], pixels);
             match &mut self.texture {
@@ -163,6 +490,101 @@ impl MapTabState {
     }
 }
 
+/// The largest `chi/Q` in the snapshot's field \[s/m^3\].
+fn field_peak_chi_over_q(s: &HtgrSnapshot) -> f64 {
+    s.dispersion_grid.iter().copied().fold(0.0_f32, f32::max) as f64
+}
+
+/// The basis selector and the two colour-scale sliders.
+///
+/// Returns the basis actually painted and the scale in force.
+fn draw_scale_controls(
+    ui: &mut Ui,
+    s: &HtgrSnapshot,
+    state: &mut MapTabState,
+) -> (MapBasis, ColourScale) {
+    let peak_chi = field_peak_chi_over_q(s);
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Map shows:");
+        for basis in MapBasis::ALL {
+            ui.radio_value(&mut state.basis, basis, basis.label());
+        }
+    });
+    let basis = effective_basis(state.basis, s);
+    if basis != state.basis {
+        ui.colored_label(
+            Color32::from_rgb(200, 120, 20),
+            "Absolute source term unavailable (no published inventory for a tracked nuclide, \
+             or no release evaluated yet) -- showing Per Ci instead.",
+        );
+    }
+
+    let mut scale = state.scale_for(basis, s, peak_chi);
+    let before = scale;
+    let mut reset = false;
+    let unit = basis.unit();
+    ui.horizontal_wrapped(|ui| {
+        ui.add(
+            egui::Slider::new(
+                &mut scale.floor,
+                ColourScale::FLOOR_MIN..=ColourScale::FLOOR_MAX,
+            )
+            .logarithmic(true)
+            .custom_formatter(|v, _| format!("{v:.3e}"))
+            .text(format!("minimum reading [{unit}]")),
+        )
+        .on_hover_text(
+            "Colour-scale floor: readings at or below it are drawn light grey (no colour).",
+        );
+        ui.add(
+            egui::Slider::new(
+                &mut scale.span_decades,
+                ColourScale::SPAN_MIN..=ColourScale::SPAN_MAX,
+            )
+            .text("additional range on top [decades]"),
+        )
+        .on_hover_text("Top of the colour scale = minimum x 10^span; readings above it clamp.");
+        if ui
+            .button("Reset scale")
+            .on_hover_text("Back to this basis's default scale.")
+            .clicked()
+        {
+            state.scales[basis.index()] = None;
+            scale = default_scale(basis, s, peak_chi);
+            reset = true;
+        }
+    });
+    // Stored only when a slider actually moved, so an untouched basis keeps
+    // tracking its (possibly moving) default.
+    let moved = scale != before;
+    let scale = ColourScale::clamped(scale.floor, scale.span_decades);
+    if moved && !reset {
+        state.scales[basis.index()] = Some(scale);
+    }
+    ui.label(format!(
+        "Colour scale {:.3e} -> {:.3e} {unit} (log, {:.2} decades).",
+        scale.floor,
+        scale.top(),
+        scale.span_decades
+    ));
+    if basis == MapBasis::Absolute {
+        ui.label(format!(
+            "Default anchors: floor {:.3e} = \"≈ banana\";  top {:.3e} = \"≈ 1 Sv-equivalent \
+             (indicative — not a dose calculation)\".  Both are Bq of INTAKE placed numerically \
+             on this Bq/m^3 scale -- colour anchors, not a unit conversion, and no dose is \
+             computed here.",
+            banana_anchor(),
+            one_sievert_anchor()
+        ))
+        .on_hover_text(
+            "Derived from US EPA Federal Guidance Report No. 11 (EPA-520/1-88-020, 1988), \
+             Table 2.2 (ingestion, 'Effective' column): K-40 5.02e-9 Sv/Bq and Cs-137 \
+             1.35e-8 Sv/Bq. Arithmetic and provenance: htgr_sim_v1/reference/References.md.",
+        );
+    }
+    (basis, scale)
+}
+
 /// Draw the dispersion rose: the evaluated `chi/Q` field, with the receptor
 /// ring, distance rings and sector spokes over it.
 ///
@@ -181,7 +603,14 @@ impl MapTabState {
 ///
 /// Returns the side of the map square actually painted \[points\], which is
 /// what the caller turns into the next frame's resolution request.
-fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, side: f32) -> f32 {
+fn draw_dispersion_rose(
+    ui: &mut Ui,
+    s: &HtgrSnapshot,
+    state: &mut MapTabState,
+    side: f32,
+    basis: MapBasis,
+    scale: ColourScale,
+) -> f32 {
     let (response, painter) = ui.allocate_painter(Vec2::new(side, side), Sense::hover());
     let rect = response.rect;
     let centre = rect.center();
@@ -219,7 +648,8 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     // Distance rings, drawn at the real radii so the plot is to scale.
     let mut drawn: Vec<f64> = Vec::new();
     for receptor in &s.receptors {
-        if receptor.distance_m > 0.0 && !drawn.iter().any(|d| (d - receptor.distance_m).abs() < 1e-9)
+        if receptor.distance_m > 0.0
+            && !drawn.iter().any(|d| (d - receptor.distance_m).abs() < 1e-9)
         {
             drawn.push(receptor.distance_m);
         }
@@ -232,13 +662,10 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     // coordinates, so this is a readout at every pixel of the square rather
     // than an interpolation between 24 -- which is what the rose's own docs
     // rule out.
-    let field_peak = s
-        .dispersion_grid
-        .iter()
-        .copied()
-        .fold(0.0_f32, f32::max) as f64;
+    // The peak in the PAINTED unit, for the readout below.
+    let field_peak = field_value(field_peak_chi_over_q(s), basis, s);
     let grid_px = max_radius * (s.dispersion_grid_half_width_m / outermost) as f32;
-    if let Some(texture) = state.field_texture(ui, s) {
+    if let Some(texture) = state.field_texture(ui, s, basis, scale) {
         let field_rect = Rect::from_center_size(centre, Vec2::splat(2.0 * grid_px));
         painter.image(
             texture.id(),
@@ -279,11 +706,13 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
         );
     }
 
-    // The peak sets the shading scale: chi/Q spans orders of magnitude between
-    // upwind and downwind, so a LINEAR scale would render everything but the
-    // plume centreline as black. The scale is therefore logarithmic over four
-    // decades below the peak, and that is stated on screen rather than left
-    // for a reader to infer from a picture that would otherwise mislead.
+    // ~~The peak sets the shading scale [...] logarithmic over four decades
+    // below the peak~~ CHANGED 2026-09-28 (maintainer direction): the scale is
+    // still logarithmic -- the field spans tens of decades, so a linear one
+    // would show only the centreline -- but its floor and span are now the
+    // operator's two sliders (`draw_scale_controls`), defaulting to the cited
+    // anchors on the absolute basis. Four-decades-below-peak survives as the
+    // chi/Q basis's default. Stated on screen below.
     // ~~24 shaded receptor discs, one per (bearing, distance) pair~~
     // **REMOVED 2026-09-27**, maintainer direction: *"receptor ring doesn't need
     // to be there now, just want a ring showing distances and a central arrow
@@ -299,7 +728,8 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     // The sampled numbers are NOT gone -- the maintainer asked for them live, and
     // they are in the table below, now including an INSTANTANEOUS column that
     // does agree with the field cell under it. What is gone is drawing them over
-    // the map. `log_shade` survives because the field still uses it.
+    // the map. ~~`log_shade` survives because the field still uses it.~~
+    // (`log_shade` was replaced by `ColourScale::shade` on 2026-09-28.)
 
     // The wind arrow, drawn CENTRALLY and pointing the way the plume TRAVELS --
     // the opposite of the meteorological "from" bearing the operator dials in.
@@ -362,14 +792,31 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     // else: what the brightest pixel on screen is worth, and how far down the
     // ramp runs. Without it the picture is a shape with no magnitude, and the
     // magnitude is the only thing anyone should quote off it.
-    if field_peak > 0.0 {
+    // A field wholly under the floor paints nothing, and a blank map must not
+    // be read as "no plume". Measured 2026-09-28 (`tests::the_chi_over_q_table_is_the_maps_dilution_factor`):
+    // at a 1200 K kernel the absolute peak is ~1.7e-4 Bq/m^3, about five
+    // decades under the default "≈ banana" floor -- so on the default scale a
+    // normal-operation plume is ENTIRELY below the floor. Said on the map.
+    if let Some(note) = below_floor_note(field_peak, scale, basis) {
+        painter.text(
+            Pos2::new(centre.x, rect.top() + 24.0),
+            Align2::CENTER_TOP,
+            note,
+            FontId::proportional(10.0),
+            Color32::from_rgb(200, 120, 20),
+        );
+    }
+    if field_peak.is_finite() {
         painter.text(
             Pos2::new(rect.right() - 4.0, rect.bottom() - 4.0),
             Align2::RIGHT_BOTTOM,
             format!(
-                "field peak {field_peak:.3e} s/m^3, 4 decades below it to the floor \
-                 ({} x {} cells)",
-                s.dispersion_grid_cells, s.dispersion_grid_cells
+                "field peak {field_peak:.3e} {}; colour {:.2e}..{:.2e} ({} x {} cells)",
+                basis.unit(),
+                scale.floor,
+                scale.top(),
+                s.dispersion_grid_cells,
+                s.dispersion_grid_cells
             ),
             FontId::proportional(9.0),
             Color32::from_gray(110),
@@ -377,6 +824,26 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     }
 
     rect.width()
+}
+
+/// The on-map note for a field whose peak is at or below the colour floor,
+/// or `None` when some of it is coloured.
+fn below_floor_note(field_peak: f64, scale: ColourScale, basis: MapBasis) -> Option<String> {
+    if !field_peak.is_finite() || field_peak > scale.floor {
+        return None;
+    }
+    Some(if field_peak > 0.0 {
+        format!(
+            "Whole field below the minimum reading: peak {field_peak:.2e} {} is {:.1} decades \
+             under the floor. Lower \"minimum reading\" to see the plume.",
+            basis.unit(),
+            (scale.floor / field_peak).log10()
+        )
+    } else {
+        "Field is zero on this basis (no release evaluated, or zero release rate). \
+         The chi/Q basis shows the plume shape."
+            .to_string()
+    })
 }
 
 /// Unit-circle position for a compass bearing, `(x east, y north)`.
@@ -389,27 +856,12 @@ fn bearing_to_plot(bearing_deg: f64, radius: f64) -> (f64, f64) {
     (radius * radians.sin(), radius * radians.cos())
 }
 
-/// Shade a receptor or a field cell by `chi/Q` on a **logarithmic** scale
-/// spanning four decades below the peak.
-///
-/// Linear shading would be actively misleading here: `chi/Q` runs from ~1e-5
-/// on the plume centreline to ~1e-28 upwind, so on a linear scale every
-/// receptor but one or two renders identically black and the map would suggest
-/// the plume is far narrower than the model says. Four decades is the span
-/// over which the difference is worth seeing; below that the values are
-/// negligible and are drawn at the floor colour.
-fn log_shade(value: f64, peak: f64) -> Color32 {
-    const DECADES: f64 = 4.0;
-    if !(value > 0.0) || !(peak > 0.0) {
-        // Light, not dark: on a white ground the "no value" marker must
-        // recede. The old near-black was correct for the dark canvas and
-        // wrong the moment the background changed.
-        return Color32::from_gray(225);
-    }
-    let decades_below = (peak / value).log10();
-    let fraction = (1.0 - decades_below / DECADES).clamp(0.0, 1.0);
-    hot_to_cold_colour_mark_1(fraction as f32)
-}
+// ~~`log_shade(value, peak)`~~ -- REPLACED 2026-09-28 by `ColourScale::shade`,
+// which takes the floor and span from the operator's sliders instead of fixing
+// them at four decades below the peak. The peak-relative convention survives as
+// `peak_scale`, the chi/Q basis's default. One behavioural difference, on
+// purpose: a value below the floor is now the light "no reading" grey rather
+// than the bottom ramp colour, because the floor is a *minimum reading*.
 
 /// Smallest angle between two compass bearings, degrees.
 fn angular_distance(a_deg: f64, b_deg: f64) -> f64 {
@@ -559,34 +1011,176 @@ fn plume_offset_banner(offset_s: f64) -> Option<String> {
     })
 }
 
-/// The dispersion table and its caveats.
+/// The downwind half of the receptor ring, sorted by distance then bearing.
+///
+/// Only the downwind half is tabulated: 24 rows is a wall, and the upwind
+/// receptors are 20+ orders below the centreline and carry no information a
+/// reader acts on.
+///
+/// ~~"The ROSE shows all 24, so nothing is hidden."~~ **CORRECTED 2026-09-27**
+/// -- the rose no longer plots receptors at all (maintainer direction; it shows
+/// the field, the distance rings and the wind arrow). So the upwind half is now
+/// genuinely not on screen in the two activity tables. That is a table-length
+/// choice and not a filter on what was COMPUTED -- all 24 are evaluated, and
+/// since 2026-09-28 the `chi/Q` table below them shows all eight bearings.
+fn downwind_rows(s: &HtgrSnapshot) -> Vec<&super::state::ReceptorSnapshot> {
+    let travel_deg = (s.wind_from_deg + 180.0).rem_euclid(360.0);
+    let mut rows: Vec<&super::state::ReceptorSnapshot> = s
+        .receptors
+        .iter()
+        .filter(|r| r.distance_m > 0.0 && angular_distance(r.bearing_deg, travel_deg) <= 90.0)
+        .collect();
+    rows.sort_by(|a, b| {
+        a.distance_m
+            .total_cmp(&b.distance_m)
+            .then(a.bearing_deg.total_cmp(&b.bearing_deg))
+    });
+    rows
+}
+
+/// Column headings of the per-Ci table. **Unchanged** since 2026-09-27
+/// (maintainer direction 2026-09-28: keep the per-Ci tables as they are);
+/// pinned by `tests::the_per_ci_table_is_unchanged`.
+const PER_CI_TABLE_HEADINGS: [&str; 6] = [
+    "Bearing",
+    "Distance",
+    "chi/Q LIVE [s/m^3]",
+    "chi/Q integrated [s/m^3]",
+    "Air [Bq.s/m^3 per Ci]",
+    "Ground [Bq/m^2 per Ci]",
+];
+
+/// Column headings of the absolute table, every quantity with its true unit.
+const ABSOLUTE_TABLE_HEADINGS: [&str; 5] = [
+    "Bearing",
+    "Distance",
+    "Air LIVE [Bq/m^3]",
+    "Air integrated [Bq.s/m^3]",
+    "Ground, dry [Bq/m^2]",
+];
+
+/// One distance's row pair of the `chi/Q` table: the eight bearings, north
+/// first, clockwise, with the LIVE (instantaneous) and integrated `chi/Q`.
+#[derive(Debug, Clone, PartialEq)]
+struct ChiOverQRow {
+    distance_m: f64,
+    bearings_deg: Vec<f64>,
+    /// Instantaneous `chi/Q` \[s/m^3\] -- the dilution factor the MAP uses
+    /// (same kernel, same puff population; see
+    /// `atmospheric_dispersion::tests::the_live_ring_sample_agrees_with_the_field_cell_under_it`).
+    live: Vec<f64>,
+    /// Time-integrated `chi/Q` \[s/m^3\] -- the dilution factor the ACTIVITY
+    /// columns are built on.
+    integrated: Vec<f64>,
+}
+
+/// The `chi/Q` table, one [`ChiOverQRow`] per receptor distance, all bearings.
+/// Pure, so a test can check it against the physics.
+fn chi_over_q_rows(s: &HtgrSnapshot) -> Vec<ChiOverQRow> {
+    let mut distances: Vec<f64> = Vec::new();
+    for r in &s.receptors {
+        if r.distance_m > 0.0 && !distances.iter().any(|d| (d - r.distance_m).abs() < 1e-9) {
+            distances.push(r.distance_m);
+        }
+    }
+    distances.sort_by(f64::total_cmp);
+    distances
+        .into_iter()
+        .map(|d| {
+            let mut at: Vec<&super::state::ReceptorSnapshot> = s
+                .receptors
+                .iter()
+                .filter(|r| (r.distance_m - d).abs() < 1e-9)
+                .collect();
+            at.sort_by(|a, b| a.bearing_deg.total_cmp(&b.bearing_deg));
+            ChiOverQRow {
+                distance_m: d,
+                bearings_deg: at.iter().map(|r| r.bearing_deg).collect(),
+                live: at.iter().map(|r| r.instantaneous_chi_over_q).collect(),
+                integrated: at.iter().map(|r| r.chi_over_q).collect(),
+            }
+        })
+        .collect()
+}
+
+/// A number, or `--` when it is not available.
+fn sci_or_dash(value: f64, digits: usize) -> String {
+    if value.is_finite() {
+        format!("{value:.digits$e}")
+    } else {
+        "--".to_string()
+    }
+}
+
+/// The dispersion tables and their caveats: absolute, then per-Ci
+/// (unchanged), then `chi/Q` by distance directly under them.
 fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
     ui.label(format!(
         "Gaussian puff (changi::puff, ported from R `puff` 0.1.1) -- NOT FLEXPART.  \
          Wind {:.1} m/s FROM {:.0} deg, Pasquill class {}.  Last run at t = {}",
         s.wind_speed_m_per_s,
         s.wind_from_deg,
-        if s.stability_class.is_empty() { "--" } else { s.stability_class },
+        if s.stability_class.is_empty() {
+            "--"
+        } else {
+            s.stability_class
+        },
         if s.dispersion_evaluated_at_s.is_finite() {
             format!("{:.0} s", s.dispersion_evaluated_at_s)
         } else {
             "--".to_string()
         }
     ));
+    ui.label(format!(
+        "Release rate to atmosphere (5 tracked nuclides, primary-circuit leak ~1 %/day): \
+         absolute {} Bq/s;  per-Ci basis {} Bq/s per Ci.",
+        sci_or_dash(s.dispersion_source_rate_absolute_bq_per_s, 3),
+        sci_or_dash(s.dispersion_source_rate_per_ci_bq_per_s, 3),
+    ));
     ui.label(
-        "chi/Q is the quotable column: it is a dilution factor and does NOT depend on the \
-         source, so no inventory or leak-rate assumption enters it. The two activity columns \
-         DO -- they are per curie of core inventory and per unit of a placeholder leak \
-         fraction, i.e. a transfer function, not a consequence, and not figures for any \
-         reactor. Research, education and V&V only; no dose quantity is computed.",
-    );
-    ui.label(
-        "These rows are the TIME-INTEGRATED chi/Q at each receptor, over the whole puff run. \
-         The map above is the INSTANTANEOUS field at the plume clock. Both are s/m^3 and \
-         they are different quantities -- do not read a pixel against a row.",
+        "chi/Q is the quotable quantity: a dilution factor that does NOT depend on the source. \
+         The activity columns DO: they are the five tracked nuclides only, leaked from the \
+         primary circuit at the published ~1 %/day (no building retention, filtration or \
+         stack model), with TRISO-ATOPS reference failure fractions -- NOT a source term and \
+         not figures for any reactor. Research, education and V&V only; no dose quantity is \
+         computed.",
     );
     ui.add_space(4.0);
 
+    // --- 1. ABSOLUTE (maintainer direction 2026-09-28) ---
+    ui.strong("Absolute basis");
+    egui::Grid::new("htgr_map_dispersion_grid_absolute")
+        .num_columns(ABSOLUTE_TABLE_HEADINGS.len())
+        .striped(true)
+        .show(ui, |ui| {
+            for heading in ABSOLUTE_TABLE_HEADINGS {
+                ui.label(heading);
+            }
+            ui.end_row();
+            for r in downwind_rows(s) {
+                ui.label(format!("{:.0} deg", r.bearing_deg));
+                ui.label(format!("{:.0} m", r.distance_m));
+                // The same function the map texture uses, so this equals the
+                // Absolute-basis pixel under the receptor.
+                ui.label(sci_or_dash(
+                    field_value(r.instantaneous_chi_over_q, MapBasis::Absolute, s),
+                    3,
+                ));
+                ui.label(sci_or_dash(r.air_bq_s_per_m3_absolute, 3));
+                ui.label(sci_or_dash(r.ground_bq_per_m2_absolute, 3));
+                ui.end_row();
+            }
+        });
+    ui.label(
+        "Air LIVE = instantaneous chi/Q x absolute release rate: the instantaneous air \
+         concentration, equal to the map pixel under the receptor on the Absolute basis \
+         (decay in transit neglected, < 0.2 % over a 20 min puff life). Air integrated and \
+         Ground are the time-integrated survey over the puff run, with decay in transit.",
+    );
+    ui.add_space(6.0);
+
+    // --- 2. PER Ci -- unchanged ---
+    ui.strong("Per curie of core inventory");
     egui::Grid::new("htgr_map_dispersion_grid")
         // 6, not 5: the LIVE chi/Q column was added 2026-09-27 beside the
         // time-integrated one. Both are shown because they are different
@@ -594,46 +1188,11 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
         .num_columns(6)
         .striped(true)
         .show(ui, |ui| {
-            for heading in [
-                "Bearing",
-                "Distance",
-                "chi/Q LIVE [s/m^3]",
-                "chi/Q integrated [s/m^3]",
-                "Air [Bq.s/m^3 per Ci]",
-                "Ground [Bq/m^2 per Ci]",
-            ] {
+            for heading in PER_CI_TABLE_HEADINGS {
                 ui.label(heading);
             }
             ui.end_row();
-
-            // Only the downwind half is tabulated: 24 rows is a wall, and the
-            // upwind receptors are 20+ orders below the centreline and carry
-            // no information a reader acts on.
-            //
-            // ~~"The ROSE shows all 24, so nothing is hidden."~~
-            // **CORRECTED 2026-09-27** -- the rose no longer plots receptors at
-            // all (maintainer direction; it shows the field, the distance rings
-            // and the wind arrow). So the upwind half is now genuinely not on
-            // screen anywhere. That is still a table-length choice and not a
-            // filter on what was COMPUTED -- all 24 are evaluated, and the field
-            // behind the rings covers the upwind side at every pixel -- but the
-            // old sentence's reassurance no longer applies and is struck rather
-            // than left to mislead.
-            let travel_deg = (s.wind_from_deg + 180.0).rem_euclid(360.0);
-            let mut rows: Vec<&super::state::ReceptorSnapshot> = s
-                .receptors
-                .iter()
-                .filter(|r| {
-                    r.distance_m > 0.0 && angular_distance(r.bearing_deg, travel_deg) <= 90.0
-                })
-                .collect();
-            rows.sort_by(|a, b| {
-                a.distance_m
-                    .total_cmp(&b.distance_m)
-                    .then(a.bearing_deg.total_cmp(&b.bearing_deg))
-            });
-
-            for r in rows {
+            for r in downwind_rows(s) {
                 ui.label(format!("{:.0} deg", r.bearing_deg));
                 ui.label(format!("{:.0} m", r.distance_m));
                 // LIVE first, because it is the one that refreshes at 10 Hz and
@@ -648,11 +1207,47 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
     ui.add_space(4.0);
     ui.label(
         "Downwind half shown. LIVE chi/Q is the INSTANTANEOUS field sampled at each point and \
-         refreshes with the map; it is the same number as the map cell under that point. \
-         Integrated chi/Q is the TIME-INTEGRATED dilution factor over the whole puff run and \
-         refreshes on the 60 s dispersion throttle -- the activity columns are built on THAT \
-         one. The two share units and will not agree. Ground deposition is DRY only -- wet \
-         scavenging is not ported, so it is not an upper bound.",
+         refreshes with the map (10 Hz); on the chi/Q basis it is the same number as the map \
+         cell under that point. Integrated chi/Q is the TIME-INTEGRATED dilution factor over \
+         the whole puff run and refreshes on the 2 s dispersion throttle -- the activity \
+         columns are built on THAT one. The two share units and will not agree. Ground \
+         deposition is DRY only -- wet scavenging is not ported, so it is not an upper bound.",
+    );
+    ui.add_space(6.0);
+
+    // --- 3. chi/Q by distance (maintainer direction 2026-09-28: directly
+    // under the Bq/Ci tables) ---
+    ui.strong("chi/Q by receptor distance [s/m^3] -- source-independent dilution factor");
+    let rows = chi_over_q_rows(s);
+    let bearings: Vec<f64> = rows
+        .first()
+        .map(|r| r.bearings_deg.clone())
+        .unwrap_or_default();
+    egui::Grid::new("htgr_map_chi_over_q_by_distance")
+        .num_columns(2 + bearings.len())
+        .striped(true)
+        .show(ui, |ui| {
+            ui.label("Distance");
+            ui.label("chi/Q");
+            for b in &bearings {
+                ui.label(format!("{b:.0} deg"));
+            }
+            ui.end_row();
+            for row in &rows {
+                for (what, values) in [("LIVE", &row.live), ("integrated", &row.integrated)] {
+                    ui.label(format!("{:.0} m", row.distance_m));
+                    ui.label(what);
+                    for v in values.iter() {
+                        ui.label(format!("{v:.3e}"));
+                    }
+                    ui.end_row();
+                }
+            }
+        });
+    ui.label(
+        "All eight bearings. LIVE is the instantaneous chi/Q the map multiplies by the release \
+         rate; integrated is the time-integrated chi/Q the activity columns use. Neither \
+         depends on any inventory, leak-rate or fuel input.",
     );
 }
 
@@ -705,8 +1300,11 @@ pub fn draw_map(
     draw_plume_clock(ui, physics, s);
     ui.add_space(4.0);
 
+    let (basis, scale) = draw_scale_controls(ui, s, state);
+    ui.add_space(4.0);
+
     let side = (view.y * MAP_HEIGHT_FRACTION).max(MAP_MIN_SIDE);
-    let painted = draw_dispersion_rose(ui, s, state, side);
+    let painted = draw_dispersion_rose(ui, s, state, side, basis, scale);
 
     // Tell the physics what resolution this map can show. A control input,
     // written the same way the wind is -- see `HtgrSnapshot::
@@ -765,49 +1363,295 @@ mod tests {
         );
     }
 
-    /// The log shading must span four decades, clamp outside them, and never
-    /// render a zero or a negative as anything but the floor.
+    /// The colour scale must clamp above its top, grey out at and below its
+    /// floor, never render a zero, a negative or a NaN as anything but that
+    /// grey, and that grey must recede on the white ground.
     ///
-    /// A linear scale here would make the plume look far narrower than the
-    /// model says — chi/Q runs from ~1e-5 on the centreline to ~1e-28 upwind —
-    /// so the log scale is load-bearing for the picture being honest, and its
-    /// endpoints are pinned.
+    /// ~~`the_log_shading_spans_four_decades_and_clamps`~~ -- REPLACED
+    /// 2026-09-28 with `log_shade` itself (see `ColourScale::shade`). Its
+    /// contract carries over; the one change is that below-floor is now the
+    /// grey rather than the bottom ramp colour, because the floor is a minimum
+    /// reading. The four-decade convention is pinned by
+    /// `the_chi_over_q_basis_keeps_the_four_decade_default`.
     #[test]
-    fn the_log_shading_spans_four_decades_and_clamps() {
-        let peak = 1.0e-5;
-        let at_peak = log_shade(peak, peak);
-        let one_decade = log_shade(peak / 10.0, peak);
-        let four_decades = log_shade(peak / 1.0e4, peak);
-        let far_below = log_shade(peak / 1.0e20, peak);
-
-        assert_ne!(at_peak, one_decade, "one decade must be visibly different");
-        assert_eq!(
-            four_decades, far_below,
-            "beyond four decades the scale must clamp, not keep darkening"
+    fn the_colour_scale_clamps_and_greys_below_the_floor() {
+        let scale = ColourScale::clamped(1.0e-9, 4.0);
+        let top = scale.top();
+        assert!((top - 1.0e-5).abs() < 1e-18);
+        let at_top = scale.shade(top);
+        assert_ne!(
+            at_top,
+            scale.shade(top / 10.0),
+            "one decade must be visibly different"
         );
-        // Degenerate inputs must not panic, must all land on the SAME floor,
-        // and that floor must RECEDE against the map's white ground.
-        //
-        // ~~`let floor = Color32::from_gray(45);`~~ **CORRECTED 2026-09-25.**
-        // This test asserted the near-black floor that belonged to the dark
-        // canvas, and `log_shade` has returned `from_gray(225)` since the
-        // ground went white on 2026-09-24 -- so the test had been failing
-        // ever since, asserting a colour the function could no longer return.
-        // It is now written against the *contract* (one floor, and a light
-        // one) rather than against a grey level restated in two places, so
-        // the next background change cannot silently break it again.
-        let floor = log_shade(0.0, peak);
-        assert_eq!(log_shade(-1.0, peak), floor, "a negative must hit the floor");
-        assert_eq!(log_shade(peak, 0.0), floor, "a zero peak must hit the floor");
-        assert_ne!(floor, at_peak, "the floor must not be the peak colour");
-        // "Light" is the load-bearing half: on a white map the no-value cells
-        // are most of the picture, and a dark floor would make the quiet
-        // sectors the hardest thing to see -- which is backwards, since a
-        // quiet sector is the reassuring result.
-        let (r, g, b) = (floor.r() as u16, floor.g() as u16, floor.b() as u16);
+        assert_eq!(
+            at_top,
+            scale.shade(top * 1.0e20),
+            "above the top the scale clamps"
+        );
+        for v in [0.0, -1.0, f64::NAN, 1.0e-9, 1.0e-12] {
+            assert_eq!(
+                scale.shade(v),
+                NO_READING_GREY,
+                "{v} is not above the floor"
+            );
+        }
+        assert_ne!(NO_READING_GREY, at_top);
+        let (r, g, b) = (
+            NO_READING_GREY.r() as u16,
+            NO_READING_GREY.g() as u16,
+            NO_READING_GREY.b() as u16,
+        );
         assert!(
             (r + g + b) / 3 >= 200,
-            "the floor must recede on a white ground; got rgb({r}, {g}, {b})"
+            "the no-reading colour must recede on white"
+        );
+    }
+
+    /// **The slider defaults are the cited anchors, and the arithmetic is the
+    /// documented one.**
+    ///
+    /// # Methodology
+    ///
+    /// Coefficients: US EPA FGR-11 (EPA-520/1-88-020, 1988), Table 2.2,
+    /// Effective column -- K-40 ingestion 5.02e-9 Sv/Bq (printed p. 156), Cs-137
+    /// ingestion 1.35e-8 Sv/Bq (printed p. 166), read off the rendered pages
+    /// 2026-09-28. The expected values are written out as literals here from
+    /// the hand arithmetic in `reference/References.md`, so a changed constant
+    /// fails the test rather than silently moving the anchor:
+    ///
+    /// ```text
+    /// floor = 1.0e-7 Sv / 5.02e-9 Sv/Bq = 19.920 Bq      ("≈ banana")
+    /// top   = 1.0 Sv    / 1.35e-8 Sv/Bq = 7.4074e7 Bq    ("≈ 1 Sv-equivalent")
+    /// span  = log10(7.4074e7 / 19.920)  = 6.5704 decades
+    /// ```
+    ///
+    /// # Results (2026-09-28)
+    ///
+    /// Pass. These are **indicative colour anchors**, not a dose calculation.
+    #[test]
+    fn the_slider_defaults_are_the_cited_anchors() {
+        assert_eq!(FGR11_K40_INGESTION_SV_PER_BQ, 5.02e-9);
+        assert_eq!(FGR11_CS137_INGESTION_SV_PER_BQ, 1.35e-8);
+        assert!(
+            (banana_anchor() - 19.920_318_7).abs() < 1e-6,
+            "{}",
+            banana_anchor()
+        );
+        assert!(
+            (one_sievert_anchor() - 7.407_407_4e7).abs() < 1.0,
+            "{}",
+            one_sievert_anchor()
+        );
+
+        let a = anchor_scale();
+        assert!((a.floor - banana_anchor()).abs() < 1e-12);
+        assert!(
+            (a.span_decades - 6.570_4).abs() < 1e-4,
+            "{}",
+            a.span_decades
+        );
+        assert!((a.top() / one_sievert_anchor() - 1.0).abs() < 1e-12);
+
+        // The Absolute basis defaults to it, and a fresh tab state is on Absolute.
+        let s = HtgrSnapshot::default();
+        assert_eq!(default_scale(MapBasis::Absolute, &s, 1.0e-5), a);
+        let state = MapTabState::default();
+        assert_eq!(state.basis, MapBasis::Absolute);
+        assert_eq!(state.scale_for(MapBasis::Absolute, &s, 1.0e-5), a);
+        // Anchors sit inside the slider ranges, so the defaults are reachable.
+        assert_eq!(ColourScale::clamped(a.floor, a.span_decades), a);
+    }
+
+    /// The two sliders clamp sensibly: out-of-range and non-finite inputs land
+    /// on the range ends instead of producing a NaN or an inverted scale.
+    #[test]
+    fn the_scale_sliders_clamp_sensibly() {
+        let lo = ColourScale::clamped(0.0, f64::NAN);
+        assert_eq!(
+            (lo.floor, lo.span_decades),
+            (ColourScale::FLOOR_MIN, ColourScale::SPAN_MIN)
+        );
+        let neg = ColourScale::clamped(-5.0, -3.0);
+        assert_eq!(
+            (neg.floor, neg.span_decades),
+            (ColourScale::FLOOR_MIN, ColourScale::SPAN_MIN)
+        );
+        let hi = ColourScale::clamped(1.0e40, 100.0);
+        assert_eq!(
+            (hi.floor, hi.span_decades),
+            (ColourScale::FLOOR_MAX, ColourScale::SPAN_MAX)
+        );
+        let nan = ColourScale::clamped(f64::INFINITY, f64::INFINITY);
+        assert!(nan.floor.is_finite() && nan.span_decades.is_finite());
+        for sc in [lo, neg, hi, nan] {
+            assert!(sc.top() > sc.floor, "top must lie above the floor: {sc:?}");
+        }
+    }
+
+    /// Absolute falls back to Per Ci when the absolute rate is unavailable;
+    /// Per Ci carries the anchors by the rate ratio when it can.
+    #[test]
+    fn absolute_falls_back_to_per_ci_and_per_ci_carries_the_anchors() {
+        let mut s = HtgrSnapshot::default();
+        // Before the first run both rates are NaN.
+        assert_eq!(effective_basis(MapBasis::Absolute, &s), MapBasis::PerCi);
+        assert_eq!(effective_basis(MapBasis::ChiOverQ, &s), MapBasis::ChiOverQ);
+        s.dispersion_source_rate_absolute_bq_per_s = 2.0e6;
+        s.dispersion_source_rate_per_ci_bq_per_s = 4.0e-4;
+        assert_eq!(effective_basis(MapBasis::Absolute, &s), MapBasis::Absolute);
+        let per_ci = default_scale(MapBasis::PerCi, &s, 1.0e-5);
+        let a = anchor_scale();
+        assert!((per_ci.floor - a.floor * 4.0e-4 / 2.0e6).abs() < 1e-18);
+        assert_eq!(per_ci.span_decades, a.span_decades);
+    }
+
+    /// The chi/Q basis keeps the map's old default: four decades below the peak.
+    #[test]
+    fn the_chi_over_q_basis_keeps_the_four_decade_default() {
+        let s = HtgrSnapshot::default();
+        let sc = default_scale(MapBasis::ChiOverQ, &s, 1.0e-5);
+        assert!((sc.floor - 1.0e-9).abs() < 1e-21 && sc.span_decades == 4.0);
+    }
+
+    /// A field wholly under the floor must say so on the map instead of
+    /// painting a blank square that reads as "no plume".
+    #[test]
+    fn a_field_under_the_floor_is_announced() {
+        let a = anchor_scale();
+        assert!(below_floor_note(a.floor * 10.0, a, MapBasis::Absolute).is_none());
+        let note = below_floor_note(1.7e-4, a, MapBasis::Absolute).expect("under the floor");
+        assert!(
+            note.contains("5.1 decades") && note.contains("Bq/m^3"),
+            "{note}"
+        );
+        assert!(below_floor_note(0.0, a, MapBasis::PerCi).is_some());
+        assert!(below_floor_note(f64::NAN, a, MapBasis::Absolute).is_none());
+    }
+
+    /// The per-Ci table's columns are unchanged (maintainer direction
+    /// 2026-09-28), and every quantity in the absolute table carries its
+    /// true unit.
+    #[test]
+    fn the_per_ci_table_is_unchanged() {
+        assert_eq!(
+            PER_CI_TABLE_HEADINGS,
+            [
+                "Bearing",
+                "Distance",
+                "chi/Q LIVE [s/m^3]",
+                "chi/Q integrated [s/m^3]",
+                "Air [Bq.s/m^3 per Ci]",
+                "Ground [Bq/m^2 per Ci]",
+            ]
+        );
+        assert_eq!(ABSOLUTE_TABLE_HEADINGS[2], "Air LIVE [Bq/m^3]");
+        assert_eq!(ABSOLUTE_TABLE_HEADINGS[3], "Air integrated [Bq.s/m^3]");
+        assert_eq!(ABSOLUTE_TABLE_HEADINGS[4], "Ground, dry [Bq/m^2]");
+    }
+
+    /// **The chi/Q table's values are the dilution factors the map uses, and
+    /// the absolute LIVE column is the Absolute-basis pixel value.**
+    ///
+    /// # Methodology
+    ///
+    /// Run the real dispersion channel (1200 K kernel release, default
+    /// meteorology), march the plume 600 s with `refresh_field`, evaluate,
+    /// and project the result onto a snapshot exactly as
+    /// `physics::write_snapshot` does. Then:
+    ///
+    /// 1. each LIVE cell of [`chi_over_q_rows`] equals the receptor's
+    ///    instantaneous `chi/Q` (bit-for-bit), which `evaluate` fills from
+    ///    `instantaneous_chi_over_q_at_ring` --
+    ///    the same kernel and population the map field is painted from, which
+    ///    `atmospheric_dispersion::tests::the_live_ring_sample_agrees_with_the_field_cell_under_it`
+    ///    ties to the grid cell under the receptor;
+    /// 2. each integrated cell equals the receptor's time-integrated `chi/Q`;
+    /// 3. the absolute LIVE value equals `chi/Q x source_rate_absolute` -- the
+    ///    exact function (`field_value`) the texture shades.
+    ///
+    /// # Results (2026-09-28)
+    ///
+    /// Pass: 3 distances x 8 bearings, all equal. Printed: peak LIVE `chi/Q` on
+    /// the ring 1.805e-5 s/m^3, absolute release rate 9.515 Bq/s, so peak
+    /// absolute LIVE air concentration **1.717e-4 Bq/m^3** -- about **5.1
+    /// decades below** the default "≈ banana" floor (19.92). Interpretation: on
+    /// the default scale a normal-operation plume at this kernel temperature
+    /// paints nothing; `below_floor_note` says so on the map.
+    #[test]
+    fn the_chi_over_q_table_is_the_maps_dilution_factor() {
+        use crate::physics::atmospheric_dispersion::AtmosphericDispersionChannel;
+        use crate::physics::fission_product_release::TrisoAtopsReleaseChannel;
+        use uom::si::f64::ThermodynamicTemperature;
+        use uom::si::thermodynamic_temperature::kelvin;
+
+        let mut release = TrisoAtopsReleaseChannel::new_htr10();
+        release.update(
+            0.0,
+            Some(TrisoAtopsReleaseChannel::kernel_and_graphite(
+                ThermodynamicTemperature::new::<kelvin>(1200.0),
+                ThermodynamicTemperature::new::<kelvin>(950.0),
+            )),
+        );
+        let mut channel = AtmosphericDispersionChannel::new();
+        channel.refresh_field(600.0);
+        let result = channel.evaluate(600.0, &release);
+
+        let mut s = HtgrSnapshot::default();
+        for (slot, r) in s.receptors.iter_mut().zip(result.receptors.iter()) {
+            slot.bearing_deg = r.bearing_deg;
+            slot.distance_m = r.distance_m;
+            slot.chi_over_q = r.chi_over_q;
+            slot.instantaneous_chi_over_q = r.instantaneous_chi_over_q;
+            slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
+            slot.ground_bq_per_m2 = r.ground_bq_per_m2;
+            slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
+            slot.ground_bq_per_m2_absolute = r.ground_bq_per_m2_absolute.unwrap_or(f64::NAN);
+        }
+        s.dispersion_source_rate_per_ci_bq_per_s = result.source_rate_per_ci_bq_per_s;
+        s.dispersion_source_rate_absolute_bq_per_s =
+            result.source_rate_absolute_bq_per_s.unwrap_or(f64::NAN);
+
+        let rows = chi_over_q_rows(&s);
+        assert_eq!(rows.len(), 3, "one row per receptor distance");
+        let mut checked = 0;
+        for row in &rows {
+            assert_eq!(row.bearings_deg.len(), 8, "all eight bearings");
+            for (k, bearing) in row.bearings_deg.iter().enumerate() {
+                let r = result
+                    .receptors
+                    .iter()
+                    .find(|r| {
+                        (r.distance_m - row.distance_m).abs() < 1e-9
+                            && (r.bearing_deg - bearing).abs() < 1e-9
+                    })
+                    .expect("receptor in the ring");
+                assert_eq!(row.live[k], r.instantaneous_chi_over_q);
+                assert_eq!(row.integrated[k], r.chi_over_q);
+                let abs_live = field_value(row.live[k], MapBasis::Absolute, &s);
+                assert_eq!(
+                    abs_live,
+                    r.instantaneous_chi_over_q * result.source_rate_absolute_bq_per_s.unwrap()
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 24);
+        let peak_live = rows
+            .iter()
+            .flat_map(|r| r.live.iter())
+            .copied()
+            .fold(0.0, f64::max);
+        println!(
+            "peak LIVE chi/Q on the ring {peak_live:.3e} s/m^3; absolute rate {:.3e} Bq/s; \
+             peak absolute LIVE air {:.3e} Bq/m^3 vs default floor {:.3e}",
+            s.dispersion_source_rate_absolute_bq_per_s,
+            field_value(peak_live, MapBasis::Absolute, &s),
+            anchor_scale().floor
+        );
+        assert!(
+            rows.iter().flat_map(|r| r.live.iter()).any(|v| *v > 0.0),
+            "the plume must have reached at least one receptor after 600 s"
         );
     }
 
@@ -829,7 +1673,10 @@ mod tests {
         // Symmetric, and never greater than 180.
         for (a, b) in [(10.0, 350.0), (0.0, 180.0), (90.0, 270.0), (359.0, 1.0)] {
             let ab = angular_distance(a, b);
-            assert!((ab - angular_distance(b, a)).abs() < 1e-12, "must be symmetric");
+            assert!(
+                (ab - angular_distance(b, a)).abs() < 1e-12,
+                "must be symmetric"
+            );
             assert!((0.0..=180.0).contains(&ab), "got {ab} for ({a}, {b})");
         }
         assert!((angular_distance(359.0, 1.0) - 2.0).abs() < 1e-12);
@@ -847,8 +1694,16 @@ mod tests {
     #[test]
     fn the_resolution_request_is_in_pixels_and_has_a_dead_band() {
         assert_eq!(requested_cells(320.0, 1.0), 320);
-        assert_eq!(requested_cells(320.0, 2.0), 640, "HiDPI must ask for real pixels");
-        assert_eq!(requested_cells(0.0, 1.0), 1, "a degenerate size must not be zero");
+        assert_eq!(
+            requested_cells(320.0, 2.0),
+            640,
+            "HiDPI must ask for real pixels"
+        );
+        assert_eq!(
+            requested_cells(0.0, 1.0),
+            1,
+            "a degenerate size must not be zero"
+        );
 
         // A one-pixel wobble on a 500-cell map is inside the dead band; a
         // real resize is not.
@@ -900,14 +1755,20 @@ mod tests {
 
         let ahead = plume_offset_banner(3600.0).expect("a displaced clock must warn");
         assert!(ahead.contains("AHEAD"), "got {ahead}");
-        assert!(ahead.contains("1:00:00"), "the magnitude must be readable; got {ahead}");
+        assert!(
+            ahead.contains("1:00:00"),
+            "the magnitude must be readable; got {ahead}"
+        );
         assert!(
             ahead.contains("EXTRAPOLATION") && ahead.contains("CURRENT wind"),
             "a forward jump is marched under the current wind and must say so; got {ahead}"
         );
 
         let behind = plume_offset_banner(-3600.0).expect("a rewound clock must warn");
-        assert!(behind.contains("BEHIND"), "a rewind is not a fast-forward; got {behind}");
+        assert!(
+            behind.contains("BEHIND"),
+            "a rewind is not a fast-forward; got {behind}"
+        );
         assert!(
             behind.contains("CLEARED") && behind.contains("RESTARTED"),
             "a rewind clears the population and must say so; got {behind}"
