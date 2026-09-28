@@ -87,12 +87,16 @@ def main():
     ax.axhline(1.0, color=MUTED, lw=0.8)
     styles = {"e8": (VIII, "o", "this model, ENDF/B-VIII.0 (30P graphite)"),
               "e7": (VII, "s", "this model, ENDF/B-VII.0 (crystalline graphite)")}
+    # Three heights only: markers, no connecting lines (a line would read as a
+    # model curve), dodged ±0.9 cm so the two libraries do not overlap.
+    dodge = {"e8": -0.9, "e7": 0.9}
     for lib, (c, m, lab) in styles.items():
         p = runs[lib]
         if not p:
             continue
-        ax.errorbar([r["h"] for r in p], [r["k"] for r in p], yerr=[r["s"] for r in p],
-                    color=c, marker=m, ms=8, lw=2, capsize=4, mec=SURFACE, mew=1.5, label=lab)
+        ax.errorbar([r["h"] + dodge[lib] for r in p], [r["k"] for r in p], yerr=[r["s"] for r in p],
+                    color=c, marker=m, ms=8, ls="none", elinewidth=2, capsize=4, mec=SURFACE,
+                    mew=1.5, label=lab)
     ax.set_ylabel("k_eff")
     ax.set_title("HTR-10 k_eff vs loading height, fast ENDF path, single seed",
                  loc="left", color=INK, fontsize=12)
@@ -108,12 +112,12 @@ def main():
         p = runs[lib]
         if not p:
             continue
-        ax2.errorbar([r["h"] for r in p], [(r["k"] - r["rmc"]) * 1e5 for r in p],
-                     yerr=[r["s"] * 1e5 for r in p], color=c, marker=m, ms=8, lw=2,
-                     capsize=4, mec=SURFACE, mew=1.5)
+        ax2.errorbar([r["h"] + dodge[lib] for r in p], [(r["k"] - r["rmc"]) * 1e5 for r in p],
+                     yerr=[r["s"] * 1e5 for r in p], color=c, marker=m, ms=8, ls="none",
+                     elinewidth=2, capsize=4, mec=SURFACE, mew=1.5)
         last = p[-1]
         ax2.annotate("VIII.0" if lib == "e8" else "VII.0",
-                     (last["h"], (last["k"] - last["rmc"]) * 1e5),
+                     (last["h"] + dodge[lib], (last["k"] - last["rmc"]) * 1e5),
                      xytext=(8, 0), textcoords="offset points", va="center", color=TEXT2)
     ax2.set_ylabel("k − RMC [pcm]")
     ax2.set_xlabel("loading height, whole-ball extent [cm] (gh:#333)")
@@ -122,9 +126,10 @@ def main():
     hws = sorted({r["hw"] for p in runs.values() for r in p})
     fig.text(0.01, 0.005,
              "2000 histories × [30 inactive + 70 active], seed 20260917. Error bars: within-run 1σ. "
-             "Ni→Fe and Fe-57→Fe-56 in rod steel.\n" + "; ".join(hws),
+             "Points dodged ±0.9 cm for legibility.\n"
+             "Rod steel: Ni→Fe, Fe-57→Fe-56 (modelling assumptions). " + "; ".join(hws),
              fontsize=7, color=TEXT2)
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
     fig.savefig(out, dpi=150, facecolor=SURFACE)
 
     for lib, p in runs.items():
