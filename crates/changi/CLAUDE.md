@@ -104,8 +104,9 @@ still computes no dose. The maintainer (2026-09-28) may move dose data to
 another crate: dose is a biological quantity, and keeping it apart from the
 dispersion physics avoids it being mistaken for a health-assessment
 capability. This workspace uses it for safety analysis in the research
-sense only (see `RESPONSIBLE_USE.md`). **Leave it where it is until the
-maintainer decides.** Do not build on it, move it, or add dose computation
+sense only (see `RESPONSIBLE_USE.md`). The maintainer named **`buangkok`** as the home for dose (placeholder crate,
+2026-09-28), but has not asked for this table to move. **Leave it where it is
+until the maintainer decides.** Do not build on it, move it, or add dose computation
 around it unasked.
 
 **`puff`'s unit conversion is methane-specific and must not be generalised by

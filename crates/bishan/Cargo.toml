@@ -1,0 +1,20 @@
+[package]
+name = "bishan"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "BISHAN (Building Internal Source-term and Hazard Analysis Network) — Level 2 PSA: severe-accident progression inside the plant, containment and building response, in-building aerosol transport and pool scrubbing, release categories. Placeholder: nothing is implemented."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
+# write-ups). Excluded so it never ships to crates.io.
+exclude = ["docs"]
+
+# NO DEPENDENCIES YET, deliberately. The roadmap has BISHAN resting on RAFFLES
+# for its probabilistic machinery, but declaring that edge before any code
+# calls into it would be an architectural claim nothing here has earned, and
+# an unused dependency enters the lock file and every downstream build graph.
+[dependencies]

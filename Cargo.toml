@@ -124,6 +124,19 @@ members = [
     # EXISTING outram-park-fork-pflotran rather than write a new solver, but
     # that edge is deliberately not declared until something calls into it.
     "crates/redhill",
+    # bishan — BISHAN (Building Internal Source-term and Hazard Analysis
+    # Network): Level 2 PSA — in-plant severe-accident progression, containment
+    # and building response, in-building aerosol transport and pool scrubbing,
+    # release categories. PLACEHOLDER (2026-09-28): name from the roadmap
+    # slides made visible in the workspace; no code, no deps. Boundary with
+    # SEMBAWANG's severe-accident scope is an open maintainer decision.
+    "crates/bishan",
+    # buangkok — BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear
+    # Guidance, Keeping Operational Knowledge): radiation dose and bioeffects
+    # for research-grade safety analysis. PLACEHOLDER (2026-09-28): no code, no
+    # deps. The home the maintainer chose for dose, so the dispersion and
+    # source-term crates keep their "no dose" boundary.
+    "crates/buangkok",
     # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
     # The low-fidelity counterpart of dhoby-ghaut (maintainer, 2026-09-25).
     # EMPTY SKELETON: details undecided, no code, no deps.

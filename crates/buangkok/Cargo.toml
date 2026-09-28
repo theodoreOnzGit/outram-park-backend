@@ -1,0 +1,19 @@
+[package]
+name = "buangkok"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge) — radiation dose and its biological effects, for research-grade safety analysis: dose coefficients, pathways, dose uncertainty, ALARA. Placeholder: nothing is implemented."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
+# write-ups). Excluded so it never ships to crates.io.
+exclude = ["docs"]
+
+# NO DEPENDENCIES YET, deliberately. A dose calculation would read CHANGI's
+# air concentrations and deposition and, for uncertainty, RAFFLES; declare
+# those edges when code here calls into them, not before.
+[dependencies]
