@@ -57,7 +57,8 @@ Every run had 0 lost locates, 0 stuck events and 0 negative distances.
   clock ratio between the two hosts, and matches the fix branch's own
   measurement. U-235 went from 83.7 s to 62.9 s, which is the clock ratio
   alone. Whole-run data processing was 382.6 s before and 235.8 s after, on
-  different hosts.
+  different hosts. **Superseded by the same-host measurement below**, which
+  shows U-235 gains 2.4× as well.
 - **The height drift persists** on both libraries: about +14 pcm/cm on VIII.0
   and +17 pcm/cm on VII.0 from 99 to 202 cm (single seed, three points). This
   matches the fast-ablation record's +13.2 ± 4.0 pcm/cm (gh:#218).
@@ -68,11 +69,36 @@ Every run had 0 lost locates, 0 stuck events and 0 negative distances.
 - **Only VII.0 at 201.96 cm is inside the 500 pcm band.** Everything else is
   1000–2600 pcm low.
 
-## A VII.0 reproducibility question
+## A VII.0 reproducibility question, answered (2026-09-28)
 
 With identical inputs, seed and statistics, VII.0 gives 0.991282 at n = 25
 against 0.991456 on 2026-09-26, and 0.896220 at n = 20 against 0.893254. The
 differences (−17 and +297 pcm) are well inside one σ, but identical inputs
-should reproduce bit for bit. VIII.0 does. To tell whether the fast-path merge
-or an earlier commit moved VII.0, the pre-merge commit b082d33 is being
-rebuilt and re-run on VII.0 at n = 25. The result is recorded below.
+should reproduce bit for bit, and VIII.0 does.
+
+**Test.** The pre-merge commit b082d33 was rebuilt in a separate worktree and
+re-run on VII.0 at n = 25 with identical settings, on the same host.
+
+**Result.** It gave **0.991282 ± 0.003948**, identical to every printed digit
+to the post-merge run. **The fast-path merge is exact on VII.0 as well.** The
+shift from the 2026-09-26 value came from a commit between 2026-09-26 07:16 and
+b082d33, before the merge. That window holds this branch's own HTR-10 commits
+and an earlier `develop` merge. It has not been bisected further. The move is
+sub-σ, so no recorded conclusion rests on it. **Not re-checked:** whether
+VIII.0 moved in the same window, because no VIII.0 run from 2026-09-26 shares
+this run's graphite law.
+
+**Same-host timing, the only like-for-like timing here.** Both runs were on
+the Intel Xeon @ 2.80 GHz, 4-core, 15.7 GiB container, VII.0 at n = 25:
+
+| | pre-merge (b082d33) | fast path | speed-up |
+|---|---|---|---|
+| nuclear data, total | 354.8 s | 130.7 s | **2.7×** |
+| U-238 | 211.1 s | 42.7 s | 4.9× |
+| U-235 | 79.5 s | 32.5 s | 2.4× |
+| transport | 731.4 s | 609.0 s | **1.2×** |
+
+This supersedes the cross-host per-nuclide comparison in "Reading" above for
+anything quantitative. On the same host, U-235 **does** gain (2.4×). The
+cross-host comparison could not show it, because the old run's slower clock
+masked it.
