@@ -119,6 +119,62 @@ pub const MIN_TEMPERATURE_KELVIN: f64 = 300.0;
 /// window was chosen.
 pub const MAX_TEMPERATURE_KELVIN: f64 = 2000.0;
 
+/// Highest temperature, 3000 K, of the [`CorrelationWindow::HighTemperature`]
+/// window — the published upper limit of Butland & Maddison's graphite cp
+/// polynomial, which is the only property in the pebble stack backed that far.
+/// Everything else evaluated between 2000 K and this is **extrapolated**; see
+/// [`CorrelationWindow::HighTemperature`].
+pub const HIGH_TEMPERATURE_MAX_KELVIN: f64 = 3000.0;
+
+/// Which coded temperature window the pebble-stack conductivity correlations
+/// (matrix graphite, UO2, buffer, PyC, SiC) are evaluated in.
+///
+/// A closed set, enum-dispatched per the workspace Rust design rules. Added
+/// 2026-09-28 (gh:#350, gh:#351) so a transient that takes the fuel past
+/// 2000 K keeps a resolved pebble and kernel temperature instead of refusing.
+///
+/// **Neither window is a published validity range.** The 300-2000 K window
+/// was adopted to match `tuas_boussinesq_solver`'s graphite cp table (see
+/// [`MIN_TEMPERATURE_KELVIN`]); the Virtual Test Bed deck behind every layer
+/// correlation states no range at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum CorrelationWindow {
+    /// 300 K to 2000 K, matrix graphite from `NuclearGraphiteMatrixA3`. The
+    /// default, and the window every recorded `tampines` V&V number was
+    /// measured in.
+    #[default]
+    Standard,
+    /// 300 K to 3000 K, matrix graphite from
+    /// `NuclearGraphiteMatrixA3HighTemp`. **Above 2000 K every conductivity in
+    /// the stack is extrapolated**: the A3 matrix correlation (its measured
+    /// range — Gontard & Nabielek 1990 — is not yet confirmed; its fitted form
+    /// has a minimum at 2029.9 K and rises above it), the PyC/buffer and SiC
+    /// forms (no source named in the VTB deck), and the UO2 form. The UO2
+    /// expression is structurally the Fink (2000) recommendation at 100 %
+    /// theoretical density (the VTB constants 115.8 and 7410.5 are Fink's
+    /// 100 and 6400 divided by the 95 %-TD porosity factor 0.95/1.1), a
+    /// correlation usually quoted to ~3120 K — **not re-checked against Fink
+    /// in this change**, so it is flagged with the rest. Use this window to
+    /// keep a transient's energy balance and feedback continuous past 2000 K,
+    /// never to quote a validated fuel temperature there.
+    HighTemperature,
+}
+
+impl CorrelationWindow {
+    /// Lowest temperature of the window, kelvin (300 K for both).
+    pub fn min_kelvin(self) -> f64 {
+        MIN_TEMPERATURE_KELVIN
+    }
+
+    /// Highest temperature of the window, kelvin.
+    pub fn max_kelvin(self) -> f64 {
+        match self {
+            CorrelationWindow::Standard => MAX_TEMPERATURE_KELVIN,
+            CorrelationWindow::HighTemperature => HIGH_TEMPERATURE_MAX_KELVIN,
+        }
+    }
+}
+
 /// Theoretical (pore-free) density of carbon, 1930 kg/m^3, used as the
 /// reference density in the pyrocarbon and buffer conductivity porosity
 /// factors.
@@ -196,6 +252,10 @@ pub struct TrisoParticle {
     /// Mass density of the dense pyrolytic carbon layers (IPyC and OPyC share
     /// one value), kg/m^3. HTR-10: 1900 kg/m^3 (1.9 g/cm^3, same table).
     pub pyrocarbon_density: MassDensity,
+    /// Coded temperature window the layer correlations are evaluated in.
+    /// [`CorrelationWindow::Standard`] from every constructor; widen it with
+    /// [`TrisoParticle::with_correlation_window`].
+    pub correlation_window: CorrelationWindow,
 }
 
 impl TrisoParticle {
@@ -266,7 +326,15 @@ impl TrisoParticle {
             outer_pyc_outer_radius,
             buffer_density,
             pyrocarbon_density,
+            correlation_window: CorrelationWindow::Standard,
         })
+    }
+
+    /// The same particle with its layer correlations evaluated in `window`.
+    /// See [`CorrelationWindow::HighTemperature`] for what widening it means.
+    pub fn with_correlation_window(mut self, window: CorrelationWindow) -> Self {
+        self.correlation_window = window;
+        self
     }
 
     /// The HTR-10 coated fuel particle, transcribed from **IAEA-TECDOC-1382
@@ -412,16 +480,24 @@ impl TrisoParticle {
         temperature: ThermodynamicTemperature,
         fluence: FastNeutronFluence,
     ) -> Result<ThermalConductivity, TampinesError> {
+        let window = self.correlation_window;
         match layer {
-            TrisoLayer::Kernel => uranium_dioxide_thermal_conductivity(temperature),
-            TrisoLayer::Buffer => {
-                buffer_carbon_thermal_conductivity(temperature, self.buffer_density, fluence)
-            }
-            TrisoLayer::InnerPyC | TrisoLayer::OuterPyC => {
-                pyrocarbon_thermal_conductivity(temperature, self.pyrocarbon_density, fluence)
-            }
+            TrisoLayer::Kernel => uranium_dioxide_thermal_conductivity_in(temperature, window),
+            TrisoLayer::Buffer => Ok(0.5
+                * pyrocarbon_thermal_conductivity_in(
+                    temperature,
+                    self.buffer_density,
+                    fluence,
+                    window,
+                )?),
+            TrisoLayer::InnerPyC | TrisoLayer::OuterPyC => pyrocarbon_thermal_conductivity_in(
+                temperature,
+                self.pyrocarbon_density,
+                fluence,
+                window,
+            ),
             TrisoLayer::SiliconCarbide => {
-                silicon_carbide_thermal_conductivity(temperature, fluence)
+                silicon_carbide_thermal_conductivity_in(temperature, fluence, window)
             }
         }
     }
@@ -517,7 +593,11 @@ impl TrisoParticle {
                 power.value
             )));
         }
-        check_temperature_range(surface_temperature, "TRISO surface temperature")?;
+        check_temperature_range(
+            surface_temperature,
+            "TRISO surface temperature",
+            self.correlation_window,
+        )?;
 
         // Node temperatures, outermost last:
         // [kernel centre, kernel surface, buffer outer, IPyC outer, SiC outer]
@@ -729,7 +809,17 @@ pub fn spherical_shell_temperature_rise(
 pub fn uranium_dioxide_thermal_conductivity(
     temperature: ThermodynamicTemperature,
 ) -> Result<ThermalConductivity, TampinesError> {
-    check_temperature_range(temperature, "UO2 kernel")?;
+    uranium_dioxide_thermal_conductivity_in(temperature, CorrelationWindow::Standard)
+}
+
+/// [`uranium_dioxide_thermal_conductivity`] evaluated in an explicit
+/// [`CorrelationWindow`] — **extrapolated above 2000 K** under
+/// [`CorrelationWindow::HighTemperature`].
+pub fn uranium_dioxide_thermal_conductivity_in(
+    temperature: ThermodynamicTemperature,
+    window: CorrelationWindow,
+) -> Result<ThermalConductivity, TampinesError> {
+    check_temperature_range(temperature, "UO2 kernel", window)?;
 
     let x = temperature.get::<kelvin>() / 1000.0;
 
@@ -770,7 +860,19 @@ pub fn pyrocarbon_thermal_conductivity(
     density: MassDensity,
     fluence: FastNeutronFluence,
 ) -> Result<ThermalConductivity, TampinesError> {
-    check_temperature_range(temperature, "pyrolytic carbon")?;
+    pyrocarbon_thermal_conductivity_in(temperature, density, fluence, CorrelationWindow::Standard)
+}
+
+/// [`pyrocarbon_thermal_conductivity`] evaluated in an explicit
+/// [`CorrelationWindow`] — **extrapolated above 2000 K** under
+/// [`CorrelationWindow::HighTemperature`].
+pub fn pyrocarbon_thermal_conductivity_in(
+    temperature: ThermodynamicTemperature,
+    density: MassDensity,
+    fluence: FastNeutronFluence,
+    window: CorrelationWindow,
+) -> Result<ThermalConductivity, TampinesError> {
+    check_temperature_range(temperature, "pyrolytic carbon", window)?;
 
     let t = temperature.get::<kelvin>();
     let porosity_factor = carbon_porosity_factor(density)?;
@@ -831,7 +933,18 @@ pub fn silicon_carbide_thermal_conductivity(
     temperature: ThermodynamicTemperature,
     fluence: FastNeutronFluence,
 ) -> Result<ThermalConductivity, TampinesError> {
-    check_temperature_range(temperature, "silicon carbide")?;
+    silicon_carbide_thermal_conductivity_in(temperature, fluence, CorrelationWindow::Standard)
+}
+
+/// [`silicon_carbide_thermal_conductivity`] evaluated in an explicit
+/// [`CorrelationWindow`] — **extrapolated above 2000 K** under
+/// [`CorrelationWindow::HighTemperature`].
+pub fn silicon_carbide_thermal_conductivity_in(
+    temperature: ThermodynamicTemperature,
+    fluence: FastNeutronFluence,
+    window: CorrelationWindow,
+) -> Result<ThermalConductivity, TampinesError> {
+    check_temperature_range(temperature, "silicon carbide", window)?;
 
     let gam = fluence.get::<ratio>();
     if !(0.0..=15.0).contains(&gam) {
@@ -878,18 +991,21 @@ fn fluence_damage_factor(fluence: FastNeutronFluence) -> Result<f64, TampinesErr
         })
 }
 
-/// Rejects temperatures outside the coded 300 K to 2000 K window shared by
-/// every correlation in this module.
+/// Rejects temperatures outside the coded window (300 K to 2000 K, or to
+/// 3000 K under [`CorrelationWindow::HighTemperature`]) shared by every
+/// correlation in this module.
 fn check_temperature_range(
     temperature: ThermodynamicTemperature,
     what: &str,
+    window: CorrelationWindow,
 ) -> Result<(), TampinesError> {
     let t = temperature.get::<kelvin>();
+    let (low, high) = (window.min_kelvin(), window.max_kelvin());
 
-    if !(MIN_TEMPERATURE_KELVIN..=MAX_TEMPERATURE_KELVIN).contains(&t) {
+    if !(low..=high).contains(&t) {
         return Err(TampinesError::InvalidInput(format!(
             "{what} temperature {t} K is outside the coded correlation range \
-             {MIN_TEMPERATURE_KELVIN} K to {MAX_TEMPERATURE_KELVIN} K"
+             {low} K to {high} K"
         )));
     }
 

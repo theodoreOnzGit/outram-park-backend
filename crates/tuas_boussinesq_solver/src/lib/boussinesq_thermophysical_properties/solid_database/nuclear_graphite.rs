@@ -4,10 +4,23 @@
 //!
 //! - **Matrix graphite, A3 grade** — the fuel-pebble matrix graphite of the
 //!   HTR-10 / HTR-PM pebble-bed reactors
-//!   ([`SolidMaterial::NuclearGraphiteMatrixA3`]).
+//!   ([`SolidMaterial::NuclearGraphiteMatrixA3`]), and its
+//!   **high-temperature** sibling
+//!   ([`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`], 300-3000 K, added
+//!   2026-09-28): Butland & Maddison polynomial cp (backed to 3000 K) with the
+//!   same conductivity **extrapolated above 2000 K**.
 //! - **IG-110** — the fine-grained isotropic reflector-grade graphite used in
 //!   the HTTR and HTR-10 reflector structures
 //!   ([`SolidMaterial::NuclearGraphiteIG110`]).
+//!
+//! **No high-temperature IG-110 variant, deliberately (2026-09-28).** The
+//! IG-110 quadratic `66.32 - 4.994e-2 T + 1.712e-5 T^2` has its minimum at
+//! T = 4.994e-2 / (2 x 1.712e-5) = 1458.5 K (k = 29.9 W/(m K)) and rises
+//! from there — to 34.9 at 2000 K and 70.6 at 3000 K. Extending it would
+//! return a conductivity that more than doubles past its minimum, an artefact
+//! of fitting a parabola, so the extension was checked and rejected rather
+//! than flagged. Reflector graphite stays far below 2000 K in every transient
+//! `htgr_sim_v1` runs, so the base window suffices there.
 //!
 //! All correlations are transcribed from the openly licensed **Virtual Test
 //! Bed (VTB)** input decks vendored in this workspace under
@@ -164,6 +177,82 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
     ))
 }
 
+/// Lowest temperature, 250 K, at which Butland & Maddison's polynomial 3 may
+/// be used "with confidence" (J. Nucl. Mater. 49 (1973/74) 45-56, sect. 4).
+#[inline]
+pub fn min_temp_butland_maddison_polynomial() -> ThermodynamicTemperature {
+    ThermodynamicTemperature::new::<kelvin>(250.0)
+}
+
+/// Highest temperature, 3000 K, at which Butland & Maddison's polynomial 3
+/// may be used "with confidence" (same paper, sect. 4).
+#[inline]
+pub fn max_temp_butland_maddison_polynomial() -> ThermodynamicTemperature {
+    ThermodynamicTemperature::new::<kelvin>(3000.0)
+}
+
+/// Returns the specific heat capacity of nuclear graphite from **Butland &
+/// Maddison's polynomial 3**, valid **250 K to 3000 K**.
+///
+/// **Source:** Butland, A. T. D. & Maddison, R. J., "The specific heat of
+/// graphite: an evaluation of measurements", *Journal of Nuclear Materials*
+/// **49** (1973/74) 45-56, polynomial 3 (p. 55), with T in K and cp in
+/// cal/(g K):
+///
+/// ```text
+/// cp = 0.54212 - 2.42667e-6 T - 90.2725 T^-1 - 43449.3 T^-2
+///      + 1.59309e7 T^-3 - 1.43688e9 T^-4
+/// ```
+///
+/// Polynomial 3 is the authors' final recommendation: their least-squares
+/// fit to well-graphitised specimens (polynomial 2), with the constant and
+/// linear terms adjusted so the derived Cv at 1800 K agrees with Page's
+/// phonon-spectrum prediction while Cp at 300 K is unchanged. The fit used
+/// data spanning 200-3500 K, but the authors state it "may only be used with
+/// confidence over the range 250 K - 3000 K"; outside that range this returns
+/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
+///
+/// Coefficients read from the paper itself (maintainer's copy, restricted
+/// literature, 2026-09-28) and cross-checked against the same correlation as
+/// implemented in the MOOSE framework's `ThermalGraphiteProperties`
+/// (`mooseframework.inl.gov/source/solidproperties/ThermalGraphiteProperties.html`,
+/// Idaho National Laboratory, LGPL-2.1), which also cites Butland & Maddison.
+/// Only the published formula is used here; no MOOSE code was copied. The
+/// MOOSE source is reproduced verbatim, with its LGPL-2.1 attribution, in
+/// `crates/tuas_boussinesq_solver/docs/moose-thermal-graphite-properties-lgpl.md`
+/// (commit `9952567b`), for comparison.
+///
+/// **Unit conversion:** 1 cal = **4.184 J** (thermochemical calorie), as MOOSE
+/// uses. The paper does not say which calorie it means. The VTB cp table in
+/// [`nuclear_graphite_specific_heat_capacity_butland_maddison_spline`] is this
+/// same polynomial evaluated with the International Table calorie
+/// (4.1868 J); the two conversions differ by 0.067 %, far inside the
+/// correlation's own spread (the paper reports up to 10 % scatter between
+/// measurements above ~800 K).
+///
+/// **Grade:** cp of well-graphitised nuclear graphite, treated as
+/// grade-insensitive for both the A3 matrix and IG-110 (see the module doc).
+#[inline]
+pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(
+    temperature: ThermodynamicTemperature,
+) -> Result<SpecificHeatCapacity, TuasLibError> {
+    range_check(
+        &Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3),
+        temperature,
+        max_temp_butland_maddison_polynomial(),
+        min_temp_butland_maddison_polynomial(),
+    )?;
+    let t = temperature.get::<kelvin>();
+    let cp_cal_per_gram_kelvin = 0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / t.powi(2)
+        + 1.59309e7 / t.powi(3)
+        - 1.43688e9 / t.powi(4);
+    const JOULE_PER_THERMOCHEMICAL_CALORIE: f64 = 4.184;
+    // cal/(g K) -> J/(kg K): x 4.184 J/cal x 1000 g/kg.
+    Ok(SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
+        cp_cal_per_gram_kelvin * JOULE_PER_THERMOCHEMICAL_CALORIE * 1000.0,
+    ))
+}
+
 /// Returns the fast-neutron-fluence conductivity damage factor
 /// (dimensionless) for nuclear graphite:
 ///
@@ -188,8 +277,9 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
 /// which the linear `3.5e-2*gam` term dominates and drives the factor
 /// through zero at `gam ~ 19` — which is unphysical (conductivity cannot be
 /// negative). This function therefore returns
-/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError` for `gam`
-/// outside [0, 15]: at `gam = 15` the factor is still physically positive
+/// ~~`TuasLibError::ThermophysicalPropertyTemperatureRangeError`~~
+/// `TuasLibError::CorrelationRangeError` (**CORRECTED 2026-09-28** to match
+/// the code below) for `gam` outside [0, 15]: at `gam = 15` the factor is still physically positive
 /// (measured 0.1390, see the unit test), leaving margin before the
 /// unphysical zero crossing at `gam ~ 19.0`.
 #[inline]
@@ -238,12 +328,32 @@ pub fn nuclear_graphite_fluence_damage_factor(fluence: Ratio) -> Result<Ratio, T
 /// **transcribed from the VTB HTR-PM pebble model, which names no upstream
 /// source** for it.
 ///
-/// Valid ranges enforced: temperature 300 K to 2000 K (the deck states no
-/// range; this range matches the sibling graphite cp table so all
-/// nuclear-graphite properties share one coded validity window), and fluence
-/// `gam` in [0, 15] (beyond which the damage factor heads to an unphysical
-/// zero crossing at `gam ~ 19`). Out-of-range inputs return
-/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
+/// **Upstream provenance, traced 2026-09-28 (maintainer).** The constants are
+/// the **A3-27, 1800 degC heat-treatment** row of Table 3.3 of PNNL-31427
+/// (Wells, D., Phillips, B., Geelhood, K., June 2021; US NRC ADAMS
+/// ML21175A152), which takes them from Hales et al. (2020); the functional
+/// form is Gontard & Nabielek (1990), via Miller et al. (2018). **Not
+/// re-checked against PNNL-31427 in this change** — the report is not held in
+/// this workspace, so this records the maintainer's trace rather than a
+/// reading made here. What the trace does NOT settle is the measured
+/// temperature range of Gontard & Nabielek's data (the maintainer is
+/// obtaining the paper).
+///
+/// Valid ranges enforced: temperature 300 K to 2000 K — **a coding choice, not
+/// a stated validity range**: the deck states no range, and 300-2000 K was
+/// adopted to match the sibling graphite cp table so all nuclear-graphite
+/// properties share one coded validity window. The high-temperature sibling
+/// [`nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent`]
+/// evaluates the same formula to 3000 K, flagged as extrapolation above
+/// 2000 K. Fluence `gam` is enforced in [0, 15] (beyond which the damage
+/// factor heads to an unphysical zero crossing at `gam ~ 19`). An
+/// out-of-range temperature returns
+/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError`; an
+/// out-of-range fluence returns `TuasLibError::CorrelationRangeError`
+/// (~~"Out-of-range inputs return
+/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError`"~~ **CORRECTED
+/// 2026-09-28** — the fluence check in
+/// [`nuclear_graphite_fluence_damage_factor`] returns `CorrelationRangeError`).
 #[inline]
 pub fn nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
     temperature: ThermodynamicTemperature,
@@ -256,16 +366,14 @@ pub fn nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
         min_temp_nuclear_graphite(),
     )?;
 
-    let t: f64 = temperature.get::<kelvin>();
     let damage_factor: f64 = nuclear_graphite_fluence_damage_factor(fluence)?.get::<ratio>();
 
-    let temperature_factor: f64 =
-        1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15));
-    let density_maxwell_factor: f64 = 1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
-
-    let k_value: f64 = 47.4 * temperature_factor * density_maxwell_factor * damage_factor;
-
-    Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(k_value))
+    // One formula shared with the high-temperature variant, so the two
+    // cannot drift apart.
+    Ok(nuclear_graphite_matrix_a3_conductivity_formula(
+        temperature,
+        damage_factor,
+    ))
 }
 
 /// Returns the thermal conductivity, in W/(m K), of **unirradiated**
@@ -491,6 +599,220 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
     };
 
     Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
+}
+
+// ---------------------------------------------------------------------------
+// High-temperature A3 matrix graphite (`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`)
+// ---------------------------------------------------------------------------
+//
+// Added 2026-09-28 at the maintainer's request ("add an enum variant", rather
+// than switching the existing variants) so a pebble-bed transient that takes
+// the fuel past 2000 K keeps a property set instead of refusing (gh:#350,
+// gh:#351). The base `NuclearGraphiteMatrixA3` variant is unchanged.
+//
+// What is and is not backed by a source above 2000 K:
+//
+// - **cp** — Butland & Maddison polynomial 3, which the authors state may be
+//   used "with confidence" over 250-3000 K. Backed.
+// - **k** — the SAME A3 correlation as the base variant, with its coded window
+//   widened to 3000 K. **Above 2000 K this is extrapolation.** The
+//   correlation's measured range (Gontard & Nabielek 1990) is not yet
+//   confirmed. See `nuclear_graphite_matrix_a3_thermal_conductivity_high_temp`
+//   for what the fitted form does up there (it has a minimum at 2029.9 K and
+//   RISES above it, which is a property of the form, not evidence).
+// - **density** — the base variant's constant 1730 kg/m^3.
+
+/// Lowest temperature, 300 K, of the high-temperature A3 matrix-graphite
+/// variant's coded window.
+///
+/// The cp polynomial is good from 250 K, but the conductivity correlation's
+/// coded window starts at 300 K (see
+/// [`nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent`]), and
+/// a variant must not advertise a floor one of its properties refuses.
+#[inline]
+pub fn min_temp_nuclear_graphite_high_temp() -> ThermodynamicTemperature {
+    ThermodynamicTemperature::new::<kelvin>(300.0)
+}
+
+/// Highest temperature, 3000 K, of the high-temperature A3 matrix-graphite
+/// variant's coded window — the published upper limit of Butland & Maddison's
+/// polynomial 3 ([`max_temp_butland_maddison_polynomial`]).
+///
+/// **Only the cp is backed to 3000 K.** The conductivity above 2000 K is
+/// extrapolated; see
+/// [`nuclear_graphite_matrix_a3_thermal_conductivity_high_temp`].
+#[inline]
+pub fn max_temp_nuclear_graphite_high_temp() -> ThermodynamicTemperature {
+    ThermodynamicTemperature::new::<kelvin>(3000.0)
+}
+
+/// Returns the specific heat capacity of A3 matrix graphite for the
+/// high-temperature variant: Butland & Maddison polynomial 3
+/// ([`nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial`]),
+/// evaluated inside the variant's 300-3000 K window.
+///
+/// The [`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`] enum arm dispatches
+/// here. Out of window returns
+/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError`.
+#[inline]
+pub fn nuclear_graphite_matrix_a3_high_temp_specific_heat_capacity(
+    temperature: ThermodynamicTemperature,
+) -> Result<SpecificHeatCapacity, TuasLibError> {
+    range_check(
+        &Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3HighTemp),
+        temperature,
+        max_temp_nuclear_graphite_high_temp(),
+        min_temp_nuclear_graphite_high_temp(),
+    )?;
+    nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(temperature)
+}
+
+/// Returns the thermal conductivity, in W/(m K), of A3 matrix graphite at the
+/// given temperature and fast-neutron fluence, over the **high-temperature
+/// variant's 300-3000 K window**.
+///
+/// **Identical formula to**
+/// [`nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent`]
+/// (same constants, same Maxwell/density factor, same fluence factor), so at
+/// or below 2000 K the two return the same number to the last bit. Only the
+/// coded temperature window differs.
+///
+/// # Above 2000 K this is EXTRAPOLATION — read before quoting a number
+///
+/// **The correlation's measured range (Gontard & Nabielek 1990) is not yet
+/// confirmed; above 2000 K this is extrapolated.** The base variant's
+/// 2000 K ceiling was itself a coding choice (it matched the sibling cp
+/// table), not a stated validity limit, so there is no published range to
+/// widen to — the widening to 3000 K follows the cp polynomial's range and
+/// nothing about the conductivity data.
+///
+/// The fitted temperature factor `1 - 9.7556e-4 (T - 373.15) exp(-6.036e-4 (T - 273.15))`
+/// has its **minimum at T = 373.15 + 1/6.036e-4 = 2029.9 K** and rises above
+/// it. Measured at zero fluence (2026-09-28, see the unit test): k =
+/// 21.98 W/(m K) at 2000 K, 22.91 at 2500 K and 25.25 at 3000 K — a
+/// **+14.9 %** rise from 2000 to 3000 K that comes from the shape of the fit,
+/// not from any data in that range. If the real conductivity keeps falling or
+/// flattens, this **over-states k** above ~2030 K, which under-states the
+/// temperature rise inside a pebble (the kernel reads cooler than it would).
+///
+/// Fluence window `gam` in [0, 15] as for the base form. Out of window returns
+/// `TuasLibError::ThermophysicalPropertyTemperatureRangeError` (temperature)
+/// or `TuasLibError::CorrelationRangeError` (fluence).
+#[inline]
+pub fn nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent(
+    temperature: ThermodynamicTemperature,
+    fluence: Ratio,
+) -> Result<ThermalConductivity, TuasLibError> {
+    range_check(
+        &Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3HighTemp),
+        temperature,
+        max_temp_nuclear_graphite_high_temp(),
+        min_temp_nuclear_graphite_high_temp(),
+    )?;
+    Ok(nuclear_graphite_matrix_a3_conductivity_formula(
+        temperature,
+        nuclear_graphite_fluence_damage_factor(fluence)?.get::<ratio>(),
+    ))
+}
+
+/// Zero-fluence form of
+/// [`nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent`]
+/// — **extrapolated above 2000 K**, see there. The
+/// [`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`] enum arm dispatches here.
+#[inline]
+pub fn nuclear_graphite_matrix_a3_thermal_conductivity_high_temp(
+    temperature: ThermodynamicTemperature,
+) -> Result<ThermalConductivity, TuasLibError> {
+    nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent(
+        temperature,
+        Ratio::new::<ratio>(0.0),
+    )
+}
+
+/// The A3 conductivity formula itself, with no range check — shared by the
+/// base and high-temperature variants so the two cannot drift apart. See
+/// [`nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent`] for
+/// the provenance of every constant.
+#[inline]
+fn nuclear_graphite_matrix_a3_conductivity_formula(
+    temperature: ThermodynamicTemperature,
+    damage_factor: f64,
+) -> ThermalConductivity {
+    let t: f64 = temperature.get::<kelvin>();
+    let temperature_factor: f64 =
+        1.0 - 9.7556e-4 * (t - 373.15) * f64::exp(-6.036e-4 * (t - 273.15));
+    let density_maxwell_factor: f64 = 1740.0 / (2.2 * (1700.0 - 1740.0) + 1740.0);
+    let k_value: f64 = 47.4 * temperature_factor * density_maxwell_factor * damage_factor;
+    ThermalConductivity::new::<watt_per_meter_kelvin>(k_value)
+}
+
+/// Butland & Maddison polynomial 3 integrated analytically, in J/kg, from
+/// 273.15 K to `t_kelvin` (thermochemical calorie, as the cp function).
+///
+/// With `cp = a + b T + c/T + d/T^2 + e/T^3 + f/T^4` (cal/(g K)) the
+/// antiderivative is `a T + b T^2/2 + c ln T - d/T - e/(2 T^2) - f/(3 T^3)`.
+/// Exact — no quadrature, no spline.
+#[inline]
+fn butland_maddison_polynomial_enthalpy_joule_per_kg(t_kelvin: f64) -> f64 {
+    let antiderivative = |t: f64| {
+        0.54212 * t - 2.42667e-6 * t * t / 2.0 - 90.2725 * t.ln() + 43449.3 / t
+            - 1.59309e7 / (2.0 * t * t)
+            + 1.43688e9 / (3.0 * t * t * t)
+    };
+    (antiderivative(t_kelvin) - antiderivative(273.15)) * 4.184 * 1000.0
+}
+
+/// Returns the specific enthalpy, in J/kg, of the high-temperature A3
+/// matrix-graphite variant, `h = integral of cp dT` from 273.15 K (the
+/// database's house datum) with cp the Butland & Maddison polynomial 3.
+///
+/// The integral is taken **analytically** (see
+/// `butland_maddison_polynomial_enthalpy_joule_per_kg`), so it is exact
+/// to f64 roundoff at every temperature and is consistent with
+/// [`nuclear_graphite_matrix_a3_high_temp_specific_heat_capacity`] by
+/// construction: `dh/dT = cp`. The 273.15-300 K stretch below the variant's
+/// coded floor is inside the polynomial's own 250-3000 K range, so the
+/// datum involves no extrapolation (unlike the spline variant's).
+///
+/// Like its siblings this performs no range check; range enforcement lives in
+/// the cp and conductivity accessors.
+#[inline]
+pub fn nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(
+    temperature: ThermodynamicTemperature,
+) -> AvailableEnergy {
+    AvailableEnergy::new::<joule_per_kilogram>(butland_maddison_polynomial_enthalpy_joule_per_kg(
+        temperature.get::<kelvin>(),
+    ))
+}
+
+/// Inverts [`nuclear_graphite_matrix_a3_high_temp_specific_enthalpy`]:
+/// temperature from specific enthalpy, by Brent-Dekker root finding over the
+/// polynomial's whole 250-3000 K range.
+///
+/// cp is strictly positive over that range, so `h(T)` is strictly increasing
+/// and the bracket holds exactly one root; no initial-guess spline is needed.
+/// An enthalpy outside `[h(250 K), h(3000 K)]` returns a
+/// `TuasLibError::GenericStringError` rather than panicking.
+#[inline]
+pub(crate) fn nuclear_graphite_matrix_a3_high_temp_temp_from_specific_enthalpy(
+    h_graphite: AvailableEnergy,
+) -> Result<ThermodynamicTemperature, TuasLibError> {
+    let target = h_graphite.get::<joule_per_kilogram>();
+    let low = min_temp_butland_maddison_polynomial().get::<kelvin>();
+    let high = max_temp_butland_maddison_polynomial().get::<kelvin>();
+    let residual = |t: f64| butland_maddison_polynomial_enthalpy_joule_per_kg(t) - target;
+    let mut convergency = SimpleConvergency {
+        eps: 1e-9f64,
+        max_iter: 100,
+    };
+    find_root_brent(low, high, residual, &mut convergency)
+        .map(ThermodynamicTemperature::new::<kelvin>)
+        .map_err(|_| {
+            TuasLibError::GenericStringError(format!(
+                "high-temperature A3 graphite: specific enthalpy {target} J/kg lies outside \
+                 the Butland & Maddison polynomial's 250-3000 K range"
+            ))
+        })
 }
 
 /// V&V test: cp spline reproduces the Butland & Maddison table nodes.
@@ -895,4 +1217,215 @@ pub fn nuclear_graphite_enum_variants_dispatch_at_600_k() {
         1770.0,
         max_relative = 1e-12
     );
+}
+
+/// Butland & Maddison polynomial 3 against the VTB cp table it underlies.
+///
+/// **Methodology:** evaluate the polynomial (1 cal = 4.184 J) at the table's
+/// 18 nodes (300-2000 K) and compare with the VTB table, which is the same
+/// polynomial evaluated with the International Table calorie (4.1868 J).
+/// **Pass criterion:** every node agrees to within 0.1 % (the calorie ratio
+/// 4.1868/4.184 = 1.00067 accounts for all of it).
+/// **Result (2026-09-28):** the ratio table/polynomial is 1.000669 at 300,
+/// 1000 and 2000 K (i.e. exactly the calorie ratio), so the table IS
+/// polynomial 3, and its 2000 K ceiling was where the deck stopped
+/// tabulating, not a limit of the correlation (valid to 3000 K).
+#[test]
+fn butland_maddison_polynomial_reproduces_the_vtb_table_up_to_the_calorie() {
+    for t in (300..=2000).step_by(100) {
+        let temp = ThermodynamicTemperature::new::<kelvin>(t as f64);
+        let poly = nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(temp)
+            .unwrap()
+            .get::<joule_per_kilogram_kelvin>();
+        let table = nuclear_graphite_specific_heat_capacity_butland_maddison_spline(temp)
+            .unwrap()
+            .get::<joule_per_kilogram_kelvin>();
+        let table_over_poly = table / poly;
+        assert!(
+            (table_over_poly - 4.1868 / 4.184).abs() < 1e-4,
+            "T = {t} K: table/polynomial {table_over_poly}"
+        );
+    }
+}
+
+/// The polynomial extends past the old 2000 K ceiling to its published
+/// 3000 K limit, stays physical (positive, rising towards the Dulong-Petit
+/// region, below 3R/M = 2077 J/(kg K) x a small margin), and refuses outside
+/// 250-3000 K.
+#[test]
+fn butland_maddison_polynomial_covers_250_to_3000_k_and_refuses_outside() {
+    let cp = |t: f64| {
+        nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(
+            ThermodynamicTemperature::new::<kelvin>(t),
+        )
+    };
+    // Hand evaluation of the published formula (x 4184 J/kg per cal/g).
+    let hand = |t: f64| {
+        (0.54212 - 2.42667e-6 * t - 90.2725 / t - 43449.3 / (t * t) + 1.59309e7 / t.powi(3)
+            - 1.43688e9 / t.powi(4))
+            * 4184.0
+    };
+    for t in [250.0, 300.0, 1000.0, 2000.0, 2500.0, 3000.0] {
+        let v = cp(t).unwrap().get::<joule_per_kilogram_kelvin>();
+        assert!((v - hand(t)).abs() < 1e-9 * hand(t), "T = {t} K");
+    }
+    // 2500 K and 3000 K: 2066.8 and 2094.1 J/(kg K).
+    let v2500 = cp(2500.0).unwrap().get::<joule_per_kilogram_kelvin>();
+    let v3000 = cp(3000.0).unwrap().get::<joule_per_kilogram_kelvin>();
+    assert!((v2500 - 2066.79).abs() < 0.01 && (v3000 - 2094.07).abs() < 0.01);
+    let mut last = 0.0;
+    for t in (250..=3000).step_by(50) {
+        let v = cp(t as f64).unwrap().get::<joule_per_kilogram_kelvin>();
+        assert!(v > last, "cp must rise monotonically, T = {t} K");
+        last = v;
+    }
+    assert!(cp(249.0).is_err());
+    assert!(cp(3001.0).is_err());
+}
+
+
+/// V&V test: the high-temperature A3 variant
+/// ([`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`], added 2026-09-28).
+///
+/// **Methodology:** through the public dispatchers (`try_get_cp`,
+/// `try_get_kappa_thermal_conductivity`, `try_get_rho`, the enum's
+/// `max_temperature`/`min_temperature`) check that
+///
+/// 1. cp is Butland & Maddison polynomial 3 at every 100 K from 300 to 3000 K
+///    (relative 1e-12 against the free function);
+/// 2. k is **bit-identical** to the base `NuclearGraphiteMatrixA3` variant at
+///    every 50 K from 300 to 2000 K — the variant must not move any number
+///    inside the old window;
+/// 3. k above 2000 K is pinned against a hand evaluation of the published form
+///    at 2500 and 3000 K;
+/// 4. density is the base variant's 1730 kg/m^3;
+/// 5. the window is 300-3000 K and cp, k both refuse at 299 K and 3001 K.
+///
+/// **Results (2026-09-28):** all pass. Pinned values at zero fluence:
+/// k = 21.983914920210555 W/(m K) at 2000 K, 22.91263711774591 at 2500 K,
+/// 25.253758433921842 at 3000 K (+14.87 % over 2000-3000 K — the fitted
+/// form's minimum is at 2029.9 K, k = 21.9793). **Above 2000 K these are
+/// extrapolations of the correlation, not validated values** — the test pins
+/// the arithmetic, not the physics.
+#[test]
+pub fn nuclear_graphite_a3_high_temp_variant_dispatch_and_window() {
+    use uom::si::pressure::atmosphere;
+    use crate::boussinesq_thermophysical_properties::density::try_get_rho;
+    use crate::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
+    use crate::boussinesq_thermophysical_properties::thermal_conductivity::try_get_kappa_thermal_conductivity;
+
+    let p = Pressure::new::<atmosphere>(1.0);
+    let high = Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3HighTemp);
+    let base = Material::Solid(SolidMaterial::NuclearGraphiteMatrixA3);
+    let t = |k: f64| ThermodynamicTemperature::new::<kelvin>(k);
+
+    // 1. cp is the polynomial over the whole window.
+    for tk in (300..=3000).step_by(100) {
+        let tk = tk as f64;
+        let dispatched = try_get_cp(high, t(tk), p)
+            .unwrap()
+            .get::<joule_per_kilogram_kelvin>();
+        let poly = nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(t(tk))
+            .unwrap()
+            .get::<joule_per_kilogram_kelvin>();
+        approx::assert_relative_eq!(dispatched, poly, max_relative = 1e-12);
+    }
+
+    // 2. k identical to the base variant inside the old window.
+    for tk in (300..=2000).step_by(50) {
+        let tk = tk as f64;
+        let k_high = try_get_kappa_thermal_conductivity(high, t(tk), p)
+            .unwrap()
+            .get::<watt_per_meter_kelvin>();
+        let k_base = try_get_kappa_thermal_conductivity(base, t(tk), p)
+            .unwrap()
+            .get::<watt_per_meter_kelvin>();
+        assert_eq!(k_high.to_bits(), k_base.to_bits(), "T = {tk} K");
+    }
+
+    // 3. k pinned above 2000 K (extrapolated -- see the function doc).
+    let k_at = |tk: f64| {
+        try_get_kappa_thermal_conductivity(high, t(tk), p)
+            .unwrap()
+            .get::<watt_per_meter_kelvin>()
+    };
+    approx::assert_relative_eq!(k_at(2000.0), 21.983914920210555, max_relative = 1e-12);
+    approx::assert_relative_eq!(k_at(2500.0), 22.91263711774591, max_relative = 1e-12);
+    approx::assert_relative_eq!(k_at(3000.0), 25.253758433921842, max_relative = 1e-12);
+
+    // 4. density as the base variant.
+    approx::assert_relative_eq!(
+        try_get_rho(high, t(2500.0), p)
+            .unwrap()
+            .get::<kilogram_per_cubic_meter>(),
+        1730.0,
+        max_relative = 1e-12
+    );
+
+    // 5. the window, and refusal outside it.
+    assert_eq!(
+        SolidMaterial::NuclearGraphiteMatrixA3HighTemp
+            .max_temperature()
+            .get::<kelvin>(),
+        3000.0
+    );
+    assert_eq!(
+        SolidMaterial::NuclearGraphiteMatrixA3HighTemp
+            .min_temperature()
+            .get::<kelvin>(),
+        300.0
+    );
+    for tk in [299.0, 3001.0] {
+        assert!(try_get_cp(high, t(tk), p).is_err(), "cp at {tk} K");
+        assert!(
+            try_get_kappa_thermal_conductivity(high, t(tk), p).is_err(),
+            "k at {tk} K"
+        );
+    }
+    // the base variant still refuses above 2000 K -- it is unchanged
+    assert!(try_get_kappa_thermal_conductivity(base, t(2001.0), p).is_err());
+    assert!(try_get_cp(base, t(2001.0), p).is_err());
+}
+
+/// V&V test: the high-temperature variant's enthalpy is the exact integral of
+/// its cp, and inverts.
+///
+/// **Methodology:** (a) central finite difference of
+/// [`nuclear_graphite_matrix_a3_high_temp_specific_enthalpy`] with a 1e-3 K
+/// half-step against the polynomial cp at 300, 1000, 2000, 2500 and 2990 K,
+/// relative tolerance 1e-6; (b) round trip T -> h -> T through
+/// [`nuclear_graphite_matrix_a3_high_temp_temp_from_specific_enthalpy`] every
+/// 10 K from 300 to 3000 K, tolerance 1e-6 K; (c) an enthalpy 1 % above
+/// h(3000 K) is refused.
+///
+/// **Results (2026-09-28):** all pass; worst round-trip error
+/// 6.8e-10 K.
+#[test]
+pub fn nuclear_graphite_a3_high_temp_enthalpy_is_the_integral_of_cp_and_inverts() {
+    let t = |k: f64| ThermodynamicTemperature::new::<kelvin>(k);
+    for tk in [300.0, 1000.0, 2000.0, 2500.0, 2990.0] {
+        let dh = nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(t(tk + 1e-3))
+            .get::<joule_per_kilogram>()
+            - nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(t(tk - 1e-3))
+                .get::<joule_per_kilogram>();
+        let cp_fd = dh / 2e-3;
+        let cp = nuclear_graphite_specific_heat_capacity_butland_maddison_polynomial(t(tk))
+            .unwrap()
+            .get::<joule_per_kilogram_kelvin>();
+        approx::assert_relative_eq!(cp_fd, cp, max_relative = 1e-6);
+    }
+    let mut worst: f64 = 0.0;
+    for tk in (300..=3000).step_by(10) {
+        let tk = tk as f64;
+        let h = nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(t(tk));
+        let back = nuclear_graphite_matrix_a3_high_temp_temp_from_specific_enthalpy(h)
+            .unwrap()
+            .get::<kelvin>();
+        worst = worst.max((back - tk).abs());
+    }
+    println!("high-temp A3 enthalpy round trip: worst error {worst:e} K");
+    assert!(worst < 1e-6);
+    // an enthalpy beyond h(3000 K) is refused, not extrapolated
+    let too_hot = nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(t(3000.0)) * 1.01;
+    assert!(nuclear_graphite_matrix_a3_high_temp_temp_from_specific_enthalpy(too_hot).is_err());
 }

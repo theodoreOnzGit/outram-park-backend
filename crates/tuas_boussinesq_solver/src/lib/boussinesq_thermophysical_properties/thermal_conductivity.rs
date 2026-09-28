@@ -11,6 +11,7 @@ use super::solid_database::custom_solid_material;
 use super::solid_database::fiberglass::fiberglass_thermal_conductivity_zou_zweibaum_spline;
 use super::solid_database::nuclear_graphite::nuclear_graphite_ig_110_thermal_conductivity_unirradiated;
 use super::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_thermal_conductivity_zero_fluence;
+use super::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_thermal_conductivity_high_temp;
 use super::solid_database::pyrogel_hps::pyrogel_thermal_conductivity_commercial_factsheet_spline;
 use super::solid_database::ss_304_l::steel_304_l_libreoffice_spline_thermal_conductivity_zweibaum;
 use super::solid_database::ss_304_l::steel_304_l_spline_thermal_conductivity;
@@ -100,6 +101,7 @@ fn solid_thermal_conductivity(
         Material::Solid(Copper) => Copper,
         Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
         Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
+        Material::Solid(NuclearGraphiteMatrixA3HighTemp) => NuclearGraphiteMatrixA3HighTemp,
         Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
             CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
         }
@@ -185,6 +187,10 @@ impl SolidMaterial {
             }
             NuclearGraphiteIG110 => {
                 nuclear_graphite_ig_110_thermal_conductivity_unirradiated(solid_temp)?
+            }
+            // extrapolated above 2000 K -- see the variant's doc comment
+            NuclearGraphiteMatrixA3HighTemp => {
+                nuclear_graphite_matrix_a3_thermal_conductivity_high_temp(solid_temp)?
             }
             CustomSolid((low_bound_temp, high_bound_temp), _cp, k_fn, _rho_fn, _roughness) => {
                 custom_solid_material::get_custom_solid_thermal_conductivity(

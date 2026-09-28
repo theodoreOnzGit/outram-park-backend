@@ -201,6 +201,10 @@ pub enum GridCommand {
     Clear,
     /// Paste tab-separated text at the selection.
     Paste(String),
+    /// Copy the selection to the clipboard as tab-separated text, then empty
+    /// it (Ctrl+X). The copy is done by the caller, which owns the egui
+    /// context; this command does the clearing, as one undo step.
+    Cut,
     Undo,
     Redo,
 }
@@ -314,6 +318,48 @@ pub enum TableOutcome {
     /// The setup box was cancelled, or Cancel digitisation was pressed (and
     /// any unsaved table discarded): drop the region and return to the PDF.
     Cancelled,
+}
+
+/// The grid's response to this frame's clipboard shortcuts: the commands to
+/// apply, and whether to put the selection on the clipboard.
+///
+/// ~~Ctrl+V and Ctrl+C reached the grid only while it was the last thing
+/// clicked, and Ctrl+X did nothing.~~ **CHANGED 2026-09-28** (maintainer:
+/// "the table digitiser csv, should have ctrl-x, ctrl-c and ctrl-v work in the
+/// spreadsheet side. It's not working now"). The table loop is "drag over the
+/// PDF, press Ctrl+V": the drag makes the PDF the last thing clicked, so the
+/// paste was dropped. Now:
+///
+/// - **Ctrl+V** and **Ctrl+X** always go to the grid. The PDF reader has no
+///   use for either, so there is nothing to take them from.
+/// - **Ctrl+C** copies the grid selection only while the grid owns the
+///   keyboard. After a drag over the PDF the selected PDF text is already on
+///   the clipboard, and a habitual Ctrl+C must not overwrite it with a cell.
+/// - None of them act while a cell is being edited or any text field has the
+///   keyboard: the text box handles its own clipboard then.
+pub fn clipboard_commands(
+    events: &[egui::Event],
+    grid_focused: bool,
+    editing: bool,
+    text_field_has_keyboard: bool,
+) -> (Vec<GridCommand>, bool) {
+    if editing || text_field_has_keyboard {
+        return (Vec::new(), false);
+    }
+    let mut commands = Vec::new();
+    let mut copy = false;
+    for event in events {
+        match event {
+            egui::Event::Paste(text) => commands.push(GridCommand::Paste(text.clone())),
+            egui::Event::Cut => {
+                copy = true;
+                commands.push(GridCommand::Cut);
+            }
+            egui::Event::Copy if grid_focused => copy = true,
+            _ => {}
+        }
+    }
+    (commands, copy)
 }
 
 /// Calc's column name for zero-based column `col`: A..Z, AA..AZ, BA...
@@ -530,6 +576,11 @@ impl TableDigitiserState {
             }
             GridCommand::CancelEdit => self.edit = None,
             GridCommand::Clear => {
+                if self.edit.is_none() {
+                    self.grid.clear_selection();
+                }
+            }
+            GridCommand::Cut => {
                 if self.edit.is_none() {
                     self.grid.clear_selection();
                 }
@@ -767,7 +818,6 @@ impl TableDigitiserState {
             let mut typed = false;
             for event in &i.events {
                 match event {
-                    egui::Event::Paste(text) => out.push(GridCommand::Paste(text.clone())),
                     egui::Event::Text(text) if !i.modifiers.command => {
                         out.push(GridCommand::StartEdit(Some(text.clone())));
                         typed = true;
@@ -838,12 +888,31 @@ impl TableDigitiserState {
         }) {
             self.grid_focused = panel.contains(press);
         }
+        if !self.confirm_discard && self.pending_reformat.is_none() {
+            let text_field_has_keyboard = ui.ctx().memory(|m| m.focused().is_some());
+            let (commands, copy) = ui.ctx().input(|i| {
+                clipboard_commands(
+                    &i.events,
+                    self.grid_focused,
+                    self.edit.is_some(),
+                    text_field_has_keyboard,
+                )
+            });
+            if copy {
+                ui.ctx().copy_text(self.grid.copy_selection());
+            }
+            if !commands.is_empty() {
+                // Pasting or cutting in the grid makes it the keyboard's
+                // owner again, so the next arrow key moves the cursor.
+                self.grid_focused = true;
+            }
+            for command in commands {
+                self.apply(command);
+            }
+        }
         if self.grid_focused && !self.confirm_discard && self.pending_reformat.is_none() {
             for command in self.commands_from_input(ui.ctx()) {
                 self.apply(command);
-            }
-            if self.edit.is_none() && ui.ctx().input(|i| i.events.contains(&egui::Event::Copy)) {
-                ui.ctx().copy_text(self.grid.copy_selection());
             }
         }
 
@@ -2119,6 +2188,88 @@ mod tests {
         }
     }
 
+    fn copied_text(out: &egui::FullOutput) -> Option<String> {
+        out.platform_output.commands.iter().find_map(|c| match c {
+            egui::OutputCommand::CopyText(t) => Some(t.clone()),
+            _ => None,
+        })
+    }
+
+    /// The table loop the maintainer uses: drag over the PDF (the grid is no
+    /// longer "last clicked"), then Ctrl+V. The paste must land in the grid.
+    #[test]
+    fn ctrl_v_pastes_even_when_the_pdf_was_clicked_last() {
+        let ctx = egui::Context::default();
+        let mut s = TableDigitiserState::default();
+        s.grid_focused = false;
+        let mut input = egui::RawInput::default();
+        input.events.push(egui::Event::Paste("a\tb".into()));
+        let _ = ctx.run_ui(input, |ui| {
+            let _ = s.ui(ui, None);
+        });
+        assert_eq!(s.grid.to_csv(), "a,b\n");
+        assert!(
+            s.grid_focused,
+            "a paste hands the keyboard back to the grid"
+        );
+    }
+
+    /// Ctrl+X copies the selection and empties it, in one undo step.
+    #[test]
+    fn ctrl_x_cuts_the_selection_to_the_clipboard() {
+        let ctx = egui::Context::default();
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("1\t2".into()));
+        let mut input = egui::RawInput::default();
+        input.events.push(egui::Event::Cut);
+        let out = ctx.run_ui(input, |ui| {
+            let _ = s.ui(ui, None);
+        });
+        assert_eq!(copied_text(&out).as_deref(), Some("1\t2"));
+        assert_eq!(s.grid.to_csv(), "");
+        s.apply(GridCommand::Undo);
+        assert_eq!(s.grid.to_csv(), "1,2\n");
+    }
+
+    /// Ctrl+C copies the grid selection only while the grid owns the
+    /// keyboard, so it never overwrites PDF text that was just auto-copied.
+    #[test]
+    fn ctrl_c_copies_the_grid_only_when_the_grid_has_the_keyboard() {
+        let ctx = egui::Context::default();
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("x".into()));
+        for (focused, expect) in [(true, Some("x")), (false, None)] {
+            s.grid_focused = focused;
+            let mut input = egui::RawInput::default();
+            input.events.push(egui::Event::Copy);
+            let out = ctx.run_ui(input, |ui| {
+                let _ = s.ui(ui, None);
+            });
+            assert_eq!(
+                copied_text(&out).as_deref(),
+                expect,
+                "grid_focused = {focused}"
+            );
+        }
+    }
+
+    /// While a cell is being edited the text box owns the clipboard.
+    #[test]
+    fn clipboard_shortcuts_leave_an_edited_cell_to_its_text_box() {
+        let events = [
+            egui::Event::Paste("p".into()),
+            egui::Event::Cut,
+            egui::Event::Copy,
+        ];
+        let (cmds, copy) = clipboard_commands(&events, true, true, false);
+        assert!(cmds.is_empty() && !copy);
+        let (cmds, copy) = clipboard_commands(&events, true, false, true);
+        assert!(cmds.is_empty() && !copy);
+        let (cmds, copy) = clipboard_commands(&events, true, false, false);
+        assert_eq!(cmds, vec![GridCommand::Paste("p".into()), GridCommand::Cut]);
+        assert!(copy);
+    }
+
     /// Shift+Enter moves up and Shift+Tab moves left, as in Calc; neither is
     /// swallowed by the plain-key check.
     #[test]
@@ -2154,7 +2305,11 @@ mod tests {
         let mut input = egui::RawInput::default();
         input.events.push(egui::Event::Paste("a\tb".into()));
         let _ = ctx.run_ui(input, |ui| {
-            for c in s.commands_from_input(ui.ctx()) {
+            // Clipboard shortcuts go through `clipboard_commands` (2026-09-28).
+            let (cmds, _) = ui
+                .ctx()
+                .input(|i| clipboard_commands(&i.events, true, false, false));
+            for c in cmds.into_iter().chain(s.commands_from_input(ui.ctx())) {
                 s.apply(c);
             }
         });

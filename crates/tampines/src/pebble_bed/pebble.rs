@@ -82,11 +82,14 @@ use uom::si::ratio::ratio;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 
-use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::{
+    nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent,
+    nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent,
+};
 
 use super::triso::{
-    solid_sphere_centre_temperature_rise, spherical_shell_temperature_rise, FastNeutronFluence,
-    TrisoParticle, TrisoTemperatureProfile, MAX_TEMPERATURE_KELVIN, MIN_TEMPERATURE_KELVIN,
+    solid_sphere_centre_temperature_rise, spherical_shell_temperature_rise, CorrelationWindow,
+    FastNeutronFluence, TrisoParticle, TrisoTemperatureProfile,
 };
 use crate::TampinesError;
 
@@ -250,6 +253,11 @@ pub struct Pebble {
     pub particles_per_pebble: f64,
     /// Which dispersion rule mixes the particle conductivity into the matrix.
     pub dispersion_model: DispersionModel,
+    /// Coded temperature window of the matrix-graphite and particle-layer
+    /// correlations. [`CorrelationWindow::Standard`] from every constructor;
+    /// widen it with [`Pebble::with_correlation_window`] (which widens the
+    /// particle's to match, so the two scales cannot disagree).
+    pub correlation_window: CorrelationWindow,
 }
 
 impl Pebble {
@@ -292,9 +300,10 @@ impl Pebble {
         let candidate = Self {
             outer_radius,
             fuelled_zone_radius,
-            particle,
+            particle: particle.with_correlation_window(CorrelationWindow::Standard),
             particles_per_pebble,
             dispersion_model,
+            correlation_window: CorrelationWindow::Standard,
         };
 
         let volume_fraction = candidate.triso_volume_fraction().get::<ratio>();
@@ -324,6 +333,28 @@ impl Pebble {
             DispersionModel::ChiewGlandt,
         )
         .expect("the published HTR-10 pebble geometry is internally consistent")
+    }
+
+    /// The HTR-10 fuel element of [`Self::htr10`] with the whole stack —
+    /// matrix graphite and every TRISO layer — evaluated in the
+    /// [`CorrelationWindow::HighTemperature`] window (300-3000 K), matrix
+    /// graphite from `tuas_boussinesq_solver`'s
+    /// `NuclearGraphiteMatrixA3HighTemp`.
+    ///
+    /// Identical to [`Self::htr10`] at or below 2000 K, bit for bit (see
+    /// `tests::the_high_temperature_window_is_identical_below_2000_k_and_resolves_above`).
+    /// **Above 2000 K every conductivity is extrapolated** — see
+    /// [`CorrelationWindow::HighTemperature`].
+    pub fn htr10_high_temperature() -> Self {
+        Self::htr10().with_correlation_window(CorrelationWindow::HighTemperature)
+    }
+
+    /// The same pebble with its matrix graphite and its particle both
+    /// evaluated in `window`.
+    pub fn with_correlation_window(mut self, window: CorrelationWindow) -> Self {
+        self.correlation_window = window;
+        self.particle = self.particle.with_correlation_window(window);
+        self
     }
 
     /// Volume of the fuelled zone, m^3. HTR-10: 65.45 cm^3.
@@ -359,22 +390,38 @@ impl Pebble {
     /// matrix and the unfuelled shell are the same 1.73 g/cm^3 A3 graphite in
     /// the HTR-10 design, so one correlation serves both.
     ///
-    /// Valid range: 300 K to 2000 K, fluence `gam` in `[0, 15]`; outside
-    /// either, returns [`TampinesError::InvalidInput`].
+    /// Valid range: 300 K to 2000 K ([`CorrelationWindow::Standard`]) or to
+    /// 3000 K ([`CorrelationWindow::HighTemperature`], **extrapolated above
+    /// 2000 K**, `NuclearGraphiteMatrixA3HighTemp`), fluence `gam` in
+    /// `[0, 15]`; outside either, returns [`TampinesError::InvalidInput`].
     pub fn matrix_conductivity(
         &self,
         temperature: ThermodynamicTemperature,
         fluence: FastNeutronFluence,
     ) -> Result<ThermalConductivity, TampinesError> {
-        nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(temperature, fluence)
-            .map_err(|error| {
-                TampinesError::InvalidInput(format!(
-                    "TUAS A3 matrix graphite conductivity rejected temperature \
-                     {} K / fluence {}: {error:?}",
-                    temperature.get::<kelvin>(),
-                    fluence.get::<ratio>()
-                ))
-            })
+        let result = match self.correlation_window {
+            CorrelationWindow::Standard => {
+                nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
+                    temperature,
+                    fluence,
+                )
+            }
+            CorrelationWindow::HighTemperature => {
+                nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent(
+                    temperature,
+                    fluence,
+                )
+            }
+        };
+        result.map_err(|error| {
+            TampinesError::InvalidInput(format!(
+                "TUAS A3 matrix graphite conductivity ({:?} window) rejected temperature \
+                 {} K / fluence {}: {error:?}",
+                self.correlation_window,
+                temperature.get::<kelvin>(),
+                fluence.get::<ratio>()
+            ))
+        })
     }
 
     /// Effective thermal conductivity of the **fuelled zone**, W/(m K), at the
@@ -453,11 +500,14 @@ impl Pebble {
             )));
         }
         let surface_kelvin = surface_temperature.get::<kelvin>();
-        if !(MIN_TEMPERATURE_KELVIN..=MAX_TEMPERATURE_KELVIN).contains(&surface_kelvin) {
+        let (low, high) = (
+            self.correlation_window.min_kelvin(),
+            self.correlation_window.max_kelvin(),
+        );
+        if !(low..=high).contains(&surface_kelvin) {
             return Err(TampinesError::InvalidInput(format!(
                 "pebble surface temperature {surface_kelvin} K is outside the \
-                 coded correlation range {MIN_TEMPERATURE_KELVIN} K to \
-                 {MAX_TEMPERATURE_KELVIN} K"
+                 coded correlation range {low} K to {high} K"
             )));
         }
 

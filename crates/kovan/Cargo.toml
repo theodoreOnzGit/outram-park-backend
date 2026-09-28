@@ -150,7 +150,12 @@ directories.workspace = true
 # independent lineage, poppler's `pdfimages`, on all 34 images of a 39-page
 # scan. Minor rather than patch because a call that used to return
 # `Unsupported` on such a file now returns pixels.
-kopitiam-pdf = { version = "0.4.0", default-features = false, features = ["egui"] }
+# 0.4.1 (2026-09-28): scanned "searchable image" PDFs (Acrobat Capture) no
+# longer render blank -- an indirect /Contents array was never run; invisible
+# (3 Tr) OCR text is no longer painted over the scan; unknown Nonsymbolic fonts
+# get MuPDF's flag-based substitute. Patch: fixes + one defaulted trait method.
+# Found on Butland & Maddison (1973/74), which rendered as blank pages.
+kopitiam-pdf = { version = "0.4.1", default-features = false, features = ["egui"] }
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than

@@ -5151,9 +5151,9 @@ dependencies = [
 
 [[package]]
 name = "kopitiam-pdf"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b206bc172a52cd465d4da99c05b6b95e3e6a63cb1dcba4ea74aeed7e451f12f"
+checksum = "0b0e12e47406d71bab25d33aa066fa8b43233613a5caf5f7c1119f50b482ebd2"
 dependencies = [
  "aes",
  "cbc",

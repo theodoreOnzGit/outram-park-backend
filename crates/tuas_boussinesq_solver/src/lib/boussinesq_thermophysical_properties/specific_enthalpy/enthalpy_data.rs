@@ -10,6 +10,7 @@ use crate::boussinesq_thermophysical_properties::solid_database::copper::copper_
 use crate::boussinesq_thermophysical_properties::solid_database::custom_solid_material;
 use crate::boussinesq_thermophysical_properties::solid_database::fiberglass::fiberglass_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_specific_enthalpy;
+use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_high_temp_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::pyrogel_hps::pyrogel_hps_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_304_l_spline_specific_enthalpy_ciet_zweibaum;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::steel_304_l_high_temp_specific_enthalpy_kim;
@@ -47,6 +48,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
         Material::Solid(Copper) => Copper,
         Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
         Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
+        Material::Solid(NuclearGraphiteMatrixA3HighTemp) => NuclearGraphiteMatrixA3HighTemp,
         Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
             CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
         }
@@ -64,6 +66,9 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
         // enthalpy curve; see the nuclear_graphite module docs
         NuclearGraphiteMatrixA3 => nuclear_graphite_specific_enthalpy(solid_temp),
         NuclearGraphiteIG110 => nuclear_graphite_specific_enthalpy(solid_temp),
+        NuclearGraphiteMatrixA3HighTemp => {
+            nuclear_graphite_matrix_a3_high_temp_specific_enthalpy(solid_temp)
+        }
         CustomSolid((low_bound_temp, high_bound_temp), cp_fn, _k, _rho_fn, _roughness) => {
             custom_solid_material::get_custom_solid_enthalpy(
                 solid_temp,
