@@ -537,8 +537,7 @@ gh issue comment <number> --body "..."           # progress
 - **If `gh` is unavailable**, fall back to the harness task tools and say so
   in the hand-off.
 - **`op-*` ids are historical** references into the old beads store; do not
-  look them up in `gh` and do not mint new ones. The store refs
-  (`refs/heads/beads/store`, `refs/beads/*`) are preserved — do not delete them.
+  look them up in `gh` and do not mint new ones.
 - The tracker holds *work to do*; the per-project `memory/` files hold
   *durable facts and preferences*. Both stay in use.
 
