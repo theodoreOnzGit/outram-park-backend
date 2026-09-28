@@ -29,8 +29,9 @@ Created 2026-09-28 to reserve the name and state the scope. The crate has no
 dependencies and no behaviour. Its only public item is the `SCOPE` string
 constant. Do not cite it as the location of any calculation.
 
-A published HTR-10 dose-versus-distance table (Liu and Cao 2002, Table 7)
-currently lives in `changi`, parked there by the maintainer. Whether it moves
+Two published HTR-10 dose-versus-distance tables currently live in `changi`,
+parked there by the maintainer: normal operation (Liu and Cao 2002, Table 7)
+and two design-basis accidents (Table 9, added 2026-09-28). Whether they move
 here is undecided.
 
 ## Bookkeeping status

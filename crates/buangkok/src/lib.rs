@@ -37,10 +37,13 @@
 //!
 //! # Already in the workspace, not yet here
 //!
-//! A published HTR-10 dose-versus-distance table (Liu and Cao 2002, Table 7)
-//! is stored in `changi::activity::published_dose_by_distance`, parked there
-//! by the maintainer. Whether and when it moves here is the maintainer's
-//! call; do not move it unasked.
+//! Two published HTR-10 dose-versus-distance tables are stored in `changi`,
+//! parked there by the maintainer: normal operation (Liu and Cao 2002,
+//! Table 7, `changi::activity::published_dose_by_distance`) and two
+//! design-basis accidents (Table 9,
+//! `changi::activity::published_accident_dose_by_distance`, added
+//! 2026-09-28). Whether and when they move here is the maintainer's call; do
+//! not move them unasked.
 #![forbid(unsafe_code)]
 
 /// The scope this crate reserves, as a machine-readable string.

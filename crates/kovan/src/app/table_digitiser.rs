@@ -764,14 +764,32 @@ impl TableDigitiserState {
             if i.modifiers.command && i.key_pressed(Key::Y) {
                 out.push(GridCommand::Redo);
             }
+            let mut typed = false;
             for event in &i.events {
                 match event {
                     egui::Event::Paste(text) => out.push(GridCommand::Paste(text.clone())),
                     egui::Event::Text(text) if !i.modifiers.command => {
                         out.push(GridCommand::StartEdit(Some(text.clone())));
+                        typed = true;
                     }
                     _ => {}
                 }
+            }
+            // A keystroke that starts a cell edit belongs to the grid. The
+            // PDF reader drawn after this panel binds bare letters and signs
+            // (j/k turn pages, n/N jump search hits, - and + zoom), so without
+            // this, typing "nuclide" or "-3.5" into a cell also moved the PDF
+            // (maintainer, 2026-09-28: "fix those too"). The typed Text event
+            // itself is kept: it is what fills the cell. Shortcuts with Ctrl
+            // or Cmd are left alone.
+            if typed {
+                i.events.retain(|e| {
+                    !matches!(
+                        e,
+                        egui::Event::Key { pressed: true, modifiers, .. }
+                            if !modifiers.command && !modifiers.ctrl
+                    )
+                });
             }
         });
         out
@@ -2064,6 +2082,41 @@ mod tests {
             (1, 2),
             "Shift+Down extended the selection"
         );
+    }
+
+    /// Typing a value that starts with a letter or sign the reader binds
+    /// (n = next search hit, j/k = page, - = zoom out) fills the cell and
+    /// does not reach the reader.
+    #[test]
+    fn typing_into_a_cell_does_not_drive_the_pdf_reader() {
+        let ctx = egui::Context::default();
+        for (key, text) in [
+            (Key::N, "n"),
+            (Key::J, "j"),
+            (Key::K, "k"),
+            (Key::Minus, "-"),
+        ] {
+            let mut s = TableDigitiserState::default();
+            s.grid_focused = true;
+            let mut input = egui::RawInput::default();
+            input.events.push(egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            });
+            input.events.push(egui::Event::Text(text.into()));
+            let mut reader_saw_key = true;
+            let _ = ctx.run_ui(input, |ui| {
+                for c in s.commands_from_input(ui.ctx()) {
+                    s.apply(c);
+                }
+                reader_saw_key = ui.input(|i| i.key_pressed(key));
+            });
+            assert!(!reader_saw_key, "the reader saw {key:?}");
+            assert_eq!(s.edit.as_ref().map(|e| e.text.as_str()), Some(text));
+        }
     }
 
     /// Shift+Enter moves up and Shift+Tab moves left, as in Calc; neither is

@@ -24,8 +24,8 @@ without the maintainer asking for it.
   them. Record provenance per `DATA_POLICY.md`.
 - **Search before building.** CHANGI supplies air concentration and
   deposition; RAFFLES supplies uncertainty propagation. Reuse them.
-- **The Table 7 dose table stays in `changi`** until the maintainer decides to
-  move it.
+- **The Table 7 and Table 9 dose tables stay in `changi`** until the maintainer
+  decides to move them.
 - **Units:** `uom` 0.38 has no sievert quantity (checked 2026-09-28). Decide
   how dose is typed before the first API, and do not use `AvailableEnergy`
   (J/kg) as a stand-in.

@@ -276,7 +276,11 @@ mod tests {
         for case in CASES {
             for w in r.windows(2) {
                 let (a, b) = (w[0].doses(case), w[1].doses(case));
-                assert!(b.thyroid_msv < a.thyroid_msv, "{case:?} thyroid at {} km", km(&w[1]));
+                assert!(
+                    b.thyroid_msv < a.thyroid_msv,
+                    "{case:?} thyroid at {} km",
+                    km(&w[1])
+                );
                 assert!(
                     b.whole_body_msv < a.whole_body_msv,
                     "{case:?} whole-body at {} km",
