@@ -76,33 +76,37 @@ its own test suite, and the two were measured to agree bit-for-bit. Before
 porting any further FLEXPART numerical utility, check `petir` first, then
 `outram-foam-basic-lib`.
 
-**Half-lives come from `boon-lay`.** The decay module holds no nuclide data of
-its own, deliberately, so the two cannot drift. ~~Do not add a nuclide table here.~~
-**CORRECTED 2026-09-28** — a nuclide table *has* been added: the 22-entry HTR-10
-equilibrium-core inventory (Liu and Cao 2002, Table 1),
-`reference/htr10_equilibrium_core_inventory.csv`, compiled in by
-`src/activity/inventory.rs:50`, provenance in `docs/References.md` (added
-2026-09-24). A second one was added 2026-09-28: the 22-entry HTR-10 annual
-normal-operation airborne release (Liu and Cao 2002, Table 5),
-`reference/htr10_normal_operation_annual_airborne_release.csv`, compiled in by
-`src/activity/airborne_release.rs`. ~~Both~~ A third nuclide table was added
-2026-09-28 (**CORRECTED 2026-09-28**): the 20-entry HTR-10 primary-helium
-activity at the end of a 20-year life (Liu and Cao 2002, Table 3),
-`reference/htr10_primary_helium_activity_end_of_life.csv`, compiled in by
-`src/activity/primary_helium.rs`. All three hold activities, not half-lives; no half-life or decay-constant
-table exists in this crate (checked: `grep` of `src/` finds none). Whether the
-"no nuclide table" rule should now be reworded to allow published inventories is
-**open for the maintainer**.
+**Half-lives come from `boon-lay`; published nuclide tables live here.**
+The decay module holds no half-life or decay-constant data of its own,
+deliberately, so it cannot drift from `boon-lay`. ~~Do not add a nuclide table
+here.~~ **CHANGED 2026-09-28** (maintainer: "update changi to include nuclide
+tables"): changi **is** the home for published nuclide tables of activities
+and releases, since the dispersion chain is their consumer. Each one sits in
+`reference/` as a CSV, is compiled in by its own loader under
+`src/activity/` (sharing `inventory::parse_nuclide_bq_csv`), and has a full
+provenance section in `docs/References.md`. The rule that still stands: **no
+half-life or decay-constant tables** here. Those come from `boon-lay`.
 
-A ~~third~~ further published table, and the first that is **not** a nuclide table, was
-added 2026-09-28: HTR-10 normal-operation individual effective dose versus
-distance (Liu and Cao 2002, Table 7, an AIRDOS-EPA result),
-`reference/htr10_normal_operation_individual_dose_by_distance.csv`, loaded by
-`src/activity/published_dose_by_distance.rs`. It is **stored, not computed**.
-Nothing consumes it, and `changi` still computes no dose. Whether a crate
-whose dose assessment is future-scope should hold a published dose table at
-all is **open for the maintainer**. It was added on the maintainer's request.
-It does not move dose assessment into the current scope.
+Tables held today, all from Liu and Cao (2002), NED 218, 81–90:
+
+| Table | What | CSV | Loader |
+|---|---|---|---|
+| 1 | Equilibrium-core inventory, 22 nuclides (Bq) | `htr10_equilibrium_core_inventory.csv` | `activity/inventory.rs` |
+| 3 | Primary-helium activity at end of a 20-year life, 20 nuclides (Bq) | `htr10_primary_helium_activity_end_of_life.csv` | `activity/primary_helium.rs` |
+| 5 | Annual normal-operation airborne release, 22 nuclides (Bq/a) | `htr10_normal_operation_annual_airborne_release.csv` | `activity/airborne_release.rs` |
+| 7 | Individual effective dose vs distance, normal operation (mSv/a) — **not** a nuclide table; see below | `htr10_normal_operation_individual_dose_by_distance.csv` | `activity/published_dose_by_distance.rs` |
+
+Nothing in the workspace consumes these tables yet.
+
+**The Table 7 dose table is parked here, not settled here.** It is stored,
+cited data (a published AIRDOS-EPA result). It is not computed, and changi
+still computes no dose. The maintainer (2026-09-28) may move dose data to
+another crate: dose is a biological quantity, and keeping it apart from the
+dispersion physics avoids it being mistaken for a health-assessment
+capability. This workspace uses it for safety analysis in the research
+sense only (see `RESPONSIBLE_USE.md`). **Leave it where it is until the
+maintainer decides.** Do not build on it, move it, or add dose computation
+around it unasked.
 
 **`puff`'s unit conversion is methane-specific and must not be generalised by
 assumption.** Upstream is an oil-and-gas leak-detection package; its
