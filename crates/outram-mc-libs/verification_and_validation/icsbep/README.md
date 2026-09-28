@@ -62,6 +62,7 @@ construction.
 | Directory | Benchmark | Character | Example |
 |---|---|---|---|
 | `leu-comp-therm-008/` | LEU-COMP-THERM-008 — B&W critical lattices | thermal, 2.459 w/o UO₂ rods in 1511 ppm borated water; U-238 is 97.5 % of the heavy metal | `examples/lct008_keff.rs` |
+| `five_route_keff/` | all four cases (LCT-008 **simplified**), 5 code × data routes | OpenMC vs outram-mc on NJOY2016 and Rust-NJOY data | `examples/icsbep_five_route_keff.rs`, record [`five_route_keff_2026_09_29.md`](five_route_keff_2026_09_29.md) |
 
 Godiva (HEU-MET-FAST-001), Jemima (IEU-MET-FAST-002) and HEU-SOL-THERM-009 are
 run by `examples/godiva_keff_endf_local.rs`, `examples/jemima_keff.rs` and
