@@ -66,7 +66,8 @@ log "building release binaries at $COMMIT"
 # Snapshot the binaries: a rebuild in the working tree while the campaign runs
 # must not change what later seeds are run with.
 mkdir -p "$WORK/bin/$COMMIT"
-cp "$REPO/target/release/examples/icsbep_five_route_keff" "$REPO/target/release/examples/write_ace_library" "$WORK/bin/$COMMIT/"
+TGT=${CARGO_TARGET_DIR:-$REPO/target}
+cp "$TGT/release/examples/icsbep_five_route_keff" "$TGT/release/examples/write_ace_library" "$WORK/bin/$COMMIT/"
 DRIVER=$WORK/bin/$COMMIT/icsbep_five_route_keff
 WRITER=$WORK/bin/$COMMIT/write_ace_library
 
