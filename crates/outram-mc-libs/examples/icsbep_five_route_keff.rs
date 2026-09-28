@@ -62,6 +62,7 @@
 //! One CSV row is **appended per seed as soon as it finishes**, so a launcher
 //! can resume by asking only for the seeds not yet in the file.
 
+use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -79,6 +80,9 @@ use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
 use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
 use outram_mc_libs::physics::keff::{run_keff, KeffResult, KeffSettings};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+
+#[path = "common/lct008_model.rs"]
+mod lct008_model;
 
 const TEMP_K: f64 = 293.6;
 
@@ -226,7 +230,80 @@ fn case(name: &str) -> Case {
                 defaults: (5000, 40, 120),
             }
         }
-        other => panic!("--case must be godiva|jemima|hst009|lct008s, got {other}"),
+        "lct008" => lct008_lattice_case(),
+        other => panic!("--case must be godiva|jemima|hst009|lct008|lct008s, got {other}"),
+    }
+}
+
+/// **LEU-COMP-THERM-008 case 1, the real lattice**, from the SAME model
+/// `lct008_keff.rs` runs (`common/lct008_model.rs`: the committed
+/// `mit-crpg/benchmarks` OpenMC cards parsed at run time, CSG lattice, geometry
+/// self-check), restricted to that example's `--cheap-nuclides` tier
+/// (`TAPES_CHEAP`, 11 nuclides). Model nuclides outside the tier are **dropped,
+/// not renormalised**, exactly as `lct008_keff.rs --cheap-nuclides` does; the
+/// list is printed on every run and recorded in the five-route V&V record.
+fn lct008_lattice_case() -> Case {
+    let _ = lct008_model::ACTIVE_CASE.set(1);
+    let spec = lct008_model::parse_materials(lct008_model::materials_xml());
+    let keep = |n: &str| lct008_model::TAPES_CHEAP.iter().any(|(m, _)| *m == n);
+    let mut slots: BTreeMap<String, usize> = BTreeMap::new();
+    let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
+    for m in &spec {
+        for (n, ao) in &m.nuclides {
+            if keep(n) {
+                let k = slots.len();
+                slots.entry(n.clone()).or_insert(k);
+            } else {
+                *omitted.entry(n.clone()).or_insert(0.0) += ao;
+            }
+        }
+    }
+    let (mats, _) = lct008_model::build_materials(&spec, &slots, &omitted, false);
+    lct008_model::report_omissions(&spec, &omitted);
+    let ids: Vec<i32> = mats.iter().map(|m| m.id).collect();
+    assert_eq!(
+        ids,
+        (1..=ids.len() as i32).collect::<Vec<_>>(),
+        "material ids must be 1..n"
+    );
+    let geom = lct008_model::build_geometry(&mats, true);
+    let _ = lct008_model::check_geometry(&geom, &mats);
+    let sab_on_h1 = spec.iter().any(|m| m.sab.as_deref() == Some("c_H_in_H2O"));
+    // Back to (name, [(nuclide, density)]) in the model's own order, so the
+    // generic loader below sees the lattice like any other case. `String::leak`
+    // gives the 'static names the case table uses; a handful of short strings
+    // per process.
+    let by_slot: BTreeMap<usize, String> = slots.iter().map(|(n, &i)| (i, n.clone())).collect();
+    let materials: Vec<Mat> = mats
+        .iter()
+        .map(|m| {
+            let comps = m
+                .components
+                .iter()
+                .map(|c| (&*by_slot[&c.nuclide_idx].clone().leak(), c.atom_density))
+                .collect();
+            (&*m.name.clone().leak(), comps)
+        })
+        .collect();
+    Case {
+        materials,
+        sab_on_h1,
+        model: Model::Csg(
+            geom,
+            SourceBox {
+                lower: Position::new(
+                    -lct008_model::R_CORE,
+                    -lct008_model::R_CORE,
+                    lct008_model::Z_LO,
+                ),
+                upper: Position::new(
+                    lct008_model::R_CORE,
+                    lct008_model::R_CORE,
+                    lct008_model::Z_HI,
+                ),
+            },
+        ),
+        defaults: (10_000, 250, 400),
     }
 }
 

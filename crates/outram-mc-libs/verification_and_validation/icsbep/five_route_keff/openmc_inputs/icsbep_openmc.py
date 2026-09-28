@@ -115,7 +115,37 @@ def lct008s():
     return [m], geo, src
 
 
-CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008s": lct008s}
+# LEU-COMP-THERM-008 case 1, the REAL lattice: the same committed
+# mit-crpg/benchmarks cards outram-mc parses (examples/common/lct008_model.rs),
+# read here with OpenMC's own XML readers, so geometry and densities are the
+# file's, not a transcription. Restricted to the SAME 11-nuclide tier outram-mc
+# runs (lct008_keff.rs `TAPES_CHEAP`): every other nuclide is dropped and NOT
+# renormalised, matching `build_materials` (density units="sum" then sums what
+# is left, exactly as outram-mc's per-nuclide atom densities do).
+LCT008_DIR = pathlib.Path(__file__).resolve().parents[2] / "leu-comp-therm-008"
+LCT008_TIER = {"H1", "B10", "O16", "U234", "U235", "U238", "Al27",
+               "Si28", "Si29", "Si30", "Mn55"}
+
+
+def lct008():
+    mats = openmc.Materials.from_xml(str(LCT008_DIR / "materials.xml"))
+    dropped = set()
+    for m in mats:
+        m.temperature = T
+        for nuc in [n.name for n in m.nuclides]:
+            if nuc not in LCT008_TIER:
+                m.remove_nuclide(nuc)
+                dropped.add(nuc)
+    print("lct008: dropped (not in the outram-mc tier):", ", ".join(sorted(dropped)))
+    geo = openmc.Geometry.from_xml(str(LCT008_DIR / "geometry.xml"), materials=mats)
+    used = list(geo.get_all_materials().values())
+    # Same source region as outram-mc: the core cylinder's bounding box.
+    src = openmc.stats.Box((-76.2, -76.2, -81.662), (76.2, 76.2, 81.662))
+    return used, geo, src
+
+
+CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008": lct008,
+         "lct008s": lct008s}
 
 
 def main():
@@ -173,7 +203,7 @@ def main():
         n_nuc = len({n.name for m in mats for n in m.nuclides})
         w.writerow([a.case, a.label, "openmc", a.seed, f"{k.nominal_value:.6f}",
                     f"{k.std_dev:.6f}", a.particles, a.inactive, a.active, a.threads,
-                    f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008s)).lower(),
+                    f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008, lct008s)).lower(),
                     a.commit, f"{kgen.mean():.6f}"])
     print(f"{a.case} {a.label} seed {a.seed}: k = {k.nominal_value:.5f} +/- {k.std_dev:.5f}"
           f"  (generation mean {kgen.mean():.5f})  {wall:.1f} s")

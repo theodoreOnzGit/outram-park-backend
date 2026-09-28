@@ -41,8 +41,8 @@ CASES = [
     ("godiva", "Godiva  HEU-MET-FAST-001", 0.0010, "ICSBEP ±0.0010"),
     ("jemima", "Jemima  IEU-MET-FAST-002", 0.0030, "±0.003 stand-in, not the handbook value"),
     ("hst009", "HEU-SOL-THERM-009 case 1", 0.0060, "±0.006 stand-in, not the handbook value"),
-    ("lct008s", "LEU-COMP-THERM-008 case 1 — SIMPLIFIED", None,
-     "homogenised 30/70 sphere: k is NOT comparable to 1"),
+    ("lct008", "LEU-COMP-THERM-008 case 1 (lattice, 11-nuclide tier)", 0.0060,
+     "±0.006 stand-in, not the handbook value"),
 ]
 ROUTES = [
     ("route1", "1  OpenMC\nNJOY2016 ACE"),
@@ -59,9 +59,15 @@ MARKERS = ["o", "s", "D", "^", "v"]
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 
+# Summarised and tabulated but NOT plotted: the homogenised 30/70 sphere run on
+# 2026-09-29 before the maintainer clarified that "simplified" meant the
+# lattice with a reduced nuclide list. Kept as a documented extra.
+EXTRA_CASES = [("lct008s", "LCT-008 homogenised sphere (extra, k not comparable to 1)", None, "")]
+
+
 def summarise(rows):
     out = {}
-    for case, _, _, _ in CASES:
+    for case, _, _, _ in CASES + EXTRA_CASES:
         for route, _ in ROUTES:
             k = np.array([float(r["k"]) for r in rows if r["case"] == case and r["route"] == route])
             if k.size == 0:
@@ -88,7 +94,7 @@ def main():
         w.writerow(["case", "route", "n_seeds", "k_mean", "k_sem", "k_sd_seeds",
                     "mean_internal_sigma", "d_exp_pcm", "d_exp_sigma_pcm",
                     "d_route1_pcm", "d_route1_sigma_pcm", "d_route1_nsigma"])
-        for case, _, _, _ in CASES:
+        for case, _, _, _ in CASES + EXTRA_CASES:
             ref = s.get((case, "route1"))
             for route, _ in ROUTES:
                 v = s.get((case, route))

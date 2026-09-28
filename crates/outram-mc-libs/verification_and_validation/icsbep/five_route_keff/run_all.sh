@@ -13,8 +13,14 @@
 # | 5     | outram-mc | Rust-NJOY ACE                                  |
 #
 # Cases: godiva (HEU-MET-FAST-001), jemima (IEU-MET-FAST-002), hst009
-# (HEU-SOL-THERM-009 case 1), lct008s (SIMPLIFIED LEU-COMP-THERM-008 case 1:
-# homogenised 30/70 sphere, not the benchmark lattice).
+# (HEU-SOL-THERM-009 case 1), lct008 (LEU-COMP-THERM-008 case 1, the real
+# lattice with lct008_keff.rs's 11-nuclide tier; its own defaults are
+# 10000 x [250 + 400], pass PARTICLES/INACTIVE/ACTIVE for it), and lct008s (a
+# documented extra: the homogenised 30/70 sphere, not comparable to k = 1).
+#
+# Per-case history counts: PARTICLES/INACTIVE/ACTIVE apply to every case in the
+# invocation, so run lct008 in its own invocation:
+#   THREADS=4 CASES=lct008 ROUTES="1 2 4" PARTICLES=10000 INACTIVE=250 ACTIVE=400 ./run_all.sh
 #
 # A case x route that FAILS (e.g. routes 3/5 on hst009: outram-mc's ACE reader
 # refuses F-19's MT=16 law-61 chain, see the V&V record) is logged and skipped;
@@ -44,7 +50,7 @@ PARTICLES=${PARTICLES:-5000}
 INACTIVE=${INACTIVE:-40}
 ACTIVE=${ACTIVE:-120}
 ROUTES=${ROUTES:-1 2 3 4 5}
-CASES=${CASES:-godiva jemima hst009 lct008s}
+CASES=${CASES:-godiva jemima hst009 lct008 lct008s}
 PY=${PY:-$HOME/Documents/research/.venv-openmc/bin/python}
 OPENMC=${OPENMC:-$HOME/Documents/research/openmcbin/bin/openmc}
 export RAYON_NUM_THREADS=$THREADS OMP_NUM_THREADS=$THREADS
@@ -57,8 +63,12 @@ log "building release binaries at $COMMIT"
 (cd "$REPO" && cargo build --release -p njoy-outram-park-fork --example write_ace_library \
    && cargo build --release -p outram-mc-libs --features endf-pebble-cases \
         --example icsbep_five_route_keff) >> "$WORK/logs/build.log" 2>&1
-DRIVER=$REPO/target/release/examples/icsbep_five_route_keff
-WRITER=$REPO/target/release/examples/write_ace_library
+# Snapshot the binaries: a rebuild in the working tree while the campaign runs
+# must not change what later seeds are run with.
+mkdir -p "$WORK/bin/$COMMIT"
+cp "$REPO/target/release/examples/icsbep_five_route_keff" "$REPO/target/release/examples/write_ace_library" "$WORK/bin/$COMMIT/"
+DRIVER=$WORK/bin/$COMMIT/icsbep_five_route_keff
+WRITER=$WORK/bin/$COMMIT/write_ace_library
 
 # ── 1. libraries (each step skips what already exists) ─────────────────────
 log "NJOY2016 library"
