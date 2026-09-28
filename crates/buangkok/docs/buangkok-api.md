@@ -18,18 +18,22 @@ dose coefficients, dose uncertainty, and ALARA reasoning. The question it
 answers is **"what dose follows from what was released and where it
 went?"**
 
-# STATUS: partial pyDOSEIA port (2026-09-28)
+# STATUS: pyDOSEIA ported (2026-09-28)
 
 ~~PLACEHOLDER. Nothing is implemented.~~ **CHANGED 2026-09-28** (maintainer:
-"work on translating pyDOSEIA into buangkok under a module"). The crate
-now holds [`pydoseia`], a partial, faithful port of the MIT-licensed
-pyDOSEIA code (Sadhu et al., *Health Physics* 130(1) (2026) 94-110,
-doi:10.1097/HP.0000000000002014). That covers its met processing,
-Gaussian-plume dilution factors, and the inhalation, ground-shine and
-submersion dose pathways. They are **code-to-code verified against
-upstream** on synthetic inputs (`tests/pydoseia_code_to_code.rs`). The
-agreement is with pyDOSEIA, not with experiment, and there is no
-validation of any kind. Ingestion and plume shine are **not ported** (see
+"work on translating pyDOSEIA into buangkok under a module", then "port all
+of pyDOSEIA into buangkok"). The crate holds [`pydoseia`], a faithful port
+of the MIT-licensed pyDOSEIA code (Sadhu et al., *Health Physics* 130(1)
+(2026) 94-110, doi:10.1097/HP.0000000000002014): met processing,
+Gaussian-plume dilution factors, the inhalation, ground-shine, submersion,
+ingestion and plume-shine pathways, multi-source DCF screening, plume rise,
+the run configuration and the driver with its summary tables. ~~Ingestion
+and plume shine are **not ported**~~ (**ported 2026-09-28**, second
+tranche). Everything is **code-to-code verified against upstream** on
+synthetic inputs (`tests/pydoseia_code_to_code.rs`: 1 899 cases, 41 of 43
+groups bit-exact). The agreement is with pyDOSEIA, not with experiment,
+and there is no validation of any kind; 26 upstream defects are recorded
+(`docs/pydoseia-code-to-code.md`). What is not ported is I/O and UI (see
 `docs/pydoseia-port-scoping.md`). No dose-coefficient data ships with the
 crate. Human V&V review is still outstanding (see README).
 
@@ -679,10 +683,11 @@ pub fn htr10_normal_operation_dose_by_distance() -> Vec<PublishedDoseAtDistance>
 
 ## Module `pydoseia`
 
-Partial port of pyDOSEIA (met processing, Gaussian-plume dilution,
-inhalation / ground-shine / submersion doses), code-to-code verified
-against upstream. See the module docs for provenance and scope.
-# A partial port of pyDOSEIA: Gaussian-plume dilution, and inhalation, ground-shine and submersion doses
+Port of pyDOSEIA (met processing, Gaussian-plume dilution, inhalation,
+ground-shine, submersion, ingestion and plume-shine doses, the driver),
+code-to-code verified against upstream. See the module docs for
+provenance and scope.
+# A port of pyDOSEIA: Gaussian-plume dilution and five dose pathways
 
 > **Research, education and V&V only.** Not for medical, occupational,
 > public-health, emergency-response, licensing or regulatory use, and
@@ -694,21 +699,32 @@ against upstream. See the module docs for provenance and scope.
 |---|---|
 | Upstream project | **pyDOSEIA**, <https://github.com/BiswajitSadhu/pyDOSEIA> |
 | Commit ported | `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce` (branch `head`, 2025-08-26), checked 2026-09-28 |
-| Source files | `metfunc.py`, `dosefunc.py`, `raddcffunc.py` (function-level mapping in each submodule) |
+| Source files | `metfunc.py`, `dosefunc.py`, `raddcffunc.py`, `outputfunc.py`, `main.py`, the input generator's defaults (function-level mapping in each submodule) |
 | Copyright | Copyright (c) 2024 Dr. Biswajit Sadhu |
 | Licence | MIT. The full notice is in `crates/buangkok/NOTICE` and must stay with every ported file. MIT is compatible with this crate's GPL-3.0 |
 | Paper | B. Sadhu, T. Sarkar, S. Anand, K. D. Singh, D. K. Aswal, "pyDOSEIA: A Python Package for Radiological Impact Assessment during Long-term or Accidental Atmospheric Releases", *Health Physics* **130**(1) (2026) 94-110, doi:[10.1097/HP.0000000000002014](https://doi.org/10.1097/HP.0000000000002014), PMID [40622262](https://pubmed.ncbi.nlm.nih.gov/40622262/). The article is (c) 2025 Health Physics Society: cited, not reproduced |
 
 ## What is ported, and how it is verified
 
+**All of pyDOSEIA's computation** (2026-09-28, two tranches); what is not
+ported is I/O and UI (Excel reading, plots, text formatting, the YAML
+dialogue, joblib), listed function by function in
+`docs/pydoseia-port-scoping.md`.
+
 | Module | Upstream | Status |
 |---|---|---|
 | [`met`](crate::pydoseia::met) | met processing: gap filling, TJFD, missing and calm corrections, speed distribution | ported, code-to-code verified |
-| [`dispersion`](crate::pydoseia::dispersion) | sigmas, height correction, master equations, dilution factor for 3 release modes | ported, code-to-code verified (the 4th mode, single plume with met data, fails upstream's own assertion and cannot run: defect D3) |
+| [`dispersion`](crate::pydoseia::dispersion) | sigmas, height correction, master equations, dilution factor | ported, code-to-code verified (3 modes); the 4th (single plume with met data, D3) as a labelled divergence |
 | [`nuclide`](crate::pydoseia::nuclide) | half-life text parsing, `0.693 / T` | ported, code-to-code verified |
 | [`dcf`](crate::pydoseia::dcf) | age brackets, absorption-type lookup, progeny correction | ported, code-to-code verified on **synthetic** tables |
 | [`dose`](crate::pydoseia::dose) | inhalation, ground shine, submersion, deposition velocity, weathering | ported, code-to-code verified |
-| — | ingestion, plume shine, H-3/C-14 models, multi-source DCF screening, input generator, output | **not ported** (see `docs/pydoseia-port-scoping.md`) |
+| [`ingestion`](crate::pydoseia::ingestion) | SRS 19 food chain, H-3 and C-14 models | ported, code-to-code verified (faithful driver, D8-D14); corrected per-nuclide driver as a divergence |
+| [`plume_shine`](crate::pydoseia::plume_shine) | finite-cloud gamma dose, photon tables, integration limits, point source | ported, code-to-code verified, bit-exact |
+| [`quadpack`](crate::pydoseia::quadpack) | SciPy's QUADPACK `dqagse` and `tplquad` (what plume shine runs on) | ported, verified against SciPy directly |
+| [`dcf_screening`](crate::pydoseia::dcf_screening) | multi-source DCF screening (report only, D7) | ported, code-to-code verified |
+| [`plume_rise`](crate::pydoseia::plume_rise) | plume rise, building wake (never called upstream) | ported / labelled divergences (D5, D6) |
+| [`config`](crate::pydoseia::config) | the run configuration and its defaults | ported (schema and checks) |
+| [`assessment`](crate::pydoseia::assessment) | the driver and the summary tables | ported, code-to-code verified against upstream's joblib run |
 
 Verification is **code-to-code against upstream itself**: the upstream
 Python is executed over a grid of inputs by
@@ -722,17 +738,24 @@ is right.
 ## Faithful, including upstream's defects
 
 The port reproduces upstream's control flow and constants, including the
-defects found while porting (D1-D6 in `docs/pydoseia-code-to-code.md`).
+defects found while porting (D1-D26 in `docs/pydoseia-code-to-code.md`).
 Where a defect is clear, a corrected variant sits beside the faithful one
-and is labelled as a **divergence**:
-[`dispersion::CalmCorrection::LowestSpeedClassTotal`](crate::pydoseia::dispersion::CalmCorrection::LowestSpeedClassTotal) (D1) and
-[`dispersion::max_dilution_factor`](crate::pydoseia::dispersion::max_dilution_factor) (D2).
+and is labelled as a **divergence**, e.g.
+[`dispersion::CalmCorrection::LowestSpeedClassTotal`](crate::pydoseia::dispersion::CalmCorrection::LowestSpeedClassTotal) (D1),
+[`dispersion::max_dilution_factor`](crate::pydoseia::dispersion::max_dilution_factor) (D2),
+[`ingestion::corrected`](crate::pydoseia::ingestion::corrected) (D8-D11) and
+[`assessment::SummaryIngestion::PerNuclideRowsOnly`](crate::pydoseia::assessment::SummaryIngestion::PerNuclideRowsOnly) (D20).
 
 ## No data tables
 
-No dose coefficient, half-life, decay chain or met record from upstream's
-`library/` or `met_data/` is in this crate. The caller supplies them (see
-[`dcf`](crate::pydoseia::dcf) for the per-table licence reasoning).
+No dose coefficient, transfer factor, photon line or attenuation
+coefficient, half-life, decay chain or met record from upstream's
+`library/` or `met_data/` is in this crate. The caller supplies them in
+upstream's column layouts (see [`dcf`](crate::pydoseia::dcf),
+[`ingestion`](crate::pydoseia::ingestion),
+[`plume_shine`](crate::pydoseia::plume_shine) and
+[`dcf_screening`](crate::pydoseia::dcf_screening) for the per-table licence
+reasoning). A whole run is in `examples/pydoseia_assessment.rs`.
 
 ## Minimal example (inhalation, one nuclide, synthetic coefficient)
 
@@ -763,6 +786,2217 @@ pub mod pydoseia { /* ... */ }
 
 ### Modules
 
+## Module `assessment`
+
+The pyDOSEIA driver: every distance and age of a configuration through the
+dilution factor and all five pathways, and the summary tables upstream
+writes.
+
+# Provenance
+
+Ported from pyDOSEIA `outputfunc.py` (`OutputFunc.dose_calculation_script`,
+`dil_fac_all_sectors_all_dist`, `agewise_dose_inh_gs_submersion`,
+`agewise_ingestion_dose`, `all_dist_agewise_plume_shine_dose`,
+`agewise_dcfs_inh_gs_submersion`, the totals in `output_to_txt`),
+`metfunc.py` (`get_max_dilution_factor`) and `main.py`
+(`reshape_ingestion_dose_data`, `reshape_dose_data`,
+`process_plume_doses_have_met_data`, `process_plume_doses_have_no_met_data`),
+upstream <https://github.com/BiswajitSadhu/pyDOSEIA> at commit
+`dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`. Copyright (c) 2024 Dr. Biswajit
+Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`).
+
+# What is not ported
+
+Upstream runs the (distance, age) grid through `joblib.Parallel`; the port
+runs it in a plain loop, which gives the same numbers (each cell is
+independent). The text report, CSV writing, pickling, logging and plots are
+output formatting and are not ported; the **numbers** they print are, as
+the functions below.
+
+```rust
+pub mod assessment { /* ... */ }
+```
+
+### Types
+
+#### Struct `AssessmentTables`
+
+The coefficient tables a run reads (all caller-supplied; see each type).
+
+```rust
+pub struct AssessmentTables {
+    pub inhalation: crate::pydoseia::dcf::InhalationDcfTable,
+    pub surface: crate::pydoseia::dcf::ExternalDcfTable,
+    pub submersion: crate::pydoseia::dcf::ExternalDcfTable,
+    pub chains: crate::pydoseia::dcf::ProgenyChains,
+    pub ingestion: crate::pydoseia::ingestion::IngestionDcfTable,
+    pub eco: crate::pydoseia::ingestion::EcoParamTable,
+    pub gamma: crate::pydoseia::plume_shine::GammaLineTable,
+    pub attenuation: crate::pydoseia::plume_shine::AttenuationTable,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inhalation` | `crate::pydoseia::dcf::InhalationDcfTable` | Inhalation e(g). |
+| `surface` | `crate::pydoseia::dcf::ExternalDcfTable` | Ground-surface dose-rate coefficients. |
+| `submersion` | `crate::pydoseia::dcf::ExternalDcfTable` | Air-submersion dose-rate coefficients. |
+| `chains` | `crate::pydoseia::dcf::ProgenyChains` | Decay chains for the progeny correction. |
+| `ingestion` | `crate::pydoseia::ingestion::IngestionDcfTable` | Ingestion e(g). |
+| `eco` | `crate::pydoseia::ingestion::EcoParamTable` | Element transfer factors. |
+| `gamma` | `crate::pydoseia::plume_shine::GammaLineTable` | Gamma lines (plume shine). |
+| `attenuation` | `crate::pydoseia::plume_shine::AttenuationTable` | Air attenuation (plume shine). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AssessmentTables { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> AssessmentTables { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AssessmentTables) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PathwayDoses`
+
+Inhalation, ground-shine and submersion doses per nuclide, mSv (mSv/y for
+a long-term release).
+
+```rust
+pub struct PathwayDoses {
+    pub inhalation: Vec<f64>,
+    pub ground_shine: Vec<f64>,
+    pub submersion: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inhalation` | `Vec<f64>` | Inhalation, per nuclide. |
+| `ground_shine` | `Vec<f64>` | Ground shine, per nuclide. |
+| `submersion` | `Vec<f64>` | Submersion, per nuclide. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PathwayDoses { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PathwayDoses { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PathwayDoses) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `IngestionFailure`
+
+Why a (distance, age) cell has no ingestion result.
+
+```rust
+pub enum IngestionFailure {
+    AgeHasNoReceiver,
+    Upstream(crate::pydoseia::ingestion::upstream::UpstreamIngestionError),
+}
+```
+
+##### Variants
+
+###### `AgeHasNoReceiver`
+
+The age is neither `> 17` nor `== 1`: upstream's driver has no receiver
+for it and raises `UnboundLocalError` (defect D13).
+
+###### `Upstream`
+
+`ingestion_dose` itself raised.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::pydoseia::ingestion::upstream::UpstreamIngestionError` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionFailure { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionFailure) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CellResult`
+
+One (distance, age) cell.
+
+```rust
+pub struct CellResult {
+    pub distance_m: f64,
+    pub age: f64,
+    pub pathways: PathwayDoses,
+    pub ingestion: Result<crate::pydoseia::ingestion::upstream::UpstreamIngestionOutput, IngestionFailure>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance_m` | `f64` | Distance, m. |
+| `age` | `f64` | Age, years. |
+| `pathways` | `PathwayDoses` | Inhalation, ground shine, submersion. |
+| `ingestion` | `Result<crate::pydoseia::ingestion::upstream::UpstreamIngestionOutput, IngestionFailure>` | Ingestion, as upstream's `ingestion_dose` returns it. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellResult) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AssessmentResults`
+
+Everything `dose_calculation_script` returns.
+
+```rust
+pub struct AssessmentResults {
+    pub distances_m: Vec<f64>,
+    pub dilution: Vec<Vec<crate::pydoseia::units::DilutionFactor>>,
+    pub max_chi_over_q: Vec<crate::pydoseia::units::DilutionFactor>,
+    pub cells: Vec<Vec<CellResult>>,
+    pub plume_shine: Option<Vec<Vec<Vec<f64>>>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distances_m` | `Vec<f64>` | Distances computed, plant boundary appended. |
+| `dilution` | `Vec<Vec<crate::pydoseia::units::DilutionFactor>>` | Dilution factor per distance: 6 values (per class) without met data,<br>16 (per sector) with; empty for [`DilutionSource::UserSupplied`]. |
+| `max_chi_over_q` | `Vec<crate::pydoseia::units::DilutionFactor>` | The `chi/Q` every pathway uses at each distance. |
+| `cells` | `Vec<Vec<CellResult>>` | `[distance][age]`. |
+| `plume_shine` | `Option<Vec<Vec<Vec<f64>>>>` | Plume shine `[distance][nuclide][class or sector]`, when requested. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AssessmentResults { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AssessmentResults) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AssessmentError`
+
+Why a run cannot proceed.
+
+```rust
+pub enum AssessmentError {
+    Config(crate::pydoseia::config::ConfigError),
+    SinglePlumeWithMetCannotRun,
+    MissingMetData,
+    DecayConstants,
+    NoDilutionFactorFor(f64),
+}
+```
+
+##### Variants
+
+###### `Config`
+
+The configuration failed [`PyDoseiaConfig::validate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::pydoseia::config::ConfigError` |  |
+
+###### `SinglePlumeWithMetCannotRun`
+
+A single-plume release with met data: upstream fails its own shape
+assertion (defect D3).
+
+###### `MissingMetData`
+
+Met data configured but none given.
+
+###### `DecayConstants`
+
+Decay constants do not match the nuclide list.
+
+###### `NoDilutionFactorFor`
+
+A user-supplied dilution factor has no entry for a distance.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AssessmentError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AssessmentError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Zeroing`
+
+Whether the report zeroes milk and meat for elements without transfer
+factors (`zeroing_ingestion`).
+
+```rust
+pub enum Zeroing {
+    ChainedAssignmentNoOp,
+    ZeroMilkAndMeat,
+}
+```
+
+##### Variants
+
+###### `ChainedAssignmentNoOp`
+
+pandas >= 3 (copy-on-write): upstream's chained assignment changes a
+copy and the table is unchanged (defect D14). What the fixture records.
+
+###### `ZeroMilkAndMeat`
+
+What the function means to do (and what pandas < 3 did).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Zeroing { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Zeroing) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BoundaryTotal`
+
+One nuclide's line of upstream's "total dose at plant boundary" table
+(`output_to_txt`), mSv (mSv/y).
+
+```rust
+pub struct BoundaryTotal {
+    pub inhalation: f64,
+    pub ground_shine: f64,
+    pub submersion: f64,
+    pub ingestion: f64,
+    pub total: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inhalation` | `f64` | Inhalation. |
+| `ground_shine` | `f64` | Ground shine. |
+| `submersion` | `f64` | Submersion. |
+| `ingestion` | `f64` | Ingestion (sum of veg, milk and meat, NaN as 0). |
+| `total` | `f64` | `Total` (NaN as 0). Plume shine is **not** included, as upstream. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundaryTotal { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoundaryTotal) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SummaryRow`
+
+One (distance, age) row of upstream's `summary_summed_inh_gs_sub_dose.csv`
+(`main.reshape_dose_data`), mSv (mSv/y).
+
+```rust
+pub struct SummaryRow {
+    pub distance_m: f64,
+    pub age: f64,
+    pub inhalation: f64,
+    pub ground_shine: f64,
+    pub submersion: f64,
+    pub ingestion: f64,
+    pub total: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance_m` | `f64` | Distance, m. |
+| `age` | `f64` | Age, years. |
+| `inhalation` | `f64` | Sum over nuclides. |
+| `ground_shine` | `f64` | Sum over nuclides. |
+| `submersion` | `f64` | Sum over nuclides. |
+| `ingestion` | `f64` | Ingestion as the summary reports it. |
+| `total` | `f64` | Sum of the four. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SummaryRow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SummaryRow) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SummaryIngestion`
+
+How the summary counts ingestion.
+
+```rust
+pub enum SummaryIngestion {
+    UpstreamDoubleCounted,
+    PerNuclideRowsOnly,
+}
+```
+
+##### Variants
+
+###### `UpstreamDoubleCounted`
+
+Upstream: the group sum runs over the per-nuclide rows **and** the
+`SUM` row `reshape_ingestion_dose_data` appended, so ingestion is
+counted **twice** (defect D20).
+
+###### `PerNuclideRowsOnly`
+
+**Divergence:** the per-nuclide rows only.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SummaryIngestion { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SummaryIngestion) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `dilution_for_distance`
+
+Dilution factor for one distance under the configured mode
+(`dil_fac_all_sectors_all_dist`).
+
+# Errors
+D3, or missing met data.
+
+```rust
+pub fn dilution_for_distance(cfg: &crate::pydoseia::config::PyDoseiaConfig, x_m: f64, met: Option<&crate::pydoseia::met::MetClimatology>) -> Result<Vec<crate::pydoseia::units::DilutionFactor>, AssessmentError> { /* ... */ }
+```
+
+#### Function `pathway_doses`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Inhalation, ground shine and submersion for one (distance, age), with the
+configured progeny and weathering settings (`agewise_dose_inh_gs_submersion`).
+
+```rust
+pub fn pathway_doses(cfg: &crate::pydoseia::config::PyDoseiaConfig, tables: &AssessmentTables, decay_constants_per_s: &[f64], chi: crate::pydoseia::units::DilutionFactor, age: f64) -> PathwayDoses { /* ... */ }
+```
+
+#### Function `run_assessment`
+
+The whole run (`dose_calculation_script`).
+
+With [`DilutionSource::UserSupplied`] every pathway uses the caller's
+maximum `chi/Q` for the distance, as upstream does (its `MetFunc` keeps
+`list_max_dilution_factor` as `dict_max_dilution_factor`; checked in the
+fixture's `user_dilution_factor` scenario). No dilution factor per class
+or sector is computed then.
+
+# Errors
+See [`AssessmentError`].
+
+```rust
+pub fn run_assessment(cfg: &crate::pydoseia::config::PyDoseiaConfig, tables: &AssessmentTables, decay_constants_per_s: &[f64], met: Option<&crate::pydoseia::met::MetClimatology>) -> Result<AssessmentResults, AssessmentError> { /* ... */ }
+```
+
+#### Function `driver_ingestion_matrix`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's driver reshapes each cell's ingestion array to
+`(nuclides, 3)` in C order (`INGESTION_DOSES.reshape(..., n, 3)`). For the
+transposed layout (H-3, C-14 and others together) that **scrambles** the
+routes across nuclides (part of D9); this reproduces it.
+
+```rust
+pub fn driver_ingestion_matrix(out: &crate::pydoseia::ingestion::upstream::UpstreamIngestionOutput) -> Vec<[f64; 3]> { /* ... */ }
+```
+
+#### Function `pandas_sum`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+pandas' `sum(skipna=True)` over a short row or column: NaN counts as 0 and
+the sum is numpy's (pairwise for 8 or more values).
+
+```rust
+pub fn pandas_sum(values: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `numpy_pairwise_sum`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+numpy's pairwise summation (`pairwise_sum_DOUBLE`, block size 128, eight
+accumulators).
+
+```rust
+pub fn numpy_pairwise_sum(a: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `pandas_groupby_sum`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+pandas' groupby `sum` (Kahan-compensated, NaN skipped).
+
+```rust
+pub fn pandas_groupby_sum(values: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `plant_boundary_totals`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The per-nuclide totals `output_to_txt` prints for each age at the plant
+boundary. `None` where the cell has no ingestion result.
+
+```rust
+pub fn plant_boundary_totals(cfg: &crate::pydoseia::config::PyDoseiaConfig, results: &AssessmentResults, zeroing: Zeroing, no_transfer_factor_elements: &[String]) -> Vec<Option<Vec<BoundaryTotal>>> { /* ... */ }
+```
+
+#### Function `summary_rows`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The rows of upstream's summed summary, one per (distance, age), in
+upstream's final order (a stable sort by age). Cells without ingestion are
+skipped (upstream crashes before writing the file for them).
+
+```rust
+pub fn summary_rows(results: &AssessmentResults, mode: SummaryIngestion) -> Vec<SummaryRow> { /* ... */ }
+```
+
+#### Function `plume_shine_maxima`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`process_plume_doses_*`: per (distance, nuclide) the maximum over classes
+or sectors and, for sectors, its index (pandas `idxmax`, first maximum,
+NaN skipped).
+
+```rust
+pub fn plume_shine_maxima(values: &[f64]) -> (f64, Option<usize>) { /* ... */ }
+```
+
+#### Function `dcf_report`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The coefficients upstream's report prints for one age
+(`agewise_dcfs_inh_gs_submersion`): the screened inhalation and ingestion
+maxima of [`compute_max_dcf`] (not the coefficients the doses use: D7),
+and the ground-surface and submersion coefficient pairs (with and without
+progeny, as upstream returns them). The ground-surface one
+is looked up with progeny **always included**, whatever the configuration
+says (upstream passes `consider_progeny=True` explicitly: defect D22).
+
+```rust
+pub fn dcf_report(cfg: &crate::pydoseia::config::PyDoseiaConfig, tables: &AssessmentTables, screening: &crate::pydoseia::dcf_screening::ScreeningTables, alternate_names: &[crate::pydoseia::dcf_screening::AlternateNames], age: f64) -> Vec<(Option<crate::pydoseia::dcf_screening::ScreenedDcf>, crate::pydoseia::dcf::ExternalDcfPair, crate::pydoseia::dcf::ExternalDcfPair)> { /* ... */ }
+```
+
+## Module `config`
+
+pyDOSEIA's run configuration, as a typed Rust structure with upstream's
+defaults and upstream's consistency checks.
+
+# Provenance
+
+Upstream configures a run with a YAML file, written by hand or by its
+interactive input generator (`auto_input_generator.py`,
+`auto_input_generator_funcs_class.py`, `auto_input_v18.py`), and checked in
+`DoseFunc.__init__` / `OutputFunc.__init__` (`dosefunc.py`,
+`outputfunc.py`). Upstream <https://github.com/BiswajitSadhu/pyDOSEIA> at
+commit `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`. Copyright (c) 2024
+Dr. Biswajit Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`).
+
+The interactive prompts, the YAML reader/writer, logging and the `pickle_it`
+dump are user interface and are **not** ported; a Rust caller fills
+[`PyDoseiaConfig`] directly. Every key that changes a number is here, under
+its upstream name in the field docs. Keys upstream reads but never uses in
+a calculation are listed at [`PyDoseiaConfig::unused_upstream_keys`].
+
+```rust
+pub mod config { /* ... */ }
+```
+
+### Types
+
+#### Enum `ReleaseScenario`
+
+Release scenario (upstream's mutually exclusive `long_term_release` and
+`single_plume`).
+
+```rust
+pub enum ReleaseScenario {
+    LongTerm {
+        annual_discharge_bq: Vec<f64>,
+    },
+    SinglePlume {
+        instantaneous_release_bq: Vec<f64>,
+    },
+}
+```
+
+##### Variants
+
+###### `LongTerm`
+
+Continuous release; `annual_discharge_bq_rad_list`, Bq/y per nuclide.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `annual_discharge_bq` | `Vec<f64>` | Bq/y per nuclide. |
+
+###### `SinglePlume`
+
+Instantaneous release; `instantaneous_release_bq_list`, Bq per nuclide.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `instantaneous_release_bq` | `Vec<f64>` | Bq per nuclide. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReleaseScenario { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReleaseScenario) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `DilutionSource`
+
+Where the dilution factor comes from.
+
+```rust
+pub enum DilutionSource {
+    Computed,
+    UserSupplied(Vec<(f64, f64)>),
+}
+```
+
+##### Variants
+
+###### `Computed`
+
+Compute it from the plume model (upstream `have_dilution_factor:
+False`), with or without met data.
+
+###### `UserSupplied`
+
+Use the caller's maximum `chi/Q` per distance, s/m^3
+(`have_dilution_factor: True`, `list_max_dilution_factor`), as
+`(distance m, chi/Q)` pairs.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<(f64, f64)>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DilutionSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DilutionSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MetSettings`
+
+The meteorological settings (upstream keys used when `have_met_data`).
+
+```rust
+pub struct MetSettings {
+    pub calm_correction: bool,
+    pub start_operation_time: i64,
+    pub end_operation_time: i64,
+    pub num_days: Vec<i64>,
+    pub sampling_time: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `calm_correction` | `bool` | `calm_correction`. |
+| `start_operation_time` | `i64` | `start_operation_time` (hour). |
+| `end_operation_time` | `i64` | `end_operation_time` (hour). |
+| `num_days` | `Vec<i64>` | `num_days`, per year of data. |
+| `sampling_time` | `f64` | `sampling_time`, minutes (read; its correction is never applied). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MetSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MetSettings) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PyDoseiaConfig`
+
+A pyDOSEIA run configuration.
+
+```rust
+pub struct PyDoseiaConfig {
+    pub release: ReleaseScenario,
+    pub dilution: DilutionSource,
+    pub met: Option<MetSettings>,
+    pub nuclides: Vec<String>,
+    pub elements: Vec<String>,
+    pub absorption_types: Vec<crate::pydoseia::dcf::LungAbsorptionType>,
+    pub release_height_m: f64,
+    pub measurement_height_m: f64,
+    pub downwind_distances_m: Vec<f64>,
+    pub plant_boundary_m: f64,
+    pub age_group: Vec<f64>,
+    pub centreline_ground_level: bool,
+    pub receptor_y_m: f64,
+    pub receptor_z_m: f64,
+    pub mean_speed_scaling: Option<[f64; 6]>,
+    pub weathering_corr: bool,
+    pub exposure_period_y: f64,
+    pub consider_progeny: bool,
+    pub ignore_half_life_s: f64,
+    pub run_dose_computation: bool,
+    pub run_plume_shine_dose: bool,
+    pub ingestion_parameters: crate::pydoseia::ingestion::IngestionParameters,
+    pub diet_adult: crate::pydoseia::ingestion::DietaryIntake,
+    pub diet_infant: crate::pydoseia::ingestion::DietaryIntake,
+    pub soil: crate::pydoseia::ingestion::SoilType,
+    pub climate: crate::pydoseia::ingestion::food_chain::Climate,
+    pub veg_type: crate::pydoseia::ingestion::food_chain::VegetationType,
+    pub animal_feed_type: crate::pydoseia::ingestion::food_chain::VegetationType,
+    pub animal_products_h3: Vec<crate::pydoseia::ingestion::food_chain::AnimalProduct>,
+    pub animal_products_c14: Vec<crate::pydoseia::ingestion::food_chain::AnimalProduct>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `release` | `ReleaseScenario` | Release scenario. |
+| `dilution` | `DilutionSource` | Dilution factor source. |
+| `met` | `Option<MetSettings>` | `have_met_data` and its settings (`None` = no met data). |
+| `nuclides` | `Vec<String>` | `rads_list`. |
+| `elements` | `Vec<String>` | `element_list`. |
+| `absorption_types` | `Vec<crate::pydoseia::dcf::LungAbsorptionType>` | `type_rad`, per nuclide. |
+| `release_height_m` | `f64` | `release_height`, m. |
+| `measurement_height_m` | `f64` | `measurement_height`, m. |
+| `downwind_distances_m` | `Vec<f64>` | `downwind_distances`, m. |
+| `plant_boundary_m` | `f64` | `plant_boundary`, m (appended to the distances if absent). |
+| `age_group` | `Vec<f64>` | `age_group`, years. |
+| `centreline_ground_level` | `bool` | `max_conc_plume_central_line_gl`. |
+| `receptor_y_m` | `f64` | `Y`, m (single plume and plume shine receptor). |
+| `receptor_z_m` | `f64` | `Z`, m. |
+| `mean_speed_scaling` | `Option<[f64; 6]>` | `like_to_scale_with_mean_speed` with `ask_mean_speed_data` (m/s,<br>classes A-F). |
+| `weathering_corr` | `bool` | `weathering_corr` (ground shine). |
+| `exposure_period_y` | `f64` | `exposure_period`, years. |
+| `consider_progeny` | `bool` | `consider_progeny`. |
+| `ignore_half_life_s` | `f64` | `ignore_half_life`, s. |
+| `run_dose_computation` | `bool` | `run_dose_computation`. |
+| `run_plume_shine_dose` | `bool` | `run_plume_shine_dose`. |
+| `ingestion_parameters` | `crate::pydoseia::ingestion::IngestionParameters` | `inges_param_dict`. |
+| `diet_adult` | `crate::pydoseia::ingestion::DietaryIntake` | `inges_param_dict_adult`. |
+| `diet_infant` | `crate::pydoseia::ingestion::DietaryIntake` | `inges_param_dict_infant`. |
+| `soil` | `crate::pydoseia::ingestion::SoilType` | `soiltype`. |
+| `climate` | `crate::pydoseia::ingestion::food_chain::Climate` | `climate`. |
+| `veg_type` | `crate::pydoseia::ingestion::food_chain::VegetationType` | `veg_type_list` (one type; see the ingestion docs). |
+| `animal_feed_type` | `crate::pydoseia::ingestion::food_chain::VegetationType` | `animal_feed_type`. |
+| `animal_products_h3` | `Vec<crate::pydoseia::ingestion::food_chain::AnimalProduct>` | `animal_product_list_for_tritium`. |
+| `animal_products_c14` | `Vec<crate::pydoseia::ingestion::food_chain::AnimalProduct>` | `animal_product_list_for_C14`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn input_generator_defaults(release: ReleaseScenario) -> Self { /* ... */ }
+  ```
+  A configuration with the input generator's defaults for everything
+
+- ```rust
+  pub fn distances_with_boundary(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The distances upstream computes at: `downwind_distances` with the plant
+
+- ```rust
+  pub fn releases(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The release list of the active scenario.
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<(), ConfigError> { /* ... */ }
+  ```
+  Upstream's `__init__` checks, plus the list-length consistency upstream
+
+- ```rust
+  pub const fn unused_upstream_keys() -> &'static [(&'static str, &'static str)] { /* ... */ }
+  ```
+  Keys upstream reads (or its input generator writes) that no
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PyDoseiaConfig { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PyDoseiaConfig) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ConfigError`
+
+Why a configuration is rejected (upstream's `ValueError` messages, in
+substance).
+
+```rust
+pub enum ConfigError {
+    NoNuclides,
+    LengthMismatch(&'static str),
+    NoDistances,
+    NoAges,
+    NoReleaseHeight,
+    MetSettings,
+    TritiumSettings,
+}
+```
+
+##### Variants
+
+###### `NoNuclides`
+
+No nuclides while dose computation is requested.
+
+###### `LengthMismatch`
+
+`element_list` (or `type_rad`, or the release list) does not match
+`rads_list` in length.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `NoDistances`
+
+No distances.
+
+###### `NoAges`
+
+No ages.
+
+###### `NoReleaseHeight`
+
+Release height missing or zero (upstream tests `not release_height`).
+
+###### `MetSettings`
+
+Met data requested without day counts or with a zero measurement height.
+
+###### `TritiumSettings`
+
+`H-3` requested without the tritium food-chain settings (upstream
+requires the animal product list).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ConfigError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ConfigError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `dcf`
 
 Dose-coefficient (DCF) tables and pyDOSEIA's lookups into them: the age
@@ -2001,6 +4235,862 @@ Upstream's `dcf_list_ecerman_*_include_progeny` for one nuclide.
 pub fn external_dcf(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket, progeny: ProgenyCorrection) -> ExternalDcfPair { /* ... */ }
 ```
 
+## Module `dcf_screening`
+
+Multi-source dose-coefficient screening: pyDOSEIA's `compute_max_dcf`,
+which looks a nuclide up in five inhalation and two ingestion coefficient
+compilations and reports either the coefficient of the requested lung
+absorption type or the largest one found.
+
+# Provenance
+
+Ported from pyDOSEIA `raddcffunc.py` (`get_dcfs_for_radionuclides`,
+`compute_max_dcf` — the second definition, the one Python binds —
+`merge_dataframes_with_source_hc2` and the seven `screen_*` readers),
+upstream <https://github.com/BiswajitSadhu/pyDOSEIA> at commit
+`dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`. Copyright (c) 2024 Dr. Biswajit
+Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`).
+
+# What upstream uses it for (defect D7)
+
+Only the **report**: `outputfunc.agewise_dcfs_inh_gs_submersion` prints
+these coefficients, while the inhalation dose itself uses
+[`super::dcf::InhalationDcfTable::lookup`] on a different table. The two
+need not agree.
+
+# No coefficient data ships with this crate
+
+| Upstream file | Source | Here |
+|---|---|---|
+| `inhalation_HC2/Annex_G_ICRP119_dcf_inh_public.xlsx` | ICRP Publication 119, Annex G (copyright ICRP) | not copied |
+| `inhalation_HC2/Annex_H_ICRP119_...csv` | ICRP 119 Annex H | not copied; **never read** upstream (defect D18) |
+| `inhalation_HC2/Table_A2-DOE-STD-1196-2011_dcf_inhal.csv` | US DOE-STD-1196-2011, Table A-2 (a US government standard) | not copied in this pass |
+| `inhalation_HC2/Table_5_JAERI_...csv`, `Table_7_JAERI_...csv`, `ingestion_public/table_4_jaeri_ingestion_public.csv` | JAERI-Data/Code 2002-013 (JAEA; terms not established) | not copied |
+| `ingestion_public/AnnexF_ICRP119_dcf_ingestion_public.csv` | ICRP 119 Annex F | not copied |
+
+Tables are read with [`ScreeningTable::from_csv`] from CSVs carrying
+upstream's **renamed** column headers (upstream reassigns the headers by
+position after reading).
+
+```rust
+pub mod dcf_screening { /* ... */ }
+```
+
+### Types
+
+#### Enum `ScreeningSource`
+
+The seven compilations `compute_max_dcf` reads, in the order it merges
+them.
+
+```rust
+pub enum ScreeningSource {
+    Table7Jaeri,
+    Table5Jaeri,
+    TableA2Doe,
+    AnnexGIcrp119,
+    AnnexFIcrp119,
+    Table4Jaeri,
+}
+```
+
+##### Variants
+
+###### `Table7Jaeri`
+
+JAERI-Data/Code 2002-013 Table 7 (soluble/reactive gases), inhalation.
+
+###### `Table5Jaeri`
+
+JAERI-Data/Code 2002-013 Table 5 (particulates), inhalation.
+
+###### `TableA2Doe`
+
+DOE-STD-1196-2011 Table A-2, inhalation.
+
+###### `AnnexGIcrp119`
+
+ICRP 119 Annex G, inhalation.
+
+###### `AnnexFIcrp119`
+
+ICRP 119 Annex F, ingestion.
+
+###### `Table4Jaeri`
+
+JAERI-Data/Code 2002-013 Table 4, ingestion.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn upstream_file_name(self: Self) -> &'static str { /* ... */ }
+  ```
+  The file name upstream opens (`get_corrected_nuclide` matches words of
+
+- ```rust
+  pub const fn age_columns(self: Self) -> [&'static str; 6] { /* ... */ }
+  ```
+  The six age columns after upstream's renaming. DOE's three middle ones
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScreeningSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScreeningSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScreeningRow`
+
+One row of a screening table.
+
+```rust
+pub struct ScreeningRow {
+    pub nuclide: String,
+    pub absorption_type: Option<String>,
+    pub coefficients: [f64; 6],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide` | `String` | Nuclide field as written. |
+| `absorption_type` | `Option<String>` | Absorption type field (`None` for the ingestion tables or a blank). |
+| `coefficients` | `[f64; 6]` | Coefficients, Sv/Bq, in the source's [`ScreeningSource::age_columns`] order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScreeningRow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScreeningRow) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScreeningTable`
+
+One screening table.
+
+```rust
+pub struct ScreeningTable {
+    pub source: ScreeningSource,
+    pub rows: Vec<ScreeningRow>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source` | `ScreeningSource` | Which compilation. |
+| `rows` | `Vec<ScreeningRow>` | Rows in file order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_csv(source: ScreeningSource, text: &str) -> Result<Self, String> { /* ... */ }
+  ```
+  Read a CSV with upstream's renamed headers: `Nuclide`, `Type` (the
+
+- ```rust
+  pub fn screen(self: &Self, name: &str) -> Vec<&ScreeningRow> { /* ... */ }
+  ```
+  Upstream's `screen_*` filter: rows whose trimmed, upper-cased nuclide
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScreeningTable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScreeningTable) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AlternateNames`
+
+Upstream's alternate nuclide names (from its nomenclature file), in its
+key order.
+
+```rust
+pub struct AlternateNames {
+    pub doe_std_1196: Option<String>,
+    pub fgr_12: Option<String>,
+    pub icrp119_107: Option<String>,
+    pub icrp_38: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `doe_std_1196` | `Option<String>` | `DOE_STD_1196_name`. |
+| `fgr_12` | `Option<String>` | `FGR_12_name`. |
+| `icrp119_107` | `Option<String>` | `ICRP119_107_name`. |
+| `icrp_38` | `Option<String>` | `ICRP_38_name`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn corrected(self: &Self, file_name: &str, nuclide: &str) -> String { /* ... */ }
+  ```
+  `get_corrected_nuclide`: the first alternate name whose key shares a
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AlternateNames { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> AlternateNames { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AlternateNames) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScreeningTables`
+
+The screening tables available (any may be empty or absent).
+
+```rust
+pub struct ScreeningTables {
+    pub inhalation: Vec<ScreeningTable>,
+    pub ingestion: Vec<ScreeningTable>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inhalation` | `Vec<ScreeningTable>` | Inhalation tables, in any order (merged in upstream's order). |
+| `ingestion` | `Vec<ScreeningTable>` | Ingestion tables. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScreeningTables { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ScreeningTables { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScreeningTables) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ScreenedDcf`
+
+`compute_max_dcf`'s result: `max_dcf_inh_public` and `max_dcf_ing_public`
+(`None` where upstream stores `None`).
+
+```rust
+pub struct ScreenedDcf {
+    pub inhalation: Option<f64>,
+    pub ingestion: Option<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inhalation` | `Option<f64>` | Inhalation, Sv/Bq. |
+| `ingestion` | `Option<f64>` | Ingestion, Sv/Bq. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScreenedDcf { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScreenedDcf) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `screening_bracket`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's age-to-column bracket for this function.
+
+```rust
+pub fn screening_bracket(age: f64) -> usize { /* ... */ }
+```
+
+#### Function `compute_max_dcf`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`compute_max_dcf(radionuclide, user_type, age)`. `None` when neither
+merged table has the age column (upstream returns `None`).
+
+For `user_type == "Max"` both results are the largest coefficient among
+the screened rows (of any nuclide the delimited match selected, and any
+type). Otherwise the first row, in merge order, whose nuclide field
+**equals** the name (not the alternate name used to screen) and whose
+type equals `user_type` (ingestion: name only), falling back to the
+maximum. The Annex H reader always fails upstream (D18) and contributes
+nothing, so it has no input here.
+
+```rust
+pub fn compute_max_dcf(tables: &ScreeningTables, radionuclide: &str, user_type: &str, alternate: &AlternateNames, age: f64) -> Option<ScreenedDcf> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MERGED_AGE_COLUMNS`
+
+The age columns `compute_max_dcf` selects from, by upstream's brackets
+(`<= 1`, `<= 2`, `<= 7`, `<= 12`, `<= 17`, otherwise adult).
+
+```rust
+pub const MERGED_AGE_COLUMNS: [&str; 6] = _;
+```
+
 ## Module `dispersion`
 
 Gaussian-plume dispersion as pyDOSEIA computes it: the Pasquill-Gifford
@@ -2951,6 +6041,29 @@ Sector-averaged master equation with the wind speed `1 m/s * factor` of
 pub fn dilution_long_term_no_met(x: uom::si::f64::Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [super::units::DilutionFactor; 6] { /* ... */ }
 ```
 
+#### Function `dilution_single_plume_with_met_speeds`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Divergence from upstream (D3 corrected):** the single-plume dilution
+factor per class, divided by the class's mean wind speed from the met
+record, converted from km/h to m/s.
+
+Upstream's `dilution_per_sector` for a single plume **with** met data
+divides the six per-class values by `mean_speeds[:, None]`, which
+broadcasts to a 6 x 6 array and fails its own `shape == (6,)` assertion,
+and the means it divides by are in km/h (the met column) while the
+dilution factor is per 1 m/s. This does what the code evidently intends:
+class `i` divided by `mean_i / 3.6` m/s, with the means of
+[`super::met::speed_distribution`] (quantile 0.90) over all years. Not
+verifiable against upstream, which cannot run this path.
+
+```rust
+pub fn dilution_single_plume_with_met_speeds(x: uom::si::f64::Length, geometry: PlumeGeometry, met: &super::met::MetClimatology) -> [super::units::DilutionFactor; 6] { /* ... */ }
+```
+
 #### Function `dilution_long_term_with_met`
 
 **Attributes:**
@@ -3019,7 +6132,7 @@ pub const SECTOR_WIDTH_RAD: f64 = 0.39275;
 
 ## Module `dose`
 
-The three pyDOSEIA dose pathways ported in this pass: **inhalation**,
+The three pyDOSEIA dose pathways ported in the first tranche: **inhalation**,
 **ground shine** (external dose from deposited activity) and
 **submersion** (external dose from the cloud, semi-infinite-cloud
 coefficients), with the deposition velocities and weathering correction
@@ -3454,6 +6567,3308 @@ Seconds in upstream's year for the dose pathways: `365 * 24 * 3600`.
 
 ```rust
 pub const UPSTREAM_YEAR_S: f64 = 31_536_000.0;
+```
+
+## Module `ingestion`
+
+Ingestion: pyDOSEIA's terrestrial food-chain model (IAEA SRS 19 screening
+equations for leafy vegetables / food crops, pasture, stored feed, milk and
+meat) and its specific-activity models for H-3 and C-14 (IAEA TECDOC-1616).
+
+> **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Never a
+> dose to a real person.
+
+# Provenance
+
+Ported from pyDOSEIA `dosefunc.py` (`DoseFunc.ingestion_dose` with its
+nested `conc_tritium_in_terrestrial_plant`,
+`conc_tritium_in_terrestrial_animal`, `conc_c14_in_terrestrial_plants`,
+`conc_c14_in_terrestrial_animal`, `conc_c14_in_fish`; `zeroing_ingestion`)
+and `raddcffunc.py` (`dcf_list_ingestion`, `fv_list_ecerman_ingestion`,
+`ingestion_weathering_correction_real`, `ingestion_weathering_correction`,
+`effective_surface_soil_density_rho`), upstream
+<https://github.com/BiswajitSadhu/pyDOSEIA> at commit
+`dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`. Copyright (c) 2024 Dr. Biswajit
+Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`). The model
+equations are those of IAEA Safety Reports Series No. 19 (2001) section 5
+and IAEA-TECDOC-1616 (2009), which upstream cites; the handful of scalar
+constants upstream hard-codes (soil densities, humidities, water contents,
+stable-carbon contents, concentration ratios) are reproduced as upstream's
+code literals with its citations.
+
+# No coefficient table ships with this crate
+
+| Upstream sheet | Content | Source | Here |
+|---|---|---|---|
+| `Dose_ecerman_final.xlsx` / `eco_param` | element transfer factors `Fv1`, `Fv2`, `Fm`, `Ff`, soil and plant loss rates | IAEA SRS 19 Tables VII, X, XI (IAEA copyright) | **not copied**; read your own with [`EcoParamTable::from_csv`] |
+| `Dose_ecerman_final.xlsx` / `ingestion_gsr3` | ingestion e(g), six ages; `HTO`, `OBT` rows for tritium | IAEA GSR Part 3 Schedule III / ICRP 72 (copyright) | **not copied**; read your own with [`IngestionDcfTable::from_csv`] |
+
+The code-to-code test uses **synthetic** tables in these layouts.
+
+# Two drivers: upstream's, and a corrected one
+
+[`upstream::ingestion_dose_upstream`] reproduces `ingestion_dose` exactly,
+including its list-indexing defect (D8: the per-element lists skip H and C
+but are indexed by position in the full nuclide list, so any H or C
+nuclide that is not at the end shifts or breaks every later nuclide), its
+output layout (non-H/C rows, then H-3, then C-14; transposed when all three
+kinds are present, and no result at all for exactly `[H-3, C-14]`: D9), the
+C-14 air concentration left per year (D10), and the C-14 milk/meat test on
+the whole product list (D11). [`corrected::ingestion_dose_per_nuclide`] is
+a labelled **divergence** that computes each nuclide on its own and fixes
+D8-D11; the default everywhere else stays upstream's.
+
+```rust
+pub mod ingestion { /* ... */ }
+```
+
+### Modules
+
+## Module `corrected`
+
+**Divergence from upstream**: ingestion dose computed one nuclide at a
+time, fixing pyDOSEIA defects D8-D11 (see `docs/pydoseia-code-to-code.md`).
+The equations are upstream's ([`super::food_chain`]); only the bookkeeping
+and the two clear bugs change:
+
+- **D8** each nuclide uses its own transfer factors and its own
+  concentrations, whatever its position in the list;
+- **D9** every nuclide gets a row, in input order, for any mix of H-3,
+  C-14 and other nuclides;
+- **D10** for a long-term release the C-14 air concentration is divided by
+  the seconds in a year (`365 * 24 * 3600`), as upstream already does for
+  H-3, so that `C_air` is Bq/m^3 and not Bq s/(y m^3);
+- **D11** C-14 milk and meat are added according to **each** product,
+  not according to whether the product *list* contains any milk or meat;
+  and a tritium product list starting with meat no longer raises.
+
+Everything else (constants, units, the per-day diet times 365, the H-3
+division by a year for a single plume) is upstream's. Not checked against
+SRS 19 or TECDOC-1616 beyond what the code comments cite.
+
+```rust
+pub mod corrected { /* ... */ }
+```
+
+### Types
+
+#### Enum `IngestionModel`
+
+Which model a nuclide gets. The caller decides; upstream decides by the
+exact names `"H-3"` and `"C-14"` in one place and by the element symbols
+`H` and `C` in another (part of D8).
+
+```rust
+pub enum IngestionModel {
+    Deposition {
+        deposition_velocity_m_per_s: f64,
+        transfer: super::TransferFactors,
+    },
+    Tritium,
+    Carbon14,
+}
+```
+
+##### Variants
+
+###### `Deposition`
+
+The SRS 19 deposition model with the element's transfer factors
+([`TransferFactors::ZERO`] if it has none, as upstream).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `deposition_velocity_m_per_s` | `f64` | Total deposition velocity, m/s. |
+| `transfer` | `super::TransferFactors` | Element transfer factors. |
+
+###### `Tritium`
+
+The TECDOC-1616 specific-activity model for tritium.
+
+###### `Carbon14`
+
+The specific-activity model for C-14.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionModel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IngestionNuclide`
+
+One nuclide's inputs.
+
+```rust
+pub struct IngestionNuclide {
+    pub model: IngestionModel,
+    pub decay_constant_per_s: f64,
+    pub release_bq: f64,
+    pub dcf: super::IngestionDcf,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `model` | `IngestionModel` | Model. |
+| `decay_constant_per_s` | `f64` | Decay constant, 1/s. |
+| `release_bq` | `f64` | Release: Bq/y (long term) or Bq (single plume). |
+| `dcf` | `super::IngestionDcf` | Ingestion coefficient ([`IngestionDcf::Tritium`] for H-3). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionNuclide { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionNuclide) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IngestionSettings`
+
+Settings shared by all nuclides.
+
+```rust
+pub struct IngestionSettings {
+    pub mode: super::upstream::IngestionReleaseMode,
+    pub parameters: super::IngestionParameters,
+    pub diet: super::DietaryIntake,
+    pub soil: super::SoilType,
+    pub climate: super::food_chain::Climate,
+    pub veg_type: super::food_chain::VegetationType,
+    pub animal_feed_type: super::food_chain::VegetationType,
+    pub animal_products_h3: Vec<super::food_chain::AnimalProduct>,
+    pub animal_products_c14: Vec<super::food_chain::AnimalProduct>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mode` | `super::upstream::IngestionReleaseMode` | Release mode. |
+| `parameters` | `super::IngestionParameters` | Food-chain parameters. |
+| `diet` | `super::DietaryIntake` | Receiver's diet (per day). |
+| `soil` | `super::SoilType` | Soil type. |
+| `climate` | `super::food_chain::Climate` | Climate (H-3). |
+| `veg_type` | `super::food_chain::VegetationType` | Vegetables eaten (H-3 and C-14). |
+| `animal_feed_type` | `super::food_chain::VegetationType` | Animal feed (H-3 and C-14). |
+| `animal_products_h3` | `Vec<super::food_chain::AnimalProduct>` | Animal products for H-3. |
+| `animal_products_c14` | `Vec<super::food_chain::AnimalProduct>` | Animal products for C-14. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionSettings) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IngestionDoseByRoute`
+
+Ingestion dose by route.
+
+```rust
+pub struct IngestionDoseByRoute {
+    pub veg: crate::pydoseia::units::EffectiveDose,
+    pub milk: crate::pydoseia::units::EffectiveDose,
+    pub meat: crate::pydoseia::units::EffectiveDose,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `veg` | `crate::pydoseia::units::EffectiveDose` | Vegetables / food crops. |
+| `milk` | `crate::pydoseia::units::EffectiveDose` | Milk. |
+| `meat` | `crate::pydoseia::units::EffectiveDose` | Meat. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total(self: Self) -> EffectiveDose { /* ... */ }
+  ```
+  Sum of the three routes.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionDoseByRoute { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IngestionDoseByRoute { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionDoseByRoute) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `ingestion_dose_per_nuclide`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Ingestion dose for each nuclide, in input order (the corrected driver; see
+the module docs for what differs from upstream).
+
+```rust
+pub fn ingestion_dose_per_nuclide(nuclides: &[IngestionNuclide], chi_over_q: crate::pydoseia::units::DilutionFactor, s: &IngestionSettings) -> Vec<IngestionDoseByRoute> { /* ... */ }
+```
+
+## Module `food_chain`
+
+The food-chain equations of pyDOSEIA's `ingestion_dose`, one nuclide at a
+time, written in upstream's operation order. Ported from `dosefunc.py` and
+`raddcffunc.py` at commit `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`,
+Copyright (c) 2024 Dr. Biswajit Sadhu, MIT (see `crates/buangkok/NOTICE`).
+The equations are IAEA SRS 19 (2001) eqs. for direct deposition, soil
+uptake, pasture, stored feed, milk and meat, and IAEA-TECDOC-1616 (2009)
+for the H-3 and C-14 specific-activity models, as upstream cites them.
+
+```rust
+pub mod food_chain { /* ... */ }
+```
+
+### Types
+
+#### Struct `CropConcentrations`
+
+Food-crop concentrations (SRS 19 section 5.1), Bq/kg.
+
+```rust
+pub struct CropConcentrations {
+    pub c_vi1: f64,
+    pub c_si: f64,
+    pub c_vi2: f64,
+    pub cvi: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `c_vi1` | `f64` | Direct deposition on the crop, `C_vi1`. |
+| `c_si` | `f64` | Soil concentration (crop root zone), `C_si`, Bq/kg dry soil. |
+| `c_vi2` | `f64` | Root uptake, `C_vi2 = Fv2 C_si`. |
+| `cvi` | `f64` | At consumption, `(C_vi1 + C_vi2) exp(-lambda_i t_h)`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CropConcentrations { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CropConcentrations) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AnimalConcentrations`
+
+Pasture, feed, milk and meat (SRS 19 section 5.2).
+
+```rust
+pub struct AnimalConcentrations {
+    pub c_vi1: f64,
+    pub c_si: f64,
+    pub c_vi2: f64,
+    pub cvi_animal: f64,
+    pub cpi: f64,
+    pub c_ai: f64,
+    pub c_mi: f64,
+    pub c_fi: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `c_vi1` | `f64` | Direct deposition on forage, Bq/kg dry. |
+| `c_si` | `f64` | Pasture soil, Bq/kg dry soil. |
+| `c_vi2` | `f64` | Root uptake by pasture, `Fv1 C_si`. |
+| `cvi_animal` | `f64` | Fresh pasture at grazing, `C_pasture`. |
+| `cpi` | `f64` | Stored feed, `C_pi`. |
+| `c_ai` | `f64` | Average feed, `f_p C_pasture + (1 - f_p) C_pi`. |
+| `c_mi` | `f64` | Milk, Bq/L. |
+| `c_fi` | `f64` | Meat, Bq/kg. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnimalConcentrations { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnimalConcentrations) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Climate`
+
+Climate for the tritium model (upstream `climate_humidity`): latitude,
+absolute humidity `H_a` (kg/m^3) and relative humidity.
+
+```rust
+pub enum Climate {
+    Mediterranean,
+    Continental,
+    Maritime,
+    Arctic,
+}
+```
+
+##### Variants
+
+###### `Mediterranean`
+
+`'Mediterranean'`: 34, 0.0115, 0.6.
+
+###### `Continental`
+
+`'Continental'`: 48, 0.0087, 0.71.
+
+###### `Maritime`
+
+`'Maritime'`: 50, 0.0078, 0.795. (The input generator offers
+`'meritime'`, which the pathway's dictionary does not contain.)
+
+###### `Arctic`
+
+`'Arctic'`: 50, 0.0067, 0.73. (The input generator offers `'arctic'`.)
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn humidity(self: Self) -> (f64, f64, f64) { /* ... */ }
+  ```
+  `(latitude, H_a, RH)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Climate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Climate) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `VegetationType`
+
+Vegetation (or animal feed) type for the H-3 and C-14 models.
+
+```rust
+pub enum VegetationType {
+    LeafyVegetables,
+    NonLeafyVegetables,
+    RootCrops,
+    AllOthers,
+}
+```
+
+##### Variants
+
+###### `LeafyVegetables`
+
+`'leafy_vegetables'`.
+
+###### `NonLeafyVegetables`
+
+`'non_leafy_vegetables'`.
+
+###### `RootCrops`
+
+`'root_crops'`.
+
+###### `AllOthers`
+
+`'all_others'`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn weq_wcp(self: Self) -> (f64, f64) { /* ... */ }
+  ```
+  `(WEQ, WCp)`: water equivalent factor (L/kg dry) and water content
+
+- ```rust
+  pub const fn stable_carbon(self: Self) -> f64 { /* ... */ }
+  ```
+  Stable carbon content `S_p`, gC/kg fresh weight (upstream's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VegetationType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VegetationType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AnimalProduct`
+
+Animal products of the H-3 and C-14 models.
+
+```rust
+pub enum AnimalProduct {
+    CowMilk,
+    GoatMilk,
+    GoatMeat,
+    LambMeat,
+    BeefMeat,
+    PorkMeat,
+    BroilerMeat,
+    Egg,
+}
+```
+
+##### Variants
+
+###### `CowMilk`
+
+`'cow_milk'`.
+
+###### `GoatMilk`
+
+`'goat_milk'`.
+
+###### `GoatMeat`
+
+`'goat_meat'`.
+
+###### `LambMeat`
+
+`'lamb_meat'`.
+
+###### `BeefMeat`
+
+`'beef_meat'`.
+
+###### `PorkMeat`
+
+`'pork_meat'`.
+
+###### `BroilerMeat`
+
+`'broiler_meat'`.
+
+###### `Egg`
+
+`'egg'` (has ratios but no dose route upstream).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn cr_hto(self: Self) -> f64 { /* ... */ }
+  ```
+  `CR_a_HTO`, the HTO concentration ratio.
+
+- ```rust
+  pub const fn cr_obt(self: Self) -> f64 { /* ... */ }
+  ```
+  `CR_a_OBT`, the OBT concentration ratio.
+
+- ```rust
+  pub const fn stable_carbon(self: Self) -> f64 { /* ... */ }
+  ```
+  `S_a`, stable carbon in the product, gC/kg (TECDOC-1616 Table 12).
+
+- ```rust
+  pub const fn is_milk(self: Self) -> bool { /* ... */ }
+  ```
+  In upstream's milk list (`cow_milk`, `goat_milk`).
+
+- ```rust
+  pub const fn is_meat(self: Self) -> bool { /* ... */ }
+  ```
+  In upstream's meat list (`goat_meat`, `lamb_meat`, `beef_meat`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnimalProduct { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnimalProduct) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TritiumPlant`
+
+Output of [`tritium_in_plant`].
+
+```rust
+pub struct TritiumPlant {
+    pub weq: f64,
+    pub wcp: f64,
+    pub c_tfwt: f64,
+    pub c_pfw_hto: f64,
+    pub c_pfw_obt: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `weq` | `f64` | Water equivalent factor. |
+| `wcp` | `f64` | Water content. |
+| `c_tfwt` | `f64` | Tissue-free water tritium. |
+| `c_pfw_hto` | `f64` | HTO in the fresh plant. |
+| `c_pfw_obt` | `f64` | OBT in the fresh plant. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TritiumPlant { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TritiumPlant) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `deposition_rate_per_day`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's per-day deposition rate `d * v_d * chi/Q`, Bq m^-2 d^-1 (with
+`d` the release per day: `Q / 365` for a long-term release, and the
+released Bq itself for a single plume, as upstream).
+
+```rust
+pub fn deposition_rate_per_day(day_discharge: f64, v_d_m_per_s: f64, chi_over_q: f64) -> f64 { /* ... */ }
+```
+
+#### Function `effective_removal_rates`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`ingestion_weathering_correction_real` for one element: effective removal
+rates from plants and from soil, 1/d, `(lambda_w + lambda_i,
+lambda_s + lambda_i)` with `lambda_i` the decay constant per day.
+
+```rust
+pub fn effective_removal_rates(tf: super::TransferFactors, lambda_i_per_d: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `per_day`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Decay constant per day as upstream converts it: `lambda * 24 * 3600`.
+
+```rust
+pub fn per_day(lambda_per_s: f64) -> f64 { /* ... */ }
+```
+
+#### Function `food_crop`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Food crops for human consumption (upstream's "veg route").
+
+```rust
+pub fn food_crop(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv2: f64, lambda_i_per_d: f64, rho_crop: f64, p: &super::IngestionParameters) -> CropConcentrations { /* ... */ }
+```
+
+#### Function `animal_products`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+- `MustUse { reason: None }`
+
+Upstream's milk and meat route for one nuclide.
+
+```rust
+pub fn animal_products(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv1: f64, fm: f64, ff: f64, lambda_i_per_d: f64, rho_pasture: f64, p: &super::IngestionParameters) -> AnimalConcentrations { /* ... */ }
+```
+
+#### Function `tritium_in_plant`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`conc_tritium_in_terrestrial_plant`: air HTO from the release (Bq/y times
+`chi/Q`, divided by `365 * 24 * 3600`), then air moisture, soil water,
+tissue-free water, HTO and OBT in the plant.
+
+Note (upstream behaviour, kept): the division by a year is applied for a
+single-plume release as well, where the release is in Bq, not Bq/y.
+
+```rust
+pub fn tritium_in_plant(chi_over_q: f64, discharge: f64, climate: Climate, veg: VegetationType, cr_s: f64, gamma: f64, r_p: f64) -> TritiumPlant { /* ... */ }
+```
+
+#### Function `tritium_in_animal`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`conc_tritium_in_terrestrial_animal`: `(C_afw_T_HTO, C_f_OBT,
+C_afw_T_OBT)`. Upstream calls it with `C_f_HTO = 0` (the HTO in drinking
+water is not modelled), so the HTO term is always zero there.
+
+```rust
+pub fn tritium_in_animal(c_tfwt: f64, c_f_hto: f64, product: AnimalProduct, feed: VegetationType, r_p: f64) -> (f64, f64, f64) { /* ... */ }
+```
+
+#### Function `c14_in_plant`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`conc_c14_in_terrestrial_plants`: `C_air S_p / S_air`, Bq/kg fresh.
+
+```rust
+pub fn c14_in_plant(c_air: f64, veg: VegetationType, s_air: f64) -> f64 { /* ... */ }
+```
+
+#### Function `c14_in_animal`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`conc_c14_in_terrestrial_animal`: `f_c C_pfw S_a / S_p`, Bq/kg fresh
+(upstream uses `f_c = 1`).
+
+```rust
+pub fn c14_in_animal(c_pfw: f64, feed: VegetationType, product: AnimalProduct, f_c: f64) -> f64 { /* ... */ }
+```
+
+#### Function `c14_in_fish`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+C-14 in fish, `C_DIC * S_f` (default `S_f = 120` gC/kg).
+
+**Divergence from upstream:** upstream's `conc_c14_in_fish(C_air, S_f)`
+ignores `C_air` and reads an undefined `C_DIC` (a `NameError` if called;
+it is never called, and marked TODO). This takes the dissolved inorganic
+C-14 concentration explicitly, which is what the formula needs.
+
+```rust
+pub fn c14_in_fish(c_dic: f64, s_f: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `TRITIUM_CR_S`
+
+Upstream's defaults for the tritium plant model: `CR_s = 0.23`,
+`gamma = 0.909`, `R_p = 0.54`.
+
+```rust
+pub const TRITIUM_CR_S: f64 = 0.23;
+```
+
+#### Constant `TRITIUM_GAMMA`
+
+Vapour-pressure ratio HTO/H2O.
+
+```rust
+pub const TRITIUM_GAMMA: f64 = 0.909;
+```
+
+#### Constant `TRITIUM_R_P`
+
+OBT/TFWT concentration ratio.
+
+```rust
+pub const TRITIUM_R_P: f64 = 0.54;
+```
+
+#### Constant `C14_S_AIR`
+
+Stable carbon in air, gC/m^3 (upstream `S_air = 0.20`).
+
+```rust
+pub const C14_S_AIR: f64 = 0.20;
+```
+
+## Module `upstream`
+
+`DoseFunc.ingestion_dose` exactly as upstream runs it, list indexing and
+output layout included. Ported from pyDOSEIA `dosefunc.py` at commit
+`dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`, Copyright (c) 2024
+Dr. Biswajit Sadhu, MIT (see `crates/buangkok/NOTICE`).
+
+Use [`super::corrected::ingestion_dose_per_nuclide`] for new work; this
+function exists so that the port can be compared with upstream number for
+number, and so that upstream's defects D8-D11 are demonstrable.
+
+```rust
+pub mod upstream { /* ... */ }
+```
+
+### Types
+
+#### Enum `IngestionReleaseMode`
+
+Release mode, which sets the per-day discharge and the diet multiplier.
+
+```rust
+pub enum IngestionReleaseMode {
+    LongTerm,
+    SinglePlume,
+}
+```
+
+##### Variants
+
+###### `LongTerm`
+
+`long_term_release`: releases are Bq/y; the per-day discharge is
+`Q / 365` and the diet is multiplied by 365.
+
+###### `SinglePlume`
+
+`single_plume`: releases are Bq; the discharge is used as is and the
+diet is multiplied by 1 (upstream's `consumption_time_frac = 1`; the
+config's `consumption_time_food` is never read).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionReleaseMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionReleaseMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UpstreamIngestionInputs`
+
+Everything `ingestion_dose` reads, per call.
+
+```rust
+pub struct UpstreamIngestionInputs {
+    pub nuclides: Vec<String>,
+    pub elements: Vec<String>,
+    pub decay_constants_per_s: Vec<f64>,
+    pub releases_bq: Vec<f64>,
+    pub mode: IngestionReleaseMode,
+    pub chi_over_q: f64,
+    pub parameters: super::IngestionParameters,
+    pub diet_adult: super::DietaryIntake,
+    pub diet_infant: super::DietaryIntake,
+    pub soil: super::SoilType,
+    pub climate: super::food_chain::Climate,
+    pub veg_type: super::food_chain::VegetationType,
+    pub animal_feed_type: super::food_chain::VegetationType,
+    pub animal_products_h3: Vec<super::food_chain::AnimalProduct>,
+    pub animal_products_c14: Vec<super::food_chain::AnimalProduct>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclides` | `Vec<String>` | `rads_list`. |
+| `elements` | `Vec<String>` | `element_list` (same length). |
+| `decay_constants_per_s` | `Vec<f64>` | Decay constants, 1/s (`lambda_of_rads`), per nuclide. |
+| `releases_bq` | `Vec<f64>` | Releases per nuclide (`annual_discharge_bq_rad_list` or<br>`instantaneous_release_bq_list`). |
+| `mode` | `IngestionReleaseMode` | Release mode. |
+| `chi_over_q` | `f64` | Maximum `chi/Q` for the distance, s/m^3. |
+| `parameters` | `super::IngestionParameters` | `inges_param_dict`. |
+| `diet_adult` | `super::DietaryIntake` | `inges_param_dict_adult`. |
+| `diet_infant` | `super::DietaryIntake` | `inges_param_dict_infant`. |
+| `soil` | `super::SoilType` | `soiltype`. |
+| `climate` | `super::food_chain::Climate` | `climate` (H-3 only). |
+| `veg_type` | `super::food_chain::VegetationType` | `veg_type_list` (H-3 only; upstream iterates `[veg_type_list]`, so it<br>must be a single type: a YAML list raises `TypeError`). |
+| `animal_feed_type` | `super::food_chain::VegetationType` | `animal_feed_type` (H-3 and C-14). |
+| `animal_products_h3` | `Vec<super::food_chain::AnimalProduct>` | `animal_product_list_for_tritium`. |
+| `animal_products_c14` | `Vec<super::food_chain::AnimalProduct>` | `animal_product_list_for_C14`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamIngestionInputs { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamIngestionInputs) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `UpstreamIngestionError`
+
+Why upstream's `ingestion_dose` raises (or returns nothing).
+
+```rust
+pub enum UpstreamIngestionError {
+    IndexError(&'static str),
+    NameError,
+    NoBranchMatches,
+    Age,
+}
+```
+
+##### Variants
+
+###### `IndexError`
+
+A per-element list indexed past its end (`IndexError`, defect D8).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `NameError`
+
+Upstream prints `sum_hto_obt_animal_milk_tritium` before any milk
+product has defined it (`NameError`): the first tritium animal product
+is not a milk (defect D11b).
+
+###### `NoBranchMatches`
+
+Exactly `['H-3', 'C-14']` (or both with nothing else): no branch of the
+output assembly matches and upstream returns whatever the previous call
+left (`None` on a fresh object; defect D9).
+
+###### `Age`
+
+A NaN age bracket (cannot happen for adult/infant; kept for totality).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamIngestionError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamIngestionError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Type Alias `Routes`
+
+The three routes of one nuclide in upstream's output, in upstream's order
+`(veg, milk, meat)`, mSv (or mSv/y).
+
+```rust
+pub type Routes = [f64; 3];
+```
+
+#### Struct `UpstreamIngestionOutput`
+
+Upstream's result: the stacked array, and the elements that had no
+transfer factors (upstream's `notransfer_factor_rad`, used by the report).
+
+```rust
+pub struct UpstreamIngestionOutput {
+    pub rows: Vec<Vec<f64>>,
+    pub transposed: bool,
+    pub no_transfer_factors: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rows` | `Vec<Vec<f64>>` | Rows exactly as upstream's array: one `[veg, milk, meat]` per non-H-3,<br>non-C-14 nuclide in list order, then H-3, then C-14. When H-3, C-14 and<br>at least one other nuclide are all present, upstream **transposes** the<br>array; `transposed` is then true and `rows` holds the three route rows<br>(veg, milk, meat), each of nuclide length. |
+| `transposed` | `bool` | Whether `rows` is upstream's transposed layout. |
+| `no_transfer_factors` | `Vec<String>` | Elements missing from the eco-parameter table. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamIngestionOutput { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamIngestionOutput) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `ingestion_dose_upstream`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_lines)]")`
+
+`DoseFunc.ingestion_dose` for one distance and receiver, with upstream's
+arithmetic and indexing.
+
+# Errors
+Where upstream raises; see [`UpstreamIngestionError`].
+
+```rust
+pub fn ingestion_dose_upstream(inp: &UpstreamIngestionInputs, eco: &super::EcoParamTable, dcf_table: &super::IngestionDcfTable, receiver: super::Receiver) -> Result<UpstreamIngestionOutput, UpstreamIngestionError> { /* ... */ }
+```
+
+### Types
+
+#### Struct `IngestionParameters`
+
+Upstream's `inges_param_dict`: SRS 19 food-chain parameters (days, m^2/kg,
+kg/d, m^3/d, Bq/m^3).
+
+```rust
+pub struct IngestionParameters {
+    pub alpha_wet_crops: f64,
+    pub alpha_dry_forage: f64,
+    pub t_e_food_crops: f64,
+    pub t_e_forage_grass: f64,
+    pub t_b: f64,
+    pub t_h_wet_crops: f64,
+    pub t_h_animal_pasture: f64,
+    pub t_h_animal_stored_feed: f64,
+    pub c_wi: f64,
+    pub f_p: f64,
+    pub alpha: f64,
+    pub t_e: f64,
+    pub t_m: f64,
+    pub t_f: f64,
+    pub q_m: f64,
+    pub q_w: f64,
+    pub q_f: f64,
+    pub q_w_meat: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha_wet_crops` | `f64` | Interception per unit mass, wet food crops, m^2/kg. |
+| `alpha_dry_forage` | `f64` | Interception per unit mass, dry forage, m^2/kg. |
+| `t_e_food_crops` | `f64` | Crop exposure period during growth, food crops, d. |
+| `t_e_forage_grass` | `f64` | Crop exposure period, forage grass, d. |
+| `t_b` | `f64` | Duration of the discharge (soil build-up), d. |
+| `t_h_wet_crops` | `f64` | Harvest-to-consumption delay, food crops, d. |
+| `t_h_animal_pasture` | `f64` | Delay for fresh pasture, d. |
+| `t_h_animal_stored_feed` | `f64` | Delay for stored feed, d. |
+| `c_wi` | `f64` | Radionuclide concentration in the animals' water, Bq/m^3. |
+| `f_p` | `f64` | Fraction of the year on fresh pasture. |
+| `alpha` | `f64` | Upstream key `alpha` (read, unused). |
+| `t_e` | `f64` | Upstream key `t_e` (read, unused). |
+| `t_m` | `f64` | Milk collection-to-consumption delay, d. |
+| `t_f` | `f64` | Meat collection-to-consumption delay, d. |
+| `q_m` | `f64` | Dry feed eaten by a milk animal, kg/d. |
+| `q_w` | `f64` | Water drunk by a milk animal, m^3/d. |
+| `q_f` | `f64` | Feed eaten by a meat animal, kg/d. |
+| `q_w_meat` | `f64` | Water drunk by a meat animal, m^3/d. |
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionParameters { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionParameters) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DietaryIntake`
+
+Upstream's dietary intake dictionary (`inges_param_dict_adult` /
+`_infant`): `DID_veg`, `DID_milk`, `DID_meat`, `DID_fish`,
+`DID_water_and_beverage`.
+
+The pathway multiplies these by 365 for a long-term release and by 1 for a
+single plume, so they are **per day**. The input generator's defaults are
+per day (1.05 kg/d of vegetables for an adult); the fallback in
+`dosefunc.py` holds **annual** values (76.7 kg of vegetables) that are then
+multiplied by 365 again (defect D12). Fish and water are read but no
+pathway uses them.
+
+```rust
+pub struct DietaryIntake {
+    pub veg: f64,
+    pub milk: f64,
+    pub meat: f64,
+    pub fish: f64,
+    pub water_and_beverage: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `veg` | `f64` | Vegetables, kg/d. |
+| `milk` | `f64` | Milk, L/d. |
+| `meat` | `f64` | Meat, kg/d. |
+| `fish` | `f64` | Fish, kg/d (unused upstream). |
+| `water_and_beverage` | `f64` | Water and beverages, m^3/d (unused upstream). |
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DietaryIntake { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DietaryIntake) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Receiver`
+
+Who eats: upstream's `receiver`, which fixes the ingestion coefficient age
+(adult 18, infant 1) and the diet.
+
+```rust
+pub enum Receiver {
+    Adult,
+    Infant,
+}
+```
+
+##### Variants
+
+###### `Adult`
+
+`'adult'`, age 18.
+
+###### `Infant`
+
+`'infant'`, age 1.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn age_years(self: Self) -> f64 { /* ... */ }
+  ```
+  The age upstream uses for the coefficient lookup.
+
+- ```rust
+  pub fn from_driver_age(age: f64) -> Option<Self> { /* ... */ }
+  ```
+  Upstream's driver (`agewise_ingestion_dose`): `age > 17` is an adult,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Receiver { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Receiver) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SoilType`
+
+Soil type for the effective surface density (`soiltype`), SRS 19 Table IX.
+
+```rust
+pub enum SoilType {
+    PeatSoil,
+    OtherSoil,
+}
+```
+
+##### Variants
+
+###### `PeatSoil`
+
+`'peatsoil'`: 50 kg/m^2 (pasture), 100 kg/m^2 (crops).
+
+###### `OtherSoil`
+
+`'othersoil'`: 130 kg/m^2 (pasture), 260 kg/m^2 (crops).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn surface_densities(self: Self) -> (f64, f64) { /* ... */ }
+  ```
+  `(rho_pasture_depth_lt_11, rho_crop_depth_ge_11)`, kg/m^2 dry soil.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SoilType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SoilType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TransferFactors`
+
+Element transfer factors and loss rates, one row of upstream's `eco_param`.
+
+```rust
+pub struct TransferFactors {
+    pub lambda_s_per_d: f64,
+    pub fv1: f64,
+    pub fv2: f64,
+    pub lambda_w_per_d: f64,
+    pub fm_milk_d_per_l: f64,
+    pub ff_meat_d_per_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lambda_s_per_d` | `f64` | Soil loss rate `lambda_s`, 1/d. |
+| `fv1` | `f64` | Soil-to-pasture concentration factor `Fv1`. |
+| `fv2` | `f64` | Soil-to-crop concentration factor `Fv2`. |
+| `lambda_w_per_d` | `f64` | Plant-surface loss rate `lambda_w`, 1/d. |
+| `fm_milk_d_per_l` | `f64` | Feed-to-milk transfer `Fm`, d/L. |
+| `ff_meat_d_per_kg` | `f64` | Feed-to-meat transfer `Ff`, d/kg. |
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TransferFactors { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TransferFactors) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EcoParamTable`
+
+Upstream's `eco_param` sheet.
+
+```rust
+pub struct EcoParamTable {
+    pub rows: Vec<(String, TransferFactors)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rows` | `Vec<(String, TransferFactors)>` | `(Element field, factors)` in file order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_csv(text: &str) -> Result<Self, String> { /* ... */ }
+  ```
+  Read a CSV with upstream's columns `Element, lambda_s_per_d, Fv1, Fv2,
+
+- ```rust
+  pub fn lookup(self: &Self, element: &str) -> Option<TransferFactors> { /* ... */ }
+  ```
+  Upstream's lookup in `fv_list_ecerman_ingestion`: the **first** row
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EcoParamTable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> EcoParamTable { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EcoParamTable) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `IngestionDcf`
+
+An ingestion coefficient: one value, or tritium's HTO and OBT pair.
+
+```rust
+pub enum IngestionDcf {
+    Single(f64),
+    Tritium {
+        hto: f64,
+        obt: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Single`
+
+Sv/Bq.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Tritium`
+
+Tritium, Sv/Bq: tritiated water and organically bound tritium.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hto` | `f64` | HTO. |
+| `obt` | `f64` | OBT. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionDcf { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionDcf) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IngestionDcfTable`
+
+Upstream's `ingestion_gsr3` sheet: `Nuclide` and the six e(g) columns of
+[`InhalationDcfTable::AGE_COLUMNS`].
+
+```rust
+pub struct IngestionDcfTable {
+    pub rows: Vec<(String, [f64; 6])>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rows` | `Vec<(String, [f64; 6])>` | `(nuclide, coefficients by age bracket)`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_csv(text: &str) -> Result<Self, String> { /* ... */ }
+  ```
+  Read a CSV with columns `Nuclide` and the six `e_g_age_g_*_Sv/Bq`.
+
+- ```rust
+  pub fn lookup(self: &Self, nuclide: &str, age: AgeBracket) -> IngestionDcf { /* ... */ }
+  ```
+  Upstream's `dcf_list_ingestion` for one nuclide: the largest
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IngestionDcfTable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> IngestionDcfTable { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IngestionDcfTable) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `ingestion_weathering_correction_unused`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's `ingestion_weathering_correction` (the **unused** variant: the
+pathway calls `ingestion_weathering_correction_real` instead). Adds a
+14-day weathering half-life (`0.693 / (14 * 86400)` 1/s) to the decay
+constant of every element except H, C and the noble gases, when enabled.
+
+```rust
+pub fn ingestion_weathering_correction_unused(decay_constant_per_s: f64, element: &str, enabled: bool) -> f64 { /* ... */ }
+```
+
+#### Function `zero_milk_and_meat`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's `zeroing_ingestion` intent: the milk and meat doses of a
+nuclide whose element has no transfer factors are set to zero.
+
+Note: upstream writes `df.loc[rad][1:] = 0`, a chained assignment. Under
+pandas copy-on-write (pandas 3, used for the fixture) it modifies a copy and
+the report is **unchanged** (defect D14; checked in the fixture). This
+function does what the code says it means; the code-to-code test records
+both.
+
+```rust
+pub fn zero_milk_and_meat(route: [f64; 3], element_has_no_transfer_factors: bool) -> [f64; 3] { /* ... */ }
 ```
 
 ## Module `met`
@@ -4122,7 +10537,10 @@ as upstream does; with fewer than 10 % missing they are then cut by the
 
 Upstream uses these means (km/h) to divide a single-plume dilution factor
 computed at a 1 m/s reference speed, but that path fails its own shape
-assertion (defect D3), so nothing in this port consumes them.
+assertion (defect D3). ~~so nothing in this port consumes them~~
+**CHANGED 2026-09-28:** the labelled divergence
+[`super::dispersion::dilution_single_plume_with_met_speeds`] uses them
+(converted to m/s).
 
 ```rust
 pub fn speed_distribution(records: &[MetRecord], quantile: f64) -> ([Vec<f64>; 6], [f64; 6]) { /* ... */ }
@@ -4290,6 +10708,1114 @@ Upstream's value of `ln 2`, as written: `0.693`.
 
 ```rust
 pub const UPSTREAM_LN2: f64 = 0.693;
+```
+
+## Module `plume_rise`
+
+Plume rise and building wake, which pyDOSEIA defines but never calls.
+
+# Provenance
+
+Ported from pyDOSEIA `metfunc.py` (`MetFunc.compute_plume_rise_neutral_unstable_cat`,
+`compute_plume_rise_stable_cat`, `building_wake_effect_gifford`), upstream
+<https://github.com/BiswajitSadhu/pyDOSEIA> at commit
+`dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`. Copyright (c) 2024 Dr. Biswajit
+Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`). Upstream cites
+the AERB/NF/SG/S-1 guide (p. 44) and IAEA-TECDOC-379; neither was
+available to check the formulas against.
+
+None of these is used by upstream's dose calculation (its release height is
+the effective height, with no rise and no wake), and none is used by this
+crate's pathways either.
+
+| Function | Upstream state | Here |
+|---|---|---|
+| [`plume_rise_neutral_unstable`] | runs, never called | ported faithfully |
+| [`plume_rise_stable_upstream`] | runs, never called, marked TO-DO; defect **D6** | ported faithfully (always class F, second formula) |
+| [`plume_rise_stable_both_formulas`] | — | **divergence**: D6 corrected |
+| building wake | cannot run (`TypeError`), marked TO-DO; defect **D5** | [`building_wake_gifford`] is a **divergence** only |
+
+```rust
+pub mod plume_rise { /* ... */ }
+```
+
+### Types
+
+#### Enum `StableClass`
+
+Stable class for [`plume_rise_stable_both_formulas`].
+
+```rust
+pub enum StableClass {
+    E,
+    F,
+}
+```
+
+##### Variants
+
+###### `E`
+
+Class E, `S = 8.7e-4`.
+
+###### `F`
+
+Class F, `S = 1.75e-3`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StableClass { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StableClass) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StablePlumeRise`
+
+Both stable momentum-rise formulas upstream writes, m.
+
+```rust
+pub struct StablePlumeRise {
+    pub calm_formula: f64,
+    pub windy_formula: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `calm_formula` | `f64` | `4 (Fm/S)^(1/4)` (upstream's first, overwritten, formula). |
+| `windy_formula` | `f64` | `1.5 S^(-1/6) (Fm/U)^(1/3)`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StablePlumeRise { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StablePlumeRise) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `plume_rise_neutral_unstable`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`compute_plume_rise_neutral_unstable_cat(W0, x, U, D_i, D_e)` (classes
+A-D), m: the smaller of
+`1.44 D_i (W0/U)^(2/3) (x/D_i)^(1/3) - 3 (1.5 - W0/U) D_e` and
+`3 D_i W0/U`. Upstream's defaults are `W0 = 10` m/s, `x = 100` m,
+`U = 2` m/s, `D_i = 5` m, `D_e = 8` m.
+
+```rust
+pub fn plume_rise_neutral_unstable(w0: f64, x: f64, u: f64, d_i: f64, d_e: f64) -> f64 { /* ... */ }
+```
+
+#### Function `momentum_flux`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's momentum flux parameter `Fm = W0^2 (D_i/2)^2`.
+
+```rust
+pub fn momentum_flux(w0: f64, d_i: f64) -> f64 { /* ... */ }
+```
+
+#### Function `plume_rise_stable_upstream`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`compute_plume_rise_stable_cat(W0, U, D_i)` **as upstream computes it**
+(defect D6): the stability parameter is assigned for class E and then
+overwritten with class F's, and the calm formula is computed and then
+overwritten by the windy one, so the result is always
+`1.5 S_F^(-1/6) (Fm/U)^(1/3)` with `S_F = 1.75e-3`.
+
+```rust
+pub fn plume_rise_stable_upstream(w0: f64, u: f64, d_i: f64) -> f64 { /* ... */ }
+```
+
+#### Function `plume_rise_stable_both_formulas`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Divergence from upstream (D6 corrected):** uses the stability parameter
+of the class asked for and returns **both** formulas upstream writes,
+instead of discarding the first. Which one applies (Briggs' guidance takes
+the smaller) is left to the caller: the AERB guide upstream cites was not
+available to check what it prescribes.
+
+```rust
+pub fn plume_rise_stable_both_formulas(w0: f64, u: f64, d_i: f64, class: StableClass) -> StablePlumeRise { /* ... */ }
+```
+
+#### Function `building_wake_gifford`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Divergence from upstream (D5 corrected):** Gifford's building-wake
+dilution factor `chi/Q = 1 / ((c A + pi sigma_y sigma_z) U)`, `c = 0.5`,
+floored at one third of the unwaked value, s/m^3.
+
+Upstream's `building_wake_effect_gifford` cannot run: it multiplies the
+bound methods `self.sigmay` and `self.sigmaz` (a `TypeError`), and it
+**multiplies** by `U` where the formula divides. This version takes the
+sigmas (m) as arguments and divides by the wind speed (m/s); the floor is
+upstream's. Not checked against the AERB guide or TECDOC-379.
+
+```rust
+pub fn building_wake_gifford(chi_over_q_unwaked: f64, building_area_m2: f64, wind_speed_m_per_s: f64, sigma_y_m: f64, sigma_z_m: f64) -> f64 { /* ... */ }
+```
+
+## Module `plume_shine`
+
+Plume shine: the external gamma dose from the passing cloud, by pyDOSEIA's
+finite-cloud model: the Gaussian plume concentration folded with a
+point-kernel photon flux (exponential attenuation, linear build-up
+`1 + k mu r`) and integrated over a box around the receptor.
+
+> **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Never a
+> dose to a real person.
+
+# Provenance
+
+Ported from pyDOSEIA `dosefunc.py` (`DoseFunc.plumeshine_dose`, with its
+nested `adgq_single_plume`, `adgq_sector_average` and
+`get_all_integral_stab_cat_energy_wise_for_all_rad_parallel`) and
+`raddcffunc.py` (`gamma_energy_abundaces`, `add_zero_energy_for_pure_beta`,
+`atten_coeff` — the second definition, which is the one Python binds —
+`get_k_mu_mua_MFP`, `zyx_lim_for_integral`,
+`zyx_lim_for_integral_single_plume`,
+`zyx_lim_for_integral_sector_averaged_plume`,
+`get_limit_lists_per_rad_for_all_energies`, and the module-level
+`point_source_dose`), upstream <https://github.com/BiswajitSadhu/pyDOSEIA>
+at commit `dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce`. Copyright (c) 2024
+Dr. Biswajit Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`).
+Upstream cites Wang, Ling and Shi, *Nucl. Eng. Des.* 231 (2004) 211-216
+for the mean-free-path integration limits.
+
+The triple integral uses [`super::quadpack::tplquad`], a port of the SciPy
+QUADPACK routine upstream calls, so the port reproduces upstream's
+adaptive subdivision and not just its integrand.
+
+# No photon data ships with this crate
+
+| Upstream sheet | Content | Source as upstream states | Here |
+|---|---|---|---|
+| `Dose_ecerman_final.xlsx` / `gamma_energy_radionuclide` | gamma energies and emission probabilities | IAEA "Update of X-ray and gamma-ray decay data standards" (2007), `www-nds.iaea.org/xgamma_standards` | **not copied** (IAEA terms of use not established); read your own table with [`GammaLineTable::from_csv`] |
+| `Dose_ecerman_final.xlsx` / `mass_attenuation_coeff` | mass attenuation and mass energy-absorption coefficients of air | NIST (Hubbell and Seltzer), `physics.nist.gov/PhysRefData/XrayMassCoef/ComTab/air.html` | **not copied**: NIST Standard Reference Data may carry copyright under the Standard Reference Data Act (15 U.S.C. 290e), and the terms of this table were not established; read your own with [`AttenuationTable::from_csv`] |
+
+The code-to-code test uses **synthetic** tables in these layouts.
+
+# What the numbers mean (and an upstream unit ambiguity)
+
+Upstream multiplies each line's integral by `5e-4 * E * mu_a * yield`, sums
+the lines, and multiplies by the release (Bq/s for a long-term release,
+`annual / 31 536 000`; Bq for a single plume). Its comments call the
+result **microSv/h**, while its text report heads the met-data table
+**"microSv per year"** and the met-data branch sums the frequency table's
+raw **hour counts** without dividing by the hours of data (defect D16 in
+`docs/pydoseia-code-to-code.md`). The port reproduces the numbers and does
+not assign them a unit type: they are plain `f64` "upstream plume-shine
+values".
+
+```rust
+pub mod plume_shine { /* ... */ }
+```
+
+### Types
+
+#### Enum `PlumeShineRelease`
+
+The release multiplier upstream applies at the end: Bq/s
+(`annual / 31 536 000`) for a long-term release, Bq for a single plume.
+
+```rust
+pub enum PlumeShineRelease {
+    AnnualDischargeBq(f64),
+    InstantaneousBq(f64),
+}
+```
+
+##### Variants
+
+###### `AnnualDischargeBq`
+
+Long-term release: activity discharged per year, Bq/y.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `InstantaneousBq`
+
+Instantaneous release: activity released, Bq.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn multiplier(self: Self) -> f64 { /* ... */ }
+  ```
+  The factor upstream multiplies by.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlumeShineRelease { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlumeShineRelease) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `PointSourceUnit`
+
+Output unit branch of [`point_source_dose`].
+
+```rust
+pub enum PointSourceUnit {
+    MilliSievertPerHour,
+    MilliRoentgenPerHour,
+}
+```
+
+##### Variants
+
+###### `MilliSievertPerHour`
+
+Upstream `'mSv/hr'`.
+
+###### `MilliRoentgenPerHour`
+
+Upstream `'mR/hr'`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PointSourceUnit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PointSourceUnit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `prefactor`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's plume-shine prefactor `5 * 10 ** (-4)`, evaluated as Python
+does (`10 ** -4` is `pow(10.0, -4.0)`).
+
+```rust
+pub fn prefactor() -> f64 { /* ... */ }
+```
+
+#### Function `line_integrals`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The per-class integrals of one gamma line, `[A..F]` (upstream
+`all_integral_stab_cat_energy_wise[rad][line]`). A zero-energy placeholder
+line (pure beta emitter) is not integrated and gives zeros: upstream does
+integrate it, and multiplies the result by the zero energy and yield.
+
+```rust
+pub fn line_integrals(line: GammaLine, table: &AttenuationTable, geometry: PlumeShineGeometry) -> [f64; 6] { /* ... */ }
+```
+
+#### Function `per_class_unit_release`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Plume shine per stability class for **unit release**, summed over the
+lines (upstream's `pl_sh_sectors` before the release multiplication, for
+the single-plume and the long-term no-met branches).
+
+`lines` are what [`GammaLineTable::plume_shine_lines`] returns (upstream
+`gamma_energy_abundaces` + `add_zero_energy_for_pure_beta`).
+
+```rust
+pub fn per_class_unit_release(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry) -> [f64; 6] { /* ... */ }
+```
+
+#### Function `per_class`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Plume shine per stability class for one nuclide (single plume, or long
+term without met data): [`per_class_unit_release`] times the release.
+
+```rust
+pub fn per_class(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, release: PlumeShineRelease) -> [f64; 6] { /* ... */ }
+```
+
+#### Function `per_sector_with_met`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Plume shine per 22.5-degree sector for one nuclide, long-term release
+**with met data**, averaged over the years of `met` and multiplied by the
+release (upstream's `have_met_data` branch).
+
+Per year and line, the per-class integrals (times
+`5e-4 * E * mu_a * yield`) are weighted by the missing-corrected TJFD
+count divided by the speed-class wind speed (m/s) and the class's height
+correction factor, and summed over the nine non-calm speed classes and the
+six classes. Lines with zero energy or yield contribute zero.
+
+Note (upstream behaviour, kept; defect D16): the counts are **not**
+divided by the number of hours in the year, so the result grows with the
+length of the met record; upstream computes `hours_without_calm` and never
+uses it.
+
+```rust
+pub fn per_sector_with_met(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, met: &super::met::MetClimatology, measurement_height: uom::si::f64::Length, release: PlumeShineRelease) -> [f64; 16] { /* ... */ }
+```
+
+#### Function `point_source_dose`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Upstream's module-level `point_source_dose`, one distance: the rule-of-thumb
+dose rate `6 C E / d^2` of a point gamma source (C in curie, E in MeV,
+d converted from metres with `3.28034 ft/m`), summed over lines and
+multiplied by a damage ratio.
+
+`unit` selects upstream's two branches: [`PointSourceUnit::MilliSievertPerHour`]
+divides by `114 * 3.28034^2`, [`PointSourceUnit::MilliRoentgenPerHour`] by
+`3.28034^2` only. Both then multiply by `damage_ratio * 1000`, as upstream.
+
+Upstream's defaults (`gamma_energy`, `g_yield` for Ir-192, activity 1e6 Ci,
+damage ratio 5e-5) are in [`POINT_SOURCE_DEFAULT_IR192_KEV`] and
+[`POINT_SOURCE_DEFAULT_IR192_YIELD`]; they are upstream's literals, not
+data curated here. The *method* `RaddcfFunc.point_source_dose` cannot run
+upstream (it calls the list `self.rads_list()`, appends to a dict, and
+unpacks three of four return values: defect D15) and is not ported.
+
+```rust
+pub fn point_source_dose(gamma_energy_kev: &[f64], yields: &[f64], activity_curie: f64, distance_m: f64, damage_ratio: f64, unit: PointSourceUnit) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `POINT_SOURCE_DEFAULT_IR192_KEV`
+
+Upstream's default gamma energies for [`point_source_dose`] (keV; upstream
+says Ir-192). Upstream's literals, reproduced as code defaults.
+
+```rust
+pub const POINT_SOURCE_DEFAULT_IR192_KEV: [f64; 9] = _;
+```
+
+#### Constant `POINT_SOURCE_DEFAULT_IR192_YIELD`
+
+Upstream's default yields for [`point_source_dose`].
+
+```rust
+pub const POINT_SOURCE_DEFAULT_IR192_YIELD: [f64; 9] = _;
+```
+
+#### Constant `POINT_SOURCE_DEFAULT_DISTANCES_M`
+
+Upstream's default distances for [`point_source_dose`], m.
+
+```rust
+pub const POINT_SOURCE_DEFAULT_DISTANCES_M: [f64; 10] = _;
+```
+
+### Re-exports
+
+#### Re-export `integration_limits_legacy`
+
+```rust
+pub use integral::integration_limits_legacy;
+```
+
+#### Re-export `integration_limits_sector_averaged`
+
+```rust
+pub use integral::integration_limits_sector_averaged;
+```
+
+#### Re-export `integration_limits_single_plume`
+
+```rust
+pub use integral::integration_limits_single_plume;
+```
+
+#### Re-export `kernel_sector_averaged`
+
+```rust
+pub use integral::kernel_sector_averaged;
+```
+
+#### Re-export `kernel_single_plume`
+
+```rust
+pub use integral::kernel_single_plume;
+```
+
+#### Re-export `line_integral`
+
+```rust
+pub use integral::line_integral;
+```
+
+#### Re-export `PlumeShineGeometry`
+
+```rust
+pub use integral::PlumeShineGeometry;
+```
+
+#### Re-export `PlumeShineMode`
+
+```rust
+pub use integral::PlumeShineMode;
+```
+
+#### Re-export `SECTOR_AVERAGED_EPS`
+
+```rust
+pub use integral::SECTOR_AVERAGED_EPS;
+```
+
+#### Re-export `SINGLE_PLUME_EPS`
+
+```rust
+pub use integral::SINGLE_PLUME_EPS;
+```
+
+#### Re-export `numpy_interp`
+
+```rust
+pub use tables::numpy_interp;
+```
+
+#### Re-export `AirPhotonCoefficients`
+
+```rust
+pub use tables::AirPhotonCoefficients;
+```
+
+#### Re-export `AttenuationTable`
+
+```rust
+pub use tables::AttenuationTable;
+```
+
+#### Re-export `GammaLine`
+
+```rust
+pub use tables::GammaLine;
+```
+
+#### Re-export `GammaLineTable`
+
+```rust
+pub use tables::GammaLineTable;
+```
+
+#### Re-export `NuclideGammaLines`
+
+```rust
+pub use tables::NuclideGammaLines;
+```
+
+#### Re-export `AIR_DENSITY_G_PER_CM3`
+
+```rust
+pub use tables::AIR_DENSITY_G_PER_CM3;
+```
+
+## Module `quadpack`
+
+The adaptive quadrature pyDOSEIA's plume-shine integral runs on:
+QUADPACK's `dqagse` (21-point Gauss-Kronrod, bisection, Wynn epsilon
+extrapolation), and SciPy's `tplquad` nesting of it.
+
+# Provenance
+
+pyDOSEIA (`dosefunc.py`, `plumeshine_dose`) integrates the finite-cloud
+kernel with `scipy.integrate.tplquad`. In SciPy 1.18.1 that is `nquad`
+(`scipy/integrate/_quadpack_py.py`, class `_NQuad`), which calls
+`quad` -> `_quadpack._qagse` at each of the three levels. `_qagse` is
+SciPy's C translation of QUADPACK, `scipy/integrate/__quadpack.c`
+(functions `dqagse`, `dqk21`, `dqelg`, `dqpsrt`), Copyright (C) 2024 SciPy
+developers, BSD 3-clause; itself a translation of the public-domain Fortran
+QUADPACK by R. Piessens, E. de Doncker-Kapenga, C. Ueberhuber and
+D. Kahaner (1983), <https://www.netlib.org/quadpack/> (`dqagse.f`,
+`dqk21.f`, `dqelg.f`, `dqpsrt.f`). Both were read for this port
+(SciPy tag `v1.18.1`, netlib files fetched 2026-09-28). The port follows
+the **C** text, including its 0-based indexing, because that is what
+pyDOSEIA executes. BSD 3-clause is compatible with this crate's GPL-3.0;
+the notice is reproduced in `crates/buangkok/NOTICE`.
+
+# Why not `petir::integration::qag`
+
+The workspace already has GSL's `qag` in `petir` (checked 2026-09-28). It
+is QUADPACK's `dqage`, without the epsilon-algorithm extrapolation that
+`dqagse` adds and that `scipy.integrate.quad` uses, and GSL rearranges some
+of the arithmetic. Its results therefore differ from SciPy's in the last
+digits, or more when extrapolation fires, and a code-to-code comparison
+against pyDOSEIA needs SciPy's routine exactly.
+
+```rust
+pub mod quadpack { /* ... */ }
+```
+
+### Types
+
+#### Struct `QuadResult`
+
+Outcome of one [`qagse`] call.
+
+```rust
+pub struct QuadResult {
+    pub value: f64,
+    pub abserr: f64,
+    pub ier: i32,
+    pub neval: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `value` | `f64` | The integral estimate (what `scipy.integrate.quad` returns first). |
+| `abserr` | `f64` | The error estimate. |
+| `ier` | `i32` | QUADPACK's `ier` (0 = requested accuracy reached). SciPy only warns on<br>a non-zero value and still returns `value`, so callers here do the same. |
+| `neval` | `usize` | Integrand evaluations. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QuadResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QuadResult) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `qagse`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_lines)]")`
+
+QUADPACK `dqagse` as SciPy's `scipy.integrate.quad` calls it for finite
+limits (`limit` = 50 there). Returns the estimate even when `ier != 0`, as
+SciPy does.
+
+```rust
+pub fn qagse<F: FnMut(f64) -> f64>(f: F, a: f64, b: f64, epsabs: f64, epsrel: f64, limit: usize) -> QuadResult { /* ... */ }
+```
+
+#### Function `tplquad`
+
+`scipy.integrate.tplquad(func, a, b, gfun, hfun, qfun, rfun, epsabs=,
+epsrel=)` with constant limits, as `nquad` evaluates it: the **outer**
+integral over `z` in `[z_lo, z_hi]`, the middle over `y` in `[y_lo, y_hi]`,
+the inner over `x` in `[x_lo, x_hi]`; every level is [`qagse`] with the same
+tolerances and [`SCIPY_QUAD_LIMIT`].
+
+`f(x, y, z)` receives the innermost variable first, which is how SciPy
+calls `func` (pyDOSEIA's integrand is written `lambda x, y, z`). The
+limits array is in pyDOSEIA's order `[z_lo, z_hi, y_lo, y_hi, x_lo, x_hi]`.
+
+```rust
+pub fn tplquad<F: FnMut(f64, f64, f64) -> f64>(f: F, limits: [f64; 6], epsabs: f64, epsrel: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SCIPY_QUAD_LIMIT`
+
+SciPy's default `limit` for `quad` (and so for every level of `tplquad`).
+
+```rust
+pub const SCIPY_QUAD_LIMIT: usize = 50;
 ```
 
 ## Module `units`

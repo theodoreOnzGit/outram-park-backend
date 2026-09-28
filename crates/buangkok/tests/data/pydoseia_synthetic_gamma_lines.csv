@@ -1,0 +1,9 @@
+nuclide,energy_kev,std_energy_kev,emmission_prob,std_emmission_prob
+SYN-1,812,0.1,0.93,0.01
+SYN-1,1255,0.1,0.61,0.01
+SYN-1,30,0.1,0.2,0.01
+SYN-1,400,0.1,0.0005,0.0
+SYN-1D,520,0.1,0.4,0.01
+SYN-3,655,0.1,0.86,0.01
+SYN-4,152,0.1,0.07,0.01
+SYN-2,25,0.1,0.3,0.01

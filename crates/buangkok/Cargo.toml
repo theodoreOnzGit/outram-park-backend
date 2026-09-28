@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge) — radiation dose and its biological effects, for research-grade safety analysis: dose coefficients, pathways, dose uncertainty, ALARA. Holds published HTR-10 dose tables (Liu and Cao 2002, Tables 7 and 9) as reference data, and a partial, code-to-code verified port of pyDOSEIA (MIT; Gaussian-plume dilution, inhalation, ground-shine and submersion doses). Research-grade safety analysis only."
+description = "BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge) — radiation dose and its biological effects, for research-grade safety analysis: dose coefficients, pathways, dose uncertainty, ALARA. Holds published HTR-10 dose tables (Liu and Cao 2002, Tables 7 and 9) as reference data, and a code-to-code verified port of pyDOSEIA (MIT; Gaussian-plume dilution, inhalation, ground-shine, submersion, ingestion and plume-shine doses, and its driver). Research-grade safety analysis only."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -23,5 +23,11 @@ exclude = ["docs", "verification_and_validation"]
 # so the accident release (changi, Table 8) and dose (here, Table 9) tables
 # name the accidents identically. Dose sits downstream of dispersion, so
 # buangkok -> changi is the right direction; never the reverse.
+# `pydoseia` also uses changi's `DilutionFactor` (s/m^3) for chi/Q.
 changi = { workspace = true }
 uom = { workspace = true }
+
+[dev-dependencies]
+# `tests/pydoseia_code_to_code.rs` uses GSL's `qag` from petir as the
+# checked-and-rejected alternative to QUADPACK `dqagse` (a mutation test).
+petir = { workspace = true }

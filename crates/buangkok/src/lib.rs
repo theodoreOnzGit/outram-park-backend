@@ -10,13 +10,24 @@
 //! answers is **"what dose follows from what was released and where it
 //! went?"**
 //!
-//! # STATUS (2026-09-28)
+//! # STATUS: pyDOSEIA ported (2026-09-28)
 //!
-//! ~~PLACEHOLDER. Nothing is implemented.~~ **CHANGED 2026-09-28:** the crate
-//! holds the published HTR-10 dose tables (see below). A port of pyDOSEIA
-//! (Sadhu et al., *Health Physics* 130(1) (2026) 94-110,
-//! doi:10.1097/HP.0000000000002014) is in progress and lands in a following
-//! commit. Nothing here computes a dose yet.
+//! ~~PLACEHOLDER. Nothing is implemented.~~ **CHANGED 2026-09-28** (maintainer:
+//! "work on translating pyDOSEIA into buangkok under a module", then "port all
+//! of pyDOSEIA into buangkok"). The crate holds [`pydoseia`], a faithful port
+//! of the MIT-licensed pyDOSEIA code (Sadhu et al., *Health Physics* 130(1)
+//! (2026) 94-110, doi:10.1097/HP.0000000000002014): met processing,
+//! Gaussian-plume dilution factors, the inhalation, ground-shine, submersion,
+//! ingestion and plume-shine pathways, multi-source DCF screening, plume rise,
+//! the run configuration and the driver with its summary tables. ~~Ingestion
+//! and plume shine are **not ported**~~ (**ported 2026-09-28**, second
+//! tranche). Everything is **code-to-code verified against upstream** on
+//! synthetic inputs (`tests/pydoseia_code_to_code.rs`: 1 899 cases, 41 of 43
+//! groups bit-exact). The agreement is with pyDOSEIA, not with experiment,
+//! and there is no validation of any kind; 26 upstream defects are recorded
+//! (`docs/pydoseia-code-to-code.md`). What is not ported is I/O and UI (see
+//! `docs/pydoseia-port-scoping.md`). No dose-coefficient data ships with the
+//! crate. Human V&V review is still outstanding (see README).
 //!
 //! # Why dose has its own crate
 //!
@@ -50,6 +61,12 @@
 /// Published dose tables (Liu and Cao 2002, Tables 7 and 9), stored as cited
 /// reference data. See the module docs.
 pub mod published;
+
+/// Port of pyDOSEIA (met processing, Gaussian-plume dilution, inhalation,
+/// ground-shine, submersion, ingestion and plume-shine doses, the driver),
+/// code-to-code verified against upstream. See the module docs for
+/// provenance and scope.
+pub mod pydoseia;
 
 /// The scope this crate reserves, as a machine-readable string.
 ///

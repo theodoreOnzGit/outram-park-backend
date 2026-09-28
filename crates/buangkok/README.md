@@ -23,36 +23,47 @@ offsite chain:
 Dose has its own crate so the dispersion and source-term crates keep their
 "no dose" boundary, and so none of them reads as a health-assessment tool.
 
-## Status: partial pyDOSEIA port, code-to-code verified (2026-09-28)
+## Status: pyDOSEIA ported, code-to-code verified (2026-09-28)
 
 ~~Status: placeholder, nothing is implemented.~~ **CHANGED 2026-09-28.** The
 crate was created that day to reserve the name. It now holds:
 
-- **`buangkok::pydoseia`**, a partial, faithful Rust port of the MIT-licensed
-  **pyDOSEIA** (commit `dca4cdc3`, see below). It covers:
+- **`buangkok::pydoseia`**, a faithful Rust port of **all of the computation**
+  in the MIT-licensed **pyDOSEIA** (commit `dca4cdc3`, see below), in two
+  tranches the same day:
   - met processing: the triple joint frequency distribution, and the missing
     and calm corrections;
   - Gaussian-plume dilution factors for three release modes: a single plume,
-    and a long-term release with or without met data;
+    and a long-term release with or without met data (the fourth mode cannot
+    run upstream and is offered as a labelled correction);
   - the **inhalation**, **ground-shine** and **submersion** dose pathways, with
     their age brackets, absorption-type selection, progeny correction,
-    deposition velocities and weathering.
+    deposition velocities and weathering;
+  - **ingestion** (IAEA SRS 19 food chain: crops, pasture, stored feed, milk,
+    meat; H-3 and C-14 specific-activity models);
+  - **plume shine** (finite-cloud gamma dose with build-up), on a port of the
+    SciPy QUADPACK integrator it relies on;
+  - multi-source DCF screening, plume rise, the run configuration and its
+    defaults, and the driver with its summary tables (a Rust API replaces the
+    CLI; see `examples/pydoseia_assessment.rs`).
 - **Verification:** code-to-code against pyDOSEIA itself, on synthetic inputs.
-  The fixture has 1 015 cases and 13 422 values; 19 of the 20 function groups
-  are bit-exact and the last agrees to 4.8e-16. Five mutation tests show the
-  suite can fail. Methodology and results are in
+  The fixture has 1 899 cases and 18 127 values in 43 function groups; 41 are
+  bit-exact, one agrees to 4.8e-16 (a pandas mean) and one is limited by the
+  four significant figures of upstream's text report. Ten mutation tests show
+  the suite can fail. Methodology and results are in
   [`docs/pydoseia-code-to-code.md`](docs/pydoseia-code-to-code.md).
 - **What this does not show:** agreement with pyDOSEIA is not agreement with
-  reality. There is **no validation** of any kind, and seven upstream defects
-  are recorded (D1–D7). The port reproduces them, and corrected variants are
-  labelled as divergences.
-- **Not ported yet:** ingestion, plume shine, upstream's multi-source DCF
-  screening, and its I/O and input generator. The scope and the reasons are
+  reality. There is **no validation** of any kind, and 26 upstream defects are
+  recorded (D1–D26), some large (e.g. D10: long-term C-14 ingestion 3.15e7
+  times too high; D20: the summary CSV counts ingestion twice). The port
+  reproduces them, and corrected variants are labelled as divergences.
+- **Not ported:** I/O and UI only (Excel reading, plots, text formatting, the
+  interactive input generator, joblib). Every upstream function's status is
   in [`docs/pydoseia-port-scoping.md`](docs/pydoseia-port-scoping.md).
-- **No dose-coefficient data ships with the crate.** Upstream's tables are
-  ICRP-derived (inhalation) or FGR-15 (external), so the caller supplies
-  tables in upstream's CSV layout. Half-lives come from `boon-lay`, not from
-  here.
+- **No dose-coefficient or nuclear data ships with the crate.** Upstream's
+  tables are ICRP-, IAEA- or JAEA-derived, or of unestablished terms, so the
+  caller supplies tables in upstream's CSV layout. Half-lives come from
+  `boon-lay`, not from here.
 - Nothing in the workspace calls it yet. It is not wired into `htgr_sim_v1`.
 
 **Published dose tables (moved here 2026-09-28):** `buangkok::published` holds
@@ -76,7 +87,8 @@ and whole-body mSv) — as cited reference data, with provenance in
   licence** at <https://github.com/BiswajitSadhu/pyDOSEIA> (checked
   2026-09-28, commit `dca4cdc3`), so its logic may be ported into this
   GPL-3.0 crate with attribution (MIT notice kept, verbatim in
-  [`NOTICE`](NOTICE)). **Partly ported as `buangkok::pydoseia` (2026-09-28).**
+  [`NOTICE`](NOTICE)). ~~**Partly ported as `buangkok::pydoseia` (2026-09-28).**~~
+  **Ported as `buangkok::pydoseia` (2026-09-28; I/O and UI excepted).**
   Each bundled data table's licence is assessed in the scoping note; none is
   copied.
 

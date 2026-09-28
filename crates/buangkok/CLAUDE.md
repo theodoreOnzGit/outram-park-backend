@@ -7,34 +7,40 @@ research-grade safety analysis.
 The workspace root `CLAUDE.md` binds here in full. This file adds only what is
 specific to this crate.
 
-## Status: partial pyDOSEIA port (2026-09-28)
+## Status: pyDOSEIA ported (2026-09-28)
 
 ~~Nothing is implemented. The crate exists to reserve the name and state the
-scope.~~ **CHANGED 2026-09-28** (maintainer asked for the pyDOSEIA port). Two
-things live here:
+scope.~~ **CHANGED 2026-09-28** (maintainer asked for the pyDOSEIA port, then
+"port all of pyDOSEIA into buangkok"). Two things live here:
 
-- `pydoseia`: met processing, dilution factors, and the inhalation,
-  ground-shine and submersion doses. It is code-to-code verified against
+- `pydoseia`: all of pyDOSEIA's computation (met processing, dilution factors,
+  inhalation, ground shine, submersion, ingestion, plume shine, DCF
+  screening, plume rise, config, driver). It is code-to-code verified against
   upstream (`tests/pydoseia_code_to_code.rs`, `docs/pydoseia-code-to-code.md`).
 - `published`: the Liu and Cao dose tables.
 
-Ingestion and plume shine are not ported (`docs/pydoseia-port-scoping.md`).
-The crate is **not mature**: no maturity bar has been declared, and there is
-no validation.
+~~Ingestion and plume shine are not ported~~ (**ported 2026-09-28**); what is
+not ported is I/O and UI, listed per function in
+`docs/pydoseia-port-scoping.md`. The crate is **not mature**: no maturity bar
+has been declared, and there is no validation.
 
 ## pyDOSEIA port rules
 
 - **Faithful first.** The port reproduces upstream's control flow, constants
   and defects, bit-exact where the arithmetic allows. A correction is a
   separate, labelled divergence, never a silent edit, and the default stays
-  upstream's. The defects found so far are D1–D7 in
+  upstream's. The defects found so far are D1–D26 in
   `docs/pydoseia-code-to-code.md`. Read upstream (`vendor/pyDOSEIA`, commit
   `dca4cdc3`) before changing any ported function.
 - **No upstream data in the repo.** The code-to-code fixture is generated from
   synthetic tables. Regenerate it with
   `verification_and_validation/pydoseia_code_to_code/gen_pydoseia_reference.py`
   (it needs a Python venv with numpy, pandas, scipy, openpyxl, xlrd, joblib
-  and matplotlib), and commit the script and the fixture together.
+  and matplotlib; it imports its second half from `tranche2.py` in the same
+  folder), and commit the scripts and the fixture together.
+- **Plume shine rides on `pydoseia::quadpack`**, a port of SciPy's C
+  QUADPACK (BSD-3, notice in `NOTICE`). Do not swap in `petir`'s GSL `qag`:
+  a mutation test shows the fixture rejects it (no epsilon extrapolation).
 - **Every ported file keeps the MIT provenance header** and points at
   `NOTICE`.
 - **`chi/Q` is `changi`'s `DilutionFactor`.** Do not add a second s/m^3

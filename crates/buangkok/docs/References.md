@@ -11,7 +11,8 @@ accident *release* table (Liu and Cao 2002, Table 8) stays in
 `crates/changi/docs/References.md`, and `AccidentCase` is defined in changi.
 
 Ported pyDOSEIA code provenance (MIT) lives in `NOTICE` and the pyDOSEIA
-docs, not here.
+docs; the scalar constants the port reproduces from upstream's code are
+listed in the last section below.
 
 ---
 
@@ -182,3 +183,26 @@ emergency-planning (including emergency-zone sizing) or safety purpose; this
 workspace uses it for research-grade safety analysis only. Storing it does not
 bring dose assessment into `changi`'s current scope (see
 `crates/changi/CLAUDE.md`).
+
+---
+
+## Constants reproduced from pyDOSEIA's code (added 2026-09-28)
+
+The pyDOSEIA port holds **no data tables** (coefficients, transfer factors,
+photon lines, attenuation, half-lives and met records are caller-supplied;
+see `docs/pydoseia-port-scoping.md`). It does reproduce the handful of scalar
+constants upstream writes into its **code**, because they are part of the
+algorithm being ported. They come from pyDOSEIA (MIT, commit `dca4cdc3`,
+notice in `NOTICE`); the sources below are **upstream's own citations**, not
+re-checked against the original documents (which were not available for this
+pass). They are not presented as authoritative values.
+
+| Constants | Where in the port | Upstream's cited source |
+|---|---|---|
+| Screening deposition velocity 1000 m/d; soil loss rates 0.0014 and 0.00014 /d; interception, exposure and delay times; animal intake rates; effective surface soil densities 50/100 and 130/260 kg/m^2 | `dose`, `ingestion::IngestionParameters`, `ingestion::SoilType` | IAEA Safety Reports Series No. 19 (2001), pp. 27, 63-67, Tables VII-X |
+| Climate humidities; water equivalent factors and water contents; OBT/TFWT ratio 0.54; soil/air moisture ratio 0.23; HTO vapour-pressure ratio 0.909; HTO and OBT concentration ratios; stable-carbon contents of plants, animal products and air (0.20 g/m^3) | `ingestion::food_chain` | IAEA-TECDOC-1616 (2009), Tables 3 and 12, as upstream cites them |
+| Diet defaults (per day, input generator; per year, `dosefunc.py` fallback, D12) | `ingestion::DietaryIntake` | none stated upstream |
+| Air density 1.225e-3 g/cm^3 | `plume_shine::AIR_DENSITY_G_PER_CM3` | none stated upstream |
+| Ir-192 gamma energies and yields, activity 1e6 Ci, damage ratio 5e-5 (defaults of `point_source_dose`) | `plume_shine::POINT_SOURCE_DEFAULT_*` | none stated upstream |
+| Plume-rise stability parameters 8.7e-4 (E), 1.75e-3 (F) | `plume_rise` | AERB/NF/SG/S-1 p. 44; IAEA-TECDOC-379, as upstream cites them |
+| Single-plume ground-level dilution factors at nine distances (upstream's self-test table, attributed by upstream to Hukkoo and Bapat, p. 98) | `tests/pydoseia_code_to_code.rs` only | upstream's `metfunc.py` `test_single_plume_glc_hukkoo`; the 17-digit values appear computed, not transcribed |
