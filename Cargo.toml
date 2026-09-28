@@ -476,13 +476,36 @@ outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "
 [profile.dev.package."*"]
 opt-level = 2
 
-# Release optimisation plus line tables, for perf / valgrind profiling
-# (`scripts/profile-icsbep.sh`). `inherits = "release"` keeps every codegen
-# setting of the release profile; the addition here is debug line info, which
-# does not change the generated code. The script also passes
-# `-C force-frame-pointers=yes` so `perf` can walk stacks, and that DOES
-# reserve a register (typically a few percent). Builds into
-# `target/profiling/`, leaving `target/release/` untouched.
+# Profiling: RELEASE codegen with symbols, for `perf` / `cargo flamegraph`.
+#
+# This is NOT a debug profile and does not relax the workspace's "everything is
+# release" rule -- `inherits = "release"` means opt-level 3, the same LLVM
+# pipeline and the same generated code as a release build. The only additions
+# are DWARF line tables (`debug = 2`) and unstripped symbols, so `perf` can
+# attribute samples to functions and lines instead of to bare addresses.
+#
+# It exists as a separate profile rather than as `debug = true` on `release`
+# precisely so a profiling run cannot change what a release build is: turning
+# debug info on for `release` would rebuild every `target/release` artifact and
+# inflate the tree the 2026-09-19 release-only consolidation shrank.
+#
+# Use with frame pointers, which release omits and `perf` needs to walk stacks:
+#
+#     RUSTFLAGS="-C force-frame-pointers=yes" \
+#       cargo flamegraph --profile profiling --example htgr_sim_v1 -- --headless 12000 600
+#
+# `scripts/profile-icsbep.sh` (perf + callgrind on the four ICSBEP examples)
+# builds with this profile too, into `target/profiling/`.
+#
+# `debug = 2` rather than `true` (== 2) only to be explicit about full DWARF;
+# `debug = 1` gives line tables without variables and is enough for a
+# flamegraph, but not for `perf annotate` on a hot loop.
 [profile.profiling]
 inherits = "release"
-debug = "line-tables-only"
+debug = 2
+strip = "none"
+# Inlining is what makes release fast and flamegraphs confusing: an inlined
+# frame is attributed to its caller. `perf` recovers them from DWARF, so this
+# stays at the release default rather than being lowered -- a profile of code
+# with inlining disabled is a profile of a program nobody ships.
+

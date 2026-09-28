@@ -470,9 +470,27 @@ pub fn h_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> AvailableEnergy {
 /// (single-phase near-critical/supercritical) or Region 4 (vapour-liquid
 /// equilibrium) by comparing `s` against the region-boundary entropies at
 /// the given pressure. Panics (via `check_if_within_ps_validity_region`) if
-/// the point falls outside the valid pressure/entropy envelope; Region 5 is
-/// not yet implemented for the callers that key off this dispatcher (see
-/// `todo!` panics in `t_ps_eqm`/`v_ps_eqm`).
+/// the point falls outside the valid pressure/entropy envelope.
+///
+/// ~~Region 5 is not yet implemented for the callers that key off this
+/// dispatcher (see `todo!` panics in `t_ps_eqm`/`v_ps_eqm`).~~
+/// **CORRECTED 2026-09-27** — this dispatcher **does** return
+/// [`FwdEqnRegion::Region5`], from the `is_above_isotherm_t_1073_15` branch a
+/// few lines below, and both `todo!`s are gone: commit `2ab91fefc3` (2026-09-14,
+/// "(p,h), (p,s) and (h,s) now cover Region 5") replaced them with a dispatch to
+/// the in-house Chebyshev `t_ps_5` correlation plus the IAPWS Region 5 forward
+/// `v_tp_5`. **Verified by running**, not by reading: at `T = 1500 K`,
+/// `p = 1 MPa` (state built from the forward `s_tp_eqm_single_phase`,
+/// `s = 9.33359 kJ/(kg K)`) this function returns `Region5` and
+/// `t_ps_eqm(p, s) = 1500.0000 K`, `|dT/T| = 6.0e-9` — see
+/// `tests/boundary_273_15_repro.rs::does_the_ps_flash_reach_region_5_and_does_the_checked_facade`.
+/// `grep -rn 'todo!' ps_flash_eqm/` returns nothing.
+///
+/// **But a dispatch that succeeds is not a value IAPWS stands behind.** IAPWS-
+/// IF97 publishes **no** backward `(p,s)` equation for Region 5 at all; the
+/// temperature step here is this crate's own fit, verified only against the
+/// forward equations it inverts. Treat it as an in-house correlation, not an
+/// IF97 result.
 pub fn ps_flash_region(p: Pressure, s: SpecificHeatCapacity) -> FwdEqnRegion {
     check_if_within_ps_validity_region(p, s);
 

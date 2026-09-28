@@ -28,6 +28,18 @@
 //! for why the plume may legitimately run ahead and what that must never be
 //! read as.
 //!
+//! **Since gh:#344 the field is a MARCHED Lagrangian puff population**, not a
+//! closed form in `(meteorology, clock)`. Two consequences are stated at the
+//! controls that cause them, because they change what a fast-forward may be
+//! read as: a forward jump is marched under the **current** wind, so it is an
+//! extrapolation under "this wind holds" rather than an exact evaluation at a
+//! later argument; and a **rewind clears the population**, because the march
+//! is not invertible and no per-step history is kept. (Note for the next
+//! reader: `MapFieldRequest::plume_clock_offset`'s own doc comment still
+//! carries the superseded "exact at any offset" wording. It is in
+//! `physics/atmospheric_dispersion.rs`, which this session was instructed not
+//! to edit -- reported rather than fixed, 2026-09-27.)
+//!
 //! # NOT VALIDATED
 //!
 //! The puff model is `changi::puff` (ported from R `puff` 0.1.1), not FLEXPART,
@@ -64,8 +76,17 @@ const MAP_MIN_SIDE: f32 = 320.0;
 /// Steps the plume-clock fast-forward offers \[s of plume clock\].
 ///
 /// **Maintainer direction, 2026-09-25: "timesteps of 1-2 hrs at a time".**
-/// One and two hours, plus a one-hour rewind so a jump can be walked back
-/// without restarting.
+/// One and two hours, plus a one-hour rewind.
+///
+/// ~~"plus a one-hour rewind so a jump can be walked back without
+/// restarting"~~ **CORRECTED 2026-09-27.** That claim shaped this control and
+/// is false since gh:#344 made the field a marched Lagrangian puff population:
+/// a rewind DOES restart the plume. `advance_population` on
+/// `AtmosphericDispersionChannel` clears the population and re-marches from
+/// the stack,
+/// because the trajectory integral is not invertible and no per-step history
+/// is kept. The button stays -- the clock really does go back -- but it is a
+/// restart, and the hover text says so.
 const PLUME_JUMPS_S: [(f64, &str); 3] = [
     (3600.0, "+1 h"),
     (7200.0, "+2 h"),
@@ -83,9 +104,18 @@ const PLUME_JUMPS_S: [(f64, &str); 3] = [
 pub struct MapTabState {
     /// The uploaded `chi/Q` field, one texel per grid cell.
     texture: Option<TextureHandle>,
-    /// `(cells, plume clock)` the texture was built from. The field changes
-    /// only when one of these does -- see `DispersionGrid` -- so this is the
-    /// complete upload key and not an approximation of one.
+    /// `(cells, plume clock)` the texture was built from.
+    ///
+    /// ~~"The field changes only when one of these does -- see
+    /// `DispersionGrid` -- so this is the complete upload key and not an
+    /// approximation of one."~~ **CORRECTED 2026-09-27.** With a marched puff
+    /// population (gh:#344) the field depends on the whole *history* of the
+    /// wind, which no fixed-size key can carry; the physics side says exactly
+    /// this about its own `FieldKey`. This pair is a **change detector**, not a
+    /// content key. It is sufficient for that, and only for that, because the
+    /// population's clock advances whenever the population does -- so a moved
+    /// plume always arrives with a new clock. Do not reuse a texture across a
+    /// key match as though the key determined the field.
     built_for: Option<(usize, f64)>,
 }
 
@@ -254,44 +284,64 @@ fn draw_dispersion_rose(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, 
     // plume centreline as black. The scale is therefore logarithmic over four
     // decades below the peak, and that is stated on screen rather than left
     // for a reader to infer from a picture that would otherwise mislead.
-    let peak = s
-        .receptors
-        .iter()
-        .map(|r| r.chi_over_q)
-        .fold(0.0_f64, f64::max);
+    // ~~24 shaded receptor discs, one per (bearing, distance) pair~~
+    // **REMOVED 2026-09-27**, maintainer direction: *"receptor ring doesn't need
+    // to be there now, just want a ring showing distances and a central arrow
+    // showing wind direction."*
+    //
+    // They were a 24-point sampling of a quantity the field now renders at every
+    // pixel, drawn ON TOP of that field -- so they occluded the very thing they
+    // were a coarse summary of, and their log-shaded fill invited being read as
+    // a second, disagreeing picture of the same plume. Worse, they shaded on the
+    // TIME-INTEGRATED `chi_over_q` while the field underneath is instantaneous:
+    // two different quantities in one image, distinguishable only by shape.
+    //
+    // The sampled numbers are NOT gone -- the maintainer asked for them live, and
+    // they are in the table below, now including an INSTANTANEOUS column that
+    // does agree with the field cell under it. What is gone is drawing them over
+    // the map. `log_shade` survives because the field still uses it.
 
-    for receptor in &s.receptors {
-        if receptor.distance_m <= 0.0 {
-            continue;
-        }
-        let (x, y) = bearing_to_plot(receptor.bearing_deg, receptor.distance_m / outermost);
-        let at = Pos2::new(
-            centre.x + max_radius * x as f32,
-            // Screen y grows downward while north is up, so the plot y is
-            // negated. Not a sign error -- the inverse of one.
-            centre.y - max_radius * y as f32,
-        );
-        let shade = log_shade(receptor.chi_over_q, peak);
-        painter.circle_filled(at, 6.0, shade);
-        painter.circle_stroke(at, 6.0, Stroke::new(0.8, Color32::from_gray(60)));
-    }
-
-    // The wind arrow, drawn pointing the way the plume TRAVELS -- the opposite
-    // of the meteorological "from" bearing the operator dials in. Derived from
-    // the snapshot, never from the layout.
+    // The wind arrow, drawn CENTRALLY and pointing the way the plume TRAVELS --
+    // the opposite of the meteorological "from" bearing the operator dials in.
+    // Derived from the snapshot, never from the layout.
+    //
+    // Now the only overlay besides the distance rings, so it carries the whole
+    // "which way is the wind going" job and is drawn to be read at a glance:
+    // a shaft from the stack, a filled head, and the bearing in words.
     let travel_deg = s.wind_from_deg + 180.0;
     let (wx, wy) = bearing_to_plot(travel_deg, 1.0);
     let tip = Pos2::new(
         centre.x + max_radius * 1.08 * wx as f32,
         centre.y - max_radius * 1.08 * wy as f32,
     );
-    painter.line_segment([centre, tip], Stroke::new(2.5, Color32::from_rgb(20, 90, 190)));
+    let wind_colour = Color32::from_rgb(20, 90, 190);
+    painter.line_segment([centre, tip], Stroke::new(3.0, wind_colour));
+
+    // Arrowhead: two short segments back down the shaft, rotated +/- 25 deg.
+    // Built from the arrow's OWN direction rather than from screen axes, so it
+    // stays correct at every bearing.
+    let (dx, dy) = (tip.x - centre.x, tip.y - centre.y);
+    let len = (dx * dx + dy * dy).sqrt().max(1.0);
+    let (ux, uy) = (dx / len, dy / len);
+    let head = (max_radius * 0.12).max(6.0);
+    for sign in [-1.0_f32, 1.0] {
+        let a = sign * 25.0_f32.to_radians();
+        let (ca, sa) = (a.cos(), a.sin());
+        // Rotate the REVERSED unit vector, so the barbs trail behind the tip.
+        let (bx, by) = (-ux * ca - -uy * sa, -ux * sa + -uy * ca);
+        painter.line_segment(
+            [tip, Pos2::new(tip.x + head * bx, tip.y + head * by)],
+            Stroke::new(3.0, wind_colour),
+        );
+    }
+    // The stack itself, so the arrow visibly starts AT the release point.
+    painter.circle_filled(centre, 3.0, wind_colour);
     painter.text(
-        tip,
+        Pos2::new(tip.x, tip.y + 10.0),
         Align2::CENTER_CENTER,
-        "plume",
+        format!("plume -> {travel_deg:.0} deg"),
         FontId::proportional(9.0),
-        Color32::from_rgb(20, 90, 190),
+        wind_colour,
     );
 
     painter.text(
@@ -393,10 +443,32 @@ fn clock_text(seconds: f64) -> String {
 /// [`crate::physics::PLANT_TIMESTEP_S`]) and it computes at roughly real time,
 /// so a genuine one-hour plant jump costs an hour. The dispersion field has no
 /// such constraint, because `chi/Q` is a dilution factor that does not depend
-/// on the source at all: jumping its clock is the same closed form evaluated
-/// at a later argument, exact rather than extrapolated
+/// on the source at all, so the plume clock can be moved without the plant
+/// having to compute the interval it covers. Maintainer direction, 2026-09-25,
+/// chose this split knowing it.
+///
+/// # ~~"exact rather than extrapolated"~~ **CORRECTED 2026-09-27**
+///
+/// ~~"jumping its clock is the same closed form evaluated at a later argument,
+/// exact rather than extrapolated
 /// (`atmospheric_dispersion::tests::a_plume_clock_jump_equals_having_run_the_clock_there`
-/// pins that). Maintainer direction, 2026-09-25, chose this split knowing it.
+/// pins that)"~~. That claim is what made an unqualified fast-forward look
+/// safe, and it is **false** since gh:#344 made the field a marched Lagrangian
+/// puff population (`AtmosphericDispersionChannel::advance_population`): a
+/// model with history cannot be evaluated at an arbitrary clock without
+/// running the history. A forward jump is **marched under the CURRENT wind**,
+/// so it is an extrapolation under "the wind held constant over the jumped
+/// interval", not a prediction across a wind change. The test that survives is
+/// `a_plume_clock_jump_equals_having_run_the_clock_there_on_a_steady_wind`
+/// (same module) -- the `_on_a_steady_wind` qualifier it gained is the whole
+/// content of the correction.
+///
+/// A **rewind** is not merely approximate. The trajectory integral is not
+/// invertible and no per-step history is kept, so the population is cleared
+/// and re-marched from the stack under the current wind: the plume restarts,
+/// and any bend it carried from an earlier wind change is gone. Both facts are
+/// on screen at the buttons that cause them, per this crate's rule that a
+/// limitation belongs where the reader meets the result.
 fn draw_plume_clock(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, s: &HtgrSnapshot) {
     ui.horizontal_wrapped(|ui| {
         ui.label(format!("Plant clock {}", clock_text(s.sim_time_s)));
@@ -408,37 +480,83 @@ fn draw_plume_clock(ui: &mut Ui, physics: &SharedState<HtgrSnapshot>, s: &HtgrSn
         ui.separator();
         ui.label("Fast forward the plume:");
         for (jump_s, label) in PLUME_JUMPS_S {
-            if ui
-                .button(label)
-                .on_hover_text(
-                    "Moves the PLUME clock only. The reactor, the release channel and the \
-                     table below stay on the plant clock -- those depend on the source and \
-                     the plant cannot skip time. chi/Q does not depend on the source, so the \
-                     field at a later clock is exact, not extrapolated.",
-                )
-                .clicked()
-            {
+            // Forward and backward are different operations on a marched
+            // population, so they get different hover text. See
+            // `PLUME_JUMPS_S` and this function's doc comment.
+            let hover = if jump_s >= 0.0 {
+                "Moves the PLUME clock only. The reactor, the release channel and the table \
+                 below stay on the plant clock -- those depend on the source and the plant \
+                 cannot skip time. The plume is a MARCHED puff population, so the jump is \
+                 marched under the CURRENT wind: read it as 'the plume this wind would build \
+                 if it held that long', NOT as a forecast across a wind change."
+            } else {
+                "Rewinds the PLUME clock only -- and CLEARS the puff population. The march \
+                 cannot be undone (the trajectory integral is not invertible and no per-step \
+                 history is kept), so the plume restarts from the stack under the current \
+                 wind and any bend from an earlier wind change is lost."
+            };
+            if ui.button(label).on_hover_text(hover).clicked() {
                 let offset = (s.plume_clock_offset_s + jump_s).max(-s.sim_time_s);
                 physics.update(|state| state.plume_clock_offset_s = offset);
             }
         }
-        if ui.button("Now").clicked() {
+        if ui
+            .button("Now")
+            .on_hover_text(
+                "Puts the plume clock back on the plant clock. From a fast-forward that is a \
+                 REWIND, so it CLEARS the puff population: the plume restarts from the stack \
+                 under the current wind.",
+            )
+            .clicked()
+        {
             physics.update(|state| state.plume_clock_offset_s = 0.0);
         }
     });
-    if s.plume_clock_offset_s.abs() > f64::EPSILON {
-        ui.colored_label(
-            Color32::from_rgb(200, 120, 20),
-            format!(
-                "Plume clock is running {} AHEAD of the plant. The map is the plume this \
-                 wind would have produced by then; the plant state, the release and the \
-                 table below are still at the plant clock. The plume settles after one puff \
-                 lifetime (20 min), so past that a further jump changes nothing unless the \
-                 wind does.",
-                clock_text(s.plume_clock_offset_s.abs())
-            ),
-        );
+    if let Some(banner) = plume_offset_banner(s.plume_clock_offset_s) {
+        ui.colored_label(Color32::from_rgb(200, 120, 20), banner);
     }
+}
+
+/// The warning banner for a plume clock that is not on the plant clock, or
+/// `None` when the two agree.
+///
+/// # Why this is a function and not inline in the layout
+///
+/// It is the only place the operator is told what a displaced plume clock
+/// means, and since gh:#344 the meaning **differs by sign** -- a forward offset
+/// is an extrapolation under the current wind, a backward one is a cleared and
+/// restarted population. A banner built inline in an `egui` closure cannot be
+/// asserted by a test; pulled out, it can, and
+/// `tests::the_offset_banner_says_extrapolation_forwards_and_restart_backwards`
+/// pins both branches.
+///
+/// ~~"Plume clock is running … AHEAD of the plant"~~ **CORRECTED 2026-09-27**:
+/// the old banner was emitted for `abs(offset) > 0` and said AHEAD either way,
+/// so a rewind -- the case with the *larger* caveat -- was described as a
+/// fast-forward.
+fn plume_offset_banner(offset_s: f64) -> Option<String> {
+    if !(offset_s.abs() > f64::EPSILON) {
+        return None;
+    }
+    let magnitude = clock_text(offset_s.abs());
+    Some(if offset_s > 0.0 {
+        format!(
+            "Plume clock is running {magnitude} AHEAD of the plant. The map is an \
+             EXTRAPOLATION: the puff population was marched under the CURRENT wind, so it is \
+             the plume this wind would build if it held that long -- not a forecast across a \
+             wind change. The plant state, the release and the table below are still at the \
+             plant clock. The plume settles after one puff lifetime (20 min), so past that a \
+             further jump changes nothing unless the wind does."
+        )
+    } else {
+        format!(
+            "Plume clock is {magnitude} BEHIND the plant. Rewinding CLEARED the puff \
+             population -- the march is not invertible and no per-step history is kept -- so \
+             the plume has RESTARTED from the stack under the current wind, with any earlier \
+             wind change forgotten. The plant state, the release and the table below are \
+             still at the plant clock."
+        )
+    })
 }
 
 /// The dispersion table and its caveats.
@@ -470,13 +588,17 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
     ui.add_space(4.0);
 
     egui::Grid::new("htgr_map_dispersion_grid")
-        .num_columns(5)
+        // 6, not 5: the LIVE chi/Q column was added 2026-09-27 beside the
+        // time-integrated one. Both are shown because they are different
+        // quantities, not two renderings of one.
+        .num_columns(6)
         .striped(true)
         .show(ui, |ui| {
             for heading in [
                 "Bearing",
                 "Distance",
-                "chi/Q [s/m^3]",
+                "chi/Q LIVE [s/m^3]",
+                "chi/Q integrated [s/m^3]",
                 "Air [Bq.s/m^3 per Ci]",
                 "Ground [Bq/m^2 per Ci]",
             ] {
@@ -486,9 +608,17 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
 
             // Only the downwind half is tabulated: 24 rows is a wall, and the
             // upwind receptors are 20+ orders below the centreline and carry
-            // no information a reader acts on. The ROSE shows all 24, so
-            // nothing is hidden -- this is a table-length choice, not a
-            // filter on what was computed.
+            // no information a reader acts on.
+            //
+            // ~~"The ROSE shows all 24, so nothing is hidden."~~
+            // **CORRECTED 2026-09-27** -- the rose no longer plots receptors at
+            // all (maintainer direction; it shows the field, the distance rings
+            // and the wind arrow). So the upwind half is now genuinely not on
+            // screen anywhere. That is still a table-length choice and not a
+            // filter on what was COMPUTED -- all 24 are evaluated, and the field
+            // behind the rings covers the upwind side at every pixel -- but the
+            // old sentence's reassurance no longer applies and is struck rather
+            // than left to mislead.
             let travel_deg = (s.wind_from_deg + 180.0).rem_euclid(360.0);
             let mut rows: Vec<&super::state::ReceptorSnapshot> = s
                 .receptors
@@ -506,6 +636,9 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
             for r in rows {
                 ui.label(format!("{:.0} deg", r.bearing_deg));
                 ui.label(format!("{:.0} m", r.distance_m));
+                // LIVE first, because it is the one that refreshes at 10 Hz and
+                // the one that agrees with the map cell under the same point.
+                ui.label(format!("{:.4e}", r.instantaneous_chi_over_q));
                 ui.label(format!("{:.4e}", r.chi_over_q));
                 ui.label(format!("{:.3e}", r.air_bq_s_per_m3));
                 ui.label(format!("{:.3e}", r.ground_bq_per_m2));
@@ -514,8 +647,12 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
         });
     ui.add_space(4.0);
     ui.label(
-        "Downwind half shown; the rose above plots all 24 receptors. Ground deposition is DRY \
-         only -- wet scavenging is not ported, so it is not an upper bound.",
+        "Downwind half shown. LIVE chi/Q is the INSTANTANEOUS field sampled at each point and \
+         refreshes with the map; it is the same number as the map cell under that point. \
+         Integrated chi/Q is the TIME-INTEGRATED dilution factor over the whole puff run and \
+         refreshes on the 60 s dispersion throttle -- the activity columns are built on THAT \
+         one. The two share units and will not agree. Ground deposition is DRY only -- wet \
+         scavenging is not ported, so it is not an upper bound.",
     );
 }
 
@@ -720,6 +857,65 @@ mod tests {
         assert!(resolution_request_changed(500, 560));
         // The dead band has a floor, so a small map still responds.
         assert!(resolution_request_changed(64, 80));
+    }
+
+    /// The displaced-plume-clock banner must say EXTRAPOLATION forwards and
+    /// RESTART backwards, and must stay silent when the clocks agree.
+    ///
+    /// # Methodology
+    ///
+    /// [`plume_offset_banner`] is called with the three cases the control can
+    /// produce -- `0.0` (the "Now" state), `+3600` (one `+1 h` press) and
+    /// `-3600` (one `-1 h` press) -- and the returned string is checked for the
+    /// words that carry the two limitations gh:#344 introduced:
+    ///
+    /// 1. forwards, the field was **marched under the current wind**, so the
+    ///    banner must say `EXTRAPOLATION` and `CURRENT wind` and must not
+    ///    promise a forecast;
+    /// 2. backwards, the population was **cleared**, so the banner must say
+    ///    `CLEARED` and `RESTARTED` rather than repeating the forward wording.
+    ///
+    /// The pass criterion is a substring match, not an exact string, so
+    /// rewording the banner does not fail the test while deleting either
+    /// limitation does.
+    ///
+    /// # Results (measured 2026-09-27, this run)
+    ///
+    /// | Offset | Banner |
+    /// |---|---|
+    /// | `0.0` | `None` |
+    /// | `+3600` | `"Plume clock is running 1:00:00 AHEAD of the plant. The map is an EXTRAPOLATION: … marched under the CURRENT wind …"` |
+    /// | `-3600` | `"Plume clock is 1:00:00 BEHIND the plant. Rewinding CLEARED the puff population … the plume has RESTARTED from the stack …"` |
+    ///
+    /// All assertions pass. **Interpretation:** this is a *GUI-text* guard, not
+    /// physics V&V -- it checks that the two honest caveats reach the screen,
+    /// and it would have failed against the banner as it stood before this
+    /// change, which said `AHEAD` for both signs and claimed exactness.
+    #[test]
+    fn the_offset_banner_says_extrapolation_forwards_and_restart_backwards() {
+        assert!(
+            plume_offset_banner(0.0).is_none(),
+            "no banner when the plume clock is on the plant clock"
+        );
+
+        let ahead = plume_offset_banner(3600.0).expect("a displaced clock must warn");
+        assert!(ahead.contains("AHEAD"), "got {ahead}");
+        assert!(ahead.contains("1:00:00"), "the magnitude must be readable; got {ahead}");
+        assert!(
+            ahead.contains("EXTRAPOLATION") && ahead.contains("CURRENT wind"),
+            "a forward jump is marched under the current wind and must say so; got {ahead}"
+        );
+
+        let behind = plume_offset_banner(-3600.0).expect("a rewound clock must warn");
+        assert!(behind.contains("BEHIND"), "a rewind is not a fast-forward; got {behind}");
+        assert!(
+            behind.contains("CLEARED") && behind.contains("RESTARTED"),
+            "a rewind clears the population and must say so; got {behind}"
+        );
+        assert!(
+            !behind.contains("AHEAD"),
+            "the old banner said AHEAD for both signs; got {behind}"
+        );
     }
 
     /// The clock readout must be `h:mm:ss` and must not panic on the `NAN`

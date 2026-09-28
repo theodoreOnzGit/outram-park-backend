@@ -1483,6 +1483,85 @@ fn assemble_backward_euler_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **Why `peak_kernel_temperature` goes `None` on a hot core** — the answer
+    /// to a question that cost real diagnosis time on 2026-09-27.
+    ///
+    /// # The chain being explained
+    ///
+    /// At the shipped opening condition the bed reaches ~2589 K within 8 s
+    /// (gh:#318). From there:
+    ///
+    /// 1. `resolved_pebble_profile` calls `steady_state_temperatures` and discards
+    ///    its error with `.ok()?`;
+    /// 2. so `peak_kernel_temperature` is `None`;
+    /// 3. so the TRISO-ATOPS release channel is handed nothing and produces no
+    ///    source term;
+    /// 4. so `AtmosphericDispersionChannel::update` returns early and the
+    ///    dispersion model **does not run at all**.
+    ///
+    /// The dispersion output therefore goes **silent exactly when the core is
+    /// hottest** — it does not report a large release, it reports nothing, and
+    /// nothing on screen says why. That is the worst available failure direction
+    /// for a safety-relevant readout, and it is why this test exists: to name the
+    /// mechanism at the place it originates rather than leaving the next person to
+    /// re-derive it from a `None`.
+    ///
+    /// # Methodology
+    ///
+    /// Call the pebble solve directly across a temperature sweep spanning the
+    /// normal operating point and the excursion, and report for each whether it
+    /// returns `Ok` or `Err` — **and what the error says**, which `.ok()?` throws
+    /// away at the call site. The point is to establish whether the `None` is a
+    /// property-correlation range refusal (the library behaving correctly) or a
+    /// numerical failure (a defect in the solve).
+    ///
+    /// # Results
+    ///
+    /// Printed by this test.
+    ///
+    /// # Interpretation
+    ///
+    /// A range refusal is the property library doing the right thing: refusing to
+    /// extrapolate is exactly the discipline the rest of this workspace insists
+    /// on. The defect is in the **consumer** — `.ok()?` converts a
+    /// "your temperature is outside my tabulated range" into an indistinguishable
+    /// `None`, and every layer above then treats it as "no data" rather than
+    /// "out of range". Whether to surface it, extrapolate with a stated caveat, or
+    /// extend the correlation is a maintainer decision; losing the reason is not.
+    #[test]
+    fn why_the_resolved_kernel_goes_none_on_a_hot_core() {
+        let pebble = resolved_pebble();
+        let power = floored_pebble_power(Power::new::<watt>(
+            design().thermal_power.get::<watt>() / pebble_count(),
+        ));
+        println!("PEBBLE SOLVE vs SURFACE TEMPERATURE (per-pebble power {power:?})");
+        for surface_k in [900.0_f64, 1200.0, 1600.0, 2000.0, 2400.0, 2589.0, 3000.0] {
+            let outcome = pebble.steady_state_temperatures(
+                power,
+                ThermodynamicTemperature::new::<kelvin>(surface_k),
+                Ratio::new::<ratio>(0.0),
+            );
+            match outcome {
+                Ok(profile) => println!(
+                    "  surface {surface_k:>7.1} K -> Ok, peak kernel centre {:.1} K",
+                    profile.peak_kernel_centre.get::<kelvin>()
+                ),
+                Err(e) => println!("  surface {surface_k:>7.1} K -> Err: {e:?}"),
+            }
+        }
+        // Asserted only at the normal operating point, which must work.
+        assert!(
+            pebble
+                .steady_state_temperatures(
+                    power,
+                    ThermodynamicTemperature::new::<kelvin>(900.0),
+                    Ratio::new::<ratio>(0.0),
+                )
+                .is_ok(),
+            "the pebble solve must succeed at a normal 900 K surface"
+        );
+    }
     use uom::si::power::megawatt;
 
     /// Methodology: the bed geometry is *derived* from three published HTR-10

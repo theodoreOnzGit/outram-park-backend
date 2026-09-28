@@ -15,9 +15,12 @@
 //! constants in the widget; everything else is drawing.
 
 use egui::RichText;
-use outram_park_digital_twin_engine::animation::{PebbleTransits, TracerTrain};
+use outram_park_digital_twin_engine::animation::{
+    htr10_illustrative_pebble_drives, PebbleHandling, PebbleTransitDrive, TracerTrain,
+};
 use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
-    CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM, EQUILIBRIUM_BED_HEIGHT_CM,
+    pebble_handling_buttons, CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM,
+    EQUILIBRIUM_BED_HEIGHT_CM,
 };
 use outram_park_digital_twin_engine::components::htr10_plant::{
     draw_htr10_plant, SecondaryLoopView, SecondaryTracers,
@@ -101,10 +104,6 @@ pub struct TestReactorsTab {
     /// Time for one pebble to travel the whole defuelling route, s. Display
     /// choice.
     pub defuel_transit_s: f64,
-    /// Pebbles that have completed the refuelling chute into the core.
-    pub pebbles_added: usize,
-    /// Pebbles that have left through the defuelling opening.
-    pub pebbles_removed: usize,
 
     downcomer: TracerTrain,
     riser: TracerTrain,
@@ -112,11 +111,15 @@ pub struct TestReactorsTab {
     cold_plenum: TracerTrain,
     hot_duct: TracerTrain,
     cold_duct: TracerTrain,
-    /// Pebbles on their way up the refuelling chute, one per `[add pebble]`.
-    pub refuel_pebbles: PebbleTransits,
-    /// Pebbles on their way out of the defuelling route, one per
-    /// `[remove pebble]`.
-    pub defuel_pebbles: PebbleTransits,
+    /// Both pebble-transit paths and their tally, one launch per
+    /// `[add pebble]` / `[remove pebble]`.
+    ///
+    /// The shared engine state ([`PebbleHandling`]), not a copy: the button
+    /// pair and the tally line are drawn by
+    /// [`pebble_handling_buttons`], which `htgr_sim_v1` calls too, so the two
+    /// consumers cannot drift (GitHub issue #347, 2026-09-27). The four drives
+    /// below stay local because they are this studio's sliders.
+    pub pebbles: PebbleHandling,
     /// The steam generator's tracers (riser, shell, coil, nozzles), reused
     /// from the Steam generators tab. Its primary flow is kept equal to this
     /// tab's, so the whole loop stalls or reverses together.
@@ -155,6 +158,7 @@ impl Default for TestReactorsTab {
     /// `docs/reactor-scoping/htr10-plant-data.md` section 6: helium 250 degC
     /// in / 700 degC out, 4.32 kg/s.
     fn default() -> Self {
+        let (illustrative_refuel, illustrative_defuel) = htr10_illustrative_pebble_drives();
         Self {
             pebble_degc: 850.0,
             inlet_degc: 250.0,
@@ -174,20 +178,21 @@ impl Default for TestReactorsTab {
             cold_plenum_residence_s: 2.0,
             hot_duct_residence_s: 1.5,
             cold_duct_residence_s: 2.5,
-            refuel_lift_flow_kg_per_s: 0.01,
-            refuel_transit_s: 6.0,
-            defuel_flow_kg_per_s: 0.01,
-            defuel_transit_s: 8.0,
-            pebbles_added: 0,
-            pebbles_removed: 0,
+            // The sliders OPEN on the engine's illustrative drives rather than
+            // on their own literals, so the studio and `htgr_sim_v1` start from
+            // the same labelled display choices and cannot drift apart
+            // (GitHub issue #347).
+            refuel_lift_flow_kg_per_s: illustrative_refuel.mass_flow.get::<kilogram_per_second>(),
+            refuel_transit_s: illustrative_refuel.transit_time.get::<second>(),
+            defuel_flow_kg_per_s: illustrative_defuel.mass_flow.get::<kilogram_per_second>(),
+            defuel_transit_s: illustrative_defuel.transit_time.get::<second>(),
             downcomer: TracerTrain::new(5),
             riser: TracerTrain::new(5),
             plenum: TracerTrain::new(3),
             cold_plenum: TracerTrain::new(3),
             hot_duct: TracerTrain::new(4),
             cold_duct: TracerTrain::new(4),
-            refuel_pebbles: PebbleTransits::new(),
-            defuel_pebbles: PebbleTransits::new(),
+            pebbles: PebbleHandling::new(),
             sg_tracers: crate::steam_generator_tab::Htr10Tracers::default(),
             sg_elbow_residence_s: 2.0,
             sg_hot_elbow: TracerTrain::new(4),
@@ -235,10 +240,20 @@ impl TestReactorsTab {
             .advance(dt, Time::new::<second>(self.hot_duct_residence_s), primary);
         self.cold_duct
             .advance(dt, Time::new::<second>(self.cold_duct_residence_s), primary);
-        self.pebbles_added += self.refuel_pebbles.advance(
+        // Both pebble paths in one call, with this studio's slider-driven
+        // drives. Order within the frame does not matter -- they are
+        // independent -- so they no longer straddle the loop tracers as two
+        // separate statements.
+        self.pebbles.advance(
             dt,
-            Time::new::<second>(self.refuel_transit_s),
-            MassRate::new::<kilogram_per_second>(self.refuel_lift_flow_kg_per_s),
+            PebbleTransitDrive {
+                mass_flow: MassRate::new::<kilogram_per_second>(self.refuel_lift_flow_kg_per_s),
+                transit_time: Time::new::<second>(self.refuel_transit_s),
+            },
+            PebbleTransitDrive {
+                mass_flow: MassRate::new::<kilogram_per_second>(self.defuel_flow_kg_per_s),
+                transit_time: Time::new::<second>(self.defuel_transit_s),
+            },
         );
         // One primary loop: the steam generator's helium side follows the
         // reactor's flow.
@@ -262,11 +277,6 @@ impl TestReactorsTab {
         ] {
             train.advance(dt, pipe_tau, secondary);
         }
-        self.pebbles_removed += self.defuel_pebbles.advance(
-            dt,
-            Time::new::<second>(self.defuel_transit_s),
-            MassRate::new::<kilogram_per_second>(self.defuel_flow_kg_per_s),
-        );
     }
 
     /// Build this frame's widget with the trains copied in.
@@ -298,8 +308,8 @@ impl TestReactorsTab {
         .with_cold_plenum_tracer(self.cold_plenum.clone())
         .with_hot_duct_tracer(self.hot_duct.clone())
         .with_cold_duct_tracer(self.cold_duct.clone())
-        .with_refuel_pebbles(self.refuel_pebbles.clone())
-        .with_defuel_pebbles(self.defuel_pebbles.clone());
+        .with_refuel_pebbles(self.pebbles.refuel_transits().clone())
+        .with_defuel_pebbles(self.pebbles.defuel_transits().clone());
         if self.show_labels {
             v
         } else {
@@ -454,21 +464,11 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
 
     ui.separator();
     ui.label(RichText::new("Pebble handling").strong());
-    ui.horizontal(|ui| {
-        if ui.button("add pebble").clicked() {
-            state.refuel_pebbles.launch();
-        }
-        if ui.button("remove pebble").clicked() {
-            state.defuel_pebbles.launch();
-        }
-    });
-    ui.label(format!(
-        "added {} · removed {} · in transit: {} up, {} out",
-        state.pebbles_added,
-        state.pebbles_removed,
-        state.refuel_pebbles.len(),
-        state.defuel_pebbles.len()
-    ));
+    // The button pair and the tally line come from the engine
+    // (`components::htr10_reactor_schematic`), shared with `htgr_sim_v1` since
+    // 2026-09-27 (GitHub issue #347). This studio keeps the sliders below,
+    // which are its own: they are what makes the display choices visible.
+    pebble_handling_buttons(ui, &mut state.pebbles);
     ui.add(
         egui::Slider::new(&mut state.refuel_lift_flow_kg_per_s, -0.02..=0.02)
             .text("lift gas flow [kg/s]"),

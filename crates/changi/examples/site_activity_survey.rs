@@ -29,7 +29,9 @@ use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use changi::activity::survey::{survey, total_released, DepositionVelocities};
 use changi::puff::climatology::MEAN_WIND_SPEED_M_PER_S;
-use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
+use changi::puff::simulate::{
+    constant_wind, AdvectionPolicy, EmissionPolicy, Receptor, RunConfig, Source,
+};
 use changi::puff::stability::StabilityClass;
 use uom::si::f64::{Frequency, Length, Radioactivity, Time, Velocity};
 use uom::si::frequency::hertz;
@@ -118,6 +120,7 @@ fn main() {
         puff_duration: Time::new::<second>(PUFF_LIFETIME_S),
         start_hour: 12,
         emission_policy: EmissionPolicy::OnePuffPerEmission,
+        advection: AdvectionPolicy::default(),
     };
     let source = Source {
         x: Length::new::<meter>(0.0),

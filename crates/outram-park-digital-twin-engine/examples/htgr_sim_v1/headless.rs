@@ -257,6 +257,7 @@ mod tests {
     /// *that* still wants its own separate, deliberately-tolerant comparison;
     /// this tolerance is far too tight to absorb it.
     #[test]
+    #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn matches_the_recorded_reference_baseline() {
         let fixture = include_str!("reference/baseline_default_commands.csv");
         let cfg = HeadlessConfig {

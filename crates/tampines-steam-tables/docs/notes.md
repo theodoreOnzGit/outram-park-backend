@@ -513,6 +513,22 @@ explicit, documented "unsupported" message (`REGION_5_PH_UNSUPPORTED`), not a
 equations (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...). Verified by
 `region_5_ph_flash_is_explicitly_unsupported`.
 
+> **SUPERSEDED 2026-09-14, note added 2026-09-27.** The paragraph above is a
+> *dated receipt* and is kept as written — it was true on 2026-07-15. It is no
+> longer the state of the code, and a reader arriving by search must not take it
+> as current. Commit `2ab91fefc3` ("(p,h), (p,s) and (h,s) now cover Region 5")
+> removed `REGION_5_PH_UNSUPPORTED` and the test named above; Region 5 now
+> dispatches to this crate's own Chebyshev `t_ph_5` / `t_ps_5` correlations.
+> Verified by running, 2026-09-27: `t_ph_eqm(1 MPa, 5218.863 kJ/kg) =
+> 1499.999 K` and `t_ps_eqm(1 MPa, 9.33359 kJ/(kg K)) = 1500.0000 K`
+> (`tests/boundary_273_15_repro.rs`), and
+> `region_5_ph_flash_round_trips_through_the_in_house_correlation` now asserts
+> the round trip where its predecessor asserted the panic. **The physics
+> sentence still stands**: IAPWS publishes no Region 5 backward equation, so
+> those temperatures are in-house fits, not IAPWS values. What is still refused
+> is Region 5 above its own 50 MPa ceiling and above 2273.15 K, where there is
+> no IF97 formulation at all.
+
 **Sharp edge left in place (pre-existing, out of scope):** the `(T,p)` router's
 Region 4 detection is an exact float equality `pres == p_sat(T)`, which under
 release-mode FMA contraction can miss by a ULP depending on the call site (a

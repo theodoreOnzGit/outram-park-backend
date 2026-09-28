@@ -20,10 +20,19 @@
 //!
 //! A Gaussian *puff* model discretises a continuous release into a train of
 //! discrete puffs. Each puff is emitted at a fixed interval, carries a fixed
-//! mass, is advected by the wind sampled at its moment of emission, and spreads
-//! by a Pasquill–Gifford dispersion coefficient that grows with the distance it
-//! has travelled. The concentration at a receptor is the sum over all puffs
-//! still alive.
+//! mass, is advected by the wind, and spreads by a Pasquill–Gifford dispersion
+//! coefficient that grows with the distance it has travelled. The concentration
+//! at a receptor is the sum over all puffs still alive.
+//!
+//! ~~"is advected by the wind sampled at its moment of emission"~~
+//! **CORRECTED 2026-09-27.** That was upstream's rule and is now this port's
+//! *ablation*, not its default: see [`simulate::AdvectionPolicy`]. By default
+//! each puff integrates its own trajectory on the wind that actually blows, so
+//! it turns when the wind turns, and its dispersion distance is the **path
+//! length** it has travelled rather than the straight-line distance from the
+//! source. The two are identical on a steady wind and differ on every other,
+//! which is why the old wording read as true for as long as it did. Recorded as
+//! upstream defect 5 in `docs/puff-code-to-code.md`.
 //!
 //! This complements [`crate::flexpart`] rather than duplicating it. FLEXPART is
 //! a Lagrangian *particle* model driven by gridded meteorology; this is an
