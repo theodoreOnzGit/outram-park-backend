@@ -712,11 +712,14 @@ impl TableDigitiserState {
                 (Key::Enter, Direction::Down, Direction::Up),
                 (Key::Tab, Direction::Right, Direction::Left),
             ] {
-                if i.consume_key(Modifiers::NONE, key) {
-                    out.push(GridCommand::CommitAndMove(dir));
-                }
+                // Shift first: egui matches keys "logically", so a pattern
+                // without Shift also matches the key WITH Shift, and checking
+                // the plain key first swallowed Shift+Enter / Shift+Tab.
                 if i.consume_key(Modifiers::SHIFT, key) {
                     out.push(GridCommand::CommitAndMove(rev));
+                }
+                if i.consume_key(Modifiers::NONE, key) {
+                    out.push(GridCommand::CommitAndMove(dir));
                 }
             }
             if editing {
@@ -725,14 +728,24 @@ impl TableDigitiserState {
                 }
                 return;
             }
+            // Arrows are CONSUMED, not just read: the PDF reader beside the
+            // grid nudges its view on bare arrow keys, and it is drawn after
+            // this panel, so a consumed arrow never reaches it (maintainer,
+            // 2026-09-28: "when i am moving my arrow keys in the excel, the
+            // pdf shouldnt move"). Only the arrows: mouse panning and the
+            // reader's other keys are untouched.
             for (key, dir) in [
                 (Key::ArrowUp, Direction::Up),
                 (Key::ArrowDown, Direction::Down),
                 (Key::ArrowLeft, Direction::Left),
                 (Key::ArrowRight, Direction::Right),
             ] {
-                if i.key_pressed(key) {
-                    out.push(GridCommand::Move { dir, extend: shift });
+                // Shift first, for the reason given at Enter/Tab above.
+                if i.consume_key(Modifiers::SHIFT, key) {
+                    out.push(GridCommand::Move { dir, extend: true });
+                }
+                if i.consume_key(Modifiers::NONE, key) {
+                    out.push(GridCommand::Move { dir, extend: false });
                 }
             }
             if i.key_pressed(Key::F2) {
@@ -2007,6 +2020,76 @@ mod tests {
         assert_eq!(job.sections.len(), 2);
         assert_eq!(job.sections[1].format.valign, egui::Align::TOP);
         assert!(job.sections[1].format.font_id.size < 13.0);
+    }
+
+    /// Arrow keys that move the grid are used up, so the PDF reader drawn
+    /// after the grid in the same frame never sees them and does not scroll.
+    #[test]
+    fn grid_arrows_are_consumed_so_the_pdf_does_not_see_them() {
+        let ctx = egui::Context::default();
+        let mut s = TableDigitiserState::default();
+        s.grid_focused = true;
+        // One press per frame, as a keyboard delivers them: Down, then
+        // Shift+Down.
+        for modifiers in [Modifiers::NONE, Modifiers::SHIFT] {
+            let mut input = egui::RawInput::default();
+            input.events.push(egui::Event::Key {
+                key: Key::ArrowDown,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            });
+            let mut reader_saw_arrow = true;
+            let _ = ctx.run_ui(input, |ui| {
+                for c in s.commands_from_input(ui.ctx()) {
+                    s.apply(c);
+                }
+                // What the reader would check, later in the same frame.
+                reader_saw_arrow = ui.input(|i| i.key_pressed(Key::ArrowDown));
+            });
+            assert!(
+                !reader_saw_arrow,
+                "the reader must not see a grid arrow ({modifiers:?})"
+            );
+        }
+        assert_eq!(
+            s.grid.cursor(),
+            CellPos::new(2, 0),
+            "both presses moved the grid"
+        );
+        let sel = s.grid.selection();
+        assert_eq!(
+            (sel.top, sel.bottom),
+            (1, 2),
+            "Shift+Down extended the selection"
+        );
+    }
+
+    /// Shift+Enter moves up and Shift+Tab moves left, as in Calc; neither is
+    /// swallowed by the plain-key check.
+    #[test]
+    fn shift_enter_and_shift_tab_move_back() {
+        let ctx = egui::Context::default();
+        let mut s = TableDigitiserState::default();
+        s.grid_focused = true;
+        s.grid.set_cursor(CellPos::new(3, 3), false);
+        for key in [Key::Enter, Key::Tab] {
+            let mut input = egui::RawInput::default();
+            input.events.push(egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::SHIFT,
+            });
+            let _ = ctx.run_ui(input, |ui| {
+                for c in s.commands_from_input(ui.ctx()) {
+                    s.apply(c);
+                }
+            });
+        }
+        assert_eq!(s.grid.cursor(), CellPos::new(2, 2));
     }
 
     /// The grid takes Enter and typed text from real egui input, headless.

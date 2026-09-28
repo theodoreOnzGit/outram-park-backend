@@ -25,10 +25,13 @@
 //! **It computes no dose quantity of any kind**, and none is planned here. See
 //! the scope limit below, which is binding.
 //!
-//! One published dose table is *stored* here as cited reference data,
+//! ~~One published dose table is~~ **CORRECTED 2026-09-28: two published
+//! dose tables are** *stored* here as cited reference data. The first is
 //! [`published_dose_by_distance`] (added 2026-09-28). It is read from a CSV,
 //! not computed, and nothing uses it. Storing it does not change the
-//! sentence above or the scope limit.
+//! sentence above or the scope limit. **Added 2026-09-28:** a second one,
+//! the same paper's accident doses, [`published_accident_dose_by_distance`],
+//! on exactly the same terms.
 //!
 //! ## Relationship to the two ports — a consumer, not a shared abstraction
 //!
@@ -86,6 +89,11 @@ pub mod inventory;
 /// 2002, Table 7): stored reference data, **not** a dose this crate computes.
 /// Nothing in this crate consumes it.
 pub mod published_dose_by_distance;
+/// Published HTR-10 accident dose-versus-distance table (Liu and Cao 2002,
+/// Table 9; depressurization and water ingress, thyroid and whole-body, mSv):
+/// stored reference data, **not** a dose this crate computes. Nothing in this
+/// crate consumes it.
+pub mod published_accident_dose_by_distance;
 /// Published HTR-10 primary-helium activity at the end of a 20-year full-power
 /// life (Liu and Cao 2002, Table 3). Reference data only; nothing in this
 /// crate consumes it.

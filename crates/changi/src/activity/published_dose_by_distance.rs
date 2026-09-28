@@ -36,7 +36,9 @@
 //!   crate's current scope. That is a maintainer decision taken in
 //!   `RESPONSIBLE_USE.md`.
 //! - **Not an accident dose.** The same paper tabulates accident doses
-//!   separately (its Table 9), which is not digitised here.
+//!   separately (its Table 9), ~~which is not digitised here~~ **CORRECTED
+//!   2026-09-28**: now stored in
+//!   [`crate::activity::published_accident_dose_by_distance`].
 //! - `RESPONSIBLE_USE.md` applies in full. Nothing here may be quoted as a
 //!   dose to the public from HTR-10 or any other plant for any operational,
 //!   licensing, siting, emergency-planning or safety purpose.

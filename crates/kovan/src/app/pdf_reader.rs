@@ -584,6 +584,11 @@ pub(super) fn saved_artifact_menu_entries(
     nav
 }
 
+/// Tallest the selected-text box may grow before it scrolls, in points:
+/// about six lines of monospace, so the page stays visible under it whatever
+/// was selected.
+const SELECTION_PANEL_MAX_HEIGHT: f32 = 110.0;
+
 /// Whether the right-click menu's edit entry ("Edit table", "Edit
 /// digitisation") re-opens the digitiser for this kind.
 ///
@@ -4383,27 +4388,38 @@ impl PdfReaderState {
     /// Copy-to-clipboard and "Save as annotation" (folds the selection into
     /// the same `annotations` markdown section a hand-typed note goes into,
     /// per the module doc).
+    /// The panel for a completed text selection: its actions first, then the
+    /// text in a **fixed-height scrollable box**.
+    ///
+    /// The text box used to grow with the selection, so a big drag pushed
+    /// Copy, Save and Dismiss off the bottom of the window and the selection
+    /// could not be cancelled (maintainer, 2026-09-28: "if i select too much
+    /// text, the ui gets so cluttered i cannot cancel it. Select text shld be
+    /// a scrollable area"). Now the buttons sit above the text, the text
+    /// scrolls inside at most [`SELECTION_PANEL_MAX_HEIGHT`], and Esc
+    /// dismisses the selection when no text box has the keyboard.
     fn text_selection_panel(&mut self, ui: &mut egui::Ui) {
         let Some((min, max, text)) = self.text_selection.clone() else {
             return;
         };
+        let escape = ui.input(|i| i.key_pressed(egui::Key::Escape))
+            && ui.ctx().memory(|m| m.focused().is_none());
+        if escape {
+            self.text_selection = None;
+            return;
+        }
         ui.group(|ui| {
-            ui.label(format!(
-                "Selected text — page {} — bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
-                self.active_page() + 1,
-                min.x,
-                min.y,
-                max.x,
-                max.y
-            ));
-            let mut scratch = text.clone();
-            ui.add(
-                egui::TextEdit::multiline(&mut scratch)
-                    .font(egui::TextStyle::Monospace)
-                    .desired_rows(3)
-                    .desired_width(f32::INFINITY),
-            );
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!(
+                    "Selected text \u{2014} page {} \u{2014} {} line(s), {} character(s)",
+                    self.active_page() + 1,
+                    text.lines().count(),
+                    text.chars().count(),
+                ))
+                .on_hover_text(format!(
+                    "bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
+                    min.x, min.y, max.x, max.y
+                ));
                 if ui.button("\u{1F4CB} Copy").clicked() {
                     ui.ctx().copy_text(text.clone());
                 }
@@ -4421,10 +4437,27 @@ impl PdfReaderState {
                         });
                     self.text_selection = None;
                 }
-                if ui.button("Dismiss").clicked() {
+                if ui
+                    .button("\u{2716} Dismiss")
+                    .on_hover_text("clear the selection (Esc)")
+                    .clicked()
+                {
                     self.text_selection = None;
                 }
             });
+            egui::ScrollArea::vertical()
+                .id_salt("text_selection_scroll")
+                .max_height(SELECTION_PANEL_MAX_HEIGHT)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    let mut scratch = text.as_str();
+                    ui.add(
+                        egui::TextEdit::multiline(&mut scratch)
+                            .font(egui::TextStyle::Monospace)
+                            .desired_rows(1)
+                            .desired_width(f32::INFINITY),
+                    );
+                });
         });
     }
 
@@ -4891,6 +4924,40 @@ mod tests {
             crate::page_rotation::effective_rotation(&on_disk, 1).unwrap(),
             0
         );
+    }
+
+    /// A huge selection must not push the panel's buttons off screen: the
+    /// panel stays short however much text is selected, and Esc clears it.
+    #[test]
+    fn a_huge_selection_keeps_the_panel_short_and_escape_dismisses_it() {
+        let ctx = egui::Context::default();
+        let mut r = PdfReaderState::new();
+        let huge: String = (0..500).map(|i| format!("line {i}\n")).collect();
+        r.text_selection = Some((Pos2::ZERO, Pos2::new(10.0, 10.0), huge));
+        let mut height = 0.0;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            height = ui
+                .scope(|ui| r.text_selection_panel(ui))
+                .response
+                .rect
+                .height();
+        });
+        assert!(r.text_selection.is_some());
+        assert!(
+            height < SELECTION_PANEL_MAX_HEIGHT + 80.0,
+            "the panel grew to {height} pt for 500 lines"
+        );
+
+        let mut input = egui::RawInput::default();
+        input.events.push(egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        let _ = ctx.run_ui(input, |ui| r.text_selection_panel(ui));
+        assert!(r.text_selection.is_none(), "Esc dismisses the selection");
     }
 
     #[test]
