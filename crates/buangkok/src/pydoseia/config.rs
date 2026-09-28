@@ -21,6 +21,7 @@
 use crate::pydoseia::dcf::LungAbsorptionType;
 use crate::pydoseia::ingestion::food_chain::{AnimalProduct, Climate, VegetationType};
 use crate::pydoseia::ingestion::{DietaryIntake, IngestionParameters, SoilType};
+use crate::pydoseia::plume_shine::PlumeShineIntegrator;
 
 /// Release scenario (upstream's mutually exclusive `long_term_release` and
 /// `single_plume`).
@@ -111,6 +112,11 @@ pub struct PyDoseiaConfig {
     pub run_dose_computation: bool,
     /// `run_plume_shine_dose`.
     pub run_plume_shine_dose: bool,
+    /// Which quadrature the plume-shine integral runs on (not an upstream
+    /// setting). Defaults to [`PlumeShineIntegrator::Petir`]; set
+    /// [`PlumeShineIntegrator::ScipyQuadpackReference`] to reproduce
+    /// pyDOSEIA's numbers bit for bit.
+    pub plume_shine_integrator: PlumeShineIntegrator,
     /// `inges_param_dict`.
     pub ingestion_parameters: IngestionParameters,
     /// `inges_param_dict_adult`.
@@ -180,6 +186,7 @@ impl PyDoseiaConfig {
             ignore_half_life_s: 1800.0,
             run_dose_computation: true,
             run_plume_shine_dose: false,
+            plume_shine_integrator: PlumeShineIntegrator::Petir,
             ingestion_parameters: IngestionParameters::INPUT_GENERATOR_DEFAULT,
             diet_adult: DietaryIntake::INPUT_GENERATOR_ADULT,
             diet_infant: DietaryIntake::INPUT_GENERATOR_INFANT,

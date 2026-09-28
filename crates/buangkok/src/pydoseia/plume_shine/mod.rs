@@ -24,9 +24,17 @@
 //! Upstream cites Wang, Ling and Shi, *Nucl. Eng. Des.* 231 (2004) 211-216
 //! for the mean-free-path integration limits.
 //!
-//! The triple integral uses [`super::quadpack::tplquad`], a port of the SciPy
-//! QUADPACK routine upstream calls, so the port reproduces upstream's
-//! adaptive subdivision and not just its integrand.
+//! ~~The triple integral uses [`super::quadpack::tplquad`], a port of the SciPy
+//! QUADPACK routine upstream calls~~ **CHANGED 2026-09-28** (maintainer:
+//! "include petir as a dependency to buangkok. quadpack should be used as
+//! regression test, but petir is the main one"): by default the triple integral
+//! runs on petir's port of GSL QAGS ([`petir_tplquad`],
+//! [`PlumeShineIntegrator::Petir`]). [`super::quadpack::tplquad`], the port of
+//! the SciPy QUADPACK routine upstream calls, stays as
+//! [`PlumeShineIntegrator::ScipyQuadpackReference`]: select it to reproduce
+//! upstream's adaptive subdivision, and so its numbers, bit for bit (the
+//! code-to-code fixture does). Both are QUADPACK `dqagse`; the difference
+//! between them is measured in `docs/pydoseia-code-to-code.md`.
 //!
 //! # No photon data ships with this crate
 //!
@@ -54,8 +62,9 @@ mod tables;
 
 pub use integral::{
     integration_limits_legacy, integration_limits_sector_averaged, integration_limits_single_plume,
-    kernel_sector_averaged, kernel_single_plume, line_integral, PlumeShineGeometry, PlumeShineMode,
-    SECTOR_AVERAGED_EPS, SINGLE_PLUME_EPS,
+    kernel_sector_averaged, kernel_single_plume, line_integral, petir_tplquad, NestedQuadrature,
+    PlumeShineGeometry, PlumeShineIntegrator, PlumeShineMode, SECTOR_AVERAGED_EPS,
+    SINGLE_PLUME_EPS,
 };
 pub use tables::{
     numpy_interp, AirPhotonCoefficients, AttenuationTable, GammaLine, GammaLineTable,
@@ -82,6 +91,7 @@ pub fn line_integrals(
     line: GammaLine,
     table: &AttenuationTable,
     geometry: PlumeShineGeometry,
+    integrator: PlumeShineIntegrator,
 ) -> [f64; 6] {
     let mut out = [0.0; 6];
     if line.energy_mev == 0.0 {
@@ -89,7 +99,7 @@ pub fn line_integrals(
     }
     let c = table.air_coefficients(line.energy_mev);
     for s in StabilityClass::ALL {
-        out[s.index()] = line_integral(s, c, geometry);
+        out[s.index()] = line_integral(s, c, geometry, integrator);
     }
     out
 }
@@ -105,10 +115,11 @@ pub fn per_class_unit_release(
     lines: &[GammaLine],
     table: &AttenuationTable,
     geometry: PlumeShineGeometry,
+    integrator: PlumeShineIntegrator,
 ) -> [f64; 6] {
     let mut sum: Option<[f64; 6]> = None;
     for line in lines {
-        let integrals = line_integrals(*line, table, geometry);
+        let integrals = line_integrals(*line, table, geometry, integrator);
         let mu_a = table.air_coefficients(line.energy_mev).mu_a_per_m;
         let mut row = [0.0; 6];
         for i in 0..6 {
@@ -157,8 +168,9 @@ pub fn per_class(
     table: &AttenuationTable,
     geometry: PlumeShineGeometry,
     release: PlumeShineRelease,
+    integrator: PlumeShineIntegrator,
 ) -> [f64; 6] {
-    per_class_unit_release(lines, table, geometry).map(|v| v * release.multiplier())
+    per_class_unit_release(lines, table, geometry, integrator).map(|v| v * release.multiplier())
 }
 
 /// Plume shine per 22.5-degree sector for one nuclide, long-term release
@@ -183,13 +195,14 @@ pub fn per_sector_with_met(
     met: &MetClimatology,
     measurement_height: Length,
     release: PlumeShineRelease,
+    integrator: PlumeShineIntegrator,
 ) -> [f64; SECTOR_COUNT] {
     let wspeed: [f64; SPEED_CLASS_COUNT] = WSPEED_K_KMPH.map(|s| s / 3.6);
     let hf: [f64; 6] = StabilityClass::ALL
         .map(|s| height_correction_factor(s, geometry.release_height, measurement_height));
     let line_ints: Vec<[f64; 6]> = lines
         .iter()
-        .map(|l| line_integrals(*l, table, geometry))
+        .map(|l| line_integrals(*l, table, geometry, integrator))
         .collect();
     let mut years_sum = [0.0; SECTOR_COUNT];
     for (yi, year) in met.years.iter().enumerate() {

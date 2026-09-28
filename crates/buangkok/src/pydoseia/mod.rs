@@ -32,7 +32,7 @@
 //! | [`dose`](crate::pydoseia::dose) | inhalation, ground shine, submersion, deposition velocity, weathering | ported, code-to-code verified |
 //! | [`ingestion`](crate::pydoseia::ingestion) | SRS 19 food chain, H-3 and C-14 models | ported, code-to-code verified (faithful driver, D8-D14); corrected per-nuclide driver as a divergence |
 //! | [`plume_shine`](crate::pydoseia::plume_shine) | finite-cloud gamma dose, photon tables, integration limits, point source | ported, code-to-code verified, bit-exact |
-//! | [`quadpack`](crate::pydoseia::quadpack) | SciPy's QUADPACK `dqagse` and `tplquad` (what plume shine runs on) | ported, verified against SciPy directly |
+//! | [`quadpack`](crate::pydoseia::quadpack) | SciPy's QUADPACK `dqagse` and `tplquad`: the bit-exact **regression reference** for plume shine (the default integrator is petir's GSL QAGS) | ported, verified against SciPy directly |
 //! | [`dcf_screening`](crate::pydoseia::dcf_screening) | multi-source DCF screening (report only, D7) | ported, code-to-code verified |
 //! | [`plume_rise`](crate::pydoseia::plume_rise) | plume rise, building wake (never called upstream) | ported / labelled divergences (D5, D6) |
 //! | [`config`](crate::pydoseia::config) | the run configuration and its defaults | ported (schema and checks) |

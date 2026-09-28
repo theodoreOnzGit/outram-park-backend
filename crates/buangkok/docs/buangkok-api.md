@@ -720,7 +720,7 @@ dialogue, joblib), listed function by function in
 | [`dose`](crate::pydoseia::dose) | inhalation, ground shine, submersion, deposition velocity, weathering | ported, code-to-code verified |
 | [`ingestion`](crate::pydoseia::ingestion) | SRS 19 food chain, H-3 and C-14 models | ported, code-to-code verified (faithful driver, D8-D14); corrected per-nuclide driver as a divergence |
 | [`plume_shine`](crate::pydoseia::plume_shine) | finite-cloud gamma dose, photon tables, integration limits, point source | ported, code-to-code verified, bit-exact |
-| [`quadpack`](crate::pydoseia::quadpack) | SciPy's QUADPACK `dqagse` and `tplquad` (what plume shine runs on) | ported, verified against SciPy directly |
+| [`quadpack`](crate::pydoseia::quadpack) | SciPy's QUADPACK `dqagse` and `tplquad`: the bit-exact **regression reference** for plume shine (the default integrator is petir's GSL QAGS) | ported, verified against SciPy directly |
 | [`dcf_screening`](crate::pydoseia::dcf_screening) | multi-source DCF screening (report only, D7) | ported, code-to-code verified |
 | [`plume_rise`](crate::pydoseia::plume_rise) | plume rise, building wake (never called upstream) | ported / labelled divergences (D5, D6) |
 | [`config`](crate::pydoseia::config) | the run configuration and its defaults | ported (schema and checks) |
@@ -2673,6 +2673,7 @@ pub struct PyDoseiaConfig {
     pub ignore_half_life_s: f64,
     pub run_dose_computation: bool,
     pub run_plume_shine_dose: bool,
+    pub plume_shine_integrator: crate::pydoseia::plume_shine::PlumeShineIntegrator,
     pub ingestion_parameters: crate::pydoseia::ingestion::IngestionParameters,
     pub diet_adult: crate::pydoseia::ingestion::DietaryIntake,
     pub diet_infant: crate::pydoseia::ingestion::DietaryIntake,
@@ -2710,6 +2711,7 @@ pub struct PyDoseiaConfig {
 | `ignore_half_life_s` | `f64` | `ignore_half_life`, s. |
 | `run_dose_computation` | `bool` | `run_dose_computation`. |
 | `run_plume_shine_dose` | `bool` | `run_plume_shine_dose`. |
+| `plume_shine_integrator` | `crate::pydoseia::plume_shine::PlumeShineIntegrator` | Which quadrature the plume-shine integral runs on (not an upstream<br>setting). Defaults to [`PlumeShineIntegrator::Petir`]; set<br>[`PlumeShineIntegrator::ScipyQuadpackReference`] to reproduce<br>pyDOSEIA's numbers bit for bit. |
 | `ingestion_parameters` | `crate::pydoseia::ingestion::IngestionParameters` | `inges_param_dict`. |
 | `diet_adult` | `crate::pydoseia::ingestion::DietaryIntake` | `inges_param_dict_adult`. |
 | `diet_infant` | `crate::pydoseia::ingestion::DietaryIntake` | `inges_param_dict_infant`. |
@@ -11086,9 +11088,17 @@ Dr. Biswajit Sadhu; MIT licence (full notice in `crates/buangkok/NOTICE`).
 Upstream cites Wang, Ling and Shi, *Nucl. Eng. Des.* 231 (2004) 211-216
 for the mean-free-path integration limits.
 
-The triple integral uses [`super::quadpack::tplquad`], a port of the SciPy
-QUADPACK routine upstream calls, so the port reproduces upstream's
-adaptive subdivision and not just its integrand.
+~~The triple integral uses [`super::quadpack::tplquad`], a port of the SciPy
+QUADPACK routine upstream calls~~ **CHANGED 2026-09-28** (maintainer:
+"include petir as a dependency to buangkok. quadpack should be used as
+regression test, but petir is the main one"): by default the triple integral
+runs on petir's port of GSL QAGS ([`petir_tplquad`],
+[`PlumeShineIntegrator::Petir`]). [`super::quadpack::tplquad`], the port of
+the SciPy QUADPACK routine upstream calls, stays as
+[`PlumeShineIntegrator::ScipyQuadpackReference`]: select it to reproduce
+upstream's adaptive subdivision, and so its numbers, bit for bit (the
+code-to-code fixture does). Both are QUADPACK `dqagse`; the difference
+between them is measured in `docs/pydoseia-code-to-code.md`.
 
 # No photon data ships with this crate
 
@@ -11403,7 +11413,7 @@ line (pure beta emitter) is not integrated and gives zeros: upstream does
 integrate it, and multiplies the result by the zero energy and yield.
 
 ```rust
-pub fn line_integrals(line: GammaLine, table: &AttenuationTable, geometry: PlumeShineGeometry) -> [f64; 6] { /* ... */ }
+pub fn line_integrals(line: GammaLine, table: &AttenuationTable, geometry: PlumeShineGeometry, integrator: PlumeShineIntegrator) -> [f64; 6] { /* ... */ }
 ```
 
 #### Function `per_class_unit_release`
@@ -11420,7 +11430,7 @@ the single-plume and the long-term no-met branches).
 `gamma_energy_abundaces` + `add_zero_energy_for_pure_beta`).
 
 ```rust
-pub fn per_class_unit_release(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry) -> [f64; 6] { /* ... */ }
+pub fn per_class_unit_release(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, integrator: PlumeShineIntegrator) -> [f64; 6] { /* ... */ }
 ```
 
 #### Function `per_class`
@@ -11433,7 +11443,7 @@ Plume shine per stability class for one nuclide (single plume, or long
 term without met data): [`per_class_unit_release`] times the release.
 
 ```rust
-pub fn per_class(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, release: PlumeShineRelease) -> [f64; 6] { /* ... */ }
+pub fn per_class(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, release: PlumeShineRelease, integrator: PlumeShineIntegrator) -> [f64; 6] { /* ... */ }
 ```
 
 #### Function `per_sector_with_met`
@@ -11458,7 +11468,7 @@ length of the met record; upstream computes `hours_without_calm` and never
 uses it.
 
 ```rust
-pub fn per_sector_with_met(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, met: &super::met::MetClimatology, measurement_height: uom::si::f64::Length, release: PlumeShineRelease) -> [f64; 16] { /* ... */ }
+pub fn per_sector_with_met(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, met: &super::met::MetClimatology, measurement_height: uom::si::f64::Length, release: PlumeShineRelease, integrator: PlumeShineIntegrator) -> [f64; 16] { /* ... */ }
 ```
 
 #### Function `point_source_dose`
@@ -11552,10 +11562,28 @@ pub use integral::kernel_single_plume;
 pub use integral::line_integral;
 ```
 
+#### Re-export `petir_tplquad`
+
+```rust
+pub use integral::petir_tplquad;
+```
+
+#### Re-export `NestedQuadrature`
+
+```rust
+pub use integral::NestedQuadrature;
+```
+
 #### Re-export `PlumeShineGeometry`
 
 ```rust
 pub use integral::PlumeShineGeometry;
+```
+
+#### Re-export `PlumeShineIntegrator`
+
+```rust
+pub use integral::PlumeShineIntegrator;
 ```
 
 #### Re-export `PlumeShineMode`
@@ -11641,14 +11669,23 @@ the **C** text, including its 0-based indexing, because that is what
 pyDOSEIA executes. BSD 3-clause is compatible with this crate's GPL-3.0;
 the notice is reproduced in `crates/buangkok/NOTICE`.
 
-# Why not `petir::integration::qag`
+# Role: the regression reference, not the default
 
-The workspace already has GSL's `qag` in `petir` (checked 2026-09-28). It
-is QUADPACK's `dqage`, without the epsilon-algorithm extrapolation that
-`dqagse` adds and that `scipy.integrate.quad` uses, and GSL rearranges some
-of the arithmetic. Its results therefore differ from SciPy's in the last
-digits, or more when extrapolation fires, and a code-to-code comparison
-against pyDOSEIA needs SciPy's routine exactly.
+~~Why not `petir::integration::qag`~~ **CHANGED 2026-09-28** (maintainer:
+"include petir as a dependency to buangkok. quadpack should be used as
+regression test, but petir is the main one"). Plume shine now integrates
+by default with `petir::integration::qags`, petir's port of GSL
+`gsl_integration_qags` (itself QUADPACK `dqagse`), ported into petir for
+this purpose. This module stays because it is what pyDOSEIA executes: the
+code-to-code fixture selects it
+([`PlumeShineIntegrator::ScipyQuadpackReference`](crate::pydoseia::plume_shine::PlumeShineIntegrator))
+so the comparison against upstream stays bit-exact, and
+`tests/plume_shine_petir_vs_quadpack.rs` measures petir against it.
+
+What was true on 2026-09-28 before the change, and still is: petir's
+plain `qag` is `dqage`, without the epsilon extrapolation `dqagse` adds, and
+differs from SciPy's routine on singular integrands (the `quadpack`-group
+mutation test). Petir's `qags` does not have that gap.
 
 ```rust
 pub mod quadpack { /* ... */ }

@@ -109,7 +109,7 @@ port of the integrator upstream relies on).
 | Item | ~~Why deferred~~ | Now |
 |---|---|---|
 | Ingestion | ~~Largest single pathway; needs the SRS 19 tables (IAEA ©), to be supplied by the user in a defined layout~~ | **ported** (`ingestion`), tables caller-supplied; defects D8-D14 recorded, D8-D11 with a labelled corrected driver |
-| Plume shine | ~~Finite-cloud triple integration with joblib; photon data provenance not established~~ | **ported** (`plume_shine`, on a port of SciPy's QUADPACK in `quadpack`); photon tables caller-supplied |
+| Plume shine | ~~Finite-cloud triple integration with joblib; photon data provenance not established~~ | **ported** (`plume_shine`; ~~on a port of SciPy's QUADPACK in `quadpack`~~ **CHANGED 2026-09-28**: by default on `petir`'s GSL QAGS, with the SciPy QUADPACK port in `quadpack` kept as the regression reference); photon tables caller-supplied |
 | Multi-source DCF screening | ~~Used only for the DCF report~~ | **ported** (`dcf_screening`); still only feeds the report (D7) |
 | Plume rise, building wake | ~~Marked TO-DO, never called, defective (D5, D6)~~ | neutral/unstable rise and the stable rise **ported faithfully**; D6 and D5 corrected as labelled divergences (`plume_rise`) |
 | Excel reading, plots, text reports, YAML input generator, joblib driver | ~~I/O and UI, not physics~~ | the driver's computation, the report's totals and the config schema **ported**; Excel, plots, text formatting, prompts and joblib remain **not ported** (I/O and UI) |

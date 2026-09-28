@@ -27,6 +27,7 @@
 //   integration/qk{15,21,31,41,51,61}.c  the node and weight tables
 //   integration/err.c           rescale_error       -> rescale_error
 //   integration/qag.c           qag                 -> qag
+//   integration/qags.c (+ qelg.c, qpsrt*.c, util.c)  -> qags (qags.rs)
 
 //! Numerical quadrature — GSL's `integration/`, itself QUADPACK.
 //!
@@ -35,7 +36,12 @@
 //! - [`kronrod`] — one Gauss-Kronrod rule over one interval, returning the
 //!   estimate and a genuine error bound. The building block.
 //! - [`qag`] — **adaptive** quadrature: apply the rule, find the sub-interval
-//!   with the worst error, bisect it, repeat. The routine to reach for.
+//!   with the worst error, bisect it, repeat. The routine to reach for on a
+//!   smooth integrand.
+//! - [`qags`] — adaptive quadrature **with epsilon-algorithm extrapolation**
+//!   (GSL `gsl_integration_qags`, QUADPACK `dqagse`), for integrable
+//!   singularities, kinks and sharp peaks. [`qags_with_status`] keeps GSL's
+//!   estimate when the routine reports a failure.
 //!
 //! # How Gauss-Kronrod gets an error estimate for free
 //!
@@ -67,14 +73,14 @@
 //!
 //! # What is NOT ported
 //!
-//! **QAGS** — the extrapolating variant — is not here. QAGS applies the epsilon
-//! algorithm to the sequence of sub-interval results, which lets it handle
-//! *integrable singularities* at the endpoints (`1/sqrt(x)` on `[0, 1]`).
-//! [`qag`] will grind through its iteration limit on such an integrand and
-//! report [`PetirError::MaxIterations`] rather than silently returning
-//! something wrong — but it will not solve it. Nor are the infinite-range
-//! transforms (`QAGI`), the weighted rules (`QAWO`, `QAWS`, `QAWC`), or the
-//! non-adaptive `QNG`. All are tracked as beads.
+//! ~~**QAGS** — the extrapolating variant — is not here.~~ **CORRECTED
+//! 2026-09-28**: QAGS is ported ([`qags`], `integration/qags.rs`), for
+//! `buangkok`'s plume-shine integral. [`qag`] still grinds through its
+//! iteration limit on an endpoint singularity and reports
+//! [`PetirError::MaxIterations`]; use [`qags`] there. Not ported: the
+//! infinite-range transforms (`QAGI`, `QAGIU`, `QAGIL`, which live in the same
+//! `qags.c` and would reuse its core with the 15-point rule), the weighted
+//! rules (`QAWO`, `QAWS`, `QAWC`), and the non-adaptive `QNG`.
 //!
 //! This is the honest boundary of the port, and worth reading before assuming
 //! a hard integral will work.
@@ -91,6 +97,11 @@ pub mod gauss_legendre;
 /// The Gauss-Legendre node and weight tables for orders 2 to 30, ported
 /// verbatim from the `peroxide` crate. Data, not algorithm.
 pub mod gauss_legendre_tables;
+/// QAGS: adaptive Gauss-Kronrod with Wynn epsilon extrapolation, ported from
+/// GSL `integration/qags.c` and its helpers.
+mod qags;
+
+pub use qags::{qags, qags_with_status, QagsOutcome};
 
 use alloc::vec;
 use alloc::vec::Vec;

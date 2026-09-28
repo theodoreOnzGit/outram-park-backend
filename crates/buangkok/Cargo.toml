@@ -25,9 +25,12 @@ exclude = ["docs", "verification_and_validation"]
 # buangkok -> changi is the right direction; never the reverse.
 # `pydoseia` also uses changi's `DilutionFactor` (s/m^3) for chi/Q.
 changi = { workspace = true }
-uom = { workspace = true }
-
-[dev-dependencies]
-# `tests/pydoseia_code_to_code.rs` uses GSL's `qag` from petir as the
-# checked-and-rejected alternative to QUADPACK `dqagse` (a mutation test).
+# The plume-shine triple integral runs on petir's port of GSL QAGS by default
+# (maintainer, 2026-09-28: "include petir as a dependency to buangkok.
+# quadpack should be used as regression test, but petir is the main one").
+# `pydoseia::quadpack` (the SciPy QUADPACK port) stays as the bit-exact
+# regression reference against pyDOSEIA. petir is no_std, so this edge adds
+# nothing Android- or wasm-hostile. The code-to-code test also uses petir's
+# `qag` as the checked-and-rejected alternative to `dqagse` (a mutation test).
 petir = { workspace = true }
+uom = { workspace = true }

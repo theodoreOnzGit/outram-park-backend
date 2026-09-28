@@ -118,7 +118,7 @@
 //! | [`expint`] | ported | Exponential integral `E_1` and its scaled form |
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver |
+//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver, extrapolating `qags` |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS, symmetric tridiagonal, and rectangular Householder QR with a least-squares solve |
 //! | [`min`] | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
@@ -132,8 +132,9 @@
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
 //! The epic's original scope is now COVERED. What remains are deliberate
-//! subsets rather than gaps, and each is named where it matters: QAGS and the
-//! infinite-range and weighted quadrature variants ([`integration`]), implicit
+//! subsets rather than gaps, and each is named where it matters: the
+//! infinite-range and weighted quadrature variants ([`integration`]; QAGS was
+//! ported 2026-09-28), implicit
 //! and stiff ODE methods ([`ode`]), Akima and Steffen interpolation and the
 //! periodic spline ([`interp`]), general-degree complex polynomial roots
 //! ([`poly`]), and rank-deficient least squares (`bn:op-4m4b` — the QR here

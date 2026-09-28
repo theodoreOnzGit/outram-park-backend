@@ -20,14 +20,23 @@
 //! pyDOSEIA executes. BSD 3-clause is compatible with this crate's GPL-3.0;
 //! the notice is reproduced in `crates/buangkok/NOTICE`.
 //!
-//! # Why not `petir::integration::qag`
+//! # Role: the regression reference, not the default
 //!
-//! The workspace already has GSL's `qag` in `petir` (checked 2026-09-28). It
-//! is QUADPACK's `dqage`, without the epsilon-algorithm extrapolation that
-//! `dqagse` adds and that `scipy.integrate.quad` uses, and GSL rearranges some
-//! of the arithmetic. Its results therefore differ from SciPy's in the last
-//! digits, or more when extrapolation fires, and a code-to-code comparison
-//! against pyDOSEIA needs SciPy's routine exactly.
+//! ~~Why not `petir::integration::qag`~~ **CHANGED 2026-09-28** (maintainer:
+//! "include petir as a dependency to buangkok. quadpack should be used as
+//! regression test, but petir is the main one"). Plume shine now integrates
+//! by default with `petir::integration::qags`, petir's port of GSL
+//! `gsl_integration_qags` (itself QUADPACK `dqagse`), ported into petir for
+//! this purpose. This module stays because it is what pyDOSEIA executes: the
+//! code-to-code fixture selects it
+//! ([`PlumeShineIntegrator::ScipyQuadpackReference`](crate::pydoseia::plume_shine::PlumeShineIntegrator))
+//! so the comparison against upstream stays bit-exact, and
+//! `tests/plume_shine_petir_vs_quadpack.rs` measures petir against it.
+//!
+//! What was true on 2026-09-28 before the change, and still is: petir's
+//! plain `qag` is `dqage`, without the epsilon extrapolation `dqagse` adds, and
+//! differs from SciPy's routine on singular integrands (the `quadpack`-group
+//! mutation test). Petir's `qags` does not have that gap.
 
 /// Machine epsilon, `np.finfo(np.float64).eps` (SciPy's `epmach`).
 const EPMACH: f64 = f64::EPSILON;

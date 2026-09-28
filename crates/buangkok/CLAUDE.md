@@ -38,9 +38,25 @@ has been declared, and there is no validation.
   (it needs a Python venv with numpy, pandas, scipy, openpyxl, xlrd, joblib
   and matplotlib; it imports its second half from `tranche2.py` in the same
   folder), and commit the scripts and the fixture together.
-- **Plume shine rides on `pydoseia::quadpack`**, a port of SciPy's C
+- ~~**Plume shine rides on `pydoseia::quadpack`**, a port of SciPy's C
   QUADPACK (BSD-3, notice in `NOTICE`). Do not swap in `petir`'s GSL `qag`:
-  a mutation test shows the fixture rejects it (no epsilon extrapolation).
+  a mutation test shows the fixture rejects it (no epsilon extrapolation).~~
+  **CHANGED 2026-09-28** — maintainer: "can you replace QUADPACK integrator
+  with stuff from petir? i don't want so many duplicate integrators here" …
+  "or rather, include petir as a dependency to buangkok. quadpack should be
+  used as regression test, but petir is the main one". **Plume shine runs on
+  petir by default** (`PlumeShineIntegrator::Petir`: nested
+  `petir::integration::qags_with_status`, petir's port of GSL
+  `gsl_integration_qags`, which is QUADPACK `dqagse` with extrapolation).
+  `pydoseia::quadpack` (SciPy's C QUADPACK, BSD-3, notice in `NOTICE`) stays
+  as `PlumeShineIntegrator::ScipyQuadpackReference`, the **regression
+  reference**: the code-to-code tests select it explicitly, and
+  `tests/plume_shine_petir_vs_quadpack.rs` compares the two. Measured
+  2026-09-28: the petir path is bit-identical to the reference on all 120
+  fixture integrals and reproduces the fixture bit for bit. Petir's plain
+  `qag` is still not a substitute for `dqagse` on singular integrands (the
+  `quadpack`-group mutation test); do not add a third integrator here —
+  extend petir.
 - **Every ported file keeps the MIT provenance header** and points at
   `NOTICE`.
 - **`chi/Q` is `changi`'s `DilutionFactor`.** Do not add a second s/m^3

@@ -61,6 +61,17 @@ COPYRIGHT HOLDERS
     cheb/gsl_chebyshev.h   Copyright (C) 1996, 1997, 1998, 1999, 2000
                            Gerard Jungman
 
+    GSL integration/qags.c, qelg.c, qpsrt.c, qpsrt2.c, util.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+    GSL integration/initialise.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001,
+                           2007 Brian Gough
+    GSL integration/positivity.c, set_initial.c, reset.c
+                           no header of their own; #included into qags.c
+                           and covered by its notice
+      -> src/integration/qags.rs (ported 2026-09-28, read at the commit above)
+
 ================================================================================
 DERIVED WORK — ARM optimized-routines
 ================================================================================

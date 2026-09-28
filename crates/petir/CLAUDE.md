@@ -255,6 +255,7 @@ obliges" below.
   | `roots` (bracketing / polishing), `min`, `interp`, `ode` (RKF45) | 100 % — every iterate, value and error estimate | 0 |
   | `deriv` | 76/78 (97.4 %) | 3.27e-16 |
   | `integration` (6 Kronrod rules + QAG) | 27/28 (96.4 %) | 1.82e-16 |
+  | `integration::qags` (**added 2026-09-28, after the declaration**, for `buangkok`'s plume shine) | 40/42 (95.2 %); statuses and iteration counts 21/21 | results 0; error estimates 1.43e-6 |
   | `fast_exp` / `fast_log` / `fast_pow` | 100 % vs ARM optimized-routines | 0 |
 
   The declaration was made on the condition "if it agrees with GSL". It does.

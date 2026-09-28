@@ -41,8 +41,10 @@ crate was created that day to reserve the name. It now holds:
     deposition velocities and weathering;
   - **ingestion** (IAEA SRS 19 food chain: crops, pasture, stored feed, milk,
     meat; H-3 and C-14 specific-activity models);
-  - **plume shine** (finite-cloud gamma dose with build-up), on a port of the
-    SciPy QUADPACK integrator it relies on;
+  - **plume shine** (finite-cloud gamma dose with build-up), integrated by
+    default with `petir`'s port of GSL QAGS; a port of the SciPy QUADPACK
+    integrator upstream relies on is kept as the bit-exact regression
+    reference (the two agree to the last bit on the fixture's 120 integrals);
   - multi-source DCF screening, plume rise, the run configuration and its
     defaults, and the driver with its summary tables (a Rust API replaces the
     CLI; see `examples/pydoseia_assessment.rs`).

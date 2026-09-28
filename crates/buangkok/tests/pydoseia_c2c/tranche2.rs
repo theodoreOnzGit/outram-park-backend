@@ -28,9 +28,14 @@ use buangkok::pydoseia::ingestion::{
 use buangkok::pydoseia::met::MetClimatology;
 use buangkok::pydoseia::plume_rise;
 use buangkok::pydoseia::plume_shine::{
-    self, AttenuationTable, GammaLine, GammaLineTable, PlumeShineGeometry, PlumeShineMode,
-    PlumeShineRelease, PointSourceUnit,
+    self, AttenuationTable, GammaLine, GammaLineTable, PlumeShineGeometry, PlumeShineIntegrator,
+    PlumeShineMode, PlumeShineRelease, PointSourceUnit,
 };
+
+/// The code-to-code fixture is pyDOSEIA run through SciPy, so plume shine is
+/// compared on the SciPy QUADPACK port, selected explicitly here (the
+/// library default is petir; see `tests/plume_shine_petir_vs_quadpack.rs`).
+const REFERENCE: PlumeShineIntegrator = PlumeShineIntegrator::ScipyQuadpackReference;
 use buangkok::pydoseia::quadpack::{qagse, tplquad};
 use buangkok::pydoseia::units::DilutionFactor;
 use buangkok::pydoseia::{dcf::AgeBracket, dose, nuclide};
@@ -368,6 +373,16 @@ fn quad_f(name: &str) -> fn(f64) -> f64 {
     }
 }
 
+/// The plume-shine integrator for a variant: the reference, except in the
+/// mutation test that swaps in the library default.
+fn integrator(variant: Variant) -> PlumeShineIntegrator {
+    if variant == Variant::PetirPlumeShine {
+        PlumeShineIntegrator::Petir
+    } else {
+        REFERENCE
+    }
+}
+
 fn plume_rads() -> [(&'static str, f64); 3] {
     [("SYN-1", 2.0e12), ("SYN-3", 5.0e11), ("SYN-6", 1.0e12)]
 }
@@ -447,6 +462,8 @@ fn driver_config(scenario: &str) -> PyDoseiaConfig {
         }
     };
     let mut c = PyDoseiaConfig::input_generator_defaults(release);
+    // pyDOSEIA runs SciPy: compare on the SciPy QUADPACK reference.
+    c.plume_shine_integrator = REFERENCE;
     c.nuclides = rads.iter().map(|s| s.to_string()).collect();
     c.elements = rads.iter().map(|s| element(s).to_string()).collect();
     c.absorption_types = vec![LungAbsorptionType::Max; rads.len()];
@@ -670,7 +687,13 @@ pub fn port(
                     } else {
                         PlumeShineRelease::AnnualDischargeBq(*q)
                     };
-                    plume_shine::per_class(&gamma_lines(inp, n, variant), &inp.att, g, rel)
+                    plume_shine::per_class(
+                        &gamma_lines(inp, n, variant),
+                        &inp.att,
+                        g,
+                        rel,
+                        integrator(variant),
+                    )
                 })
                 .collect()
         }
@@ -691,6 +714,7 @@ pub fn port(
                         met,
                         m(10.0),
                         PlumeShineRelease::AnnualDischargeBq(*q),
+                        integrator(variant),
                     )
                 })
                 .collect()

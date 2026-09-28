@@ -287,6 +287,9 @@ enum Variant {
     ShiftedAgeBracket,
     /// Second tranche: GSL's `qag` (via `petir`) in place of `dqagse`.
     PetirQag,
+    /// Second tranche: plume shine on the library default (petir QAGS)
+    /// instead of the SciPy QUADPACK reference.
+    PetirPlumeShine,
     /// Second tranche: exact-name gamma-line lookup instead of the substring.
     ExactGammaMatch,
     /// Second tranche: the corrected per-nuclide ingestion driver (D8-D11).
@@ -720,6 +723,34 @@ fn mutation_age_bracket_shift_is_rejected() {
 fn mutation_petir_qag_instead_of_dqagse_is_rejected() {
     // The checked-and-rejected alternative: GSL's qag (no extrapolation).
     assert!(failures_in(Variant::PetirQag, "quadpack") > 0);
+}
+
+/// The library default (petir's port of GSL QAGS) run through the same
+/// fixture comparison as the SciPy QUADPACK reference, at the fixture's own
+/// group tolerances (0 for `plume_shine_single` and `plume_shine_long_term`,
+/// 1e-14 for `plume_shine_met`).
+///
+/// # Results (2026-09-28)
+///
+/// **Passes: all 120 plume-shine values bit-identical** (max relative
+/// deviation 0 in all three groups). The two paths are both QUADPACK
+/// `dqagse`, and on these cases GSL's and SciPy's arrangements of its
+/// arithmetic agree to the last bit, so the fixture cannot tell them apart.
+/// This was first written as a mutation test expecting the fixture to reject
+/// the petir path; it did not, and the test now pins the agreement instead.
+/// The reference stays selected explicitly everywhere else in this file.
+#[test]
+fn petir_plume_shine_also_reproduces_the_fixture() {
+    let r = compare(Variant::PetirPlumeShine);
+    for g in [
+        "plume_shine_single",
+        "plume_shine_long_term",
+        "plume_shine_met",
+    ] {
+        let (_, values, max, fails) = r[g];
+        println!("{g}: {fails} of {values} values out of tolerance, max rel dev {max:e}");
+        assert_eq!(fails, 0, "{g}");
+    }
 }
 
 #[test]

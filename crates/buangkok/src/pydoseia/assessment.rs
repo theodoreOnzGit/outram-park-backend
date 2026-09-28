@@ -384,11 +384,17 @@ pub fn run_assessment(
                             mc,
                             m(cfg.measurement_height_m),
                             release,
+                            cfg.plume_shine_integrator,
                         )
                         .to_vec(),
-                        _ => {
-                            plume_shine::per_class(&lines, &tables.attenuation, g, release).to_vec()
-                        }
+                        _ => plume_shine::per_class(
+                            &lines,
+                            &tables.attenuation,
+                            g,
+                            release,
+                            cfg.plume_shine_integrator,
+                        )
+                        .to_vec(),
                     };
                     per_nuclide.push(v);
                 }

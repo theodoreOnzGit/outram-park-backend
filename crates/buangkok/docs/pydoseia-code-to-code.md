@@ -132,12 +132,75 @@ the corrected per-nuclide ingestion driver (D8-D11); `zeroing_ingestion` as
 intended instead of pandas 3's no-op (D14); and the summary's ingestion
 counted once (D20). All ten are rejected.
 
-The `petir` mutation also records why the integrator had to be ported rather
-than reused (measured 2026-09-28): `qag` agrees with `dqagse` to the last bit
+The `petir` mutation also records why ~~the integrator had to be ported rather
+than reused~~ petir's plain `qag` is not a substitute for `dqagse` (measured
+2026-09-28): `qag` agrees with `dqagse` to the last bit
 on the smooth integrands, differs by up to 7e-16 on `sin(50x)`, by 4.5e-5 on
 `1/sqrt(x)` at `eps = 1.49e-3`, by 1.7e-6 on `ln x`, and fails outright
 (`MaxIterations`) on `1/sqrt(x)` at `1.49e-8`, where `dqagse` converges by
-extrapolation.
+extrapolation. **CHANGED 2026-09-28:** that gap was closed in petir rather
+than kept as a second integrator here: petir now ports GSL's `qags` (the
+extrapolating routine), and plume shine runs on it by default. See "Plume
+shine on petir" below.
+
+### Plume shine on petir (2026-09-28)
+
+**Why.** Maintainer: "can you replace QUADPACK integrator with stuff from
+petir? i don't want so many duplicate integrators here" … "or rather, include
+petir as a dependency to buangkok. quadpack should be used as regression test,
+but petir is the main one".
+
+**What changed.** `petir::integration::qags` / `qags_with_status` is a port of
+GSL 2.8 `gsl_integration_qags` (`integration/qags.c`, with `qelg.c`,
+`qpsrt.c`, `qpsrt2.c`, `util.c`), verified against GSL compiled from the
+vendored tree (`crates/petir/tests/gsl_qags_code_to_code.rs`: 21 cases
+reaching every exit but `GSL_EFAILED`; statuses, sub-interval and evaluation
+counts identical in all 21, results 21/21 bit-identical, error estimates 19/21
+bit-identical and 1.4e-6 relative on the other two, a libm `pow` ulp
+amplified by QUADPACK's cancelling `errsum`, reproduced by perturbing GSL
+itself). `plume_shine::petir_tplquad` nests it exactly as SciPy's `tplquad`
+nests `dqagse` (outer `z`, middle `y`, inner `x`; same `epsabs`/`epsrel` at
+every level; 50 sub-intervals per level). `PlumeShineIntegrator::Petir` is the
+default in `line_integral` and the functions above it, and in
+`PyDoseiaConfig::plume_shine_integrator`;
+`PlumeShineIntegrator::ScipyQuadpackReference` selects the SciPy port, and the
+code-to-code fixture selects it explicitly.
+
+**QAGS or plain QAG? Measured first.** On the fixture's plume-shine cases (the
+five geometries, four gamma lines, six classes: 120 triple integrals at
+pyDOSEIA's tolerances), nested petir `qag` fails **no** call (0 of 265 812),
+all 120 results are within the derived bound below, 106 are bit-identical to
+the reference and the worst relative difference is 4.3e-16. So plain `qag`
+**does** meet the requested tolerance here, and the measurement alone did not
+force QAGS. QAGS was chosen for three reasons: (1) it is the algorithm
+upstream runs (`dqagse`), and on these cases it is bit-identical to it, which
+keeps the default path's numbers equal to upstream's; (2) the kernel carries a
+`1/r^2` point singularity at the receptor, and for a receptor inside the
+integration box the inner integrals are sharp Lorentzian peaks and the outer
+ones have logarithmic singularities, which is what the extrapolation exists
+for (the fixture's receptors are mostly at `z = 0`, below the 1 m floor of the
+`z` range, so they do not probe this hard); (3) `qag` discards its estimate on
+failure, whereas `qags_with_status` returns it with the status, as
+`scipy.integrate.quad` does. On a smooth integrand QAGS makes the same
+bisections as QAG, so it costs nothing extra there.
+
+**Regression test** (`tests/plume_shine_petir_vs_quadpack.rs`). Methodology:
+the 120 integrals above, petir against the reference, pass criterion derived
+from the requested tolerances only: per integrator the nested nominal error is
+at most `E = epsabs (Ly Lz + Lz + 1) + 3 epsrel |I|` (positive kernel; `Ly`,
+`Lz` the ranges), so two integrators may differ by `2E`. Results
+(2026-09-28): **120 of 120 bit-identical, max relative difference 0**;
+265 812 QAGS calls against 55 560 for a run with no subdivision anywhere (the
+adaptive paths are exercised), none uncertified. The derived bound is
+**uninformative** at these tolerances: the smallest `2E / |I|` over the cases
+is 716, because pyDOSEIA's `epsabs` (1.49e-2 single plume, 1.49e-3 sector
+averaged) is absolute and exceeds the integrals (order 1e-2 and below). That
+is a property of upstream's tolerance, reported rather than tightened. The
+check that can fail is `petir_plume_shine_also_reproduces_the_fixture` in
+`tests/pydoseia_code_to_code.rs`: the petir path through the fixture at the
+fixture's own tolerances. Result: **all 120 plume-shine values bit-identical**
+(first written as a mutation test expecting rejection; the fixture cannot tell
+the two integrators apart, so it pins the agreement instead).
 
 ## Results
 
