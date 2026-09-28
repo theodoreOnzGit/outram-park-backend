@@ -26,7 +26,10 @@
 //!
 //! The paper names these two as the design-basis accidents that lead to the
 //! largest potential dose to the public. The releases behind this table are
-//! the paper's Table 8, which is **not** digitised in this workspace. In both
+//! the paper's Table 8, ~~which is **not** digitised in this workspace~~
+//! **CORRECTED 2026-09-28**: now stored in
+//! [`crate::activity::accident_airborne_release`], which reuses the
+//! `AccidentCase` enum below. In both
 //! cases the release goes out through the 40 m exhaust stack, and the paper
 //! credits no filtering and no plate-out in the reactor building.
 //!

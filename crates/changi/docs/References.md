@@ -219,8 +219,9 @@ above.
 ### A normal-operation release is not an accident source term
 
 This table is routine, unfiltered, conservative effluent over a year. The same
-paper's accident releases (Table 8) are a different quantity and are not
-digitised here. `RESPONSIBLE_USE.md` applies in full: this is not a release
+paper's accident releases (Table 8) are a different quantity ~~and are not
+digitised here~~ (**CORRECTED 2026-09-28**: now stored separately; see the
+Table 8 section below). `RESPONSIBLE_USE.md` applies in full: this is not a release
 figure for HTR-10 or any other plant for any operational, licensing or safety
 purpose.
 
@@ -396,7 +397,7 @@ has been added there.
 | Publication | *Nuclear Engineering and Design* **218** (2002) 81–90, Elsevier |
 | Table | Table 9, "Individual doses caused by accidents of the HTR-10 (mSv)". Journal p. 88 (PDF page 8), printed with Tables 8 and 10 |
 | Quantity | Individual dose to a member of the public, **mSv per accident** (no time basis or integration period is stated), at 13 distances from the release point, 0.25–75 km (column `distance_km`). Two quantities, **thyroid** and **whole-body**, for each of two accidents: columns `depressurization_thyroid_msv`, `depressurization_whole_body_msv`, `water_ingress_thyroid_msv`, `water_ingress_whole_body_msv` |
-| Scenarios (paper Section 4.1) | The two design-basis accidents the paper identifies as giving the largest potential public dose. **Depressurization:** loss of primary helium through a ruptured 65 mm fuel-element charging tube; release of the primary-helium activity, plus desorption from circuit surfaces, dust-bound activity and helium-purification-system activity; no release from the coated particles (peak fuel temperature 1033 °C per the paper's cited transient analysis, against a 1600 °C limit). **Water ingress:** two-ended rupture of two steam-generator tubes with steam relief failed (at most 129.9 kg of water); ~23 % of the primary-helium activity, wash-off of steam-generator deposits, activity in ≤ 4.88 kg of corroded graphite. Both released via the 40 m stack with no filtering or plate-out credited. The releases are the paper's Table 8, **not** digitised in this workspace |
+| Scenarios (paper Section 4.1) | The two design-basis accidents the paper identifies as giving the largest potential public dose. **Depressurization:** loss of primary helium through a ruptured 65 mm fuel-element charging tube; release of the primary-helium activity, plus desorption from circuit surfaces, dust-bound activity and helium-purification-system activity; no release from the coated particles (peak fuel temperature 1033 °C per the paper's cited transient analysis, against a 1600 °C limit). **Water ingress:** two-ended rupture of two steam-generator tubes with steam relief failed (at most 129.9 kg of water); ~23 % of the primary-helium activity, wash-off of steam-generator deposits, activity in ≤ 4.88 kg of corroded graphite. Both released via the 40 m stack with no filtering or plate-out credited. The releases are the paper's Table 8, ~~**not** digitised in this workspace~~ **CORRECTED 2026-09-28**: now stored, see the Table 8 section below |
 | Nature | **A published model result, not a measurement.** Calculated by the authors with the German code STOERNEU |
 | Basis stated (paper Section 4.2, pp. 88–89) | Pathways: gamma and beta submersion, gamma from contaminated ground, inhalation, ingestion. Stack height 40 m; reactor building 28 m high, 30 m wide |
 | Basis **not** stated | Dose integration period; receptor age group; meteorology/dispersion conditions; azimuth (unlike Table 7, no "direction of maximum dose" is claimed); dose coefficients; whether "whole-body" is an effective dose. None of these is assumed in the loader or its docs |
@@ -473,3 +474,98 @@ emergency-planning (including emergency-zone sizing) or safety purpose; this
 workspace uses it for research-grade safety analysis only. Storing it does not
 bring dose assessment into `changi`'s current scope (see
 `crates/changi/CLAUDE.md`).
+
+## HTR-10 airborne release for two design-basis accidents
+
+`reference/htr10_accident_airborne_release.csv`, exposed by
+`changi::activity::accident_airborne_release`. Added 2026-09-28. **Reference
+data only: nothing in this crate or in `htgr_sim_v1` consumes it.** It is the
+release behind the Table 9 doses in the section above, and reuses that
+loader's `AccidentCase` enum.
+
+| Field | Value |
+|---|---|
+| Source | Liu Yuanzhong and Cao Jianzhu, "Fission product release and its environment impact for normal reactor operations and for relevant accidents" (citekey `yuanzhong2002fission`) |
+| Publication | *Nuclear Engineering and Design* **218** (2002) 81–90, Elsevier |
+| Table | Table 8, "The HTR-10 accidental radioactivity release (Bq)". Journal p. 88 (PDF page 8), printed with Tables 9 and 10 |
+| Quantity | Activity released to the environment per nuclide, **Bq per accident** (unit in the table title; no release duration or time profile is stated). Columns `depressurization_release_bq`, `water_ingress_release_bq` |
+| Scenarios (paper Section 4.1) | As in the Table 9 section above. **Depressurization** (ruptured 65 mm fuel-element charging tube): primary-helium activity, desorption from circuit surfaces, 10 % of the dust, and helium-purification-system activity (100 % of noble gases, H-3 and C-14; 10 % of iodine and metal fission products). **Water ingress** (two steam-generator tubes ruptured, steam relief failed): ~23 % of the primary-helium activity, water wash-off of the whole steam-generator deposit, activity in ≤ 4.88 kg of corroded graphite. No coated-particle release; stack release with no filtering or plate-out credited |
+| Contents | 18 nuclides: 8 noble gases (Kr-83m, Kr-85m, Kr-85, Kr-88, Xe-131m, Xe-133m, Xe-133, Xe-135), 4 iodines (no I-134), Sr-90 (not Sr-89 as in Tables 3 and 5), Cs-134, Cs-137, Ag-110m, H-3, C-14 |
+| Nature | **A published model result, not a measurement.** The paper names no code for the release calculation; STOERNEU is the code it names for the doses (Table 9) computed from it |
+| Basis **not** stated | Release duration/time profile; the inventory state (e.g. Table 3's end-of-life primary helium) the release starts from |
+| Copyright | "© 2002 Elsevier Science B.V. All rights reserved." |
+| Access terms | **Restricted.** No reuse licence is stated. The PDF is held in the maintainer's private literature repository and is **not** redistributed. Only the cited table of 36 values is reproduced, as ordinary scientific citation. No prose from the paper is copied |
+| Date accessed / digitised | 2026-09-28 |
+
+### How the values were obtained and verified
+
+The maintainer digitised the table on 2026-09-28 with kovan's table digitiser
+(GUI table grid, every value entered by hand). The kovan record is
+`id = "table-8"`, `kind = "digitised_table"`, `[source] page = 8`,
+`[extraction] method = "pdf_native"`, saved 2026-09-28T03:34:03Z, in the
+maintainer's notes for `yuanzhong2002fission`.
+
+An AI agent (Claude, under maintainer direction) checked all 36 values on
+2026-09-28 against two other readings of the page:
+
+1. **The PDF text layer**, `pdftotext -f 8 -l 8 -layout`, in which each row
+   of Table 8 comes out on one line in column order. Compared
+   programmatically with the CSV and with the kovan record: identical on all
+   18 rows, all 36 values and the order.
+2. **The rendered page**, rasterised locally and read by eye by the agent
+   (not a human check), to confirm the column headers and the last row's
+   label.
+
+**No value discrepancy.** One label correction, below.
+
+### Correction: the paper's "C-4" is stored as C-14
+
+The last row is printed **"C-4"**: in the text layer, on the rendered page,
+and in the kovan record. No nuclide C-4 exists. It is stored as **C-14**
+because (a) the paper's Section 4.1.1.4 names C-14 among the species
+released from the helium purification system; (b) its Table 5 lists C-14 in
+the same position, after H-3; (c) the water-ingress value, 1.9×10^4 Bq, is
+0.30 of the primary-helium C-14 total the paper's text states (6.3×10^4 Bq),
+the same fraction as every noble gas and H-3 (below). The loader returns
+`None` for `"C-4"`. If the maintainer prefers the printed label, change the
+CSV and the two tests that name it.
+
+### Processing
+
+- Notation: the source's `6.3E8` is written `6.3E+08`, matching the other
+  CSVs. Significant figures are as published (two).
+- Row order and column order are the source's. No unit conversion.
+
+### What the numbers do (recorded, not imposed)
+
+Pinned by the tests in `src/activity/accident_airborne_release.rs`
+(2026-09-28):
+
+- **The paper's "approximate 23 %" does not reproduce.** For water ingress,
+  Table 8 divided by the Table 3 primary-helium activity is 0.295–0.315 for
+  all eight noble gases and H-3, and 0.30 for C-14 (against the text's
+  6.3×10^4 Bq). The fraction is uniform across half-lives from hours to
+  10.7 years, so a single factor of about 0.30 appears to have been applied;
+  0.23 lies outside two-significant-figure rounding of every ratio. The paper
+  does not explain the difference (a different helium inventory from Table
+  3's end-of-life one, or a different fraction, are both possible). Reported
+  as a disagreement in the source, not reconciled.
+- For depressurization, every noble gas and H-3 exceeds its Table 3
+  primary-helium activity (1.17× for Kr-83m to 50× for Kr-85), consistent
+  with the helium-purification-system inventory being added.
+- Totals: 4.51×10^10 Bq (depressurization, dominated by Xe-133 and H-3) and
+  5.67×10^9 Bq (water ingress). Depressurization releases more of every
+  noble gas, H-3 and C-14; water ingress releases more I-131 (8.8×), I-133,
+  Sr-90, Cs-134 and Cs-137 (2.4×). The paper states no totals for this table,
+  so there is nothing to check them against.
+- The direction matches Table 9, where water ingress gives the larger thyroid
+  and whole-body doses, but the paper gives no quantitative link that could
+  be checked, and none is claimed.
+
+### Not a basis for anything
+
+One published calculation for two design-basis accidents with no
+coated-particle release. `RESPONSIBLE_USE.md` applies in full: this is not a
+release figure for HTR-10 or any other plant for any operational, licensing,
+siting, emergency-planning or safety purpose; this workspace uses it for
+research-grade safety analysis only.

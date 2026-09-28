@@ -83,7 +83,8 @@ here.~~ **CHANGED 2026-09-28** (maintainer: "update changi to include nuclide
 tables"): changi **is** the home for published nuclide tables of activities
 and releases, since the dispersion chain is their consumer. Each one sits in
 `reference/` as a CSV, is compiled in by its own loader under
-`src/activity/` (sharing `inventory::parse_nuclide_bq_csv`), and has a full
+`src/activity/` (the two-column ones sharing `inventory::parse_nuclide_bq_csv`;
+Table 8's two-case CSV has its own three-column parser), and has a full
 provenance section in `docs/References.md`. The rule that still stands: **no
 half-life or decay-constant tables** here. Those come from `boon-lay`.
 
@@ -95,6 +96,7 @@ Tables held today, all from Liu and Cao (2002), NED 218, 81–90:
 | 3 | Primary-helium activity at end of a 20-year life, 20 nuclides (Bq) | `htr10_primary_helium_activity_end_of_life.csv` | `activity/primary_helium.rs` |
 | 5 | Annual normal-operation airborne release, 22 nuclides (Bq/a) | `htr10_normal_operation_annual_airborne_release.csv` | `activity/airborne_release.rs` |
 | 7 | Individual effective dose vs distance, normal operation (mSv/a) — **not** a nuclide table; see below | `htr10_normal_operation_individual_dose_by_distance.csv` | `activity/published_dose_by_distance.rs` |
+| 8 | Airborne release for two design-basis accidents (depressurization, water ingress), 18 nuclides (Bq per accident); the paper's "C-4" stored as C-14. Added 2026-09-28 | `htr10_accident_airborne_release.csv` | `activity/accident_airborne_release.rs` |
 | 9 | Individual thyroid and whole-body dose vs distance, two design-basis accidents (depressurization, water ingress) (mSv) — **not** a nuclide table; see below. Added 2026-09-28 | `htr10_accident_individual_dose_by_distance.csv` | `activity/published_accident_dose_by_distance.rs` |
 
 Nothing in the workspace consumes these tables yet.

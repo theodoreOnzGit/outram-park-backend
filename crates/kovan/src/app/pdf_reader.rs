@@ -1907,8 +1907,9 @@ impl PdfReaderState {
         match self.crop_region_of_page(page, region) {
             Ok((raster, min, max)) => {
                 self.annotate_page = page;
-                // The re-digitise save goes through `replace_artifact_body`,
-                // which keeps the original `[source]` (region included), so
+                // The re-digitise save goes through `replace_digitisation`
+                // (CORRECTED 2026-09-28, was `replace_artifact_body`), which
+                // keeps the original `[source]` (region included), so
                 // `page_px`/`region()` are irrelevant here — only the id
                 // matters, to target the right block.
                 let prov = CropProvenance {

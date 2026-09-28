@@ -171,6 +171,11 @@ pub struct PlotSetup {
     /// top of the last result — otherwise nudging the slider ten times
     /// would blur the figure ten times over.
     pub skew_degrees: f64,
+    /// Set when the form was prefilled from a saved digitisation ("Edit
+    /// digitisation"): what was restored, and what the artifact did not
+    /// record and so was left for the operator. Shown above every stage.
+    /// `None` for a fresh crop. See [`super::saved_digitisation`].
+    pub prefill_note: Option<String>,
 }
 
 /// Hand-written rather than derived: a derived `Default` would leave
@@ -187,6 +192,7 @@ impl Default for PlotSetup {
             show_grid: true,
             grid_spacing: 40.0,
             skew_degrees: 0.0,
+            prefill_note: None,
             figure: String::new(),
             document_title: String::new(),
             page: String::new(),
@@ -463,6 +469,9 @@ impl PlotSetup {
             self.stage.title()
         ));
         ui.label("Answer these off the figure's caption and axes; the digitiser opens with them filled in.");
+        if let Some(note) = &self.prefill_note {
+            ui.colored_label(egui::Color32::from_rgb(120, 180, 230), note);
+        }
         ui.separator();
 
         match self.stage {
@@ -679,6 +688,7 @@ mod tests {
             skew_degrees: 0.0,
             show_grid: false,
             grid_spacing: 40.0,
+            prefill_note: None,
             figure: "Fig. 7".into(),
             document_title: "Verfondern 1990".into(),
             page: "12".into(),

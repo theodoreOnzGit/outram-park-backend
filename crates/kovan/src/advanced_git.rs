@@ -71,6 +71,17 @@ pub fn save(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
     repository::save_repository(root)
 }
 
+/// [`save`] with the user's own commit `note` appended to every commit the
+/// save makes (subjects unchanged) — see
+/// [`crate::repository::save_repository_with_message`]. A blank note is
+/// exactly [`save`].
+pub fn save_with_message(
+    root: &KovanRoot,
+    note: &str,
+) -> Result<Option<SaveSummary>, RepositoryError> {
+    repository::save_repository_with_message(root, note)
+}
+
 /// Up to `max` commits of history, newest first — reuses
 /// `kovan_discovery::git::GitProvider`, already this workspace's tested
 /// git-history reader, rather than a second implementation.

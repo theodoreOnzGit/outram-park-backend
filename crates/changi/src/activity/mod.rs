@@ -80,6 +80,11 @@
 /// operation (Liu and Cao 2002, Table 5). Reference data only; nothing in this
 /// crate consumes it.
 pub mod airborne_release;
+/// Published HTR-10 airborne release for two design-basis accidents
+/// (depressurization, water ingress; Liu and Cao 2002, Table 8), in Bq per
+/// accident. Reference data only; nothing in this crate consumes it.
+/// Added 2026-09-28.
+pub mod accident_airborne_release;
 pub mod decay_transfer;
 /// A published HTR-10 core inventory, so a source term can be built from
 /// measured magnitudes rather than round illustrative numbers. An inventory

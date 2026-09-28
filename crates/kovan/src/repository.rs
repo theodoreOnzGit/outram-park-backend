@@ -111,6 +111,61 @@ impl SaveSummary {
     }
 }
 
+/// The commit message a Save Repository writes: the `generated` one, with
+/// the user's own `note` (the Save Repository tab's "what did you do?" box)
+/// inserted as the first paragraph of the body.
+///
+/// ```text
+/// Save Kovan repository            <- generated subject, never changed
+///
+/// <the user's note, verbatim>      <- only when the note is non-blank
+///
+/// Added:                           <- the generated body, as before
+/// - notes/x.md
+/// ```
+///
+/// **The subject line is never changed** (decided 2026-09-28): every Save
+/// commit keeps the exact subject it had before this existed
+/// (`Save Kovan repository`, or `Save Kovan repository: open corpus` in the
+/// open corpus), so `git log --grep '^Save Kovan repository'` and the
+/// one-line history list stay uniform, and a note of any length or shape
+/// can never produce an over-long or multi-line subject. The note goes
+/// first in the body because it is the part a human wrote; the file list
+/// under it is the part a machine can regenerate.
+///
+/// Whitespace: trailing whitespace is stripped from every line (including
+/// `\r` from pasted CRLF text) and leading/trailing blank lines of the note
+/// are dropped; everything else — interior blank lines, indentation, and
+/// lines starting with `#` — is kept exactly. A blank note returns
+/// `generated` unchanged, byte for byte.
+pub fn compose_commit_message(generated: &str, note: &str) -> String {
+    let lines: Vec<&str> = note.lines().map(str::trim_end).collect();
+    let Some(first) = lines.iter().position(|l| !l.is_empty()) else {
+        return generated.to_string();
+    };
+    let last = lines.iter().rposition(|l| !l.is_empty()).unwrap_or(first);
+    let body = lines[first..=last].join("\n");
+
+    let (subject, rest) = match generated.split_once('\n') {
+        Some((subject, rest)) => (subject, rest),
+        None => (generated, ""),
+    };
+    let mut out = String::with_capacity(generated.len() + body.len() + 4);
+    out.push_str(subject);
+    out.push_str("\n\n");
+    out.push_str(&body);
+    out.push('\n');
+    // `rest` is either empty or starts with the blank line that separated
+    // the subject from the generated body; keep it as the separator.
+    if !rest.trim().is_empty() {
+        if !rest.starts_with('\n') {
+            out.push('\n');
+        }
+        out.push_str(rest);
+    }
+    out
+}
+
 /// Whether `path` (absolute, under `root`) must never be part of a
 /// Save-Repository tree — §4/§46: restricted source documents, Kovan's own
 /// disposable state, and `.git` itself.
@@ -450,7 +505,10 @@ fn private_submodule_head(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
 /// (nothing a gitlink could point at) — [`save_repository`] falls back to
 /// excluding the directory entirely in that case, same as an unconfigured
 /// or not-ready private submodule.
-fn save_private_submodule(root: &KovanRoot) -> Result<Option<gix::ObjectId>, RepositoryError> {
+fn save_private_submodule(
+    root: &KovanRoot,
+    note: &str,
+) -> Result<Option<gix::ObjectId>, RepositoryError> {
     let submodule_dir = root.restricted_sources_dir();
     let mut sub_repo =
         gix::open(&submodule_dir).map_err(|e| RepositoryError::Git(e.to_string()))?;
@@ -466,7 +524,8 @@ fn save_private_submodule(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
         });
     }
 
-    let commit_id = commit_tree(&mut sub_repo, tree_id, summary.to_commit_message())?;
+    let message = compose_commit_message(&summary.to_commit_message(), note);
+    let commit_id = commit_tree(&mut sub_repo, tree_id, message)?;
     Ok(Some(commit_id))
 }
 
@@ -558,7 +617,15 @@ fn repo_head(dir: &Path) -> Option<gix::ObjectId> {
 /// often shared, e.g. `reactor-literature`, and has build files of its
 /// own). The user's Git identity is used when set, Kovan's otherwise.
 /// Without `git`, nothing is committed and the current `HEAD` is recorded.
-fn commit_open_corpus(dir: &Path) -> Result<(), RepositoryError> {
+///
+/// The message is `Save Kovan repository: open corpus` with the user's
+/// `note` appended as its body ([`compose_commit_message`]). It is passed
+/// as a single `-m` argument (no shell) with `--cleanup=verbatim`, so Git
+/// stores the same body the `gix` commits store — a `#` line is kept, and
+/// interior blank lines are not collapsed. With an empty note the stored
+/// message is byte-for-byte what it was before notes existed (pinned by a
+/// test).
+fn commit_open_corpus(dir: &Path, note: &str) -> Result<(), RepositoryError> {
     use std::process::Command;
     if !crate::advanced_git::system_git_available() {
         return Ok(());
@@ -588,11 +655,12 @@ fn commit_open_corpus(dir: &Path) -> Result<(), RepositoryError> {
         return Ok(()); // nothing staged
     }
     let has_identity = git(&["config", "user.email"])?.status.success();
+    let message = compose_commit_message("Save Kovan repository: open corpus", note);
     let mut args = Vec::new();
     if !has_identity {
         args.extend(["-c", "user.name=Kovan", "-c", "user.email=kovan@localhost"]);
     }
-    args.extend(["commit", "-q", "-m", "Save Kovan repository: open corpus"]);
+    args.extend(["commit", "-q", "--cleanup=verbatim", "-m", &message]);
     let commit = git(&args)?;
     if commit.status.success() {
         Ok(())
@@ -611,10 +679,14 @@ fn commit_open_corpus(dir: &Path) -> Result<(), RepositoryError> {
 /// the private one as before ([`save_private_submodule`]), the open one
 /// with Git ([`commit_open_corpus`]). The standard corpus is never
 /// committed into: it is read-only to everyone but its maintainer.
+///
+/// `commit` is `None` for a read-only preview ([`status`]) and
+/// `Some(note)` for a save, `note` being the user's commit note (possibly
+/// empty) that each corpus commit carries in its body too.
 fn submodule_gitlinks(
     root: &KovanRoot,
     repo: &gix::Repository,
-    commit: bool,
+    commit: Option<&str>,
 ) -> Result<Vec<SubmoduleGitlink>, RepositoryError> {
     let paths = &root.config().paths;
     let mut rels = registered_submodules(root);
@@ -631,14 +703,16 @@ fn submodule_gitlinks(
             // either way ([`is_excluded`]).
             if repo_head(&dir).is_none() && !private_ready {
                 None
-            } else if commit {
-                save_private_submodule(root)?
+            } else if let Some(note) = commit {
+                save_private_submodule(root, note)?
             } else {
                 private_submodule_head(root)?
             }
         } else {
-            if commit && rel == paths.open_sources && repo_head(&dir).is_some() {
-                commit_open_corpus(&dir)?;
+            if let Some(note) = commit {
+                if rel == paths.open_sources && repo_head(&dir).is_some() {
+                    commit_open_corpus(&dir, note)?;
+                }
             }
             repo_head(&dir)
         };
@@ -655,7 +729,7 @@ fn submodule_gitlinks(
 /// that guarantee's coverage.
 pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
     let repo = open(root)?;
-    let gitlinks = submodule_gitlinks(root, &repo, false)?;
+    let gitlinks = submodule_gitlinks(root, &repo, None)?;
     let (_tree_id, blobs) = build_tree(&repo, root, &gitlinks)?;
     diff_against_head(&repo, &blobs)
 }
@@ -677,6 +751,22 @@ pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
 /// this existed: the directory is excluded from the parent tree entirely,
 /// same as any other gitignored, local-only content.
 pub fn save_repository(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
+    save_repository_with_message(root, "")
+}
+
+/// [`save_repository`], with the user's own commit `note` appended to the
+/// generated message of **every** commit the save makes — the private
+/// submodule's, the open corpus's and the Kovan repository's — so each
+/// repository's history explains itself. Subjects are unchanged; see
+/// [`compose_commit_message`] for the exact layout. A blank `note` is
+/// exactly [`save_repository`].
+///
+/// A note does not make an otherwise clean save commit anything: with
+/// nothing changed this is still `Ok(None)`, and the caller keeps the note.
+pub fn save_repository_with_message(
+    root: &KovanRoot,
+    note: &str,
+) -> Result<Option<SaveSummary>, RepositoryError> {
     let mut repo = open(root)?;
 
     if root.private_submodule_ready() {
@@ -684,7 +774,7 @@ pub fn save_repository(root: &KovanRoot) -> Result<Option<SaveSummary>, Reposito
             write_gitmodules(root, submodule)?;
         }
     }
-    let gitlinks = submodule_gitlinks(root, &repo, true)?;
+    let gitlinks = submodule_gitlinks(root, &repo, Some(note))?;
 
     let (tree_id, blobs) = build_tree(&repo, root, &gitlinks)?;
     let summary = diff_against_head(&repo, &blobs)?;
@@ -692,7 +782,8 @@ pub fn save_repository(root: &KovanRoot) -> Result<Option<SaveSummary>, Reposito
         return Ok(None);
     }
 
-    commit_tree(&mut repo, tree_id, summary.to_commit_message())?;
+    let message = compose_commit_message(&summary.to_commit_message(), note);
+    commit_tree(&mut repo, tree_id, message)?;
     Ok(Some(summary))
 }
 
@@ -1181,6 +1272,167 @@ mod tests {
             text.matches("path = literature/proprietary").count(),
             1,
             "{text}"
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // User commit notes (maintainer request, 2026-09-28).
+    // -------------------------------------------------------------------
+
+    const GENERATED: &str = "Save Kovan repository\n\nAdded:\n- notes/a.md\n";
+
+    #[test]
+    fn a_blank_note_leaves_the_generated_message_unchanged() {
+        for note in ["", "   ", "\n\n", " \t\r\n  \n"] {
+            assert_eq!(compose_commit_message(GENERATED, note), GENERATED);
+            assert_eq!(
+                compose_commit_message("Save Kovan repository: open corpus", note),
+                "Save Kovan repository: open corpus"
+            );
+        }
+    }
+
+    #[test]
+    fn a_one_line_note_becomes_the_first_body_paragraph() {
+        assert_eq!(
+            compose_commit_message(GENERATED, "read Hu et al. ch. 3"),
+            "Save Kovan repository\n\nread Hu et al. ch. 3\n\nAdded:\n- notes/a.md\n"
+        );
+    }
+
+    #[test]
+    fn a_note_on_a_subject_only_message_keeps_the_subject() {
+        assert_eq!(
+            compose_commit_message("Save Kovan repository: open corpus", "added a pdf"),
+            "Save Kovan repository: open corpus\n\nadded a pdf\n"
+        );
+    }
+
+    #[test]
+    fn a_multi_line_note_keeps_its_interior_blank_lines() {
+        assert_eq!(
+            compose_commit_message(GENERATED, "line one\nline two\n\nsecond para"),
+            "Save Kovan repository\n\nline one\nline two\n\nsecond para\n\nAdded:\n- notes/a.md\n"
+        );
+    }
+
+    #[test]
+    fn surrounding_blank_lines_and_trailing_whitespace_are_trimmed() {
+        assert_eq!(
+            compose_commit_message(GENERATED, "\n\n  indented   \r\nnext\t\n\n\n"),
+            "Save Kovan repository\n\n  indented\nnext\n\nAdded:\n- notes/a.md\n"
+        );
+    }
+
+    #[test]
+    fn a_line_starting_with_hash_is_kept() {
+        assert_eq!(
+            compose_commit_message(GENERATED, "# not a comment\nok"),
+            "Save Kovan repository\n\n# not a comment\nok\n\nAdded:\n- notes/a.md\n"
+        );
+    }
+
+    /// The full commit message (`%B`) of `HEAD` in the repository at `dir`,
+    /// as Git itself reports it.
+    fn head_message(dir: &Path) -> String {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["log", "-1", "--format=%B"])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    /// The real save path, end to end: the note lands in the Kovan
+    /// repository's commit under the unchanged subject, `#` lines survive,
+    /// and the generated file list is still there.
+    #[test]
+    fn save_with_a_note_commits_it_under_the_generated_subject() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let (_dir, root) = make_root();
+        save_repository(&root).unwrap().unwrap();
+        std::fs::write(root.path().join("notes.md"), b"x").unwrap();
+        let note = "read the HTR-10 paper\n# kept, not a comment\n";
+        save_repository_with_message(&root, note).unwrap().unwrap();
+        let msg = head_message(root.path());
+        assert!(msg.starts_with("Save Kovan repository\n\n"), "{msg:?}");
+        assert!(
+            msg.contains("read the HTR-10 paper\n# kept, not a comment\n\nAdded:\n"),
+            "{msg:?}"
+        );
+        assert!(msg.contains("- notes.md"), "{msg:?}");
+    }
+
+    /// No note: exactly the message a save wrote before notes existed.
+    #[test]
+    fn save_without_a_note_writes_exactly_the_old_message() {
+        let (_dir, root) = make_root();
+        save_repository(&root).unwrap().unwrap();
+        std::fs::write(root.path().join("notes.md"), b"x").unwrap();
+        let summary = save_repository_with_message(&root, "  \n")
+            .unwrap()
+            .unwrap();
+        let repo = gix::open(root.path()).unwrap();
+        let head = repo.find_commit(repo.head_id().unwrap().detach()).unwrap();
+        assert_eq!(
+            head.message_raw_sloppy().to_string(),
+            summary.to_commit_message()
+        );
+    }
+
+    /// A clean folder with a note still commits nothing.
+    #[test]
+    fn a_note_alone_does_not_make_a_commit() {
+        let (_dir, root) = make_root();
+        save_repository(&root).unwrap().unwrap();
+        let before = gix::open(root.path()).unwrap().head_id().unwrap().detach();
+        assert_eq!(save_repository_with_message(&root, "hello").unwrap(), None);
+        let after = gix::open(root.path()).unwrap().head_id().unwrap().detach();
+        assert_eq!(before, after);
+    }
+
+    /// The note also goes into the open corpus's own commit (system `git`
+    /// path) and the private submodule's (`gix` path), subjects unchanged;
+    /// with no note, the open corpus commit is byte-for-byte the old one.
+    #[test]
+    fn the_note_is_appended_to_every_corpus_commit_too() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let root = root_with_corpora(tmp.path());
+        save_repository(&root).unwrap().unwrap();
+
+        std::fs::write(root.open_corpus_dir().join("me-open-corpus/n.pdf"), b"n").unwrap();
+        save_repository(&root).unwrap().unwrap();
+        assert_eq!(
+            head_message(&root.open_corpus_dir()),
+            "Save Kovan repository: open corpus\n\n"
+        );
+
+        std::fs::write(root.open_corpus_dir().join("me-open-corpus/m.pdf"), b"m").unwrap();
+        std::fs::write(root.restricted_sources_dir().join("papers/d.pdf"), b"d").unwrap();
+        let note = "two new papers\n\n# section\nmore";
+        save_repository_with_message(&root, note).unwrap().unwrap();
+        assert_eq!(
+            head_message(&root.open_corpus_dir()),
+            "Save Kovan repository: open corpus\n\ntwo new papers\n\n# section\nmore\n\n"
+        );
+        let private = head_message(&root.restricted_sources_dir());
+        assert!(
+            private.starts_with(
+                "Save Kovan repository\n\ntwo new papers\n\n# section\nmore\n\nAdded:\n"
+            ),
+            "{private:?}"
+        );
+        let parent = head_message(root.path());
+        assert!(
+            parent.starts_with("Save Kovan repository\n\ntwo new papers\n"),
+            "{parent:?}"
         );
     }
 }

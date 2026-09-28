@@ -12,7 +12,8 @@
 //! It is the counterpart to [`super::inventory`]. That module is what is *in
 //! the core*; this one is what the source calculates *gets out* during normal
 //! operation. That is **not** an accident source term, which the same paper
-//! tabulates separately (its Table 8, not digitised here).
+//! tabulates separately (its Table 8, ~~not digitised here~~ **CORRECTED
+//! 2026-09-28**: now in [`crate::activity::accident_airborne_release`]).
 //!
 //! # Basis of the source's calculation (so a reader knows what it includes)
 //!

@@ -685,6 +685,17 @@ was tested; it just had no button wired to it).
 pub fn save(root: &crate::root::KovanRoot) -> Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError> { /* ... */ }
 ```
 
+#### Function `save_with_message`
+
+[`save`] with the user's own commit `note` appended to every commit the
+save makes (subjects unchanged) — see
+[`crate::repository::save_repository_with_message`]. A blank note is
+exactly [`save`].
+
+```rust
+pub fn save_with_message(root: &crate::root::KovanRoot, note: &str) -> Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError> { /* ... */ }
+```
+
 #### Function `history`
 
 Up to `max` commits of history, newest first — reuses
@@ -4137,7 +4148,10 @@ place:
   selection, or the PDF reader's "Save page annotations" flow.
 - [`save_digitised_csv`] — from either digitiser tab's "save into notes".
 - [`replace_artifact_body`] — the page-context panel's inline block
-  editor, and a re-digitise replacing its source block in place.
+  editor (body only, metadata kept verbatim).
+- [`replace_digitisation`] — a re-digitise replacing its block in place,
+  body **and** `[extraction]` (CORRECTED 2026-09-28: this used to go
+  through [`replace_artifact_body`] and kept the stale extraction).
 
 The interactive triggers live in `crate::app` (the PDF reader's
 annotate/crop canvas and the digitiser tabs); this module is UI-free.
@@ -5068,6 +5082,36 @@ fails.
 pub fn replace_artifact_body(session: &mut crate::session::PaperSession, id: &str, new_body: &str) -> Result<crate::artifact::Artifact, ClassifyError> { /* ... */ }
 ```
 
+#### Function `replace_digitisation`
+
+Re-save a **digitisation** over the artifact with stable id `id`: swap its
+body AND, when one is supplied, its `[extraction]` provenance.
+
+[`replace_artifact_body`] keeps the old metadata verbatim, which is right
+for a prose edit and wrong for a re-digitisation: the calibration strings,
+labels, `digitised_by` and `digitised_at` describe how the data were
+produced, so keeping the old ones after the data changed makes the
+artifact's provenance contradict its CSV (maintainer, 2026-09-28: PANAMA
+Figs. 6 and 7 re-digitised with the y top corrected to 10^0 still read
+`px 88.03 = 10` and `digitised_at = 2026-09-24`).
+
+- `extraction` `Some`: replaces `[extraction]` wholesale, with
+  `digitised_at` stamped to **now** (the re-save time). `None` keeps the
+  old `[extraction]`, as before.
+- `[kovan]` `id`/`kind`/`created`, `[source]`, classification, relation
+  and connections are kept; `modified` is bumped.
+- `[kovan].reviewed` is **cleared when the body changed**: a human review
+  vouched for data that no longer exist, and leaving the stamp would claim
+  the new numbers were checked. An unchanged body keeps it.
+
+# Errors
+
+As [`replace_artifact_body`].
+
+```rust
+pub fn replace_digitisation(session: &mut crate::session::PaperSession, id: &str, new_body: &str, extraction: Option<crate::artifact::Extraction>) -> Result<crate::artifact::Artifact, ClassifyError> { /* ... */ }
+```
+
 #### Function `retarget_document`
 
 Rewrite every concept path a markdown document refers to, returning the
@@ -5111,9 +5155,12 @@ notes" goes through (GH issue #35 2026-09-02: digitised blocks become
 real fenced-TOML artifacts so the page-context panel can re-open them).
 
 When `replace_id` names an existing artifact — a *re-digitise* of a
-block the panel double-click re-cropped — only its body is swapped
-([`replace_artifact_body`]), keeping the original `[source]`/`[extraction]`
-and not appending a duplicate. Otherwise a new artifact is inserted with
+block the panel double-click re-cropped — ~~only its body is swapped
+([`replace_artifact_body`]), keeping the original `[source]`/`[extraction]`~~
+**CORRECTED 2026-09-28**: its body and `[extraction]` are swapped
+([`replace_digitisation`]; the old extraction is kept only when
+`extraction` is `None`), `[source]` is kept, and nothing is appended.
+The same-heading overwrite below goes through the same function. Otherwise a new artifact is inserted with
 `kind`, `anchor`, and an `[extraction]` block
 (`method = "manual_digitisation"`).
 
@@ -34101,6 +34148,40 @@ pub struct SaveSummary {
 - **WithSubscriber**
 ### Functions
 
+#### Function `compose_commit_message`
+
+The commit message a Save Repository writes: the `generated` one, with
+the user's own `note` (the Save Repository tab's "what did you do?" box)
+inserted as the first paragraph of the body.
+
+```text
+Save Kovan repository            <- generated subject, never changed
+
+<the user's note, verbatim>      <- only when the note is non-blank
+
+Added:                           <- the generated body, as before
+- notes/x.md
+```
+
+**The subject line is never changed** (decided 2026-09-28): every Save
+commit keeps the exact subject it had before this existed
+(`Save Kovan repository`, or `Save Kovan repository: open corpus` in the
+open corpus), so `git log --grep '^Save Kovan repository'` and the
+one-line history list stay uniform, and a note of any length or shape
+can never produce an over-long or multi-line subject. The note goes
+first in the body because it is the part a human wrote; the file list
+under it is the part a machine can regenerate.
+
+Whitespace: trailing whitespace is stripped from every line (including
+`\r` from pasted CRLF text) and leading/trailing blank lines of the note
+are dropped; everything else — interior blank lines, indentation, and
+lines starting with `#` — is kept exactly. A blank note returns
+`generated` unchanged, byte for byte.
+
+```rust
+pub fn compose_commit_message(generated: &str, note: &str) -> String { /* ... */ }
+```
+
 #### Function `status`
 
 What would change if [`save_repository`] ran right now — the "N changes
@@ -34133,6 +34214,22 @@ same as any other gitignored, local-only content.
 
 ```rust
 pub fn save_repository(root: &crate::root::KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> { /* ... */ }
+```
+
+#### Function `save_repository_with_message`
+
+[`save_repository`], with the user's own commit `note` appended to the
+generated message of **every** commit the save makes — the private
+submodule's, the open corpus's and the Kovan repository's — so each
+repository's history explains itself. Subjects are unchanged; see
+[`compose_commit_message`] for the exact layout. A blank `note` is
+exactly [`save_repository`].
+
+A note does not make an otherwise clean save commit anything: with
+nothing changed this is still `Ok(None)`, and the caller keeps the note.
+
+```rust
+pub fn save_repository_with_message(root: &crate::root::KovanRoot, note: &str) -> Result<Option<SaveSummary>, RepositoryError> { /* ... */ }
 ```
 
 ## Module `research_record`

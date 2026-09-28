@@ -211,7 +211,8 @@ here is activity released over one year, in Bq.
 It is the counterpart to [`super::inventory`]. That module is what is *in
 the core*; this one is what the source calculates *gets out* during normal
 operation. That is **not** an accident source term, which the same paper
-tabulates separately (its Table 8, not digitised here).
+tabulates separately (its Table 8, ~~not digitised here~~ **CORRECTED
+2026-09-28**: now in [`crate::activity::accident_airborne_release`]).
 
 # Basis of the source's calculation (so a reader knows what it includes)
 
@@ -405,6 +406,277 @@ absent was not reported, which is not the same thing as a zero release.
 
 ```rust
 pub fn htr10_annual_airborne_release(nuclide: &str) -> Option<uom::si::f64::Radioactivity> { /* ... */ }
+```
+
+## Module `accident_airborne_release`
+
+Published HTR-10 airborne release for two design-basis accidents
+(depressurization, water ingress; Liu and Cao 2002, Table 8), in Bq per
+accident. Reference data only; nothing in this crate consumes it.
+Added 2026-09-28.
+**A published airborne release from HTR-10 for two design-basis
+accidents, stored as reference data.**
+
+# What this is
+
+The activity of each nuclide that the source calculates is released to the
+environment, **in Bq per accident**, for the same two accidents as the
+paper's Table 9 doses ([`published_accident_dose_by_distance`][T9]):
+
+- **Depressurization accident** ([`AccidentCase::Depressurization`][D]):
+  primary helium lost through a ruptured 65 mm fuel-element charging tube.
+  The paper's Section 4.1.1 sums the primary-helium activity, fission
+  products desorbed from primary-circuit surfaces, dust-bound activity
+  (10 % of the dust assumed released) and activity bound in the helium
+  purification system (100 % of the noble gases, H-3 and C-14, 10 % of the
+  iodine and metal fission products, if its isolation fails).
+- **Water ingress accident** ([`AccidentCase::WaterIngress`][W]): two-ended
+  rupture of two steam-generator tubes with the steam relief system
+  failed. The paper's Section 4.1.2 sums about 23 % of the primary-helium
+  activity, water wash-off of the whole steam-generator deposit, and the
+  activity in up to 4.88 kg of corroded graphite.
+
+No release from the coated particles is assumed in either case. Both go
+out through the 40 m stack with no filtering or plate-out credited. The
+[`AccidentCase`][AC] enum is the one Table 9's loader defines, reused here so
+the two tables name the accidents identically.
+
+It is a **published model result, not a measurement.** The paper does not
+name a code for the release calculation. STOERNEU, named in its Section
+4.2, is the code for the *doses* computed from these releases (Table 9).
+The paper does **not** state the release duration or time profile, or the
+inventory state (e.g. end of life) the release is taken from.
+
+Eighteen nuclides: eight noble gases, four iodines (no I-134), Sr-90,
+Cs-134, Cs-137, Ag-110m, H-3 and C-14. Sr-90 appears here although the
+paper's Tables 3 and 5 list Sr-89 instead.
+
+# The C-14 label is a correction
+
+**The paper prints the last row as "C-4"** (text layer and rendered page
+agree, and so does the maintainer's kovan record). There is no nuclide
+C-4. The paper's Section 4.1.1.4 names C-14 among the released species,
+its Table 5 lists C-14 in the same position (after H-3), and the water
+ingress value is 0.30 of the paper's stated primary-helium C-14 total, the
+same fraction as every noble gas (see the test
+`water_ingress_noble_gases_h3_and_c14_are_0_30_of_primary_helium`). The row
+is therefore stored as **C-14**. Asking for `"C-4"` returns `None`.
+
+# A check against the paper's own statement, and what it found
+
+For water ingress the paper assumes "approximate 23 %" of the primary-helium
+activity is released. Wash-off acts on plated-out deposits, which do not
+include noble gases, so for noble gases and H-3 the helium should be the
+main source (the paper does not break down the corroded-graphite
+contribution by nuclide), and their Table 8 values divided by the Table 3
+primary-helium values should be about 0.23. **They are not: all eight
+noble gases and H-3 give 0.295 to 0.315**, and C-14 gives 0.30 against the
+text's stated total. The
+uniformity across half-lives from hours to years says a single fraction
+of about 0.30 was applied. The paper does not explain the difference; it
+may be a different helium inventory from Table 3's end-of-life one, or a
+different fraction. It is recorded, not reconciled.
+
+# What this is NOT
+
+- **Not wired into any model.** Nothing in this crate or in `htgr_sim_v1`
+  reads it, and `changi` computes no dose from it.
+- **Not a basis for emergency planning, emergency-zone sizing, siting,
+  licensing or any safety decision**, for HTR-10 or any other plant.
+  `RESPONSIBLE_USE.md` applies in full.
+- **Not a beyond-design-basis source term** (no particle failure), and not
+  the normal-operation release ([`crate::activity::airborne_release`], Table 5).
+
+# Provenance
+
+Liu Yuanzhong and Cao Jianzhu, *"Fission product release and its
+environment impact for normal reactor operations and for relevant
+accidents"*, **Nuclear Engineering and Design 218 (2002) 81–90**, Table 8
+(p. 88), "The HTR-10 accidental radioactivity release (Bq)". The basis
+above comes from the paper's Section 4.1 (pp. 86–89).
+
+Access terms, digitisation and verification are in
+`crates/changi/docs/References.md`. The document carries no reuse licence
+and is **not** redistributed here; only the cited table of 36 values is,
+which is ordinary scientific citation.
+
+[T9]: crate::activity::published_accident_dose_by_distance
+[AC]: crate::activity::published_accident_dose_by_distance::AccidentCase
+[D]: crate::activity::published_accident_dose_by_distance::AccidentCase::Depressurization
+[W]: crate::activity::published_accident_dose_by_distance::AccidentCase::WaterIngress
+
+```rust
+pub mod accident_airborne_release { /* ... */ }
+```
+
+### Types
+
+#### Struct `AccidentReleaseEntry`
+
+One row of the published accident release.
+
+```rust
+pub struct AccidentReleaseEntry {
+    pub nuclide: &'static str,
+    pub depressurization: uom::si::f64::Radioactivity,
+    pub water_ingress: uom::si::f64::Radioactivity,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide` | `&'static str` | Nuclide label, as the source tabulates it except that the source's<br>"C-4" is stored as `"C-14"` (see the module docs). |
+| `depressurization` | `uom::si::f64::Radioactivity` | Activity released to the environment in the depressurization accident. |
+| `water_ingress` | `uom::si::f64::Radioactivity` | Activity released to the environment in the water ingress accident. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn release(self: &Self, case: AccidentCase) -> Radioactivity { /* ... */ }
+  ```
+  The release for one accident case.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AccidentReleaseEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AccidentReleaseEntry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `htr10_accident_release`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Every nuclide in the published HTR-10 accident release, in the source's
+order (eighteen entries).
+
+The CSV has three columns, so the two-column
+`inventory::parse_nuclide_bq_csv` cannot read it; this parser
+follows the same rules (header skipped, a row that does not parse is
+dropped, which the row-count test catches).
+
+```rust
+pub fn htr10_accident_release() -> Vec<AccidentReleaseEntry> { /* ... */ }
+```
+
+#### Function `htr10_accident_airborne_release`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Look one nuclide's release up by label and accident.
+
+Returns `None` for a nuclide the table does not list. An absent nuclide
+was not reported, which is not the same thing as a zero release.
+
+```rust
+pub fn htr10_accident_airborne_release(nuclide: &str, case: AccidentCase) -> Option<uom::si::f64::Radioactivity> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `AccidentCase`
+
+```rust
+pub use super::published_accident_dose_by_distance::AccidentCase;
 ```
 
 ## Module `decay_transfer`
@@ -1129,7 +1401,10 @@ dose per accident, not a rate), at thirteen distances from 0.25 km to
 
 The paper names these two as the design-basis accidents that lead to the
 largest potential dose to the public. The releases behind this table are
-the paper's Table 8, which is **not** digitised in this workspace. In both
+the paper's Table 8, ~~which is **not** digitised in this workspace~~
+**CORRECTED 2026-09-28**: now stored in
+[`crate::activity::accident_airborne_release`], which reuses the
+`AccidentCase` enum below. In both
 cases the release goes out through the 40 m exhaust stack, and the paper
 credits no filtering and no plate-out in the reactor building.
 

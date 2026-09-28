@@ -1639,3 +1639,94 @@ column alignment, images (shown as links — no image loaders are installed).
   line); the TUI (ratatui `List` + `ListState` scrolls to the selection
   itself; its `Paragraph` panes have no cursor). `pdf_reader.rs` not audited
   (another session's).
+- **2026-09-28 — Save Repository takes an optional user commit note; the
+  generated subject never changes.** Maintainer: "is there a way i can put in
+  a commit message into kovan, so that it appends to the save kovan
+  repository?" The Save Repository tab now has a multiline "what did you do?
+  (optional)" box. Its text becomes the **first body paragraph** of every
+  commit the save makes — the Kovan repository's, the private submodule's
+  (both `gix`) and the open corpus's (system `git`, single `-m` argument,
+  `--cleanup=verbatim`, no shell) — under the **unchanged** subject
+  (`Save Kovan repository` / `Save Kovan repository: open corpus`), with the
+  generated Added/Edited/Removed list after it. Subject kept rather than
+  `Save Kovan repository: <first line>` so history stays uniformly greppable,
+  the open-corpus subject cannot collide, and no note can make an over-long
+  or multi-line subject; the cost is that the one-line History list does not
+  show the note. Trailing whitespace per line and surrounding blank lines
+  are trimmed; `#` lines and interior blank lines are kept (with `-m`, Git
+  keeps `#` lines anyway; verbatim also stops it collapsing blank lines, so
+  both code paths store the same body). A blank note is byte-for-byte the
+  old message (tested). The box is cleared only after a save that
+  committed; kept on failure and on nothing-to-save. Logic:
+  `repository::compose_commit_message`, `save_repository_with_message`,
+  `advanced_git::save_with_message`. Neither `kovan-cli` (code tooling, no
+  save command) nor the TUI has a save/commit command, so no `-m` flag was
+  added.
+- **2026-09-28 — "Edit digitisation" prefills the wizard and restores the
+  saved curves; a successful graph save returns to the PDF reader.**
+  Maintainer: "next time we have an edit digitisation, please pre-fill the
+  values in the wizard with existing values." Re-opening a saved
+  `digitised_graph` used to show the three-stage wizard empty and the
+  digitiser with no points. Now (`src/app/saved_digitisation.rs`, the exact
+  inverse of `DigitisedDataset::extraction` + `save_into_project`): the
+  figure (artifact heading), page, document title, both axis ranges and log
+  flags (parsed back from `[extraction].x_axis`/`y_axis`), and both labels
+  (extraction, else the CSV header unless it is the blank-label `x`/`y`
+  fallback) are prefilled; any field that does not parse is left blank and
+  named in a note shown above every wizard stage. On "Start digitising" the
+  curves come back from the CSV (`### Series:` blocks or the single fence):
+  earlier ones banked by name, the last one live. **Rectangle records carry
+  their reference pixels** (`px 107.2 = …`), so the reference lines go back
+  on them and each point to `saved_cal.pixel_at(x, y)`; values are kept
+  exactly (an untouched re-save writes a byte-identical body, pinned by a
+  test), and if a range was corrected in the wizard each value is re-read
+  from its saved pixel through the new calibration. **Limitations, stated in
+  the wizard note:** notes, rotation and deskew are not in the artifact, so
+  a figure that was turned must be turned again (points landing outside the
+  crop raise an error saying so); a **parallelogram record has no corners**,
+  so its points are held until the operator drags the corners back and
+  presses "Restore saved points" — pixels are never invented; per-point
+  origin/uncertainty are not in the CSV, so restored points are hand-placed
+  by the saved `digitised_by` with ±0.5 px uncertainty re-derived. Re-saving
+  still replaces the same artifact (`replace_id`). Tables already behaved
+  this way (Edit table skips the setup box and reloads the CSV into the grid,
+  `table_digitiser.rs::load_crop`/`resolve_reload`) — confirmed, unchanged.
+  Found by the round-trip test and fixed: saving without banking the last
+  curve dropped the name typed in the series box (it was written as
+  `series-N`). Also (maintainer, same day: "save csv into project markdown
+  should also move us into the pdf reader"): `save_into_project` now returns
+  whether it wrote, and the button's `save_into_project_then_read` switches
+  to the PDF reader on success only — failures stay in the digitiser with
+  the error, as the table digitiser's Save does.
+- **2026-09-28 — A re-digitise re-save rewrites `[extraction]`, not just the
+  body.** Maintainer, in real use: PANAMA Figs. 6 and 7, re-digitised via Edit
+  digitisation with the y top corrected to 10^0, still read `px 88.03 = 10` /
+  `px 35.40 = 10` and `digitised_at = 2026-09-24`. That happened because both replace
+  branches of `classify::save_digitised_csv` (`replace_id`, and the
+  same-heading overwrite) went through `replace_artifact_body`, which clones
+  the old TOML and only bumps `modified`, so the new `Extraction` the caller
+  passed was thrown away. Now both go through the new
+  `classify::replace_digitisation(session, id, body, Option<Extraction>)`:
+  a supplied extraction replaces `[extraction]` wholesale with
+  `digitised_at` = the re-save time. `[kovan]` id/kind/created, `[source]`,
+  classification, relation and connections are kept and `modified` is
+  bumped. **`[kovan].reviewed` is cleared when the body changed** (the
+  review vouched for numbers that no longer exist) and kept when it did not.
+  This applies to graphs and tables alike: the table save already passed an
+  extraction, and `table_digitiser.rs` is unchanged. `replace_artifact_body`
+  still keeps metadata verbatim for the inline prose editor. `[source]` is
+  still not updated by the same-heading overwrite of a fresh crop
+  (unchanged, out of scope). **Existing artifacts are not repaired
+  retroactively, and a plain re-save will NOT repair Figs. 6/7.** Edit
+  digitisation prefills from the saved (stale) `y_axis` and places the
+  restored points through it. Keeping the stale range just writes it again.
+  Correcting it in the wizard re-reads every value from pixels worked out
+  through the stale calibration, which would corrupt the correct data. The
+  calibration those CSVs were actually made with is recorded nowhere. Repair:
+  first hand-edit each artifact's `y_axis` in the paper's Markdown to the
+  calibration actually used (e.g. `px 88.03 = 1` if only the value was
+  corrected and the line was not moved). Then Edit digitisation → Start
+  digitising (ranges untouched) → Save CSV into project markdown, which
+  keeps the values exactly and stamps a fresh `digitised_at`. If the
+  reference line was also moved, the true pixel is unknown and the figure
+  should be re-digitised from scratch.

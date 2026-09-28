@@ -92,6 +92,13 @@ pub struct AdvancedGitState {
     repos: Vec<RepoPanel>,
     message: String,
     message_is_error: bool,
+    /// The user's own commit note, typed into the "what did you do?" box
+    /// (maintainer request, 2026-09-28). Appended to the body of every
+    /// commit the next Save Repository makes, under the unchanged generated
+    /// subject ([`crate::repository::compose_commit_message`]). Cleared only
+    /// after a save that actually committed; kept on failure and on a
+    /// nothing-to-save, so what the user typed is never lost.
+    commit_note: String,
     /// A pull Git stopped on a conflict, waiting for the user's answer to
     /// the "sure anot?" prompt (GH issue #279). `None` the rest of the time.
     pending_force_pull: Option<ForcePullPrompt>,
@@ -189,30 +196,33 @@ impl AdvancedGitState {
         }
         ui.add_space(4.0);
 
+        ui.add(
+            egui::TextEdit::multiline(&mut self.commit_note)
+                .hint_text("what did you do? (optional)")
+                .desired_rows(3)
+                .desired_width(f32::INFINITY),
+        );
+        ui.small("Added to the commit message under \"Save Kovan repository\".");
+        ui.add_space(4.0);
+
+        let mut save_result = None;
         ui.horizontal(|ui| {
             // op-nswf, GH issue #35 2026-09-01 05:42: "Under the git tab, i
             // expect to see save to repository. I don't see any button" —
             // the backend (`crate::repository::save_repository`) already
             // existed and was tested; it just had no button wired to it.
             if ui.button("Save Repository").clicked() {
-                match advanced_git::save(root) {
-                    Ok(Some(summary)) => {
-                        self.set_status(format!(
-                            "saved: {} added, {} changed, {} removed",
-                            summary.added.len(),
-                            summary.changed.len(),
-                            summary.removed.len()
-                        ));
-                        self.refresh(root);
-                    }
-                    Ok(None) => self.set_status("nothing to save — already up to date"),
-                    Err(e) => self.set_error(e.to_string()),
-                }
+                save_result = Some(advanced_git::save_with_message(root, &self.commit_note));
             }
             if ui.button("Refresh").clicked() {
                 self.refresh(root);
             }
         });
+        if let Some(result) = save_result {
+            if self.record_save(result) {
+                self.refresh(root);
+            }
+        }
         if !self.message.is_empty() {
             let color = if self.message_is_error {
                 Color32::from_rgb(220, 90, 90)
@@ -282,6 +292,37 @@ impl AdvancedGitState {
         // from without answering (#279).
         let ctx = ui.ctx().clone();
         self.force_pull_prompt_ui(&ctx, root);
+    }
+
+    /// File what a Save Repository returned, and decide the commit note's
+    /// fate: cleared only when something was committed, kept otherwise (a
+    /// failure, or nothing to save) so the user never loses what they typed.
+    /// Returns whether a commit was made (the caller then re-scans). Split
+    /// out from [`Self::ui`] so it is testable without a repository.
+    fn record_save(
+        &mut self,
+        result: Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError>,
+    ) -> bool {
+        match result {
+            Ok(Some(summary)) => {
+                self.set_status(format!(
+                    "saved: {} added, {} changed, {} removed",
+                    summary.added.len(),
+                    summary.changed.len(),
+                    summary.removed.len()
+                ));
+                self.commit_note.clear();
+                true
+            }
+            Ok(None) => {
+                self.set_status("nothing to save — already up to date");
+                false
+            }
+            Err(e) => {
+                self.set_error(e.to_string());
+                false
+            }
+        }
     }
 
     /// Fetch, pull or push repository `i` against its own remote and branch.
@@ -565,5 +606,31 @@ mod tests {
         assert_eq!(panel(&["github"]).remote().unwrap().name, "github");
         assert!(panel(&["a", "b"]).remote().is_none());
         assert!(panel(&[]).remote().is_none());
+    }
+
+    /// The commit note is cleared only by a save that committed; a failure
+    /// or a nothing-to-save keeps what the user typed (2026-09-28).
+    #[test]
+    fn the_commit_note_survives_everything_but_a_successful_save() {
+        let typed = "read chapter 3";
+        let mut state = AdvancedGitState {
+            commit_note: typed.into(),
+            ..Default::default()
+        };
+        let err = crate::repository::RepositoryError::Git("boom".into());
+        assert!(!state.record_save(Err(err)));
+        assert_eq!(state.commit_note, typed);
+        assert!(state.message_is_error);
+
+        assert!(!state.record_save(Ok(None)));
+        assert_eq!(state.commit_note, typed);
+
+        let summary = crate::repository::SaveSummary {
+            added: vec!["notes.md".into()],
+            ..Default::default()
+        };
+        assert!(state.record_save(Ok(Some(summary))));
+        assert!(state.commit_note.is_empty());
+        assert!(!state.message_is_error);
     }
 }
