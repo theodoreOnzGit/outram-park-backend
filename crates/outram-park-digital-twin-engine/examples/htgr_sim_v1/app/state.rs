@@ -197,7 +197,13 @@ pub struct HtgrSnapshot {
     /// violation in the underlying two-phase balance, which stayed correctly
     /// ordered throughout (see
     /// `physics::tests::reproduce_issue_22_scram_cooldown_energy_balance`).
-    /// Both the missing source term and the display wiring are now fixed:
+    /// ~~Both the missing source term and the display wiring are now fixed:~~
+    /// **CORRECTED 2026-09-28 (gh:#360)** -- true only after a scram. AT POWER
+    /// this node does *not* track the bed: it is heated by the full fission
+    /// power plus decay heat (the decay-energy share counted twice) and is
+    /// never charged the passive RCCS loss, and was measured **234.9 K above
+    /// the bed at t = 1500 s** under default commands, growing ~0.12 K/s. The
+    /// scram-only statement that follows is the original:
     /// this node tracks the bed within about +0.04 K through the same scram
     /// (see `physics::tests::kinetics_fuel_node_tracks_the_bed_node_after_a_scram`),
     /// but [`Self::bed_temperature_k`] remains the field to read for a
@@ -223,11 +229,15 @@ pub struct HtgrSnapshot {
     /// selected fidelity tier does not resolve one.
     ///
     /// The centre of the hottest UO2 kernel in a core-average pebble -- the
-    /// temperature the Doppler channel
-    /// ([`crate::physics::kinetics::KernelDopplerChannel`]) and the TRISO
-    /// release channel ([`crate::physics::fission_product_release`]) are both
-    /// driven from as of 2026-09-22, and the one a fuel-temperature limit
-    /// applies to.
+    /// temperature the TRISO release channel
+    /// ([`crate::physics::fission_product_release`]) is driven from, and the
+    /// one a fuel-temperature limit applies to. ~~"...the Doppler channel ...
+    /// and the TRISO release channel are both driven from"~~ **CORRECTED
+    /// 2026-09-28 (gh:#360)**: the Doppler channel
+    /// ([`crate::physics::kinetics::KernelDopplerChannel`]) shares only the
+    /// offset above the node; its absolute kernel is
+    /// [`Self::fuel_temperature_k`] + offset, which is not displayed and was
+    /// measured 236 K above this field at t = 1500 s.
     ///
     /// **`NAN`, not a fallback to the bed.** The two placeholder fidelity
     /// tiers have no kernel, and substituting the bed temperature would put a

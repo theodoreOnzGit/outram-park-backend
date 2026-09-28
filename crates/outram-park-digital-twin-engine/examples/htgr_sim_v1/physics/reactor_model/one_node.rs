@@ -1219,7 +1219,12 @@ impl PebbleBedPorousMediaNode {
         // `overall_htc_at_flow` here would solve it a second time for a
         // number this already has.
         let pebble_power = reactor_thermal_power / pebble_count();
-        let profile = resolved_pebble_profile(self.pebble_temperature, pebble_power);
+        // The node temperature the profile is inverted for. Kept, because
+        // `self.pebble_temperature` is overwritten by the solve below and the
+        // kernel-above-node resistance must be formed against THIS value --
+        // see step 6 and `kernel_offset_resistance_from`.
+        let profile_node_temperature = self.pebble_temperature;
+        let profile = resolved_pebble_profile(profile_node_temperature, pebble_power);
         let h_internal = conduction_coefficient_from(profile.as_ref(), pebble_power);
         let htc = series_coefficient(
             film_htc_at_flow(helium_mass_flow, helium_temperature_now),
@@ -1280,8 +1285,21 @@ impl PebbleBedPorousMediaNode {
         self.pebble_profile = profile;
         // The same profile read as a RESISTANCE rather than a temperature, so
         // the Doppler channel can follow the kernel between pebble solves.
-        self.kernel_offset_resistance =
-            kernel_offset_resistance_from(profile.as_ref(), self.pebble_temperature, pebble_power);
+        //
+        // Formed against the node temperature the profile was SOLVED at, not
+        // the end-of-step value just stored above. ~~Before 2026-09-28 this
+        // passed `self.pebble_temperature` (end of step)~~ -- CORRECTED
+        // 2026-09-28: that mixed a start-of-step kernel with an end-of-step
+        // node, so on a heat-up the resistance was under-stated by
+        // `dT_bed(step) / P_pebble` (and over-stated on a cool-down), i.e. the
+        // kernel Doppler channel read slightly too little negative feedback
+        // while the bed was warming. Zero at steady state. Pinned by
+        // `tests::the_kernel_offset_resistance_uses_the_profile_node_temperature`.
+        self.kernel_offset_resistance = kernel_offset_resistance_from(
+            profile.as_ref(),
+            profile_node_temperature,
+            pebble_power,
+        );
 
         self.heat_to_helium
     }
@@ -1322,9 +1340,14 @@ impl PebbleBedPorousMediaNode {
     /// share of the published isothermal coefficient and applies it to the
     /// kernel, leaving the graphite share on this node; and
     /// [`crate::physics::fission_product_release`] drives TRISO-ATOPS off the
-    /// same temperature. Both reach it through
-    /// [`Self::kernel_offset_resistance`] rather than this accessor, so they
-    /// can follow the kernel between pebble solves.
+    /// same temperature. ~~"Both reach it through
+    /// [`Self::kernel_offset_resistance`] rather than this accessor"~~
+    /// **CORRECTED 2026-09-28 (gh:#360)** -- only the Doppler channel does, and
+    /// it adds the offset to the kinetics node `T_f`, not to this bed node. The
+    /// release channel reads **this accessor** (`physics/mod.rs`, step 6), so it
+    /// gets `T_bed + offset` at the start-of-step bed temperature, and the two
+    /// absolute kernel temperatures differ by `T_f - T_bed` (235 K measured at
+    /// t = 1500 s -- see gh:#360).
     ///
     /// This remains the *reported* kernel temperature -- what the diagnostics
     /// table, the Map tab and a fuel-temperature limit read.
@@ -1483,6 +1506,69 @@ fn assemble_backward_euler_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The kernel-above-node resistance must be formed against the node
+    /// temperature its profile was solved at** (gh issue: TRISO fuel temperature
+    /// for reactivity vs TRISO-ATOPS, 2026-09-28).
+    ///
+    /// **Methodology.** Step a design-point node once, with a power (50 MW) and
+    /// step (5 s) large enough to move the bed by several kelvin, so a
+    /// start-of-step / end-of-step mix-up is resolvable. Recompute
+    /// `R = (T_peak_kernel - T_node,start) / P_pebble` from the published
+    /// profile and the node temperature captured *before* the step, and require
+    /// [`PebbleBedPorousMediaNode::kernel_offset_resistance`] to match it to
+    /// 1e-12 relative. Also require the bed to have moved by more than 1 K, so
+    /// the check can discriminate: with the pre-fix code (end-of-step node) the
+    /// two differ by `dT_bed / P_pebble`.
+    ///
+    /// **Results (2026-09-28).** The bed moved **+24.5791 K** over the step.
+    /// `R(profile node) = 6.501398e-2 K/W` and the published resistance is
+    /// `6.501398e-2 K/W` (agreement to round-off). The pre-fix end-of-step
+    /// formation gives `5.174129e-2 K/W`, **-20.4 %** on this deliberately
+    /// exaggerated step; on the plant's 0.1 s step during the 1500 s rod-step
+    /// transient measured the same day the bed moved <= ~0.5 K per step, i.e.
+    /// a sub-percent under-statement of the kernel offset on heat-up.
+    #[test]
+    fn the_kernel_offset_resistance_uses_the_profile_node_temperature() {
+        let mut node = PebbleBedPorousMediaNode::new();
+        let t_start = node.pebble_temperature();
+        let power = Power::new::<megawatt>(50.0);
+        let no_decay_heat = Power::new::<watt>(0.0);
+        let inlet = ThermodynamicTemperature::new::<kelvin>(673.15);
+        node.step(
+            Time::new::<second>(5.0),
+            power,
+            no_decay_heat,
+            inlet,
+            nominal_helium_flow(),
+        );
+        let t_end = node.pebble_temperature();
+        let moved_k = t_end.get::<kelvin>() - t_start.get::<kelvin>();
+        let pebble_w = (power / pebble_count()).get::<watt>();
+        let kernel_k = node
+            .peak_kernel_temperature()
+            .expect("design point is inside the correlation window")
+            .get::<kelvin>();
+        let expected = (kernel_k - t_start.get::<kelvin>()) / pebble_w;
+        let end_of_step = (kernel_k - t_end.get::<kelvin>()) / pebble_w;
+        let got = node
+            .kernel_offset_resistance()
+            .expect("resolved profile present")
+            .get::<kelvin_per_watt>();
+        println!(
+            "bed moved {moved_k:+.4} K; R(profile node) = {expected:.6e} K/W, \
+             R(end-of-step node, pre-fix) = {end_of_step:.6e} K/W, published = {got:.6e} K/W"
+        );
+        assert!(
+            moved_k.abs() > 1.0,
+            "the step must move the bed by > 1 K for this test to discriminate; moved {moved_k} K"
+        );
+        assert!(
+            ((got - expected) / expected).abs() < 1e-12,
+            "kernel_offset_resistance {got:e} is not formed against the profile's own node \
+             temperature ({expected:e}); end-of-step would give {end_of_step:e}"
+        );
+    }
 
     /// **Why `peak_kernel_temperature` goes `None` on a hot core** — the answer
     /// to a question that cost real diagnosis time on 2026-09-27.

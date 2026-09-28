@@ -77,8 +77,12 @@
 //! scale) the mean ratio over 300–900 h is **0.973**, with `∫η̇ dt`
 //! accumulated over the staged history
 //! (`history::tests::figure_7_redigitised_two_curves_connect_at_the_true_scale`).
-//! Fig. 8 gives 1.005 under the same one-decade correction but has not been
-//! re-digitised, so it is not counted. That identity checks the (10b)/(10c)
+//! ~~Fig. 8 gives 1.005 under the same one-decade correction but has not been
+//! re-digitised, so it is not counted.~~ **UPDATED 2026-09-28:** Fig. 8,
+//! re-digitised on its true seven-decade scale, gives **1.024** over 30–900 h
+//! with no correction
+//! (`history::tests::figure_8_redigitised_two_curves_connect_at_the_true_scale`),
+//! so it now counts as a second check. That identity checks the (10b)/(10c)
 //! pair against the report's output. It does not check the absolute release
 //! fraction: the captions state neither the particle geometry, the kernel
 //! volume nor the buffer void volume, so that cannot be reproduced without

@@ -24,6 +24,15 @@
 //! what a Doppler coefficient and a release model both want and neither could
 //! previously have.
 //!
+//! **CORRECTED 2026-09-28 (gh:#360) -- "the same temperature" holds for the
+//! kernel-above-node offset only.** This channel receives
+//! `PebbleBedPorousMediaNode::peak_kernel_temperature` = bed node + offset
+//! (hottest kernel of a core-average pebble, fluence 0, start-of-step bed),
+//! with the bed volume average as the graphite temperature. The Doppler
+//! channel adds the offset to the kinetics node `T_f` instead, which at power
+//! was measured 235 K above the bed (an energy-accounting defect in that node,
+//! gh:#360). The two absolute kernel temperatures therefore disagree.
+//!
 //! It also makes the coupling *visible*, which is the point of a simulator.
 //! `exp(-Q/RT)` is brutally sensitive: over the kernel's ~23 K rise above the
 //! bed at rated power, a typical `Q ~ 300 kJ/mol` changes `D` by about 10 %,

@@ -248,6 +248,16 @@ pub struct HtgrKinetics {
 /// decay-heat source was added to the fuel node (2026-08-17). Mixing them
 /// looks like an error, so here is why it is not one.
 ///
+/// **CORRECTED 2026-09-28 (gh:#360) -- "they track each other" is false at
+/// power.** `T_f` was measured **234.9 K above the bed** at t = 1500 s under
+/// default commands (gap growing ~0.12 K/s). The budget closes to 2 %: the
+/// closed form heats `T_f` with the full fission power and
+/// [`HtgrKinetics::apply_decay_heat`] adds decay heat on top, so the
+/// `(1 - prompt_power_fraction) P` share is counted twice (158.3 K), and the
+/// passive RCCS loss the bed is charged never reaches this node (81.5 K). The
+/// algebra below is still right about the *added* term; the pre-existing
+/// `alpha_iso (T_f - T_bed)` term it calls orthogonal is ~-4.5 $ at that point.
+///
 /// Write the ideal two-channel model against the bed throughout:
 ///
 /// ```text

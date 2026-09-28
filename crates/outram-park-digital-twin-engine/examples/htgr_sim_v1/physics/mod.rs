@@ -971,9 +971,15 @@ pub struct HtgrPlant {
     pub sim_time: Time,
     /// Passive decay-heat path out to the RCCS. See [`decay_heat_removal`].
     pub decay_heat_path: decay_heat_removal::CoreToRccsPath,
-    /// TRISO fission-product release, driven off the SAME resolved fuel-kernel
-    /// temperature as the Doppler channel. Quasi-steady and stateless, so it
-    /// sits outside the corrector loop -- see [`fission_product_release`].
+    /// TRISO fission-product release. ~~"driven off the SAME resolved
+    /// fuel-kernel temperature as the Doppler channel."~~ **CORRECTED
+    /// 2026-09-28 (gh:#360)** -- only the kernel-above-node *offset* is shared.
+    /// This channel is handed `peak_kernel_temperature()` (bed node + offset,
+    /// solved at the start-of-step bed temperature, throttled to 1 s); the
+    /// Doppler channel's implied kernel is the kinetics node `T_f` + `R P(t)`,
+    /// and `T_f` was measured 235 K above the bed at t = 1500 s. Quasi-steady
+    /// and stateless, so it sits outside the corrector loop -- see
+    /// [`fission_product_release`].
     pub release: fission_product_release::TrisoAtopsReleaseChannel,
     /// Gaussian puff atmospheric dispersion, driven by the release channel's
     /// circulating pool. Quasi-steady like the release channel and far more
