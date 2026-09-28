@@ -5156,21 +5156,26 @@ dependencies = [
 
 [[package]]
 name = "kopitiam-pdf"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b0e12e47406d71bab25d33aa066fa8b43233613a5caf5f7c1119f50b482ebd2"
+checksum = "2a18f5553810926d61e3874925ebb7624366b9a43daabe5e0a974cff291b9588"
 dependencies = [
  "aes",
  "cbc",
  "egui",
  "hayro",
+ "hayro-jbig2",
+ "hayro-jpeg2000",
  "lopdf",
  "md-5",
  "miniz_oxide",
  "pdf-extract",
  "rc4",
+ "sha2",
  "skrifa 0.42.1",
  "thiserror 2.0.18",
+ "unicode-general-category",
+ "unicode-normalization",
  "zune-jpeg",
 ]
 

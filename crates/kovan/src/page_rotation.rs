@@ -57,11 +57,21 @@ fn snap(degrees: i64) -> i64 {
 /// plus an appended update carrying the page with its new `/Rotate`. The
 /// page's own entry is set explicitly, so an inherited rotation is honoured
 /// as the starting point and other pages are untouched.
+///
+/// Refuses a file that kopitiam-pdf had to repair on opening, as MuPDF does.
 pub fn rotate_page(
     doc: &PdfDocument,
     page_index: usize,
     quarter_turns: i32,
 ) -> Result<Vec<u8>, String> {
+    // MuPDF `pdf-write.c` refuses this ("Can't do incremental writes on a
+    // repaired file"): the appended xref would point into the damaged
+    // original's offsets, which only the repair pass could make sense of.
+    if doc.was_repaired() {
+        return Err("this PDF was damaged and repaired on opening; \
+                    rotating it in place would write onto a broken file"
+            .to_string());
+    }
     let current = effective_rotation(doc, page_index)?;
     let target = snap(current + 90 * quarter_turns as i64);
     let slot = locate_page_slot(doc, page_index).map_err(|e| e.to_string())?;
@@ -108,6 +118,26 @@ pub(crate) mod tests {
         let mut out = Vec::new();
         doc.save_to(&mut out).unwrap();
         out
+    }
+
+    /// A file whose `startxref` points nowhere is repaired on opening, and
+    /// rotating it is refused rather than appended onto the damaged bytes.
+    #[test]
+    fn a_repaired_file_is_not_rotated_in_place() {
+        let mut bytes = two_page_pdf(None);
+        let at = bytes.windows(9).rposition(|w| w == b"startxref").unwrap() + 9;
+        let tail = String::from_utf8_lossy(&bytes[at..]).into_owned();
+        let digits: String = tail
+            .trim_start()
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        let start = at + tail.find(&digits).unwrap();
+        bytes.splice(start..start + digits.len(), b"99999".iter().copied());
+        let doc = PdfDocument::open(bytes).unwrap();
+        assert_eq!(doc.page_count(), 2, "repair recovers both pages");
+        assert!(doc.was_repaired());
+        assert!(rotate_page(&doc, 0, 1).is_err());
     }
 
     /// A one-page portrait PDF with "Hi" drawn in Helvetica near the top
