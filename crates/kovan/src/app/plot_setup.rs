@@ -176,6 +176,34 @@ pub struct PlotSetup {
     /// record and so was left for the operator. Shown above every stage.
     /// `None` for a fresh crop. See [`super::saved_digitisation`].
     pub prefill_note: Option<String>,
+    /// The ranges and scales the saved digitisation was calibrated with, when
+    /// the form was prefilled from one, and how many saved points hang on
+    /// them. `None` for a fresh crop.
+    ///
+    /// Maintainer, 2026-09-28: the saved **values** are the data. Changing a
+    /// range here makes "Start digitising" re-read every restored point from
+    /// its pixel through the new calibration, i.e. rewrite every value, so
+    /// the form warns and refuses to go on until
+    /// [`Self::recalibration_confirmed`] is ticked. See
+    /// [`Self::recalibration_warning`].
+    pub saved_ranges: Option<SavedRanges>,
+    /// The operator's explicit "yes, recompute the saved points" for a range
+    /// that differs from [`Self::saved_ranges`].
+    pub recalibration_confirmed: bool,
+}
+
+/// What a prefilled wizard was prefilled with: see [`PlotSetup::saved_ranges`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct SavedRanges {
+    /// `[x_min, x_max, y_min, y_max]` as prefilled (text), restored by
+    /// [`PlotSetup::revert_to_saved_ranges`].
+    pub text: [String; 4],
+    /// Whether the saved x axis was logarithmic.
+    pub x_log: bool,
+    /// Whether the saved y axis was logarithmic.
+    pub y_log: bool,
+    /// Saved points that a range change would recompute.
+    pub points: usize,
 }
 
 /// Hand-written rather than derived: a derived `Default` would leave
@@ -193,6 +221,8 @@ impl Default for PlotSetup {
             grid_spacing: 40.0,
             skew_degrees: 0.0,
             prefill_note: None,
+            saved_ranges: None,
+            recalibration_confirmed: false,
             figure: String::new(),
             document_title: String::new(),
             page: String::new(),
@@ -302,9 +332,62 @@ impl PlotSetup {
     pub fn blocking_error(&self) -> Option<String> {
         match self.stage {
             Stage::Figure => self.figure_error().map(str::to_string),
-            Stage::Ranges => self.range_error(),
-            Stage::Labels => self.label_error().map(str::to_string),
+            Stage::Ranges => self
+                .range_error()
+                .or_else(|| self.unconfirmed_recalibration()),
+            Stage::Labels => self
+                .label_error()
+                .map(str::to_string)
+                .or_else(|| self.unconfirmed_recalibration()),
         }
+    }
+
+    /// `Some(warning)` when the form was prefilled from a saved digitisation
+    /// with points AND the ranges or log flags now differ from the saved
+    /// ones -- compared as numbers, so `1e-3` for a saved `0.001` is not a
+    /// change. `None` for a fresh crop, an unchanged form, or a range that
+    /// does not parse (that is [`Self::range_error`]'s to report).
+    pub fn recalibration_warning(&self) -> Option<String> {
+        let saved = self.saved_ranges.as_ref()?;
+        if saved.points == 0 {
+            return None;
+        }
+        let num = |s: &str| s.trim().parse::<f64>().ok();
+        let now = self.reference_values();
+        let mut changed = saved.x_log != self.x_log || saved.y_log != self.y_log;
+        for (a, b) in saved.text.iter().zip(now.iter()) {
+            changed |= num(a)? != num(b)?;
+        }
+        changed.then(|| {
+            format!(
+                "You changed the saved calibration. Start digitising will RECOMPUTE all {} \
+                 saved point{} from their pixel positions through the new ranges, replacing \
+                 every saved value. Leave the ranges as saved to keep the values exactly \
+                 (a saved header that was wrong, or hand-edited, makes the recomputed \
+                 values wrong too: re-digitise instead).",
+                saved.points,
+                if saved.points == 1 { "" } else { "s" }
+            )
+        })
+    }
+
+    /// The blocking message while a recalibration is unconfirmed.
+    fn unconfirmed_recalibration(&self) -> Option<String> {
+        (!self.recalibration_confirmed && self.recalibration_warning().is_some()).then(|| {
+            "the ranges differ from the saved ones: tick \"recompute the saved points\" \
+             or revert to the saved ranges"
+                .to_string()
+        })
+    }
+
+    /// Put the saved ranges and scales back (and drop any confirmation).
+    pub fn revert_to_saved_ranges(&mut self) {
+        if let Some(saved) = self.saved_ranges.clone() {
+            [self.x_min, self.x_max, self.y_min, self.y_max] = saved.text;
+            self.x_log = saved.x_log;
+            self.y_log = saved.y_log;
+        }
+        self.recalibration_confirmed = false;
     }
 
     /// The four reference values in the digitiser's own `ref_val` order:
@@ -596,6 +679,20 @@ impl PlotSetup {
                  and the 10^0 gridline is 1.",
             );
         }
+        if let Some(warning) = self.recalibration_warning() {
+            ui.add_space(6.0);
+            ui.colored_label(egui::Color32::from_rgb(230, 90, 60), warning);
+            let n = self.saved_ranges.as_ref().map_or(0, |s| s.points);
+            ui.horizontal(|ui| {
+                ui.checkbox(
+                    &mut self.recalibration_confirmed,
+                    format!("recompute the saved points ({n})"),
+                );
+                if ui.button("Revert to saved ranges").clicked() {
+                    self.revert_to_saved_ranges();
+                }
+            });
+        }
     }
 
     /// How many decades a logarithmic axis spans, shown beside it.
@@ -689,6 +786,8 @@ mod tests {
             show_grid: false,
             grid_spacing: 40.0,
             prefill_note: None,
+            saved_ranges: None,
+            recalibration_confirmed: false,
             figure: "Fig. 7".into(),
             document_title: "Verfondern 1990".into(),
             page: "12".into(),

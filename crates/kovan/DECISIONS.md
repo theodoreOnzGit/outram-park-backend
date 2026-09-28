@@ -1730,3 +1730,63 @@ column alignment, images (shown as links — no image loaders are installed).
   keeps the values exactly and stamps a fresh `digitised_at`. If the
   reference line was also moved, the true pixel is unknown and the figure
   should be re-digitised from scratch.
+- **2026-09-28 — Select a banked series to edit it (graph digitiser).**
+  Maintainer: "I want to be able to select data in previous banks, like
+  through a dropdown menu, or as clickable buttons." Before this a banked
+  curve could only be dropped (last one), never re-opened. Now the series
+  panel shows one button per series in saved order, `name (points)`, with
+  the live one highlighted (a ComboBox once there are more than 6). Clicking
+  a banked series **swaps** it with the live one (`src/app/series_select.rs`,
+  `select_banked_series`): the live curve is banked under the name-box name
+  if it has points (refused if it is unnamed or its name is taken, as "Bank &
+  start next" refuses), an empty live curve is discarded rather than banked
+  as an empty series, and the chosen curve becomes live with its name in the
+  box, so every existing edit path (add, drag, erase, right-drag erase)
+  applies to it unchanged. **Order:** a new `live_position` keeps the live
+  curve's place in the saved order, so `all_series()` and the saved artifact
+  never reorder when the operator hops, and banking a curve picked from the
+  middle puts it back there. **Names:** the name box now wins over the live
+  dataset's own `series` field on save (`named_series_csv`), so renaming a
+  restored or re-selected curve is what gets saved (previously a restored
+  live curve kept its old name on save despite a rename). Banked series are
+  drawn faintly on the figure under the live one; hovering a series button
+  draws that curve bold. No per-series delete was added. Tests in
+  `series_select.rs`, including a save round trip through a paper session.
+- **2026-09-28 — Edit digitisation: the saved values are the data; a range
+  change that would recompute them needs explicit confirmation.** Maintainer
+  report ("kovan edits to current digitisation may be buggy"): PANAMA-I
+  Fig. 7, header hand-edited `px 35.40 = 10` → `= 1`, then Edit digitisation
+  → Start digitising → Save, and every value changed. **Investigated, not a
+  re-read by the edit path.** Hypotheses and results: (a1) a hand-edited
+  header makes an *untouched* wizard re-read values — refuted: the prefill and
+  the restore parse the same header, so `saved_calibration == calibration()`
+  and values are kept byte-for-byte (pinned:
+  `an_untouched_edit_after_a_hand_edited_header_keeps_every_value`, which
+  passed before any change); (a2) a changed wizard range re-read the restored
+  points — refuted for Fig. 7, because that keeps every x value (the x axis
+  was unchanged) and **no** 488f28f x value equals a 59f1b92 x value; (b) the
+  edit path drops series/points — refuted: nothing filters by name, count or
+  position (pinned: `four_series_and_a_lone_early_point_survive_...`); the
+  "Level of Heavy Metal Contamination" series and the 99.8 h point were
+  already absent from 59f1b92, a full re-trace made before restore existed.
+  **What the data show:** the 488f28f curves are new placements, on the same
+  pixel grid as the original 162939f trace, read through the hand-edited
+  header: against 162939f compressed by 6/7 in log about 1e-6, the mean
+  residual is 0.000 decade (max 0.02–0.07 over 7–83 points per series).
+  Against 59f1b92, as saved or compressed, it is 0.4–0.9 decade. The
+  restored 59f1b92 markers would have been drawn where the header puts them,
+  which is off the curves, because 59f1b92 was measured through a different
+  calibration (`px 365.69 = 1e-6, px 34.05 = 1`, stale-header bug). The
+  "hand-edit the header, then re-save" repair in the bullet above assumes the
+  lines were not moved, and they were, so it did not apply to Fig. 7.
+  **Changed:** (1) the prefilled wizard records the saved ranges
+  (`PlotSetup::saved_ranges`). A range or log flag that differs *numerically*
+  (`1e-3` for `0.001` is no change) shows a red warning naming how many saved
+  points will be recomputed. The warning offers "Revert to saved ranges" and
+  blocks Next / Start digitising until "recompute the saved points (N)" is
+  ticked. `finish_plot_setup` refuses too. (2) A failed restore no longer
+  throws the saved points away (`finish_plot_setup` took `pending_restore`
+  and ignored the `false`); they stay pending behind "Restore saved points".
+  (3) The prefill note says values are kept while ranges are untouched and
+  that markers off the curves mean the header does not describe the values.
+  Tests: `src/app/edit_digitisation_tests.rs` (5).

@@ -22,6 +22,9 @@ mod page_canvas;
 mod pdf_reader;
 mod plot_setup;
 mod saved_digitisation;
+#[cfg(test)]
+mod edit_digitisation_tests;
+mod series_select;
 mod setup;
 mod table_digitiser;
 mod theme;
@@ -463,6 +466,14 @@ pub struct DigitiseApp {
     /// existing edit path (add/move/delete a point, review, undo) acts on
     /// "the dataset being worked on", and that stays exactly one.
     completed_series: Vec<DigitisedDataset>,
+    /// Where the live `dataset` sits in the saved order of this figure's
+    /// series: before `completed_series[k]`, or `None` for after all of them.
+    /// Set when a banked series is selected for editing, so hopping between
+    /// curves never reorders what is saved -- see [`series_select`].
+    live_position: Option<usize>,
+    /// The banked series whose picker button is hovered, drawn prominently
+    /// on the figure. Reset every frame by the picker.
+    hovered_series: Option<usize>,
     /// Name for the series currently being traced, e.g. `"235U thermal"`.
     series_name: String,
     /// The three-stage setup form, live only while `view == View::PlotSetup`.
@@ -621,6 +632,8 @@ impl Default for DigitiseApp {
             raster_original: None,
             applied_transform: (crate::digitiser::raster::Quarter::None, 0.0),
             completed_series: Vec::new(),
+            live_position: None,
+            hovered_series: None,
             series_name: String::new(),
             plot_setup: plot_setup::PlotSetup::default(),
             pending_restore: None,
@@ -1124,6 +1137,15 @@ impl DigitiseApp {
     /// then -- when a saved digitisation is being re-opened -- put its curves
     /// back, and open the digitiser.
     fn finish_plot_setup(&mut self) {
+        // A changed range would rewrite every restored value from its pixel:
+        // only on the operator's explicit confirmation (maintainer,
+        // 2026-09-28; the wizard's own button is disabled until then).
+        if self.pending_restore.is_some() && !self.plot_setup.recalibration_confirmed {
+            if let Some(warning) = self.plot_setup.recalibration_warning() {
+                self.set_error(warning);
+                return;
+            }
+        }
         self.apply_plot_setup();
         if let Some(saved) = self.pending_restore.take() {
             if saved.is_parallelogram() || saved.saved_calibration().is_none() {
@@ -1141,8 +1163,10 @@ impl DigitiseApp {
                      \"Restore saved points\"."
                 ));
                 self.pending_restore = Some(saved);
-            } else {
-                self.restore_saved_series(&saved);
+            } else if !self.restore_saved_series(&saved) {
+                // Its error is already shown; keep the points for the
+                // "Restore saved points" button rather than losing them.
+                self.pending_restore = Some(saved);
             }
         }
         self.view = View::Digitiser;
@@ -1157,9 +1181,10 @@ impl DigitiseApp {
     /// `saved_calibration.pixel_at(x, y)` -- where it was on the figure. If
     /// the wizard's ranges were left as saved, the data values are kept
     /// **exactly** (no pixel round trip, so an untouched re-save writes the
-    /// same CSV); if the operator corrected a range, each value is re-read
-    /// from its saved pixel through the corrected calibration, which is what
-    /// correcting a calibration means. With no saved pixels (a parallelogram)
+    /// same CSV); if the operator corrected a range -- which the wizard only
+    /// lets through after its explicit "recompute the saved points"
+    /// confirmation -- each value is re-read from its saved pixel through the
+    /// corrected calibration, which is what correcting a calibration means. With no saved pixels (a parallelogram)
     /// this is called only after the operator has placed the calibration, and
     /// the points are placed through it with their values kept exactly.
     fn restore_saved_series(&mut self, saved: &saved_digitisation::SavedDigitisation) -> bool {
@@ -1256,6 +1281,7 @@ impl DigitiseApp {
             .and_then(|d| d.series.clone())
             .unwrap_or_default();
         self.completed_series = restored;
+        self.live_position = None;
         self.dataset = live;
         self.selected = None;
         let mut msg = format!(
@@ -1351,6 +1377,8 @@ impl DigitiseApp {
         // A new image is a new figure; its predecessors' series belong to the
         // old one and must not follow it across.
         self.completed_series.clear();
+        self.live_position = None;
+        self.hovered_series = None;
         self.series_name.clear();
         self.selected = None;
         self.ref_dragging = None;
@@ -1594,7 +1622,11 @@ impl DigitiseApp {
 
         let mut banked = current.clone();
         banked.series = Some(name);
-        self.completed_series.push(banked);
+        // Back into its own place in the saved order (it may have been
+        // picked out of the middle to edit); the next curve goes last.
+        let at = self.live_index();
+        self.completed_series.insert(at, banked);
+        self.live_position = None;
 
         // The next series: same figure, same axes, no points.
         let mut next = current;
@@ -1613,8 +1645,9 @@ impl DigitiseApp {
         ));
     }
 
-    /// Every series on this figure: the finished ones, then the one in
-    /// progress if it has any points.
+    /// Every series on this figure in saved order: the finished ones, with
+    /// the one in progress at its place (`live_position`, last by default)
+    /// if it has any points.
     ///
     /// This is what the exporters and the canvas both read, so "what is on
     /// this figure" is answered in one place rather than each caller
@@ -1623,7 +1656,7 @@ impl DigitiseApp {
         let mut out: Vec<&DigitisedDataset> = self.completed_series.iter().collect();
         if let Some(d) = &self.dataset {
             if !d.points.is_empty() {
-                out.push(d);
+                out.insert(self.live_index(), d);
             }
         }
         out
@@ -1687,6 +1720,22 @@ impl DigitiseApp {
         self.set_point_pixels(idx, px, py, true);
         self.selected = Some(idx);
         self.mark_edited();
+    }
+
+    /// Remove the point nearest `(px, py)` in image pixels, if one lies
+    /// within `max_px`. Shared by the Eraser mode and right-drag in Draw
+    /// trace, and it goes through [`Self::delete_selected`] like the
+    /// right-click does, so every way of erasing has one set of provenance
+    /// and review-status side effects. Returns whether a point went.
+    fn erase_near(&mut self, px: f64, py: f64, max_px: f64) -> bool {
+        match self.nearest_point(px, py, max_px) {
+            Some(i) => {
+                self.selected = Some(i);
+                self.delete_selected();
+                true
+            }
+            None => false,
+        }
     }
 
     fn delete_selected(&mut self) {
@@ -1827,24 +1876,12 @@ impl DigitiseApp {
                     // banked), so saving without banking it first used to
                     // write it as `series-N` and drop the typed name --
                     // found by the edit-digitisation round trip, 2026-09-28.
-                    let live = self.dataset.as_ref();
-                    let live_name = self.series_name.trim();
-                    let blocks: Vec<crate::artifact::SeriesBlock> = series
-                        .iter()
-                        .enumerate()
-                        .map(|(i, d)| crate::artifact::SeriesBlock {
-                            name: d
-                                .series
-                                .clone()
-                                .filter(|n| !n.trim().is_empty())
-                                .or_else(|| {
-                                    (live.is_some_and(|l| std::ptr::eq(l, *d))
-                                        && !live_name.is_empty())
-                                    .then(|| live_name.to_string())
-                                })
-                                .unwrap_or_else(|| format!("series-{}", i + 1)),
-                            csv: d.to_csv_data_only(),
-                        })
+                    // The name box wins for the live curve, so a rename of a
+                    // restored or re-selected series is what gets saved.
+                    let blocks: Vec<crate::artifact::SeriesBlock> = self
+                        .named_series_csv()
+                        .into_iter()
+                        .map(|(name, csv)| crate::artifact::SeriesBlock { name, csv })
                         .collect();
                     Some(crate::artifact::render_multi_series_body(&blocks))
                 }
@@ -2039,7 +2076,7 @@ impl DigitiseApp {
                 .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
                 .on_hover_text(
                     "hold the left button and draw along the curve; let go and the \
-                     stroke snaps onto it",
+                     stroke snaps onto it. Hold the right button and drag to erase",
                 )
                 .clicked()
             {
@@ -2114,19 +2151,12 @@ impl DigitiseApp {
                 self.pending_restore = None;
             }
         }
+        // Maintainer, 2026-09-28: pick any banked series to view/edit it.
+        self.series_picker_ui(ui);
         if !self.completed_series.is_empty() {
-            let names: Vec<&str> = self
-                .completed_series
-                .iter()
-                .map(|d| d.series.as_deref().unwrap_or("(unnamed)"))
-                .collect();
-            ui.horizontal_wrapped(|ui| {
-                ui.weak(format!("banked ({}):", names.len()));
-                ui.weak(names.join(", "));
-            });
             if ui
                 .button("\u{21A9} Drop last banked series")
-                .on_hover_text("remove the most recently banked curve from this figure")
+                .on_hover_text("remove the last banked curve (in saved order) from this figure")
                 .clicked()
             {
                 if let Some(d) = self.completed_series.pop() {
@@ -2409,13 +2439,7 @@ impl DigitiseApp {
             if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
-                        self.selected = Some(i);
-                        // The same deletion the right-click uses, so the two
-                        // cannot drift: one path, one set of provenance and
-                        // review-status side effects.
-                        self.delete_selected();
-                    }
+                    self.erase_near(px, py, 12.0 / zoom as f64);
                 }
             }
             // #290: draw along the curve, let go, and the stroke snaps onto
@@ -2423,10 +2447,25 @@ impl DigitiseApp {
             // frame of the gesture contributes a vertex — the stroke is the
             // path the pointer took, not its two ends.
             if self.mode == ClickMode::DrawTrace {
-                response
-                    .clone()
-                    .on_hover_cursor(egui::CursorIcon::Crosshair);
-                if response.dragged() {
+                // Right-drag erases while drawing (maintainer, 2026-09-28:
+                // "right click and drag should be eraser behaviour ... when
+                // in draw trace mode"), so a bad stretch of trace can be
+                // swept away without leaving the mode. Only the LEFT button
+                // draws: `dragged()` alone is true for any button, which
+                // would have turned a right-drag into a stroke.
+                let erasing = response.dragged_by(egui::PointerButton::Secondary);
+                response.clone().on_hover_cursor(if erasing {
+                    egui::CursorIcon::NoDrop
+                } else {
+                    egui::CursorIcon::Crosshair
+                });
+                if erasing {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let (px, py) = to_image(pos);
+                        self.erase_near(px, py, 12.0 / zoom as f64);
+                    }
+                }
+                if response.dragged_by(egui::PointerButton::Primary) {
                     if let Some(pos) = response.interact_pointer_pos() {
                         let (px, py) = to_image(pos);
                         // Skip a repeat of the same pixel: a slow hand emits
@@ -2437,7 +2476,7 @@ impl DigitiseApp {
                         }
                     }
                 }
-                if response.drag_stopped() {
+                if response.drag_stopped_by(egui::PointerButton::Primary) {
                     self.snap_drawn_stroke();
                 }
             }
@@ -2647,6 +2686,9 @@ impl DigitiseApp {
                     }
                 }
             }
+            // The other curves on this figure, faint (the hovered one bold),
+            // under the live one.
+            self.paint_banked_series(&painter, to_screen);
             if let Some(d) = &self.dataset {
                 for (i, p) in d.points.iter().enumerate() {
                     let (Some(x), Some(y)) = (p.x_px, p.y_px) else {
@@ -4090,6 +4132,25 @@ mod tests {
         assert!(app.document_title.is_empty());
     }
 
+    /// Right-drag in Draw trace erases through the same path as the Eraser
+    /// mode: the point under the pointer goes, one far away does not.
+    #[test]
+    fn erase_near_removes_only_the_point_under_the_pointer() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(minimal_dataset());
+        let before = app.dataset.as_ref().unwrap().points.len();
+        assert!(before > 0, "the fixture has points");
+        let p = app.dataset.as_ref().unwrap().points[0].clone();
+        let (px, py) = (
+            p.x_px.expect("fixture point has a pixel x"),
+            p.y_px.expect("fixture point has a pixel y"),
+        );
+        assert!(!app.erase_near(px + 1e6, py + 1e6, 12.0), "nothing that far away");
+        assert_eq!(app.dataset.as_ref().unwrap().points.len(), before);
+        assert!(app.erase_near(px + 1.0, py, 12.0));
+        assert_eq!(app.dataset.as_ref().unwrap().points.len(), before - 1);
+    }
+
     fn minimal_dataset() -> DigitisedDataset {
         use crate::digitiser::detect::PixelRect;
         use crate::digitiser::trace::PixelTracePoint;
@@ -4197,6 +4258,8 @@ mod tests {
             show_grid: false,
             grid_spacing: 40.0,
             prefill_note: None,
+            saved_ranges: None,
+            recalibration_confirmed: false,
             figure: "  Fig. 7 ".into(),
             document_title: "Verfondern 1990".into(),
             page: "12".into(),
@@ -4257,7 +4320,7 @@ mod tests {
     }
 
     /// A minimal dataset with points, for the series tests.
-    fn sample_dataset_for_series() -> DigitisedDataset {
+    pub(super) fn sample_dataset_for_series() -> DigitisedDataset {
         use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale};
         let axis = |v0: f64, v1: f64| {
             AxisCalibration::new(
@@ -4601,7 +4664,8 @@ mod tests {
     /// Digitise two curves on a 500 x 400 crop through the ordinary app path
     /// (wizard answers -> reference lines -> placed points -> bank -> save),
     /// into a real paper session. Returns the app and the saved artifact id.
-    fn app_with_a_saved_two_series_graph() -> (tempfile::TempDir, KovanRoot, DigitiseApp, String) {
+    pub(super) fn app_with_a_saved_two_series_graph(
+    ) -> (tempfile::TempDir, KovanRoot, DigitiseApp, String) {
         let (dir, root) = make_root();
         let citekey = ingest_one(&root, dir.path(), "Edit Digitisation Test", Access::Open);
         let mut app = DigitiseApp::default();
@@ -4647,7 +4711,7 @@ mod tests {
         (dir, root, app, id)
     }
 
-    fn graph_bodies(app: &DigitiseApp) -> Vec<(String, String)> {
+    pub(super) fn graph_bodies(app: &DigitiseApp) -> Vec<(String, String)> {
         let session = &app.active_paper.as_ref().unwrap().session;
         crate::research_record::ResearchRecordIndex::from_session(session)
             .artifacts()
@@ -4763,6 +4827,8 @@ mod tests {
             provenance,
         ));
         app.plot_setup.x_max = "2400".into();
+        // Recomputing the saved values is an explicit act (2026-09-28).
+        app.plot_setup.recalibration_confirmed = true;
         app.finish_plot_setup();
         let p0 = &app.completed_series[0].points[0];
         // pixel 100 on 40.5..460.25 -> 0..2400

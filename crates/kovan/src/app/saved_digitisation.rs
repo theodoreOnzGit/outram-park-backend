@@ -328,6 +328,30 @@ impl SavedDigitisation {
                  points are restored only after you drag the corners back onto the axes.",
             );
         }
+        // The values are the data: a range changed in the wizard re-reads
+        // every point from its pixel, so the wizard must know what "as saved"
+        // was in order to warn before doing it (maintainer, 2026-09-28).
+        // Only a rectangle record is re-read; a parallelogram's points are
+        // placed through the operator's new corners with their values kept.
+        let rectangle = |r: Option<AxisRecord>| r.filter(|r| r.pixels.is_some());
+        if let (Some(xr), Some(yr)) = (rectangle(x), rectangle(y)) {
+            setup.saved_ranges = Some(super::plot_setup::SavedRanges {
+                text: [
+                    setup.x_min.clone(),
+                    setup.x_max.clone(),
+                    setup.y_min.clone(),
+                    setup.y_max.clone(),
+                ],
+                x_log: xr.log,
+                y_log: yr.log,
+                points: series.iter().map(|s| s.points.len()).sum(),
+            });
+        }
+        note.push_str(
+            " The saved values are kept exactly while the ranges are left as saved; \
+             their markers are drawn where the saved header puts them, so markers \
+             off the curves mean the header does not describe these values.",
+        );
         setup.prefill_note = Some(note);
 
         Self {
