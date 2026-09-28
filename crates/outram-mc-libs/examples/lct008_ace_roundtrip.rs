@@ -1,7 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0
 
-//! **Simplified LEU-COMP-THERM-008 through ACE, against the straight-from-ENDF
+//! **LEU-COMP-THERM-008 case 1 through ACE, against the straight-from-ENDF
 //! path** — a parity check with a timing breakdown.
+//!
+//! **CHANGED 2026-09-29 (maintainer: "Lct ace roundtrip should follow the
+//! lct008 keff").** The model is now the case-1 **lattice** that
+//! `lct008_keff.rs` runs, shared through `common/lct008_model.rs`, on that
+//! example's 11-nuclide `--cheap-nuclides` tier. Until this date it was a
+//! homogenised 30 % fuel / 70 % borated-water sphere (r = 40 cm, 5 nuclides,
+//! free-gas H). **Every result recorded below the "Results" headings was taken on
+//! that sphere** and is a different model; those numbers are struck through or
+//! labelled as such, not re-labelled.
+//!
+//! S(α,β) H in H₂O: built once from `tsl-HinH2O.endf` and attached to H-1 on
+//! **every** arm, so the round trip tests the continuous-energy tables only.
+//! The thermal ACE round trip has its own verification
+//! (`njoy-outram-park-fork/verification_and_validation/thermal_from_ace/`).
+//!
+//! **The ACE arm is affected by GitHub #366** until that fix lands:
+//! `Nuclide::from_ace` keeps the MT=4 lump with Q = 0 in place of the discrete
+//! inelastic levels on U-235/U-238, and loses U-234 fission. An ACE-arm result
+//! taken before the fix measures that defect as well as the format.
 //!
 //! # This is an EXAMPLE, not a test, on purpose
 //!
@@ -33,7 +52,11 @@
 //! rather than to physics — both routes share the same `ReconrResult`, so the
 //! energy grid is identical by construction.
 //!
-//! # This is NOT a reproduction of LEU-COMP-THERM-008
+//! # ~~This is NOT a reproduction of LEU-COMP-THERM-008~~ (sphere-era text)
+//!
+//! **SUPERSEDED 2026-09-29**: the example now runs the lattice. The paragraphs
+//! below describe the homogenised sphere it used to run, and are kept because
+//! the struck-through results were taken on it.
 //!
 //! The benchmark's whole value is **lumped** fuel: a 1.030 cm pellet that is
 //! 176 mean free paths across at the 6.674 eV resonance, so resonance escape is
@@ -52,7 +75,7 @@
 //! (a known open defect), so including it would make this example unrunnable
 //! for a reason that has nothing to do with ACE.
 
-//! # Results (2026-09-23, ENDF/B-VIII.0, seed 1) — the ORIGINAL single-seed run
+//! # Results (2026-09-23, ENDF/B-VIII.0, seed 1) — the ORIGINAL single-seed run — ON THE SPHERE (superseded model)
 //!
 //! Kept for the timing breakdown and because its `k` values are what the
 //! superseded parity claim below was drawn from. The eight-seed numbers are the
@@ -91,7 +114,11 @@
 //! `tests/nuclide_from_ace_vs_endf.rs`, which compares **cross sections** rather
 //! than `k` and resolves agreement to **0.03 %**.
 //!
-//! # Results (2026-09-25, ENDF/B-VIII.0, EIGHT seeds) — GitHub #307 item 5
+//! # Results (2026-09-25, ENDF/B-VIII.0, EIGHT seeds) — GitHub #307 item 5 — ON THE SPHERE (superseded model)
+//!
+//! ~~Everything in this section was measured on the homogenised sphere.~~
+//! **2026-09-29:** a different model from the lattice this example now runs;
+//! do not compare these numbers with lattice results.
 //!
 //! `--seeds 8`, 3000 histories x [30 inactive + 80 active] per seed. Each arm's
 //! uncertainty is the standard error of the mean **over seeds**, from the
@@ -221,34 +248,37 @@ use njoy_outram_park_fork::broadr::broaden_result;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig, ReconrResult};
 use njoy_outram_park_fork::reference_data::reference_endf;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
+use outram_mc_libs::material::thermal::ThermalScattering;
+use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
+use outram_mc_libs::physics::keff::KeffSettings;
+use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use std::collections::BTreeMap;
+
+#[path = "common/lct008_model.rs"]
+mod lct008_model;
 
 const TEMP_K: f64 = 293.6;
 const KT_MEV: f64 = 8.617_333_262e-5 * TEMP_K * 1.0e-6;
 
-/// Fuel volume fraction in the homogenised mixture.
-///
-/// **Chosen, not taken from the benchmark.** A typical LWR lattice is roughly
-/// 30 % fuel by volume; the cladding is dropped (see the module docs), and its
-/// volume is given to the moderator. Since this example measures the agreement
-/// between two data routes on an identical geometry, the exact fraction does
-/// not affect what is being tested -- but it does mean the `k` below is not a
-/// benchmark value, which is why it is stated here rather than buried.
-const FUEL_VF: f64 = 0.30;
-const WATER_VF: f64 = 1.0 - FUEL_VF;
-
-/// `(name, ENDF file, MAT, fuel a/o, water a/o)` — LEU-COMP-THERM-008 case 1
-/// compositions, from `verification_and_validation/icsbep/leu-comp-therm-008/
-/// materials.xml`. U-234 and B-11 are dropped: both are minor, and each costs a
-/// full RECONR plus a few hundred MB of ACE.
-const NUCLIDES: [(&str, &str, i32, f64, f64); 5] = [
-    ("U235", "n-092_U_235-ENDF8.0.endf", 9228, 0.00056868, 0.0),
-    ("U238", "n-092_U_238.endf", 9237, 0.022268, 0.0),
-    ("O16", "n-008_O_016-ENDF8.0.endf", 825, 0.045683, 0.033369),
-    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf", 125, 0.0, 0.066737),
-    ("B10", "n-005_B_010-ENDF8.0.endf", 525, 2.6055e-07, 1.6769e-05),
+/// `(name, ENDF file, MAT)` — `lct008_keff.rs`'s `TAPES_CHEAP` tier, the
+/// nuclides the lattice keeps (the 24 others the model names are dropped, not
+/// renormalised, exactly as that example's `--cheap-nuclides` does). MATs read
+/// out of the tapes themselves.
+const NUCLIDES: [(&str, &str, i32); 11] = [
+    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf", 125),
+    ("B10", "n-005_B_010-ENDF8.0.endf", 525),
+    ("O16", "n-008_O_016-ENDF8.0.endf", 825),
+    ("U234", "n-092_U_234-ENDF8.0.endf", 9225),
+    ("U235", "n-092_U_235-ENDF8.0.endf", 9228),
+    ("U238", "n-092_U_238.endf", 9237),
+    ("Al27", "n-013_Al_027-ENDF8.0.endf", 1325),
+    ("Si28", "n-014_Si_028-ENDF8.0.endf", 1425),
+    ("Si29", "n-014_Si_029-ENDF8.0.endf", 1428),
+    ("Si30", "n-014_Si_030-ENDF8.0.endf", 1431),
+    ("Mn55", "n-025_Mn_055-ENDF8.0.endf", 2525),
 ];
 
 #[derive(Default, Clone, Copy)]
@@ -313,9 +343,12 @@ fn main() {
     // particle count and one seed per run, rather than the single hard-coded
     // configuration the parity check alone needed (2026-09-24).
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let n_particles = arg_usize(&args, "--particles").unwrap_or(3000);
-    let n_inactive = arg_usize(&args, "--inactive").unwrap_or(30);
-    let n_active = arg_usize(&args, "--active").unwrap_or(80);
+    // Lattice defaults: `lct008_keff.rs`'s high-statistics setting, which its
+    // source-convergence checks were sized for (the sphere used 3000 x [30 + 80]).
+    let n_particles = arg_usize(&args, "--particles").unwrap_or(10_000);
+    let n_inactive = arg_usize(&args, "--inactive").unwrap_or(250);
+    let n_active = arg_usize(&args, "--active").unwrap_or(400);
+    let threads = arg_usize(&args, "--threads").unwrap_or(4);
     let seed_override = arg_usize(&args, "--seed").map(|v| v as u64);
     // `--seeds N` repeats ONLY the transport, over N consecutive seeds, reusing
     // the nuclides. The ACE build is ~300 s and the library 607 MB, so paying it
@@ -334,15 +367,15 @@ fn main() {
     let scratch = std::env::temp_dir().join(format!("lct008_ace_{}", std::process::id()));
     std::fs::create_dir_all(&scratch).expect("scratch dir");
 
-    println!("Simplified LEU-COMP-THERM-008: ENDF route vs ENDF->ACE->read route");
-    println!("  homogenised {:.0} % fuel / {:.0} % borated water, NOT the lumped benchmark\n",
-        100.0 * FUEL_VF, 100.0 * WATER_VF);
+    println!(
+        "LEU-COMP-THERM-008 case 1 lattice (11-nuclide tier): ENDF route vs ENDF->ACE->read route"
+    );
 
     let mut via_endf: Vec<Nuclide> = Vec::new();
     let mut via_ace: Vec<Nuclide> = Vec::new();
     let mut ace_bytes = 0u64;
 
-    for (name, file, mat, _, _) in NUCLIDES {
+    for (name, file, mat) in NUCLIDES {
         let Some(path) = reference_endf(file) else {
             println!("SKIP: reference tape {file} is not present");
             return;
@@ -363,7 +396,11 @@ fn main() {
         let t = Instant::now();
         let recon0 = reconr(
             &tape,
-            &ReconrConfig { mat, tolerance: 1.0e-3, temperature: 0.0 },
+            &ReconrConfig {
+                mat,
+                tolerance: 1.0e-3,
+                temperature: 0.0,
+            },
         )
         .unwrap_or_else(|e| panic!("RECONR({name}): {e}"));
         st.reconr += t.elapsed();
@@ -388,32 +425,68 @@ fn main() {
         st.ace_read += t.elapsed();
 
         let t = Instant::now();
-        let n_ace = Nuclide::from_ace(&raw, name).unwrap_or_else(|e| panic!("from_ace({name}): {e}"));
+        let n_ace =
+            Nuclide::from_ace(&raw, name).unwrap_or_else(|e| panic!("from_ace({name}): {e}"));
         st.from_ace += t.elapsed();
         via_ace.push(n_ace);
 
         // Delete immediately: these are hundreds of MB and the container's
         // writable disk is a fixed allowance, not a disk.
         let _ = std::fs::remove_file(&out);
-        println!("  {name}: ACE {:.1} MB (written, read back, removed)", bytes as f64 / 1.0e6);
+        println!(
+            "  {name}: ACE {:.1} MB (written, read back, removed)",
+            bytes as f64 / 1.0e6
+        );
     }
 
-    // Homogenised composition: each nuclide's density is its fuel a/o times the
-    // fuel volume fraction plus its water a/o times the water fraction.
-    let components: Vec<NuclideComponent> = NUCLIDES
+    // The lattice model, shared with `lct008_keff.rs` (common/lct008_model.rs).
+    let _ = lct008_model::ACTIVE_CASE.set(1);
+    let spec = lct008_model::parse_materials(lct008_model::materials_xml());
+    let slots: BTreeMap<String, usize> = NUCLIDES
         .iter()
         .enumerate()
-        .map(|(i, (_, _, _, fuel_ao, water_ao))| NuclideComponent {
-            nuclide_idx: i,
-            atom_density: fuel_ao * FUEL_VF + water_ao * WATER_VF,
-        })
+        .map(|(i, (n, _, _))| (n.to_string(), i))
         .collect();
-    let make_material = |name: &str| Material {
-        id: 1,
-        name: name.into(),
-        temperature: TEMP_K,
-        components: components.clone(),
+    let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
+    for m in &spec {
+        for (n, ao) in &m.nuclides {
+            if !slots.contains_key(n) {
+                *omitted.entry(n.clone()).or_insert(0.0) += ao;
+            }
+        }
+    }
+    let (materials, _) = lct008_model::build_materials(&spec, &slots, &omitted, false);
+    lct008_model::report_omissions(&spec, &omitted);
+    let geom = lct008_model::build_geometry(&materials, true);
+    let _ = lct008_model::check_geometry(&geom, &materials);
+    let src = SourceBox {
+        lower: Position::new(
+            -lct008_model::R_CORE,
+            -lct008_model::R_CORE,
+            lct008_model::Z_LO,
+        ),
+        upper: Position::new(
+            lct008_model::R_CORE,
+            lct008_model::R_CORE,
+            lct008_model::Z_HI,
+        ),
     };
+    let make_material = |_name: &str| -> Vec<Material> { materials.clone() };
+
+    // S(a,b) H in H2O on H-1, the SAME table on every arm (see module docs).
+    let sab = ThermalScattering::from_endf_file(
+        reference_endf("tsl-HinH2O.endf")
+            .expect("H(H2O) tape")
+            .to_str()
+            .expect("path"),
+        1,
+        TEMP_K,
+        "c_H_in_H2O",
+    )
+    .expect("H(H2O) S(a,b)");
+    let h1 = slots["H1"];
+    via_endf[h1] = via_endf[h1].clone().with_thermal_scattering(sab.clone());
+    via_ace[h1] = via_ace[h1].clone().with_thermal_scattering(sab);
 
     let settings = KeffSettings {
         n_particles,
@@ -421,14 +494,12 @@ fn main() {
         n_active,
         temperature_k: TEMP_K,
         seed: seed_override.unwrap_or(KeffSettings::default().seed),
+        compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)),
         ..KeffSettings::default()
     };
-    // Sized so the sphere is comfortably supercritical-to-critical for a
-    // thermal mixture; the absolute value is not the point (see module docs).
-    let radius_cm = 40.0;
 
     println!(
-        "\nHomogenised sphere r = {radius_cm} cm, {} histories x [{} inactive + {} active], seed {}",
+        "\nLattice, {} histories x [{} inactive + {} active], seed {}, {threads} threads",
         settings.n_particles, settings.n_inactive, settings.n_active, settings.seed
     );
 
@@ -447,10 +518,20 @@ fn main() {
         let n = per_seed.len() as f64;
         let k = per_seed.iter().sum::<f64>() / n;
         if per_seed.len() < 2 {
-            return Arm { k, sem: single_std, sd: 0.0, per_seed: per_seed.to_vec() };
+            return Arm {
+                k,
+                sem: single_std,
+                sd: 0.0,
+                per_seed: per_seed.to_vec(),
+            };
         }
         let var = per_seed.iter().map(|v| (v - k) * (v - k)).sum::<f64>() / (n - 1.0);
-        Arm { k, sem: (var / n).sqrt(), sd: var.sqrt(), per_seed: per_seed.to_vec() }
+        Arm {
+            k,
+            sem: (var / n).sqrt(),
+            sd: var.sqrt(),
+            per_seed: per_seed.to_vec(),
+        }
     }
 
     let mut k_endf: Vec<f64> = Vec::new();
@@ -462,13 +543,13 @@ fn main() {
         set.seed = settings.seed + s as u64;
 
         let t = Instant::now();
-        let r = run_keff(radius_cm, &make_material("LCT008 (ENDF)"), &via_endf, &set);
+        let r = run_keff_csg(&geom, &make_material("ENDF"), &via_endf, src, &set, None);
         st.transport_endf += t.elapsed();
         std_endf = r.k_std;
         k_endf.push(r.k_mean);
 
         let t = Instant::now();
-        let r = run_keff(radius_cm, &make_material("LCT008 (ACE)"), &via_ace, &set);
+        let r = run_keff_csg(&geom, &make_material("ACE"), &via_ace, src, &set, None);
         st.transport_ace += t.elapsed();
         std_ace = r.k_std;
         k_ace.push(r.k_mean);
@@ -485,8 +566,14 @@ fn main() {
     }
     let a_endf = summarise(&k_endf, std_endf);
     let a_ace = summarise(&k_ace, std_ace);
-    let r_endf = KRes { k_mean: a_endf.k, k_std: a_endf.sem };
-    let r_ace = KRes { k_mean: a_ace.k, k_std: a_ace.sem };
+    let r_endf = KRes {
+        k_mean: a_endf.k,
+        k_std: a_endf.sem,
+    };
+    let r_ace = KRes {
+        k_mean: a_ace.k,
+        k_std: a_ace.sem,
+    };
 
     // ── Arm A': the ENDF route with the ACE route's OMISSIONS imposed ──────
     //
@@ -525,7 +612,10 @@ fn main() {
         .filter(|n| n.has_urr_probability_tables())
         .count();
     let n_dbrc = via_endf_ablated.iter().filter(|n| n.has_dbrc()).count();
-    let n_urr_ace = via_ace.iter().filter(|n| n.has_urr_probability_tables()).count();
+    let n_urr_ace = via_ace
+        .iter()
+        .filter(|n| n.has_urr_probability_tables())
+        .count();
     assert_eq!(
         (n_urr, n_dbrc),
         (n_urr_ace, 0),
@@ -544,28 +634,43 @@ fn main() {
         let mut set = settings.clone();
         set.seed = settings.seed + s as u64;
         let t = Instant::now();
-        let r = run_keff(
-            radius_cm,
-            &make_material("LCT008 (ENDF, URR+DBRC ablated)"),
+        let r = run_keff_csg(
+            &geom,
+            &make_material("ENDF, ablated"),
             &via_endf_ablated,
+            src,
             &set,
+            None,
         );
         st.transport_endf_ablated += t.elapsed();
         std_abl = r.k_std;
         k_abl.push(r.k_mean);
     }
     let a_abl = summarise(&k_abl, std_abl);
-    let r_abl = KRes { k_mean: a_abl.k, k_std: a_abl.sem };
+    let r_abl = KRes {
+        k_mean: a_abl.k,
+        k_std: a_abl.sem,
+    };
 
     // ── Parity ─────────────────────────────────────────────────────────────
     let d_pcm = 1.0e5 * (r_ace.k_mean - r_endf.k_mean);
     let combined = 1.0e5 * (r_endf.k_std.powi(2) + r_ace.k_std.powi(2)).sqrt();
     println!("\n  PARITY (the point of this example)");
-    println!("    ENDF route : k_eff = {:.5} +/- {:.5}", r_endf.k_mean, r_endf.k_std);
-    println!("    ACE  route : k_eff = {:.5} +/- {:.5}", r_ace.k_mean, r_ace.k_std);
+    println!(
+        "    ENDF route : k_eff = {:.5} +/- {:.5}",
+        r_endf.k_mean, r_endf.k_std
+    );
+    println!(
+        "    ACE  route : k_eff = {:.5} +/- {:.5}",
+        r_ace.k_mean, r_ace.k_std
+    );
     println!(
         "    difference : {d_pcm:+.1} pcm  (combined sigma {combined:.1} pcm, {:.2} sigma)",
-        if combined > 0.0 { d_pcm.abs() / combined } else { 0.0 }
+        if combined > 0.0 {
+            d_pcm.abs() / combined
+        } else {
+            0.0
+        }
     );
     if d_pcm.abs() <= 2.0 * combined {
         println!("    => the two routes AGREE within statistics.");
@@ -578,9 +683,8 @@ fn main() {
         );
     }
     println!(
-        "\n    NOT a benchmark value: this homogenises the lumped fuel that gives\n    \
-         LEU-COMP-THERM-008 its resonance self-shielding, so k is not comparable\n    \
-         to the benchmark's 1.0000."
+        "\n    The lattice on an 11-nuclide tier: 24 clad and boron trace nuclides are\n    \
+         dropped, so k is close to, but not exactly, the full model's."
     );
 
     // ── The asymmetry, priced (GitHub #307 item 5) ─────────────────────────
@@ -592,7 +696,13 @@ fn main() {
     println!("\n  THE ASYMMETRY, PRICED (GitHub #307 item 5)");
     println!(
         "    ENDF ablated : k_eff = {:.5} +/- {:.5}   ({})",
-        r_abl.k_mean, r_abl.k_std, if purr { "DBRC off; URR on, as in route B" } else { "URR off, DBRC off" }
+        r_abl.k_mean,
+        r_abl.k_std,
+        if purr {
+            "DBRC off; URR on, as in route B"
+        } else {
+            "URR off, DBRC off"
+        }
     );
     println!(
         "    ablated - ENDF : {d_abl_vs_endf:+.1} +/- {s_abl_vs_endf:.1} pcm ({:.2} sigma)          -- the worth of {} here",
@@ -684,7 +794,8 @@ fn main() {
         wall.elapsed().as_secs_f64() - tot_s
     );
 
-    let ace_prep = (st.endf_parse + st.reconr + st.broadr + st.ace_build + st.ace_write).as_secs_f64();
+    let ace_prep =
+        (st.endf_parse + st.reconr + st.broadr + st.ace_build + st.ace_write).as_secs_f64();
     let ace_load = (st.ace_read + st.from_ace).as_secs_f64();
     println!(
         "\n  Building the ACE library cost {ace_prep:.2} s and {:.1} MB; loading it back cost\n  \
@@ -717,7 +828,6 @@ fn build_ace(tape: &Tape, mat: i32, recon: &ReconrResult, purr: bool) -> AceTabl
         )
         .expect("assemble ACE with PURR")
     } else {
-        njoy_outram_park_fork::acer::build_full(tape, mat, recon, KT_MEV, 0)
-            .expect("assemble ACE")
+        njoy_outram_park_fork::acer::build_full(tape, mat, recon, KT_MEV, 0).expect("assemble ACE")
     }
 }
