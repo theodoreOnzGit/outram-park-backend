@@ -11298,7 +11298,11 @@ employee as part of their duties, per the document).
 ###### `VerifiedOpenLicence`
 
 Checked: under an open licence permitting redistribution (CC0,
-CC BY, CC BY-SA, ...).
+CC BY, CC BY-SA, ...), or under a publisher's written redistribution
+grant. The grant may be narrower than an open licence: the EPA
+Federal Guidance Reports (2026-09-28) are redistributable for
+non-commercial, scientific and educational purposes only, and their
+[`CorpusLiterature::status_basis`] says so.
 
 ###### `PubliclyAccessibleUnverified`
 
@@ -12116,12 +12120,13 @@ pub const TOPICS: &[CorpusTopic] = _;
 #### Constant `LITERATURE`
 
 Curated literature (#250), supplied by the maintainer on 2026-09-22 and
-held in [`CORPUS_REPOSITORY_URL`]. **Only documents in that repository's
+held in [`CORPUS_REPOSITORY_URL`], plus the three EPA Federal Guidance
+Reports (FGR-11, 13, 15) added on 2026-09-28 (maintainer request). **Only documents in that repository's
 `kovan-standard-open-corpus/` folder are hardcoded** (maintainer direction,
 2026-09-22); the maintainer's own open literature (`theodore-open-corpus/`,
 including the TUAS paper, which was listed here until then) is not. Titles, authors and years are read
 from each document's own title and front-matter pages; topics from its
-abstract and contents. The one citation between entries is in
+abstract and contents. The citations between entries are in
 [`CONNECTIONS`] (NUREG-2201 and NUREG/KM-0006 also cite NUREG-0800, but
 chapters 19.2 and 15.0.2, not the Section 4.2 held here, so those are not
 connections).

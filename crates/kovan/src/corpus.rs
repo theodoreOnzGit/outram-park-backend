@@ -136,7 +136,11 @@ pub enum SourceStatus {
     /// employee as part of their duties, per the document).
     VerifiedPublicDomain,
     /// Checked: under an open licence permitting redistribution (CC0,
-    /// CC BY, CC BY-SA, ...).
+    /// CC BY, CC BY-SA, ...), or under a publisher's written redistribution
+    /// grant. The grant may be narrower than an open licence: the EPA
+    /// Federal Guidance Reports (2026-09-28) are redistributable for
+    /// non-commercial, scientific and educational purposes only, and their
+    /// [`CorpusLiterature::status_basis`] says so.
     VerifiedOpenLicence,
     /// Freely readable, but redistribution has not been verified. The entry
     /// and its URL ship; the PDF does not.
@@ -375,6 +379,14 @@ pub const TOPICS: &[CorpusTopic] = &[
         "Defense in Depth",
     ),
     topic("nuclear-engineering/safety/source-term", "Source Term"),
+    // Added 2026-09-28 for the EPA Federal Guidance Reports (dose and risk
+    // coefficients). Under Safety, beside Source Term: dose is where a
+    // release's consequence is measured. Not a root branch, so the brief's
+    // nine top-level branches are unchanged.
+    topic(
+        "nuclear-engineering/safety/radiation-protection",
+        "Radiation Protection & Dosimetry",
+    ),
     topic("nuclear-engineering/pra", "PRA"),
     topic("nuclear-engineering/fuel-cycle", "Fuel Cycle"),
     topic(
@@ -401,13 +413,28 @@ const NRC_BASIS: &str = "U.S. Government Work, not subject to copyright: NRC Sit
 const PHYSOR_2026_BASIS: &str =
     "CC BY 4.0, as recorded on the paper's Zenodo DOI record (checked 2026-09-22)";
 
+/// The basis for the U.S. EPA Federal Guidance Reports: the EPA disclaimers
+/// page's "Copyright Status" section
+/// (<https://www.epa.gov/web-policies-and-procedures/epa-disclaimers>,
+/// accessed 2026-09-28), quoted verbatim in the corpus repository's README.
+/// Neither report notes a copyright condition of its own. The grant is for
+/// non-commercial, scientific and educational use only, so it is recorded as
+/// a (non-commercial) open licence, not as public domain: both reports were
+/// prepared jointly with Oak Ridge National Laboratory, a DOE contractor
+/// laboratory, so 17 U.S.C. 105 does not cover them wholly.
+const EPA_BASIS: &str = "EPA Copyright Status statement: \"may be freely distributed and used for \
+non-commercial, scientific and educational purposes\" \
+(https://www.epa.gov/web-policies-and-procedures/epa-disclaimers, accessed 2026-09-28); \
+the report notes no copyright condition of its own. Commercial use is not granted";
+
 /// Curated literature (#250), supplied by the maintainer on 2026-09-22 and
-/// held in [`CORPUS_REPOSITORY_URL`]. **Only documents in that repository's
+/// held in [`CORPUS_REPOSITORY_URL`], plus the three EPA Federal Guidance
+/// Reports (FGR-11, 13, 15) added on 2026-09-28 (maintainer request). **Only documents in that repository's
 /// `kovan-standard-open-corpus/` folder are hardcoded** (maintainer direction,
 /// 2026-09-22); the maintainer's own open literature (`theodore-open-corpus/`,
 /// including the TUAS paper, which was listed here until then) is not. Titles, authors and years are read
 /// from each document's own title and front-matter pages; topics from its
-/// abstract and contents. The one citation between entries is in
+/// abstract and contents. The citations between entries are in
 /// [`CONNECTIONS`] (NUREG-2201 and NUREG/KM-0006 also cite NUREG-0800, but
 /// chapters 19.2 and 15.0.2, not the Section 4.2 held here, so those are not
 /// connections).
@@ -610,18 +637,93 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
+    CorpusLiterature {
+        id: "epa-fgr-11",
+        kind: LiteratureKind::Report,
+        title: "Limiting Values of Radionuclide Intake and Air Concentration and Dose Conversion \
+                Factors for Inhalation, Submersion, and Ingestion (Federal Guidance Report No. 11, \
+                EPA-520/1-88-020)",
+        authors: &["Eckerman, K.F.", "Wolbarst, A.B.", "Richardson, A.C.B."],
+        year: Some(1988),
+        topics: &["nuclear-engineering/safety/radiation-protection"],
+        source_url: Some(
+            "https://www.epa.gov/sites/default/files/2015-05/documents/520-1-88-020.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/epa/fgr-11-epa-520-1-88-020.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: EPA_BASIS,
+    },
+    CorpusLiterature {
+        id: "epa-fgr-13",
+        kind: LiteratureKind::Report,
+        title: "Cancer Risk Coefficients for Environmental Exposure to Radionuclides \
+                (Federal Guidance Report No. 13, EPA 402-R-99-001)",
+        authors: &[
+            "Eckerman, K.F.",
+            "Leggett, R.W.",
+            "Nelson, C.B.",
+            "Puskin, J.S.",
+            "Richardson, A.C.B.",
+        ],
+        year: Some(1999),
+        topics: &["nuclear-engineering/safety/radiation-protection"],
+        source_url: Some(
+            "https://www.epa.gov/system/files/documents/2025-03/402-r-99-001_508-d_2.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/epa/fgr-13-epa-402-r-99-001.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: EPA_BASIS,
+    },
+    CorpusLiterature {
+        id: "epa-fgr-15",
+        kind: LiteratureKind::Report,
+        title: "External Exposure to Radionuclides in Air, Water and Soil \
+                (Federal Guidance Report No. 15, EPA 402-R-25-001, revised July 2025)",
+        authors: &[
+            "Bellamy, M.B.",
+            "Samuels, C.E.",
+            "Dewji, S.A.",
+            "Leggett, R.W.",
+            "Hiller, M.",
+            "Veinot, K.",
+            "Manger, R.P.",
+            "Ryman, J.C.",
+            "Easterly, C.E.",
+            "Hertel, N.E.",
+            "Stewart, D.J.",
+            "Eckerman, K.F.",
+        ],
+        year: Some(2025),
+        topics: &["nuclear-engineering/safety/radiation-protection"],
+        source_url: Some(
+            "https://www.epa.gov/system/files/documents/2025-07/fgr15_rev2025july_final_508.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/epa/fgr-15-epa-402-r-25-001.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: EPA_BASIS,
+    },
 ];
 
 /// Curated corpus-level relationships, each on a document's own evidence
 /// ([`CorpusConnection::basis`]). A citation is recorded as
 /// [`RelationKind::RelatedTo`]: citing a work shows relevance, not agreement.
-pub const CONNECTIONS: &[CorpusConnection] = &[CorpusConnection {
-    source: "corpus:literature/nureg-2201",
-    target: "corpus:literature/wash-1400",
-    relation: RelationKind::RelatedTo,
-    basis: "NUREG-2201 reference list: \"WASH-1400, (NUREG-75/014), October 1975\"; \
-            discussed in its text as the first PRA",
-}];
+pub const CONNECTIONS: &[CorpusConnection] = &[
+    CorpusConnection {
+        source: "corpus:literature/nureg-2201",
+        target: "corpus:literature/wash-1400",
+        relation: RelationKind::RelatedTo,
+        basis: "NUREG-2201 reference list: \"WASH-1400, (NUREG-75/014), October 1975\"; \
+                discussed in its text as the first PRA",
+    },
+    CorpusConnection {
+        source: "corpus:literature/epa-fgr-13",
+        target: "corpus:literature/epa-fgr-11",
+        relation: RelationKind::RelatedTo,
+        basis: "FGR-13 preface: \"Although many of the biokinetic and dosimetric models used \
+                here are updates of models used in Federal Guidance Report No. 11, the present \
+                report does not replace either that document or Federal Guidance Report No. 12\"",
+    },
+];
 
 /// The topic at `path`, if any.
 pub fn topic_at(path: &str) -> Option<&'static CorpusTopic> {
@@ -694,7 +796,11 @@ mod tests {
     /// and corpus connections join nodes that exist.
     #[test]
     fn literature_and_connections_point_at_real_nodes() {
-        assert_eq!(LITERATURE.len(), 11, "the maintainer's 2026-09-22 set");
+        assert_eq!(
+            LITERATURE.len(),
+            14,
+            "the maintainer's 2026-09-22 set plus EPA FGR-11, FGR-13 and FGR-15 (2026-09-28)"
+        );
         let mut ids = HashSet::new();
         for l in LITERATURE {
             assert!(
