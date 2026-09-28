@@ -68,6 +68,14 @@ impl CellRange {
     }
 }
 
+/// One cell's text before and after a proposed change.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellChange {
+    pub pos: CellPos,
+    pub before: String,
+    pub after: String,
+}
+
 /// Which way an arrow key moves the cursor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -386,6 +394,45 @@ impl TableGrid {
         Ok(grid)
     }
 
+    /// Rewrite the **selected** cells that are written in standard form
+    /// (`2.1×10^6`, `8.2 x 10^-7`) as E notation (`2.1e6`, `8.2e-7`), so a
+    /// spreadsheet or `f64::parse` reads them as numbers (maintainer,
+    /// 2026-09-28: "user selects cells, and clicks a format to standard form
+    /// button, which then puts in e notation for highlighted cells"). See
+    /// [`standard_form_to_e`] for exactly what counts; other cells, selected
+    /// or not, are left alone. One undo step; returns how many cells changed.
+    pub fn reformat_standard_form(&mut self) -> usize {
+        let changes = self.standard_form_changes();
+        if changes.is_empty() {
+            return 0;
+        }
+        self.checkpoint();
+        for change in &changes {
+            self.cells[change.pos.row][change.pos.col] = change.after.clone();
+        }
+        changes.len()
+    }
+
+    /// What [`Self::reformat_standard_form`] would do, without doing it: each
+    /// selected cell it would change, with its text before and after, in
+    /// reading order. For the "are you sure?" preview the maintainer asked
+    /// for ("displays the superscripted text before, and e form text
+    /// after").
+    pub fn standard_form_changes(&self) -> Vec<CellChange> {
+        let sel = self.selection();
+        (sel.top..=sel.bottom)
+            .flat_map(|r| (sel.left..=sel.right).map(move |c| CellPos::new(r, c)))
+            .filter_map(|pos| {
+                let before = self.get(pos.row, pos.col);
+                standard_form_to_e(before).map(|after| CellChange {
+                    pos,
+                    before: before.to_owned(),
+                    after,
+                })
+            })
+            .collect()
+    }
+
     /// Save the current cells for undo and forget anything redoable.
     fn checkpoint(&mut self) {
         if self.undo.len() == UNDO_DEPTH {
@@ -415,9 +462,336 @@ impl TableGrid {
     }
 }
 
+/// The E-notation form of `cell` when the **whole cell** is one number in
+/// standard form, else `None`.
+///
+/// Accepted: a mantissa (optional sign, digits, optional decimal part), a
+/// multiplication sign (`×`, `x`, `X`, `·`, `⋅`, `*`), `10`, and an exponent,
+/// with spaces allowed around the sign. The exponent is written either
+///
+/// - after a caret, `10^6`, which is how the reader's character selection
+///   marks a superscript (`app::pdf_reader::select_chars_in_rect`), or
+/// - straight after the `10`, `106`, which is what a superscript turns into
+///   when the text was copied without superscript detection. `3×100` is
+///   therefore read as 3e0, not 300: in a table this button is pressed on,
+///   that is the far likelier meaning, and the change is one undo away.
+///
+/// A bare `10^6` gives `1e6`. The minus sign may be `-` or `−` (U+2212).
+/// Anything else in the cell (units, footnote marks, words) means it is not
+/// converted, so prose and labels are never touched: `1.0X10^5 m^2` keeps
+/// its superscripts as they are (maintainer, 2026-09-28).
+pub fn standard_form_to_e(cell: &str) -> Option<String> {
+    if let Some(e) = tidy_e_notation(cell) {
+        return Some(e);
+    }
+    let s: String = cell.trim().replace('\u{2212}', "-");
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = 0;
+    let take_digits = |i: &mut usize| {
+        let start = *i;
+        while *i < chars.len() && chars[*i].is_ascii_digit() {
+            *i += 1;
+        }
+        *i > start
+    };
+    let skip_spaces = |i: &mut usize| {
+        while *i < chars.len() && chars[*i].is_whitespace() {
+            *i += 1;
+        }
+    };
+    // Mantissa, or a bare "10^...".
+    let mut mantissa = String::new();
+    if chars.get(i).is_some_and(|c| *c == '+' || *c == '-') {
+        mantissa.push(chars[i]);
+        i += 1;
+    }
+    let int_start = i;
+    let has_mantissa = take_digits(&mut i);
+    let bare_power = has_mantissa
+        && chars[int_start..i].iter().collect::<String>() == "10"
+        && chars.get(i) == Some(&'^');
+    if bare_power {
+        i = int_start;
+        mantissa.push('1');
+    } else {
+        if !has_mantissa {
+            return None;
+        }
+        if chars.get(i) == Some(&'.') {
+            i += 1;
+            // Some PDFs' text layer puts a space after the decimal point
+            // (HTR-10 Table 3's Xe-131m reads "9. 3×10⁶"); it is dropped,
+            // but only when digits follow, so "9. ×" is still refused.
+            let mut j = i;
+            skip_spaces(&mut j);
+            if chars.get(j).is_some_and(|c| c.is_ascii_digit()) {
+                i = j;
+            }
+            take_digits(&mut i);
+        }
+        mantissa.extend(chars[int_start..i].iter().filter(|c| !c.is_whitespace()));
+        skip_spaces(&mut i);
+        if !chars
+            .get(i)
+            .is_some_and(|c| matches!(c, '×' | 'x' | 'X' | '·' | '⋅' | '*'))
+        {
+            return None;
+        }
+        i += 1;
+        skip_spaces(&mut i);
+    }
+    // "10", then the exponent.
+    if chars.get(i) != Some(&'1') || chars.get(i + 1) != Some(&'0') {
+        return None;
+    }
+    i += 2;
+    if chars.get(i) == Some(&'^') {
+        i += 1;
+    }
+    let mut exponent = String::new();
+    if chars.get(i).is_some_and(|c| *c == '+' || *c == '-') {
+        if chars[i] == '-' {
+            exponent.push('-');
+        }
+        i += 1;
+    }
+    let exp_start = i;
+    if !take_digits(&mut i) || i != chars.len() {
+        return None;
+    }
+    let digits: String = chars[exp_start..i].iter().collect();
+    let digits = digits.trim_start_matches('0');
+    exponent.push_str(if digits.is_empty() { "0" } else { digits });
+    Some(format!("{mantissa}e{exponent}"))
+}
+
+/// Split `text` into plain and superscript pieces for display, reading the
+/// `^` marks the reader's character selection writes: `2.1×10^6` gives
+/// `[("2.1×10", false), ("6", true)]`. A superscript run is an optional
+/// leading sign (`-`, `−`, `+`) then letters and digits; it ends at anything
+/// else (a space, a bracket, punctuation). A `^` with nothing superscriptable
+/// after it is kept as plain text.
+pub fn superscript_segments(text: &str) -> Vec<(String, bool)> {
+    let mut out: Vec<(String, bool)> = Vec::new();
+    let push = |out: &mut Vec<(String, bool)>, piece: &str, sup: bool| {
+        if piece.is_empty() {
+            return;
+        }
+        match out.last_mut() {
+            Some((last, s)) if *s == sup => last.push_str(piece),
+            _ => out.push((piece.to_owned(), sup)),
+        }
+    };
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+    let mut plain = String::new();
+    while i < chars.len() {
+        if chars[i] == '^' {
+            let mut j = i + 1;
+            if chars
+                .get(j)
+                .is_some_and(|c| matches!(c, '-' | '\u{2212}' | '+'))
+            {
+                j += 1;
+            }
+            let body_start = j;
+            while chars.get(j).is_some_and(|c| c.is_alphanumeric()) {
+                j += 1;
+            }
+            if j > body_start {
+                push(&mut out, &plain, false);
+                plain.clear();
+                let sup: String = chars[i + 1..j].iter().collect();
+                push(&mut out, &sup, true);
+                i = j;
+                continue;
+            }
+        }
+        plain.push(chars[i]);
+        i += 1;
+    }
+    push(&mut out, &plain, false);
+    out
+}
+
+/// A cell already in E notation but not in a form a parser reads, rewritten
+/// canonically: `1.1E−4` (a Unicode minus, as the HTR-10 paper's Table 7
+/// prints it) becomes `1.1e-4`. `None` when the cell is not E notation or is
+/// already canonical (`2.1e6`), so a canonical cell is never "changed".
+fn tidy_e_notation(cell: &str) -> Option<String> {
+    let s = cell.trim();
+    let (mantissa, exponent) = s.split_once(['e', 'E'])?;
+    let mantissa_ok = {
+        let m = mantissa
+            .strip_prefix(['+', '-', '\u{2212}'])
+            .unwrap_or(mantissa);
+        let (int, frac) = m.split_once('.').unwrap_or((m, ""));
+        !int.is_empty()
+            && int.chars().all(|c| c.is_ascii_digit())
+            && frac.chars().all(|c| c.is_ascii_digit())
+    };
+    let (sign, digits) = match exponent.chars().next()? {
+        '-' | '\u{2212}' => ("-", &exponent[exponent.chars().next()?.len_utf8()..]),
+        '+' => ("", &exponent[1..]),
+        _ => ("", exponent),
+    };
+    if !mantissa_ok || digits.is_empty() || !digits.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let digits = digits.trim_start_matches('0');
+    let tidy = format!(
+        "{}e{sign}{}",
+        mantissa.replace('\u{2212}', "-"),
+        if digits.is_empty() { "0" } else { digits }
+    );
+    (tidy != cell).then_some(tidy)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn standard_form_with_a_caret_becomes_e_notation() {
+        assert_eq!(standard_form_to_e("2.1×10^6").as_deref(), Some("2.1e6"));
+        assert_eq!(
+            standard_form_to_e(" 8.2 x 10^-7 ").as_deref(),
+            Some("8.2e-7")
+        );
+        assert_eq!(
+            standard_form_to_e("-3.5·10^\u{2212}8").as_deref(),
+            Some("-3.5e-8")
+        );
+        assert_eq!(standard_form_to_e("1.6*10^+07").as_deref(), Some("1.6e7"));
+        assert_eq!(standard_form_to_e("10^6").as_deref(), Some("1e6"));
+    }
+
+    #[test]
+    fn e_notation_with_a_unicode_minus_is_tidied_and_canonical_e_is_left_alone() {
+        // HTR-10 Table 7 prints its doses as "1.1E−4" (U+2212).
+        assert_eq!(
+            standard_form_to_e("1.1E\u{2212}4").as_deref(),
+            Some("1.1e-4")
+        );
+        assert_eq!(
+            standard_form_to_e("9.6E\u{2212}6").as_deref(),
+            Some("9.6e-6")
+        );
+        assert_eq!(
+            standard_form_to_e("\u{2212}2.0E+03").as_deref(),
+            Some("-2.0e3")
+        );
+        assert_eq!(standard_form_to_e("2.1e6"), None);
+        assert_eq!(standard_form_to_e("8.2e-7"), None);
+        assert_eq!(standard_form_to_e("E-4"), None);
+        assert_eq!(standard_form_to_e("1.1E"), None);
+    }
+
+    #[test]
+    fn a_stray_space_after_the_decimal_point_is_dropped() {
+        // HTR-10 Table 3, Xe-131m, as the PDF text layer gives it.
+        assert_eq!(standard_form_to_e("9. 3×10^6").as_deref(), Some("9.3e6"));
+    }
+
+    #[test]
+    fn a_lost_superscript_is_read_as_the_exponent() {
+        // What the maintainer's copy produced before superscripts were
+        // detected: 2.1×10⁶ arriving as "2.1×106".
+        assert_eq!(standard_form_to_e("2.1×106").as_deref(), Some("2.1e6"));
+        assert_eq!(standard_form_to_e("3.5×108").as_deref(), Some("3.5e8"));
+    }
+
+    #[test]
+    fn anything_that_is_not_one_standard_form_number_is_left_alone() {
+        for cell in [
+            "",
+            "I-131",
+            "2.1e6",
+            "2.1",
+            "×10^6",
+            "2.1×10^6 Bq",
+            // A value with a unit keeps its superscripts and is not
+            // reformatted (maintainer, 2026-09-28: "tables are 1.0X10^5 m^2,
+            // i think for those, keep superscripts and do not reformat").
+            "1.0X10^5 m^2",
+            "m^2",
+            "2.1×10^",
+            "5 × 3",
+        ] {
+            assert_eq!(standard_form_to_e(cell), None, "{cell:?}");
+        }
+    }
+
+    #[test]
+    fn reformatting_converts_only_standard_form_cells_in_one_undo_step() {
+        let mut g = TableGrid::default();
+        g.paste("nuclide\tactivity (Bq)\nKr-85\t2.1×10^6\nI-131\t8.2×107");
+        // The paste leaves the whole block selected.
+        assert_eq!(g.reformat_standard_form(), 2);
+        assert_eq!(
+            g.to_csv(),
+            "nuclide,activity (Bq)\nKr-85,2.1e6\nI-131,8.2e7\n"
+        );
+        assert!(g.undo());
+        assert_eq!(g.get(1, 1), "2.1×10^6");
+        g.set_cursor(CellPos::new(0, 0), false);
+        g.set_cursor(CellPos::new(2, 1), true);
+        assert_eq!(g.reformat_standard_form(), 2);
+        assert_eq!(g.reformat_standard_form(), 0, "nothing left to convert");
+    }
+
+    #[test]
+    fn the_preview_lists_before_and_after_without_changing_anything() {
+        let mut g = TableGrid::default();
+        g.paste("I-131\t8.2×10^−7\t1.0×10^5 m^2");
+        let changes = g.standard_form_changes();
+        assert_eq!(
+            changes,
+            vec![CellChange {
+                pos: CellPos::new(0, 1),
+                before: "8.2×10^−7".into(),
+                after: "8.2e-7".into(),
+            }]
+        );
+        assert_eq!(g.get(0, 1), "8.2×10^−7", "a preview changes nothing");
+        assert!(g.undo(), "the paste's own undo step");
+        assert!(!g.undo(), "and nothing more: a preview adds no undo step");
+    }
+
+    #[test]
+    fn superscript_segments_read_the_caret_marks() {
+        let seg = |s: &str| superscript_segments(s);
+        assert_eq!(
+            seg("2.1×10^6"),
+            vec![("2.1×10".into(), false), ("6".into(), true)]
+        );
+        assert_eq!(
+            seg("1.0×10^5 m^2"),
+            vec![
+                ("1.0×10".into(), false),
+                ("5".into(), true),
+                (" m".into(), false),
+                ("2".into(), true),
+            ]
+        );
+        assert_eq!(
+            seg("10^\u{2212}7"),
+            vec![("10".into(), false), ("\u{2212}7".into(), true)]
+        );
+        assert_eq!(seg("a ^ b"), vec![("a ^ b".into(), false)]);
+        assert_eq!(seg("2.1e6"), vec![("2.1e6".into(), false)]);
+    }
+
+    #[test]
+    fn only_the_highlighted_cells_are_reformatted() {
+        let mut g = TableGrid::default();
+        g.paste("2.1×10^6\t8.2×10^7\n1.6×10^7\t3.5×10^8");
+        // Select the right-hand column only.
+        g.set_cursor(CellPos::new(0, 1), false);
+        g.set_cursor(CellPos::new(1, 1), true);
+        assert_eq!(g.reformat_standard_form(), 2);
+        assert_eq!(g.to_csv(), "2.1×10^6,8.2e7\n1.6×10^7,3.5e8\n");
+    }
 
     #[test]
     fn a_new_grid_is_the_default_size_and_empty() {

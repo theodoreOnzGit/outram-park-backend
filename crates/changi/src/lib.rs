@@ -88,9 +88,12 @@
 //! - `boon-lay`'s nuclide database is the intended source of half-lives for
 //!   [`flexpart::decay`]; this crate deliberately carries no ~~nuclide data~~
 //!   half-life data of its own so the two cannot drift. **CORRECTED
-//!   2026-09-28** — it does embed one nuclide table, the published HTR-10
-//!   equilibrium-core inventory ([`activity::inventory`], provenance in
-//!   `docs/References.md`).
+//!   2026-09-28** — it does embed ~~one nuclide table~~ ~~two~~ three published HTR-10
+//!   nuclide tables of activities: the equilibrium-core inventory
+//!   ([`activity::inventory`]), the annual normal-operation airborne
+//!   release ([`activity::airborne_release`], added 2026-09-28), and the
+//!   end-of-life primary-helium activity ([`activity::primary_helium`],
+//!   added 2026-09-28). Provenance for all three is in `docs/References.md`.
 //!
 //! ## Licence
 //!

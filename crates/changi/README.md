@@ -78,7 +78,13 @@ CHANGI is the middle link of the offsite chain:
 Two independent, separately verified ports. **CORRECTED 2026-09-28** (this line previously listed only the two ports) —
 plus a third module that is **not** a port: `activity` (`src/activity/`, dilution
 factors, time-integrated air concentration, dry deposition, and the published
-HTR-10 core inventory in `activity::inventory`). It has no upstream and no
+HTR-10 core inventory in `activity::inventory`, plus, added 2026-09-28, the
+published HTR-10 annual airborne release in `activity::airborne_release`, the
+published HTR-10 end-of-life primary-helium activity in
+`activity::primary_helium`, and
+the published HTR-10 normal-operation dose-versus-distance table in
+`activity::published_dose_by_distance`, stored as cited data and not computed.
+Nothing consumes ~~either~~ any of these tables yet). It has no upstream and no
 code-to-code verification (see its module doc). `htgr_sim_v1` uses it
 (`changi::activity::{chi_over_q, inventory, source, survey, deposition}`) together
 with `changi::puff`, in
@@ -232,10 +238,17 @@ Per the workspace "reuse before porting, port before writing" rule:
   `erf.f90` is deliberately **not** ported.
 - **`boon-lay`**'s nuclide database is the intended source of half-lives; this
   crate ~~carries no nuclide data of its own~~ **CORRECTED 2026-09-28** — carries
-  no half-life or decay-constant data of its own, but it **does** embed one
-  nuclide table: the 22-entry HTR-10 equilibrium-core inventory
-  (`reference/htr10_equilibrium_core_inventory.csv`, compiled in by
-  `src/activity/inventory.rs:50`; provenance in `docs/References.md`).
+  no half-life or decay-constant data of its own, but it **does** embed
+  ~~one nuclide table~~ ~~two~~ three published nuclide tables of activities: the 22-entry HTR-10
+  equilibrium-core inventory (`reference/htr10_equilibrium_core_inventory.csv`,
+  compiled in by `src/activity/inventory.rs`), and, added 2026-09-28, the
+  22-entry HTR-10 annual normal-operation airborne release
+  (`reference/htr10_normal_operation_annual_airborne_release.csv`, compiled in
+  by `src/activity/airborne_release.rs`), and, also added 2026-09-28, the
+  20-entry HTR-10 end-of-life primary-helium activity
+  (`reference/htr10_primary_helium_activity_end_of_life.csv`, compiled in by
+  `src/activity/primary_helium.rs`). ~~Provenance for both~~ Provenance for all
+  three (**CORRECTED 2026-09-28**) is in `docs/References.md`.
 - **`outram-mc-libs`**' LCG will supply the pseudo-random numbers the Langevin
   turbulence scheme needs. Not yet wired in — no stochastic code has landed.
 - **`outram-foam-basic-lib`** will supply the gridded field and interpolation

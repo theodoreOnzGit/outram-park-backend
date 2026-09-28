@@ -25,6 +25,11 @@
 //! **It computes no dose quantity of any kind**, and none is planned here. See
 //! the scope limit below, which is binding.
 //!
+//! One published dose table is *stored* here as cited reference data,
+//! [`published_dose_by_distance`] (added 2026-09-28). It is read from a CSV,
+//! not computed, and nothing uses it. Storing it does not change the
+//! sentence above or the scope limit.
+//!
 //! ## Relationship to the two ports — a consumer, not a shared abstraction
 //!
 //! The crate rule is to keep `puff` and `flexpart` separate, because merging
@@ -68,11 +73,23 @@
 //! an item out of the crate's *future* scope list; that is a maintainer
 //! decision taken in `RESPONSIBLE_USE.md`.
 
+/// Published HTR-10 annual airborne release to the environment under normal
+/// operation (Liu and Cao 2002, Table 5). Reference data only; nothing in this
+/// crate consumes it.
+pub mod airborne_release;
+pub mod decay_transfer;
 /// A published HTR-10 core inventory, so a source term can be built from
 /// measured magnitudes rather than round illustrative numbers. An inventory
 /// is NOT a source term -- see the module docs.
-pub mod decay_transfer;
 pub mod inventory;
+/// Published HTR-10 normal-operation dose-versus-distance table (Liu and Cao
+/// 2002, Table 7): stored reference data, **not** a dose this crate computes.
+/// Nothing in this crate consumes it.
+pub mod published_dose_by_distance;
+/// Published HTR-10 primary-helium activity at the end of a 20-year full-power
+/// life (Liu and Cao 2002, Table 3). Reference data only; nothing in this
+/// crate consumes it.
+pub mod primary_helium;
 pub mod chi_over_q;
 pub mod deposition;
 pub mod source;

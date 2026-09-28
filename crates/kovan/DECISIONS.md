@@ -1583,3 +1583,59 @@ column alignment, images (shown as links — no image loaders are installed).
   to the grid; Cancel, Esc or clicking outside returns to the PDF. The graph
   wizard's axis-range and label stages have no table counterpart, so it is
   one question. A re-opened saved table skips it: it already has a name.
+- **Cancel digitisation** ("table digitiser should also have a cancel
+  digitisation option, which brings us back to pdf reader"). A plain button
+  left of the Save artifact button in the grid's header returns to the PDF
+  reader without saving. If the grid holds cells that differ from what was
+  last saved or loaded (an edit in progress counts), a "Discard this table?"
+  box asks first, with "Discard and go back" / "Keep editing"; Esc or
+  clicking outside keeps editing. An empty or unchanged grid leaves at once.
+  Leaving resets the grid, name, region and status, so re-entering the tab
+  does not show a stale half-done table. The decision is
+  `request_cancel`/`answer_discard`, unit-tested without a window.
+- **Format to standard form (E)** in the grid toolbar (after Undo/Redo):
+  "User selects cells, and clicks a format to standard form button, which
+  then puts in e notation for highlighted cells". It calls
+  `TableGrid::reformat_standard_form` on the selection: whole-cell standard
+  form (`2.1×10^6`, `8.2×107`) becomes E notation (`2.1e6`) in one undo
+  step, and the status line reports how many cells changed. Cells with
+  units (`1.0X10^5 m^2`) are left alone. It asks first ("The wizard then
+  asks in a popup box, are you sure? then displays the superscripted text
+  before, and e form text after"): a "Reformat N cell(s) to E notation?"
+  box lists each cell (B3, ...) with its text before, superscripts drawn
+  raised, and its E form after; Reformat applies, Cancel/Esc/click outside
+  changes nothing. With nothing convertible highlighted there is no box,
+  only a status line. The grid's own cells now draw `^` superscripts raised
+  too; the stored text keeps the `^`.
+- **Resizable column widths and row heights** ("pls allow me to change
+  widths and heights of the cells too"), Calc's way: drag the right edge of
+  a column letter or the bottom edge of a row number (resize cursor over a
+  ±4 px grab zone); double-click a column edge for Calc's optimal width
+  (widest cell text as drawn, superscripts included, plus padding) and a
+  row edge to fit its tallest cell. Widths clamp to 24–1200 px, heights to
+  one text line–400 px. Sizes are GUI state in `TableDigitiserState`
+  (`col_widths`/`row_heights`), never saved into the CSV or artifact; the
+  toolbar's +/− row/col insert/delete the matching size so a resized line
+  moves with its cells, paste growth pads with defaults, and a new region
+  (`load_crop`) or `reset_table` returns to defaults. Tall rows centre their
+  text vertically; wide text still clips; the cell editor takes the cell's
+  size. The arithmetic (`clamp_size`, `fit_size`, `fit_len`, `sync_sizes`,
+  `edge_hit`) is egui-free and unit-tested.
+- **2026-09-28 — The view follows the keyboard cursor everywhere in kovan.**
+  Maintainer: "for anything in kovan, when the cursor moves beyond the scroll
+  area, like for the kvim text editor, or the csv, the scrollbar shld
+  follow". Rule: scroll only on a frame where the cursor/selection **changed**
+  (so the mouse wheel is never fought), by the minimum distance
+  (`scroll_to_rect(rect, None)`, no recentring). The table digitiser grid now
+  does this for the active cell (`follow_moved` over `(cursor, selection)`,
+  so a paste that selects a block also follows); pinned by a headless test
+  that arrows 60 rows down a 291-pt viewport and checks the whole cell is in
+  view at the bottom edge, with a no-move control that does not scroll. kvim
+  already followed its caret (2026-09-24, `last_cursor`); it gained an
+  end-to-end `G`/`gg` test on the real `ScrollArea` offset. Checked and left:
+  the Ctrl+P literature finder (already `scroll_to_me` on Up/Down); the
+  literature list, wiki, bibliography, mindmap, plot setup, CSV preview, git
+  view and GFM preview (no keyboard cursor; the preview syncs to kvim's top
+  line); the TUI (ratatui `List` + `ListState` scrolls to the selection
+  itself; its `Paragraph` panes have no cursor). `pdf_reader.rs` not audited
+  (another session's).

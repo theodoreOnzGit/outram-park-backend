@@ -584,6 +584,23 @@ pub(super) fn saved_artifact_menu_entries(
     nav
 }
 
+/// Whether the right-click menu's edit entry ("Edit table", "Edit
+/// digitisation") re-opens the digitiser for this kind.
+///
+/// ~~It only zoomed to the page, like a click on the block, with the
+/// digitiser one entry further down as "Go to digitiser" (GH issue #35,
+/// 2026-09-08).~~ **CHANGED 2026-09-28** (maintainer: "the edit table button
+/// should bring me into the digitiser interface ... it doesn't"): an entry
+/// that says *Edit table* must open the table for editing. A plain click on
+/// the block still only zooms to its page; the menu entry is the explicit
+/// request.
+fn edit_opens_digitiser(kind: ArtifactKind) -> bool {
+    matches!(
+        kind,
+        ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph
+    )
+}
+
 /// In-progress "Annotate" text editor, opened from the context menu's
 /// Annotate/Edit actions. Shown as a panel under the toolbar (not floated
 /// over the exact box position) — simpler and immune to scroll-coordinate
@@ -1130,34 +1147,88 @@ const WORD_GAP_EM: f32 = 0.25;
 /// becomes one space. Rows join with `\n`. Dragging across a whole table
 /// row therefore gives `a\tb\tc`, which [`crate::digitiser::table_grid`]
 /// pastes into three cells.
+///
+/// **Superscripts are marked with `^`** (maintainer, 2026-09-28: standard
+/// form such as 2.1×10⁶ was arriving as `2.1×106`). A PDF has no superscript
+/// character; an exponent is just a smaller glyph drawn above the line, so a
+/// glyph counts as superscript when it is both smaller than the row's text
+/// ([`SUPERSCRIPT_SIZE_RATIO`]) and raised above its baseline
+/// ([`SUPERSCRIPT_RAISE_EM`]). A run of them is written `^` then the run:
+/// `2.1×10^6`, `m^2`, `10^-7`. The grid's "Reformat to E" button then turns
+/// whole standard-form cells into `2.1e6`
+/// ([`crate::digitiser::table_grid::standard_form_to_e`]).
 fn select_chars_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> String {
     let mut out = String::new();
     for (i, row) in char_rows(page, scale, min, max).into_iter().enumerate() {
         if i > 0 {
             out.push('\n');
         }
-        let mut prev: Option<(f32, f32)> = None; // (x1, size) of the last non-space glyph
+        let superscript = superscript_flags(&row);
+        let mut prev: Option<(f32, f32, bool)> = None; // (x1, size, superscript) of the last glyph
         let mut pending_space = false;
-        for g in row {
+        for (g, sup) in row.iter().zip(superscript) {
             if g.c.is_whitespace() {
                 pending_space = prev.is_some();
                 continue;
             }
-            if let Some((px1, psize)) = prev {
+            let mut column_break = false;
+            if let Some((px1, psize, _)) = prev {
                 let em = psize.max(g.size);
                 let gap = g.x0 - px1;
                 if gap > COLUMN_GAP_EM * em {
                     out.push('\t');
+                    column_break = true;
                 } else if pending_space || gap > WORD_GAP_EM * em {
                     out.push(' ');
                 }
             }
+            let prev_sup = prev.is_some_and(|p| p.2) && !column_break;
+            if sup && !prev_sup {
+                out.push('^');
+            }
             out.push(g.c);
-            prev = Some((g.x1, g.size));
+            prev = Some((g.x1, g.size, sup));
             pending_space = false;
         }
     }
     out
+}
+
+/// A glyph smaller than this fraction of its row's main text size may be a
+/// superscript. Typeset superscripts are about 0.6–0.7 of the body size.
+const SUPERSCRIPT_SIZE_RATIO: f32 = 0.85;
+
+/// ...and must sit at least this many (main-size) ems above the row's
+/// baseline. Typeset superscripts are raised about 0.3–0.4 em; a smaller
+/// glyph on the baseline (small caps, a footnote-size unit) is not one.
+const SUPERSCRIPT_RAISE_EM: f32 = 0.15;
+
+/// For each glyph in a row (sorted by x), whether it is a superscript: see
+/// [`SUPERSCRIPT_SIZE_RATIO`] and [`SUPERSCRIPT_RAISE_EM`]. The row's main
+/// size is its largest glyph size, and its baseline the lowest baseline among
+/// glyphs of about that size (PDF y grows downward here, so "raised" means a
+/// smaller y).
+fn superscript_flags(row: &[PickedGlyph]) -> Vec<bool> {
+    let main_size = row
+        .iter()
+        .filter(|g| !g.c.is_whitespace())
+        .map(|g| g.size)
+        .fold(0.0_f32, f32::max);
+    if main_size <= 0.0 {
+        return vec![false; row.len()];
+    }
+    let baseline = row
+        .iter()
+        .filter(|g| !g.c.is_whitespace() && g.size >= 0.95 * main_size)
+        .map(|g| g.baseline)
+        .fold(f32::MIN, f32::max);
+    row.iter()
+        .map(|g| {
+            !g.c.is_whitespace()
+                && g.size <= SUPERSCRIPT_SIZE_RATIO * main_size
+                && baseline - g.baseline >= SUPERSCRIPT_RAISE_EM * main_size
+        })
+        .collect()
 }
 
 /// One picked glyph, in PDF points.
@@ -1212,10 +1283,84 @@ fn char_rows(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<Vec<Pick
             _ => rows.push(vec![g]),
         }
     }
+    let mut rows = merge_script_rows(rows);
     for row in &mut rows {
         row.sort_by(|a, b| a.x0.total_cmp(&b.x0));
     }
     rows
+}
+
+/// A row made only of glyphs this much smaller than its neighbour's text is a
+/// candidate superscript or subscript row (see [`SUPERSCRIPT_SIZE_RATIO`]).
+///
+/// Clustering by baseline alone puts a strongly raised exponent on a row of
+/// its own: on the maintainer's HTR-10 Table 7 the `−1` of "mSv a⁻¹" sits
+/// about half an em up and arrived as a separate row above "Dose (mSv a )"
+/// (found on the real page, 2026-09-28). So a row of small glyphs is folded
+/// into the row directly below it when it is raised by at most
+/// [`MAX_SCRIPT_RAISE_EM`] of that row's text size (a superscript), or into
+/// the row directly above when it is lowered by at most
+/// [`MAX_SCRIPT_DROP_EM`] (a subscript), and only if it lies within that
+/// row's horizontal span. A caption or footnote line in small type sits
+/// further away than that and stays a row of its own.
+const MAX_SCRIPT_RAISE_EM: f32 = 0.8;
+/// See [`MAX_SCRIPT_RAISE_EM`].
+const MAX_SCRIPT_DROP_EM: f32 = 0.5;
+
+/// Fold superscript-only and subscript-only rows into the row they belong
+/// to; see [`MAX_SCRIPT_RAISE_EM`]. `rows` is in top-to-bottom order.
+fn merge_script_rows(rows: Vec<Vec<PickedGlyph>>) -> Vec<Vec<PickedGlyph>> {
+    // (main size, baseline of the main-size glyphs, x0, x1) of a row.
+    let stats = |row: &[PickedGlyph]| {
+        let size = row.iter().map(|g| g.size).fold(0.0_f32, f32::max);
+        let base = row
+            .iter()
+            .filter(|g| g.size >= 0.95 * size)
+            .map(|g| g.baseline)
+            .fold(f32::MIN, f32::max);
+        let x0 = row.iter().map(|g| g.x0).fold(f32::MAX, f32::min);
+        let x1 = row.iter().map(|g| g.x1).fold(f32::MIN, f32::max);
+        (size, base, x0, x1)
+    };
+    let mut out: Vec<Vec<PickedGlyph>> = Vec::new();
+    let mut pending: Option<Vec<PickedGlyph>> = None; // a superscript row awaiting the row below
+    for row in rows {
+        let (size, base, x0, x1) = stats(&row);
+        // A superscript row held back from above, if it belongs here.
+        if let Some(sup) = pending.take() {
+            let (ssize, sbase, sx0, sx1) = stats(&sup);
+            let raise = base - sbase;
+            let fits = ssize <= SUPERSCRIPT_SIZE_RATIO * size
+                && raise > 0.0
+                && raise <= MAX_SCRIPT_RAISE_EM * size
+                && sx0 >= x0 - size
+                && sx1 <= x1 + size;
+            if fits {
+                let mut merged = sup;
+                merged.extend(row);
+                out.push(merged);
+                continue;
+            }
+            out.push(sup);
+        }
+        // A subscript row folds into the row above.
+        if let Some(prev) = out.last_mut() {
+            let (psize, pbase, px0, px1) = stats(prev);
+            let drop = base - pbase;
+            if size <= SUPERSCRIPT_SIZE_RATIO * psize
+                && drop > 0.0
+                && drop <= MAX_SCRIPT_DROP_EM * psize
+                && x0 >= px0 - psize
+                && x1 <= px1 + psize
+            {
+                prev.extend(row);
+                continue;
+            }
+        }
+        pending = Some(row);
+    }
+    out.extend(pending);
+    out
 }
 
 /// The highlight for a character selection: one rectangle per run of text
@@ -3902,7 +4047,12 @@ impl PdfReaderState {
                                         {
                                             match entry.action {
                                                 MenuAction::EditArtifact => {
-                                                    if let Some(r) = self.open_artifact(art) {
+                                                    let r = if edit_opens_digitiser(art.kind()) {
+                                                        self.recrop_artifact(art)
+                                                    } else {
+                                                        self.open_artifact(art)
+                                                    };
+                                                    if let Some(r) = r {
                                                         result = Some(r);
                                                     }
                                                 }
@@ -4567,6 +4717,126 @@ mod tests {
         assert_eq!(only_a, "a");
         let none = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 180.0), Pos2::new(10.0, 200.0));
         assert_eq!(none, "");
+    }
+
+    /// A glyph of `size` pt occupying `[x0, x1]` on baseline `y`.
+    fn sized_char(c: char, x0: f32, x1: f32, y: f32, size: f32) -> StextChar {
+        StextChar {
+            size,
+            origin: Point::new(x0, y),
+            quad: Quad {
+                ul: Point::new(x0, y - 0.8 * size),
+                ur: Point::new(x1, y - 0.8 * size),
+                ll: Point::new(x0, y + 0.2 * size),
+                lr: Point::new(x1, y + 0.2 * size),
+            },
+            ..stub_char(c)
+        }
+    }
+
+    /// "2.1×10" in 10 pt on baseline 100 with a 7 pt superscript `exp`
+    /// raised 3.5 pt, starting at `x`, as MuPDF would give it.
+    fn standard_form(x: f32, exp: &str) -> Vec<StextLine> {
+        let base: Vec<StextChar> = "2.1×10"
+            .chars()
+            .enumerate()
+            .map(|(i, c)| sized_char(c, x + 5.0 * i as f32, x + 5.0 * (i + 1) as f32, 100.0, 10.0))
+            .collect();
+        let sx = x + 30.0;
+        let sup: Vec<StextChar> = exp
+            .chars()
+            .enumerate()
+            .map(|(i, c)| sized_char(c, sx + 3.5 * i as f32, sx + 3.5 * (i + 1) as f32, 96.5, 7.0))
+            .collect();
+        vec![
+            StextLine {
+                chars: base,
+                ..stub_line("", PdfRect::new(x, 92.0, x + 30.0, 102.0))
+            },
+            StextLine {
+                chars: sup,
+                ..stub_line("", PdfRect::new(sx, 91.0, sx + 10.0, 98.0))
+            },
+        ]
+    }
+
+    #[test]
+    fn a_superscript_exponent_is_marked_with_a_caret() {
+        let page = stub_page(standard_form(0.0, "6"));
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(100.0, 110.0));
+        assert_eq!(text, "2.1×10^6");
+    }
+
+    #[test]
+    fn a_row_of_standard_form_cells_keeps_its_exponents_and_its_tabs() {
+        // The maintainer's row: 2.1×10⁶  8.2×10⁷ (two cells, 40 pt apart).
+        let mut lines = standard_form(0.0, "6");
+        lines.extend(standard_form(80.0, "−7"));
+        let page = stub_page(lines);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(200.0, 110.0));
+        assert_eq!(text, "2.1×10^6\t2.1×10^−7");
+        let cells: Vec<Option<String>> = text
+            .split('\t')
+            .map(crate::digitiser::table_grid::standard_form_to_e)
+            .collect();
+        assert_eq!(cells, vec![Some("2.1e6".into()), Some("2.1e-7".into())]);
+    }
+
+    /// The real Table 7 case: a unit whose exponent is raised about half an
+    /// em (more than the row clustering's tolerance) stays on its row.
+    #[test]
+    fn a_strongly_raised_exponent_stays_on_its_row() {
+        let mut chars: Vec<StextChar> = "Dose (mSv a"
+            .chars()
+            .enumerate()
+            .map(|(i, c)| sized_char(c, 4.0 * i as f32, 4.0 * (i + 1) as f32, 100.0, 8.0))
+            .collect();
+        // "−1" at 5.6 pt, raised 4.5 pt (0.56 em of 8 pt).
+        chars.push(sized_char('\u{2212}', 44.0, 47.0, 95.5, 5.6));
+        chars.push(sized_char('1', 47.0, 50.0, 95.5, 5.6));
+        chars.push(sized_char(')', 50.0, 54.0, 100.0, 8.0));
+        let page = stub_page(vec![StextLine {
+            chars,
+            ..stub_line("", PdfRect::new(0.0, 90.0, 54.0, 102.0))
+        }]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(100.0, 110.0));
+        assert_eq!(text, "Dose (mSv a^\u{2212}1)");
+    }
+
+    #[test]
+    fn a_subscript_stays_on_its_row_and_a_caption_line_does_not_merge() {
+        let mut chars: Vec<StextChar> = vec![
+            sized_char('H', 0.0, 6.0, 100.0, 10.0),
+            sized_char('2', 6.0, 10.0, 103.0, 7.0),
+            sized_char('O', 10.0, 17.0, 100.0, 10.0),
+        ];
+        // A small-type caption a full line below: its own row.
+        chars.extend(
+            "note"
+                .chars()
+                .enumerate()
+                .map(|(i, c)| sized_char(c, 3.5 * i as f32, 3.5 * (i + 1) as f32, 115.0, 7.0)),
+        );
+        let page = stub_page(vec![StextLine {
+            chars,
+            ..stub_line("", PdfRect::new(0.0, 90.0, 17.0, 117.0))
+        }]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(100.0, 120.0));
+        assert_eq!(text, "H2O\nnote");
+    }
+
+    #[test]
+    fn a_small_glyph_on_the_baseline_is_not_a_superscript() {
+        let chars = vec![
+            sized_char('5', 0.0, 5.0, 100.0, 10.0),
+            sized_char('m', 5.0, 9.0, 100.0, 7.0),
+        ];
+        let page = stub_page(vec![StextLine {
+            chars,
+            ..stub_line("", PdfRect::new(0.0, 92.0, 9.0, 102.0))
+        }]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(50.0, 110.0));
+        assert_eq!(text, "5m");
     }
 
     #[test]
@@ -5432,6 +5702,20 @@ t_s,power_mw
     /// (op-30um.6: "keep the connection and delete verbs identical across
     /// kinds") with only the first entry's label varying, and the
     /// connection separator/verbs/order fixed regardless of kind.
+    #[test]
+    fn edit_table_and_edit_digitisation_open_the_digitiser_and_other_edits_do_not() {
+        assert!(edit_opens_digitiser(ArtifactKind::DigitisedTable));
+        assert!(edit_opens_digitiser(ArtifactKind::DigitisedGraph));
+        for kind in [
+            ArtifactKind::Note,
+            ArtifactKind::Annotation,
+            ArtifactKind::Formula,
+            ArtifactKind::SourceReference,
+        ] {
+            assert!(!edit_opens_digitiser(kind), "{kind:?}");
+        }
+    }
+
     #[test]
     fn saved_artifact_menu_entries_has_the_same_shape_for_every_kind() {
         for kind in [

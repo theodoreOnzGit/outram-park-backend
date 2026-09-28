@@ -18535,6 +18535,182 @@ pub struct CellRange {
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
+#### Struct `CellChange`
+
+One cell's text before and after a proposed change.
+
+```rust
+pub struct CellChange {
+    pub pos: CellPos,
+    pub before: String,
+    pub after: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pos` | `CellPos` |  |
+| `before` | `String` |  |
+| `after` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellChange { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellChange) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 #### Enum `Direction`
 
 Which way an arrow key moves the cursor.
@@ -19009,6 +19185,16 @@ pub struct TableGrid {
   ```
   Load a CSV (for example a saved table's payload) into a fresh grid.
 
+- ```rust
+  pub fn reformat_standard_form(self: &mut Self) -> usize { /* ... */ }
+  ```
+  Rewrite the **selected** cells that are written in standard form
+
+- ```rust
+  pub fn standard_form_changes(self: &Self) -> Vec<CellChange> { /* ... */ }
+  ```
+  What [`Self::reformat_standard_form`] would do, without doing it: each
+
 ###### Trait Implementations
 
 - **Any**
@@ -19158,6 +19344,46 @@ pub struct TableGrid {
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
+### Functions
+
+#### Function `standard_form_to_e`
+
+The E-notation form of `cell` when the **whole cell** is one number in
+standard form, else `None`.
+
+Accepted: a mantissa (optional sign, digits, optional decimal part), a
+multiplication sign (`×`, `x`, `X`, `·`, `⋅`, `*`), `10`, and an exponent,
+with spaces allowed around the sign. The exponent is written either
+
+- after a caret, `10^6`, which is how the reader's character selection
+  marks a superscript (`app::pdf_reader::select_chars_in_rect`), or
+- straight after the `10`, `106`, which is what a superscript turns into
+  when the text was copied without superscript detection. `3×100` is
+  therefore read as 3e0, not 300: in a table this button is pressed on,
+  that is the far likelier meaning, and the change is one undo away.
+
+A bare `10^6` gives `1e6`. The minus sign may be `-` or `−` (U+2212).
+Anything else in the cell (units, footnote marks, words) means it is not
+converted, so prose and labels are never touched: `1.0X10^5 m^2` keeps
+its superscripts as they are (maintainer, 2026-09-28).
+
+```rust
+pub fn standard_form_to_e(cell: &str) -> Option<String> { /* ... */ }
+```
+
+#### Function `superscript_segments`
+
+Split `text` into plain and superscript pieces for display, reading the
+`^` marks the reader's character selection writes: `2.1×10^6` gives
+`[("2.1×10", false), ("6", true)]`. A superscript run is an optional
+leading sign (`-`, `−`, `+`) then letters and digits; it ends at anything
+else (a space, a bracket, punctuation). A `^` with nothing superscriptable
+after it is kept as plain text.
+
+```rust
+pub fn superscript_segments(text: &str) -> Vec<(String, bool)> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `DEFAULT_ROWS`

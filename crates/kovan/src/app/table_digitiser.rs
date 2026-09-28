@@ -37,20 +37,149 @@
 //!
 //! The grid only takes keys after it was last clicked, so the reader's own
 //! arrow-key scrolling keeps working when the PDF was clicked last.
+//! When a key (or a paste that selects a block) moves the active cell past
+//! the edge of the grid's viewport, the grid scrolls the minimum distance to
+//! bring it back into view; it scrolls only on a move, so the mouse wheel is
+//! never fought.
+//!
+//! ## Buttons
+//!
+//! **Save artifact** (Ctrl+S) saves and returns to the PDF reader.
+//! **Cancel digitisation**, beside it, returns to the PDF reader without
+//! saving; if the grid holds anything unsaved it first asks "Discard this
+//! table?" ([`TableDigitiserState::request_cancel`]).
+//! **Format to standard form (E)**, in the toolbar after Undo/Redo, rewrites
+//! whole-cell standard form (`2.1×10^6`) in the highlighted cells as E
+//! notation (`2.1e6`), one undo step, after an "are you sure?" box that
+//! shows each cell before (superscripts raised) and after. Cells draw the
+//! reader's `^` marks as real superscripts; the stored text keeps them.
+//!
+//! ## Column widths and row heights (Calc's)
+//!
+//! Drag the right edge of a column letter to change that column's width,
+//! or the bottom edge of a row number to change that row's height; the
+//! pointer turns into a resize cursor over the edge. Double-click a column
+//! edge to fit the column to its widest cell (Calc's optimal width), or a
+//! row edge to fit the row to its tallest cell. Sizes are presentation
+//! only: they are not saved into the CSV or the artifact, and reset when a
+//! new table region is loaded. The sizing arithmetic is the egui-free
+//! functions [`clamp_size`], [`fit_size`], [`fit_len`], [`sync_sizes`] and
+//! [`edge_hit`].
 
 use eframe::egui::{self, Color32, Key, Modifiers, Sense, Stroke, Vec2};
 
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
-use crate::digitiser::table_grid::{CellPos, Direction, TableGrid};
+use crate::digitiser::table_grid::{
+    superscript_segments, CellChange, CellPos, CellRange, Direction, TableGrid,
+};
 use crate::session::PaperSession;
 
 use super::pdf_reader::CropProvenance;
 
-/// Width of one grid column, points.
+/// Default width of one grid column, points.
 const CELL_WIDTH: f32 = 96.0;
 /// Width of the row-number gutter, points.
 const GUTTER_WIDTH: f32 = 36.0;
+/// Narrowest a column may be dragged, points.
+const MIN_CELL_WIDTH: f32 = 24.0;
+/// Widest a column may be dragged or fitted, points.
+const MAX_CELL_WIDTH: f32 = 1200.0;
+/// Tallest a row may be dragged or fitted, points.
+const MAX_ROW_HEIGHT: f32 = 400.0;
+/// Half-width of the grab zone around a column/row edge, points.
+const EDGE_GRAB: f32 = 4.0;
+/// Space either side of a cell's text: left inset plus right slack.
+const CELL_TEXT_PAD: f32 = 10.0;
+/// Font size of the grid's cell text.
+const CELL_FONT: f32 = 13.0;
+
+/// Clamp a dragged or fitted size to `[min, max]`.
+pub fn clamp_size(size: f32, min: f32, max: f32) -> f32 {
+    if size.is_nan() {
+        return min;
+    }
+    size.clamp(min, max.max(min))
+}
+
+/// Calc's optimal width/height: the largest measured text extent plus
+/// `pad`, clamped to `[min, max]`. An empty line (no text anywhere) gets
+/// `default`, as Calc leaves an empty column at the standard width.
+pub fn fit_size(
+    extents: impl IntoIterator<Item = f32>,
+    pad: f32,
+    min: f32,
+    max: f32,
+    default: f32,
+) -> f32 {
+    let widest = extents
+        .into_iter()
+        .filter(|e| *e > 0.0)
+        .fold(None, |m: Option<f32>, e| Some(m.map_or(e, |m| m.max(e))));
+    match widest {
+        Some(w) => clamp_size(w + pad, min, max),
+        None => clamp_size(default, min, max),
+    }
+}
+
+/// Make `sizes` exactly `n` long: new trailing entries get `default`, extra
+/// ones are dropped. Keeps the sizes in step with a grid that grew on paste
+/// or changed shape on undo.
+pub fn fit_len(sizes: &mut Vec<f32>, n: usize, default: f32) {
+    sizes.resize(n, default);
+}
+
+/// Follow a grid insert/delete at index `at` that took a line count from
+/// `before` to `after`: one more inserts a `default` entry at `at`, one
+/// fewer removes entry `at` (the other sizes keep their lines), anything
+/// else just fits the length. `TableGrid::delete_row` on the last row
+/// empties it instead of removing it, so `before == after` leaves the
+/// sizes alone.
+pub fn sync_sizes(sizes: &mut Vec<f32>, before: usize, after: usize, at: usize, default: f32) {
+    fit_len(sizes, before, default);
+    if after == before + 1 {
+        sizes.insert(at.min(sizes.len()), default);
+    } else if after + 1 == before && at < sizes.len() {
+        sizes.remove(at);
+    } else {
+        fit_len(sizes, after, default);
+    }
+}
+
+/// Which edge the pointer is on: the index of the line whose far edge
+/// (right edge of a column, bottom edge of a row) lies within `grab` of
+/// `pos`, where line 0 starts at `start` and each line is `sizes[i]` long.
+/// The nearest edge wins when zones overlap. `None` when on no edge.
+pub fn edge_hit(pos: f32, start: f32, sizes: &[f32], grab: f32) -> Option<usize> {
+    let mut edge = start;
+    let mut best: Option<(usize, f32)> = None;
+    for (i, size) in sizes.iter().enumerate() {
+        edge += size;
+        let d = (pos - edge).abs();
+        if d <= grab && best.is_none_or(|(_, bd)| d < bd) {
+            best = Some((i, d));
+        }
+    }
+    best.map(|(i, _)| i)
+}
+
+/// Which way a resize drag runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Axis {
+    Col,
+    Row,
+}
+
+/// A column/row edge being dragged.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ResizeDrag {
+    axis: Axis,
+    index: usize,
+    /// Pointer coordinate (x for a column, y for a row) where the drag began.
+    grab: f32,
+    /// The line's size when the drag began.
+    start: f32,
+}
 
 /// What a key press or click asks the grid to do. Separate from `egui` so
 /// [`TableDigitiserState::apply`] can be tested with no window.
@@ -107,6 +236,32 @@ pub struct TableDigitiserState {
     /// wizard). `None` once answered, and never for a re-opened saved table,
     /// which already has a name.
     setup: Option<TableSetup>,
+    /// The grid's CSV as last saved or loaded (empty for a new table), so
+    /// Cancel knows whether leaving would lose anything.
+    last_saved_csv: String,
+    /// The "Discard this table?" box is open, after Cancel digitisation was
+    /// pressed with unsaved cells.
+    confirm_discard: bool,
+    /// The "Reformat N cell(s) to E notation?" box is open, previewing these
+    /// changes to the highlighted cells.
+    pending_reformat: Option<Vec<CellChange>>,
+    /// Per-column widths, points; kept as long as the grid is wide.
+    /// Presentation only, never saved.
+    col_widths: Vec<f32>,
+    /// Per-row heights, points; kept as long as the grid is tall.
+    /// Presentation only, never saved.
+    row_heights: Vec<f32>,
+    /// A column/row edge being dragged.
+    resize_drag: Option<ResizeDrag>,
+    /// The active cell and selection as of the last painted frame, so the
+    /// grid scrolls only when they **changed** (see [`follow_moved`]).
+    /// Following every frame would pin the view to the cursor and make
+    /// wheel-scrolling the grid snap straight back.
+    followed: Option<(CellPos, CellRange)>,
+    /// The part of the grid's content visible as last painted, in content
+    /// coordinates (scroll offset + viewport size). Presentation only; read
+    /// by the follow-the-cursor tests.
+    grid_view: egui::Rect,
     message: String,
     message_is_error: bool,
 }
@@ -124,6 +279,14 @@ impl Default for TableDigitiserState {
             crop_provenance: None,
             pending_reload: None,
             setup: None,
+            last_saved_csv: String::new(),
+            confirm_discard: false,
+            pending_reformat: None,
+            col_widths: Vec::new(),
+            row_heights: Vec::new(),
+            resize_drag: None,
+            followed: None,
+            grid_view: egui::Rect::NOTHING,
             message: String::new(),
             message_is_error: false,
         }
@@ -148,7 +311,8 @@ pub enum TableOutcome {
     Continue,
     /// The artifact was saved: close the view and return to the PDF.
     Saved,
-    /// The setup box was cancelled: drop the region and return to the PDF.
+    /// The setup box was cancelled, or Cancel digitisation was pressed (and
+    /// any unsaved table discarded): drop the region and return to the PDF.
     Cancelled,
 }
 
@@ -163,6 +327,27 @@ pub fn column_name(col: usize) -> String {
     }
     out.reverse();
     String::from_utf8(out).expect("ASCII letters")
+}
+
+/// Lay out `text` with the reader's `^` marks drawn as real superscripts
+/// ([`superscript_segments`]): `2.1×10^6` shows the `6` raised, in a smaller
+/// font. Used for the grid's cells and the reformat box's "Before" column.
+fn superscript_job(text: &str, size: f32, color: Color32) -> egui::text::LayoutJob {
+    let mut job = egui::text::LayoutJob::default();
+    for (piece, sup) in superscript_segments(text) {
+        let format = if sup {
+            egui::TextFormat {
+                font_id: egui::FontId::proportional(size * 0.7),
+                color,
+                valign: egui::Align::TOP,
+                ..Default::default()
+            }
+        } else {
+            egui::TextFormat::simple(egui::FontId::proportional(size), color)
+        };
+        job.append(&piece, 0.0, format);
+    }
+    job
 }
 
 impl TableDigitiserState {
@@ -192,6 +377,9 @@ impl TableDigitiserState {
             .unwrap_or_default();
         self.crop_provenance = provenance;
         self.grid = TableGrid::default();
+        self.reset_sizes();
+        self.last_saved_csv.clear();
+        self.confirm_discard = false;
         self.grid_focused = true;
         // A new region is asked for its name first, like the graph
         // digitiser's setup wizard; a re-opened saved table already has one.
@@ -225,6 +413,84 @@ impl TableDigitiserState {
         self.grid_focused = true;
         self.set_status("drag over the table text on the right, then Ctrl+V into the grid");
         true
+    }
+
+    /// Whether leaving now would lose cells: the grid (with any edit in
+    /// progress written in) differs from what was last saved or loaded. An
+    /// empty grid has nothing to lose.
+    fn has_unsaved_changes(&self) -> bool {
+        let csv = match &self.edit {
+            Some(edit) => {
+                let mut grid = self.grid.clone();
+                grid.set(edit.pos.row, edit.pos.col, &edit.text);
+                grid.to_csv()
+            }
+            None => self.grid.to_csv(),
+        };
+        !csv.is_empty() && csv != self.last_saved_csv
+    }
+
+    /// Cancel digitisation was pressed (maintainer, 2026-09-28: "table
+    /// digitiser should also have a cancel digitisation option, which brings
+    /// us back to pdf reader").
+    ///
+    /// Returns `true` when the view should close now: the grid is empty or
+    /// unchanged since the last save/load, and the per-table state has been
+    /// reset. Returns `false` when there are unsaved cells, and opens the
+    /// "Discard this table?" box instead, so work is never dropped silently.
+    fn request_cancel(&mut self) -> bool {
+        if self.has_unsaved_changes() {
+            self.confirm_discard = true;
+            false
+        } else {
+            self.reset_table();
+            true
+        }
+    }
+
+    /// Forget the table in hand, so re-entering the tab later does not show
+    /// a stale half-done grid. The operator's name is kept.
+    fn reset_table(&mut self) {
+        self.grid = TableGrid::default();
+        self.reset_sizes();
+        self.edit = None;
+        self.crop_provenance = None;
+        self.pending_reload = None;
+        self.setup = None;
+        self.table_name.clear();
+        self.last_saved_csv.clear();
+        self.confirm_discard = false;
+        self.set_status("");
+    }
+
+    /// Back to default column widths and row heights (a new table).
+    fn reset_sizes(&mut self) {
+        self.col_widths.clear();
+        self.row_heights.clear();
+        self.resize_drag = None;
+    }
+
+    /// Insert or delete a grid row/column through `op`, keeping the matching
+    /// size vector in step.
+    fn change_shape(
+        &mut self,
+        axis: Axis,
+        at: usize,
+        default: f32,
+        op: impl FnOnce(&mut TableGrid),
+    ) {
+        let count = |g: &TableGrid| match axis {
+            Axis::Col => g.cols(),
+            Axis::Row => g.rows(),
+        };
+        let before = count(&self.grid);
+        op(&mut self.grid);
+        let after = count(&self.grid);
+        let sizes = match axis {
+            Axis::Col => &mut self.col_widths,
+            Axis::Row => &mut self.row_heights,
+        };
+        sync_sizes(sizes, before, after, at, default);
     }
 
     fn operator_name(&self) -> String {
@@ -281,6 +547,45 @@ impl TableDigitiserState {
                 self.grid.redo();
             }
         }
+    }
+
+    /// The toolbar's **Format to standard form (E)** (maintainer, 2026-09-28:
+    /// "User selects cells, and clicks a format to standard form button,
+    /// which then puts in e notation for highlighted cells"). Commits any
+    /// edit, then previews the change as a dry run over the **selection**
+    /// ([`TableGrid::standard_form_changes`]) and, if anything would change,
+    /// opens the "are you sure?" box showing each cell's text before (with
+    /// real superscripts) and its E form after (maintainer, same day: "The
+    /// wizard then asks in a popup box, are you sure? then displays the
+    /// superscripted text before, and e form text after"). With nothing
+    /// convertible it only says so, and no box opens.
+    fn request_reformat(&mut self) {
+        self.commit_edit();
+        let changes = self.grid.standard_form_changes();
+        if changes.is_empty() {
+            self.set_status("no standard-form values in the highlighted cells");
+        } else {
+            self.pending_reformat = Some(changes);
+        }
+    }
+
+    /// "Reformat" in the box: rewrite the previewed cells as E notation via
+    /// [`TableGrid::reformat_standard_form`] (one undo step; cells with
+    /// units are left alone). Returns how many cells changed.
+    fn confirm_reformat(&mut self) -> usize {
+        if self.pending_reformat.take().is_none() {
+            return 0;
+        }
+        let n = self.grid.reformat_standard_form();
+        self.set_status(format!(
+            "reformatted {n} cell(s) to E notation \u{2014} Ctrl+Z to undo"
+        ));
+        n
+    }
+
+    /// "Cancel", Esc or clicking outside the box: nothing changes.
+    fn cancel_reformat(&mut self) {
+        self.pending_reformat = None;
     }
 
     /// Write the edit in progress into its cell.
@@ -361,6 +666,7 @@ impl TableDigitiserState {
         match result {
             Ok(m) => {
                 self.set_status(m);
+                self.last_saved_csv = self.grid.to_csv();
                 true
             }
             Err(e) => {
@@ -386,6 +692,7 @@ impl TableDigitiserState {
         match TableGrid::from_csv(csv) {
             Ok(grid) => {
                 self.grid = grid;
+                self.last_saved_csv = self.grid.to_csv();
                 self.set_status(format!("loaded saved table {id}"));
             }
             Err(e) => self.set_error(format!("saved table {id}: {e}")),
@@ -468,7 +775,9 @@ impl TableDigitiserState {
     /// caller can close this view and go back to the PDF (maintainer,
     /// 2026-09-28: "save artifact for table should close the table digitiser
     /// and return to pdf viewer"), and [`TableOutcome::Cancelled`] when the
-    /// setup box is backed out of.
+    /// setup box is backed out of or **Cancel digitisation** is pressed
+    /// (after the "Discard this table?" box, if anything is unsaved; see
+    /// [`Self::request_cancel`]).
     ///
     /// A new region first shows a "which table is this?" box (maintainer,
     /// 2026-09-28: "a similar wizard as the digitised graph ... the first
@@ -481,6 +790,7 @@ impl TableDigitiserState {
         active_paper: Option<&mut PaperSession>,
     ) -> TableOutcome {
         let mut saved = false;
+        let mut cancelled = false;
         self.resolve_reload(active_paper.as_deref());
         if self.setup.is_some() {
             let citekey = active_paper.as_ref().map(|s| s.citekey().to_string());
@@ -497,7 +807,7 @@ impl TableDigitiserState {
         }) {
             self.grid_focused = panel.contains(press);
         }
-        if self.grid_focused {
+        if self.grid_focused && !self.confirm_discard && self.pending_reformat.is_none() {
             for command in self.commands_from_input(ui.ctx()) {
                 self.apply(command);
             }
@@ -533,8 +843,26 @@ impl TableDigitiserState {
                 if clicked || save_key {
                     saved = self.save_into_project(active_paper);
                 }
+                // Secondary to Save: a plain button, to its left.
+                if ui
+                    .button("\u{2716} Cancel digitisation")
+                    .on_hover_text(
+                        "go back to the PDF reader without saving \
+                         (asks first if the grid has unsaved cells)",
+                    )
+                    .clicked()
+                    && !saved
+                {
+                    cancelled = self.request_cancel();
+                }
             });
         });
+        if self.confirm_discard {
+            cancelled = self.confirm_discard_ui(ui.ctx());
+        }
+        if cancelled {
+            return TableOutcome::Cancelled;
+        }
         ui.small(
             "Drag over the table text in the PDF on the right (it is copied at once), \
              click a cell here, Ctrl+V. Enter/Tab move like LibreOffice Calc. No OCR: \
@@ -561,6 +889,11 @@ impl TableDigitiserState {
             ui.label("your name*:");
             ui.add(egui::TextEdit::singleline(&mut self.operator).desired_width(120.0));
         });
+        // Default row height: one line of body text plus a little air;
+        // the minimum is the text itself.
+        let text_h = ui.text_style_height(&egui::TextStyle::Body);
+        let default_row_h = text_h + 6.0;
+        let min_row_h = text_h + 2.0;
         ui.horizontal(|ui| {
             let at = self.grid.cursor();
             if ui
@@ -568,20 +901,20 @@ impl TableDigitiserState {
                 .on_hover_text("insert a row above the cursor")
                 .clicked()
             {
-                self.grid.insert_row(at.row);
+                self.change_shape(Axis::Row, at.row, default_row_h, |g| g.insert_row(at.row));
             }
             if ui
                 .button("+ col")
                 .on_hover_text("insert a column left of the cursor")
                 .clicked()
             {
-                self.grid.insert_col(at.col);
+                self.change_shape(Axis::Col, at.col, CELL_WIDTH, |g| g.insert_col(at.col));
             }
             if ui.button("\u{2212} row").clicked() {
-                self.grid.delete_row(at.row);
+                self.change_shape(Axis::Row, at.row, default_row_h, |g| g.delete_row(at.row));
             }
             if ui.button("\u{2212} col").clicked() {
-                self.grid.delete_col(at.col);
+                self.change_shape(Axis::Col, at.col, CELL_WIDTH, |g| g.delete_col(at.col));
             }
             if ui.button("Undo").clicked() {
                 self.apply(GridCommand::Undo);
@@ -589,20 +922,53 @@ impl TableDigitiserState {
             if ui.button("Redo").clicked() {
                 self.apply(GridCommand::Redo);
             }
+            if ui
+                .button("Format to standard form (E)")
+                .on_hover_text(
+                    "select cells first \u{2014} turns whole-cell standard form \
+                     (2.1\u{00D7}10^6) in the highlighted cells into E notation (2.1e6); \
+                     cells with units such as 1.0\u{00D7}10^5 m^2 are left alone. \
+                     Ctrl+Z undoes",
+                )
+                .clicked()
+            {
+                self.request_reformat();
+            }
             ui.label(format!("{}{}", column_name(at.col), at.row + 1));
         });
+        if self.pending_reformat.is_some() {
+            self.reformat_ui(ui.ctx());
+        }
         ui.separator();
 
         // The cell editor/viewer, with room left below it for the actions.
         let actions_height = 110.0;
         let grid_height = (ui.available_height() - actions_height).max(120.0);
         let mut clicked: Option<(CellPos, bool, bool)> = None; // (pos, shift, double)
-        egui::ScrollArea::both()
+
+        // **Follow the cursor** (maintainer, 2026-09-28: "when the cursor
+        // moves beyond the scroll area ... the scrollbar shld follow"). An
+        // arrow, Enter or Tab past the edge of the viewport -- or a paste
+        // that selects a block -- used to leave the active cell off-screen,
+        // because these cells are painted rectangles and the `ScrollArea`
+        // has no idea which one is active. Only a CHANGE scrolls.
+        let follow = follow_moved(
+            &mut self.followed,
+            (self.grid.cursor(), self.grid.selection()),
+        );
+        let grid_out = egui::ScrollArea::both()
             .id_salt("table_grid_scroll")
             .max_height(grid_height)
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                let row_h = ui.text_style_height(&egui::TextStyle::Body) + 6.0;
+                // Sizes follow the grid's shape (it grows on paste and
+                // changes on undo); insert/delete keep them aligned.
+                fit_len(&mut self.col_widths, self.grid.cols(), CELL_WIDTH);
+                fit_len(&mut self.row_heights, self.grid.rows(), default_row_h);
+                let widths = self.col_widths.clone();
+                let heights = self.row_heights.clone();
+                let header_h = default_row_h;
+                let origin = ui.cursor().min;
                 let sel = self.grid.selection();
                 let cursor = self.grid.cursor();
                 let visuals = ui.visuals().clone();
@@ -621,10 +987,10 @@ impl TableDigitiserState {
                 let edge = Stroke::new(2.0, visuals.selection.stroke.color);
                 // Header row: corner, then column letters.
                 ui.horizontal(|ui| {
-                    ui.allocate_exact_size(Vec2::new(GUTTER_WIDTH, row_h), Sense::hover());
-                    for c in 0..self.grid.cols() {
+                    ui.allocate_exact_size(Vec2::new(GUTTER_WIDTH, header_h), Sense::hover());
+                    for (c, &w) in widths.iter().enumerate() {
                         let (rect, _) =
-                            ui.allocate_exact_size(Vec2::new(CELL_WIDTH, row_h), Sense::hover());
+                            ui.allocate_exact_size(Vec2::new(w, header_h), Sense::hover());
                         // Calc lights up the headers of the selected
                         // columns and rows, so the block is findable at a
                         // glance even when scrolled.
@@ -653,7 +1019,7 @@ impl TableDigitiserState {
                         );
                     }
                 });
-                for r in 0..self.grid.rows() {
+                for (r, &row_h) in heights.iter().enumerate() {
                     ui.horizontal(|ui| {
                         let (rect, _) =
                             ui.allocate_exact_size(Vec2::new(GUTTER_WIDTH, row_h), Sense::hover());
@@ -674,9 +1040,15 @@ impl TableDigitiserState {
                             egui::FontId::proportional(12.0),
                             if on { strong } else { visuals.text_color() },
                         );
-                        for c in 0..self.grid.cols() {
+                        ui.painter().rect_stroke(
+                            rect,
+                            0.0,
+                            Stroke::new(0.5, visuals.weak_text_color()),
+                            egui::StrokeKind::Inside,
+                        );
+                        for (c, &w) in widths.iter().enumerate() {
                             let pos = CellPos::new(r, c);
-                            let size = Vec2::new(CELL_WIDTH, row_h);
+                            let size = Vec2::new(w, row_h);
                             if let Some(edit) = self.edit.as_mut().filter(|e| e.pos == pos) {
                                 let response = ui.add_sized(
                                     size,
@@ -687,10 +1059,18 @@ impl TableDigitiserState {
                                     response.request_focus();
                                     edit.focus = false;
                                 }
+                                if follow && pos == cursor {
+                                    ui.scroll_to_rect(response.rect, None);
+                                }
                                 continue;
                             }
                             let (rect, response) =
                                 ui.allocate_exact_size(size, Sense::click_and_drag());
+                            if follow && pos == cursor {
+                                // `Align::None`: the minimum distance, so a
+                                // cell already on screen moves nothing.
+                                ui.scroll_to_rect(rect, None);
+                            }
                             let selected = sel.contains(pos);
                             ui.painter().rect_filled(
                                 rect,
@@ -740,17 +1120,23 @@ impl TableDigitiserState {
                             }
                             let text = self.grid.get(r, c);
                             if !text.is_empty() {
-                                ui.painter().with_clip_rect(rect.shrink(2.0)).text(
-                                    rect.left_center() + Vec2::new(4.0, 0.0),
-                                    egui::Align2::LEFT_CENTER,
-                                    text,
-                                    egui::FontId::proportional(13.0),
-                                    if selected {
-                                        strong
-                                    } else {
-                                        visuals.text_color()
-                                    },
-                                );
+                                // `^` marks from the reader show as real
+                                // superscripts; the stored text keeps them.
+                                let color = if selected {
+                                    strong
+                                } else {
+                                    visuals.text_color()
+                                };
+                                let galley = ui
+                                    .painter()
+                                    .layout_job(superscript_job(text, CELL_FONT, color));
+                                // Vertically centred in a tall row; wide
+                                // text clips at the cell edge.
+                                let at =
+                                    rect.left_center() + Vec2::new(4.0, -galley.size().y / 2.0);
+                                ui.painter()
+                                    .with_clip_rect(rect.shrink(2.0))
+                                    .galley(at, galley, color);
                             }
                             if response.double_clicked() {
                                 clicked = Some((pos, false, true));
@@ -758,6 +1144,7 @@ impl TableDigitiserState {
                                 let shift = ui.input(|i| i.modifiers.shift);
                                 clicked = Some((pos, shift, false));
                             } else if ui.input(|i| i.pointer.primary_down())
+                                && self.resize_drag.is_none()
                                 && self.grid_focused
                                 && ui.rect_contains_pointer(rect)
                                 && ui.input(|i| i.pointer.is_decidedly_dragging())
@@ -769,7 +1156,11 @@ impl TableDigitiserState {
                         }
                     });
                 }
+                // The column/row edges go on top of the headers they sit on.
+                self.resize_ui(ui, origin, header_h, default_row_h, min_row_h);
             });
+        self.grid_view =
+            egui::Rect::from_min_size(grid_out.state.offset.to_pos2(), grid_out.inner_rect.size());
         if let Some((pos, shift, double)) = clicked {
             // Clicking elsewhere commits the edit first, as in Calc.
             self.commit_edit();
@@ -793,6 +1184,243 @@ impl TableDigitiserState {
         } else {
             TableOutcome::Continue
         }
+    }
+
+    /// Drag/double-click handling for the column-header and row-number
+    /// edges, Calc's way: drag the right edge of a column letter or the
+    /// bottom edge of a row number to resize; double-click it to fit the
+    /// contents. `origin` is the grid's top-left corner (the gutter's
+    /// corner cell).
+    fn resize_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        origin: egui::Pos2,
+        header_h: f32,
+        default_row_h: f32,
+        min_row_h: f32,
+    ) {
+        let x0 = origin.x + GUTTER_WIDTH;
+        let y0 = origin.y + header_h;
+        let total_w: f32 = self.col_widths.iter().sum();
+        let total_h: f32 = self.row_heights.iter().sum();
+        let hover = ui
+            .input(|i| i.pointer.hover_pos())
+            .filter(|p| ui.clip_rect().contains(*p));
+        let press = ui.input(|i| i.pointer.press_origin());
+        let pointer = ui.input(|i| i.pointer.interact_pos());
+        let primary_down = ui.input(|i| i.pointer.primary_down());
+        for axis in [Axis::Col, Axis::Row] {
+            let (band, start, name) = match axis {
+                Axis::Col => (
+                    egui::Rect::from_min_max(
+                        egui::pos2(x0, origin.y),
+                        egui::pos2(x0 + total_w + EDGE_GRAB, y0),
+                    ),
+                    x0,
+                    "table_col_edges",
+                ),
+                Axis::Row => (
+                    egui::Rect::from_min_max(
+                        egui::pos2(origin.x, y0),
+                        egui::pos2(x0, y0 + total_h + EDGE_GRAB),
+                    ),
+                    y0,
+                    "table_row_edges",
+                ),
+            };
+            let coord = |p: egui::Pos2| match axis {
+                Axis::Col => p.x,
+                Axis::Row => p.y,
+            };
+            let response = ui.interact(band, ui.id().with(name), Sense::click_and_drag());
+            let sizes = match axis {
+                Axis::Col => &self.col_widths,
+                Axis::Row => &self.row_heights,
+            };
+            let hit_at = |p: egui::Pos2| {
+                band.contains(p)
+                    .then(|| edge_hit(coord(p), start, sizes, EDGE_GRAB))
+                    .flatten()
+            };
+            let hovering = hover.and_then(hit_at);
+            let pressed = press.and_then(hit_at);
+            let dragging = self.resize_drag.filter(|d| d.axis == axis);
+            if hovering.is_some() || dragging.is_some() {
+                ui.ctx().set_cursor_icon(match axis {
+                    Axis::Col => egui::CursorIcon::ResizeHorizontal,
+                    Axis::Row => egui::CursorIcon::ResizeVertical,
+                });
+            }
+            if response.double_clicked() {
+                if let Some(index) = pressed {
+                    self.resize_drag = None;
+                    self.auto_fit(ui, axis, index, default_row_h, min_row_h);
+                }
+            } else if response.drag_started() {
+                if let (Some(index), Some(p)) = (pressed, press) {
+                    self.resize_drag = Some(ResizeDrag {
+                        axis,
+                        index,
+                        grab: coord(p),
+                        start: sizes[index],
+                    });
+                }
+            }
+            if let Some(drag) = self.resize_drag.filter(|d| d.axis == axis) {
+                if let (true, Some(p)) = (response.dragged(), pointer) {
+                    let (sizes, min, max) = match axis {
+                        Axis::Col => (&mut self.col_widths, MIN_CELL_WIDTH, MAX_CELL_WIDTH),
+                        Axis::Row => (&mut self.row_heights, min_row_h, MAX_ROW_HEIGHT),
+                    };
+                    if let Some(size) = sizes.get_mut(drag.index) {
+                        *size = clamp_size(drag.start + coord(p) - drag.grab, min, max);
+                    }
+                }
+                if response.drag_stopped() || !primary_down {
+                    self.resize_drag = None;
+                }
+            }
+        }
+    }
+
+    /// Calc's optimal width (column) or height (row): fit line `index` to
+    /// its widest/tallest cell text as drawn, superscripts included.
+    fn auto_fit(
+        &mut self,
+        ui: &egui::Ui,
+        axis: Axis,
+        index: usize,
+        default_row_h: f32,
+        min_row_h: f32,
+    ) {
+        let color = ui.visuals().text_color();
+        let measure = |text: &str| {
+            let size = ui
+                .painter()
+                .layout_job(superscript_job(text, CELL_FONT, color))
+                .size();
+            match axis {
+                Axis::Col => size.x,
+                Axis::Row => size.y,
+            }
+        };
+        match axis {
+            Axis::Col => {
+                let extents: Vec<f32> = (0..self.grid.rows())
+                    .map(|r| self.grid.get(r, index))
+                    .filter(|t| !t.is_empty())
+                    .map(measure)
+                    .collect();
+                if let Some(w) = self.col_widths.get_mut(index) {
+                    *w = fit_size(
+                        extents,
+                        CELL_TEXT_PAD,
+                        MIN_CELL_WIDTH,
+                        MAX_CELL_WIDTH,
+                        CELL_WIDTH,
+                    );
+                }
+            }
+            Axis::Row => {
+                let extents: Vec<f32> = (0..self.grid.cols())
+                    .map(|c| self.grid.get(index, c))
+                    .filter(|t| !t.is_empty())
+                    .map(measure)
+                    .collect();
+                if let Some(h) = self.row_heights.get_mut(index) {
+                    *h = fit_size(extents, 6.0, min_row_h, MAX_ROW_HEIGHT, default_row_h);
+                }
+            }
+        }
+    }
+
+    /// The "Reformat N cell(s) to E notation?" box: one row per previewed
+    /// cell, its name, the text before (superscripts drawn as such) and the
+    /// E form after.
+    fn reformat_ui(&mut self, ctx: &egui::Context) {
+        let Some(changes) = self.pending_reformat.as_ref() else {
+            return;
+        };
+        let mut confirm = false;
+        let mut cancel = false;
+        let modal = egui::Modal::new(egui::Id::new("table-digitiser-reformat")).show(ctx, |ui| {
+            ui.set_max_width(460.0);
+            let text_color = ui.visuals().text_color();
+            ui.heading(format!("Reformat {} cell(s) to E notation?", changes.len()));
+            ui.add_space(6.0);
+            egui::ScrollArea::vertical()
+                .max_height(320.0)
+                .show(ui, |ui| {
+                    egui::Grid::new("table-digitiser-reformat-grid")
+                        .striped(true)
+                        .spacing(Vec2::new(16.0, 4.0))
+                        .show(ui, |ui| {
+                            ui.label("");
+                            ui.strong("Before");
+                            ui.strong("After");
+                            ui.end_row();
+                            for ch in changes {
+                                ui.weak(format!("{}{}", column_name(ch.pos.col), ch.pos.row + 1));
+                                ui.label(superscript_job(&ch.before, 14.0, text_color));
+                                ui.monospace(&ch.after);
+                                ui.end_row();
+                            }
+                        });
+                });
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button("Reformat").clicked() {
+                    confirm = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    cancel = true;
+                }
+            });
+        });
+        if confirm {
+            self.confirm_reformat();
+        } else if cancel || modal.should_close() {
+            self.cancel_reformat();
+        }
+    }
+
+    /// The "Discard this table?" box. Returns `true` when the table was
+    /// discarded (the view should close); Esc, clicking outside or "Keep
+    /// editing" close the box and leave the grid as it was.
+    fn confirm_discard_ui(&mut self, ctx: &egui::Context) -> bool {
+        let mut discard = false;
+        let mut keep = false;
+        let modal = egui::Modal::new(egui::Id::new("table-digitiser-discard")).show(ctx, |ui| {
+            ui.set_max_width(380.0);
+            ui.heading("Discard this table?");
+            ui.add_space(4.0);
+            ui.label("The grid has cells that have not been saved as an artifact.");
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button("Discard and go back").clicked() {
+                    discard = true;
+                }
+                if ui.button("Keep editing").clicked() {
+                    keep = true;
+                }
+            });
+        });
+        if discard || keep || modal.should_close() {
+            return self.answer_discard(discard);
+        }
+        false
+    }
+
+    /// The answer to "Discard this table?": `true` discards (resets the table
+    /// and returns `true`, leave now); `false` is "Keep editing" (closes the
+    /// box, grid untouched, returns `false`).
+    fn answer_discard(&mut self, discard: bool) -> bool {
+        if discard {
+            self.reset_table();
+        } else {
+            self.confirm_discard = false;
+        }
+        discard
     }
 
     /// The "which table is this?" box, drawn over the view until answered.
@@ -853,12 +1481,20 @@ impl TableDigitiserState {
             return TableOutcome::Continue;
         }
         if outcome == TableOutcome::Cancelled {
-            self.setup = None;
-            self.crop_provenance = None;
-            self.set_status("");
+            self.reset_table();
         }
         outcome
     }
+}
+
+/// Whether the grid's active cell or selection changed since the frame that
+/// last recorded `last`, recording `now` either way. The first frame counts
+/// as a change. This is the whole of the "only scroll when the cursor
+/// moved" rule, kept out of the painter so it can be tested plainly.
+fn follow_moved(last: &mut Option<(CellPos, CellRange)>, now: (CellPos, CellRange)) -> bool {
+    let moved = *last != Some(now);
+    *last = Some(now);
+    moved
 }
 
 #[cfg(test)]
@@ -943,6 +1579,107 @@ mod tests {
         }
         assert_eq!(outcome, TableOutcome::Cancelled);
         assert!(s.setup.is_none());
+    }
+
+    #[test]
+    fn sizes_clamp_to_their_bounds() {
+        assert_eq!(
+            clamp_size(10.0, MIN_CELL_WIDTH, MAX_CELL_WIDTH),
+            MIN_CELL_WIDTH
+        );
+        assert_eq!(clamp_size(150.0, MIN_CELL_WIDTH, MAX_CELL_WIDTH), 150.0);
+        assert_eq!(
+            clamp_size(1e6, MIN_CELL_WIDTH, MAX_CELL_WIDTH),
+            MAX_CELL_WIDTH
+        );
+        assert_eq!(clamp_size(f32::NAN, 24.0, 100.0), 24.0);
+        // A max below the min cannot make the size smaller than the min.
+        assert_eq!(clamp_size(5.0, 24.0, 10.0), 24.0);
+    }
+
+    #[test]
+    fn auto_fit_takes_the_widest_text_plus_padding() {
+        assert_eq!(
+            fit_size([30.0, 120.0, 60.0], 10.0, 24.0, 1200.0, 96.0),
+            130.0
+        );
+        // Narrow text still gets at least the minimum.
+        assert_eq!(fit_size([4.0], 10.0, 24.0, 1200.0, 96.0), 24.0);
+        // An empty column goes back to the default width.
+        assert_eq!(fit_size([], 10.0, 24.0, 1200.0, 96.0), 96.0);
+        assert_eq!(fit_size([0.0], 10.0, 24.0, 1200.0, 96.0), 96.0);
+        // Very wide text is capped.
+        assert_eq!(fit_size([5000.0], 10.0, 24.0, 1200.0, 96.0), 1200.0);
+    }
+
+    #[test]
+    fn sizes_follow_inserts_and_deletes_at_the_right_index() {
+        let mut v = vec![10.0, 20.0, 30.0];
+        sync_sizes(&mut v, 3, 4, 1, 96.0);
+        assert_eq!(v, [10.0, 96.0, 20.0, 30.0]);
+        sync_sizes(&mut v, 4, 3, 2, 96.0);
+        assert_eq!(v, [10.0, 96.0, 30.0]);
+        // Inserting past the end appends.
+        sync_sizes(&mut v, 3, 4, 9, 96.0);
+        assert_eq!(v, [10.0, 96.0, 30.0, 96.0]);
+        // Deleting the last remaining line empties it: no size change.
+        let mut one = vec![50.0];
+        sync_sizes(&mut one, 1, 1, 0, 96.0);
+        assert_eq!(one, [50.0]);
+        // Growth by paste pads with defaults; shrinking truncates.
+        let mut g = vec![50.0];
+        fit_len(&mut g, 3, 96.0);
+        assert_eq!(g, [50.0, 96.0, 96.0]);
+        fit_len(&mut g, 2, 96.0);
+        assert_eq!(g, [50.0, 96.0]);
+    }
+
+    #[test]
+    fn edge_hit_finds_the_far_edge_within_the_grab_zone() {
+        // Columns from x = 100: edges at 150, 250, 280.
+        let sizes = [50.0, 100.0, 30.0];
+        assert_eq!(edge_hit(150.0, 100.0, &sizes, 4.0), Some(0));
+        assert_eq!(edge_hit(153.5, 100.0, &sizes, 4.0), Some(0));
+        assert_eq!(edge_hit(146.5, 100.0, &sizes, 4.0), Some(0));
+        assert_eq!(edge_hit(200.0, 100.0, &sizes, 4.0), None);
+        assert_eq!(edge_hit(252.0, 100.0, &sizes, 4.0), Some(1));
+        assert_eq!(edge_hit(283.0, 100.0, &sizes, 4.0), Some(2));
+        // The line's own start edge is not its resize edge.
+        assert_eq!(edge_hit(100.0, 100.0, &sizes, 4.0), None);
+        // Overlapping zones (a 6-px column): the nearer edge wins.
+        let thin = [50.0, 6.0];
+        assert_eq!(edge_hit(151.0, 100.0, &thin, 4.0), Some(0));
+        assert_eq!(edge_hit(155.0, 100.0, &thin, 4.0), Some(1));
+    }
+
+    #[test]
+    fn toolbar_insert_and_delete_keep_sizes_aligned_and_a_new_table_resets_them() {
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("a\tb\tc\nd\te\tf".into()));
+        fit_len(&mut s.col_widths, s.grid.cols(), CELL_WIDTH);
+        fit_len(&mut s.row_heights, s.grid.rows(), 20.0);
+        s.col_widths[2] = 200.0;
+        s.row_heights[1] = 60.0;
+        s.change_shape(Axis::Col, 1, CELL_WIDTH, |g| g.insert_col(1));
+        assert_eq!(s.col_widths.len(), s.grid.cols());
+        assert_eq!(
+            s.col_widths[3], 200.0,
+            "the wide column moved right with its cells"
+        );
+        s.change_shape(Axis::Row, 0, 20.0, |g| g.delete_row(0));
+        assert_eq!(s.row_heights.len(), s.grid.rows());
+        assert_eq!(
+            s.row_heights[0], 60.0,
+            "the tall row moved up with its cells"
+        );
+        s.reset_table();
+        assert!(s.col_widths.is_empty() && s.row_heights.is_empty());
+        s.col_widths.push(300.0);
+        s.load_crop(PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]), None);
+        assert!(
+            s.col_widths.is_empty(),
+            "a new region starts at default sizes"
+        );
     }
 
     #[test]
@@ -1075,6 +1812,203 @@ mod tests {
         assert!(s.message.contains("ingest this PDF"), "{}", s.message);
     }
 
+    #[test]
+    fn cancel_on_an_empty_grid_leaves_at_once() {
+        let mut s = TableDigitiserState {
+            table_name: "Table 5".into(),
+            ..Default::default()
+        };
+        assert!(!s.has_unsaved_changes());
+        assert!(s.request_cancel(), "nothing to lose, so no prompt");
+        assert!(!s.confirm_discard);
+        assert!(s.table_name.is_empty(), "per-table state is reset");
+    }
+
+    #[test]
+    fn cancel_with_unsaved_cells_asks_first_and_keep_editing_keeps_them() {
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("x\ty\n1\t2".into()));
+        assert!(s.has_unsaved_changes());
+        assert!(!s.request_cancel(), "unsaved cells must not be dropped");
+        assert!(s.confirm_discard, "the discard box opens");
+        // "Keep editing" (or Esc) only closes the box.
+        assert!(!s.answer_discard(false));
+        assert!(!s.confirm_discard);
+        assert_eq!(s.grid.to_csv(), "x,y\n1,2\n");
+    }
+
+    #[test]
+    fn an_edit_in_progress_counts_as_unsaved() {
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::StartEdit(Some("7".into())));
+        assert!(s.has_unsaved_changes());
+    }
+
+    #[test]
+    fn confirming_the_discard_resets_the_table() {
+        let mut s = TableDigitiserState {
+            table_name: "Table 5".into(),
+            crop_provenance: Some(CropProvenance {
+                page_index: 0,
+                min: egui::Pos2::ZERO,
+                max: egui::Pos2::new(1.0, 1.0),
+                page_px: [10.0, 10.0],
+                created_at: String::new(),
+                author: String::new(),
+                figure: "Table 5".into(),
+                source_artifact_id: None,
+            }),
+            ..Default::default()
+        };
+        s.apply(GridCommand::Paste("1\t2".into()));
+        s.apply(GridCommand::StartEdit(Some("3".into())));
+        assert!(!s.request_cancel());
+        assert!(s.answer_discard(true), "Discard and go back leaves");
+        assert!(s.grid.to_csv().is_empty());
+        assert!(s.edit.is_none());
+        assert!(s.crop_provenance.is_none());
+        assert!(s.pending_reload.is_none());
+        assert!(s.table_name.is_empty());
+        assert!(s.message.is_empty());
+        assert!(!s.confirm_discard);
+    }
+
+    #[test]
+    fn cancel_after_a_successful_save_leaves_without_asking() {
+        let (_dir, root) = make_root();
+        let mut session = paper(&root);
+        let mut s = TableDigitiserState {
+            table_name: "Table 5".into(),
+            ..Default::default()
+        };
+        s.apply(GridCommand::Paste("a\tb".into()));
+        assert!(s.save_into_project(Some(&mut session)), "{}", s.message);
+        assert!(!s.has_unsaved_changes());
+        assert!(s.request_cancel());
+        assert!(!s.confirm_discard);
+        // A change after the save is unsaved again.
+        s.apply(GridCommand::Paste("c".into()));
+        assert!(s.has_unsaved_changes());
+    }
+
+    #[test]
+    fn a_reloaded_saved_table_is_not_unsaved() {
+        let (_dir, root) = make_root();
+        let mut session = paper(&root);
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("x\ty".into()));
+        s.save_into_project(Some(&mut session));
+        let id = crate::research_record::ResearchRecordIndex::from_session(&session)
+            .artifacts()
+            .iter()
+            .find(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedTable)
+            .map(|a| a.id().to_string())
+            .unwrap();
+        let mut fresh = TableDigitiserState {
+            pending_reload: Some(id),
+            ..Default::default()
+        };
+        fresh.resolve_reload(Some(&session));
+        assert!(!fresh.has_unsaved_changes());
+    }
+
+    /// Escape on the "Discard this table?" box keeps editing, through egui's
+    /// own modal, headless.
+    #[test]
+    fn escape_on_the_discard_box_keeps_the_table() {
+        let ctx = egui::Context::default();
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("1\t2".into()));
+        assert!(!s.request_cancel());
+        let mut outcome = TableOutcome::Continue;
+        for press_escape in [false, true] {
+            let mut input = egui::RawInput::default();
+            if press_escape {
+                input.events.push(egui::Event::Key {
+                    key: Key::Escape,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: Modifiers::NONE,
+                });
+            }
+            let _ = ctx.run_ui(input, |ui| {
+                outcome = s.ui(ui, None);
+            });
+        }
+        assert_eq!(outcome, TableOutcome::Continue);
+        assert!(!s.confirm_discard, "Esc closed the box");
+        assert_eq!(s.grid.to_csv(), "1,2\n", "and kept the cells");
+    }
+
+    #[test]
+    fn format_to_standard_form_with_nothing_convertible_opens_no_box() {
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste("1.0\u{00D7}10^5 m^2\tI-131".into()));
+        s.request_reformat();
+        assert!(s.pending_reformat.is_none());
+        assert!(
+            s.message
+                .contains("no standard-form values in the highlighted cells"),
+            "{}",
+            s.message
+        );
+        assert_eq!(s.grid.to_csv(), "1.0\u{00D7}10^5 m^2,I-131\n");
+    }
+
+    #[test]
+    fn format_to_standard_form_cancelled_changes_nothing() {
+        let mut s = TableDigitiserState::default();
+        s.apply(GridCommand::Paste(
+            "2.1\u{00D7}10^6\t8.2\u{00D7}10^-7".into(),
+        ));
+        s.request_reformat();
+        let preview = s.pending_reformat.clone().expect("the box opens");
+        assert_eq!(preview.len(), 2);
+        assert_eq!(preview[0].before, "2.1\u{00D7}10^6");
+        assert_eq!(preview[0].after, "2.1e6");
+        s.cancel_reformat();
+        assert!(s.pending_reformat.is_none());
+        assert_eq!(s.grid.to_csv(), "2.1\u{00D7}10^6,8.2\u{00D7}10^-7\n");
+    }
+
+    #[test]
+    fn format_to_standard_form_confirmed_converts_exactly_the_previewed_cells() {
+        let mut s = TableDigitiserState::default();
+        // Paste leaves the pasted block highlighted.
+        s.apply(GridCommand::Paste(
+            "2.1\u{00D7}10^6\t8.2\u{00D7}10^-7".into(),
+        ));
+        s.request_reformat();
+        let preview = s.pending_reformat.clone().expect("the box opens");
+        assert_eq!(s.confirm_reformat(), preview.len());
+        for ch in &preview {
+            assert_eq!(s.grid.get(ch.pos.row, ch.pos.col), ch.after);
+        }
+        assert_eq!(s.grid.to_csv(), "2.1e6,8.2e-7\n");
+        assert!(s.pending_reformat.is_none());
+        assert!(
+            s.message.contains("reformatted 2 cell(s) to E notation"),
+            "{}",
+            s.message
+        );
+        s.apply(GridCommand::Undo);
+        assert_eq!(
+            s.grid.to_csv(),
+            "2.1\u{00D7}10^6,8.2\u{00D7}10^-7\n",
+            "one undo step"
+        );
+    }
+
+    #[test]
+    fn superscript_job_raises_the_exponent() {
+        let job = superscript_job("2.1\u{00D7}10^6", 13.0, Color32::WHITE);
+        assert_eq!(job.text, "2.1\u{00D7}106");
+        assert_eq!(job.sections.len(), 2);
+        assert_eq!(job.sections[1].format.valign, egui::Align::TOP);
+        assert!(job.sections[1].format.font_id.size < 13.0);
+    }
+
     /// The grid takes Enter and typed text from real egui input, headless.
     #[test]
     fn keys_reach_the_grid_through_egui_input() {
@@ -1103,5 +2037,100 @@ mod tests {
             }
         });
         assert_eq!(s.grid.cursor(), CellPos::new(1, 0));
+    }
+
+    // ------------------------------------------------------------------
+    // Follow the cursor (maintainer, 2026-09-28).
+    // ------------------------------------------------------------------
+
+    /// Only a change of cursor or selection asks to scroll; an idle frame
+    /// does not, or wheel-scrolling the grid would snap straight back.
+    #[test]
+    fn follow_fires_on_a_move_and_not_on_an_idle_frame() {
+        let a = CellPos::new(0, 0);
+        let b = CellPos::new(1, 0);
+        let one = |p: CellPos| CellRange {
+            top: p.row,
+            left: p.col,
+            bottom: p.row,
+            right: p.col,
+        };
+        let mut last = None;
+        assert!(follow_moved(&mut last, (a, one(a))), "first frame");
+        assert!(!follow_moved(&mut last, (a, one(a))), "idle frame");
+        assert!(follow_moved(&mut last, (b, one(b))), "cursor moved");
+        let block = CellRange {
+            top: 1,
+            left: 0,
+            bottom: 5,
+            right: 2,
+        };
+        assert!(follow_moved(&mut last, (b, block)), "selection grew");
+        assert!(!follow_moved(&mut last, (b, block)));
+    }
+
+    /// Run the whole tab headlessly in a small window, one frame per event
+    /// list, half a second apart so egui's scroll animation completes.
+    fn drive_grid(s: &mut TableDigitiserState, frames: Vec<Vec<egui::Event>>) {
+        let ctx = egui::Context::default();
+        for (n, events) in frames.into_iter().enumerate() {
+            let input = egui::RawInput {
+                time: Some(n as f64 * 0.5),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(600.0, 500.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ui| {
+                let _ = s.ui(ui, None);
+            });
+        }
+    }
+
+    fn arrow_down() -> egui::Event {
+        egui::Event::Key {
+            key: Key::ArrowDown,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        }
+    }
+
+    /// Pressing Down past the bottom of the viewport scrolls the grid so
+    /// the active cell stays on screen. Control: the same tall grid with the
+    /// cursor left at the top does not scroll at all, so the movement is the
+    /// follow and not something else.
+    #[test]
+    fn arrowing_down_past_the_viewport_scrolls_the_grid() {
+        let tall: String = (1..=80).map(|n| format!("{n}\n")).collect();
+        let mut s = TableDigitiserState::default();
+        s.grid_focused = true;
+        s.apply(GridCommand::Paste(tall));
+        drive_grid(&mut s, vec![Vec::new(); 4]);
+        assert_eq!(s.grid_view.min.y, 0.0, "cursor at the top: no scroll");
+
+        let mut frames: Vec<Vec<egui::Event>> = (0..60).map(|_| vec![arrow_down()]).collect();
+        frames.extend(vec![Vec::new(); 4]);
+        drive_grid(&mut s, frames);
+        assert_eq!(s.grid.cursor(), CellPos::new(60, 0));
+        let row_h = s.row_heights[0];
+        let header_h = row_h;
+        let cursor_top = header_h + 60.0 * row_h;
+        let view = s.grid_view;
+        assert!(view.min.y > 0.0, "the grid scrolled (view {view:?})");
+        assert!(
+            view.min.y <= cursor_top && cursor_top + row_h <= view.max.y + 0.5,
+            "the whole active cell is in view (view {view:?}, cell {cursor_top}..{})",
+            cursor_top + row_h
+        );
+        // `Align::None` scrolls the minimum: the cell sits at the bottom
+        // edge, not recentred.
+        assert!(
+            (view.max.y - (cursor_top + row_h)).abs() < row_h,
+            "minimum scroll: the cell is at the bottom edge (view {view:?})"
+        );
     }
 }

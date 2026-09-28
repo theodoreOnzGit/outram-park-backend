@@ -1764,6 +1764,47 @@ mod tests {
         );
     }
 
+    /// End to end, not just the recorded caret: `G` on a long buffer must
+    /// actually move the `ScrollArea` so the caret's line is on screen, and
+    /// `gg` must bring it back (maintainer, 2026-09-28: "when the cursor
+    /// moves beyond the scroll area ... the scrollbar shld follow"). The
+    /// idle frames after each jump let egui's scroll animation (0.1-0.3 s)
+    /// finish; `drive` spaces frames 0.1 s apart.
+    #[test]
+    fn jumping_past_the_viewport_scrolls_it_to_the_caret() {
+        let text: String = (1..=300).map(|n| format!("line {n}\n")).collect();
+        let mut state = KvimEditorState::default();
+        state.load_text(&text);
+        state.begin_insert();
+        let idle = || vec![Vec::new(); 5];
+        let mut frames = vec![Vec::new(), Vec::new(), vec![key(egui::Key::Escape)]];
+        frames.push(vec![egui::Event::Text("G".into())]);
+        frames.extend(idle());
+        drive(&mut state, frames.clone());
+        let caret = state.editor.cursor().line;
+        let top = state.top_visible_line();
+        let page = (600.0 / state.line_height) as usize;
+        assert!(caret >= 299, "G reached the end (line {caret})");
+        assert!(top > 0, "the view scrolled down (top line {top})");
+        assert!(
+            top <= caret && caret < top + page,
+            "the caret's line {caret} is inside the view starting at {top} ({page} lines max)"
+        );
+
+        // `gg` back up, in ONE `drive` from a fresh state: focus does not
+        // survive across `drive` calls. The frames above already put the
+        // view at the bottom, as just asserted.
+        let mut again = KvimEditorState::default();
+        again.load_text(&text);
+        again.begin_insert();
+        frames.push(vec![egui::Event::Text("g".into())]);
+        frames.push(vec![egui::Event::Text("g".into())]);
+        frames.extend(idle());
+        drive(&mut again, frames);
+        assert_eq!(again.editor.cursor().line, 0, "gg reached the top");
+        assert_eq!(again.top_visible_line(), 0, "and the view followed it up");
+    }
+
     // ------------------------------------------------------------------
     // Ex-command intents reach the host (maintainer, 2026-09-24).
     // ------------------------------------------------------------------

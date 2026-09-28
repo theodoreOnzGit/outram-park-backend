@@ -82,10 +82,27 @@ its own, deliberately, so the two cannot drift. ~~Do not add a nuclide table her
 equilibrium-core inventory (Liu and Cao 2002, Table 1),
 `reference/htr10_equilibrium_core_inventory.csv`, compiled in by
 `src/activity/inventory.rs:50`, provenance in `docs/References.md` (added
-2026-09-24). It holds activities, not half-lives; no half-life or decay-constant
+2026-09-24). A second one was added 2026-09-28: the 22-entry HTR-10 annual
+normal-operation airborne release (Liu and Cao 2002, Table 5),
+`reference/htr10_normal_operation_annual_airborne_release.csv`, compiled in by
+`src/activity/airborne_release.rs`. ~~Both~~ A third nuclide table was added
+2026-09-28 (**CORRECTED 2026-09-28**): the 20-entry HTR-10 primary-helium
+activity at the end of a 20-year life (Liu and Cao 2002, Table 3),
+`reference/htr10_primary_helium_activity_end_of_life.csv`, compiled in by
+`src/activity/primary_helium.rs`. All three hold activities, not half-lives; no half-life or decay-constant
 table exists in this crate (checked: `grep` of `src/` finds none). Whether the
 "no nuclide table" rule should now be reworded to allow published inventories is
 **open for the maintainer**.
+
+A ~~third~~ further published table, and the first that is **not** a nuclide table, was
+added 2026-09-28: HTR-10 normal-operation individual effective dose versus
+distance (Liu and Cao 2002, Table 7, an AIRDOS-EPA result),
+`reference/htr10_normal_operation_individual_dose_by_distance.csv`, loaded by
+`src/activity/published_dose_by_distance.rs`. It is **stored, not computed**.
+Nothing consumes it, and `changi` still computes no dose. Whether a crate
+whose dose assessment is future-scope should hold a published dose table at
+all is **open for the maintainer**. It was added on the maintainer's request.
+It does not move dose assessment into the current scope.
 
 **`puff`'s unit conversion is methane-specific and must not be generalised by
 assumption.** Upstream is an oil-and-gas leak-detection package; its

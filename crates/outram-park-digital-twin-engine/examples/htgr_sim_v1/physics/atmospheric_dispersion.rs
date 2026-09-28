@@ -408,8 +408,11 @@ impl Htr10SiteInputs {
     /// them — so treating the product of this and an inventory as an
     /// environmental source term still over-states it by whatever those
     /// remove. The same paper's Table 5 reports the airborne activity that
-    /// actually reaches the environment; it is **not digitised here**, and
-    /// until it is, this remains a circuit leak and nothing more.
+    /// actually reaches the environment. ~~It is **not digitised here**~~
+    /// **CORRECTED 2026-09-28**: it is now digitised, as
+    /// `changi::activity::airborne_release` (annual, normal operation,
+    /// unfiltered), but this simulator **does not use it**. Until a modelling
+    /// decision wires it in, this remains a circuit leak and nothing more.
     ///
     /// **`chi/Q` does not depend on this at all** (see the module doc), which
     /// is why `chi/Q` is the quotable output and the concentrations are not.

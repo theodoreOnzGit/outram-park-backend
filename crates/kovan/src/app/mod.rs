@@ -3168,9 +3168,9 @@ impl eframe::App for DigitiseApp {
                         .show(ui, |ui| self.table_digitiser.ui(ui, active_session))
                         .inner
                 };
-                // A saved table is finished, and a cancelled setup box means
-                // the region was not wanted: either way, back to reading
-                // (maintainer, 2026-09-28).
+                // A saved table is finished, and a cancelled setup box or
+                // Cancel digitisation means the region was not wanted:
+                // either way, back to reading (maintainer, 2026-09-28).
                 if outcome != TableOutcome::Continue {
                     self.view = View::PdfReader;
                 }

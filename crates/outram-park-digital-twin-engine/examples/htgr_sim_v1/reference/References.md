@@ -72,6 +72,21 @@ A primary-circuit leak rate is **not** a release-to-environment fraction.
 Between them sit building retention, filtration and the stack, none of which
 this simulator models. The same paper's **Table 5** reports the airborne
 activity that actually reaches the environment, and its **Table 7** the
-resulting doses — neither is digitised. Until they are, the concentrations
-here remain a circuit leak driven through a dispersion model, not a source
-term, and `chi/Q` remains the only quotable output.
+resulting doses — ~~neither is digitised~~. **CORRECTED 2026-09-28** — Table 5
+is now in the workspace: 22 nuclides, Bq released per year of normal
+operation, unfiltered, at
+`crates/changi/reference/htr10_normal_operation_annual_airborne_release.csv`,
+exposed by `changi::activity::airborne_release`, provenance in
+`crates/changi/docs/References.md`. **This simulator does not use it**: wiring
+it in is a separate modelling decision. ~~Table 7 is still not digitised.~~
+**CORRECTED 2026-09-28 (later the same day)** — Table 7 is now in the
+workspace too: the published individual effective dose to adults, in mSv per
+year, at 12 distances from 0.5 to 75 km along the worst azimuth. It is an
+AIRDOS-EPA result for the normal-operation release, peaking at 1.4E-4 mSv/a
+at 1.5 km. It is at
+`crates/changi/reference/htr10_normal_operation_individual_dose_by_distance.csv`,
+exposed by `changi::activity::published_dose_by_distance`, provenance in
+`crates/changi/docs/References.md`. **This simulator does not use it either**,
+and it computes no dose. So the
+concentrations here are still a circuit leak driven through a dispersion
+model, not a source term, and `chi/Q` is still the only quotable output.
