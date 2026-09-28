@@ -1376,14 +1376,26 @@ impl Widget for Htr10ReactorSchematic {
             painter.rect_stroke(rod, 1, Stroke::new(1.0, OUTLINE), StrokeKind::Middle);
         }
         if self.show_labels {
-            // Boxed like every other label; at the top of the band, clear of a
-            // fully withdrawn rod.
+            // Boxed like every other label, sitting just above whichever
+            // stands taller: the drive housings or the withdrawn rods. It
+            // therefore rides up and down with the rods instead of parking at
+            // the top of the band, where it left a wide gap whenever the rods
+            // were mostly inserted (maintainer direction, 2026-09-28). It
+            // never rises above the band's top, which holds a fully withdrawn
+            // rod plus room for the label.
+            let s = self.label_scale();
+            let head_y = rect.top() + dome * 0.16;
+            let housing_top = DRIVE_STAGE_HEIGHTS
+                .iter()
+                .map(|&(_, height_frac)| head_y - h * height_frac)
+                .fold(head_y, f32::min);
+            let rod_top = head_y - rod_above_head(self.control_rod_insertion_frac, stroke_px);
+            let half_label = 0.5 * (self.label_line_height() + 4.0 * s);
+            let label_y = (housing_top.min(rod_top) - 3.0 * s - half_label)
+                .max(rect.top() - drive_band + 10.0 * s);
             self.label_box(
                 &labels,
-                Rect::from_center_size(
-                    Pos2::new(cx, rect.top() - drive_band + 10.0 * self.label_scale()),
-                    Vec2::ZERO,
-                ),
+                Rect::from_center_size(Pos2::new(cx, label_y), Vec2::ZERO),
                 &format!("{CONTROL_ROD_CHANNELS} control rod drives"),
             );
         }
