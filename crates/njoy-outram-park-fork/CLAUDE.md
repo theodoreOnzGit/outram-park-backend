@@ -816,6 +816,15 @@ and Na-23 MT=91 is a two-law chain whose applicabilities switch at 12 MeV. So
 and nothing failed because the actinides worked. The census in
 `acer::ce_laws`'s module doc now names its tapes.
 
+**The same lesson one layer up (GitHub #365, 2026-09-29).** Reading every chain
+was not the same as *transporting* every chain: `outram-mc-libs`'
+`Nuclide::from_ace` still refused any chain with a correlated link, and F-19's
+MT=16 (two law-61 links, `p = 0.5` each) refused the whole nuclide. Such a chain
+is now carried as one `ContinuumBranch` per link, selected by the new
+`ContinuumBranch::applicability` (kept distinct from `yield_pairs`: ACER derives
+`p_k = y_k / sum y`, but only one of them is a multiplicity). Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/f19_lnw_mixture_2026-09-29.md`.
+
 **Refusals now cite upstream rather than implying the gap is ours.** ACE LAW=5 is
 dispatched by OpenMC and then raises `NotImplementedError` in
 `GeneralEvaporation.from_ace`; LAW=67 is refused by OpenMC too, and NJOY's ACER

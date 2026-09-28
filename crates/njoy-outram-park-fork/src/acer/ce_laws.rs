@@ -284,8 +284,12 @@ fn read_cosine_table(t: &RawAceTable, at: usize) -> Result<ContinuumAngularRow, 
 }
 
 /// Decode the **AND** block for one reaction index, returning `None` when the
-/// distribution is isotropic (`LAND = 0`) and an error when it is stored in
-/// DLW (`LAND = -1`, only legal for a correlated law).
+/// distribution is isotropic (`LAND = 0`) ~~and an error when it is stored in
+/// DLW (`LAND = -1`, only legal for a correlated law)~~ **CORRECTED
+/// 2026-09-29** — and `None` too when it is stored in DLW (`LAND = -1`, only
+/// legal for a correlated law): the code has always returned `Ok(None)` for a
+/// negative locator (see the `loc < 0` branch below), which is what OpenMC's
+/// reader does as well (`reaction.py:1123-1126`, `angle_dist = None`).
 ///
 /// `i` is 0 for elastic and `1..=NR` for the reactions with secondary neutrons,
 /// matching the LAND block's own ordering.

@@ -1540,6 +1540,7 @@ impl Nuclide {
     /// | inelastic angular | AND per reaction, frame from the sign of TYR |
     /// | continuum laws | DLW LAW=44 (Kalbach) / LAW=61 (tabulated cosine) / LAW=66 (`n`-body phase space) |
     /// | uncorrelated laws | DLW LAW=7/9/11 (Maxwell / evaporation / Watt) with AND's cosine — and an `LNW` chain of them as a mixture |
+    /// | `LNW` chain of correlated / phase-space laws | one `ContinuumBranch` per link (44/61/66, and a LAW=4 link with an isotropic cosine), selected by the link's applicability `p_k(E)` — GitHub #365, F-19's MT=16; see `ace_lnw_mixture` for the narrower refusals that remain |
     /// | `urr` | UNR probability tables, **on by default** |
     /// | `delayed` | DNU + BDD |
     /// | `elastic_0k`, `dbrc` | ESZ elastic of a 0 K table, or its 0 K companion |
@@ -1748,6 +1749,8 @@ impl Nuclide {
                             branches: vec![ContinuumBranch {
                                 spectrum: chi_tab,
                                 yield_pairs: Vec::new(),
+                                // A chain of length one: the law always applies.
+                                applicability: None,
                                 angular,
                             }],
                             cm_frame: rx.ty < 0,
@@ -1775,6 +1778,7 @@ impl Nuclide {
                             branches: vec![ContinuumBranch {
                                 spectrum,
                                 yield_pairs: Vec::new(),
+                                applicability: None,
                                 angular: ContinuumAngular::EvaluatedIsotropic,
                             }],
                             cm_frame: rx.ty < 0,
@@ -1788,14 +1792,51 @@ impl Nuclide {
                 // representation says and what ACER wrote.
                 ref other => {
                     let Some(spectrum) = other.as_fission_spectrum() else {
-                        // A chain mixing in a correlated law (44/61) or a phase
+                        // ~~A chain mixing in a correlated law (44/61) or a phase
                         // space; flattening it here would drop the correlation.
-                        // No held table does this — U-234/235/238's chains are
-                        // length 1 and Na-23's MT=91 is two evaporations — so
-                        // this refuses rather than approximating.
-                        return Err(NjoyError::NotPorted(
-                            "ACE DLW LNW chain mixing a correlated law (44/61) or a phase                              space with another law: sampling it needs a mixture of                              correlated laws, which no representation here carries",
-                        ));
+                        // No held table does this -- U-234/235/238's chains are
+                        // length 1 and Na-23's MT=91 is two evaporations -- so
+                        // this refuses rather than approximating.~~
+                        // **CORRECTED 2026-09-29 (GitHub #365).** F-19
+                        // (ENDF/B-VIII.0) does: its MT=16 is an `LNW` chain of
+                        // two law-61 distributions, and the refusal refused the
+                        // whole nuclide on both ACE libraries. A chain that is
+                        // not all MF=5-style laws is now carried as what it is --
+                        // a mixture of correlated / phase-space laws, one
+                        // `ContinuumBranch` per link, each selected by its
+                        // applicability `p_k(E)` -- by `ace_lnw_mixture` below.
+                        let AceEnergyLaw::Mixture(parts) = other else {
+                            // Every single law is matched by an arm above, so
+                            // only a chain reaches here.
+                            return Err(NjoyError::NotPorted(
+                                "ACE DLW law with no transport representation",
+                            ));
+                        };
+                        let ctx = AceLawContext {
+                            awr: ace.awr,
+                            q: rx.q_value,
+                            e_lo: ace
+                                .energy
+                                .get(rx.threshold_index)
+                                .copied()
+                                .unwrap_or(1.0e-5)
+                                .max(1.0e-5),
+                            e_hi: ace.energy.last().copied().unwrap_or(2.0e7),
+                        };
+                        if is_fission {
+                            if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
+                                chi = ace_lnw_fission_mixture(parts)?;
+                            }
+                        } else {
+                            place(ContinuumEmission {
+                                branches: ace_lnw_mixture(parts, table, i, &ctx)?,
+                                // ACE carries ONE frame per reaction, the sign of
+                                // TY, and applies it to every law of the chain --
+                                // OpenMC's `scatter_in_cm` is per reaction too.
+                                cm_frame: rx.ty < 0,
+                            });
+                        }
+                        continue;
                     };
                     if is_fission {
                         if !matches!(chi, FissionSpectrum::ContinuousTabular(_)) {
@@ -3832,6 +3873,178 @@ fn sample_mf4_mu_cm(dist: &ElasticAngular, e: f64, seed: &mut u64) -> Option<f64
         &chosen.cdf,
         prn(seed),
     ))
+}
+
+/// The reaction-level numbers an ACE law needs beyond its own DLW words, for
+/// [`ace_lnw_mixture`]: the target mass and `Q` (LAW=66's `E'_max(E)`) and the
+/// incident range the reaction is open over (LAW=66's synthesised grid).
+///
+/// Scalars only — the table itself is passed alongside rather than held, so the
+/// struct needs no lifetime (root `CLAUDE.md`, Rust design rules).
+#[derive(Debug, Clone, Copy)]
+struct AceLawContext {
+    /// Target-to-neutron mass ratio, from the table header.
+    awr: f64,
+    /// Reaction `QI` \[eV\], from LQR.
+    q: f64,
+    /// Lowest incident energy the reaction is open at \[eV\] (its threshold).
+    e_lo: f64,
+    /// Top of the table's energy grid \[eV\].
+    e_hi: f64,
+}
+
+/// Turn an ACE DLW **`LNW` chain** that is not all MF=5-style laws into one
+/// [`ContinuumBranch`] per link, each carrying its applicability `p_k(E)` —
+/// the transport form of OpenMC's `ReactionProduct { distribution_,
+/// applicability_ }` (`src/reaction_product.cpp`, read by
+/// `openmc/data/reaction.py:1082-1092`). GitHub #365.
+///
+/// # Which links convert, and why the rest refuse
+///
+/// | link | branch | exact? |
+/// |---|---|---|
+/// | LAW=44 (Kalbach-Mann) | `ChiTabular` + `ContinuumAngular::KalbachMann` | yes — same conversion as a single law 44 |
+/// | LAW=61 (tabulated cosine) | `ChiTabular` + `ContinuumAngular::LabTabulated` | yes — same conversion as a single law 61 |
+/// | LAW=66 (phase space) | `ace_phase_space_chi` + `EvaluatedIsotropic` | yes — same conversion as a single law 66 |
+/// | LAW=4 with an isotropic (or absent, `LAND <= 0`) AND cosine | `ChiTabular` + `EvaluatedIsotropic` | yes |
+/// | LAW=4 with an **anisotropic** AND cosine | refused | — |
+/// | LAW=7/9/11 in a chain with a correlated law | refused | — |
+/// | LAW=3 / LAW=2 in a chain | refused | — |
+///
+/// A chain made **only** of LAW=4/7/9/11 never reaches here: it is an
+/// uncorrelated MF=5 mixture and goes to `UncorrelatedEmission` whole, with
+/// the AND cosine, as before.
+///
+/// The refused links are refused because **no producer writes them and no
+/// representation here carries them exactly**, not because they are hard:
+///
+/// - NJOY2016's ACER writes a reaction's DLW chain from *either* MF=6
+///   (`acelf6`: links are always 44/61/66/67 — `acefc.f90:7389-7395` sets the
+///   law to 44 for LAW=1, 67 for LAW=7, 66 for LAW=6) *or* MF=5 (`acelf5`: 4/7/9/11), never both, because
+///   an ENDF reaction's neutron is described by MF=6 or by MF=4+MF=5. So a
+///   correlated+uncorrelated chain has no generator to test against.
+/// - An analytic law (7/9/11) has no exact `ChiTabular` form — tabulating it
+///   would be an approximation — and `ContinuumBranch` holds a `ChiTabular`.
+/// - An anisotropic AND cosine for a LAW=4 link lives on the AND block's own
+///   incident grid, uncorrelated with `E'`; `ContinuumAngular` is indexed by the
+///   *energy* law's `(table, row)`, so carrying it would mean resampling it onto
+///   another grid. (OpenMC applies AND to the uncorrelated links only, and the
+///   format sets `LAND = -1` whenever a correlated law carries the angle, so in
+///   practice a mixed chain's LAW=4 link is isotropic — which *is* converted.)
+///
+/// Refusing keeps the failure loud; the message names the link.
+fn ace_lnw_mixture(
+    parts: &[(Tab1, njoy_outram_park_fork::acer::ce_laws::AceEnergyLaw)],
+    table: &njoy_outram_park_fork::acer::read::RawAceTable,
+    reaction_index: usize,
+    ctx: &AceLawContext,
+) -> Result<Vec<ContinuumBranch>, NjoyError> {
+    use njoy_outram_park_fork::acer::ce_laws::{
+        ace_phase_space_chi, decode_angular, to_chi_and_angular, AceEnergyLaw,
+    };
+    let mut branches = Vec::with_capacity(parts.len());
+    for (applicability, law) in parts {
+        let (spectrum, angular) = match law {
+            AceEnergyLaw::Tabulated {
+                law: code @ (44 | 61),
+                rows,
+                incident_interp,
+            } => to_chi_and_angular(rows, *code, incident_interp),
+            AceEnergyLaw::Tabulated {
+                law: 4,
+                rows,
+                incident_interp,
+            } => {
+                // The AND cosine, if there is one, belongs to this link. `lct`
+                // only labels the frame of the returned table; isotropy does not
+                // depend on it.
+                if let Some(and) = decode_angular(table, reaction_index + 1, 1)? {
+                    if !and.is_all_isotropic() {
+                        return Err(NjoyError::NotPorted(
+                            "ACE DLW LNW chain with a LAW=4 link whose AND cosine is \
+                             anisotropic, alongside a correlated law: the cosine is on \
+                             the AND grid and no branch representation carries it (no \
+                             NJOY-written table does this; see ace_lnw_mixture)",
+                        ));
+                    }
+                }
+                to_chi_and_angular(rows, 4, incident_interp)
+            }
+            AceEnergyLaw::PhaseSpace { npsx, apsx } => {
+                let Some(chi) =
+                    ace_phase_space_chi(*npsx, *apsx, ctx.awr, ctx.q, ctx.e_lo, ctx.e_hi)
+                else {
+                    return Err(NjoyError::NotPorted(
+                        "ACE DLW LNW chain with a LAW=66 link whose phase space is \
+                         empty over the reaction's range (NPSX outside 3..=5, or \
+                         E'max <= 0 everywhere); dropping one link of a mixture \
+                         would renormalise the others",
+                    ));
+                };
+                (chi, ContinuumAngular::EvaluatedIsotropic)
+            }
+            AceEnergyLaw::Analytic { .. } => {
+                return Err(NjoyError::NotPorted(
+                    "ACE DLW LNW chain mixing an analytic law (7/9/11) with a correlated \
+                     or phase-space law: no exact tabulated form, and ACER never writes \
+                     one (MF=5 and MF=6 laws are not chained together)",
+                ))
+            }
+            AceEnergyLaw::Tabulated { .. }
+            | AceEnergyLaw::TwoBodyLevel { .. }
+            | AceEnergyLaw::DiscretePhoton { .. }
+            | AceEnergyLaw::Mixture(_) => {
+                return Err(NjoyError::NotPorted(
+                    "ACE DLW LNW chain containing a two-body, discrete-photon or nested \
+                     chain link: not a continuum neutron law",
+                ))
+            }
+        };
+        branches.push(ContinuumBranch {
+            spectrum,
+            yield_pairs: Vec::new(),
+            applicability: Some(applicability.clone()),
+            angular,
+        });
+    }
+    Ok(branches)
+}
+
+/// The fission-MT counterpart of [`ace_lnw_mixture`]: an `LNW` chain on a
+/// fission reaction that is not all MF=5-style laws, as a
+/// [`FissionSpectrum::Mixture`] over its links.
+///
+/// A tabulated link (4/44/61) contributes its outgoing-energy table and **drops
+/// its angle** — exactly what the single-law fission path above does, because
+/// ACER forces fission into the laboratory frame and fission emission is
+/// isotropic there (`acefc.f90` `acelf6`: `if (mth.eq.18) lct=1`). An analytic
+/// link keeps its law. Anything else is refused: a phase space or a two-body
+/// law is not a fission spectrum.
+fn ace_lnw_fission_mixture(
+    parts: &[(Tab1, njoy_outram_park_fork::acer::ce_laws::AceEnergyLaw)],
+) -> Result<FissionSpectrum, NjoyError> {
+    use njoy_outram_park_fork::acer::ce_laws::{to_chi_and_angular, AceEnergyLaw};
+    let mut out = Vec::with_capacity(parts.len());
+    for (p, law) in parts {
+        let spectrum = match law {
+            AceEnergyLaw::Tabulated {
+                law: code,
+                rows,
+                incident_interp,
+            } => FissionSpectrum::ContinuousTabular(
+                to_chi_and_angular(rows, *code, incident_interp).0,
+            ),
+            AceEnergyLaw::Analytic { spectrum, .. } => spectrum.clone(),
+            _ => {
+                return Err(NjoyError::NotPorted(
+                    "ACE DLW LNW chain on a fission MT with a phase-space, two-body or \
+                     nested link: not a fission spectrum",
+                ))
+            }
+        };
+        out.push((p.clone(), spectrum));
+    }
+    Ok(FissionSpectrum::Mixture(out))
 }
 
 fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {

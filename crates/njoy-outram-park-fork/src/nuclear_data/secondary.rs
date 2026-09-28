@@ -518,7 +518,30 @@ pub struct ContinuumBranch {
     /// fission spectrum, so it samples through the identical code path.
     pub spectrum: ChiTabular,
     /// This subsection's neutron multiplicity `y(E)` as `(E \[eV\], y)` pairs.
+    ///
+    /// ENDF MF=6 semantics: each subsection is a separately emitted particle and
+    /// this is how many of them there are. Empty on a branch built from ACE,
+    /// where the reaction's multiplicity is `TY` and is not split per law.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The ACE **`LNW` applicability** `p(E)` of this branch, when the emission
+    /// is a *mixture of laws for one particle* rather than a list of particles.
+    ///
+    /// `None` on every branch read from ENDF MF=6: there a branch is selected in
+    /// proportion to its [`yield_pairs`](Self::yield_pairs). `Some` on every
+    /// branch of an ACE `LNW` chain (GitHub #365): there a branch is selected
+    /// with probability `p_k(E)`, `sum_k p_k(E) = 1`, and the multiplicity is the
+    /// reaction's `TY`, which the branches do not carry. The two are **not** the
+    /// same quantity and are kept apart on purpose — ACER *derives* one from the
+    /// other (`acefc.f90` `acelf6`: `p_k = y_k / sum_j y_j`, on the ENDF yield's
+    /// own interpolation regions for a constant yield and on the combined
+    /// lin-lin grid for an energy-dependent one), so a sampler reading either
+    /// picks the same law, but a caller asking "how many neutrons" must not get
+    /// a probability back.
+    ///
+    /// Evaluated as OpenMC's `Tabulated1D` does (`src/endf.cpp`): with the
+    /// record's own `(NBT, INT)` regions, and **clamped** to the end values
+    /// outside the tabulated range, not zeroed.
+    pub applicability: Option<crate::endf::records::Tab1>,
     /// The **angular** half of the law, correlated with the outgoing energy.
     ///
     /// MF=6 LAW=1 is a correlated energy-angle law: the emission cosine depends
@@ -904,6 +927,43 @@ impl ContinuumAngular {
 }
 
 impl ContinuumBranch {
+    /// The ACE `LNW` applicability `p(E)` at incident energy `e_in` \[eV\], or
+    /// `None` on a branch that has none (every ENDF-built branch).
+    ///
+    /// A port of OpenMC's `Tabulated1D::operator()` (`src/endf.cpp:243-268`),
+    /// which is what `ReactionProduct::sample_dist` evaluates: the record's own
+    /// `(NBT, INT)` regions inside the range, and the **first or last value
+    /// outside it** — not zero, which is what [`crate::endf::interp::eval_tab1`]
+    /// returns on its own and what a cross-section TAB1 wants. The clamp matters
+    /// only at the table ends (F-19's applicability spans exactly the MT=16
+    /// range, 10.987-20 MeV), but a zero there would make every branch weight
+    /// vanish and silently hand the draw to the first law.
+    pub fn applicability_at(&self, e_in: f64) -> Option<f64> {
+        let p = self.applicability.as_ref()?;
+        let (first, last) = match (p.pairs.first(), p.pairs.last()) {
+            (Some(f), Some(l)) => (*f, *l),
+            _ => return Some(0.0),
+        };
+        if e_in <= first.0 {
+            return Some(first.1);
+        }
+        if e_in >= last.0 {
+            return Some(last.1);
+        }
+        Some(crate::endf::interp::eval_tab1(e_in, &p.interp, &p.pairs).unwrap_or(0.0))
+    }
+
+    /// The weight this branch is **selected** with at `e_in` \[eV\]: its ACE
+    /// applicability `p(E)` when it has one, its ENDF yield `y(E)` otherwise.
+    /// See [`applicability`](Self::applicability) for why the two are distinct
+    /// quantities that nonetheless select identically.
+    pub fn selection_weight_at(&self, e_in: f64) -> f64 {
+        match self.applicability_at(e_in) {
+            Some(p) => p,
+            None => self.yield_at(e_in),
+        }
+    }
+
     /// Multiplicity `y` at incident energy `e_in` \[eV\], lin-lin interpolated
     /// and clamped to the end values outside the tabulated range. Returns 1.0 if
     /// the table is empty.
@@ -952,17 +1012,30 @@ impl ContinuumBranch {
 /// # What it does and does not carry
 ///
 /// The **energy** spectrum `f₀(E→E')` of every leading neutron subsection is
-/// carried in full. The **angular** correlation present in MF=6 (Legendre
+/// carried in full. ~~The **angular** correlation present in MF=6 (Legendre
 /// `f₁…f_NA` when LANG=1, Kalbach `r`/`a` when LANG=2) is **not**: emission is
 /// isotropic in the frame named by [`cm_frame`](Self::cm_frame), which is the
 /// same reduction ACE Law 4 makes (see
 /// [`crate::acer::energy::Mf6Neutron`]). Correlated emission is the follow-up,
-/// not something this type approximates.
+/// not something this type approximates.~~ **CORRECTED 2026-09-29** — the
+/// angular half *is* carried, per branch, in [`ContinuumBranch::angular`]
+/// (Legendre, Kalbach-Mann, LAW=7 lab-tabulated, and ACE law 44/61), and
+/// sampled correlated with the outgoing-energy row; the text predated bead
+/// `op-og56`. Verified by reading `build_continuum_angular` and
+/// `to_chi_and_angular`, which populate it.
+///
+/// Since GitHub #365 the same type also carries an ACE **`LNW` chain** of
+/// correlated / phase-space laws (F-19's MT=16 is two law-61 distributions),
+/// each branch selected by its applicability `p_k(E)` rather than by a yield.
+/// One representation and one sampler for both routes, so they cannot drift.
 #[derive(Debug, Clone)]
 pub struct ContinuumEmission {
-    /// One entry per neutron (ZAP=1) LAW=1 subsection, in file order. Never
-    /// empty — [`from_endf_mf6`](Self::from_endf_mf6) returns `None` rather than
-    /// an emission with no branches.
+    /// One entry per neutron (ZAP=1) LAW=1 subsection, in file order, on the
+    /// ENDF route; one entry per law of the `LNW` chain, in chain order, on the
+    /// ACE route (each then carrying its
+    /// [`applicability`](ContinuumBranch::applicability)). Never empty —
+    /// [`from_endf_mf6`](Self::from_endf_mf6) returns `None` rather than an
+    /// emission with no branches.
     pub branches: Vec<ContinuumBranch>,
     /// `true` when the distributions are tabulated in the **centre-of-mass**
     /// frame (ENDF `LCT = 2`), which is the usual case for MT=91 on actinide
@@ -1254,6 +1327,7 @@ fn lab_angle_energy_emission(
             incident_interp: collapse_law7_incident_interp(&law7.e_in_interp),
         },
         yield_pairs: law7.yield_pairs,
+        applicability: None,
         angular: ContinuumAngular::LabTabulated(ang_tables),
     };
     Ok(Some(ContinuumEmission {
@@ -1417,6 +1491,7 @@ fn phase_space_emission(
         branches: vec![ContinuumBranch {
             spectrum,
             yield_pairs: ps.yield_pairs.clone(),
+            applicability: None,
             angular: ContinuumAngular::EvaluatedIsotropic,
         }],
         cm_frame: ps.lct >= 2,
@@ -1585,6 +1660,7 @@ impl ContinuumEmission {
                     incident_interp: neutron.law4.e_in_interp.clone(),
                 },
                 yield_pairs: neutron.yield_pairs,
+                applicability: None,
                 angular,
             });
         }
@@ -1601,8 +1677,28 @@ impl ContinuumEmission {
     /// This is the number the transport layer must emit: 1 for MT=91, 2 for
     /// MT=16 **however the evaluation writes it** (one branch of yield 2, or two
     /// branches of yield 1).
+    ///
+    /// For an ACE `LNW` mixture ([`ContinuumBranch::applicability`] set) the
+    /// branches are alternative laws for **one** particle, so the expectation is
+    /// `sum_k p_k(E) y_k(E)` rather than a sum of yields — and since an ACE
+    /// branch carries no yield of its own (`y_k = 1`), that is `sum_k p_k = 1`,
+    /// the same answer a single-law ACE emission gives. The reaction's real
+    /// multiplicity on the ACE route is `TY`; MT=16/17 take it from the MT, as
+    /// the ENDF route does, and never read this.
     pub fn total_yield_at(&self, e_in: f64) -> f64 {
-        self.branches.iter().map(|b| b.yield_at(e_in)).sum()
+        self.branches
+            .iter()
+            .map(|b| match b.applicability_at(e_in) {
+                Some(p) => p * b.yield_at(e_in),
+                None => b.yield_at(e_in),
+            })
+            .sum()
+    }
+
+    /// Whether this emission is an ACE `LNW` **mixture of laws** (every branch
+    /// carries an applicability) rather than an ENDF list of emitted particles.
+    pub fn is_applicability_mixture(&self) -> bool {
+        self.branches.iter().any(|b| b.applicability.is_some())
     }
 
     /// This emission with its angular law **switched off** — every branch's
@@ -1637,22 +1733,46 @@ impl ContinuumEmission {
     }
 
     /// The branch an emitted neutron is drawn from, chosen in proportion to the
-    /// branches' yields at `e_in`, given a uniform variate `xi` in `[0, 1)`.
+    /// branches' [selection weights](ContinuumBranch::selection_weight_at) at
+    /// `e_in`, given a uniform variate `xi` in `[0, 1)`.
     ///
-    /// With a single branch this always returns it. With F-19's two equal-yield
-    /// (n,2n) branches it picks each half the time, which reproduces the
-    /// evaluation's *average* emission spectrum over the two neutrons — it does
-    /// not correlate the pair, so a code emitting both neutrons of one event
-    /// should take one draw per neutron.
+    /// The weight is the ENDF **yield** for an ENDF-built emission and the ACE
+    /// **applicability** `p_k(E)` for an ACE `LNW` chain (GitHub #365). With a
+    /// single branch this always returns it. With F-19's two (n,2n) laws it picks
+    /// each half the time on either route — ENDF because both subsections have
+    /// yield 1, ACE because ACER wrote `p_k = y_k / sum y = 0.5` — which
+    /// reproduces the evaluation's *average* emission spectrum over the two
+    /// neutrons; it does not correlate the pair, so a code emitting both
+    /// neutrons of one event takes one draw per neutron, as OpenMC does.
+    ///
+    /// # Relation to upstream
+    ///
+    /// OpenMC's `ReactionProduct::sample_dist` (`src/reaction_product.cpp:110`)
+    /// accumulates the **unnormalised** `p_k(E)` and takes the first law with
+    /// `xi <= sum_{j<=k} p_j`, falling back to the *last* law. This normalises by
+    /// the total first, which is identical whenever `sum p_k = 1` (ACER writes
+    /// them that way, and F-19's are 0.5 + 0.5 exactly) and keeps one selection
+    /// rule for yields and probabilities alike. A zero total — which with the
+    /// clamped applicability can only come from an evaluation that sets every
+    /// `p_k` to zero — returns the first branch, as the yield path always has.
     pub fn branch_for(&self, e_in: f64, xi: f64) -> &ContinuumBranch {
-        let total = self.total_yield_at(e_in);
-        if self.branches.len() == 1 || !(total > 0.0) {
+        if self.branches.len() == 1 {
+            return &self.branches[0];
+        }
+        // Two passes rather than a collected `Vec`: this runs once per
+        // continuum collision, and the weights are a few interpolations.
+        let total: f64 = self
+            .branches
+            .iter()
+            .map(|b| b.selection_weight_at(e_in).max(0.0))
+            .sum();
+        if !(total > 0.0) {
             return &self.branches[0];
         }
         let mut acc = 0.0;
         let target = xi.clamp(0.0, 1.0) * total;
         for b in &self.branches {
-            acc += b.yield_at(e_in);
+            acc += b.selection_weight_at(e_in).max(0.0);
             if target < acc {
                 return b;
             }
