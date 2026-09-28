@@ -631,8 +631,11 @@ path. `material::speed::SpeedTier`, chosen per nuclide with
 **Decision recorded:** the maintainer's first framing was "Standard, Fast,
 VeryFast" with Standard implicitly the default. The rule above ("the
 cheapest correct path is the default") was applied instead, because `Fast`
-is exact. Flip `#[default]` in `speed.rs` if that is not what was meant; the
-exactness test does not depend on which tier is the default.
+is exact. ~~Flip `#[default]` in `speed.rs` if that is not what was meant~~
+**CONFIRMED 2026-09-28:** the maintainer chose `Fast` as the default ("Fast
+lah"). `ordinary_constructors_default_to_the_exact_fast_tier` in
+`tests/speed_tier_fast_is_exact.rs` pins it. The exactness test does not
+depend on which tier is the default.
 
 
 ### Units: raw `f64`, not `uom`
