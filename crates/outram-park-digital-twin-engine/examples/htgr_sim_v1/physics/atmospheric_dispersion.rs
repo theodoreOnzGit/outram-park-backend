@@ -489,13 +489,21 @@ pub struct Meteorology {
 }
 
 impl Default for Meteorology {
-    /// A light, neutral default: 3 m/s from the north at midday.
+    /// A light ~~, neutral~~ default: 3 m/s from the north at midday.
     ///
-    /// 3 m/s sits in the middle of the Pasquill table rather than at an
+    /// ~~3 m/s sits in the middle of the Pasquill table rather than at an
     /// endpoint, so the default condition is not one of the ambiguous
     /// two-class regimes; midday is unambiguously day. Both are chosen so the
     /// opening screen shows one well-defined stability class instead of a
-    /// regime whose behaviour depends on the emission policy.
+    /// regime whose behaviour depends on the emission policy.~~
+    /// **CORRECTED 2026-09-28** — midday is unambiguously day
+    /// (`changi::puff::stability::is_day` is `7..=18`), but 3 m/s by day **is**
+    /// one of the ambiguous two-class regimes: `stability_class`
+    /// (`crates/changi/src/puff/stability.rs:233-236`) returns
+    /// `StabilitySet::Two(B, C)` for `3 <= u < 5` m/s by day. This channel
+    /// resolves it with `.primary()` (`Self::stability_for_field` and the
+    /// reported `DispersionResult::stability`), so the field is drawn in class
+    /// **B (moderately unstable)**, not neutral (D), and class C is discarded.
     fn default() -> Self {
         Self {
             speed: Velocity::new::<meter_per_second>(3.0),

@@ -62,11 +62,20 @@ via the `openmc-endf-8-depletion-lib-b` crate.
 
 ## Verification status
 
-- **TRISO-ATOPS fork: verified code-to-code against upstream.** 5 699 cases
+- **TRISO-ATOPS fork: verified code-to-code against upstream.** ~~5 699 cases
   across 32 function groups, all passing (2026-09-15, upstream `de374c8`). Every
   function agrees to between exact equality and 4.2e-10 relative, outside the
   ill-conditioned inputs analysed in the write-up. A second pass on 2026-09-21
-  covered the accident path. Methodology, results and the two deliberate
+  covered the accident path.~~ **CORRECTED 2026-09-28** — those were the first
+  pass's numbers (2026-09-15, upstream `de374c8`: 5 699 cases, 32 function
+  groups, exact equality to 4.2e-10 relative outside the ill-conditioned
+  inputs). Two further passes on 2026-09-21, against the same upstream, grew the
+  fixture to **11 855 cases** (second pass, the accident path) and then to
+  **14 130 cases** and **51 tests** (third pass, exhaustive widening and the
+  end-to-end `accident_case` composition). The third pass's worst group is
+  `accident_case.nodal_kernel` at **2.44e-9** relative (180 cases), above the
+  `1e-9` group tolerance and admitted only by the per-case conditioning widening
+  (an Ag-110m row). Methodology, results and the two deliberate
   divergences from upstream are in
   [`docs/triso-atops-code-to-code.md`](docs/triso-atops-code-to-code.md).
 - **Lagrangian simulator:** unit-tested. Monte Carlo half-lives are checked

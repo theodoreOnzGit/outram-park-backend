@@ -363,7 +363,10 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   a cropped page region into the digitiser as a plot-image source; that
   draw-box-then-digitise interaction is separate, not-yet-implemented work
   (op-p17q for plots, op-hnhp for OCR'd tables — the latter blocked on an
-  OCR-tooling decision, op-9bvi, not yet made).
+  OCR-tooling decision, op-9bvi, not yet made). ~~(above)~~ **CORRECTED
+  2026-09-28**: both exist now. The reader crops a region into the digitiser,
+  and tables are digitised with no OCR, in a spreadsheet grid beside the PDF
+  (GH #353).
 - **Gruvbox theming** (top bar → theme dropdown) — Gruvbox Dark / Gruvbox
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance

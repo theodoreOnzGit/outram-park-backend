@@ -71,6 +71,7 @@ pub mod mindmap_model;
 pub mod mindmap_view;
 pub mod navigation;
 pub mod node_id;
+pub mod page_rotation;
 pub mod ingest;
 pub mod session;
 pub mod project;

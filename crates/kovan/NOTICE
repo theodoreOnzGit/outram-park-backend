@@ -63,46 +63,14 @@ This crate does not vendor or re-translate any of that — it consumes
 `kopitiam-pdf`'s published, already-translated Rust as an ordinary
 dependency.
 
-Dependency: kopitiam-ocr
-------------------------
+Dependency: kopitiam-ocr — REMOVED 2026-09-28
+------------------------------------------------
 
-  Crate:       kopitiam-ocr
-  Version:     0.1.0 (as of this addition — see Cargo.toml for the resolved
-               version in use)
-  License:     AGPL-3.0-only
-  Repository:  https://github.com/theodoreOnzGit/kopitiam
-  Author:      Theodore Kay Chen Ong
-  Description: "Pure-Rust Tesseract LSTM OCR engine (eng/chi_sim/jpn)" — the
-               table-digitiser OCR engine chosen in kopi-beans `op-9bvi`
-               (GitHub issue #30). Already AGPL-3.0-only, so it adds no new
-               license to reason about — this crate is already the
-               workspace's one AGPL-3.0-only-by-exception crate (see above).
-
-Added 2026-08-23, with the maintainer's explicit confirmation that the AGPL
-combination is acceptable (GitHub issue #30, `op-9bvi`). Declared as a
-normal crates.io dependency (`kopitiam-ocr = "0.1.0"`), not vendored, not
-path/git, and not added to the workspace root's `[workspace.dependencies]`
-— same shape as `kopitiam-pdf` above.
-
-Tesseract / Leptonica provenance (one level further upstream)
------------------------------------------------------------------
-
-`kopitiam-ocr` is a close translation of Tesseract's LSTM recognizer
-(Apache-2.0, © Google Inc. and contributors) and a minimal subset of
-Leptonica's image preprocessing (BSD-2-Clause, © Leptonica, Dan Bloomberg),
-per that crate's own module doc comments. Both upstream licenses are
-one-way compatible into an AGPLv3 work. This crate does not vendor or
-re-translate any of that — it consumes `kopitiam-ocr`'s published,
-already-translated Rust as an ordinary dependency.
-
-Android / Termux (kopitiam-ocr)
----------------------------------
-
-`kopitiam-ocr`'s only dependency is `kopitiam-tensor` (itself depending only
-on `kopitiam-core`) — checked directly against the `kopitiam` workspace's
-own `Cargo.toml` files before adding, 2026-08-23: no C-toolchain, BLAS, or
-GPU dependency anywhere in the chain. Declared unconditionally in this
-crate's `Cargo.toml` (not target-gated), same as `kopitiam-pdf`.
+`kopitiam-ocr` 0.1.0 (AGPL-3.0-only, a translation of Tesseract's LSTM
+recognizer and a Leptonica subset) was a dependency from 2026-08-23 (GitHub
+issue #30, `op-9bvi`) until 2026-09-28, when the OCR table path was removed
+(GitHub #357) because the engine never loaded a model (#288). Nothing from it
+remains in this crate.
 
 Workspace boundary (read before adding a dependency on `kovan`)
 -------------------------------------------------------------------
@@ -137,3 +105,51 @@ This document is written by an AI coding assistant at the maintainer's
 explicit direction; per this workspace's `RESPONSIBLE_USE.md`, it is
 untrusted output until the maintainer reviews it, same as the rest of this
 change.
+
+Translated code: jbt/markdown-editor (ISC) — added 2026-09-28
+----------------------------------------------------------------
+
+  Project:     markdown-editor, "Live (GitHub-Flavored) Markdown Editor"
+  Repository:  https://github.com/jbt/markdown-editor
+  Commit:      58aa8bfe18c5a30af2c6fb08221b00b841688dd9 (2020-05-03)
+  Copyright:   (c) 2018 James Taylor
+  License:     ISC (text below) — permissive, compatible with AGPL-3.0-only.
+
+Translated at the maintainer's direction (2026-09-28) into the kvim tab's
+side-by-side editor + GitHub-flavoured Markdown preview. What was translated,
+JavaScript/CSS -> Rust/egui, and where (each file carries its own provenance
+header):
+
+  - index.js `setOutput` (scroll the preview to the first changed element)
+    and `update` (document title from the first h1)
+      -> src/app/gfm_preview/model.rs `first_changed_block`, `document_title`
+  - index.js `render_tasklist` (task items as disabled checkboxes)
+      -> src/app/gfm_preview/view.rs `show_item`
+  - index.css `#in`/`#out` (50/50 source|preview split) and index.js
+    `toggleReadMode` (preview only)
+      -> src/app/kvim_tab.rs `PaneLayout`
+
+NOT translated: upstream's Markdown parsing and HTML rendering, which is the
+third-party `markdown-it` 4.1.1 and `markdown-it-footnote` 1.0.0 (both MIT,
+vendored minified in upstream's lib/). kovan replaces them with
+`pulldown-cmark` (already a dependency) using its GFM options, and paints its
+own block model into egui. Nor were emojify, highlight.js, CodeMirror, the
+spell checker, the codecogs `<equation>` image service (a network call — not
+appropriate for an offline tool), localStorage saving, or `github-markdown.css`
+(no licence header in upstream's copy; nothing was copied from it).
+
+ISC License (upstream LICENSE, verbatim):
+
+  Copyright (c) 2018 James Taylor
+
+  Permission to use, copy, modify, and/or distribute this software for any
+  purpose with or without fee is hereby granted, provided that the above
+  copyright notice and this permission notice appear in all copies.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.

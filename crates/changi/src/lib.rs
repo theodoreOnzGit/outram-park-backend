@@ -13,10 +13,13 @@
 //! It is the middle link of the OUTRAM PARK offsite chain — SEMBAWANG (severe
 //! accident: *what gets released?*) → **CHANGI** (*what happens after
 //! release?*) → REDHILL (*what happens after deposition and infiltration?*).
-//! Its input is a source term produced by SEMBAWANG. `sembawang` exists in the
+//! Its input is a source term produced by SEMBAWANG. ~~`sembawang` exists in the
 //! workspace as an explicit placeholder (no implementation), so until it
 //! produces a real source term, a release-rate time series must be supplied
-//! by hand.
+//! by hand.~~ **CORRECTED 2026-09-28** — `sembawang` is implemented
+//! (`crates/sembawang/src/`) and hands this crate a source term through
+//! `sembawang::chain::pad_for_dispersion`; a hand-supplied release-rate time
+//! series still works.
 //!
 //! ## Scope
 //!
@@ -83,8 +86,11 @@
 //!   kernels ported so far need nothing from it, and adding a finite-volume CFD
 //!   dependency before there is a field to put on a mesh would be premature.
 //! - `boon-lay`'s nuclide database is the intended source of half-lives for
-//!   [`flexpart::decay`]; this crate deliberately carries no nuclide data of its
-//!   own so the two cannot drift.
+//!   [`flexpart::decay`]; this crate deliberately carries no ~~nuclide data~~
+//!   half-life data of its own so the two cannot drift. **CORRECTED
+//!   2026-09-28** — it does embed one nuclide table, the published HTR-10
+//!   equilibrium-core inventory ([`activity::inventory`], provenance in
+//!   `docs/References.md`).
 //!
 //! ## Licence
 //!

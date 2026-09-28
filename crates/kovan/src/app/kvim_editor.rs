@@ -231,6 +231,13 @@ pub struct KvimEditorState {
     /// it. A one-shot flag, not a mode: after that frame the ordinary focus
     /// rules apply (GH issue #282).
     pending_focus: bool,
+    /// The row height [`Self::text_area`] last painted with, so a scroll
+    /// offset can be turned back into a line number.
+    line_height: f32,
+    /// The 0-based buffer line at the top of the viewport as last painted —
+    /// what the kvim tab's Markdown preview follows (VS Code-style scroll
+    /// sync, 2026-09-28). See [`Self::top_visible_line`].
+    top_line: usize,
 }
 
 impl Default for KvimEditorState {
@@ -249,6 +256,8 @@ impl Default for KvimEditorState {
             preview_press_line: None,
             pending_focus: false,
             text_area_id: None,
+            line_height: CHAR_SIZE * LINE_SPACING,
+            top_line: 0,
         }
     }
 }
@@ -347,17 +356,52 @@ impl KvimEditorState {
         });
         ui.separator();
 
-        egui::ScrollArea::both()
+        let out = egui::ScrollArea::both()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 self.text_area(ui, false);
             });
+        self.record_top_line(out.state.offset.y);
 
         if let Some(source) = completion {
             self.completion_popup_ui(ui, source);
         }
         self.command_line_ui(ui);
         self.signal.take()
+    }
+
+    /// Draw the buffer **locked**: the same text, cursor and scroll as
+    /// [`Self::ui`], but no key, clipboard or mouse edit reaches the engine
+    /// (it is [`Self::text_area`]'s read-only path, the one the page-context
+    /// preview already uses). The kvim tab shows this until the operator has
+    /// clicked Edit and accepted the schema warning (maintainer, 2026-09-28:
+    /// "kvim editor is read-only by default").
+    pub fn ui_locked(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.strong("READ-ONLY");
+            let pos = self.editor.cursor();
+            ui.weak(format!("{}:{}", pos.line + 1, pos.col + 1));
+            if self.is_modified() {
+                ui.weak("[+]");
+            }
+        });
+        ui.separator();
+        let out = egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                let _ = self.text_area(ui, true);
+            });
+        self.record_top_line(out.state.offset.y);
+    }
+
+    fn record_top_line(&mut self, offset_y: f32) {
+        self.top_line = (offset_y.max(0.0) / self.line_height.max(1.0)) as usize;
+    }
+
+    /// The 0-based buffer line at the top of the editor's viewport, as of
+    /// the last [`Self::ui`]/[`Self::ui_locked`] paint.
+    pub fn top_visible_line(&self) -> usize {
+        self.top_line
     }
 
     /// The command line, along the bottom, as vim puts it.
@@ -718,6 +762,7 @@ impl KvimEditorState {
         let font = FontId::monospace(CHAR_SIZE);
         let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
         let line_height = ui.ctx().fonts_mut(|f| f.row_height(&font)) * LINE_SPACING;
+        self.line_height = line_height;
 
         let line_count = self.editor.buffer().line_count().max(1);
         let width = ui.available_width().max(400.0);

@@ -42,8 +42,13 @@
 //! reproduce their independent references to the stated tolerances, so the
 //! cleanly-dimensioned physics core is verified as *implemented correctly*.
 //! (Validation of a full reactor source term against measured release data is a
-//! separate step and is **not** claimed here — it needs a public benchmark and
-//! the still-scaffolded accident/JSON driver, bead op-b4a.2.3.)
+//! separate step and is **not** claimed here — it needs a public benchmark ~~and
+//! the still-scaffolded accident/JSON driver, bead op-b4a.2.3~~. **CORRECTED
+//! 2026-09-28** — the accident/JSON driver is no longer scaffolded: it was
+//! ported on 2026-09-21 as `run_file::{RunFile, RunConfig}` and
+//! `accident::accident_release_curies`, and the end-to-end `accident_case`
+//! composition is verified against upstream `de374c8` in the third pass of
+//! `docs/triso-atops-code-to-code.md`.)
 //!
 //! ## Activity layer & nodal orchestration (op-b4a.2.2)
 //!

@@ -136,7 +136,7 @@ use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
 use crate::autocomplete::{library_candidates, LibraryCandidate};
 use crate::classify;
 use crate::digitiser::dataset::utc_now_iso8601;
-use crate::digitiser::raster::PlotRaster;
+use crate::digitiser::raster::{PlotRaster, Quarter};
 use crate::entity::Classification;
 use crate::graph::artifact_node;
 use crate::index::KnowledgeIndex;
@@ -194,6 +194,19 @@ enum AnnotationTool {
     /// Drag to select the real PDF text lines under the rectangle (op-z9u0)
     /// — a genuine text selection, not a region annotation.
     SelectText,
+}
+
+/// How much of the PDF text a `SelectText` drag picks up (#355).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SelectGranularity {
+    /// Whole lines whose box meets the drag (op-z9u0's original behaviour,
+    /// still the Reader view's).
+    #[default]
+    Line,
+    /// Only the characters inside the drag, with wide gaps turned into tabs
+    /// so a dragged table row pastes across grid cells
+    /// ([`select_chars_in_rect`]). The table digitiser view uses this.
+    Char,
 }
 
 /// A saved free-text annotation (the "Annotate" menu action) — a
@@ -988,6 +1001,20 @@ pub struct PdfReaderState {
     /// selected line's bbox, texture-pixel space) and the concatenated text
     /// of the lines it covers, one per line. `None` before any selection.
     text_selection: Option<(Pos2, Pos2, String)>,
+    /// Line or character selection; see [`SelectGranularity`].
+    select_granularity: SelectGranularity,
+    /// The whole PDF after one or more page turns that are showing but not
+    /// yet written to disk ([`Self::save_rotation`]). `None` when the file on
+    /// disk is what is shown.
+    unsaved_rotation: Option<Vec<u8>>,
+    /// The highlight rectangles of the selection in progress or last made,
+    /// texture-pixel space: one per selected line, or per run of text within
+    /// a row for a character selection. Drawn only while
+    /// [`Self::select_start`] or [`Self::text_selection`] is set.
+    selection_runs: Vec<(Pos2, Pos2)>,
+    /// Put every completed text selection on the clipboard at once, so the
+    /// table digitiser's loop is drag, then Ctrl+V in the grid (#355).
+    copy_on_select: bool,
     /// The `created_at` of the annotation the pointer is currently hovering
     /// on the canvas, if any (op-4x5s) — a poor-man's stable id
     /// [`Self::context_panel`] uses to highlight the matching markdown
@@ -1076,6 +1103,183 @@ fn select_text_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> St
         }
     }
     out
+}
+
+/// A gap between two characters on one row wider than this many ems (the
+/// larger of the two font sizes) is read as a **column break** and becomes a
+/// tab. A heuristic, not table-structure detection: word spaces in body text
+/// are about 0.25 em and table column gutters are usually several ems, so
+/// 1 em separates them for most typeset tables. Where it guesses wrong, the
+/// grid is where the fix is made (#355).
+const COLUMN_GAP_EM: f32 = 1.0;
+
+/// A gap wider than this many ems is a word space even when the PDF did not
+/// emit a space character for it (many producers position words instead).
+const WORD_GAP_EM: f32 = 0.25;
+
+/// The **characters** of `page` whose box centre lies inside `(min, max)`
+/// (texture-pixel space, `scale` = pixels per PDF point), as text for pasting
+/// into the table grid (#355).
+///
+/// Unlike [`select_text_in_rect`] this takes part of a line, so one cell of a
+/// table row can be selected on its own. Rows are rebuilt from the glyph
+/// baselines rather than from MuPDF's lines, because a table's cells are
+/// often separate stext lines, or separate blocks, that share a baseline.
+/// Within a row, characters are ordered by x; a gap wider than
+/// [`COLUMN_GAP_EM`] becomes `\t` and a narrower one (or a space character)
+/// becomes one space. Rows join with `\n`. Dragging across a whole table
+/// row therefore gives `a\tb\tc`, which [`crate::digitiser::table_grid`]
+/// pastes into three cells.
+fn select_chars_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> String {
+    let mut out = String::new();
+    for (i, row) in char_rows(page, scale, min, max).into_iter().enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        let mut prev: Option<(f32, f32)> = None; // (x1, size) of the last non-space glyph
+        let mut pending_space = false;
+        for g in row {
+            if g.c.is_whitespace() {
+                pending_space = prev.is_some();
+                continue;
+            }
+            if let Some((px1, psize)) = prev {
+                let em = psize.max(g.size);
+                let gap = g.x0 - px1;
+                if gap > COLUMN_GAP_EM * em {
+                    out.push('\t');
+                } else if pending_space || gap > WORD_GAP_EM * em {
+                    out.push(' ');
+                }
+            }
+            out.push(g.c);
+            prev = Some((g.x1, g.size));
+            pending_space = false;
+        }
+    }
+    out
+}
+
+/// One picked glyph, in PDF points.
+#[derive(Debug, Clone, Copy)]
+struct PickedGlyph {
+    x0: f32,
+    x1: f32,
+    y0: f32,
+    y1: f32,
+    baseline: f32,
+    size: f32,
+    c: char,
+}
+
+/// The glyphs whose box centre lies inside `(min, max)`, grouped into rows by
+/// baseline (top to bottom) and sorted left to right within each row. A
+/// baseline more than half an em below a row's first glyph starts a new row.
+/// Shared by [`select_chars_in_rect`] (the text) and
+/// [`char_selection_runs`] (the highlight), so what is highlighted is
+/// exactly what is copied.
+fn char_rows(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<Vec<PickedGlyph>> {
+    let mut picked: Vec<PickedGlyph> = Vec::new();
+    for block in &page.blocks {
+        let StextBlock::Text(tb) = block else {
+            continue;
+        };
+        for line in &tb.lines {
+            for ch in &line.chars {
+                let r = ch.quad.to_rect();
+                let (cx, cy) = (0.5 * (r.x0 + r.x1) * scale, 0.5 * (r.y0 + r.y1) * scale);
+                if cx >= min.x && cx <= max.x && cy >= min.y && cy <= max.y {
+                    picked.push(PickedGlyph {
+                        x0: r.x0,
+                        x1: r.x1,
+                        y0: r.y0,
+                        y1: r.y1,
+                        baseline: ch.origin.y,
+                        size: ch.size.max(1e-3),
+                        c: ch.c,
+                    });
+                }
+            }
+        }
+    }
+    picked.sort_by(|a, b| a.baseline.total_cmp(&b.baseline));
+    let mut rows: Vec<Vec<PickedGlyph>> = Vec::new();
+    for g in picked {
+        match rows.last_mut() {
+            Some(row) if (g.baseline - row[0].baseline).abs() <= 0.5 * row[0].size.max(g.size) => {
+                row.push(g)
+            }
+            _ => rows.push(vec![g]),
+        }
+    }
+    for row in &mut rows {
+        row.sort_by(|a, b| a.x0.total_cmp(&b.x0));
+    }
+    rows
+}
+
+/// The highlight for a character selection: one rectangle per run of text
+/// within a row, split wherever [`select_chars_in_rect`] would put a tab, so
+/// each table cell lights up as its own block (texture-pixel space).
+fn char_selection_runs(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<(Pos2, Pos2)> {
+    let mut runs = Vec::new();
+    for row in char_rows(page, scale, min, max) {
+        let mut run: Option<(f32, f32, f32, f32, f32)> = None; // x0, y0, x1, y1, size
+        for g in row.into_iter().filter(|g| !g.c.is_whitespace()) {
+            run = match run {
+                Some((x0, y0, x1, y1, size)) if g.x0 - x1 <= COLUMN_GAP_EM * size.max(g.size) => {
+                    Some((
+                        x0,
+                        y0.min(g.y0),
+                        g.x1.max(x1),
+                        y1.max(g.y1),
+                        size.max(g.size),
+                    ))
+                }
+                Some((x0, y0, x1, y1, _)) => {
+                    runs.push((
+                        Pos2::new(x0 * scale, y0 * scale),
+                        Pos2::new(x1 * scale, y1 * scale),
+                    ));
+                    Some((g.x0, g.y0, g.x1, g.y1, g.size))
+                }
+                None => Some((g.x0, g.y0, g.x1, g.y1, g.size)),
+            };
+        }
+        if let Some((x0, y0, x1, y1, _)) = run {
+            runs.push((
+                Pos2::new(x0 * scale, y0 * scale),
+                Pos2::new(x1 * scale, y1 * scale),
+            ));
+        }
+    }
+    runs
+}
+
+/// The highlight for a line selection: each selected line's box, the same
+/// lines [`select_text_in_rect`] copies (texture-pixel space).
+fn line_selection_runs(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<(Pos2, Pos2)> {
+    let mut runs = Vec::new();
+    for block in &page.blocks {
+        let StextBlock::Text(tb) = block else {
+            continue;
+        };
+        for line in &tb.lines {
+            let b = line.bbox;
+            let (lx0, ly0, lx1, ly1) = (b.x0 * scale, b.y0 * scale, b.x1 * scale, b.y1 * scale);
+            if lx0 <= max.x && lx1 >= min.x && ly0 <= max.y && ly1 >= min.y {
+                runs.push((Pos2::new(lx0, ly0), Pos2::new(lx1, ly1)));
+            }
+        }
+    }
+    runs
+}
+
+/// The theme's text-selection colour, translucent so the glyphs underneath
+/// stay readable.
+fn selection_highlight(ctx: &egui::Context) -> Color32 {
+    let c = ctx.global_style().visuals.selection.bg_fill;
+    Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 90)
 }
 
 /// Every `(start_char, end_char)` half-open char range in `chars` that
@@ -1212,6 +1416,95 @@ impl PdfReaderState {
         }
     }
 
+    /// Switch to the table digitiser's way of reading (#355): the text tool,
+    /// character-level selection, and copy-on-select, so dragging over a
+    /// table cell or row puts exactly that text on the clipboard.
+    pub fn enter_table_mode(&mut self) {
+        self.tool = AnnotationTool::SelectText;
+        self.select_granularity = SelectGranularity::Char;
+        self.copy_on_select = true;
+    }
+
+    /// Back to the Reader view's line selection with no automatic copy. The
+    /// tool itself is left as it is.
+    pub fn leave_table_mode(&mut self) {
+        self.select_granularity = SelectGranularity::Line;
+        self.copy_on_select = false;
+    }
+
+    /// Turn the page being read by `quarter_turns` x 90 degrees (positive =
+    /// clockwise), for a table or figure printed on its side. For a PDF this
+    /// sets the page's `/Rotate` ([`crate::page_rotation`]), so the text
+    /// layer turns with the picture and selection still works; the result is
+    /// shown at once and written to disk only by [`Self::save_rotation`].
+    /// A plain image is turned in memory only.
+    ///
+    /// Boxes already saved on that page were drawn in the old orientation
+    /// and will not line up until the page is turned back.
+    fn rotate_active_page(&mut self, quarter_turns: i32) {
+        let page = self.active_page();
+        match &mut self.source {
+            ReaderSource::None => return,
+            ReaderSource::Image(raster) => {
+                let turn = if quarter_turns >= 0 {
+                    Quarter::Clockwise
+                } else {
+                    Quarter::CounterClockwise
+                };
+                *raster = raster.rotated(turn);
+                self.message =
+                    "image turned (images are turned for viewing only, not saved)".into();
+            }
+            ReaderSource::Pdf(reader) => {
+                let bytes =
+                    match crate::page_rotation::rotate_page(reader.document(), page, quarter_turns)
+                    {
+                        Ok(b) => b,
+                        Err(e) => {
+                            self.message = format!("could not turn page {}: {e}", page + 1);
+                            return;
+                        }
+                    };
+                if let Err(e) = reader.load_bytes(bytes.clone()) {
+                    self.message = format!("could not show the turned page {}: {e}", page + 1);
+                    return;
+                }
+                self.unsaved_rotation = Some(bytes);
+                self.message =
+                    format!("page {} turned \u{2014} Save rotation to keep it", page + 1);
+            }
+        }
+        // Every cached raster, text layer, search hit and selection is in the
+        // old orientation.
+        self.pages.clear();
+        self.stext_cache = None;
+        self.search.computed_for.clear();
+        self.text_selection = None;
+        self.select_start = None;
+    }
+
+    /// Write the turned PDF over the file it came from. The turn is an
+    /// incremental update, so the original bytes are kept as a prefix of the
+    /// new file.
+    fn save_rotation(&mut self) {
+        let Some(bytes) = self.unsaved_rotation.take() else {
+            return;
+        };
+        let path = std::path::Path::new(&self.path);
+        match std::fs::write(path, &bytes) {
+            Ok(()) => {
+                // Our own write must not look like an outside change and
+                // trigger a reload.
+                self.hot_reload.mark_current(path);
+                self.message = format!("saved the page rotation into {}", self.path);
+            }
+            Err(e) => {
+                self.message = format!("could not save {}: {e}", self.path);
+                self.unsaved_rotation = Some(bytes);
+            }
+        }
+    }
+
     /// Open `path` as the working document — a PDF or a raster image
     /// (op-wojr), dispatched by [`looks_like_pdf`] — replacing whatever was
     /// previously open.
@@ -1250,6 +1543,7 @@ impl PdfReaderState {
         self.panel_hover_id = None;
         self.editing_block_id = None;
         self.context_page_synced = None;
+        self.unsaved_rotation = None;
     }
 
     fn open_pdf(&mut self, path: &str) {
@@ -2669,6 +2963,29 @@ impl PdfReaderState {
             if is_pdf {
                 ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
             }
+            ui.separator();
+            if ui
+                .button("\u{27F2} 90\u{B0}")
+                .on_hover_text("turn this page 90\u{B0} anticlockwise")
+                .clicked()
+            {
+                self.rotate_active_page(-1);
+            }
+            if ui
+                .button("\u{27F3} 90\u{B0}")
+                .on_hover_text("turn this page 90\u{B0} clockwise (for a table printed sideways)")
+                .clicked()
+            {
+                self.rotate_active_page(1);
+            }
+            if self.unsaved_rotation.is_some()
+                && ui
+                    .button("\u{1F4BE} Save rotation")
+                    .on_hover_text("write the turned page(s) into the PDF on disk")
+                    .clicked()
+            {
+                self.save_rotation();
+            }
             // "Clear page annotations" was removed on 2026-09-22 (maintainer:
             // "i want the user to right click annotations selectively to
             // delete"). It wiped every annotation on the page in one click,
@@ -3131,12 +3448,32 @@ impl PdfReaderState {
                         Pos2::new(start.x.min(current.x), start.y.min(current.y)),
                         Pos2::new(start.x.max(current.x), start.y.max(current.y)),
                     );
+                    // Live highlight of exactly the text the drag will
+                    // copy, over a faint outline of the drag itself.
+                    let scale = RENDER_DPI / 72.0;
+                    let granularity = self.select_granularity;
+                    self.selection_runs = self
+                        .stext_for_page(page)
+                        .map(|stext| match granularity {
+                            SelectGranularity::Line => line_selection_runs(stext, scale, min, max),
+                            SelectGranularity::Char => char_selection_runs(stext, scale, min, max),
+                        })
+                        .unwrap_or_default();
+                    let outline = painter.ctx().global_style().visuals.selection.stroke.color;
                     painter.rect_stroke(
                         Rect::from_min_max(to_screen(min), to_screen(max)),
-                        0.0,
-                        Stroke::new(2.0_f32, Color32::from_rgb(120, 230, 120)),
+                        2.0,
+                        Stroke::new(1.0_f32, outline.gamma_multiply(0.6)),
                         egui::StrokeKind::Middle,
                     );
+                    let fill = selection_highlight(painter.ctx());
+                    for (a, b) in &self.selection_runs {
+                        painter.rect_filled(
+                            Rect::from_min_max(to_screen(*a), to_screen(*b)).expand(1.5),
+                            2.0,
+                            fill,
+                        );
+                    }
                     if response.drag_stopped() {
                         // op-z9u0: RENDER_DPI/72.0 converts a stext line's
                         // device-space (PDF points) bbox into this panel's
@@ -3144,10 +3481,25 @@ impl PdfReaderState {
                         // `rasterize_page` itself applies for the DPI it
                         // was given.
                         let scale = RENDER_DPI / 72.0;
+                        let granularity = self.select_granularity;
                         self.text_selection = self
                             .stext_for_page(page)
-                            .map(|stext| select_text_in_rect(stext, scale, min, max))
+                            .map(|stext| match granularity {
+                                SelectGranularity::Line => {
+                                    select_text_in_rect(stext, scale, min, max)
+                                }
+                                SelectGranularity::Char => {
+                                    select_chars_in_rect(stext, scale, min, max)
+                                }
+                            })
                             .map(|text| (min, max, text));
+                        if self.copy_on_select {
+                            if let Some((_, _, text)) = &self.text_selection {
+                                if !text.is_empty() {
+                                    response.ctx.copy_text(text.clone());
+                                }
+                            }
+                        }
                         self.select_start = None;
                     }
                 }
@@ -3345,11 +3697,23 @@ impl PdfReaderState {
                 );
             }
             if let Some((min, max, _)) = &self.text_selection {
-                painter.rect_filled(
-                    Rect::from_min_max(to_screen(*min), to_screen(*max)),
-                    0.0,
-                    Color32::from_rgba_unmultiplied(120, 230, 120, 50),
-                );
+                if self.select_start.is_none() {
+                    let fill = selection_highlight(painter.ctx());
+                    if self.selection_runs.is_empty() {
+                        painter.rect_filled(
+                            Rect::from_min_max(to_screen(*min), to_screen(*max)),
+                            2.0,
+                            fill,
+                        );
+                    }
+                    for (a, b) in &self.selection_runs {
+                        painter.rect_filled(
+                            Rect::from_min_max(to_screen(*a), to_screen(*b)).expand(1.5),
+                            2.0,
+                            fill,
+                        );
+                    }
+                }
             }
         });
 
@@ -4128,6 +4492,149 @@ mod tests {
             bbox,
             chars: text.chars().map(stub_char).collect(),
         }
+    }
+
+    /// A glyph occupying `[x0, x1]` horizontally on the baseline `y`, 10 pt
+    /// tall, for the character-selection tests.
+    fn placed_char(c: char, x0: f32, x1: f32, y: f32) -> StextChar {
+        StextChar {
+            origin: Point::new(x0, y),
+            quad: Quad {
+                ul: Point::new(x0, y - 8.0),
+                ur: Point::new(x1, y - 8.0),
+                ll: Point::new(x0, y + 2.0),
+                lr: Point::new(x1, y + 2.0),
+            },
+            ..stub_char(c)
+        }
+    }
+
+    /// A line of 5-pt-wide glyphs starting at `x`, one per character, on
+    /// baseline `y` (spaces included as glyphs).
+    fn placed_line(text: &str, x: f32, y: f32) -> StextLine {
+        let chars: Vec<StextChar> = text
+            .chars()
+            .enumerate()
+            .map(|(i, c)| placed_char(c, x + 5.0 * i as f32, x + 5.0 * (i + 1) as f32, y))
+            .collect();
+        StextLine {
+            chars,
+            ..stub_line(
+                "",
+                PdfRect::new(x, y - 8.0, x + 5.0 * text.len() as f32, y + 2.0),
+            )
+        }
+    }
+
+    #[test]
+    fn select_chars_takes_part_of_a_line() {
+        let page = stub_page(vec![placed_line("Kr-85 1.2e-4", 0.0, 100.0)]);
+        // Only "1.2e-4": glyphs 6..12 span x = 30..60.
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(29.0, 90.0), Pos2::new(61.0, 105.0));
+        assert_eq!(text, "1.2e-4");
+    }
+
+    #[test]
+    fn select_chars_turns_a_column_gutter_into_a_tab_and_keeps_word_spaces() {
+        // Three cells on one baseline, as separate stext lines (the usual
+        // shape of a typeset table row), 30 pt apart.
+        let page = stub_page(vec![
+            placed_line("I-131", 0.0, 100.0),
+            placed_line("8.02 d", 55.0, 100.0),
+            placed_line("0.61", 115.0, 100.0),
+        ]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 90.0), Pos2::new(200.0, 105.0));
+        assert_eq!(text, "I-131\t8.02 d\t0.61");
+    }
+
+    #[test]
+    fn select_chars_rebuilds_rows_from_baselines_in_top_to_bottom_order() {
+        let page = stub_page(vec![
+            placed_line("b", 0.0, 120.0),
+            placed_line("a", 0.0, 100.0),
+            placed_line("c", 40.0, 100.5),
+        ]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 0.0), Pos2::new(200.0, 200.0));
+        assert_eq!(text, "a\tc\nb");
+    }
+
+    #[test]
+    fn select_chars_applies_the_dpi_scale() {
+        let page = stub_page(vec![placed_line("ab", 0.0, 100.0)]);
+        // At 2 px/pt the glyph centres sit at x = 5 and 15, y = 194.
+        let only_a =
+            select_chars_in_rect(&page, 2.0, Pos2::new(0.0, 180.0), Pos2::new(10.0, 200.0));
+        assert_eq!(only_a, "a");
+        let none = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 180.0), Pos2::new(10.0, 200.0));
+        assert_eq!(none, "");
+    }
+
+    #[test]
+    fn char_highlight_is_one_block_per_cell_matching_the_copied_text() {
+        let page = stub_page(vec![
+            placed_line("I-131", 0.0, 100.0),
+            placed_line("8.02 d", 55.0, 100.0),
+        ]);
+        let (min, max) = (Pos2::new(0.0, 90.0), Pos2::new(200.0, 105.0));
+        let runs = char_selection_runs(&page, 1.0, min, max);
+        assert_eq!(runs.len(), 2, "{runs:?}");
+        assert_eq!((runs[0].0.x, runs[0].1.x), (0.0, 25.0));
+        assert_eq!((runs[1].0.x, runs[1].1.x), (55.0, 85.0));
+        assert_eq!(select_chars_in_rect(&page, 1.0, min, max), "I-131\t8.02 d");
+    }
+
+    /// Turning a page shows at once, is held unsaved, and Save writes a PDF
+    /// whose page carries the new `/Rotate` while the other page does not.
+    #[test]
+    fn a_turned_page_is_shown_then_saved_into_the_pdf() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sideways.pdf");
+        std::fs::write(&path, crate::page_rotation::tests::two_page_pdf(None)).unwrap();
+        let mut r = PdfReaderState::new();
+        r.open(path.to_str().unwrap());
+        assert!(matches!(r.source, ReaderSource::Pdf(_)), "{}", r.message);
+
+        r.rotate_active_page(1);
+        assert!(r.unsaved_rotation.is_some(), "{}", r.message);
+        let ReaderSource::Pdf(reader) = &r.source else {
+            unreachable!()
+        };
+        assert_eq!(
+            crate::page_rotation::effective_rotation(reader.document(), 0).unwrap(),
+            90
+        );
+        // Nothing on disk yet.
+        let on_disk = PdfDocument::open(std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            crate::page_rotation::effective_rotation(&on_disk, 0).unwrap(),
+            0
+        );
+
+        r.save_rotation();
+        assert!(r.unsaved_rotation.is_none(), "{}", r.message);
+        let on_disk = PdfDocument::open(std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            crate::page_rotation::effective_rotation(&on_disk, 0).unwrap(),
+            90
+        );
+        assert_eq!(
+            crate::page_rotation::effective_rotation(&on_disk, 1).unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn table_mode_switches_to_char_selection_with_copy_and_back() {
+        let mut r = PdfReaderState::new();
+        assert_eq!(r.select_granularity, SelectGranularity::Line);
+        assert!(!r.copy_on_select);
+        r.enter_table_mode();
+        assert_eq!(r.tool, AnnotationTool::SelectText);
+        assert_eq!(r.select_granularity, SelectGranularity::Char);
+        assert!(r.copy_on_select);
+        r.leave_table_mode();
+        assert_eq!(r.select_granularity, SelectGranularity::Line);
+        assert!(!r.copy_on_select);
     }
 
     fn stub_page(lines: Vec<StextLine>) -> StextPage {

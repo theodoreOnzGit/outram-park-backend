@@ -287,7 +287,13 @@ impl ReactorModel {
     /// resolves the inside of a pebble, so neither has a kernel temperature to
     /// report and neither may invent one. Consumers
     /// ([`crate::physics::kinetics::KernelDopplerChannel`], the core map, the
-    /// TRISO-ATOPS release channel) fall back to bed-node behaviour on `None`.
+    /// ~~TRISO-ATOPS release channel) fall back to bed-node behaviour on `None`.~~
+    /// **CORRECTED 2026-09-28** — the TRISO-ATOPS release channel does *not*
+    /// fall back: `TrisoAtopsReleaseChannel::update`
+    /// (`fission_product_release.rs:477`, `let Some(kernel) = kernel_temperature
+    /// else { return false; };`) refuses to evaluate on `None` and keeps its
+    /// previous result, never substituting the bed temperature. Not re-checked
+    /// here for the other two consumers.
     pub fn peak_kernel_temperature(&self) -> Option<ThermodynamicTemperature> {
         match self {
             Self::OneNodePorousMedia(core) => core.peak_kernel_temperature(),

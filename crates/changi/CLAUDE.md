@@ -12,7 +12,9 @@ now exist as crates; ~~both placeholders, no implementation~~ **CORRECTED
 `changi::activity`; `redhill` is still a placeholder).
 
 It hosts **two independent ports**, each with its own upstream, licence,
-provenance files and verification harness:
+provenance files and verification harness (**CORRECTED 2026-09-28** — plus a
+third, non-ported module, `activity` (`src/activity/`), which consumes both ports
+and has no upstream and no code-to-code harness; see its module doc):
 
 | Module | Upstream | Licence | Harness |
 |---|---|---|---|
@@ -75,7 +77,15 @@ porting any further FLEXPART numerical utility, check `petir` first, then
 `outram-foam-basic-lib`.
 
 **Half-lives come from `boon-lay`.** The decay module holds no nuclide data of
-its own, deliberately, so the two cannot drift. Do not add a nuclide table here.
+its own, deliberately, so the two cannot drift. ~~Do not add a nuclide table here.~~
+**CORRECTED 2026-09-28** — a nuclide table *has* been added: the 22-entry HTR-10
+equilibrium-core inventory (Liu and Cao 2002, Table 1),
+`reference/htr10_equilibrium_core_inventory.csv`, compiled in by
+`src/activity/inventory.rs:50`, provenance in `docs/References.md` (added
+2026-09-24). It holds activities, not half-lives; no half-life or decay-constant
+table exists in this crate (checked: `grep` of `src/` finds none). Whether the
+"no nuclide table" rule should now be reworded to allow published inventories is
+**open for the maintainer**.
 
 **`puff`'s unit conversion is methane-specific and must not be generalised by
 assumption.** Upstream is an oil-and-gas leak-detection package; its

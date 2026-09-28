@@ -181,7 +181,10 @@ impl Default for PlotSetup {
         Self {
             stage: Stage::default(),
             turn: Quarter::default(),
-            show_grid: false,
+            // On by default (maintainer direction, 2026-09-28): the grid is
+            // how a skew gets spotted at all, and a reader who has not
+            // switched it on never sees the tilt it would have shown.
+            show_grid: true,
             grid_spacing: 40.0,
             skew_degrees: 0.0,
             figure: String::new(),
@@ -851,13 +854,16 @@ mod tests {
         assert_eq!(s.stage, Stage::Figure);
     }
 
-    /// The grid must start at a usable spacing. A derived `Default` would
-    /// leave it at 0.0, which the painter clamps to a 4 px mesh -- dense
-    /// enough to obscure the figure it exists to help judge.
+    /// The grid must start ON and at a usable spacing. A derived `Default`
+    /// would leave it at 0.0, which the painter clamps to a 4 px mesh --
+    /// dense enough to obscure the figure it exists to help judge.
+    ///
+    /// **CHANGED 2026-09-28** from off-until-asked-for: the maintainer wants
+    /// the grid shown by default.
     #[test]
-    fn the_grid_defaults_to_a_usable_spacing() {
+    fn the_grid_defaults_to_on_at_a_usable_spacing() {
         let s = PlotSetup::default();
-        assert!(!s.show_grid, "off until asked for");
+        assert!(s.show_grid, "the grid is on by default");
         assert!(
             (20.0..=80.0).contains(&s.grid_spacing),
             "grid spacing {} is not a usable default",

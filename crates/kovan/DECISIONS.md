@@ -1456,3 +1456,130 @@ dropped samples, deduplication, the gridline behaviour and the thickness cap.
 rendering has been seen — no display here. The gesture handling
 (`dragged`/`drag_stopped` into `snap_drawn_stroke`) is covered only by the
 library function underneath it.
+
+## Tables are digitised by hand in a Calc-style grid; OCR removed (2026-09-28, GH #353–#357)
+
+**Maintainer, 2026-09-28:** "i want to do table digitisation without OCR...
+the tesseract thing can be quite annoying"; "i want libreoffice like
+interface... libreoffice calc cells on the left panel, pdf viewer of table on
+right hand side, and i slowly use the select text to copy/paste into the
+libreoffice calc cells... then once done, i want to save the cells to csv".
+
+**Why OCR went.** `kopitiam-ocr` 0.1.0 rejected every installed tesseract
+model (#288), so the entry above ("reads on arrival, and finds its own model")
+never produced a single cell. Born-digital PDFs already carry exact text, so
+recognition was the wrong tool for them in the first place.
+
+**What replaced it.**
+
+- `digitiser::table_grid` — the grid model, no `egui`: cursor and Shift
+  selection, LibreOffice Calc's tab-separated paste and copy, grow-on-edge,
+  insert/delete row and column, bounded undo, CSV through the `csv` crate
+  (RFC 4180 quoting, no `#` lines — provenance lives in `[extraction]`).
+- The reader's `SelectGranularity::Char` (`select_chars_in_rect`): in the
+  table view a drag selects characters, rebuilds rows from glyph baselines,
+  turns gaps wider than 1 em into tabs, and copies at once. So dragging across
+  a table row and pressing Ctrl+V fills a row of cells.
+- The table view is the grid on the left and the same reader on the right.
+  Saving writes a `digitised_table` artifact with
+  `[extraction] method = "pdf_native"`, `digitised_by` and `digitised_at`,
+  with the body in the digitised graph's series schema
+  (`### start of data series` / `### Series: <table name>` / fenced CSV /
+  `### end of series`). ~~Export writes a plain `.csv`.~~ **CHANGED same
+  day**: there is no CSV export ("i don't want to export to csv, i want to
+  save artifact"); **Save artifact** sits at the top of the grid panel, and
+  Ctrl+S does the same.
+- Selections are highlighted as the theme's text-selection colour over
+  exactly the text that is copied: one block per selected line, or per cell
+  (run of text between column gaps) for a character selection, updated live
+  while dragging.
+- **No "mark reviewed" step** (maintainer: "the workflow is fully human").
+  Every value is typed or pasted by a person from the PDF, so there is no
+  machine output to gate; `digitised_by` records "every value entered by
+  hand" instead. Re-opening a saved table loads
+  its CSV back into the grid instead of re-cropping.
+
+**LibreOffice is not vendored** — it is C++ and would break the pure-Rust and
+Android build. Only its conventions are copied (keys, paste, CSV quoting).
+
+**Removed:** `digitiser/table_ocr.rs`, `DigitiserError::Ocr`, the
+`kopitiam-ocr` dependency, the JSON table export. Scanned pages, which have no
+text layer, are typed into the grid while reading the page.
+
+## The kvim tab is source + live GFM preview, read-only until Edit is confirmed (2026-09-28)
+
+**Ask (maintainer, 2026-09-28).** "make kvim editor tab a kvim editor +
+markdown renderer. kvim editor is read-only by default. User has to click
+edit, where a popup box warns you could break the schema ... markdown is gh
+flavoured", layout "similar to vscode", and "you can vendor and translate
+this code: https://github.com/jbt/markdown-editor.git".
+
+**What was built.**
+
+- `app::kvim_tab` — the tab: kvim source on the left, preview on the right in
+  a resizable split, with `Source | Preview`, `Source` and `Preview` layouts.
+  `EditLock` (`Locked -> ConfirmPending -> Unlocked`, `lock()` from anywhere)
+  gates the editor; while locked the buffer is drawn by
+  `KvimEditorState::ui_locked`, the read-only path that forwards no key,
+  clipboard or mouse edit. **Edit** opens an `egui::Modal` that lists, from
+  `artifact.rs`'s schema, what a hand edit can break (the `[kovan]` TOML
+  fence under a `#` heading, unique ids, `connections`/`[[relation]]`
+  two-way references, `csv` payload fences, the paper header); only
+  "I understand the risks — edit" unlocks. **Done editing** re-locks.
+- **The confirmation is per document open**: activating a paper or opening
+  an external file calls `KvimTab::document_opened`, which re-locks. Saving,
+  and the background resync from other flows, do not.
+- `app::gfm_preview` — `pulldown-cmark` 0.12 (already a dependency) with
+  tables, strikethrough, task lists, footnotes and GitHub alerts, into a block
+  model that keeps each block's source lines; GFM bare-URL autolinks are added
+  on plain text because `pulldown-cmark` does not do them. The source lines
+  drive the VS Code-style scroll sync: the editor's top visible line picks the
+  preview offset.
+- Save is untouched: the same Save button, locked or not.
+
+**Why not `egui_commonmark`.** Checked first: 0.25.0 targets egui 0.36 and is
+MIT OR Apache-2.0, with the GFM extensions. But it cannot report where each
+source line was painted, so scroll sync could only be proportional, and it
+brings `pulldown-cmark` 0.13 beside the workspace's 0.12. The maintainer then
+directed a translation of jbt/markdown-editor.
+
+**What was translated from jbt/markdown-editor** (ISC, commit `58aa8bf`,
+full record in `NOTICE`): `setOutput`'s scroll-to-first-changed-element (kept,
+but only when that block is off screen), `update`'s title-from-first-h1,
+`render_tasklist`'s disabled checkboxes, and the `#in`/`#out` split plus
+`toggleReadMode`. Its parser (`markdown-it`, MIT) was **not** ported —
+`pulldown-cmark` replaces it.
+
+**Not done.** Preview-to-editor scroll sync (only editor -> preview), table
+column alignment, images (shown as links — no image loaders are installed).
+
+### Same day, after the maintainer tried it
+
+- **Save artifact closes the table view** and returns to the PDF reader
+  ("save artifact for table should close the table digitiser and return to
+  pdf viewer"). A failed save stays put, with the error shown.
+- **Selected cells contrast with their neighbours**: the theme's selection
+  colour at high opacity, the block outlined as one shape, the active cell
+  in a heavy border of the strongest text colour, and the selected columns'
+  letters and rows' numbers lit up, as in Calc. Dragging across cells selects
+  a block.
+- **Pages can be turned 90° and saved** ("there should be a way to rotate and
+  save individual pages of pdf in case they are in the 90 degree
+  orientation"). `crate::page_rotation` sets the page's `/Rotate` (honouring
+  an inherited value) through `kopitiam_pdf`'s incremental update, so the
+  original bytes survive as a prefix of the saved file. The reader toolbar
+  has ⟲/⟳ 90° and, once turned, **Save rotation**; the turn shows at once and
+  is written only on Save. Because `/Rotate` is applied in the page
+  transform for both rendering and structured text, selection still finds
+  the right glyphs on a turned page. That was tested rather than assumed
+  (`the_renderer_and_the_text_layer_both_follow_the_turn`). The table view
+  gets this for free, since its right half is the same reader. Plain images
+  turn for viewing only. Boxes already saved on a turned page were drawn in
+  the old orientation and will not line up until it is turned back.
+- **A setup box first, like the graph wizard** ("the first popup box asks you
+  what table is this. Then it brings you straight to the digitiser"). A new
+  "Read table" region opens a modal, "Which table is this?", showing the page
+  and paper, with a required "Table, as printed" field. Enter or Start goes
+  to the grid; Cancel, Esc or clicking outside returns to the PDF. The graph
+  wizard's axis-range and label stages have no table counterpart, so it is
+  one question. A re-opened saved table skips it: it already has a name.

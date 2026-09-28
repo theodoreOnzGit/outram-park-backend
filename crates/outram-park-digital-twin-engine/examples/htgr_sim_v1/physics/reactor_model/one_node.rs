@@ -1495,14 +1495,28 @@ mod tests {
     /// 1. `resolved_pebble_profile` calls `steady_state_temperatures` and discards
     ///    its error with `.ok()?`;
     /// 2. so `peak_kernel_temperature` is `None`;
-    /// 3. so the TRISO-ATOPS release channel is handed nothing and produces no
-    ///    source term;
-    /// 4. so `AtmosphericDispersionChannel::update` returns early and the
-    ///    dispersion model **does not run at all**.
+    /// 3. so the TRISO-ATOPS release channel is handed nothing and ~~produces no
+    ///    source term;~~ **CORRECTED 2026-09-28** — does not re-evaluate:
+    ///    `TrisoAtopsReleaseChannel::update` (`fission_product_release.rs:477`)
+    ///    returns early *without clearing* `latest`, so the channel keeps the
+    ///    last release it computed at a resolved (cooler) kernel;
+    /// 4. ~~so `AtmosphericDispersionChannel::update` returns early and the
+    ///    dispersion model **does not run at all**.~~ **CORRECTED 2026-09-28** —
+    ///    `AtmosphericDispersionChannel::update` returns early only when
+    ///    `release.latest().is_empty()` (`atmospheric_dispersion.rs:1094`). That
+    ///    is true only if the release channel has *never* evaluated. Once it has
+    ///    evaluated at least once, the dispersion model **keeps running on that
+    ///    stale, cooler release** while the core is too hot to resolve a kernel.
     ///
-    /// The dispersion output therefore goes **silent exactly when the core is
+    /// ~~The dispersion output therefore goes **silent exactly when the core is
     /// hottest** — it does not report a large release, it reports nothing, and
-    /// nothing on screen says why. That is the worst available failure direction
+    /// nothing on screen says why.~~ **CORRECTED 2026-09-28** — the dispersion
+    /// output goes **stale exactly when the core is hottest**: it keeps showing a
+    /// map drawn from the last release computed at a cooler kernel. It does not
+    /// report the larger release a hotter core would give, and nothing on screen
+    /// says the source term is out of date. It goes silent only if the kernel was
+    /// never resolved (a freshly constructed release channel). Tracked as gh:#350;
+    /// behaviour unchanged by this doc correction. That is the worst available failure direction
     /// for a safety-relevant readout, and it is why this test exists: to name the
     /// mechanism at the place it originates rather than leaving the next person to
     /// re-derive it from a `None`.

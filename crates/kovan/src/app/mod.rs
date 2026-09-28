@@ -12,8 +12,10 @@
 mod advanced_git_view;
 mod bibliography;
 mod csv_preview;
+mod gfm_preview;
 mod home;
 mod kvim_editor;
+mod kvim_tab;
 mod literature_list;
 mod nav;
 mod page_canvas;
@@ -49,7 +51,7 @@ use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
 use kvim_editor::KvimEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
-use table_digitiser::{PickerRequest as TablePickerRequest, TableDigitiserState};
+use table_digitiser::{TableDigitiserState, TableOutcome};
 use theme::GuiTheme;
 use wiki::{WikiAction, WikiState};
 
@@ -117,11 +119,6 @@ enum FileDialogTarget {
     JsonExport,
     /// Picked path becomes the dataset CSV export path (op-jtna).
     CsvExport,
-    /// Picked path becomes the table digitiser's JSON export path (op-jfc3
-    /// — the table digitiser had no file picker for this at all before).
-    TableJsonExport,
-    /// Picked path becomes the table digitiser's CSV export path (op-jfc3).
-    TableCsvExport,
     /// Picked directory is opened (or discovered from) as a Kovan root
     /// (op-9vo6.3, §2's "Open Kovan Folder…").
     KovanRootOpen,
@@ -155,7 +152,7 @@ impl FileDialogTarget {
     fn is_save(self) -> bool {
         matches!(
             self,
-            Self::JsonExport | Self::CsvExport | Self::TableJsonExport | Self::TableCsvExport
+            Self::JsonExport | Self::CsvExport
         )
     }
 
@@ -168,8 +165,8 @@ impl FileDialogTarget {
         match self {
             Self::Image => Some("Images"),
             Self::Pdf | Self::PdfIngest => Some("PDF"),
-            Self::JsonExport | Self::TableJsonExport => Some("JSON"),
-            Self::CsvExport | Self::TableCsvExport => Some("CSV"),
+            Self::JsonExport => Some("JSON"),
+            Self::CsvExport => Some("CSV"),
             Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder | Self::KvimFile => {
                 None
             }
@@ -349,6 +346,9 @@ pub struct DigitiseApp {
     home: HomeState,
     wiki: Option<WikiState>,
     kvim_editor: KvimEditorState,
+    /// The Kvim Editor tab's edit lock, pane layout and GFM preview
+    /// (2026-09-28). The buffer itself stays the shared `kvim_editor`.
+    kvim_tab: kvim_tab::KvimTab,
     mindmap: MindmapState,
     advanced_git: AdvancedGitState,
     /// The paper currently in focus, if any — GitHub issue #35's
@@ -377,6 +377,10 @@ pub struct DigitiseApp {
     bibliography: BibliographyState,
     // table digitiser (op-hnhp)
     table_digitiser: TableDigitiserState,
+    /// Whether the PDF reader is currently in the table digitiser's
+    /// character-selection mode, so the switch happens once on entering or
+    /// leaving that view and the user can still change tools inside it.
+    reader_in_table_mode: bool,
     /// Modification fingerprint of the repo files a save writes (the active
     /// paper's Markdown + the `.bib`), watched once per frame so the Save
     /// Repository tab's git status auto-refreshes after any Save Document /
@@ -508,6 +512,34 @@ pub struct DigitiseApp {
 /// tooltip alone wasn't enough for it to read as self-explanatory; renaming
 /// it to plain English and reducing the friction of typing it every session
 /// are the actual fix, not a better tooltip on the same unclear label.
+impl DigitiseApp {
+    /// Send a crop from the reader's box menu to the digitiser it asked for
+    /// and switch to that view (op-p17q/op-hnhp). Shared by the Reader view
+    /// and the table digitiser's split view, whose right half is the same
+    /// reader.
+    fn route_crop(&mut self, crop: pdf_reader::CropResult) {
+        match crop {
+            pdf_reader::CropResult::Plot(raster, provenance) => {
+                // Load the raster first: `load_image_from_raster` seeds
+                // figure/page/document identity from the crop and the active
+                // paper, and the form starts from whatever it managed to work
+                // out rather than asking again for what is already known.
+                self.load_image_from_raster(raster, Some(provenance));
+                let page = self.page.trim().parse::<u32>().ok();
+                let figure = (!self.figure.trim().is_empty()).then(|| self.figure.clone());
+                let title =
+                    (!self.document_title.trim().is_empty()).then(|| self.document_title.clone());
+                self.plot_setup = plot_setup::PlotSetup::begin(figure, page, title);
+                self.view = View::PlotSetup;
+            }
+            pdf_reader::CropResult::Table(raster, provenance) => {
+                self.table_digitiser.load_crop(raster, Some(provenance));
+                self.view = View::TableDigitiser;
+            }
+        }
+    }
+}
+
 pub(crate) fn default_operator_name() -> String {
     std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
@@ -535,6 +567,7 @@ impl Default for DigitiseApp {
             home: HomeState::default(),
             wiki: None,
             kvim_editor: KvimEditorState::default(),
+            kvim_tab: kvim_tab::KvimTab::default(),
             mindmap: MindmapState::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
@@ -544,6 +577,7 @@ impl Default for DigitiseApp {
             pdf_reader: PdfReaderState::new(),
             bibliography: BibliographyState::default(),
             table_digitiser: TableDigitiserState::default(),
+            reader_in_table_mode: false,
             repo_save_fingerprint: None,
             image_path: String::new(),
             raster: None,
@@ -656,6 +690,7 @@ impl DigitiseApp {
             self.reader_path = Some(pdf.clone());
         }
         self.kvim_editor.load_text(session.markdown());
+        self.kvim_tab.document_opened();
 
         self.active_paper = Some(ActivePaper {
             session,
@@ -2474,8 +2509,6 @@ impl DigitiseApp {
                 }
             }
             FileDialogTarget::CsvExport => self.csv_out = path,
-            FileDialogTarget::TableJsonExport => self.table_digitiser.set_json_out(path),
-            FileDialogTarget::TableCsvExport => self.table_digitiser.set_csv_out(path),
             FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
             FileDialogTarget::KovanRootCreate => {
                 self.home.begin_create(std::path::Path::new(&path))
@@ -2489,7 +2522,10 @@ impl DigitiseApp {
                 }
             }
             FileDialogTarget::KvimFile => match std::fs::read_to_string(&path) {
-                Ok(text) => self.kvim_editor.load_text(&text),
+                Ok(text) => {
+                    self.kvim_editor.load_text(&text);
+                    self.kvim_tab.document_opened();
+                }
                 Err(e) => self.set_error(format!("{path}: {e}")),
             },
         }
@@ -2757,6 +2793,18 @@ impl eframe::App for DigitiseApp {
             }
         }
 
+        // #355: the reader selects characters and copies on select only
+        // while it sits beside the table grid.
+        let want_table_mode = self.view == View::TableDigitiser;
+        if want_table_mode != self.reader_in_table_mode {
+            if want_table_mode {
+                self.pdf_reader.enter_table_mode();
+            } else {
+                self.pdf_reader.leave_table_mode();
+            }
+            self.reader_in_table_mode = want_table_mode;
+        }
+
         match self.view {
             View::Home => {
                 egui::CentralPanel::default().show(ui, |ui| {
@@ -3012,27 +3060,8 @@ impl eframe::App for DigitiseApp {
                 // tab? ... after I'm done, I close" — this window's
                 // existing view switch already fills that role, so no
                 // separate popup/tab was added.
-                match crop_result {
-                    Some(pdf_reader::CropResult::Plot(raster, provenance)) => {
-                        // Load the raster first: `load_image_from_raster`
-                        // seeds figure/page/document identity from the crop
-                        // and the active paper, and the form starts from
-                        // whatever it managed to work out rather than asking
-                        // again for what is already known.
-                        self.load_image_from_raster(raster, Some(provenance));
-                        let page = self.page.trim().parse::<u32>().ok();
-                        let figure = (!self.figure.trim().is_empty())
-                            .then(|| self.figure.clone());
-                        let title = (!self.document_title.trim().is_empty())
-                            .then(|| self.document_title.clone());
-                        self.plot_setup = plot_setup::PlotSetup::begin(figure, page, title);
-                        self.view = View::PlotSetup;
-                    }
-                    Some(pdf_reader::CropResult::Table(raster, provenance)) => {
-                        self.table_digitiser.load_crop(raster, Some(provenance));
-                        self.view = View::TableDigitiser;
-                    }
-                    None => {}
+                if let Some(crop) = crop_result {
+                    self.route_crop(crop);
                 }
             }
             View::KvimEditor => {
@@ -3065,6 +3094,8 @@ impl eframe::App for DigitiseApp {
                         if ui.button("Open external file…").clicked() {
                             open_clicked = true;
                         }
+                        // 2026-09-28: Edit/Done editing + Source|Preview.
+                        self.kvim_tab.toolbar_ui(ui);
                     });
                     // op-dkll: shared index, not a fresh per-frame rebuild.
                     let completion = match (&root, self.workspace.as_ref()) {
@@ -3074,7 +3105,9 @@ impl eframe::App for DigitiseApp {
                         }),
                         _ => None,
                     };
-                    self.kvim_editor.ui(ui, completion);
+                    // Source left, live GFM preview right; read-only until
+                    // Edit is confirmed (`kvim_tab`'s module docs).
+                    self.kvim_tab.ui(ui, &mut self.kvim_editor, completion);
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::KvimFile);
@@ -3124,19 +3157,49 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::TableDigitiser => {
-                let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
-                let mut request = None;
+                // #356: LibreOffice-Calc-style grid on the left, the real PDF
+                // reader on the right (maintainer, 2026-09-28).
+                let outcome = {
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    egui::Panel::left("table_grid_panel")
+                        .resizable(true)
+                        .default_size(520.0)
+                        .min_size(280.0)
+                        .show(ui, |ui| self.table_digitiser.ui(ui, active_session))
+                        .inner
+                };
+                // A saved table is finished, and a cancelled setup box means
+                // the region was not wanted: either way, back to reading
+                // (maintainer, 2026-09-28).
+                if outcome != TableOutcome::Continue {
+                    self.view = View::PdfReader;
+                }
+                let root = self.home.root().cloned();
+                let mut open_clicked = false;
+                let mut crop_result = None;
                 egui::CentralPanel::default().show(ui, |ui| {
-                    request = self.table_digitiser.ui(ui, active_session);
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    let completion = match (&root, self.workspace.as_ref()) {
+                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource {
+                            root,
+                            index: &workspace.index,
+                        }),
+                        _ => None,
+                    };
+                    crop_result = self.pdf_reader.ui(
+                        ui,
+                        || open_clicked = true,
+                        |_citekey| {},
+                        active_session,
+                        &mut self.kvim_editor,
+                        completion,
+                    );
                 });
-                match request {
-                    Some(TablePickerRequest::Json) => {
-                        self.open_picker(FileDialogTarget::TableJsonExport)
-                    }
-                    Some(TablePickerRequest::Csv) => {
-                        self.open_picker(FileDialogTarget::TableCsvExport)
-                    }
-                    None => {}
+                if open_clicked {
+                    self.open_picker(FileDialogTarget::Pdf);
+                }
+                if let Some(crop) = crop_result {
+                    self.route_crop(crop);
                 }
             }
             View::PlotSetup => {
