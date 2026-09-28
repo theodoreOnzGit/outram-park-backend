@@ -8,7 +8,7 @@
 //! in mSv per year, at twelve distances from 0.5 km to 75 km from the release
 //! point. It is given only along the azimuth where the dose is largest. It is
 //! the dose the same paper calculates from its annual normal-operation
-//! airborne release (its Table 5, in [`crate::activity::airborne_release`]).
+//! airborne release (its Table 5, in [`changi::activity::airborne_release`]).
 //!
 //! It is a **published model result, not a measurement.** The source
 //! calculated it with the US EPA code **AIRDOS-EPA** (Moore et al., 1979),
@@ -31,21 +31,21 @@
 //!
 //! - **Not computed here, and not wired into any model.** Nothing in this
 //!   crate or in `htgr_sim_v1` reads it. `changi` still computes no dose
-//!   quantity (see [`crate::activity`]). This module stores numbers a
+//!   quantity (see `changi::activity`). This module stores numbers a
 //!   published paper printed. It does not bring dose assessment into this
 //!   crate's current scope. That is a maintainer decision taken in
 //!   `RESPONSIBLE_USE.md`.
 //! - **Not an accident dose.** The same paper tabulates accident doses
 //!   separately (its Table 9), ~~which is not digitised here~~ **CORRECTED
 //!   2026-09-28**: now stored in
-//!   [`crate::activity::published_accident_dose_by_distance`].
+//!   [`crate::published::accident_dose_by_distance`].
 //! - `RESPONSIBLE_USE.md` applies in full. Nothing here may be quoted as a
 //!   dose to the public from HTR-10 or any other plant for any operational,
 //!   licensing, siting, emergency-planning or safety purpose.
 //!
 //! # Units
 //!
-//! Distance is a `uom` [`Length`](uom::si::f64::Length). **The dose is a plain `f64` in mSv per
+//! Distance is a `uom` [`Length`]. **The dose is a plain `f64` in mSv per
 //! year**, and the field name says so. `uom` 0.38 has no sievert quantity:
 //! there is no equivalent-dose or absorbed-dose module in `uom::si`. It was
 //! checked 2026-09-28, and no crate in this workspace defines one either.
@@ -64,7 +64,7 @@
 //! Section 3.2 (pp. 85–86).
 //!
 //! Access terms, digitisation and verification are in
-//! `crates/changi/docs/References.md`. The document carries no reuse licence
+//! `crates/buangkok/docs/References.md`. The document carries no reuse licence
 //! and is **not** redistributed here. Only the cited table of 12 values is,
 //! which is ordinary scientific citation.
 

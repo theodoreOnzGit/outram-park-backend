@@ -28,7 +28,7 @@
 //! largest potential dose to the public. The releases behind this table are
 //! the paper's Table 8, ~~which is **not** digitised in this workspace~~
 //! **CORRECTED 2026-09-28**: now stored in
-//! [`crate::activity::accident_airborne_release`], which reuses the
+//! [`changi::activity::accident_airborne_release`], which reuses the
 //! `AccidentCase` enum below. In both
 //! cases the release goes out through the 40 m exhaust stack, and the paper
 //! credits no filtering and no plate-out in the reactor building.
@@ -71,7 +71,7 @@
 //!
 //! - **Not computed here, and not wired into any model.** Nothing in this
 //!   crate or in `htgr_sim_v1` reads it. `changi` still computes no dose
-//!   quantity (see [`crate::activity`]).
+//!   quantity (see `changi::activity`).
 //! - **Parked here, not settled here.** Dose is to live in the placeholder
 //!   crate `buangkok` eventually, but the maintainer (2026-09-28) has asked
 //!   for the dose tables to stay in `changi` until they decide. Do not move
@@ -86,9 +86,9 @@
 //!
 //! # Units
 //!
-//! Distance is a `uom` [`Length`](uom::si::f64::Length). **The doses are
+//! Distance is a `uom` [`Length`]. **The doses are
 //! plain `f64` in mSv**, and the field names say so, for the reason given in
-//! [`crate::activity::published_dose_by_distance`]: `uom` 0.38 has no
+//! [`crate::published::normal_operation_dose_by_distance`]: `uom` 0.38 has no
 //! sievert quantity, and `AvailableEnergy` (J/kg) was rejected on purpose.
 //!
 //! # Provenance
@@ -100,7 +100,7 @@
 //! basis above comes from the paper's Sections 4.1–4.2 (pp. 86–89).
 //!
 //! Access terms, digitisation and verification are in
-//! `crates/changi/docs/References.md`. The document carries no reuse licence
+//! `crates/buangkok/docs/References.md`. The document carries no reuse licence
 //! and is **not** redistributed here. Only the cited table of 65 numbers is,
 //! which is ordinary scientific citation.
 
@@ -112,16 +112,10 @@ use uom::si::length::kilometer;
 const HTR10_ACCIDENT_DOSE_BY_DISTANCE_CSV: &str =
     include_str!("../../reference/htr10_accident_individual_dose_by_distance.csv");
 
-/// Which of the paper's two tabulated accidents a dose belongs to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AccidentCase {
-    /// Primary-circuit depressurization through a ruptured 65 mm
-    /// fuel-element charging tube (paper Section 4.1.1).
-    Depressurization,
-    /// Water ingress through two ruptured steam-generator tubes with the
-    /// steam relief system failed (paper Section 4.1.2).
-    WaterIngress,
-}
+/// Which of the paper's two tabulated accidents a dose belongs to. Defined in
+/// changi beside the accident releases (Table 8) and re-exported here, so the
+/// release and dose tables name the accidents identically.
+pub use changi::activity::accident_airborne_release::AccidentCase;
 
 /// The two doses the table gives for one accident at one distance.
 #[derive(Debug, Clone, Copy, PartialEq)]

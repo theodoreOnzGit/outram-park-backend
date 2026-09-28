@@ -228,21 +228,29 @@ pub struct HtgrSnapshot {
     /// Peak fuel-**kernel** temperature \[K\], or `f64::NAN` when the
     /// selected fidelity tier does not resolve one.
     ///
-    /// The centre of the hottest UO2 kernel in a core-average pebble -- the
+    /// The centre of the hottest UO2 kernel in a core-average pebble -- ~~the
     /// temperature the TRISO release channel
-    /// ([`crate::physics::fission_product_release`]) is driven from, and the
-    /// one a fuel-temperature limit applies to. ~~"...the Doppler channel ...
+    /// ([`crate::physics::fission_product_release`]) is driven from~~ (since
+    /// 2026-09-28 the release channel uses the inventory-averaged kernel, the
+    /// SiC layer and the fuelled-zone matrix instead) -- and the one a
+    /// fuel-temperature limit applies to. ~~"...the Doppler channel ...
     /// and the TRISO release channel are both driven from"~~ **CORRECTED
     /// 2026-09-28 (gh:#360)**: the Doppler channel
-    /// ([`crate::physics::kinetics::KernelDopplerChannel`]) shares only the
+    /// (~~`KernelDopplerChannel`~~, removed 2026-09-28) shared only the
     /// offset above the node; its absolute kernel is
     /// [`Self::fuel_temperature_k`] + offset, which is not displayed and was
     /// measured 236 K above this field at t = 1500 s.
     ///
-    /// **`NAN`, not a fallback to the bed.** The two placeholder fidelity
-    /// tiers have no kernel, and substituting the bed temperature would put a
-    /// number under a "peak fuel" label that is systematically tens of kelvin
-    /// low. A `NAN` renders as "--" and cannot be misread.
+    /// **CHANGED 2026-09-28 (gh:#360, later the same day).** This field is
+    /// now the peak kernel placed on the fuel-bed line by the fuel-to-bed
+    /// coupling -- `T_bed + f_peak (T_fuel - T_bed)`, with `T_fuel` the
+    /// kinetics fuel node (the inventory-averaged kernel, which is also what
+    /// the release channel and the Doppler term now use; ~~the 236 K gap~~
+    /// above is gone). It exists on **every** tier (the placeholders are one
+    /// node underneath) and during a prompt burst, so ~~"`NAN`, not a fallback
+    /// to the bed. The two placeholder fidelity tiers have no kernel"~~ no
+    /// longer applies; `NAN` now appears only if the bed has never had a
+    /// coupling, which the design-point seed rules out.
     ///
     /// Still the peak kernel of a **core-average** pebble: no power peaking,
     /// no axial or radial shape, no burnup. A real HTR-10 peak-power pebble
@@ -253,12 +261,16 @@ pub struct HtgrSnapshot {
     /// the Doppler channel's reactivity is proportional to, and it is far more
     /// legible on a trend plot than two nearly-equal absolute temperatures.
     pub kernel_offset_k: f64,
-    /// Reactivity worth of the kernel Doppler channel \[$\].
+    /// Reactivity worth of the **fuel (kernel) channel** \[$\],
+    /// `alpha_fuel (T_f - T_f,ref) / beta` on the fuel node.
     ///
-    /// Zero at the design point by construction, negative above it. This is
-    /// the *additional* feedback the 2026-09-22 rewiring supplies; the
-    /// graphite share stays inside the closed-form prompt layer and is not
-    /// separately reportable. See [`crate::physics::kinetics::KernelDopplerChannel`].
+    /// ~~"This is the *additional* feedback the 2026-09-22 rewiring supplies;
+    /// the graphite share stays inside the closed-form prompt layer and is not
+    /// separately reportable."~~ **CHANGED 2026-09-28 (gh:#360)** -- the fuel
+    /// node is the kernel now, so this is the whole fuel share of the
+    /// isothermal coefficient (inside the closed form), and the graphite share
+    /// is the separate moderator channel on the bed. Zero at the rated design
+    /// point by construction. See [`crate::physics::kinetics::FeedbackSplit`].
     pub kernel_doppler_dollars: f64,
     /// Summed circulating activity across the tracked nuclides, **per curie of
     /// core inventory** \[Ci/Ci\].
@@ -723,8 +735,7 @@ impl Default for HtgrSnapshot {
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,
             dispersion_grid_time_s: f64::NAN,
-            map_field_cells_requested:
-                crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
+            map_field_cells_requested: crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
             plume_clock_offset_s: 0.0,
             wind_speed_m_per_s: 3.0,
             wind_from_deg: 0.0,

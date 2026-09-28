@@ -83,6 +83,7 @@
 //!   into the reflector and RPV volumes.
 
 use tuas_boussinesq_solver::heat_transfer_correlations::heat_transfer_interactions::conductance::simple_radiation_conductance;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_ig_110_thermal_conductivity_unirradiated;
 use uom::si::area::square_meter;
 #[cfg(test)]
 use uom::si::energy::joule;
@@ -171,16 +172,20 @@ const H_BED_M: f64 = 1.97;
 const H_GRAPHITE_M: f64 = 4.70;
 const H_BORONATED_M: f64 = 6.10;
 
-/// Thermal conductivity of the reflector graphite \[W/(m K)\].
+/// ~~Thermal conductivity of the reflector graphite \[W/(m K)\]. **Assumed, not
+/// sourced to an HTR-10 measurement.** ... 30 is a mid-range value.~~
 ///
-/// **Assumed, not sourced to an HTR-10 measurement.** Irradiated nuclear
-/// graphite spans roughly 20-60 W/(m K) depending on grade, temperature and
-/// dose; 30 is a mid-range value. This is the single largest uncertainty in
-/// the chain -- the graphite annulus carries about 25 % of the total
-/// resistance, so a factor-of-two error here moves the series conductance by
-/// roughly 15 %. The boronated annulus is given the same value; it carries
-/// under 4 % of the resistance, so that assumption is cheap.
-const GRAPHITE_CONDUCTIVITY_W_PER_M_K: f64 = 30.0;
+/// **CHANGED 2026-09-28 (maintainer: graphite "wired correctly into
+/// htgr_sim_v1").** The **graphite reflector** annulus now takes IG-110 from
+/// `tuas_boussinesq_solver`
+/// ([`nuclear_graphite_ig_110_thermal_conductivity_unirradiated`], the VTB
+/// HTTR deck quadratic) at the live reflector temperature — see
+/// [`ua_graphite_annulus_w_per_k`]. This constant now serves **only the
+/// boronated annulus**, which is boronated carbon brick, **not** IG-110: no
+/// conductivity for it exists in this workspace, so the 30 W/(m K) stays as an
+/// **assumption needing a source** (it carries under 4 % of the chain's
+/// resistance, so it is cheap, but it is still not data).
+const BORONATED_CONDUCTIVITY_W_PER_M_K: f64 = 30.0;
 
 /// Grey-surface emissivity used on both radiative legs \[-\].
 ///
@@ -277,6 +282,20 @@ fn annulus_conductance_w_per_k(k_w_per_m_k: f64, height_m: f64, r_i_m: f64, r_o_
 /// **Assumption:** the VTB table is for a *generic* pebble bed, not HTR-10
 /// specifically (see `htr10::zbs`), and `tampines`' analytic `ZbsBed` is known
 /// not to reproduce it. The table is used because it is the tested one.
+///
+/// **Two further limits, recorded 2026-09-28 (gh:#362, deferred by the
+/// maintainer -- do not switch to the analytic `ZbsBed`):** (1) the VTB table
+/// is built on a **constant** 26 W/(m K) solid conductivity (per the
+/// 2026-09-28 MOOSE/VTB graphite survey,
+/// `crates/tuas_boussinesq_solver/docs/moose-graphite-thermal-conductivity-survey.md`;
+/// not re-checked in this change), so this leg does
+/// **not** use `tuas`'s A3 graphite conductivity (the pebble interior does);
+/// (2) the table ends at 2000 K and is **flat at 44.95 W/(m K) above it**, so
+/// the bed-to-reflector leg stops growing with temperature (verified: the
+/// lookup in `htr10::zbs::zbs_effective_conductivity` clamps to its last
+/// entry) exactly where the
+/// `T^3` radiation contribution should make it grow fastest -- above 2000 K
+/// this leg **under-states** passive removal.
 fn ua_bed_to_surface_w_per_k(bed: ThermodynamicTemperature) -> f64 {
     let k_eff = outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity(bed)
         .get::<uom::si::thermal_conductivity::watt_per_meter_kelvin>();
@@ -285,13 +304,34 @@ fn ua_bed_to_surface_w_per_k(bed: ThermodynamicTemperature) -> f64 {
 
 /// **Leg 2 -- the graphite reflector annulus \[W/K\]**, `r = 0.90 -> 1.678 m`
 /// over 4.70 m. Pure solid conduction; no radiation term belongs here.
-fn ua_graphite_annulus_w_per_k() -> f64 {
-    annulus_conductance_w_per_k(
-        GRAPHITE_CONDUCTIVITY_W_PER_M_K,
-        H_GRAPHITE_M,
-        R_BED_OUTER_M,
-        R_GRAPHITE_OUTER_M,
-    )
+///
+/// **CHANGED 2026-09-28:** `k` is IG-110 (the HTTR / HTR-10 reflector grade
+/// in `tuas`), **unirradiated**, evaluated at the lumped reflector node's
+/// temperature, where it was an assumed constant 30 W/(m K). IG-110 gives
+/// 42.5 W/(m K) at 600 K and 33.5 at 1000 K, so this leg is **more**
+/// conductive than before at every temperature the reflector reaches.
+///
+/// Assumptions, stated: (1) unirradiated — HTR-10's safety tests ran early in
+/// life, and no reflector fluence is tracked; irradiated graphite conducts
+/// worse, so this is the conductive bound; (2) one temperature for the whole
+/// annulus — the node's; (3) HTR-10's reflector is IG-110-class graphite per
+/// `tuas`'s variant doc, not re-checked against the HTR-10 benchmark
+/// specification here.
+///
+/// # Panics
+///
+/// Outside IG-110's coded 300-2000 K window — the reflector never approaches
+/// 2000 K in any transient this simulator runs.
+fn ua_graphite_annulus_w_per_k(reflector: ThermodynamicTemperature) -> f64 {
+    let k = nuclear_graphite_ig_110_thermal_conductivity_unirradiated(reflector)
+        .unwrap_or_else(|e| {
+            panic!(
+                "reflector graphite (IG-110) conductivity at {} K: {e:?}",
+                reflector.get::<kelvin>()
+            )
+        })
+        .get::<uom::si::thermal_conductivity::watt_per_meter_kelvin>();
+    annulus_conductance_w_per_k(k, H_GRAPHITE_M, R_BED_OUTER_M, R_GRAPHITE_OUTER_M)
 }
 
 /// **Leg 3 -- the boronated graphite annulus \[W/K\]**, `r = 1.678 -> 1.90 m`
@@ -299,7 +339,7 @@ fn ua_graphite_annulus_w_per_k() -> f64 {
 /// resistance and its assumed conductivity barely matters.
 fn ua_boronated_annulus_w_per_k() -> f64 {
     annulus_conductance_w_per_k(
-        GRAPHITE_CONDUCTIVITY_W_PER_M_K,
+        BORONATED_CONDUCTIVITY_W_PER_M_K,
         H_BORONATED_M,
         R_GRAPHITE_OUTER_M,
         R_BORONATED_OUTER_M,
@@ -321,7 +361,10 @@ fn ua_boronated_annulus_w_per_k() -> f64 {
 /// **Assumption:** the gap is treated as radiation only. Helium natural
 /// convection across it is neglected, which makes this leg -- and therefore
 /// the whole chain -- **conservative** (less heat removed, hotter core).
-fn ua_gap_to_rpv_w_per_k(reflector: ThermodynamicTemperature, rpv: ThermodynamicTemperature) -> f64 {
+fn ua_gap_to_rpv_w_per_k(
+    reflector: ThermodynamicTemperature,
+    rpv: ThermodynamicTemperature,
+) -> f64 {
     let eps_eff = 1.0
         / (1.0 / SURFACE_EMISSIVITY
             + (R_BORONATED_OUTER_M / R_RPV_INNER_M) * (1.0 / SURFACE_EMISSIVITY - 1.0));
@@ -340,8 +383,12 @@ fn ua_gap_to_rpv_w_per_k(reflector: ThermodynamicTemperature, rpv: Thermodynamic
 /// doubles the conductance, hence the `2.0 *`. The split is exact in the sense
 /// that the two halves recombine to the full annulus, so the SERIES value of
 /// the whole chain is unchanged by where the node is placed.
-fn ua_core_to_reflector_w_per_k(bed: ThermodynamicTemperature) -> f64 {
-    1.0 / (1.0 / ua_bed_to_surface_w_per_k(bed) + 1.0 / (2.0 * ua_graphite_annulus_w_per_k()))
+fn ua_core_to_reflector_w_per_k(
+    bed: ThermodynamicTemperature,
+    reflector: ThermodynamicTemperature,
+) -> f64 {
+    1.0 / (1.0 / ua_bed_to_surface_w_per_k(bed)
+        + 1.0 / (2.0 * ua_graphite_annulus_w_per_k(reflector)))
 }
 
 /// Conductance from the **lumped reflector node to the RPV** \[W/K\]: the
@@ -351,7 +398,7 @@ fn ua_reflector_to_rpv_w_per_k(
     reflector: ThermodynamicTemperature,
     rpv: ThermodynamicTemperature,
 ) -> f64 {
-    1.0 / (1.0 / (2.0 * ua_graphite_annulus_w_per_k())
+    1.0 / (1.0 / (2.0 * ua_graphite_annulus_w_per_k(reflector))
         + 1.0 / ua_boronated_annulus_w_per_k()
         + 1.0 / ua_gap_to_rpv_w_per_k(reflector, rpv))
 }
@@ -365,7 +412,7 @@ fn series_ua_w_per_k(
     reflector: ThermodynamicTemperature,
     rpv: ThermodynamicTemperature,
 ) -> f64 {
-    1.0 / (1.0 / ua_core_to_reflector_w_per_k(bed)
+    1.0 / (1.0 / ua_core_to_reflector_w_per_k(bed, reflector)
         + 1.0 / ua_reflector_to_rpv_w_per_k(reflector, rpv)
         + 1.0 / ua_rpv_rccs_w_per_k(rpv))
 }
@@ -472,7 +519,7 @@ impl CoreToRccsPath {
             let refl = ThermodynamicTemperature::new::<kelvin>(t_refl);
             let rpv = ThermodynamicTemperature::new::<kelvin>(t_rpv);
             q = series_ua_w_per_k(bed_temperature, refl, rpv) * (t_bed - t_sink);
-            t_refl = t_bed - q / ua_core_to_reflector_w_per_k(bed_temperature);
+            t_refl = t_bed - q / ua_core_to_reflector_w_per_k(bed_temperature, refl);
             t_rpv = t_sink + q / ua_rpv_rccs_w_per_k(rpv);
         }
 
@@ -572,13 +619,14 @@ impl CoreToRccsPath {
         );
         let a_r = self.reflector_capacity.get::<joule_per_kelvin>() / dt_s;
         let a_v = self.rpv_capacity.get::<joule_per_kelvin>() / dt_s;
-        let g1 = ua_core_to_reflector_w_per_k(bed_temperature);
-
         let (mut t_r, mut t_v) = (t_r0, t_v0);
-        let (mut g2, mut g3) = (0.0, 0.0);
+        let (mut g1, mut g2, mut g3) = (0.0, 0.0, 0.0);
         for _ in 0..IMPLICIT_PICARD_PASSES {
             let refl = ThermodynamicTemperature::new::<kelvin>(t_r);
             let rpv = ThermodynamicTemperature::new::<kelvin>(t_v);
+            // G1 moved inside the loop 2026-09-28: the reflector half of it
+            // now depends on the reflector temperature through IG-110 k(T).
+            g1 = ua_core_to_reflector_w_per_k(bed_temperature, refl);
             g2 = ua_reflector_to_rpv_w_per_k(refl, rpv);
             g3 = simple_radiation_conductance(self.rpv_radiating_area, rpv, Self::rccs_boundary())
                 .get::<watt_per_kelvin>();
@@ -611,7 +659,8 @@ impl CoreToRccsPath {
         Energy::new::<joule>(
             self.reflector_capacity.get::<joule_per_kelvin>()
                 * self.reflector_temperature.get::<kelvin>()
-                + self.rpv_capacity.get::<joule_per_kelvin>() * self.rpv_temperature.get::<kelvin>(),
+                + self.rpv_capacity.get::<joule_per_kelvin>()
+                    * self.rpv_temperature.get::<kelvin>(),
         )
     }
 
@@ -692,10 +741,15 @@ mod tests {
         let hot = ThermodynamicTemperature::new::<degree_celsius>(900.0);
         for _ in 0..1000 {
             path.advance(Time::new::<second>(0.1), hot);
-            assert_eq!(CoreToRccsPath::rccs_boundary(), sink, "the sink must not drift");
+            assert_eq!(
+                CoreToRccsPath::rccs_boundary(),
+                sink,
+                "the sink must not drift"
+            );
         }
         let t_v = path.rpv_temperature().get::<kelvin>();
-        let expected = 5.670374419e-8 * RPV_RADIATING_AREA_COEFF_M2 * (t_v.powi(4) - 323.15_f64.powi(4));
+        let expected =
+            5.670374419e-8 * RPV_RADIATING_AREA_COEFF_M2 * (t_v.powi(4) - 323.15_f64.powi(4));
         let got = path.heat_to_rccs().get::<watt>();
         assert!(
             (got - expected).abs() / expected < 1e-6,
@@ -729,11 +783,20 @@ mod tests {
             path.reflector_temperature().get::<kelvin>(),
             path.rpv_temperature().get::<kelvin>(),
         );
-        assert!(bed.get::<kelvin>() > t_r && t_r > t_v && t_v > 323.15, "{t_r} {t_v}");
-        assert!((q_in - q_out).abs() / q_in < 1e-3, "not settled: {q_in} vs {q_out}");
+        assert!(
+            bed.get::<kelvin>() > t_r && t_r > t_v && t_v > 323.15,
+            "{t_r} {t_v}"
+        );
+        assert!(
+            (q_in - q_out).abs() / q_in < 1e-3,
+            "not settled: {q_in} vs {q_out}"
+        );
         let stored = path.stored_energy().get::<joule>() - e0;
         let residual = stored - (q_in - q_out) * 1.0e10;
-        assert!(residual.abs() / (q_in * 1.0e10) < 1e-9, "residual {residual:e} J");
+        assert!(
+            residual.abs() / (q_in * 1.0e10) < 1e-9,
+            "residual {residual:e} J"
+        );
     }
 
     /// **Heat must flow downhill.** With the bed hotter than the reflector,
@@ -786,9 +849,11 @@ mod tests {
     /// cooling system's quoted duty, **206 kW**.
     ///
     /// Pass criterion: within **25 %**. That band is set by the dominant
-    /// assumption, not by the answer: reflector graphite conductivity is taken
-    /// as 30 W/(m K) and irradiated nuclear graphite spans roughly 20-60,
-    /// while that annulus carries about a quarter of the chain's resistance.
+    /// assumption, not by the answer: reflector graphite conductivity ~~is~~
+    /// **was** taken as 30 W/(m K) and irradiated nuclear graphite spans
+    /// roughly 20-60, while that annulus carries about a quarter of the chain's
+    /// resistance. (Since 2026-09-28 the annulus is IG-110 from `tuas`; see
+    /// the 2026-09-28 results for what that did to the band's rationale.)
     ///
     /// # Results (2026-09-17)
     ///
@@ -811,6 +876,33 @@ mod tests {
     /// derived value is **high**, i.e. this model removes heat slightly faster
     /// than the reference, which is **non-conservative** for a heat-up
     /// transient and must be stated wherever a peak temperature is quoted.
+    ///
+    /// # Results (2026-09-28) -- MOVED, and closer to the band edge
+    ///
+    /// | Quantity | 2026-09-17 | **2026-09-28** | Published |
+    /// |---|---|---|---|
+    /// | passive duty at 950 K bed | 234.5 kW (+13.9 %) | **254.0 kW (+23.3 %)** | 206 kW |
+    /// | reflector node | 411.1 degC | 411.6 degC | -- |
+    /// | RPV node | 198.2 degC | 205.6 degC | -- |
+    ///
+    /// **What moved it:** the graphite reflector annulus now takes IG-110 from
+    /// `tuas` (unirradiated, at the reflector temperature, 40.2 W/(m K) at the
+    /// 684.8 K node) instead of the assumed 30 W/(m K) -- predicted beforehand
+    /// to raise the duty (higher `k` on a leg carrying ~25 % of the
+    /// resistance), and it did, by +8.3 %. **Nothing was tuned back.** The
+    /// comparison is now **worse**, and the model removes heat faster than the
+    /// reference by nearly a quarter -- more non-conservative for a heat-up.
+    ///
+    /// **The 25 % band is left where it was, and its stated justification no
+    /// longer holds.** It was set by the uncertainty of the assumed 30 W/(m K);
+    /// that assumption is gone, replaced by a sourced but *unirradiated*
+    /// conductivity (irradiated graphite conducts worse, which would lower the
+    /// duty) and a still-assumed boronated-annulus 30 W/(m K). Loosening the
+    /// band to keep the margin would be moving a gate to pass; it was not done.
+    /// Candidate physics for the remaining +23 %: reflector irradiation, the
+    /// flat-above-2000 K ZBS table is irrelevant here (950 K), the assumed
+    /// emissivities on the two radiative legs, and whether Hu's 206 kW
+    /// describes the same heat path.
     ///
     /// ~~Previously asserted equality with 206 kW to 0.1 %.~~ **CORRECTED
     /// 2026-09-17** -- that only held because the conductances had been fitted
@@ -872,7 +964,9 @@ mod tests {
         let mut path = CoreToRccsPath::placeholder();
         // Drive the bed BELOW the reflector the chain settled against.
         let cold_bed = ThermodynamicTemperature::new::<degree_celsius>(100.0);
-        let q = path.advance(Time::new::<second>(0.1), cold_bed).get::<watt>();
+        let q = path
+            .advance(Time::new::<second>(0.1), cold_bed)
+            .get::<watt>();
         assert!(
             q < 0.0,
             "with the bed colder than the reflector, heat must flow INTO the \

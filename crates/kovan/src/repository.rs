@@ -26,6 +26,20 @@
 //! ([`gix::Repository::write_blob`]/`write_object`) already deduplicate by
 //! content hash, so re-saving unchanged files costs nothing extra.
 //!
+//! ~~(implicitly: the index is never touched)~~ **CORRECTED 2026-09-28**:
+//! the tree is still built from the worktree, but after every commit the
+//! index is now written to match it ([`sync_index`]). Leaving it alone made
+//! plain `git status` report every file a Save had added as a staged
+//! deletion plus an untracked copy — seen on the maintainer's real
+//! proprietary submodule, where one `git commit` would have deleted four
+//! saved PDFs.
+//!
+//! # Pushing is separate
+//!
+//! A Save only commits. Pushing the result — on by default since
+//! 2026-09-28 — is [`crate::save_push`], run after a successful save by
+//! [`crate::advanced_git::save_and_push`].
+//!
 //! # Submodules are gitlinks, never walked
 //!
 //! Git would never flatten another repository into this one, so this does
@@ -461,7 +475,48 @@ fn commit_tree(
     let commit_id = repo
         .commit("HEAD", message, tree_id, parents)
         .map_err(|e| RepositoryError::Git(e.to_string()))?;
+    sync_index(repo, tree_id)?;
     Ok(commit_id.detach())
+}
+
+/// Make `repo`'s index (`.git/index`) match `tree_id`, the tree just
+/// committed — what `git commit -a` leaves behind.
+///
+/// **Why (regression, 2026-09-28).** A Save builds its tree from the
+/// worktree and commits it with `gix` without going through the index, and
+/// before this it never wrote the index at all. Plain `git status` compares
+/// `HEAD` with the index, so every file a Save had added showed up as a
+/// **staged deletion** plus an untracked copy (`D ` and `??`), and every
+/// file it had changed as `MM`. The maintainer's real proprietary submodule
+/// showed exactly that for the four PDFs saved after its index was last
+/// written (2026-09-24), and one `git commit` there would have deleted them.
+///
+/// Entries whose path, mode and content are unchanged keep their old stat
+/// data, so Git does not have to re-hash every unchanged PDF; the rest get
+/// none and Git re-hashes them once on the next `git status`.
+fn sync_index(repo: &gix::Repository, tree_id: gix::ObjectId) -> Result<(), RepositoryError> {
+    let err = |e: String| RepositoryError::Git(format!("updating the index: {e}"));
+    let mut index = repo
+        .index_from_tree(&tree_id)
+        .map_err(|e| err(e.to_string()))?;
+    if let Ok(old) = repo.open_index() {
+        let old_stats: std::collections::HashMap<Vec<u8>, (gix::ObjectId, _, _)> = old
+            .entries()
+            .iter()
+            .map(|e| (e.path(&old).to_vec(), (e.id, e.mode, e.stat)))
+            .collect();
+        for (entry, path) in index.entries_mut_with_paths() {
+            if let Some((id, mode, stat)) = old_stats.get(path.as_ref() as &[u8]) {
+                if *id == entry.id && *mode == entry.mode {
+                    entry.stat = *stat;
+                }
+            }
+        }
+    }
+    index.remove_tree();
+    index
+        .write(Default::default())
+        .map_err(|e| err(e.to_string()))
 }
 
 /// The private submodule's current `HEAD` commit id, read-only — used by
@@ -1433,6 +1488,48 @@ mod tests {
         assert!(
             parent.starts_with("Save Kovan repository\n\ntwo new papers\n"),
             "{parent:?}"
+        );
+    }
+    /// `git status --porcelain` of the repository at `dir`.
+    fn porcelain(dir: &Path) -> String {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["status", "--porcelain", "--untracked-files=all"])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        String::from_utf8_lossy(&out.stdout).to_string()
+    }
+
+    /// Regression, 2026-09-28: a Save committed with `gix` but never wrote
+    /// the index, so every file a Save added showed in plain `git status` as
+    /// a **staged deletion** plus an untracked copy (`D ` + `??`), and every
+    /// file it changed as `MM` — exactly what the maintainer's real
+    /// proprietary submodule showed for the four PDFs saved after its index
+    /// was last synced (2026-09-24). After a Save, every repository it
+    /// committed must be clean to real Git.
+    #[test]
+    fn after_a_save_git_status_is_clean_in_every_repository_it_committed() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let root = root_with_corpora(tmp.path());
+        save_repository(&root).unwrap().unwrap();
+
+        let private = root.restricted_sources_dir();
+        std::fs::write(private.join("papers/d.pdf"), b"new pdf").unwrap();
+        std::fs::write(private.join("papers/c.pdf"), b"changed pdf").unwrap();
+        std::fs::write(root.path().join("notes.md"), b"hello").unwrap();
+        save_repository(&root).unwrap().unwrap();
+
+        assert_eq!(porcelain(&private), "", "proprietary submodule not clean");
+        assert_eq!(porcelain(root.path()), "", "Kovan repository not clean");
+        assert_eq!(
+            porcelain(&root.open_corpus_dir()),
+            "",
+            "open corpus not clean"
         );
     }
 }

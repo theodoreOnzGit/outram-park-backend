@@ -591,14 +591,14 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
     let temperature_from_enthalpy_kelvin: f64 = match graphite_temperature_result {
         Ok(temperature_val) => temperature_val,
         // The Brent solve failed to bracket a root for this enthalpy.
-        Err(_) => {
-            return Err(TuasLibError::GenericStringError(format!(
-                "nuclear graphite: could not invert specific enthalpy {h_graphite:?} to a temperature"
-            )))
-        }
+        Err(_) => return Err(TuasLibError::GenericStringError(format!(
+            "nuclear graphite: could not invert specific enthalpy {h_graphite:?} to a temperature"
+        ))),
     };
 
-    Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
+    Ok(ThermodynamicTemperature::new::<kelvin>(
+        temperature_from_enthalpy_kelvin,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -1282,7 +1282,6 @@ fn butland_maddison_polynomial_covers_250_to_3000_k_and_refuses_outside() {
     assert!(cp(249.0).is_err());
     assert!(cp(3001.0).is_err());
 }
-
 
 /// V&V test: the high-temperature A3 variant
 /// ([`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`], added 2026-09-28).

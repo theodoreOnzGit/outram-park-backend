@@ -57,7 +57,6 @@
 //! release table carries its own, stronger caveat: it is **per curie of core inventory**, not curies.
 //! See [`crate::physics::fission_product_release`].
 
-
 use egui::{Align2, Color32, FontId, Pos2, Rect, Sense, Stroke, Ui, Vec2};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
@@ -70,7 +69,6 @@ use super::state::HtgrSnapshot;
 use crate::physics::reactor_model::htr10_rz_geometry::{
     axial_ticks_cm, htr10_rz_zones, radial_ticks_cm, Htr10RzZone, ZoneMaterial,
 };
-
 
 /// Temperature \[K\] mapped to the cold end of the colour scale.
 ///
@@ -100,8 +98,7 @@ fn temperature_colour(value_k: f64) -> Color32 {
     if !value_k.is_finite() {
         return Color32::from_gray(90);
     }
-    let hotness = ((value_k - COLOUR_SCALE_COLD_K)
-        / (COLOUR_SCALE_HOT_K - COLOUR_SCALE_COLD_K))
+    let hotness = ((value_k - COLOUR_SCALE_COLD_K) / (COLOUR_SCALE_HOT_K - COLOUR_SCALE_COLD_K))
         .clamp(0.0, 1.0);
     hot_to_cold_colour_mark_1(hotness as f32)
 }
@@ -128,9 +125,7 @@ fn zone_temperature_k(material: ZoneMaterial, s: &HtgrSnapshot) -> Option<f64> {
         // The settled pebble bed: the bed node's own temperature.
         ZoneMaterial::Mixed | ZoneMaterial::Dummy => Some(s.bed_temperature_k),
         // Cold helium on its way in, and the chamber it collects in.
-        ZoneMaterial::ColdChannel | ZoneMaterial::ColdChamber => {
-            Some(s.core_inlet_temp_k)
-        }
+        ZoneMaterial::ColdChannel | ZoneMaterial::ColdChamber => Some(s.core_inlet_temp_k),
         // Hot helium leaving the bed.
         ZoneMaterial::Hot | ZoneMaterial::Cavity => Some(s.core_outlet_temp_k),
         // Everything else -- reflector, boronated shielding, carbon brick,
@@ -256,11 +251,7 @@ fn polygon_centroid(vertices: &[(f64, f64)]) -> (f64, f64) {
 /// `PlantCommands`, so no correlation, controller or solver can see it.
 fn format_temperature(unit: LegendUnit, value_k: f64) -> String {
     if value_k.is_finite() {
-        temperature_display(
-            unit,
-            ThermodynamicTemperature::new::<kelvin>(value_k),
-            1,
-        )
+        temperature_display(unit, ThermodynamicTemperature::new::<kelvin>(value_k), 1)
     } else {
         "--".to_string()
     }
@@ -396,13 +387,28 @@ fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
                 *previous = value;
             };
 
-            row(ui, "Helium leaving the bed", s.core_outlet_temp_k, &mut previous);
+            row(
+                ui,
+                "Helium leaving the bed",
+                s.core_outlet_temp_k,
+                &mut previous,
+            );
             previous = f64::NAN;
             row(ui, "Pebble surface", s.pebble_surface_k, &mut previous);
-            row(ui, "Fuelled-zone boundary", s.pebble_zone_boundary_k, &mut previous);
+            row(
+                ui,
+                "Fuelled-zone boundary",
+                s.pebble_zone_boundary_k,
+                &mut previous,
+            );
             row(ui, "Matrix centre", s.pebble_centre_k, &mut previous);
             row(ui, "Particle SiC outer", s.particle_sic_k, &mut previous);
-            row(ui, "Peak kernel centre", s.peak_kernel_temperature_k, &mut previous);
+            row(
+                ui,
+                "Peak kernel centre",
+                s.peak_kernel_temperature_k,
+                &mut previous,
+            );
         });
 
     ui.add_space(4.0);
@@ -413,8 +419,8 @@ fn draw_profile_table(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
         format_temperature_interval(unit, s.kernel_offset_k)
     ));
     ui.label(format!(
-        "Kernel Doppler channel: {:+.4} $  (zero at the design point by construction; \
-         the graphite share stays inside the closed-form prompt layer)",
+        "Fuel (kernel) feedback channel: {:+.4} $  (zero at the rated design point by \
+         construction; the graphite share rides the bed node)",
         s.kernel_doppler_dollars
     ));
 }
@@ -475,8 +481,10 @@ fn draw_release_table(ui: &mut Ui, s: &HtgrSnapshot, unit: LegendUnit) {
 
 /// Draw the colour scale, so a reader can decode the map.
 fn draw_colour_legend(ui: &mut Ui, unit: LegendUnit) {
-    let (response, painter) =
-        ui.allocate_painter(Vec2::new(ui.available_width().min(320.0), 26.0), Sense::hover());
+    let (response, painter) = ui.allocate_painter(
+        Vec2::new(ui.available_width().min(320.0), 26.0),
+        Sense::hover(),
+    );
     let rect = response.rect;
     let steps = 48;
     for i in 0..steps {
@@ -485,7 +493,10 @@ fn draw_colour_legend(ui: &mut Ui, unit: LegendUnit) {
         let x0 = rect.left() + rect.width() * i as f32 / steps as f32;
         let x1 = rect.left() + rect.width() * (i + 1) as f32 / steps as f32;
         painter.rect_filled(
-            Rect::from_min_max(Pos2::new(x0, rect.top()), Pos2::new(x1, rect.bottom() - 10.0)),
+            Rect::from_min_max(
+                Pos2::new(x0, rect.top()),
+                Pos2::new(x1, rect.bottom() - 10.0),
+            ),
             0.0,
             temperature_colour(k),
         );
@@ -641,7 +652,10 @@ mod tests {
             "a temperature interval has the same magnitude in K and degC; got {dk} and {dc}"
         );
         // And an unresolved interval stays unresolved rather than printing +0.
-        assert_eq!(format_temperature_interval(LegendUnit::Celsius, f64::NAN), "--");
+        assert_eq!(
+            format_temperature_interval(LegendUnit::Celsius, f64::NAN),
+            "--"
+        );
     }
 
     /// The colour scale must be monotone and must clamp rather than wrap.

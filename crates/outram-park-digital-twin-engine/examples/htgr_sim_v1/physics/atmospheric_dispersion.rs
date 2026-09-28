@@ -1868,10 +1868,10 @@ mod tests {
         let mut channel = TrisoAtopsReleaseChannel::new_htr10();
         channel.update(
             0.0,
-            Some(uom::si::f64::ThermodynamicTemperature::new::<kelvin>(
-                kernel_k,
+            Some(TrisoAtopsReleaseChannel::kernel_and_graphite(
+                uom::si::f64::ThermodynamicTemperature::new::<kelvin>(kernel_k),
+                uom::si::f64::ThermodynamicTemperature::new::<kelvin>(950.0),
             )),
-            uom::si::f64::ThermodynamicTemperature::new::<kelvin>(950.0),
         );
         channel
     }
@@ -2603,7 +2603,10 @@ mod tests {
         println!(
             "after leg 1 (wind FROM north, 600 s): oldest puff dx = {:.1} m, dy = {:.1} m, \\
              path = {:.1} m, age = {:.0} s",
-            after_leg_1.dx_m, after_leg_1.dy_m, after_leg_1.path_m, after_leg_1.age_s(steps_after_leg_1)
+            after_leg_1.dx_m,
+            after_leg_1.dy_m,
+            after_leg_1.path_m,
+            after_leg_1.age_s(steps_after_leg_1)
         );
         assert!(
             after_leg_1.dy_m < -1.0 && after_leg_1.dx_m.abs() < 1e-9,
@@ -2770,10 +2773,7 @@ mod tests {
         let up = 0; // distance index 0, sector 0 -> bearing 0, due north
         let down = RECEPTOR_SECTORS / 2; // sector at bearing 180, due south
 
-        let (dx, dy) = (
-            ring[down].x.get::<meter>(),
-            ring[down].y.get::<meter>(),
-        );
+        let (dx, dy) = (ring[down].x.get::<meter>(), ring[down].y.get::<meter>());
         let cell = cell_at(dx, dy);
         println!(
             "LIVE RING SAMPLE vs FIELD CELL (wind from north 3 m/s, class B, t = 600 s)\n  \
@@ -2787,7 +2787,11 @@ mod tests {
             cell,
             grid.cells,
             2.0 * grid.half_width_m / grid.cells as f64,
-            if cell > 0.0 { live[down] / cell } else { f64::INFINITY },
+            if cell > 0.0 {
+                live[down] / cell
+            } else {
+                f64::INFINITY
+            },
             live[up],
         );
 
@@ -3128,7 +3132,11 @@ mod tests {
             cells: wanted,
             ..MapFieldRequest::default()
         });
-        assert_eq!(channel.field_cells(), wanted, "a request inside the range must pass through");
+        assert_eq!(
+            channel.field_cells(),
+            wanted,
+            "a request inside the range must pass through"
+        );
 
         channel.refresh_field(600.0);
         let grid = channel.grid_cache.as_ref().expect("a field was computed");

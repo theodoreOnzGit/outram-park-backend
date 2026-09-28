@@ -10,12 +10,13 @@
 //! answers is **"what dose follows from what was released and where it
 //! went?"**
 //!
-//! # STATUS: PLACEHOLDER. Nothing is implemented.
+//! # STATUS (2026-09-28)
 //!
-//! Created 2026-09-28 by maintainer direction ("buangkok for dose") to
-//! reserve the name and state the scope, not to hold code. It has no
-//! dependencies and no behaviour. **Do not describe it as providing
-//! anything**, and do not cite it as the location of any dose calculation.
+//! ~~PLACEHOLDER. Nothing is implemented.~~ **CHANGED 2026-09-28:** the crate
+//! holds the published HTR-10 dose tables (see below). A port of pyDOSEIA
+//! (Sadhu et al., *Health Physics* 130(1) (2026) 94-110,
+//! doi:10.1097/HP.0000000000002014) is in progress and lands in a following
+//! commit. Nothing here computes a dose yet.
 //!
 //! # Why dose has its own crate
 //!
@@ -37,28 +38,33 @@
 //!
 //! # Already in the workspace, not yet here
 //!
-//! Two published HTR-10 dose-versus-distance tables are stored in `changi`,
-//! parked there by the maintainer: normal operation (Liu and Cao 2002,
-//! Table 7, `changi::activity::published_dose_by_distance`) and two
-//! design-basis accidents (Table 9,
-//! `changi::activity::published_accident_dose_by_distance`, added
-//! 2026-09-28). Whether and when they move here is the maintainer's call; do
-//! not move them unasked.
+//! ~~Two published HTR-10 dose-versus-distance tables are stored in `changi`,
+//! parked there by the maintainer … do not move them unasked.~~ **MOVED
+//! 2026-09-28** (maintainer: "move table 7 and 9 to buangkok"): the published
+//! HTR-10 dose tables now live here, in [`published`] — normal operation
+//! (Liu and Cao 2002, Table 7) and two design-basis accidents (Table 9).
+//! They are stored reference data; nothing in this crate computes a dose
+//! from them.
 #![forbid(unsafe_code)]
+
+/// Published dose tables (Liu and Cao 2002, Tables 7 and 9), stored as cited
+/// reference data. See the module docs.
+pub mod published;
 
 /// The scope this crate reserves, as a machine-readable string.
 ///
-/// Exists so the placeholder has *something* testable and so a downstream
-/// `use buangkok::SCOPE;` fails loudly if the crate is ever repurposed without
-/// updating its own documentation.
+/// Created when the crate was a placeholder (2026-09-28) so it had something
+/// testable. It is kept so that a downstream `use buangkok::SCOPE;` fails
+/// loudly if the crate is ever repurposed without updating its own
+/// documentation.
 pub const SCOPE: &str = "radiation dose and bioeffects for research-grade safety analysis";
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The placeholder is a placeholder. This asserts the crate builds and
-    /// links, which is the only claim it is entitled to make.
+    /// The scope string still names dose. (Written for the placeholder;
+    /// the pyDOSEIA port carries its own tests.)
     #[test]
     fn the_scope_is_recorded() {
         assert!(SCOPE.contains("dose"));

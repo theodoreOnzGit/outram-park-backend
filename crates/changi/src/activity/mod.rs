@@ -25,13 +25,13 @@
 //! **It computes no dose quantity of any kind**, and none is planned here. See
 //! the scope limit below, which is binding.
 //!
-//! ~~One published dose table is~~ **CORRECTED 2026-09-28: two published
-//! dose tables are** *stored* here as cited reference data. The first is
-//! [`published_dose_by_distance`] (added 2026-09-28). It is read from a CSV,
-//! not computed, and nothing uses it. Storing it does not change the
-//! sentence above or the scope limit. **Added 2026-09-28:** a second one,
-//! the same paper's accident doses, [`published_accident_dose_by_distance`],
-//! on exactly the same terms.
+//! ~~One published dose table is~~ ~~two published dose tables are *stored*
+//! here as cited reference data~~ **MOVED 2026-09-28** (maintainer: "move
+//! table 7 and 9 to buangkok"): the published HTR-10 dose tables (Liu and Cao
+//! 2002, Tables 7 and 9) now live in the dose crate, `buangkok::published`.
+//! This module holds no dose data. The accident releases (Table 8) stay here
+//! as a nuclide table, and `AccidentCase` is defined in
+//! [`accident_airborne_release`].
 //!
 //! ## Relationship to the two ports — a consumer, not a shared abstraction
 //!
@@ -90,15 +90,6 @@ pub mod decay_transfer;
 /// measured magnitudes rather than round illustrative numbers. An inventory
 /// is NOT a source term -- see the module docs.
 pub mod inventory;
-/// Published HTR-10 normal-operation dose-versus-distance table (Liu and Cao
-/// 2002, Table 7): stored reference data, **not** a dose this crate computes.
-/// Nothing in this crate consumes it.
-pub mod published_dose_by_distance;
-/// Published HTR-10 accident dose-versus-distance table (Liu and Cao 2002,
-/// Table 9; depressurization and water ingress, thyroid and whole-body, mSv):
-/// stored reference data, **not** a dose this crate computes. Nothing in this
-/// crate consumes it.
-pub mod published_accident_dose_by_distance;
 /// Published HTR-10 primary-helium activity at the end of a 20-year full-power
 /// life (Liu and Cao 2002, Table 3). Reference data only; nothing in this
 /// crate consumes it.

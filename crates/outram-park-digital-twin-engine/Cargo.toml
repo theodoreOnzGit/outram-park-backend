@@ -149,6 +149,14 @@ outram-park-fork-coolprop.workspace = true
 # fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
 boon-lay.workspace = true
 
+# htgr_sim_v1's fuel node (gh:#360, 2026-09-28) needs the heat capacity of the
+# TRISO kernel and SiC coating: `outram-park-fork-offbeat`'s MATPRO UO2 and
+# Snead SiC correlations, reused rather than re-entered. DEV-dependency for the
+# same reason as `boon-lay`: example-only, and this crate's CLAUDE.md forbids
+# new physics in the library. Pure Rust (uom, thiserror, outram-foam-basic-lib,
+# which this crate already uses), so Android and wasm stay clean.
+outram-park-fork-offbeat.workspace = true
+
 # htgr_sim_v1's atmospheric dispersion channel
 # (`physics::atmospheric_dispersion`) takes the TRISO release channel's
 # circulating activity out of the primary circuit and downwind, using

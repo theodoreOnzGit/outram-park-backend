@@ -47,7 +47,7 @@
 //! | Region | Nodes | What is assumed uniform inside |
 //! |---|---|---|
 //! | Pebble bed (all 27,000 elements) | **1** | temperature, burnup, power density, graphite properties |
-//! | Inside a single pebble | **1** | fuel kernel, graphite matrix and outer shell are one temperature |
+//! | Inside a single pebble | ~~**1**~~ **2** (2026-09-28) | ~~fuel kernel, graphite matrix and outer shell are one temperature~~ the TRISO particles are the **fuel node** (`physics::kinetics`); matrix and shell are this node, with the resolved profile between them |
 //! | Helium in the bed | **0 (external)** | supplied by the caller as one bulk mean temperature |
 //! | Reflector, core barrel, vessel | **0** | not modelled at all |
 //!
@@ -102,9 +102,14 @@
 //!   5.0 m^3 (see [`tests::bed_geometry_reproduces_the_published_core`]).
 //! - **The energy balance is a real first-order balance** on the pebble
 //!   enthalpy: `C dT/dt = Q_fission - h A (T_pebble - T_helium)`, integrated
-//!   explicitly. The graphite thermal inertia it carries -- about 9.0 MJ/K over
-//!   5.28 t of graphite -- is a genuine consequence of the published geometry
-//!   and density, and it is what makes a pebble-bed core respond slowly.
+//!   explicitly. The graphite thermal inertia it carries -- ~~about 9.0 MJ/K over
+//!   5.28 t of graphite~~ **8.87 MJ/K at 950 K over 5.13 t** since 2026-09-28
+//!   (the coated particles, 2.9 % of the ball volume, moved to the fuel node,
+//!   and `c_p(T)` replaced the constant) -- is a genuine consequence of the
+//!   published geometry and density, and it is what makes a pebble-bed core
+//!   respond slowly. ~~"fission power heats the pebbles"~~ **CHANGED
+//!   2026-09-28 (gh:#360):** fission and decay heat are deposited in the fuel
+//!   node, which conducts to this node; see [`FuelBedCoupling`].
 //!
 //! ## What is still illustrative -- read this before trusting any number
 //!
@@ -168,11 +173,18 @@
 //!   [`PebbleBedPorousMediaNode::peak_kernel_temperature`]. Still absent: a
 //!   power peaking factor, so this is the peak kernel of a *core-average*
 //!   pebble, and there is no burnup, so fluence is zero.
-//! - **Graphite `c_p` is one constant**, representative of graphite near
+//! - ~~**Graphite `c_p` is one constant**, representative of graphite near
 //!   1000 K. Real graphite `c_p` rises from about 710 J/(kg K) at 300 K to
 //!   about 1700 J/(kg K) at 1000 K, so the constant is badly wrong cold and
 //!   roughly right hot. No temperature- or fluence-dependent graphite property
-//!   set exists in this workspace.
+//!   set exists in this workspace.~~ **CORRECTED 2026-09-28** -- the claim was
+//!   false when written (`tuas_boussinesq_solver` has carried Butland &
+//!   Maddison graphite cp since 2026-08-11), and the constant is gone: the bed
+//!   reads [`graphite_specific_heat`] (`tuas`'s
+//!   `NuclearGraphiteMatrixA3HighTemp`, Butland & Maddison polynomial 3,
+//!   250-3000 K) at the live bed temperature and closes its balance on the
+//!   exact graphite enthalpy. Fluence-dependent *conductivity* exists in `tuas`
+//!   but is not threaded here (fluence is zero; gh:#361).
 //! - **The illustrative constants are grouped**, deliberately, in the
 //!   `Illustrative closure constants` block below, so no invented number is
 //!   mixed in with the published geometry above it. Replacing the invented
@@ -202,7 +214,6 @@
 use outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint;
 use outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity;
 use uom::si::area::square_meter;
-use uom::si::available_energy::joule_per_kilogram;
 use uom::si::{f64::*, temperature_interval};
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
@@ -212,14 +223,23 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
 use outram_park_digital_twin_engine::htr10::kta;
-use tampines::pebble_bed::pebble::{Pebble, PebbleTemperatureProfile};
+use tampines::pebble_bed::pebble::{
+    htr10_silicon_carbide_density, htr10_uranium_dioxide_density, Pebble, PebbleTemperatureProfile,
+};
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_enthalpy::{
+    try_get_h, try_get_temperature_from_h,
+};
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{Material, SolidMaterial};
+use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacityModel;
+use outram_park_fork_offbeat::materials::MaterialState;
 use outram_foam_basic_lib::prelude::SquareMatrix;
 use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, viscosity};
 use uom::si::thermal_resistance::kelvin_per_watt;
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::DynamicViscosity;
-use uom::si::specific_heat_capacity::{kilojoule_per_kilogram_kelvin, joule_per_kilogram_kelvin};
+use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
@@ -295,13 +315,70 @@ pub fn heavy_metal_per_pebble() -> Mass {
 // Illustrative closure constants -- NOT published data
 // ---------------------------------------------------------------------------
 
-/// Graphite isobaric specific heat \[J/(kg K)\], held **constant**
+/// ~~Graphite isobaric specific heat \[J/(kg K)\], held **constant**
 /// (illustrative). 1700 J/(kg K) is representative of nuclear graphite near
 /// 1000 K, which is where this core operates; it is badly wrong below about
 /// 600 K, where real graphite `c_p` falls toward 710 J/(kg K). A
 /// temperature-dependent graphite property set is recorded as MISSING in
-/// `docs/reactor-scoping/htr10.md` and is not implemented here.
-pub const GRAPHITE_CP_J_PER_KG_K: f64 = 1700.0;
+/// `docs/reactor-scoping/htr10.md` and is not implemented here.~~
+///
+/// **RETIRED 2026-09-28 — no longer in the heat path.** ~~"A
+/// temperature-dependent graphite property set is ... MISSING"~~ **CORRECTED
+/// 2026-09-28** — it was not missing: `tuas_boussinesq_solver` has carried the
+/// Butland & Maddison graphite cp since 2026-08-11. The bed now reads
+/// [`graphite_specific_heat`] — `tuas`'s
+/// [`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`], Butland & Maddison
+/// polynomial 3, evaluated at the live bed temperature every step (713 J/(kg K)
+/// at 300 K, 1760 at 1000 K, 2023 at 2000 K). Kept, renamed, only so the
+/// before/after comparison in the tests can be made against the number it
+/// replaced.
+pub const LEGACY_GRAPHITE_CP_J_PER_KG_K: f64 = 1700.0;
+
+/// The pebble matrix and shell graphite, as a `tuas_boussinesq_solver`
+/// material: [`SolidMaterial::NuclearGraphiteMatrixA3HighTemp`] (maintainer
+/// direction 2026-09-28: "wire the graphite from tuas into the htgr_sim_v1").
+///
+/// The high-temperature variant, not the base `NuclearGraphiteMatrixA3`,
+/// because this plant's shipped opening condition takes the bed past 2000 K
+/// (gh:#350, gh:#351), where the base variant refuses. Below 2000 K the two
+/// have the same conductivity to the last bit; the cp is Butland & Maddison
+/// polynomial 3 in both (thermochemical vs International Table calorie,
+/// 0.067 % apart). **Above 2000 K the conductivity is extrapolated** — see the
+/// variant's doc comment.
+pub const PEBBLE_GRAPHITE: SolidMaterial = SolidMaterial::NuclearGraphiteMatrixA3HighTemp;
+
+/// Pressure handed to the `tuas` solid-property dispatchers. Solid properties
+/// in `tuas` ignore it; the primary pressure is passed so the call reads as
+/// what it is.
+fn property_pressure() -> Pressure {
+    design().primary_pressure
+}
+
+/// Isobaric specific heat of the pebble graphite at `temperature`, from
+/// [`PEBBLE_GRAPHITE`] (Butland & Maddison polynomial 3).
+///
+/// # Panics
+///
+/// Outside the variant's 300-3000 K window. Below 300 K the bed would be
+/// colder than the 50 degC RCCS boundary it can only lose heat to; above
+/// 3000 K the fuel has long since failed and there is no property set to
+/// extrapolate to. Either is a model defect, and per this workspace's
+/// stale-state policy it stops the run rather than carrying on with a number
+/// from outside the correlation.
+pub fn graphite_specific_heat(temperature: ThermodynamicTemperature) -> SpecificHeatCapacity {
+    try_get_cp(
+        Material::Solid(PEBBLE_GRAPHITE),
+        temperature,
+        property_pressure(),
+    )
+    .unwrap_or_else(|e| {
+        panic!(
+            "pebble graphite cp: bed temperature {} K left the 300-3000 K window of \
+                 NuclearGraphiteMatrixA3HighTemp: {e:?}",
+            temperature.get::<kelvin>()
+        )
+    })
+}
 
 /// Legacy lumped pebble-to-helium coefficient at nominal flow \[W/(m^2 K)\]
 /// (**illustrative**), retained only as the comparison baseline.
@@ -369,10 +446,6 @@ pub fn nominal_helium_flow_kg_per_s() -> f64 {
     nominal_helium_flow().get::<kilogram_per_second>()
 }
 
-/// Reference temperature for the pebble enthalpy scale \[K\]: enthalpy is
-/// defined zero at 298.15 K.
-const REFERENCE_TEMPERATURE_K: f64 = 298.15;
-
 /// Bed temperature the model is seeded at \[K\] (illustrative, ~677 degC).
 ///
 /// Chosen as the settled full-power bed average so the simulator opens near its
@@ -427,10 +500,24 @@ pub fn pebble_volume() -> Volume {
         * Ratio::new::<ratio>(std::f64::consts::PI / 6.0)
 }
 
-/// Mass of one spherical fuel element \[kg\], graphite only (the 5 g of heavy
-/// metal is under 3% of the ball and is not counted in the thermal mass).
+/// Volume of **graphite** in one fuel element \[m^3\]: the ball less the
+/// coated particles dispersed in it, `pi d^3/6 - N_p V_particle` (113.10 -
+/// 3.29 = 109.81 cm^3 for HTR-10).
+///
+/// ~~"graphite only (the 5 g of heavy metal is under 3% of the ball and is not
+/// counted in the thermal mass)"~~ **CHANGED 2026-09-28 (gh:#360)** — the
+/// particles are no longer smeared into the graphite. They are the fuel node
+/// ([`fuel_node_heat_capacity`]), so counting their 2.9 % of the ball volume
+/// as graphite here as well would count that mass twice.
+pub fn pebble_graphite_volume() -> Volume {
+    let pebble = resolved_pebble();
+    pebble_volume() - pebble.particle.particle_volume() * pebble.particles_per_pebble
+}
+
+/// Graphite mass of one spherical fuel element \[kg\]: matrix plus shell,
+/// the coated particles excluded (see [`pebble_graphite_volume`]).
 pub fn pebble_mass() -> Mass {
-    graphite_density() * pebble_volume()
+    graphite_density() * pebble_graphite_volume()
 }
 
 /// Total graphite mass held in the bed \[kg\]: `N * m_pebble`.
@@ -446,12 +533,18 @@ pub fn heat_transfer_area() -> Area {
         * Ratio::new::<ratio>(std::f64::consts::PI * pebble_count())
 }
 
-/// Lumped thermal capacitance of the bed \[J/K\]: `m_graphite * c_p`, using the
-/// constant graphite `c_p` above.
-pub fn bed_heat_capacity() -> HeatCapacity {
-    HeatCapacity::new::<joule_per_kelvin>(
-        graphite_mass().get::<kilogram>() * GRAPHITE_CP_J_PER_KG_K,
-    )
+/// Lumped thermal capacitance of the bed's graphite \[J/K\] at
+/// `temperature`: `m_graphite * c_p(T)`, with `c_p` from [`PEBBLE_GRAPHITE`].
+///
+/// ~~"using the constant graphite `c_p` above"~~ **CHANGED 2026-09-28** —
+/// temperature dependent now: 8.87 MJ/K at the 950 K design point (against
+/// 8.98 MJ/K from the retired 1700 J/(kg K) on the old, particle-inclusive
+/// mass), 3.64 MJ/K at 300 K and 10.23 MJ/K at 2000 K. The bed step itself
+/// integrates the **enthalpy** rather than this capacitance, so the balance is
+/// exact even though `c_p` moves inside a step; see
+/// [`PebbleBedPorousMediaNode::step`].
+pub fn bed_heat_capacity(temperature: ThermodynamicTemperature) -> HeatCapacity {
+    graphite_mass() * graphite_specific_heat(temperature)
 }
 
 /// Fraction of the bed cylinder occupied by pebbles, derived from the published
@@ -523,8 +616,305 @@ pub fn wakao_nusselt(reynolds: f64, prandtl: f64) -> f64 {
 /// module transcribes the geometry from IAEA-TECDOC-1382 part 2 Chapter 4,
 /// and its conductivities come from `tuas_boussinesq_solver`'s A3 graphite
 /// correlation. A second copy of any of that here would be a copy that drifts.
+///
+/// **CHANGED 2026-09-28 (gh:#350, gh:#351): the high-temperature window.**
+/// ~~`Pebble::htr10()`~~ — now [`Pebble::htr10_high_temperature`], which is
+/// bit-identical at or below 2000 K and keeps resolving to 3000 K with the
+/// matrix graphite from `tuas`'s `NuclearGraphiteMatrixA3HighTemp`. So the
+/// resolved pebble, the fuel-to-bed coupling and the kernel/SiC temperatures
+/// no longer drop out at 2000 K. **Above 2000 K every conductivity in the
+/// stack is extrapolated** (see `tampines::pebble_bed::triso::CorrelationWindow`);
+/// the energy balance and the feedback stay continuous, but a fuel temperature
+/// read above 2000 K is not a validated number.
 pub fn resolved_pebble() -> Pebble {
-    Pebble::htr10()
+    Pebble::htr10_high_temperature()
+}
+
+// ---------------------------------------------------------------------------
+// The fuel node -- TRISO kernels and coatings (2026-09-28, gh:#360)
+// ---------------------------------------------------------------------------
+
+/// The TRISO coated particles of the whole core, as one lumped **fuel node**
+/// heat capacity \[J/K\] at fuel temperature `fuel_temperature`.
+///
+/// ```text
+/// C_fuel = N_pebbles N_particles sum_layers rho_i V_i c_p,i(T_fuel)
+/// ```
+///
+/// Every input is published or comes from a workspace property library:
+///
+/// | Layer | Volume | Density | `c_p` |
+/// |---|---|---|---|
+/// | UO2 kernel | radius 250 um | 10.4 g/cm^3 ([`htr10_uranium_dioxide_density`]) | OFFBEAT `MatproUo2` (MATPRO-v11), 300-3113 K |
+/// | buffer | 250-340 um | 1.1 g/cm^3 (particle field) | graphite, [`PEBBLE_GRAPHITE`] |
+/// | IPyC | 340-380 um | 1.9 g/cm^3 (particle field) | graphite, [`PEBBLE_GRAPHITE`] |
+/// | SiC | 380-415 um | 3.18 g/cm^3 ([`htr10_silicon_carbide_density`]) | OFFBEAT `SneadSiC` (Snead et al. 2007), 200-2400 K |
+/// | OPyC | 415-455 um | 1.9 g/cm^3 (particle field) | graphite, [`PEBBLE_GRAPHITE`] |
+///
+/// Geometry and densities: IAEA-TECDOC-1382 part 2, Table 4-17, via
+/// `tampines`. 27 000 pebbles x 8335 particles.
+///
+/// **Assumptions, stated.** (1) Pyrolytic carbon and the porous buffer carry
+/// graphite's specific heat per unit mass — cp is phonon-dominated and
+/// insensitive to microstructure, the same argument `tuas` makes for treating
+/// graphite cp as grade-insensitive; the porosity enters through the density.
+/// (2) All five layers are evaluated at the one fuel temperature: the whole
+/// particle spans ~8 K at core-average power, and the layers equilibrate with
+/// the kernel in tens of milliseconds (particle diffusion time
+/// `r^2 / alpha ~ (0.46 mm)^2 / 1e-5 m^2/s ~ 0.02 s`), against a 1 ms kinetics
+/// substep that does resolve it and a 0.1 s plant step that does not need to.
+/// (3) **Above 2400 K the SiC cp is held at its 2400 K value** (OFFBEAT's
+/// `value` clamps to the stated window rather than extrapolating); SiC is
+/// ~22 % of this capacity and its cp is nearly flat there, and SiC
+/// decomposes in that regime in any case.
+///
+/// **Magnitude (2026-09-28):** see
+/// `tests::the_fuel_node_capacity_is_the_particles_and_nothing_else`: about
+/// 0.27 MJ/K at 950 K, ~3 % of the bed's graphite.
+///
+/// # Panics
+///
+/// Outside 300-3000 K (the graphite and UO2 windows), per the stale-state
+/// policy stated on [`graphite_specific_heat`].
+pub fn fuel_node_heat_capacity(fuel_temperature: ThermodynamicTemperature) -> HeatCapacity {
+    let pebble = resolved_pebble();
+    let particle = pebble.particle;
+    let shell = |r_in: Length, r_out: Length| -> Volume {
+        (r_out * r_out * r_out - r_in * r_in * r_in)
+            * Ratio::new::<ratio>(4.0 * std::f64::consts::PI / 3.0)
+    };
+    let zero = Length::new::<meter>(0.0);
+    let t_k = fuel_temperature.get::<kelvin>();
+
+    let cp_uo2 = HeatCapacityModel::MatproUo2
+        .value_checked(&MaterialState::fresh(t_k))
+        .unwrap_or_else(|e| panic!("UO2 kernel cp at {t_k} K: {e:?}"));
+    // Clamped at 2400 K above its stated window -- see the doc comment.
+    let cp_sic = HeatCapacityModel::SneadSiC.value(&MaterialState::fresh(t_k));
+    let cp_carbon = graphite_specific_heat(fuel_temperature).get::<joule_per_kilogram_kelvin>();
+
+    let kg = |v: Volume, rho: MassDensity| (v * rho).get::<kilogram>();
+    let per_particle_j_per_k = kg(
+        shell(zero, particle.kernel_radius),
+        htr10_uranium_dioxide_density(),
+    ) * cp_uo2
+        + kg(
+            shell(particle.kernel_radius, particle.buffer_outer_radius),
+            particle.buffer_density,
+        ) * cp_carbon
+        + kg(
+            shell(
+                particle.buffer_outer_radius,
+                particle.inner_pyc_outer_radius,
+            ),
+            particle.pyrocarbon_density,
+        ) * cp_carbon
+        + kg(
+            shell(
+                particle.inner_pyc_outer_radius,
+                particle.silicon_carbide_outer_radius,
+            ),
+            htr10_silicon_carbide_density(),
+        ) * cp_sic
+        + kg(
+            shell(
+                particle.silicon_carbide_outer_radius,
+                particle.outer_pyc_outer_radius,
+            ),
+            particle.pyrocarbon_density,
+        ) * cp_carbon;
+
+    HeatCapacity::new::<joule_per_kelvin>(
+        per_particle_j_per_k * pebble.particles_per_pebble * pebble_count(),
+    )
+}
+
+/// The temperatures of the fuel stack a downstream model needs, each placed
+/// by [`FuelBedCoupling::stack`] on the line between the bed and the fuel
+/// node (2026-09-28, gh:#360).
+///
+/// All are **core-average-pebble** temperatures (one bed node: no peaking
+/// factor, no axial shape, no burnup).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FuelStackTemperatures {
+    /// Inventory-averaged kernel temperature -- the fuel node itself. What
+    /// TRISO-ATOPS's per-node fuel temperature and the Doppler feedback want.
+    pub kernel: ThermodynamicTemperature,
+    /// Mean temperature of the average particle's SiC layer -- governs silver
+    /// breakthrough and SiC pressure-vessel failure.
+    pub silicon_carbide: ThermodynamicTemperature,
+    /// Fuelled-zone matrix graphite mean -- the diffusion path TRISO-ATOPS's
+    /// graphite hold-up term describes (the 5 mm unfuelled shell is cooler
+    /// and carries no fission products of its own).
+    pub fuelled_zone_matrix: ThermodynamicTemperature,
+    /// Hottest kernel centre (hottest particle at the pebble centre) -- for
+    /// limits and display, not for an inventory-weighted release.
+    ///
+    /// **A linear placement, not a property evaluation:** it scales the
+    /// steady profile's peak-to-average ratio with the fuel node's offset, so
+    /// in a large prompt burst it can read above the 3000 K window and past
+    /// UO2 melting (measured 4324.9 K in the gh:#351 +12.97 $ excursion,
+    /// `physics::tests::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack`)
+    /// without anything refusing. Treat any value above ~3000 K as "beyond
+    /// the model", not as a temperature.
+    pub peak_kernel: ThermodynamicTemperature,
+}
+
+/// How the fuel node couples to the bed, read off one resolved pebble solve.
+///
+/// # The two-node picture this belongs to (gh:#360, maintainer direction 2026-09-28)
+///
+/// ```text
+///  f_prompt P + P_decay
+///          |
+///          v
+///   [FUEL NODE T_fuel] --(T_fuel - T_bed)/R--> [BED T_bed] --hA--> [helium] --> loop
+///   kernels + coatings                         matrix+shell    \
+///   C_fuel ~0.27 MJ/K                          C_bed ~8.9 MJ/K  +--(ZBS conduction+radiation)--> [reflector] --> RPV --> RCCS
+/// ```
+///
+/// `T_fuel` is the **inventory-averaged kernel temperature** — every kernel
+/// weighted equally, which is what both the Doppler feedback (a whole-core
+/// fuel temperature) and TRISO-ATOPS's per-node fuel temperature want. The
+/// bed is the ball's volume-average graphite temperature.
+///
+/// # Where `R` comes from — derived, not fitted
+///
+/// At steady state the average kernel sits above the ball's volume average by
+///
+/// ```text
+/// (<T_matrix>_fuelled zone - <T>_ball) + (<T_kernel> - T_particle surface)
+/// ```
+///
+/// — the fuelled-zone matrix runs hotter than the whole-ball average because
+/// the unfuelled 5 mm shell is cooler, and each particle adds its own internal
+/// rise. The fuelled-zone mean of the parabolic profile is `T_a + (2/5)(T_0 - T_a)`
+/// (the same 2/5 `tampines::pebble_bed::pebble::Pebble::volume_average_temperature`
+/// derives), and the kernel's own volume mean above the particle surface is
+/// `(T_ks - T_s) + (2/5)(T_kc - T_ks)`. Dividing by the pebble's power gives a
+/// per-pebble resistance; over 27 000 pebbles in parallel, the core value.
+///
+/// The fractions below place the other layers on the same line, so any
+/// temperature in the stack follows the dynamic fuel node rather than a
+/// separate quasi-static solve:
+///
+/// ```text
+/// T_x = T_bed + fraction_x (T_fuel - T_bed)
+/// ```
+///
+/// which at steady state reproduces the resolved profile exactly and in a
+/// transient scales the whole stack with the heat actually leaving the fuel.
+///
+/// # What it assumes
+///
+/// Two nodes, so the matrix's own heat capacity is all in the bed: after a
+/// power step the kernel offset reaches its new steady value on the fuel
+/// node's own time constant (`R C_fuel`, a fraction of a second), whereas the
+/// real fuelled-zone matrix profile develops over the pebble's conduction time
+/// (`a^2/alpha ~ 60 s`). The fuel temperature therefore responds somewhat
+/// **faster** to a power change than a fully resolved pebble would — the same
+/// approximation the retired kernel Doppler channel made with its
+/// instantaneous `R P`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FuelBedCoupling {
+    /// Core-level conduction resistance from the inventory-averaged kernel to
+    /// the bed's volume average \[K/W of the core's fuel-to-bed heat flow\].
+    pub resistance: ThermalResistance,
+    /// Where the **fuelled-zone matrix** mean sits on the fuel-bed line
+    /// (dimensionless, in `(0, 1)`). The graphite temperature TRISO-ATOPS's
+    /// matrix hold-up wants.
+    pub fuelled_zone_matrix_fraction: f64,
+    /// Where the average particle's **SiC layer** mean sits (in `(0, 1)`) —
+    /// the temperature that governs silver breakthrough and SiC failure.
+    pub silicon_carbide_fraction: f64,
+    /// Where the **peak kernel centre** (hottest particle, pebble centre)
+    /// sits — above 1, since it is hotter than the inventory average. For
+    /// limits and display.
+    pub peak_kernel_fraction: f64,
+}
+
+impl FuelBedCoupling {
+    /// Read the coupling off a resolved `profile` whose volume average is the
+    /// bed temperature, solved at per-pebble power `pebble_power`. `None` when
+    /// the power is too small for the quotient to mean anything or the rise is
+    /// not positive.
+    pub fn from_profile(profile: &PebbleTemperatureProfile, pebble_power: Power) -> Option<Self> {
+        let pebble = resolved_pebble();
+        let power_w = pebble_power.get::<watt>();
+        if !(power_w > 0.0) {
+            return None;
+        }
+        let k = |t: ThermodynamicTemperature| t.get::<kelvin>();
+        let ball_average = k(pebble.volume_average_temperature(profile));
+        let t_a = k(profile.fuelled_zone_boundary);
+        let fuelled_zone_mean = t_a + 0.4 * (k(profile.centre) - t_a);
+        let particle = profile.hottest_particle;
+        let t_s = k(particle.particle_surface);
+        let kernel_rise = (k(particle.kernel_surface) - t_s)
+            + 0.4 * (k(particle.kernel_centre) - k(particle.kernel_surface));
+        let sic_rise =
+            0.5 * (k(particle.inner_pyc_outer) + k(particle.silicon_carbide_outer)) - t_s;
+
+        let matrix_offset = fuelled_zone_mean - ball_average;
+        let total = matrix_offset + kernel_rise;
+        if !(total.is_finite() && total > 0.0) {
+            return None;
+        }
+        let per_pebble_k_per_w = total / power_w;
+        Some(Self {
+            resistance: ThermalResistance::new::<kelvin_per_watt>(
+                per_pebble_k_per_w / pebble_count(),
+            ),
+            fuelled_zone_matrix_fraction: matrix_offset / total,
+            silicon_carbide_fraction: (matrix_offset + sic_rise) / total,
+            peak_kernel_fraction: (k(profile.peak_kernel_centre) - ball_average) / total,
+        })
+    }
+
+    /// The design-point coupling: the resolved pebble at the bed's seed
+    /// temperature and the core-average pebble power. Used to set the fuel
+    /// node's reference temperature and initial state so the plant opens at
+    /// its design point with the fuel already sitting its steady offset above
+    /// the bed.
+    ///
+    /// # Panics
+    ///
+    /// If the design point does not resolve — a construction-time defect, not a
+    /// transient excursion.
+    pub fn at_design_point() -> Self {
+        let design_bed = ThermodynamicTemperature::new::<kelvin>(SEED_BED_TEMPERATURE_K);
+        let power = core_average_pebble_power();
+        resolved_pebble_profile(design_bed, power)
+            .as_ref()
+            .and_then(|p| Self::from_profile(p, power))
+            .expect("the HTR-10 design point must resolve a fuel-to-bed coupling")
+    }
+
+    /// Every temperature of the fuel stack, placed on the fuel-bed line
+    /// between the bed node `bed` and the fuel node `fuel`. See
+    /// [`FuelStackTemperatures`].
+    pub fn stack(
+        &self,
+        bed: ThermodynamicTemperature,
+        fuel: ThermodynamicTemperature,
+    ) -> FuelStackTemperatures {
+        FuelStackTemperatures {
+            kernel: fuel,
+            silicon_carbide: Self::interpolate(self.silicon_carbide_fraction, bed, fuel),
+            fuelled_zone_matrix: Self::interpolate(self.fuelled_zone_matrix_fraction, bed, fuel),
+            peak_kernel: Self::interpolate(self.peak_kernel_fraction, bed, fuel),
+        }
+    }
+
+    /// A temperature at `fraction` of the way from `bed` to `fuel`.
+    pub fn interpolate(
+        fraction: f64,
+        bed: ThermodynamicTemperature,
+        fuel: ThermodynamicTemperature,
+    ) -> ThermodynamicTemperature {
+        let b = bed.get::<kelvin>();
+        ThermodynamicTemperature::new::<kelvin>(b + fraction * (fuel.get::<kelvin>() - b))
+    }
 }
 
 /// Core-average power of one fuel element \[W\]: rated thermal power over the
@@ -586,21 +976,27 @@ pub fn core_average_pebble_power() -> Power {
 ///
 /// ## Failure
 ///
-/// Outside `tampines`' 300-2000 K correlation window, or if either fixed-point
-/// iteration fails, this falls back to the retired uniform-ball form and says
-/// so in the returned value's provenance only by being finite — the caller
-/// cannot tell. That is deliberate: a plant step must not panic on a transient
-/// excursion, and the fallback is the *old* model, which was usable. The V&V
-/// test pins the normal path.
+/// ~~Outside `tampines`' 300-2000 K correlation window, or if either
+/// fixed-point iteration fails, this falls back to the retired uniform-ball
+/// form and says so in the returned value's provenance only by being finite —
+/// the caller cannot tell. That is deliberate: a plant step must not panic on
+/// a transient excursion, and the fallback is the *old* model, which was
+/// usable.~~ **CHANGED 2026-09-28 (maintainer direction: graphite
+/// conductivity "wired correctly", fail loud rather than fall back).** The
+/// silent fallback to an invented `k = 25 W/(m K)` is gone: outside the
+/// high-temperature pebble's 300-3000 K window, or on a non-converged solve,
+/// this **panics** with the reason `tampines` gave (see
+/// [`resolved_pebble_profile_checked`]) — the same policy as
+/// [`graphite_specific_heat`]. Below 3000 K there is no longer any excursion
+/// that reaches it; above 3000 K there is no property set to fall back to.
 pub fn intra_pebble_conduction_coefficient(
     node_temperature: ThermodynamicTemperature,
     pebble_power: Power,
 ) -> HeatTransfer {
     let power = floored_pebble_power(pebble_power);
-    conduction_coefficient_from(
-        resolved_pebble_profile(node_temperature, power).as_ref(),
-        power,
-    )
+    let profile = resolved_pebble_profile_checked(node_temperature, power)
+        .unwrap_or_else(|reason| panic!("{reason}"));
+    conduction_coefficient_from(Some(&profile), power)
 }
 
 /// Pebble power floored at 1 % of core-average -- see
@@ -635,9 +1031,17 @@ fn floored_pebble_power(pebble_power: Power) -> Power {
 /// move; removing it costs two extra fixed-point passes.
 ///
 /// So the surface is solved for: start at `T_s = T_node`, solve, measure the
-/// volume-average rise `r`, set `T_s <- T_node - r`, repeat. The rise depends
-/// on the surface only through `k(T)`, so this contracts hard and converges in
-/// two or three passes; 1e-6 K is the tolerance and 12 passes the cap.
+/// volume-average rise `r`, set `T_s <- T_node - r`, repeat. ~~The rise
+/// depends on the surface only through `k(T)`, so this contracts hard and
+/// converges in two or three passes; 1e-6 K is the tolerance and 12 passes the
+/// cap.~~ **CORRECTED 2026-09-28** -- true at core-average power, false in a
+/// prompt excursion: at 14.4 kW/pebble (measured on the plant's opening
+/// transient) the rise is ~370 K and the fixed point contracts by only ~0.3 per
+/// pass, oscillating, so it needed ~17 passes and the 12-pass cap returned
+/// `None` -- which the bed step silently turned into the invented
+/// `k = 25 W/(m K)` fallback. It is now one fixed-point pass followed by
+/// secant iteration on the residual `T_node - r(T_s) - T_s` (tolerance 1e-6 K,
+/// cap 60 passes), in [`resolved_pebble_profile_checked`].
 ///
 /// The returned profile's `surface` field is therefore the **true** pebble
 /// surface, and `volume_average_temperature` of it reproduces `node_temperature`
@@ -655,89 +1059,124 @@ pub fn resolved_pebble_profile(
     node_temperature: ThermodynamicTemperature,
     pebble_power: Power,
 ) -> Option<PebbleTemperatureProfile> {
+    resolved_pebble_profile_checked(node_temperature, pebble_power).ok()
+}
+
+/// [`resolved_pebble_profile`] **with the reason** when it fails — the fix
+/// gh:#350 asked for first ("surface it": `.ok()?` was throwing away a
+/// specific out-of-range message). The bed step and the intra-pebble
+/// coefficient use this and panic with the message rather than substitute
+/// anything.
+///
+/// Fluence is **zero** in both solves: this simulator has no burnup, so
+/// the unirradiated conductivity is used. Irradiated graphite and PyC conduct
+/// substantially worse, so at burnup this **over-states k and under-states the
+/// kernel temperature** — a known simplification (gh:#361 tracks threading a
+/// fluence through).
+pub fn resolved_pebble_profile_checked(
+    node_temperature: ThermodynamicTemperature,
+    pebble_power: Power,
+) -> Result<PebbleTemperatureProfile, String> {
     const TOLERANCE_K: f64 = 1.0e-6;
-    const MAX_PASSES: usize = 12;
+    const MAX_PASSES: usize = 60;
 
     let pebble = resolved_pebble();
     let power = floored_pebble_power(pebble_power);
     let node_k = node_temperature.get::<kelvin>();
-    let mut surface_k = node_k;
-
-    for _ in 0..MAX_PASSES {
-        let profile = pebble
+    let solve = |surface_k: f64| {
+        pebble
             .steady_state_temperatures(
                 power,
                 ThermodynamicTemperature::new::<kelvin>(surface_k),
                 Ratio::new::<ratio>(0.0),
             )
-            .ok()?;
+            .map_err(|e| {
+                format!(
+                    "resolved pebble at node {node_k} K, surface {surface_k} K, pebble power {} W: {e:?}",
+                    power.get::<watt>()
+                )
+            })
+    };
+    // Residual of the inversion: f(T_s) = T_node - rise(T_s) - T_s, zero when
+    // the profile's volume average is the node temperature.
+    let residual = |surface_k: f64| -> Result<(f64, PebbleTemperatureProfile), String> {
+        let profile = solve(surface_k)?;
         let rise = pebble.volume_average_temperature(&profile).get::<kelvin>() - surface_k;
         if !rise.is_finite() {
-            return None;
+            return Err(format!(
+                "resolved pebble at node {node_k} K: non-finite rise {rise}"
+            ));
         }
-        let next = node_k - rise;
-        if (next - surface_k).abs() < TOLERANCE_K {
-            // Return the profile solved AT the converged surface, not the one
-            // that produced it -- otherwise the reported surface and the
-            // reported interior are one pass out of step.
-            return pebble
-                .steady_state_temperatures(
-                    power,
-                    ThermodynamicTemperature::new::<kelvin>(next),
-                    Ratio::new::<ratio>(0.0),
-                )
-                .ok();
-        }
-        surface_k = next;
-    }
-    None
-}
+        Ok((node_k - rise - surface_k, profile))
+    };
 
-/// The **kernel-above-node** thermal resistance implied by an already-solved
-/// profile \[K/W of per-pebble power\], so a caller that needs the profile
-/// anyway does not solve it twice.
-///
-/// ```text
-/// R_kernel = (T_peak_kernel_centre - T_node) / P_pebble
-/// ```
-///
-/// `T_node` is the ball's **volume average**, which is what
-/// [`resolved_pebble_profile`] inverts for and therefore what the bed node's
-/// capacitance describes -- so this resistance and the node temperature refer
-/// to the same pebble, and their sum is the kernel. See
-/// [`PebbleBedPorousMediaNode::kernel_offset_resistance`] for why the slope is
-/// what crosses the module boundary rather than the temperature.
-///
-/// Returns `None` when there is no profile (outside the 300-2000 K correlation
-/// window) or when the power is too small for the quotient to mean anything.
-/// **There is no fallback here, deliberately**: the retired uniform ball had
-/// no kernel at all, so inventing a resistance for it would be inventing the
-/// very quantity this exists to supply. A `None` makes the Doppler channel
-/// fall back to the pre-2026-09-22 behaviour -- the bed node carrying the
-/// whole isothermal coefficient -- which is a model that was in service, not a
-/// fabrication. See [`crate::physics::kinetics::KernelDopplerChannel`].
-fn kernel_offset_resistance_from(
-    profile: Option<&PebbleTemperatureProfile>,
-    node_temperature: ThermodynamicTemperature,
-    pebble_power: Power,
-) -> Option<ThermalResistance> {
-    // The same floor the conduction leg uses, so the two legs of one profile
-    // are never evaluated at different powers.
-    let power_w = floored_pebble_power(pebble_power).get::<watt>();
-    if power_w <= 0.0 {
-        return None;
+    // ~~Plain fixed-point iteration T_s <- T_node - rise(T_s), 12 passes.~~
+    // CHANGED 2026-09-28: the fixed point contracts only by |d rise/d T_s|,
+    // which is ~0.3 (oscillating) at the ~14 kW/pebble a prompt excursion
+    // conducts -- it needs ~17 passes there, and the old 12-pass cap then
+    // returned `None`, which the bed step silently turned into the invented
+    // `k = 25 W/(m K)` fallback. Found the day that fallback was made to fail
+    // loud. Now: a linear starting estimate, one fixed-point pass to get a
+    // second point, then secant on the residual, which converges in a handful
+    // of passes at any power.
+    // Starting point: the LINEAR estimate `T_s = T_node - (r/P)_low P`, with
+    // the rise per watt taken from a 1 %-of-core-average solve at the node
+    // temperature (always inside the window). Starting at `T_s = T_node`
+    // instead puts the whole profile one rise too hot, which at excursion
+    // powers (~20 kW/pebble) pushes the trial kernel past the 3000 K window
+    // even though the converged profile sits well inside it.
+    let low_power = core_average_pebble_power() * 0.01;
+    let low_profile = pebble
+        .steady_state_temperatures(low_power, node_temperature, Ratio::new::<ratio>(0.0))
+        .map_err(|e| format!("resolved pebble at node {node_k} K, low-power start: {e:?}"))?;
+    let rise_per_watt = (pebble
+        .volume_average_temperature(&low_profile)
+        .get::<kelvin>()
+        - node_k)
+        / low_power.get::<watt>();
+    let mut s0 = node_k - rise_per_watt * power.get::<watt>();
+    let (mut f0, mut p0) = residual(s0)?;
+    if f0.abs() < TOLERANCE_K {
+        return Ok(p0);
     }
-    let rise_k = profile?.peak_kernel_centre.get::<kelvin>() - node_temperature.get::<kelvin>();
-    if !rise_k.is_finite() || rise_k <= 0.0 {
-        return None;
+    let mut s1 = s0 + f0;
+    for _ in 0..MAX_PASSES {
+        let (f1, p1) = residual(s1)?;
+        if f1.abs() < TOLERANCE_K {
+            return Ok(p1);
+        }
+        let denominator = f1 - f0;
+        let next = if denominator.abs() > 1e-12 {
+            s1 - f1 * (s1 - s0) / denominator
+        } else {
+            s1 + f1
+        };
+        s0 = s1;
+        f0 = f1;
+        p0 = p1;
+        s1 = next;
     }
-    Some(ThermalResistance::new::<kelvin_per_watt>(rise_k / power_w))
+    let _ = p0;
+    Err(format!(
+        "resolved pebble at node {node_k} K: surface inversion did not converge in \
+         {MAX_PASSES} secant passes (pebble power {} W, last surface {s1} K)",
+        power.get::<watt>()
+    ))
 }
 
 /// The conduction coefficient implied by an already-solved profile, so a
 /// caller that needs the profile anyway does not solve it twice.
 ///
-/// Falls back to the retired uniform-ball `10 k / d` when there is no profile.
+/// ~~Falls back to the retired uniform-ball `10 k / d` when there is no
+/// profile.~~ **CHANGED 2026-09-28** — panics instead (see
+/// [`intra_pebble_conduction_coefficient`]): the fallback put an invented
+/// `k = 25 W/(m K)` into the heat path silently, exactly where the real
+/// correlation had refused. [`LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K`]
+/// survives only for the before/after tests.
+///
+/// # Panics
+///
+/// When `profile` is `None` or its volume-average rise is not positive.
 pub fn conduction_coefficient_from(
     profile: Option<&PebbleTemperatureProfile>,
     pebble_power: Power,
@@ -757,13 +1196,13 @@ pub fn conduction_coefficient_from(
                 power.get::<watt>() / (area_one_pebble * rise),
             )
         }
-        // Retired uniform-ball form, kept only as the out-of-range fallback.
-        None => {
-            let d = pebble_diameter().get::<meter>();
-            HeatTransfer::new::<watt_per_square_meter_kelvin>(
-                10.0 * LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K / d,
-            )
-        }
+        None => panic!(
+            "intra-pebble conduction: no resolved pebble profile with a positive \
+             volume-average rise (pebble power {:?}); the high-temperature pebble's \
+             300-3000 K correlation window was left or the solve did not converge -- \
+             no fallback conductivity is substituted (2026-09-28)",
+            power
+        ),
     }
 }
 
@@ -936,33 +1375,44 @@ fn helium_transport(temperature: ThermodynamicTemperature) -> (f64, f64, f64) {
     }
 }
 
-/// Graphite specific enthalpy at `temperature`, `c_p (T - 298.15 K)` with the
-/// constant [`GRAPHITE_CP_J_PER_KG_K`].
+/// Graphite specific enthalpy at `temperature` \[J/kg\], from
+/// [`PEBBLE_GRAPHITE`]: the **exact** integral of Butland & Maddison's
+/// polynomial cp from `tuas`'s 273.15 K datum.
+///
+/// ~~"`c_p (T - 298.15 K)` with the constant `GRAPHITE_CP_J_PER_KG_K`"~~
+/// **CHANGED 2026-09-28** — only enthalpy *differences* are ever used, so the
+/// datum moving from 298.15 K to 273.15 K changes no result.
+///
+/// A sibling `helium_specific_enthalpy_from_temperature` used to sit here and
+/// computed **helium** enthalpy with the **graphite** cp. It had no caller;
+/// it was deleted 2026-09-28 rather than left for someone to find.
+///
+/// # Panics
+///
+/// Outside 300-3000 K, for the reason [`graphite_specific_heat`] gives.
 pub fn pebble_bed_specific_enthalpy_from_temperature(
     temperature: ThermodynamicTemperature,
 ) -> AvailableEnergy {
-    AvailableEnergy::new::<joule_per_kilogram>(
-        GRAPHITE_CP_J_PER_KG_K * (temperature.get::<kelvin>() - REFERENCE_TEMPERATURE_K),
+    try_get_h(
+        Material::Solid(PEBBLE_GRAPHITE),
+        temperature,
+        property_pressure(),
     )
-}
-pub fn helium_specific_enthalpy_from_temperature(
-    temperature: ThermodynamicTemperature,
-    pressure: Pressure,
-) -> AvailableEnergy {
-    AvailableEnergy::new::<joule_per_kilogram>(
-        GRAPHITE_CP_J_PER_KG_K * (temperature.get::<kelvin>() - REFERENCE_TEMPERATURE_K),
-    )
+    .unwrap_or_else(|e| panic!("pebble graphite enthalpy at {temperature:?}: {e:?}"))
 }
 
-/// Inverse of [`specific_enthalpy_from_temperature`]: closed form, since the
-/// constant-`c_p` relation is linear and needs no iteration.
+/// Inverse of [`pebble_bed_specific_enthalpy_from_temperature`], by `tuas`'s
+/// Brent-Dekker inversion of the same analytic enthalpy (the old closed form
+/// only existed because `c_p` was constant).
 pub fn temperature_from_specific_enthalpy(
     specific_enthalpy: AvailableEnergy,
 ) -> ThermodynamicTemperature {
-    ThermodynamicTemperature::new::<kelvin>(
-        REFERENCE_TEMPERATURE_K
-            + specific_enthalpy.get::<joule_per_kilogram>() / GRAPHITE_CP_J_PER_KG_K,
+    try_get_temperature_from_h(
+        Material::Solid(PEBBLE_GRAPHITE),
+        specific_enthalpy,
+        property_pressure(),
     )
+    .unwrap_or_else(|e| panic!("pebble graphite temperature from {specific_enthalpy:?}: {e:?}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -1090,9 +1540,12 @@ pub fn temperature_from_specific_enthalpy(
 /// it via [`assemble_backward_euler_system`].
 #[derive(Clone, Copy, Debug)]
 pub struct PebbleBedPorousMediaNode {
-    /// Pebble (solid-phase) temperature, carried directly rather than
-    /// through a specific-enthalpy state, since this node's `c_p` is
-    /// already constant ([`GRAPHITE_CP_J_PER_KG_K`]).
+    /// Pebble (solid-phase) temperature. ~~"carried directly rather than
+    /// through a specific-enthalpy state, since this node's `c_p` is already
+    /// constant"~~ **CHANGED 2026-09-28** — `c_p` is temperature dependent
+    /// now; the temperature is still the stored state, but [`Self::step`]
+    /// closes the solid balance on the graphite **enthalpy** (secant
+    /// capacitance), so storing `T` loses nothing.
     pebble_temperature: ThermodynamicTemperature,
     /// Full thermodynamic state of the helium held in this node's void
     /// space -- not just a bare temperature. See the module comment above
@@ -1132,12 +1585,41 @@ pub struct PebbleBedPorousMediaNode {
     /// of a pebble, which this crate's "derive it from the physics" rule
     /// forbids.
     pebble_profile: Option<PebbleTemperatureProfile>,
-    /// Kernel-above-node thermal resistance from the most recent step's
-    /// resolved pebble solve \[K/W of *per-pebble* power\], or `None` when the
-    /// solve was out of range. See [`Self::kernel_offset_resistance`] -- this
-    /// is what lets the Doppler channel follow the kernel at the PROMPT
-    /// timescale without re-solving the pebble on every kinetics substep.
-    kernel_offset_resistance: Option<ThermalResistance>,
+    /// ~~Kernel-above-node thermal resistance ... so the Doppler channel can
+    /// follow the kernel~~ **REPLACED 2026-09-28 (gh:#360)** by the
+    /// fuel-to-bed coupling of the new fuel node: the resistance from the
+    /// inventory-averaged kernel to this node, plus where the matrix, SiC and
+    /// peak kernel sit on that line. `None` before the first step or when the
+    /// resolved solve failed (now only above the 3000 K window). See
+    /// [`FuelBedCoupling`].
+    fuel_bed_coupling: Option<FuelBedCoupling>,
+    /// Whether [`Self::fuel_bed_coupling`] came from THIS step's solve (`false`
+    /// when the solve failed and the previous step's coupling was kept).
+    fuel_bed_coupling_current: bool,
+    /// Energy bookkeeping of the most recent [`Self::step`], from the same
+    /// coefficients the solve used, so a caller can close an energy balance
+    /// across the node without re-deriving any of it.
+    last_step_energy: BedStepEnergy,
+}
+
+/// Energy terms of one [`PebbleBedPorousMediaNode::step`] \[J\], each computed
+/// from the coefficients that step's solve actually used.
+///
+/// `source` = `solid_storage + fluid_storage + throughflow_out` to solver
+/// tolerance: that identity is the node's energy balance, pinned by
+/// `tests::the_bed_step_closes_its_own_energy_balance`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct BedStepEnergy {
+    /// Net heat delivered to the solid over the step, `Q_net dt`.
+    pub source: f64,
+    /// Change in graphite enthalpy, `m (h(T') - h(T))` (secant capacitance
+    /// times the temperature change).
+    pub solid_storage: f64,
+    /// Change in helium stored in the voids, `C_f (T_f' - T_f)`.
+    pub fluid_storage: f64,
+    /// Enthalpy carried out by the throughflow above the inlet,
+    /// `m_dot c_p (T_f' - T_in) dt`.
+    pub throughflow_out: f64,
 }
 
 impl PebbleBedPorousMediaNode {
@@ -1165,7 +1647,11 @@ impl PebbleBedPorousMediaNode {
             ),
             peak_kernel_temperature: None,
             pebble_profile: None,
-            kernel_offset_resistance: None,
+            // Seeded at the design point so the fuel node has a heat path on
+            // the very first kinetics step, before any bed step has run.
+            fuel_bed_coupling: Some(FuelBedCoupling::at_design_point()),
+            fuel_bed_coupling_current: false,
+            last_step_energy: BedStepEnergy::default(),
         }
     }
 
@@ -1179,127 +1665,180 @@ impl PebbleBedPorousMediaNode {
     /// cap on an externally-closed exchange -- see the derivation above for
     /// why the flow enters the fluid equation directly in this formulation.
     ///
-    /// `fission_power` and `decay_heat_power` are taken as SEPARATE
-    /// arguments and summed internally into the single source term `Q` the
-    /// derivation's solid balance uses (`C_s dT_s/dt = Q - h A (T_s - T_f)`
-    /// becomes `Q = fission_power + decay_heat_power`). This mirrors
-    /// `mod.rs`'s own wiring of this method -- see its "2.
-    /// Pebble bed absorbs the core's THERMAL power" comment, which passes
-    /// [`kinetics::Kinetics::core_thermal_power`]'s fission-plus-decay sum
-    /// as that method's `fission_power` parameter -- but makes the
-    /// requirement explicit in the signature here rather than relying on
-    /// the caller to have pre-summed it under a fission-only name. Decay
-    /// heat is what keeps this term (and hence `T_s`) nonzero after a trip,
-    /// when [`kinetics::Kinetics::decay_heat_power`] is the only thing
-    /// still heating the bed.
+    /// ~~`fission_power` and `decay_heat_power` are taken as SEPARATE
+    /// arguments and summed internally into the single source term `Q`~~
+    /// **CHANGED 2026-09-28 (gh:#360)** — the bed no longer receives the
+    /// reactor's thermal power at all. Fission and decay heat are deposited in
+    /// the **fuel node** (`physics::kinetics`), and the bed receives what the
+    /// fuel conducts to it. So the two arguments are now:
+    ///
+    /// - `net_heat_to_bed` — the source term `Q` of the solid balance: the
+    ///   fuel-to-bed conduction **less** the passive loss to the reflector,
+    ///   both over this step. It can be negative (a cooling bed after a scram
+    ///   with the passive path still drawing).
+    /// - `pebble_conduction_power` — the **gross** heat the kernels are
+    ///   conducting out through the pebble this step, which is what the
+    ///   resolved pebble profile must be solved at. ~~Solving it at the net
+    ///   power~~ (the smaller finding recorded on gh:#360, ~0.94 K low at
+    ///   11 MW) is fixed by passing it separately.
+    ///
+    /// # The solid balance is closed on ENTHALPY (2026-09-28)
+    ///
+    /// With `c_p(T)` from Butland & Maddison the capacitance moves inside a
+    /// step, so a backward-Euler solve at the start-of-step capacitance would
+    /// create or destroy `(dC/dT) dT^2 / 2` of energy every step. Instead the
+    /// 2x2 system is solved with the **secant** capacitance
+    ///
+    /// ```text
+    /// C_sec = m (h(T') - h(T)) / (T' - T)
+    /// ```
+    ///
+    /// iterated to a fixed point (a handful of passes; `h` is analytic), so on
+    /// exit `m (h(T') - h(T)) = dt (Q - h A (T_s' - T_f'))` holds to
+    /// 1e-10 relative. The fluid row is unchanged.
     ///
     /// # Panics
     ///
     /// If the helium `(T, p)` flash at the solved fluid-node temperature
-    /// fails to converge -- same stale-state policy as [`Self::new`].
+    /// fails to converge -- same stale-state policy as [`Self::new`] -- or if
+    /// the bed leaves the graphite's 300-3000 K window
+    /// ([`graphite_specific_heat`]).
     pub fn step(
         &mut self,
         dt: Time,
-        fission_power: Power,
-        decay_heat_power: Power,
+        net_heat_to_bed: Power,
+        pebble_conduction_power: Power,
         helium_inlet_temperature: ThermodynamicTemperature,
         helium_mass_flow: MassRate,
     ) -> Power {
-        // 1. Coefficient and both capacitances are evaluated at the
-        //    CURRENT (start-of-step) state -- same start-of-step evaluation
-        //    PebbleBedCore::step uses for its own coefficient.
+        // 1. Coefficient and the fluid capacitance at the start-of-step state.
         let helium_temperature_now =
             ThermodynamicTemperature::new::<kelvin>(self.helium_state.temperature);
-        // The intra-pebble leg needs the bed's own temperature and the power
-        // actually being generated, so the source term is summed here rather
-        // than at step 4 -- same value, just needed earlier now.
-        let reactor_thermal_power = fission_power + decay_heat_power;
-        // One resolved-pebble solve per step, reused for BOTH the conduction
-        // leg and the peak kernel temperature. Going through
-        // `overall_htc_at_flow` here would solve it a second time for a
-        // number this already has.
-        let pebble_power = reactor_thermal_power / pebble_count();
-        // The node temperature the profile is inverted for. Kept, because
-        // `self.pebble_temperature` is overwritten by the solve below and the
-        // kernel-above-node resistance must be formed against THIS value --
-        // see step 6 and `kernel_offset_resistance_from`.
+        // One resolved-pebble solve per step, at the GROSS conduction power,
+        // reused for the conduction leg, the fuel-to-bed coupling and the
+        // reported profile.
+        let pebble_power = pebble_conduction_power / pebble_count();
         let profile_node_temperature = self.pebble_temperature;
+        // The RESISTANCES (conduction leg and fuel-to-bed coupling) are read
+        // off the resolved pebble at the core-average pebble power, i.e. in
+        // the linear-conduction limit, with k(T) evaluated about this node's
+        // temperature. Why not at the instantaneous power (2026-09-28): during
+        // a prompt burst the fuel conducts 20-45 kW per pebble, and a STEADY
+        // profile whose volume average is the node temperature then needs a
+        // surface below absolute zero (measured: -214 K at 45.6 kW) -- the
+        // quasi-steady assumption, not the property data, is what fails. In
+        // the regime where it holds the resistance is power-independent to
+        // 0.688 % over a fourfold power range
+        // (`tests::the_kernel_offset_is_linear_in_power`), so the reference
+        // power loses nothing there and stays defined everywhere.
+        //
+        // Fail loud: no silent fallback conductivity. Below the 3000 K window
+        // this always resolves; above it there is no property set, and the
+        // panic carries the reason `tampines` gave.
+        let reference_power = core_average_pebble_power();
+        let reference_profile =
+            resolved_pebble_profile_checked(profile_node_temperature, reference_power)
+                .unwrap_or_else(|reason| panic!("pebble-bed step: {reason}"));
+        let h_internal = conduction_coefficient_from(Some(&reference_profile), reference_power);
+        // The DISPLAYED profile (Map tab interior, peak kernel) is the steady
+        // profile at the actual conduction power when one exists, and `None`
+        // in a burst where it does not -- display only; nothing in the energy
+        // balance, the feedback or the release reads it.
         let profile = resolved_pebble_profile(profile_node_temperature, pebble_power);
-        let h_internal = conduction_coefficient_from(profile.as_ref(), pebble_power);
         let htc = series_coefficient(
             film_htc_at_flow(helium_mass_flow, helium_temperature_now),
             h_internal,
         );
         let conductance: ThermalConductance = htc * heat_transfer_area();
 
-        // 2. C_s (unchanged) and C_f, the latter read straight off the
-        //    stored FluidState rather than re-evaluated.
-        let solid_capacity = bed_heat_capacity();
         let fluid_capacity =
             fluid_node_heat_capacity(self.helium_state, self.pebble_bed_helium_volume);
 
-        // 3. m_dot c_p, floored the same way PebbleBedCore::step floors its
-        //    capacity rate so a stopped circulator does not divide by zero.
+        // 2. m_dot c_p, floored so a stopped circulator does not divide by zero.
         let flow_floor = MassRate::new::<kilogram_per_second>(1.0e-6);
         let capacity_rate: ThermalConductance = helium_mass_flow.abs().max(flow_floor)
             * SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.helium_state.cp);
 
-        // 4. Assemble and solve the 2x2 system. The source term is the SUM
-        //    -- see the doc comment above for why decay heat is a separate
-        //    argument rather than folded into `fission_power` by the caller.
-        let (matrix, rhs) = assemble_backward_euler_system(
-            dt,
-            reactor_thermal_power,
-            helium_inlet_temperature,
-            self.pebble_temperature,
-            helium_temperature_now,
-            conductance,
-            solid_capacity,
-            fluid_capacity,
-            capacity_rate,
-        );
-        let solved = matrix.solve(&rhs).expect(
-            "the backward-Euler matrix is diagonally dominant by construction (positive \
-             capacitance-over-dt and conductance terms on every diagonal) and is never \
-             singular -- see the struct doc comment",
-        );
+        // 3. Secant-capacitance fixed point on the graphite enthalpy.
+        let mass = graphite_mass();
+        let t_n = self.pebble_temperature;
+        let h_n = pebble_bed_specific_enthalpy_from_temperature(t_n);
+        let mut solid_capacity = bed_heat_capacity(t_n);
+        let mut solved = [t_n.get::<kelvin>(), helium_temperature_now.get::<kelvin>()];
+        for _ in 0..40 {
+            let (matrix, rhs) = assemble_backward_euler_system(
+                dt,
+                net_heat_to_bed,
+                helium_inlet_temperature,
+                t_n,
+                helium_temperature_now,
+                conductance,
+                solid_capacity,
+                fluid_capacity,
+                capacity_rate,
+            );
+            let solution = matrix.solve(&rhs).expect(
+                "the backward-Euler matrix is diagonally dominant by construction (positive \
+                 capacitance-over-dt and conductance terms on every diagonal) and is never \
+                 singular -- see the struct doc comment",
+            );
+            solved = [solution[0], solution[1]];
+            let dt_s_k = solved[0] - t_n.get::<kelvin>();
+            let secant = if dt_s_k.abs() > 1.0e-9 {
+                let h_new =
+                    pebble_bed_specific_enthalpy_from_temperature(ThermodynamicTemperature::new::<
+                        kelvin,
+                    >(solved[0]));
+                mass * (h_new - h_n)
+                    / TemperatureInterval::new::<temperature_interval::kelvin>(dt_s_k)
+            } else {
+                bed_heat_capacity(t_n)
+            };
+            let converged = ((secant - solid_capacity) / solid_capacity)
+                .get::<ratio>()
+                .abs()
+                < 1.0e-12;
+            solid_capacity = secant;
+            if converged {
+                break;
+            }
+        }
 
-        // 5. Store the solved solid temperature directly...
+        // 4. Energy bookkeeping, from the coefficients the final solve used.
+        let dt_s = dt.get::<second>();
+        let c_f = fluid_capacity.get::<joule_per_kelvin>();
+        let m_dot_cp = capacity_rate.get::<watt_per_kelvin>();
+        self.last_step_energy = BedStepEnergy {
+            source: net_heat_to_bed.get::<watt>() * dt_s,
+            solid_storage: solid_capacity.get::<joule_per_kelvin>()
+                * (solved[0] - t_n.get::<kelvin>()),
+            fluid_storage: c_f * (solved[1] - helium_temperature_now.get::<kelvin>()),
+            throughflow_out: m_dot_cp
+                * (solved[1] - helium_inlet_temperature.get::<kelvin>())
+                * dt_s,
+        };
+
+        // 5. Store the solved solid temperature and re-flash the helium.
         self.pebble_temperature = ThermodynamicTemperature::new::<kelvin>(solved[0]);
-        // ...and re-flash the FULL helium state at the solved fluid
-        // temperature, so density and c_p going into the NEXT step's
-        // coefficient and capacitance are consistent with the new
-        // temperature rather than carried over stale from this step.
         let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
         self.helium_state = state_pt(Fluid::Helium, solved[1], pressure_pa)
             .expect("helium (T,p) flash failed to converge at the solved fluid-node temperature");
 
-        // 6. Publish the exchanged heat rate and the coefficient used.
+        // 6. Publish the exchanged heat rate, the coefficient, and what the
+        //    profile says about the fuel stack.
         let delta = TemperatureInterval::new::<temperature_interval::kelvin>(solved[0] - solved[1]);
         self.heat_to_helium = conductance * delta;
         self.overall_htc = htc;
-        // The kernel sits on the profile solved at the START of the step, so
-        // it is reported against that step's bed temperature, consistent with
-        // the coefficient it was solved alongside.
         self.peak_kernel_temperature = profile.map(|p| p.peak_kernel_centre);
         self.pebble_profile = profile;
-        // The same profile read as a RESISTANCE rather than a temperature, so
-        // the Doppler channel can follow the kernel between pebble solves.
-        //
-        // Formed against the node temperature the profile was SOLVED at, not
-        // the end-of-step value just stored above. ~~Before 2026-09-28 this
-        // passed `self.pebble_temperature` (end of step)~~ -- CORRECTED
-        // 2026-09-28: that mixed a start-of-step kernel with an end-of-step
-        // node, so on a heat-up the resistance was under-stated by
-        // `dT_bed(step) / P_pebble` (and over-stated on a cool-down), i.e. the
-        // kernel Doppler channel read slightly too little negative feedback
-        // while the bed was warming. Zero at steady state. Pinned by
-        // `tests::the_kernel_offset_resistance_uses_the_profile_node_temperature`.
-        self.kernel_offset_resistance = kernel_offset_resistance_from(
-            profile.as_ref(),
-            profile_node_temperature,
-            pebble_power,
-        );
+        // Formed against the node temperature the profile was SOLVED at (see
+        // the 2026-09-28 correction recorded on gh:#360 for why), from the
+        // reference-power profile above.
+        let fresh = FuelBedCoupling::from_profile(&reference_profile, reference_power);
+        self.fuel_bed_coupling_current = fresh.is_some();
+        if fresh.is_some() {
+            self.fuel_bed_coupling = fresh;
+        }
 
         self.heat_to_helium
     }
@@ -1336,7 +1875,7 @@ impl PebbleBedPorousMediaNode {
     /// ~~"**Nothing reads this yet.** `physics::kinetics` still runs its
     /// Doppler feedback off [`Self::pebble_temperature`]."~~
     /// **CORRECTED 2026-09-22 -- the Doppler channel now reads the kernel.**
-    /// [`crate::physics::kinetics::KernelDopplerChannel`] takes the *fuel*
+    /// `KernelDopplerChannel` (removed 2026-09-28, gh:#360) takes the *fuel*
     /// share of the published isothermal coefficient and applies it to the
     /// kernel, leaving the graphite share on this node; and
     /// [`crate::physics::fission_product_release`] drives TRISO-ATOPS off the
@@ -1366,46 +1905,31 @@ impl PebbleBedPorousMediaNode {
         self.pebble_profile
     }
 
-    /// The kernel-above-node thermal resistance from the most recent step
-    /// \[K per watt of **per-pebble** power\], or `None` when the resolved
-    /// solve was out of range.
+    /// ~~The kernel-above-node thermal resistance from the most recent step
+    /// \[K per watt of per-pebble power\] ... what crosses the boundary is the
+    /// slope, not the value: `T_kernel(t) = T_node + R_kernel P_pebble(t)`~~
+    /// **REPLACED 2026-09-28 (gh:#360).** The kernel is a node of its own now
+    /// (`physics::kinetics`, the Nordheim-Fuchs fuel node), so what crosses
+    /// the boundary is the fuel-to-bed **coupling**: the conduction
+    /// resistance the fuel node loses heat through, and where the matrix,
+    /// SiC and peak kernel sit between the two nodes. See [`FuelBedCoupling`].
     ///
-    /// ## What this is for
-    ///
-    /// [`Self::peak_kernel_temperature`] is a temperature at one instant,
-    /// re-solved once per *plant* step. The Doppler feedback needs the kernel
-    /// at the **prompt** timescale -- the whole reason the kernel is the right
-    /// temperature for it is that a quarter-millimetre UO2 kernel follows a
-    /// power change essentially instantly, while the 5.3-tonne graphite bed
-    /// takes minutes (the separation `tampines::pebble_bed::feedback`'s module
-    /// doc is built around). A kernel temperature refreshed at 0.1 s and held
-    /// constant across 100 kinetics substeps would *lag* the power, which is
-    /// the opposite of the physics being added.
-    ///
-    /// So what crosses the boundary is the **slope**, not the value:
-    ///
-    /// ```text
-    /// T_kernel(t) = T_node + R_kernel * P_pebble(t)
-    /// ```
-    ///
-    /// `R_kernel` carries the slow, weakly non-linear part -- the bed
-    /// temperature and A3 graphite's `k(T)` -- and is refreshed once per plant
-    /// step, exactly like every other coupling variable in
-    /// [`crate::physics::HtgrPlant::step_with_correctors`]. `P_pebble(t)` is
-    /// the *instantaneous* power, read on every kinetics substep. Steady
-    /// conduction is linear in power, so this is exact in the linear limit and
-    /// the only approximation is holding `k(T)` fixed over one 0.1 s step;
-    /// [`tests::the_kernel_offset_is_linear_in_power`] measures what that
-    /// costs.
-    ///
-    /// # Why a resistance and not a temperature interval
-    ///
-    /// Because it is one: kelvin per watt, the conduction resistance from the
-    /// hottest kernel centre out to the ball's volume average. Typing it as
-    /// [`ThermalResistance`] makes multiplying it by anything other than a
-    /// power a compile error.
-    pub fn kernel_offset_resistance(&self) -> Option<ThermalResistance> {
-        self.kernel_offset_resistance
+    /// Seeded at the design point by [`Self::new`], refreshed by every
+    /// [`Self::step`]. Kept from the previous step when a solve fails (only
+    /// above 3000 K now); [`Self::fuel_bed_coupling_is_current`] says which.
+    pub fn fuel_bed_coupling(&self) -> Option<FuelBedCoupling> {
+        self.fuel_bed_coupling
+    }
+
+    /// `true` when [`Self::fuel_bed_coupling`] was solved on the most recent
+    /// step, `false` when it was carried over (seed, or a failed solve).
+    pub fn fuel_bed_coupling_is_current(&self) -> bool {
+        self.fuel_bed_coupling_current
+    }
+
+    /// Energy terms of the most recent [`Self::step`]. See [`BedStepEnergy`].
+    pub fn last_step_energy(&self) -> BedStepEnergy {
+        self.last_step_energy
     }
 
     /// Full thermodynamic state of the helium held in this node -- density,
@@ -1507,67 +2031,118 @@ fn assemble_backward_euler_system(
 mod tests {
     use super::*;
 
-    /// **The kernel-above-node resistance must be formed against the node
-    /// temperature its profile was solved at** (gh issue: TRISO fuel temperature
-    /// for reactivity vs TRISO-ATOPS, 2026-09-28).
+    /// **The fuel-to-bed coupling is read off the profile solved at the
+    /// start-of-step node temperature, at the gross conduction power**
+    /// (gh:#360, 2026-09-28).
     ///
-    /// **Methodology.** Step a design-point node once, with a power (50 MW) and
-    /// step (5 s) large enough to move the bed by several kelvin, so a
-    /// start-of-step / end-of-step mix-up is resolvable. Recompute
-    /// `R = (T_peak_kernel - T_node,start) / P_pebble` from the published
-    /// profile and the node temperature captured *before* the step, and require
-    /// [`PebbleBedPorousMediaNode::kernel_offset_resistance`] to match it to
-    /// 1e-12 relative. Also require the bed to have moved by more than 1 K, so
-    /// the check can discriminate: with the pre-fix code (end-of-step node) the
-    /// two differ by `dT_bed / P_pebble`.
+    /// Replaces ~~`the_kernel_offset_resistance_uses_the_profile_node_temperature`~~
+    /// (its quantity, the peak-kernel offset resistance, no longer exists; the
+    /// start-of-step rule it pinned carries over).
     ///
-    /// **Results (2026-09-28).** The bed moved **+24.5791 K** over the step.
-    /// `R(profile node) = 6.501398e-2 K/W` and the published resistance is
-    /// `6.501398e-2 K/W` (agreement to round-off). The pre-fix end-of-step
-    /// formation gives `5.174129e-2 K/W`, **-20.4 %** on this deliberately
-    /// exaggerated step; on the plant's 0.1 s step during the 1500 s rod-step
-    /// transient measured the same day the bed moved <= ~0.5 K per step, i.e.
-    /// a sub-percent under-statement of the kernel offset on heat-up.
+    /// **Methodology.** Step a design-point node once for 5 s with 50 MW of
+    /// fuel-to-bed conduction (large enough to move the bed several kelvin),
+    /// then require the published coupling to equal
+    /// [`FuelBedCoupling::from_profile`] of the resolved profile at the
+    /// start-of-step node temperature and the **core-average reference
+    /// power** exactly (the resistances are evaluated in the linear-conduction
+    /// limit -- see [`PebbleBedPorousMediaNode::step`]); require that profile's volume average to be the
+    /// start-of-step node temperature (to 1e-6 K); and require the ordering
+    /// `0 < matrix < SiC < 1 < peak kernel` on the fuel-bed line.
+    ///
+    /// **Results (2026-09-28).** Bed moved +24.77 K; profile average equal to
+    /// the 950 K start to 1e-6 K; `R_fb = 1.0250e-6 K/W` (core), matrix
+    /// 0.4777, SiC 0.4956, peak kernel 2.2881 of the fuel-bed offset. (A first
+    /// reading the same day, 1.0562e-6 K/W / 0.4672 / 0.4853 / 2.2798, was
+    /// taken at the 50 MW step power, before the resistances were moved to the
+    /// reference power; the 3 % difference is the k(T) nonlinearity at 5x
+    /// rated power.)
+    /// matrix 0.4672, SiC 0.4853, peak kernel 2.2798 of the fuel-bed offset.
     #[test]
-    fn the_kernel_offset_resistance_uses_the_profile_node_temperature() {
+    fn the_fuel_bed_coupling_is_read_off_the_start_of_step_profile() {
         let mut node = PebbleBedPorousMediaNode::new();
         let t_start = node.pebble_temperature();
         let power = Power::new::<megawatt>(50.0);
-        let no_decay_heat = Power::new::<watt>(0.0);
         let inlet = ThermodynamicTemperature::new::<kelvin>(673.15);
         node.step(
             Time::new::<second>(5.0),
             power,
-            no_decay_heat,
+            power,
             inlet,
             nominal_helium_flow(),
         );
-        let t_end = node.pebble_temperature();
-        let moved_k = t_end.get::<kelvin>() - t_start.get::<kelvin>();
-        let pebble_w = (power / pebble_count()).get::<watt>();
-        let kernel_k = node
-            .peak_kernel_temperature()
-            .expect("design point is inside the correlation window")
-            .get::<kelvin>();
-        let expected = (kernel_k - t_start.get::<kelvin>()) / pebble_w;
-        let end_of_step = (kernel_k - t_end.get::<kelvin>()) / pebble_w;
-        let got = node
-            .kernel_offset_resistance()
-            .expect("resolved profile present")
-            .get::<kelvin_per_watt>();
+        let moved_k = node.pebble_temperature().get::<kelvin>() - t_start.get::<kelvin>();
+        // The coupling is read off the REFERENCE-power profile (core-average
+        // pebble power) at the start-of-step node temperature -- see the step.
+        let reference = core_average_pebble_power();
+        let profile = resolved_pebble_profile(t_start, reference).expect("design point resolves");
+        let average = resolved_pebble().volume_average_temperature(&profile);
+        let expected = FuelBedCoupling::from_profile(&profile, reference).expect("positive rise");
+        let got = node.fuel_bed_coupling().expect("coupling present");
         println!(
-            "bed moved {moved_k:+.4} K; R(profile node) = {expected:.6e} K/W, \
-             R(end-of-step node, pre-fix) = {end_of_step:.6e} K/W, published = {got:.6e} K/W"
+            "bed moved {moved_k:+.4} K; profile average {:.6} K vs start {:.6} K; \
+             R_fb = {:.6e} K/W (core), matrix {:.4}, SiC {:.4}, peak kernel {:.4}",
+            average.get::<kelvin>(),
+            t_start.get::<kelvin>(),
+            got.resistance.get::<kelvin_per_watt>(),
+            got.fuelled_zone_matrix_fraction,
+            got.silicon_carbide_fraction,
+            got.peak_kernel_fraction
         );
+        assert!(moved_k.abs() > 1.0);
+        assert!((average.get::<kelvin>() - t_start.get::<kelvin>()).abs() < 1e-6);
+        assert_eq!(got, expected);
+        assert!(node.fuel_bed_coupling_is_current());
         assert!(
-            moved_k.abs() > 1.0,
-            "the step must move the bed by > 1 K for this test to discriminate; moved {moved_k} K"
+            0.0 < got.fuelled_zone_matrix_fraction
+                && got.fuelled_zone_matrix_fraction < got.silicon_carbide_fraction
+                && got.silicon_carbide_fraction < 1.0
+                && 1.0 < got.peak_kernel_fraction
         );
-        assert!(
-            ((got - expected) / expected).abs() < 1e-12,
-            "kernel_offset_resistance {got:e} is not formed against the profile's own node \
-             temperature ({expected:e}); end-of-step would give {end_of_step:e}"
+    }
+
+    /// **The fuel node's heat capacity is the TRISO particles and nothing
+    /// else** (gh:#360, 2026-09-28).
+    ///
+    /// **Methodology.** Evaluate [`fuel_node_heat_capacity`] at 950 K and
+    /// check it against a hand evaluation from the published particle
+    /// (IAEA-TECDOC-1382 Table 4-17 radii and densities, 8335 particles x
+    /// 27 000 pebbles) with the same property correlations; check the kernel
+    /// heavy-metal mass implied by the kernel volume is the published 5.0 g
+    /// per pebble to 0.1 %; and check fuel node + graphite (which now excludes
+    /// the particle volume) against the retired all-graphite ball.
+    ///
+    /// **Results (2026-09-28).** `C_fuel = 2.67498e5 J/K` at 950 K (hand
+    /// evaluation identical); cp UO2 312.06, SiC 1177.06, carbon 1729.94
+    /// J/(kg K); UO2 5.6735 g per pebble (= 5.00 g U at 17 % enrichment); bed
+    /// graphite 8.87312e6 J/K over 5129.16 kg -- the fuel node is 2.93 % of
+    /// the core's heat capacity.
+    #[test]
+    fn the_fuel_node_capacity_is_the_particles_and_nothing_else() {
+        use std::f64::consts::PI;
+        let t = ThermodynamicTemperature::new::<kelvin>(950.0);
+        let c = fuel_node_heat_capacity(t).get::<joule_per_kelvin>();
+        let n = 8335.0 * 27_000.0;
+        let v = |a: f64, b: f64| 4.0 / 3.0 * PI * (b.powi(3) - a.powi(3));
+        let cp_uo2 = HeatCapacityModel::MatproUo2.value(&MaterialState::fresh(950.0));
+        let cp_sic = HeatCapacityModel::SneadSiC.value(&MaterialState::fresh(950.0));
+        let cp_c = graphite_specific_heat(t).get::<joule_per_kilogram_kelvin>();
+        let hand = n
+            * (v(0.0, 250e-6) * 10400.0 * cp_uo2
+                + v(250e-6, 340e-6) * 1100.0 * cp_c
+                + v(340e-6, 380e-6) * 1900.0 * cp_c
+                + v(380e-6, 415e-6) * 3180.0 * cp_sic
+                + v(415e-6, 455e-6) * 1900.0 * cp_c);
+        let kernel_uo2_kg_per_pebble = 8335.0 * v(0.0, 250e-6) * 10400.0;
+        let graphite_c = bed_heat_capacity(t).get::<joule_per_kelvin>();
+        println!(
+            "fuel node C = {c:.5e} J/K (hand {hand:.5e}); cp UO2 {cp_uo2:.2}, SiC {cp_sic:.2}, \
+             C {cp_c:.2} J/(kg K); UO2 per pebble {:.4} g; bed graphite C = {graphite_c:.5e} J/K \
+             (fuel share {:.2} %); graphite mass {:.2} kg",
+            kernel_uo2_kg_per_pebble * 1e3,
+            100.0 * c / (c + graphite_c),
+            graphite_mass().get::<kilogram>()
         );
+        assert!((c - hand).abs() < 1e-9 * hand);
     }
 
     /// **Why `peak_kernel_temperature` goes `None` on a hot core** — the answer
@@ -1629,6 +2204,15 @@ mod tests {
     /// `None`, and every layer above then treats it as "no data" rather than
     /// "out of range". Whether to surface it, extrapolate with a stated caveat, or
     /// extend the correlation is a maintainer decision; losing the reason is not.
+    ///
+    /// **UPDATED 2026-09-28 (gh:#350, gh:#351) — the maintainer's decision was
+    /// "extend, flagged".** [`resolved_pebble`] is now the high-temperature
+    /// pebble, so the sweep resolves every surface up to 2589 K (measured in
+    /// `tampines`' own test: peak kernel 2635.4 K at a 2589 K surface,
+    /// **extrapolated**) and refuses only at a 3000 K surface, where the
+    /// kernel would sit above the 3000 K window. The `.ok()?` still maps that
+    /// refusal to `None`; above 3000 K there is no property set to report
+    /// from. The assertion below now also pins that 2589 K resolves.
     #[test]
     fn why_the_resolved_kernel_goes_none_on_a_hot_core() {
         let pebble = resolved_pebble();
@@ -1661,6 +2245,16 @@ mod tests {
                 .is_ok(),
             "the pebble solve must succeed at a normal 900 K surface"
         );
+        assert!(
+            pebble
+                .steady_state_temperatures(
+                    power,
+                    ThermodynamicTemperature::new::<kelvin>(2589.0),
+                    Ratio::new::<ratio>(0.0),
+                )
+                .is_ok(),
+            "the high-temperature pebble must resolve the gh:#350 bed temperature"
+        );
     }
     use uom::si::power::megawatt;
 
@@ -1692,6 +2286,13 @@ mod tests {
     /// graphite mass 5282.78 kg, total pebble surface area 305.363 m^2, helium
     /// void volume 1.95509 m^3, free-flow area 0.99243 m^2, single-pebble mass
     /// 0.19566 kg, lumped bed heat capacity 8.9807 MJ/K.
+    ///
+    /// **UPDATED 2026-09-28 (gh:#360):** the coated particles (3.29 cm^3 of
+    /// each 113.10 cm^3 ball) are the fuel node now and are excluded from the
+    /// graphite: graphite mass **5129.16 kg** (was 5282.78), and the bed's
+    /// capacity is `m c_p(T)` -- **8.873 MJ/K at 950 K** (was a constant
+    /// 8.9807). The two published-figure checks above are unaffected: they
+    /// test the ball count, diameter and core volume, not the mass.
     ///
     /// Interpretation: this verifies the *geometry*, and nothing else. It says
     /// nothing about whether the lumped thermal model on top of that geometry
@@ -1968,13 +2569,13 @@ mod tests {
 
         let resolved = intra_pebble_conduction_coefficient(bed, rated / pebble_count())
             .get::<watt_per_square_meter_kelvin>();
-        let uniform_ball = 10.0 * LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K
-            / pebble_diameter().get::<meter>();
+        let uniform_ball =
+            10.0 * LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K / pebble_diameter().get::<meter>();
 
         let u_resolved = overall_htc_at_flow(nominal_helium_flow(), helium, bed, rated)
             .get::<watt_per_square_meter_kelvin>();
-        let h_film = film_htc_at_flow(nominal_helium_flow(), helium)
-            .get::<watt_per_square_meter_kelvin>();
+        let h_film =
+            film_htc_at_flow(nominal_helium_flow(), helium).get::<watt_per_square_meter_kelvin>();
         let u_uniform = 1.0 / (1.0 / h_film + 1.0 / uniform_ball);
 
         let profile = resolved_pebble_profile(bed, rated / pebble_count())
@@ -2019,9 +2620,9 @@ mod tests {
     ///
     /// # What is actually being checked, and why it is not obvious
     ///
-    /// [`PebbleBedPorousMediaNode::kernel_offset_resistance`] publishes
+    /// `kernel_offset_resistance` (replaced 2026-09-28 by [`PebbleBedPorousMediaNode::fuel_bed_coupling`]) publishes
     /// `R_kernel = dT/P`, refreshed once per 0.1 s plant step, and
-    /// [`crate::physics::kinetics::KernelDopplerChannel`] then evaluates
+    /// `KernelDopplerChannel` (removed 2026-09-28, gh:#360) then evaluates
     /// `dT(t) = R_kernel * P(t)` on every 1 ms kinetics substep. That is only
     /// sound if `R_kernel` is genuinely constant *over the power excursion
     /// within one step*. Steady conduction is linear in power, so it would be
@@ -2086,8 +2687,7 @@ mod tests {
                 let profile = resolved_pebble_profile(node, power).unwrap_or_else(|| {
                     panic!("no profile at {node_k} K, {fraction}x rated -- inside the window")
                 });
-                let r =
-                    (profile.peak_kernel_centre.get::<kelvin>() - node_k) / power.get::<watt>();
+                let r = (profile.peak_kernel_centre.get::<kelvin>() - node_k) / power.get::<watt>();
                 resistances.push((fraction, r));
             }
 
@@ -2165,9 +2765,7 @@ mod tests {
                         panic!("no profile at {node_k} K, {fraction}x rated -- inside the window")
                     });
 
-                let reproduced = pebble
-                    .volume_average_temperature(&profile)
-                    .get::<kelvin>();
+                let reproduced = pebble.volume_average_temperature(&profile).get::<kelvin>();
                 let error = (reproduced - node_k).abs();
                 worst = worst.max(error);
 
@@ -2225,9 +2823,13 @@ mod tests {
         .get::<watt_per_square_meter_kelvin>();
         assert!(half < at_nominal && at_nominal < double);
 
-        let stopped =
-            overall_htc_at_flow(MassRate::new::<kilogram_per_second>(0.0), helium, bed, rated)
-                .get::<watt_per_square_meter_kelvin>();
+        let stopped = overall_htc_at_flow(
+            MassRate::new::<kilogram_per_second>(0.0),
+            helium,
+            bed,
+            rated,
+        )
+        .get::<watt_per_square_meter_kelvin>();
         assert!(
             stopped > 0.0,
             "a stopped circulator must leave a residual coefficient"
@@ -2265,6 +2867,16 @@ mod tests {
     /// close well inside the pass criteria, and the two independent routes
     /// to the duty agree with each other to 5e-7 relative.
     ///
+    /// **Re-measured 2026-09-28** (graphite `c_p(T)` from `tuas`, particles
+    /// moved to the fuel node, secant-inverted pebble; the profile now solved
+    /// at the 10 MW conduction power it carries rather than at the 1 % floor
+    /// the old zero `decay_heat_power` argument never affected): settled
+    /// `T_pebble = 1184.6389 K` (1184.7463 K on the pre-change tree the same
+    /// day), `T_helium = 1120.7008 K`, `heat_to_helium = 9.991343 MW`,
+    /// throughflow `9.991337 MW`. The steady state does not depend on `c_p`,
+    /// so a ~0.1 K move is what the change should give -- it comes from the
+    /// resolved pebble, not the heat capacity.
+    ///
     /// **Interpretation.** The two independent routes to the same duty --
     /// the interfacial exchange `h A (T_s - T_f)` and the throughflow
     /// `m_dot c_p (T_f - T_in)` -- agree at steady state, which is exactly
@@ -2278,14 +2890,15 @@ mod tests {
     fn two_node_balance_settles_with_all_power_leaving_via_helium_throughflow() {
         let mut node = PebbleBedPorousMediaNode::new();
         let power = Power::new::<megawatt>(10.0);
-        let no_decay_heat = Power::new::<watt>(0.0);
         let inlet_k = 673.15;
         let inlet = ThermodynamicTemperature::new::<kelvin>(inlet_k);
         let flow = nominal_helium_flow();
         let dt = Time::new::<second>(0.05);
 
         for _ in 0..60_000 {
-            node.step(dt, power, no_decay_heat, inlet, flow);
+            // CHANGED 2026-09-28: (net source to the bed, gross conduction
+            // power for the pebble profile) -- the same 10 MW for both here.
+            node.step(dt, power, power, inlet, flow);
         }
 
         let removed = node.heat_to_helium().get::<watt>();
@@ -2312,66 +2925,69 @@ mod tests {
         );
     }
 
-    /// V&V: `fission_power` and `decay_heat_power` must enter
-    /// [`PebbleBedPorousMediaNode::step`]'s balance identically -- only
-    /// their SUM matters, which is the whole point of
-    /// [`PebbleBedPorousMediaNode::step`]'s doc comment taking decay heat as
-    /// a separate argument rather than trusting the caller to have
-    /// pre-summed it.
+    /// V&V: the bed step closes its own energy balance, on the graphite's
+    /// **true** enthalpy (2026-09-28).
     ///
-    /// **Methodology.** Two fresh nodes are stepped for the same 3000 s at
-    /// the same 673.15 K inlet and nominal flow: one with the full 10 MW as
-    /// `fission_power` and zero decay heat, the other with the same total
-    /// split 4 MW fission / 6 MW decay heat. Pass criterion: the two end
-    /// states agree to within floating-point roundoff on both `T_pebble`
-    /// and `T_helium`.
+    /// Replaces ~~`fission_power_and_decay_heat_power_sum_into_the_same_source_term`~~:
+    /// the bed no longer takes fission and decay heat as separate arguments
+    /// (they are deposited in the fuel node now, gh:#360), so there is no
+    /// split left to test.
     ///
-    /// **Results (2026-08-17):** both temperatures agreed EXACTLY (0.0 K
-    /// difference, bit-for-bit) after 60,000 steps. This is stronger than
-    /// "close": `4.0 MW + 6.0 MW` and `10.0 MW + 0.0 MW` both round to the
-    /// exact f64 value `1.0e7` (all four inputs are exactly representable
-    /// integers of watts well under 2^53), so the two runs solve the
-    /// IDENTICAL linear system at every one of the 60,000 steps, not merely
-    /// a numerically close one.
+    /// **Methodology.** Step a node 3000 times at 0.1 s through a deliberately
+    /// rough source history (10 MW, then -2 MW net -- a scrammed bed with the
+    /// passive path drawing -- then 30 MW), at nominal and then 1 % flow. At
+    /// every step require (1)
+    /// `source = solid_storage + fluid_storage + throughflow_out` to 1e-9
+    /// of the step's gross energy, and (2) `solid_storage` equal to the
+    /// graphite mass times the **tuas** enthalpy change `h(T') - h(T)` to 1e-9
+    /// relative -- the secant-capacitance fixed point must have converged.
+    ///
+    /// **Results (2026-09-28).** Worst step residual 1.3e-11 of the step's
+    /// gross energy; solid storage vs true enthalpy change 2.1e-16; final bed
+    /// 1157.8 K.
     #[test]
-    fn fission_power_and_decay_heat_power_sum_into_the_same_source_term() {
-        let inlet = ThermodynamicTemperature::new::<kelvin>(673.15);
-        let flow = nominal_helium_flow();
-        let dt = Time::new::<second>(0.05);
-
-        let mut all_fission = PebbleBedPorousMediaNode::new();
-        let mut split = PebbleBedPorousMediaNode::new();
-        for _ in 0..60_000 {
-            all_fission.step(
-                dt,
-                Power::new::<megawatt>(10.0),
-                Power::new::<watt>(0.0),
-                inlet,
-                flow,
+    fn the_bed_step_closes_its_own_energy_balance() {
+        use uom::si::available_energy::joule_per_kilogram;
+        let mut node = PebbleBedPorousMediaNode::new();
+        let inlet = ThermodynamicTemperature::new::<kelvin>(523.15);
+        let dt = Time::new::<second>(0.1);
+        let mut worst_balance = 0.0f64;
+        let mut worst_enthalpy = 0.0f64;
+        for i in 0..3000 {
+            let (source_mw, flow_fraction) = match i {
+                0..=999 => (10.0, 1.0),
+                1000..=1999 => (-2.0, 0.01),
+                _ => (30.0, 1.0),
+            };
+            let source = Power::new::<megawatt>(source_mw);
+            let flow = MassRate::new::<kilogram_per_second>(
+                flow_fraction * nominal_helium_flow_kg_per_s(),
             );
-            split.step(
-                dt,
-                Power::new::<megawatt>(4.0),
-                Power::new::<megawatt>(6.0),
-                inlet,
-                flow,
+            let t_before = node.pebble_temperature();
+            node.step(dt, source, source.abs(), inlet, flow);
+            let e = node.last_step_energy();
+            let gross = e.source.abs()
+                + e.solid_storage.abs()
+                + e.fluid_storage.abs()
+                + e.throughflow_out.abs();
+            worst_balance = worst_balance.max(
+                (e.source - e.solid_storage - e.fluid_storage - e.throughflow_out).abs() / gross,
             );
+            let dh = (pebble_bed_specific_enthalpy_from_temperature(node.pebble_temperature())
+                - pebble_bed_specific_enthalpy_from_temperature(t_before))
+            .get::<joule_per_kilogram>()
+                * graphite_mass().get::<kilogram>();
+            if dh.abs() > 1.0 {
+                worst_enthalpy = worst_enthalpy.max((e.solid_storage - dh).abs() / dh.abs());
+            }
         }
-
-        let t_s_diff = (all_fission.pebble_temperature().get::<kelvin>()
-            - split.pebble_temperature().get::<kelvin>())
-        .abs();
-        let t_f_diff = (all_fission.helium_temperature().get::<kelvin>()
-            - split.helium_temperature().get::<kelvin>())
-        .abs();
-        println!("t_s_diff = {t_s_diff:e} K, t_f_diff = {t_f_diff:e} K");
-        assert!(
-            t_s_diff < 1.0e-6,
-            "solid temperatures diverged: {t_s_diff} K -- the fission/decay-heat split must not matter"
+        println!(
+            "bed step energy balance over 3000 steps: worst residual {worst_balance:.3e} of the \
+             step's gross energy; worst solid-storage vs true enthalpy {worst_enthalpy:.3e}; \
+             final bed {:.3} K",
+            node.pebble_temperature().get::<kelvin>()
         );
-        assert!(
-            t_f_diff < 1.0e-6,
-            "fluid temperatures diverged: {t_f_diff} K -- the fission/decay-heat split must not matter"
-        );
+        assert!(worst_balance < 1e-9);
+        assert!(worst_enthalpy < 1e-9);
     }
 }

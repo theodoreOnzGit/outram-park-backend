@@ -83,5 +83,6 @@ pub mod research_record;
 pub mod recent;
 pub mod root;
 pub mod runtime_graph;
+pub mod save_push;
 pub mod sync;
 pub mod tui;

@@ -289,6 +289,41 @@ impl CorporaConfig {
     }
 }
 
+/// How Save Repository behaves: the `[save]` table of `kovan_root.toml`.
+///
+/// Omitted from the file while every setting is at its default, so a library
+/// that never touched it keeps a file without the table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SaveConfig {
+    /// Push after every Save Repository: the proprietary and open corpora to
+    /// their own configured remotes, then the Kovan repository — see
+    /// `crate::save_push`. **On by default** (maintainer, 2026-09-28: "kovan
+    /// should be able to push pdfs to the proprietary repos by default" /
+    /// "and open source"); `push_after_save = false` is the explicit opt-out,
+    /// set from the "Push after save" checkbox on the Save Repository tab.
+    #[serde(default = "default_true")]
+    pub push_after_save: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for SaveConfig {
+    fn default() -> Self {
+        Self {
+            push_after_save: true,
+        }
+    }
+}
+
+impl SaveConfig {
+    /// Whether every setting is at its default (the table is then omitted).
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 /// The parsed contents of `kovan_root.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RootConfig {
@@ -307,6 +342,10 @@ pub struct RootConfig {
     /// library that has none.
     #[serde(default, skip_serializing_if = "CorporaConfig::is_empty")]
     pub corpora: CorporaConfig,
+    /// Save Repository settings; absent means every default (push after
+    /// save ON). See [`SaveConfig`].
+    #[serde(default, skip_serializing_if = "SaveConfig::is_default")]
+    pub save: SaveConfig,
 }
 
 impl RootConfig {
@@ -324,6 +363,7 @@ impl RootConfig {
             paths: RootPaths::default(),
             private_submodule: None,
             corpora: CorporaConfig::default(),
+            save: SaveConfig::default(),
         }
     }
 
@@ -636,6 +676,35 @@ impl KovanRoot {
     pub fn set_corpora(&mut self, corpora: CorporaConfig) -> Result<(), String> {
         let mut updated = self.config.clone();
         updated.corpora = corpora;
+        self.write_config(updated)
+    }
+
+    /// Turn "push after save" on or off for this library (the `[save]`
+    /// table, [`SaveConfig::push_after_save`]) and write it to
+    /// `kovan_root.toml` exactly as [`Self::set_corpora`] writes, keeping
+    /// every other setting.
+    ///
+    /// The other settings are **re-read from the file first**, not taken from
+    /// this (possibly long-lived) in-memory copy, so a checkbox on a stale
+    /// root cannot revert remotes that setup wrote since it was opened.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::set_corpora`], plus a message if the current file does not
+    /// parse.
+    pub fn set_push_after_save(&mut self, push: bool) -> Result<(), String> {
+        let mut updated = match std::fs::read_to_string(self.marker_path()) {
+            Ok(text) => toml::from_str::<RootConfig>(&text)
+                .map_err(|e| format!("kovan_root.toml does not parse: {e}"))?,
+            Err(_) => self.config.clone(),
+        };
+        updated.save.push_after_save = push;
+        self.write_config(updated)
+    }
+
+    /// Write `updated` over `kovan_root.toml` safely (temporary file, parse
+    /// back, rename), then adopt it in memory. Shared by the setters above.
+    fn write_config(&mut self, updated: RootConfig) -> Result<(), String> {
         let text = updated.to_toml()?;
         let target = self.root.join(ROOT_MARKER);
         let tmp = self.root.join(format!("{ROOT_MARKER}.tmp"));
@@ -1395,5 +1464,41 @@ name = "Inner"
         let gi2 = std::fs::read_to_string(dir2.join(".gitignore")).unwrap();
         assert!(!gi2.contains("literature/proprietary"), "{gi2}");
         assert!(gi2.contains("*.bak"), "{gi2}");
+    }
+
+    /// Push after save is ON unless a library opts out (2026-09-28); the
+    /// opt-out round-trips through `kovan_root.toml` without touching any
+    /// other setting, and a library at the default gets no `[save]` table.
+    #[test]
+    fn push_after_save_defaults_on_and_the_opt_out_persists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut root = KovanRoot::create(tmp.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        assert!(root.config().save.push_after_save, "default must be ON");
+        let text = std::fs::read_to_string(root.marker_path()).unwrap();
+        assert!(!text.contains("[save]"), "{text}");
+
+        // Another handle writes the remotes; the stale one then flips the
+        // checkbox and must not revert them.
+        let mut other = KovanRoot::open(tmp.path()).unwrap();
+        other
+            .set_corpora(CorporaConfig {
+                open_remote: Some("https://example.com/open.git".into()),
+                proprietary_remote: None,
+            })
+            .unwrap();
+        root.set_push_after_save(false).unwrap();
+
+        let reopened = KovanRoot::open(tmp.path()).unwrap();
+        assert!(!reopened.config().save.push_after_save);
+        assert_eq!(
+            reopened.config().corpora.open_remote.as_deref(),
+            Some("https://example.com/open.git")
+        );
+        let text = std::fs::read_to_string(root.marker_path()).unwrap();
+        assert!(text.contains("push_after_save = false"), "{text}");
+
+        root.set_push_after_save(true).unwrap();
+        let text = std::fs::read_to_string(root.marker_path()).unwrap();
+        assert!(!text.contains("[save]"), "{text}");
     }
 }

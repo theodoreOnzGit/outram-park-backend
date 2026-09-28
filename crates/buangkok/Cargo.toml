@@ -4,16 +4,24 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge) — radiation dose and its biological effects, for research-grade safety analysis: dose coefficients, pathways, dose uncertainty, ALARA. Placeholder: nothing is implemented."
+description = "BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge) — radiation dose and its biological effects, for research-grade safety analysis: dose coefficients, pathways, dose uncertainty, ALARA. Holds published HTR-10 dose tables (Liu and Cao 2002, Tables 7 and 9) as reference data, and a partial, code-to-code verified port of pyDOSEIA (MIT; Gaussian-plume dilution, inhalation, ground-shine and submersion doses). Research-grade safety analysis only."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
 # `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
 # write-ups). Excluded so it never ships to crates.io.
-exclude = ["docs"]
+# `verification_and_validation/` holds the Python that regenerates the
+# code-to-code fixture; it is repo-only too.
+exclude = ["docs", "verification_and_validation"]
 
-# NO DEPENDENCIES YET, deliberately. A dose calculation would read CHANGI's
-# air concentrations and deposition and, for uncertainty, RAFFLES; declare
-# those edges when code here calls into them, not before.
+# A dose calculation would read CHANGI's air concentrations and deposition
+# and, for uncertainty, RAFFLES; each edge is declared when code here calls
+# into it, not before.
 [dependencies]
+# `published::accident_dose_by_distance` re-exports changi's `AccidentCase`
+# so the accident release (changi, Table 8) and dose (here, Table 9) tables
+# name the accidents identically. Dose sits downstream of dispersion, so
+# buangkok -> changi is the right direction; never the reverse.
+changi = { workspace = true }
+uom = { workspace = true }

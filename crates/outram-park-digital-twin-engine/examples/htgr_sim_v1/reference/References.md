@@ -84,9 +84,11 @@ workspace too: the published individual effective dose to adults, in mSv per
 year, at 12 distances from 0.5 to 75 km along the worst azimuth. It is an
 AIRDOS-EPA result for the normal-operation release, peaking at 1.4E-4 mSv/a
 at 1.5 km. It is at
-`crates/changi/reference/htr10_normal_operation_individual_dose_by_distance.csv`,
-exposed by `changi::activity::published_dose_by_distance`, provenance in
-`crates/changi/docs/References.md`. **This simulator does not use it either**,
+~~`crates/changi/reference/…`, exposed by `changi::activity::published_dose_by_distance`~~
+**MOVED 2026-09-28** to
+`crates/buangkok/reference/htr10_normal_operation_individual_dose_by_distance.csv`,
+exposed by `buangkok::published::normal_operation_dose_by_distance`, provenance in
+`crates/buangkok/docs/References.md`. **This simulator does not use it either**,
 and it computes no dose. So the
 concentrations here are still a circuit leak driven through a dispersion
 model, not a source term, and `chi/Q` is still the only quotable output.

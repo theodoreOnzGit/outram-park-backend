@@ -75,8 +75,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
                 cp_fn,
                 high_bound_temp,
                 low_bound_temp,
-            )
-            ?
+            )?
         }
     };
 
@@ -121,8 +120,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn liquid_specific_enthalpy(
                 cp_fn,
                 high_bound_temp,
                 low_bound_temp,
-            )
-            ?
+            )?
         }
     };
 

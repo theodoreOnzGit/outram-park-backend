@@ -1000,6 +1000,11 @@ dependencies = [
 [[package]]
 name = "buangkok"
 version = "0.0.1"
+dependencies = [
+ "changi",
+ "petir",
+ "uom 0.38.0",
+]
 
 [[package]]
 name = "built"
@@ -6766,6 +6771,7 @@ dependencies = [
  "outram-foam-basic-lib",
  "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",
+ "outram-park-fork-offbeat",
  "roots",
  "serde",
  "tampines",

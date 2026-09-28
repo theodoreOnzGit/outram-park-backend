@@ -696,6 +696,33 @@ exactly [`save`].
 pub fn save_with_message(root: &crate::root::KovanRoot, note: &str) -> Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError> { /* ... */ }
 ```
 
+#### Function `save_and_push`
+
+Save Repository and then, when `push` is set, push the corpora and the
+Kovan repository ([`crate::save_push::push_after_save`], whose doc has the
+order and the safety rules). The push runs after any successful save,
+including one with nothing new to commit (earlier saves may be
+unpushed), and never after a failed one. `push` is normally
+[`push_after_save_setting`]; the GUI passes its checkbox.
+
+Returns the save's own result unchanged (so the commit-note handling is
+exactly as before) and the push report, `None` when nothing was pushed
+because pushing is off or the save failed.
+
+```rust
+pub fn save_and_push(root: &crate::root::KovanRoot, note: &str, push: bool) -> (Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError>, Option<crate::save_push::PushReport>) { /* ... */ }
+```
+
+#### Function `push_after_save_setting`
+
+Whether this library pushes after a save (`[save] push_after_save` in
+`kovan_root.toml`, default ON), read from the file on disk rather than
+`root`'s in-memory copy, which may predate a change of the checkbox.
+
+```rust
+pub fn push_after_save_setting(root: &crate::root::KovanRoot) -> bool { /* ... */ }
+```
+
 #### Function `history`
 
 Up to `max` commits of history, newest first — reuses
@@ -33727,6 +33754,20 @@ back a real Git index file. `gix`'s object-writing calls
 ([`gix::Repository::write_blob`]/`write_object`) already deduplicate by
 content hash, so re-saving unchanged files costs nothing extra.
 
+~~(implicitly: the index is never touched)~~ **CORRECTED 2026-09-28**:
+the tree is still built from the worktree, but after every commit the
+index is now written to match it ([`sync_index`]). Leaving it alone made
+plain `git status` report every file a Save had added as a staged
+deletion plus an untracked copy — seen on the maintainer's real
+proprietary submodule, where one `git commit` would have deleted four
+saved PDFs.
+
+# Pushing is separate
+
+A Save only commits. Pushing the result — on by default since
+2026-09-28 — is [`crate::save_push`], run after a successful save by
+[`crate::advanced_git::save_and_push`].
+
 # Submodules are gitlinks, never walked
 
 Git would never flatten another repository into this one, so this does
@@ -35860,6 +35901,215 @@ where
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
+#### Struct `SaveConfig`
+
+How Save Repository behaves: the `[save]` table of `kovan_root.toml`.
+
+Omitted from the file while every setting is at its default, so a library
+that never touched it keeps a file without the table.
+
+```rust
+pub struct SaveConfig {
+    pub push_after_save: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `push_after_save` | `bool` | Push after every Save Repository: the proprietary and open corpora to<br>their own configured remotes, then the Kovan repository — see<br>`crate::save_push`. **On by default** (maintainer, 2026-09-28: "kovan<br>should be able to push pdfs to the proprietary repos by default" /<br>"and open source"); `push_after_save = false` is the explicit opt-out,<br>set from the "Push after save" checkbox on the Save Repository tab. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_default(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether every setting is at its default (the table is then omitted).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SaveConfig { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SaveConfig) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 #### Struct `RootConfig`
 
 The parsed contents of `kovan_root.toml`.
@@ -35871,6 +36121,7 @@ pub struct RootConfig {
     pub paths: RootPaths,
     pub private_submodule: Option<PrivateSubmoduleConfig>,
     pub corpora: CorporaConfig,
+    pub save: SaveConfig,
 }
 ```
 
@@ -35883,6 +36134,7 @@ pub struct RootConfig {
 | `paths` | `RootPaths` | Layout overrides; omitted entirely in a conventional library. |
 | `private_submodule` | `Option<PrivateSubmoduleConfig>` | A private literature submodule, if this library has deliberately<br>opted into one. Absent by default — see [`PrivateSubmoduleConfig`]. |
 | `corpora` | `CorporaConfig` | The user's open and proprietary corpus remotes (#255). Absent in a<br>library that has none. |
+| `save` | `SaveConfig` | Save Repository settings; absent means every default (push after<br>save ON). See [`SaveConfig`]. |
 
 ##### Implementations
 
@@ -36136,6 +36388,11 @@ pub struct KovanRoot {
   pub fn set_corpora(self: &mut Self, corpora: CorporaConfig) -> Result<(), String> { /* ... */ }
   ```
   Set this library's corpus remotes (#255) and write them to its
+
+- ```rust
+  pub fn set_push_after_save(self: &mut Self, push: bool) -> Result<(), String> { /* ... */ }
+  ```
+  Turn "push after save" on or off for this library (the `[save]`
 
 - ```rust
   pub fn marker_path(self: &Self) -> PathBuf { /* ... */ }
@@ -36994,6 +37251,914 @@ the same level as Unsorted because it answers the same kind of question:
 
 ```rust
 pub const RECENT_PATH: &str = "recent";
+```
+
+## Module `save_push`
+
+Push after Save Repository (maintainer, 2026-09-28: "kovan should be able
+to push pdfs to the proprietary repos by default", then "and open
+source").
+
+A Save ([`crate::repository::save_repository_with_message`]) commits up to
+three repositories and, before this module, never pushed any of them, so
+an ingested proprietary PDF stayed on one machine and the Kovan
+repository's gitlink pointed at a commit no other clone could fetch.
+[`push_after_save`] now pushes them, **on by default**; the opt-out is
+`[save] push_after_save = false` in `kovan_root.toml`
+([`crate::root::SaveConfig`]), which the "Push after save" checkbox on the
+Save Repository tab writes.
+
+# Order
+
+1. the **proprietary corpus** ([`KovanRoot::restricted_sources_dir`]),
+2. the **open corpus** ([`KovanRoot::open_corpus_dir`]),
+3. the **Kovan repository** itself — only if neither corpus push failed
+   or was refused, so the parent never publishes a gitlink to a corpus
+   commit that is not on its remote. A corpus that is merely *skipped*
+   (not downloaded here, or no remote configured for it) does not hold
+   the parent back: that corpus was never going to be pushed from here.
+
+The **standard corpus is never pushed**: it is read-only to everyone but
+its maintainer, and Save never commits into it.
+
+# Safety rules (non-negotiable, each pinned by a test)
+
+- **Never forced.** The refspec is `refs/heads/B:refs/heads/B` with no
+  `+` and no `--force`, so Git itself refuses anything but a
+  fast-forward. A remote that has moved on is reported as "pull first";
+  the local commit is kept.
+- **Never from a detached `HEAD`.** `git submodule update` leaves a
+  submodule detached, and a Save then commits onto no branch. Before
+  pushing, the commit is put on the submodule's tracked branch
+  (`.gitmodules` `branch =`, else the remote's default branch), but only
+  when that branch's tip — local and remote-tracking — is an ancestor of
+  the commit, i.e. the branch fast-forwards. Otherwise nothing is moved
+  and the push is refused.
+- **Each corpus goes only to its own configured remote.** Every push URL
+  of the proprietary corpus's remote must be the private remote in
+  `kovan_root.toml` (`[private_submodule] remote` and/or
+  `[corpora] proprietary_remote`, which must agree), and must not be the
+  open-corpus or standard-corpus remote; the open corpus's must be
+  `[corpora] open_remote` and must not be a proprietary one. A mismatch is
+  refused, so a proprietary PDF cannot reach a public repository through
+  a mis-set `origin`.
+- **System `git` for the network**, as every remote operation in Kovan
+  ([`crate::advanced_git`]), so the user's credential helpers apply.
+  `GIT_TERMINAL_PROMPT=0` makes a missing credential fail fast with Git's
+  own message instead of hanging on a prompt no GUI window can answer.
+
+```rust
+pub mod save_push { /* ... */ }
+```
+
+### Types
+
+#### Enum `PushRepo`
+
+One of the repositories a Save pushes.
+
+```rust
+pub enum PushRepo {
+    ProprietaryCorpus,
+    OpenCorpus,
+    KovanRepository,
+}
+```
+
+##### Variants
+
+###### `ProprietaryCorpus`
+
+The private literature submodule.
+
+###### `OpenCorpus`
+
+The user's open corpus.
+
+###### `KovanRepository`
+
+The Kovan folder's own repository.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  The label the UI shows.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PushRepo { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PushRepo) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `PushOutcome`
+
+What happened to one repository.
+
+```rust
+pub enum PushOutcome {
+    Pushed {
+        remote_url: String,
+        branch: String,
+        attached: bool,
+    },
+    UpToDate {
+        branch: String,
+    },
+    Skipped {
+        reason: String,
+    },
+    Refused {
+        reason: String,
+    },
+    Failed {
+        message: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Pushed`
+
+New commits were pushed to `remote_url`'s `branch`.
+`attached` is set when the commit was on a detached `HEAD` and was
+first put on `branch` (a fast-forward of that branch).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `remote_url` | `String` |  |
+| `branch` | `String` |  |
+| `attached` | `bool` |  |
+
+###### `UpToDate`
+
+The remote already had everything: nothing to push.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `branch` | `String` |  |
+
+###### `Skipped`
+
+Not attempted, by design (not downloaded here, no remote configured,
+no system `git`, or a corpus before it did not make it).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reason` | `String` |  |
+
+###### `Refused`
+
+Refused by a safety rule before anything was sent.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reason` | `String` |  |
+
+###### `Failed`
+
+`git push` ran and failed: a remote that has moved on ("pull first"),
+an authentication failure, the network — with Git's own words.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `message` | `String` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_problem(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this blocks the Kovan repository's push (and should be shown
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PushOutcome { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PushOutcome) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `RepoPush`
+
+One repository's result.
+
+```rust
+pub struct RepoPush {
+    pub repo: PushRepo,
+    pub dir: std::path::PathBuf,
+    pub outcome: PushOutcome,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `repo` | `PushRepo` |  |
+| `dir` | `std::path::PathBuf` |  |
+| `outcome` | `PushOutcome` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn line(self: &Self) -> String { /* ... */ }
+  ```
+  One human-readable line, e.g. `Proprietary corpus: pushed main to …`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RepoPush { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RepoPush) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `PushReport`
+
+Every repository's result, in push order.
+
+```rust
+pub struct PushReport {
+    pub repos: Vec<RepoPush>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `repos` | `Vec<RepoPush>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn has_problem(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether any repository failed or was refused.
+
+- ```rust
+  pub fn get(self: &Self, repo: PushRepo) -> Option<&PushOutcome> { /* ... */ }
+  ```
+  The result of `repo`, if it was considered.
+
+- ```rust
+  pub fn lines(self: &Self) -> Vec<String> { /* ... */ }
+  ```
+  One line per repository ([`RepoPush::line`]).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PushReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PushReport { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PushReport) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `push_after_save`
+
+Push the proprietary corpus, the open corpus and then the Kovan
+repository, under the module's safety rules. Never panics; every
+problem is a [`PushOutcome`] in the report.
+
+Called after a successful save whether or not that save committed
+anything, so commits from earlier saves that were never pushed (every
+save before 2026-09-28) go up too.
+
+```rust
+pub fn push_after_save(root: &crate::root::KovanRoot) -> PushReport { /* ... */ }
+```
+
+#### Function `normalize_url`
+
+A remote URL reduced to what identifies the repository, so the
+`https://`, `ssh://` and `git@host:` spellings of one GitHub repository
+compare equal: scheme, user and a trailing `.git` or `/` are dropped and
+the host is lower-cased. A local path is compared as written, less a
+trailing `/` or `.git`.
+
+```rust
+pub fn normalize_url(url: &str) -> String { /* ... */ }
 ```
 
 ## Module `sync`

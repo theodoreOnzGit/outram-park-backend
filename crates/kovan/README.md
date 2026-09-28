@@ -367,6 +367,14 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   2026-09-28**: both exist now. The reader crops a region into the digitiser,
   and tables are digitised with no OCR, in a spreadsheet grid beside the PDF
   (GH #353).
+- **Save Repository** (top bar → the Save Repository tab) — commits the
+  proprietary corpus, the open corpus and the Kovan folder, with an optional
+  note, then (default ON, "Push after save" checkbox, persisted as
+  `[save] push_after_save` in `kovan_root.toml`) pushes each corpus to its
+  own configured remote and then the Kovan folder: fast-forward only, never
+  forced, never to a remote other than the one configured for that corpus.
+  Per-repository results are shown under the button. See `DECISIONS.md`
+  (2026-09-28) and `src/save_push.rs`.
 - **Gruvbox theming** (top bar → theme dropdown) — Gruvbox Dark / Gruvbox
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance

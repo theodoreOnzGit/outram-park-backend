@@ -136,13 +136,13 @@ Given a release of activity at a point, over one or more time windows:
 **It computes no dose quantity of any kind**, and none is planned here. See
 the scope limit below, which is binding.
 
-~~One published dose table is~~ **CORRECTED 2026-09-28: two published
-dose tables are** *stored* here as cited reference data. The first is
-[`published_dose_by_distance`] (added 2026-09-28). It is read from a CSV,
-not computed, and nothing uses it. Storing it does not change the
-sentence above or the scope limit. **Added 2026-09-28:** a second one,
-the same paper's accident doses, [`published_accident_dose_by_distance`],
-on exactly the same terms.
+~~One published dose table is~~ ~~two published dose tables are *stored*
+here as cited reference data~~ **MOVED 2026-09-28** (maintainer: "move
+table 7 and 9 to buangkok"): the published HTR-10 dose tables (Liu and Cao
+2002, Tables 7 and 9) now live in the dose crate, `buangkok::published`.
+This module holds no dose data. The accident releases (Table 8) stay here
+as a nuclide table, and `AccidentCase` is defined in
+[`accident_airborne_release`].
 
 ## Relationship to the two ports — a consumer, not a shared abstraction
 
@@ -421,7 +421,7 @@ accidents, stored as reference data.**
 
 The activity of each nuclide that the source calculates is released to the
 environment, **in Bq per accident**, for the same two accidents as the
-paper's Table 9 doses ([`published_accident_dose_by_distance`][T9]):
+paper's Table 9 doses (now in `buangkok::published::accident_dose_by_distance`):
 
 - **Depressurization accident** ([`AccidentCase::Depressurization`][D]):
   primary helium lost through a ruptured 65 mm fuel-element charging tube.
@@ -438,8 +438,9 @@ paper's Table 9 doses ([`published_accident_dose_by_distance`][T9]):
 
 No release from the coated particles is assumed in either case. Both go
 out through the 40 m stack with no filtering or plate-out credited. The
-[`AccidentCase`][AC] enum is the one Table 9's loader defines, reused here so
-the two tables name the accidents identically.
+[`AccidentCase`][AC] enum is defined here and re-exported by buangkok's
+Table 9 loader, so the two tables name the accidents identically. (It was
+defined by the Table 9 loader until that moved to buangkok, 2026-09-28.)
 
 It is a **published model result, not a measurement.** The paper does not
 name a code for the release calculation. STOERNEU, named in its Section
@@ -500,10 +501,9 @@ Access terms, digitisation and verification are in
 and is **not** redistributed here; only the cited table of 36 values is,
 which is ordinary scientific citation.
 
-[T9]: crate::activity::published_accident_dose_by_distance
-[AC]: crate::activity::published_accident_dose_by_distance::AccidentCase
-[D]: crate::activity::published_accident_dose_by_distance::AccidentCase::Depressurization
-[W]: crate::activity::published_accident_dose_by_distance::AccidentCase::WaterIngress
+[AC]: AccidentCase
+[D]: AccidentCase::Depressurization
+[W]: AccidentCase::WaterIngress
 
 ```rust
 pub mod accident_airborne_release { /* ... */ }
@@ -511,6 +511,131 @@ pub mod accident_airborne_release { /* ... */ }
 
 ### Types
 
+#### Enum `AccidentCase`
+
+Which of the paper's two tabulated accidents a release (Table 8) or dose
+(Table 9, now in `buangkok::published::accident_dose_by_distance`)
+belongs to. Defined here, where the release lives; buangkok re-exports it
+so both tables name the accidents identically.
+
+```rust
+pub enum AccidentCase {
+    Depressurization,
+    WaterIngress,
+}
+```
+
+##### Variants
+
+###### `Depressurization`
+
+Primary-circuit depressurization through a ruptured 65 mm
+fuel-element charging tube (paper Section 4.1.1).
+
+###### `WaterIngress`
+
+Water ingress through two ruptured steam-generator tubes with the
+steam relief system failed (paper Section 4.1.2).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AccidentCase { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AccidentCase) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `AccidentReleaseEntry`
 
 One row of the published accident release.
@@ -669,14 +794,6 @@ was not reported, which is not the same thing as a zero release.
 
 ```rust
 pub fn htr10_accident_airborne_release(nuclide: &str, case: AccidentCase) -> Option<uom::si::f64::Radioactivity> { /* ... */ }
-```
-
-### Re-exports
-
-#### Re-export `AccidentCase`
-
-```rust
-pub use super::published_accident_dose_by_distance::AccidentCase;
 ```
 
 ## Module `decay_transfer`
@@ -1155,712 +1272,6 @@ zero that reads like a measurement.
 
 ```rust
 pub fn htr10_core_inventory(nuclide: &str) -> Option<uom::si::f64::Radioactivity> { /* ... */ }
-```
-
-## Module `published_dose_by_distance`
-
-Published HTR-10 normal-operation dose-versus-distance table (Liu and Cao
-2002, Table 7): stored reference data, **not** a dose this crate computes.
-Nothing in this crate consumes it.
-**A published dose-versus-distance table for HTR-10 normal operation,
-stored as reference data. Nothing here computes a dose.**
-
-# What this is
-
-The source's individual effective dose to an adult member of the public,
-in mSv per year, at twelve distances from 0.5 km to 75 km from the release
-point. It is given only along the azimuth where the dose is largest. It is
-the dose the same paper calculates from its annual normal-operation
-airborne release (its Table 5, in [`crate::activity::airborne_release`]).
-
-It is a **published model result, not a measurement.** The source
-calculated it with the US EPA code **AIRDOS-EPA** (Moore et al., 1979),
-which the authors say they partly modified. The paper states this basis:
-
-- **Release:** routine airborne effluent from one year of normal
-  operation, from a 40 m exhaust stack (the reactor building is 12 m) with
-  a 9 m/s exit velocity. It is the unfiltered, conservative release of the
-  paper's Table 5.
-- **Pathways:** gamma submersion in the plume, gamma radiation from
-  contaminated ground, inhalation, and ingestion.
-- **Receptor:** adults. The food-consumption rates are the source's
-  Table 6, which is not reproduced here.
-- **Meteorology:** measurements from an observatory 7.5 km from the site.
-  The dose differs by direction, and the table gives only the direction of
-  maximum dose.
-- **Dose factors:** USDOE/EH-0070 (1988) and IAEA (1996).
-
-# What this is NOT
-
-- **Not computed here, and not wired into any model.** Nothing in this
-  crate or in `htgr_sim_v1` reads it. `changi` still computes no dose
-  quantity (see [`crate::activity`]). This module stores numbers a
-  published paper printed. It does not bring dose assessment into this
-  crate's current scope. That is a maintainer decision taken in
-  `RESPONSIBLE_USE.md`.
-- **Not an accident dose.** The same paper tabulates accident doses
-  separately (its Table 9), ~~which is not digitised here~~ **CORRECTED
-  2026-09-28**: now stored in
-  [`crate::activity::published_accident_dose_by_distance`].
-- `RESPONSIBLE_USE.md` applies in full. Nothing here may be quoted as a
-  dose to the public from HTR-10 or any other plant for any operational,
-  licensing, siting, emergency-planning or safety purpose.
-
-# Units
-
-Distance is a `uom` [`Length`](uom::si::f64::Length). **The dose is a plain `f64` in mSv per
-year**, and the field name says so. `uom` 0.38 has no sievert quantity:
-there is no equivalent-dose or absorbed-dose module in `uom::si`. It was
-checked 2026-09-28, and no crate in this workspace defines one either.
-`AvailableEnergy` (J/kg) has the right dimension but was rejected on
-purpose. A sievert is J/kg only after radiation and tissue weighting, and
-a type that lets a dose be added to a specific energy would hide that.
-
-# Provenance
-
-Liu Yuanzhong and Cao Jianzhu, *"Fission product release and its
-environment impact for normal reactor operations and for relevant
-accidents"*, **Nuclear Engineering and Design 218 (2002) 81–90**, Table 7
-(p. 87, printed sideways), "Individual effective doses (mSv a⁻¹) to the
-public at various distance (km) from the release point in the azimuth
-where the maximum dose occurs". The basis above comes from the paper's
-Section 3.2 (pp. 85–86).
-
-Access terms, digitisation and verification are in
-`crates/changi/docs/References.md`. The document carries no reuse licence
-and is **not** redistributed here. Only the cited table of 12 values is,
-which is ordinary scientific citation.
-
-```rust
-pub mod published_dose_by_distance { /* ... */ }
-```
-
-### Types
-
-#### Struct `PublishedDoseAtDistance`
-
-One row of the published dose-versus-distance table.
-
-```rust
-pub struct PublishedDoseAtDistance {
-    pub distance: uom::si::f64::Length,
-    pub effective_dose_msv_per_year: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `distance` | `uom::si::f64::Length` | Distance from the release point (the stack), along the azimuth of<br>maximum dose. |
-| `effective_dose_msv_per_year` | `f64` | Individual effective dose to an adult member of the public, in<br>**millisieverts per year**, as published. A plain `f64` because `uom`<br>has no sievert quantity (see the module docs). |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> PublishedDoseAtDistance { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &PublishedDoseAtDistance) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-### Functions
-
-#### Function `htr10_normal_operation_dose_by_distance`
-
-**Attributes:**
-
-- `MustUse { reason: None }`
-
-Every row of the published HTR-10 normal-operation dose-versus-distance
-table, in the source's order (increasing distance, 0.5 km to 75 km).
-
-```rust
-pub fn htr10_normal_operation_dose_by_distance() -> Vec<PublishedDoseAtDistance> { /* ... */ }
-```
-
-## Module `published_accident_dose_by_distance`
-
-Published HTR-10 accident dose-versus-distance table (Liu and Cao 2002,
-Table 9; depressurization and water ingress, thyroid and whole-body, mSv):
-stored reference data, **not** a dose this crate computes. Nothing in this
-crate consumes it.
-**A published dose-versus-distance table for two HTR-10 design-basis
-accidents, stored as reference data. Nothing here computes a dose.**
-
-# What this is
-
-The source's individual dose to a member of the public, in **mSv** (a
-dose per accident, not a rate), at thirteen distances from 0.25 km to
-75 km from the release point. It gives two organ/body quantities,
-**thyroid** and **whole-body**, for each of two accidents:
-
-- **Depressurization accident** ([`AccidentCase::Depressurization`]):
-  loss of primary helium through a ruptured 65 mm fuel-element charging
-  tube. The paper's Section 4.1.1 sums four sources: the primary-helium
-  activity, fission products desorbed from primary-circuit surfaces, dust
-  mobilised from "dead-water regions", and activity bound in the helium
-  purification system. Fission products in the coated particles are
-  taken as not released, because the paper's cited transient analysis
-  puts peak fuel temperature at 1033 °C, below the 1600 °C limit.
-- **Water ingress accident** ([`AccidentCase::WaterIngress`]): a two-ended
-  rupture of two steam-generator heat-transfer tubes with the steam relief
-  system failing, admitting at most 129.9 kg of water. The paper's
-  Section 4.1.2 sums three sources: about 23 % of the primary-helium
-  activity, wash-off of the activity deposited on the steam generator,
-  and activity in up to 4.88 kg of corroded graphite.
-
-The paper names these two as the design-basis accidents that lead to the
-largest potential dose to the public. The releases behind this table are
-the paper's Table 8, ~~which is **not** digitised in this workspace~~
-**CORRECTED 2026-09-28**: now stored in
-[`crate::activity::accident_airborne_release`], which reuses the
-`AccidentCase` enum below. In both
-cases the release goes out through the 40 m exhaust stack, and the paper
-credits no filtering and no plate-out in the reactor building.
-
-It is a **published model result, not a measurement.** The source
-calculated it with the German code **STOERNEU**. The paper's Section 4.2
-states this basis:
-
-- **Pathways:** gamma and beta submersion, gamma radiation from
-  contaminated ground, inhalation, and ingestion.
-- **Geometry:** a 40 m stack; the reactor building is 28 m high and 30 m
-  wide.
-
-**The paper does NOT state**, for this table: the integration period of
-the dose (the table is in mSv, with no time basis), the receptor age
-group, the meteorology or dispersion conditions, whether the values are
-for a worst azimuth, the dose coefficients, or whether "whole-body" means
-effective dose. Do not read any of those into it. In particular, do not
-assume Table 7's "azimuth of maximum dose" or its adult receptor carry
-over; Table 7 was computed with a different code (AIRDOS-EPA).
-
-# What the paper says about it
-
-Comparing this table with its Table 10 (the emergency intervention levels
-of Chinese Nuclear Safety Criterion HAD 002/03), the paper concludes the
-doses are much lower than the lowest sheltering level, so no intervention
-(evacuation, sheltering or stable iodine) would be needed even for the
-worst of the accidents it analysed. Table 10's lowest sheltering levels
-are 5 mSv whole-body and 50 mSv for the thyroid and other important
-organs. The test
-`every_dose_is_below_the_lowest_sheltering_level_the_paper_compares_against`
-checks that statement against the stored numbers. It holds: the largest
-whole-body dose (0.20 mSv, water ingress, 0.25 km) is 25 times below 5 mSv,
-and the largest thyroid dose (1.1 mSv, same case and distance) is about 45
-times below 50 mSv. That is the paper's comparison, reproduced; it is not
-an endorsement of it and not an emergency-planning finding of this
-workspace.
-
-# What this is NOT
-
-- **Not computed here, and not wired into any model.** Nothing in this
-  crate or in `htgr_sim_v1` reads it. `changi` still computes no dose
-  quantity (see [`crate::activity`]).
-- **Parked here, not settled here.** Dose is to live in the placeholder
-  crate `buangkok` eventually, but the maintainer (2026-09-28) has asked
-  for the dose tables to stay in `changi` until they decide. Do not move
-  it, and do not build dose computation around it, unasked.
-- **Not a basis for emergency planning, emergency-zone sizing, siting,
-  licensing or any safety decision**, for HTR-10 or any other plant.
-  `RESPONSIBLE_USE.md` applies in full. This workspace uses it for
-  research-grade safety analysis only: a published number that a future
-  research calculation may be compared with.
-- **Not a beyond-design-basis result.** It covers the two design-basis
-  accidents above, with no release from the coated particles.
-
-# Units
-
-Distance is a `uom` [`Length`](uom::si::f64::Length). **The doses are
-plain `f64` in mSv**, and the field names say so, for the reason given in
-[`crate::activity::published_dose_by_distance`]: `uom` 0.38 has no
-sievert quantity, and `AvailableEnergy` (J/kg) was rejected on purpose.
-
-# Provenance
-
-Liu Yuanzhong and Cao Jianzhu, *"Fission product release and its
-environment impact for normal reactor operations and for relevant
-accidents"*, **Nuclear Engineering and Design 218 (2002) 81–90**, Table 9
-(p. 88), "Individual doses caused by accidents of the HTR-10 (mSv)". The
-basis above comes from the paper's Sections 4.1–4.2 (pp. 86–89).
-
-Access terms, digitisation and verification are in
-`crates/changi/docs/References.md`. The document carries no reuse licence
-and is **not** redistributed here. Only the cited table of 65 numbers is,
-which is ordinary scientific citation.
-
-```rust
-pub mod published_accident_dose_by_distance { /* ... */ }
-```
-
-### Types
-
-#### Enum `AccidentCase`
-
-Which of the paper's two tabulated accidents a dose belongs to.
-
-```rust
-pub enum AccidentCase {
-    Depressurization,
-    WaterIngress,
-}
-```
-
-##### Variants
-
-###### `Depressurization`
-
-Primary-circuit depressurization through a ruptured 65 mm
-fuel-element charging tube (paper Section 4.1.1).
-
-###### `WaterIngress`
-
-Water ingress through two ruptured steam-generator tubes with the
-steam relief system failed (paper Section 4.1.2).
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> AccidentCase { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Eq**
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &AccidentCase) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-#### Struct `PublishedAccidentDoses`
-
-The two doses the table gives for one accident at one distance.
-
-```rust
-pub struct PublishedAccidentDoses {
-    pub thyroid_msv: f64,
-    pub whole_body_msv: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `thyroid_msv` | `f64` | Thyroid dose, in **millisieverts**, as published. The paper says only<br>"Thyroid". |
-| `whole_body_msv` | `f64` | Whole-body dose, in **millisieverts**, as published. The paper says<br>only "Whole-body"; it does not say whether this is an effective dose. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> PublishedAccidentDoses { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &PublishedAccidentDoses) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-#### Struct `PublishedAccidentDoseAtDistance`
-
-One row of the published accident dose-versus-distance table.
-
-```rust
-pub struct PublishedAccidentDoseAtDistance {
-    pub distance: uom::si::f64::Length,
-    pub depressurization: PublishedAccidentDoses,
-    pub water_ingress: PublishedAccidentDoses,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `distance` | `uom::si::f64::Length` | Distance from the release point (the stack). The paper does not say<br>along which azimuth. |
-| `depressurization` | `PublishedAccidentDoses` | Doses for the depressurization accident. |
-| `water_ingress` | `PublishedAccidentDoses` | Doses for the water ingress accident. |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn doses(self: &Self, case: AccidentCase) -> PublishedAccidentDoses { /* ... */ }
-  ```
-  The doses for one accident case at this distance.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> PublishedAccidentDoseAtDistance { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &PublishedAccidentDoseAtDistance) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-### Functions
-
-#### Function `htr10_accident_dose_by_distance`
-
-**Attributes:**
-
-- `MustUse { reason: None }`
-
-Every row of the published HTR-10 accident dose-versus-distance table, in
-the source's order (increasing distance, 0.25 km to 75 km).
-
-```rust
-pub fn htr10_accident_dose_by_distance() -> Vec<PublishedAccidentDoseAtDistance> { /* ... */ }
 ```
 
 ## Module `primary_helium`

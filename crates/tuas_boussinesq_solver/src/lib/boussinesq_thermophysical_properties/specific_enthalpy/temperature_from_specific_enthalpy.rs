@@ -125,8 +125,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn get_liquid_temperature_fr
                 cp_fn,
                 high_bound_temp,
                 low_bound_temp,
-            )
-            ?
+            )?
         }
     };
 

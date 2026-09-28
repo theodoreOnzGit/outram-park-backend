@@ -1,4 +1,11 @@
-//! # `htgr_sim_v1` -- HTGR educational simulator (scaffold)
+//! # `htgr_sim_v1` -- HTGR educational simulator (~~scaffold~~ demo)
+//!
+//! **Status: ~~scaffold~~ **CHANGED 2026-09-28** (maintainer: "no longer a
+//! scaffold, but a demo") — demo.** A demo here means an **offline
+//! demonstration** for education and research, per `RESPONSIBLE_USE.md`: it
+//! runs end to end on real workspace physics, but it is **not validated** and
+//! is not an operational, licensing or safety tool. "Demo" claims no V&V
+//! beyond what each module's own doc comments record.
 //!
 //! A first-cut interactive simulator for a **helium-cooled, graphite-moderated
 //! pebble-bed High-Temperature Gas-cooled Reactor (HTGR)**, built on the
@@ -14,12 +21,16 @@
 //!
 //! ## What this is (and is not)
 //!
-//! This is a **scaffold**: a working, compiling skeleton with the real
+//! ~~This is a **scaffold**: a working, compiling skeleton~~ **CHANGED
+//! 2026-09-28** — this is a **demo** (see the status note above): a working
+//! simulator with the real
 //! cross-crate structure wired up (engine widgets, engine app scaffold,
 //! `teh-o-prke` prompt kinetics, `tampines-steam-tables` steam properties). It
 //! is **not** a validated HTGR model -- several thermal-hydraulic correlations
-//! are first-cut placeholders, and the delayed-neutron kinetics is a local
-//! stand-in for the forthcoming `teh_o_prke::DelayedNeutronLayer`. See the
+//! are first-cut placeholders, ~~and the delayed-neutron kinetics is a local
+//! stand-in for the forthcoming `teh_o_prke::DelayedNeutronLayer`~~
+//! (**CORRECTED 2026-09-28** — `physics::kinetics` uses
+//! `teh_o_prke::delayed_neutron_layer::DelayedNeutronLayer` itself). See the
 //! module docs (`app`, `physics`) and beads `op-wqk.9.1`..`op-wqk.9.4` for the
 //! exact real-vs-placeholder breakdown. Per this workspace's data policy, all
 //! parameters are round, order-of-magnitude illustrative numbers, not any
@@ -94,7 +105,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "HTGR Simulator v1.1 (scaffold) -- OUTRAM PARK",
+        "HTGR Simulator v1.1 (demo, not validated) -- OUTRAM PARK",
         native_options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);

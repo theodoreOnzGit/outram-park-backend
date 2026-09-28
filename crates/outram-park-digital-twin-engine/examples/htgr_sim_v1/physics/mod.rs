@@ -1021,6 +1021,17 @@ impl HtgrPlant {
         }
     }
 
+    /// The fuel stack temperatures -- kernel (the kinetics fuel node), SiC
+    /// layer, fuelled-zone matrix, peak kernel -- placed on the line between
+    /// the bed and the fuel node by the bed's most recent resolved-pebble
+    /// coupling (gh:#360, 2026-09-28). `None` only if the bed has never had a
+    /// coupling, which the design-point seed rules out.
+    pub fn fuel_stack_temperatures(&self) -> Option<pebble_bed::FuelStackTemperatures> {
+        self.core
+            .fuel_bed_coupling()
+            .map(|c| c.stack(self.core.temperature(), self.kinetics.fuel_temperature()))
+    }
+
     /// Heat rate crossing the pebble surface into the helium on the most recent
     /// step. At steady state this equals the fission power; during a transient
     /// it lags it by the bed's ~184 s graphite time constant.
@@ -1276,25 +1287,22 @@ impl HtgrPlant {
             //    plant runs on one physics thread, so the thread name alone
             //    identifies nothing.
             mark_component("reactor kinetics (point kinetics + control rods)");
-            // The heat sink on the fuel node is the previous corrector's
-            // (or, on the first, the previous step's) coolant heat removal --
-            // the same predictor-corrector treatment every other coupling in
-            // this loop gets. It is applied at KINETICS substep resolution
-            // inside `step`, not as one lump per plant step.
-            // The kernel-above-node resistance from the bed's most recent
-            // resolved pebble solve, handed over BEFORE the kinetics steps so
-            // the Doppler channel can follow the kernel at substep resolution.
-            // Same predictor-corrector treatment as `core_heat_to_helium`
-            // above: the previous corrector's (or step's) value, tightening as
-            // the loop iterates. A `None` -- the bed's solve out of its
-            // correlation window -- disables the kernel term for the step and
-            // leaves the whole isothermal coefficient on the bed node, which
-            // is the model that was in service before the pebble was resolved.
-            // See `kinetics::KernelDopplerChannel`.
-            self.kinetics
-                .set_kernel_offset_resistance(self.core.kernel_offset_resistance());
-            self.kinetics
-                .step(dt, external_reactivity_dollars, self.core_heat_to_helium);
+            // ~~The heat sink on the fuel node is the previous corrector's
+            // coolant heat removal ... The kernel-above-node resistance ... so
+            // the Doppler channel can follow the kernel~~ -- both replaced
+            // 2026-09-28 (gh:#360) by the fuel-to-bed coupling below.
+            // CHANGED 2026-09-28 (gh:#360): the fuel node's sink is conduction
+            // to the BED through the resolved-pebble resistance, not the
+            // bed's heat-to-helium. The bed temperature is the corrector's
+            // current estimate (start-of-step on the first pass, the previous
+            // corrector's end-of-step after) -- the same predictor-corrector
+            // treatment every coupling here gets.
+            self.kinetics.step(
+                dt,
+                external_reactivity_dollars,
+                bed_for_passive_path,
+                self.core.fuel_bed_coupling().map(|c| c.resistance),
+            );
 
             // 2. Pebble bed absorbs the core's THERMAL power -- the promptly
             //    released fission power plus fission-product decay heat, not
@@ -1306,7 +1314,12 @@ impl HtgrPlant {
             //    implicit as the loop iterates. The bed's ~184 s time constant
             //    makes this the least sensitive of the couplings either way.
             mark_component("pebble-bed core (graphite pebbles)");
-            let reactor_power = self.kinetics.core_thermal_power();
+            // CHANGED 2026-09-28 (gh:#360): the bed's source is what the fuel
+            // node conducted to it this step -- exactly the energy the fuel
+            // gave up -- not the reactor's thermal power. Fission (prompt
+            // share) and decay heat were deposited in the FUEL by the kinetics
+            // step above.
+            let heat_from_fuel = self.kinetics.heat_to_bed();
 
             // 2a. Passive decay-heat path out through the reflector and vessel
             //     to the RCCS. Advanced BEFORE the bed so the heat it removes
@@ -1327,11 +1340,15 @@ impl HtgrPlant {
             //     returned is exactly what the reflector receives, so the bed
             //     is charged precisely that.
             let passive_heat_loss = self.decay_heat_path.advance(dt, bed_for_passive_path);
-            let net_core_source = reactor_power - passive_heat_loss;
+            let net_core_source = heat_from_fuel - passive_heat_loss;
 
-            self.core_heat_to_helium =
-                self.core
-                    .step(dt, net_core_source, core_inlet, self.primary.mass_flow());
+            self.core_heat_to_helium = self.core.step(
+                dt,
+                net_core_source,
+                heat_from_fuel,
+                core_inlet,
+                self.primary.mass_flow(),
+            );
             bed_for_passive_path = self.core.temperature();
 
             // 3a. Primary hot leg: helium properties and the core-outlet
@@ -1403,18 +1420,17 @@ impl HtgrPlant {
         // no integrated state, so there is nothing for a corrector to rewind
         // and nothing gained by iterating it.
         //
-        // It is handed the KERNEL temperature, not the bed's. On the two
-        // placeholder fidelity tiers that is `None` and the channel declines
-        // to evaluate rather than substituting the bed -- the release
+        // It is handed the FUEL STACK, not the bed's temperature: the
+        // inventory-averaged kernel (the kinetics fuel node), the SiC layer
+        // for silver, and the fuelled-zone matrix for graphite hold-up
+        // (CHANGED 2026-09-28, gh:#360 -- it used to take the peak kernel of a
+        // start-of-step profile and the whole-ball bed average). The release
         // coefficients are Arrhenius, so the wrong temperature would not give
         // a slightly wrong answer, it would give a confident one. See
         // `fission_product_release`.
         mark_component("TRISO fission-product release (TRISO-ATOPS)");
-        self.release.update(
-            self.sim_time.get::<second>(),
-            self.core.peak_kernel_temperature(),
-            self.core.temperature(),
-        );
+        self.release
+            .update(self.sim_time.get::<second>(), self.fuel_stack_temperatures());
 
         // 7. Atmospheric dispersion, driven by the release channel's
         // circulating pool. Last, and outside the corrector loop, for the same
@@ -1476,12 +1492,17 @@ impl HtgrPlant {
 
         // The resolved fuel kernel, and what it is worth. `NAN` rather than a
         // fallback when the tier does not resolve one -- see the field docs.
-        let kernel = self.core.peak_kernel_temperature();
+        // CHANGED 2026-09-28 (gh:#360): the peak kernel follows the FUEL NODE
+        // through the fuel-bed coupling (stack), so it exists on every tier
+        // and in a burst, where the steady profile does not.
+        let kernel = self.fuel_stack_temperatures().map(|st| st.peak_kernel);
         s.peak_kernel_temperature_k = kernel.map_or(f64::NAN, |t| t.get::<kelvin>());
         s.kernel_offset_k = kernel.map_or(f64::NAN, |t| {
             t.get::<kelvin>() - self.core.temperature().get::<kelvin>()
         });
-        s.kernel_doppler_dollars = self.kinetics.kernel_doppler_reactivity_dollars();
+        // CHANGED 2026-09-28 (gh:#360): the fuel (kernel) channel of the split
+        // isothermal coefficient, on the fuel node itself.
+        s.kernel_doppler_dollars = self.kinetics.fuel_feedback_reactivity_dollars();
 
         // TRISO fission-product release, on a UNIT-INVENTORY basis. See
         // `fission_product_release` -- these are Ci per Ci of core inventory
@@ -2046,8 +2067,14 @@ mod tests {
         // bound on the plant's own cost at a resolved kernel, and it is honest
         // about being a stand-in rather than the plant's state. The plant's real
         // thermal state is the subject of gh:#318, not of a timing breakdown.
-        let kernel = Some(ThermodynamicTemperature::new::<kelvin>(1100.0));
+        let kernel = ThermodynamicTemperature::new::<kelvin>(1100.0);
         let bed = plant.core.temperature();
+        let stack = Some(pebble_bed::FuelStackTemperatures {
+            kernel,
+            silicon_carbide: kernel,
+            fuelled_zone_matrix: bed,
+            peak_kernel: kernel,
+        });
         let release_calls = (plant_seconds
             / fission_product_release::RELEASE_EVALUATION_INTERVAL_S)
             .ceil() as usize;
@@ -2058,8 +2085,7 @@ mod tests {
             // turn the loop into one evaluation and 19 early returns.
             release.update(
                 call as f64 * fission_product_release::RELEASE_EVALUATION_INTERVAL_S,
-                kernel,
-                bed,
+                stack,
             );
         }
         let release_time = started.elapsed().as_secs_f64();
@@ -2361,6 +2387,20 @@ mod tests {
     ///
     /// This test is **slow** -- the 1 ms reference leg alone is 60 s of plant
     /// time at ~2 s of compute per plant second.
+    ///
+    /// **Re-measured 2026-09-28** (gh:#360 fuel node, tuas graphite), at 60 s:
+    ///
+    /// | | pre-change tree (same day) | now |
+    /// |---|---|---|
+    /// | reactor power, 0.1 s / 1 ms | 17.33672 / 17.34233 MW (**-0.032 %**) | 12.04375 / 12.00028 MW (**+0.362 %**) |
+    /// | bed, 0.1 s | 1278.316 K (dT +0.294 K) | 1334.397 K (dT -0.166 K) |
+    /// | core outlet, 0.1 s | 1188.217 K (dT +0.320 K) | 1240.142 K (dT -0.159 K) |
+    /// | 2 -> 3 correctors | dQ +0.00070 % | dQ +0.00020 % |
+    ///
+    /// The power sensitivity to the plant step grew (0.03 % -> 0.36 %,
+    /// still inside 1 %): the fuel node is now a fast node (`R C` = 0.275 s)
+    /// coupled to a bed temperature held over the 0.1 s step, where the old
+    /// node was a 9 MJ/K copy of the bed.
     /// # This test does not currently support its own name (`op-21rt`)
     ///
     /// It **runs**, and everything it asserts on **passes** — the 0.1 s and 1 ms
@@ -2542,6 +2582,189 @@ mod tests {
                 expected
             );
         }
+    }
+
+    /// V&V: the gh:#351 excursion (rods at 0.30, **+12.97 $**) now runs
+    /// **through** 2000 K with a resolved fuel stack instead of dropping it
+    /// (gh:#350, gh:#351; 2026-09-28).
+    ///
+    /// **Methodology.** Open the plant with the rod bank at 0.30 (the setting
+    /// gh:#351 recorded reaching ~2589 K bed in 8 s), everything else at the
+    /// GUI defaults including the protection system, and step 20 s at the
+    /// plant timestep. Record the peak bed, fuel-node, SiC and peak-kernel
+    /// temperatures and require (1) the fuel stack is present on every step,
+    /// (2) the run completes (a 3000 K window breach would panic, fail-loud),
+    /// and (3) the energy chain still closes (per-step residual as in
+    /// [`the_core_side_energy_chain_conserves_energy`], 1e-6 of the step's
+    /// source).
+    ///
+    /// **Everything above 2000 K here is EXTRAPOLATED** (graphite k, and every
+    /// TRISO layer conductivity; see `NuclearGraphiteMatrixA3HighTemp` and
+    /// `tampines::pebble_bed::triso::CorrelationWindow`). This pins that the
+    /// model keeps a continuous energy balance and feedback there, not that
+    /// the temperatures are validated.
+    ///
+    /// **Results (2026-09-28).** Peak fission power **2615.6 MW** (the
+    /// +12.97 $ burst); fuel node peaks at **2429.9 K**, SiC at **1687.9 K**;
+    /// the bed is still rising at 20 s (**1545.5 K**, power 100.7 MW); worst
+    /// step energy residual 5.8e-12. The linearly placed **peak kernel reads
+    /// 4324.9 K** -- above the 3000 K window and past UO2 melting (~3120 K):
+    /// that number is a linear placement on the fuel-bed line
+    /// ([`reactor_model::one_node::FuelStackTemperatures::peak_kernel`]), not
+    /// a property evaluation, and is **not physical** at this excursion. The
+    /// old model (gh:#351) instead put ~2589 K on the *bed* within 8 s because
+    /// the whole thermal power went straight into the bed; now the prompt
+    /// energy lands in the 0.27 MJ/K fuel node first and reaches the bed
+    /// through the pebble conduction resistance.
+    #[test]
+    fn the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack() {
+        use uom::si::energy::joule;
+        use uom::si::power::watt;
+        let mut plant = HtgrPlant::new();
+        let mut commands = design_commands();
+        commands.control_rod_insertion_fraction = 0.30;
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let (mut bed_max, mut fuel_max, mut sic_max, mut peak_max, mut p_max) =
+            (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        let mut t_at_bed_max = 0.0;
+        let mut worst = 0.0f64;
+        for i in 0..200 {
+            let l0 = plant.kinetics.ledger();
+            let r0 = plant.decay_heat_path.stored_energy().get::<joule>();
+            plant.step(dt, commands.clone());
+            let l1 = plant.kinetics.ledger();
+            let r1 = plant.decay_heat_path.stored_energy().get::<joule>();
+            let e = plant.core.last_step_energy();
+            let source = (l1.deposited_prompt - l0.deposited_prompt)
+                + (l1.deposited_decay - l0.deposited_decay);
+            let res = source - (l1.stored - l0.stored) - e.solid_storage - e.fluid_storage
+                - (r1 - r0)
+                - e.throughflow_out
+                - plant.decay_heat_path.heat_to_rccs().get::<watt>() * dt.get::<second>();
+            worst = worst.max(res.abs() / source.abs().max(1.0));
+            let stack = plant
+                .fuel_stack_temperatures()
+                .expect("the fuel stack must exist on every step");
+            let bed = plant.core.temperature().get::<kelvin>();
+            if bed > bed_max {
+                bed_max = bed;
+                t_at_bed_max = (i + 1) as f64 * PLANT_TIMESTEP_S;
+            }
+            fuel_max = fuel_max.max(stack.kernel.get::<kelvin>());
+            sic_max = sic_max.max(stack.silicon_carbide.get::<kelvin>());
+            peak_max = peak_max.max(stack.peak_kernel.get::<kelvin>());
+            p_max = p_max.max(plant.kinetics.total_power().get::<watt>());
+        }
+        println!(
+            "gh:#351 excursion (rods 0.30), 20 s: peak power {:.1} MW; peak bed {bed_max:.1} K at \
+             {t_at_bed_max:.1} s; peak fuel node {fuel_max:.1} K, SiC {sic_max:.1} K, peak \
+             kernel {peak_max:.1} K; at 20 s bed {:.1} K, power {:.3} MW; worst step energy \
+             residual {worst:.2e}",
+            p_max / 1e6,
+            plant.core.temperature().get::<kelvin>(),
+            plant.kinetics.total_power().get::<watt>() / 1e6
+        );
+        assert!(worst < 1e-6);
+    }
+
+    /// V&V: **the whole core-side energy chain conserves energy** -- fuel
+    /// node, bed (graphite + void helium), reflector and vessel -- across a
+    /// normal-operation run and a loss of forced cooling (gh:#360,
+    /// 2026-09-28).
+    ///
+    /// # Methodology
+    ///
+    /// Control volume: the fuel node, the bed's solid and void-helium nodes,
+    /// and the passive path's reflector and RPV nodes. Over 60 s under the
+    /// GUI's opening commands and then 60 s of LOFC (circulator tripped,
+    /// secondary isolated after 12 s), at the plant's own corrector count,
+    /// accumulate every step
+    ///
+    /// ```text
+    /// residual = [f_prompt P + P_decay] dt                    (sources, fuel ledger)
+    ///          - dE_fuel - dE_bed,solid - dE_bed,helium - dE_refl - dE_rpv   (storage)
+    ///          - m_dot c_p (T_out - T_in) dt - Q_RCCS dt       (losses)
+    /// ```
+    ///
+    /// using each subsystem's own final-corrector bookkeeping (the fuel
+    /// ledger, [`reactor_model::one_node::BedStepEnergy`], the passive path's
+    /// `stored_energy` and `heat_to_rccs`). Pass: `|sum residual|` below 1e-6
+    /// of the gross source energy.
+    ///
+    /// **It fails on the pre-2026-09-28 model, and by how much.** There the
+    /// fuel node was heated by `P + P_decay` and cooled by the bed's
+    /// heat-to-helium while the bed was ALSO heated by the thermal power, so
+    /// the fuel node's storage `C_f dT_f` was energy counted twice. From the
+    /// baseline headless trace of the same working tree (default commands,
+    /// before this change), `T_f` rose 950.54 K -> 1307.4 K by t = 1500 s on a
+    /// `C_f` of 8.98 MJ/K: a residual of **3.20 GJ**, **14.6 %** of the
+    /// ~21.9 GJ of fission energy over that time (trace-integrated at 5 s
+    /// samples) -- not a rounding question.
+    ///
+    /// # Results (2026-09-28)
+    ///
+    /// Sources 4.9505e9 J; storage: fuel 1.0774e8, bed 3.8771e9,
+    /// reflector+RPV 5.9295e7; out: helium 8.7589e8, RCCS 3.0482e7. Net
+    /// residual 3.3e-4 J = **6.7e-14** of the source energy (worst single
+    /// step 2.0e-10).
+    #[test]
+    fn the_core_side_energy_chain_conserves_energy() {
+        use uom::si::energy::joule;
+        use uom::si::power::watt;
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(0.1);
+        let dt_s = dt.get::<second>();
+        let mut sources = 0.0;
+        let mut residual = 0.0;
+        let mut worst_step = 0.0f64;
+        let mut totals = [0.0f64; 6];
+        for i in 0..1200 {
+            let mut commands = design_commands();
+            if i >= 600 {
+                commands.scenario = Scenario::Lofc;
+            }
+            let ledger0 = plant.kinetics.ledger();
+            let refl0 = plant.decay_heat_path.stored_energy().get::<joule>();
+            plant.step(dt, commands);
+            let ledger1 = plant.kinetics.ledger();
+            let refl1 = plant.decay_heat_path.stored_energy().get::<joule>();
+            let bed = plant.core.last_step_energy();
+            let source = (ledger1.deposited_prompt - ledger0.deposited_prompt)
+                + (ledger1.deposited_decay - ledger0.deposited_decay);
+            let fuel = ledger1.stored - ledger0.stored;
+            let refl = refl1 - refl0;
+            let rccs = plant.decay_heat_path.heat_to_rccs().get::<watt>() * dt_s;
+            let r = source - fuel - bed.solid_storage - bed.fluid_storage - refl
+                - bed.throughflow_out
+                - rccs;
+            sources += source.abs();
+            residual += r;
+            worst_step = worst_step.max(r.abs() / source.abs().max(1.0));
+            for (t, v) in totals.iter_mut().zip([
+                source,
+                fuel,
+                bed.solid_storage + bed.fluid_storage,
+                refl,
+                bed.throughflow_out,
+                rccs,
+            ]) {
+                *t += v;
+            }
+        }
+        println!(
+            "core-side energy chain over 60 s normal + 60 s LOFC: sources {:.6e} J; storage \
+             fuel {:.6e}, bed {:.6e}, reflector+RPV {:.6e}; out: helium {:.6e}, RCCS {:.6e}; \
+             net residual {residual:.3e} J = {:.3e} of the source energy (worst single step \
+             {worst_step:.3e})",
+            totals[0],
+            totals[1],
+            totals[2],
+            totals[3],
+            totals[4],
+            totals[5],
+            residual.abs() / sources
+        );
+        assert!(residual.abs() / sources < 1e-6);
     }
 
     /// Run the circulator flow ramp-down transient at `dt` with `n_outer` plant
@@ -3417,6 +3640,30 @@ mod tests {
     /// coolant sink, while the bed's own [`super::pebble_bed::PebbleBedPorousMediaNode`]
     /// integrates implicitly at the plant timestep -- small, bounded
     /// discretisation differences, not an energy-accounting gap.
+    ///
+    /// # Re-measured 2026-09-28 (gh:#360 fuel-node rework)
+    ///
+    /// The fuel node is now the TRISO particles (0.27 MJ/K), heated by
+    /// `f_prompt P + P_decay` and cooled only by conduction to the bed, so it
+    /// opens `R P` = 10.25 K above the bed and, after the scram, sits
+    /// `R P_decay` above it -- a **positive offset by construction**, not a
+    /// residual:
+    ///
+    /// | t (s) | fuel (K) | bed (K) | diff (K) | pre-change tree, same day |
+    /// |---|---|---|---|---|
+    /// | 0 | 960.250 | 950.000 | +10.250 | 0.000 |
+    /// | 30 | 924.061 | 923.463 | +0.598 | +0.772 |
+    /// | 120 | 841.953 | 841.496 | +0.457 | +2.438 |
+    /// | 300 | 701.599 | 701.279 | **+0.320** | **+3.799** |
+    ///
+    /// The pre-change column (run on a snapshot of the working tree before
+    /// this change) shows the old node had already drifted from the +0.039 K
+    /// recorded 2026-08-17 to +3.80 K by 300 s; the new offset matches
+    /// `R_fb x P_decay` (1.03e-6 K/W x ~0.25 MW = 0.26 K plus the bed's own
+    /// lag) and shrinks with the decay heat. The bed cools ~10 K further by
+    /// 300 s than before (701.3 vs 709.3 K) because the passive loss and the
+    /// helium now draw on the bed alone rather than on a bed plus a shadow
+    /// copy.
     #[test]
     #[ignore]
     fn kinetics_fuel_node_tracks_the_bed_node_after_a_scram() {
@@ -3818,7 +4065,7 @@ mod tests {
     /// `None` runs the shipped model; `Some(0.0)` reproduces the
     /// pre-2026-09-22 model exactly, which is what makes this the attribution
     /// tool for any LOFC change. See
-    /// [`kinetics::KernelDopplerChannel::with_fuel_share`].
+    /// `KernelDopplerChannel::with_fuel_share` (removed 2026-09-28, gh:#360).
     fn run_lofc_atws_ablated(
         duration_s: f64,
         settle_s: f64,
@@ -3831,7 +4078,7 @@ mod tests {
         let mut plant = HtgrPlant::new();
         plant.protection.set_enabled(false);
         if let Some(share) = fuel_share {
-            plant.kinetics.set_kernel_fuel_share(share);
+            plant.kinetics.set_fuel_share(share);
         }
 
         // Hold the opening commands while the plant settles, so the transient
@@ -3890,6 +4137,111 @@ mod tests {
         trace
     }
 
+    /// **ABLATION: what the fuel share of the isothermal coefficient is worth
+    /// in a LOFC ATWS** (rewritten 2026-09-28, gh:#360).
+    ///
+    /// ~~What the kernel Doppler channel is worth ... `fuel_share = 0`
+    /// reproduces the pre-2026-09-22 model exactly~~ -- that channel is gone
+    /// (the fuel node is the kernel now), and so is the model `f = 0` used to
+    /// reproduce. The 2026-09-22 table is kept below as the record of the old
+    /// model; it is **not** comparable to the new one.
+    ///
+    /// **Methodology.** [`run_lofc_atws_ablated`] (same 200 s settle at the
+    /// shipped opening commands, circulator trip, 12 s secondary isolation,
+    /// 600 s) at fuel shares 0.25, the shipped 0.7117 and 1.0. Reported:
+    /// settled `p0`, time to 1 % of `p0`, minimum fraction, peak fuel
+    /// temperature.
+    ///
+    /// **Why not `f -> 0` any more.** The shipped opening rod position is
+    /// worth **+7.05 $** (`report_the_rod_position_that_holds_three_megawatts`),
+    /// a prompt-supercritical insertion. With the fuel node a real 0.27 MJ/K
+    /// node, a vanishing fuel coefficient leaves that burst arrested only by
+    /// the slow bed channel, and the fuel-to-bed conduction reaches ~36 kW per
+    /// pebble within a second -- measured 2026-09-28 at `f = 1e-3`: the
+    /// resolved pebble would need a **35 K** surface to carry it, and the run
+    /// stops (fail-loud, no fallback). That is the model correctly refusing an
+    /// unphysical configuration, not a defect to route around, so the ablation
+    /// range starts at 0.25.
+    ///
+    /// # Results -- old model, 2026-09-22 (record only)
+    ///
+    /// | fuel share | settled `p0` | 1 % reached | min fraction | peak fuel |
+    /// |---|---|---|---|---|
+    /// | 0.0 (pre-2026-09-22) | 0.0896 MW | 383 s | 0.00109 | 1318.2 K |
+    /// | shipped (0.7117) | 3.3652 MW | NOT REACHED | 0.13795 | 1213.7 K |
+    ///
+    /// (Re-run on the pre-change working tree on 2026-09-28, the shipped row
+    /// read p0 13.3768 MW, NOT REACHED, min fraction 0.01672, peak fuel
+    /// 1346.3 K -- the plant had moved since 2026-09-22 with the rod change to
+    /// 0.45, gh:#318.)
+    ///
+    /// # Results -- new model (2026-09-28)
+    ///
+    /// | fuel share | settled `p0` | 1 % reached | min fraction | peak fuel | end (600 s) fission / fuel / bed |
+    /// |---|---|---|---|---|---|
+    /// | 0.25 | 16.2011 MW | NOT REACHED | 0.02789 | 1341.5 K | 1.7389 MW / 1315.4 K / 1313.0 K |
+    /// | shipped (0.7117) | 16.1826 MW | NOT REACHED | 0.03608 | 1341.5 K | 1.8809 MW / 1319.0 K / 1316.3 K |
+    /// | 1.0 | 16.0504 MW | NOT REACHED | 0.04208 | 1341.6 K | 1.9459 MW / 1321.1 K / 1318.4 K |
+    ///
+    /// **Interpretation.** The share is now a **weak** lever on this
+    /// transient: across 0.25-1.0 the minimum fraction moves 2.8-4.2 % and the
+    /// end state by ~5 K, because with the fuel a real node that tracks the bed
+    /// within `R P` (~20 K at 16 MW, ~2 K at 2 MW) the two channels see almost
+    /// the same temperature change over a slow LOFC; the split matters for the
+    /// *prompt* response, not for where a 600 s transient goes. More fuel
+    /// share -> slightly *less* deep a dip, since the fuel cools toward the bed
+    /// as power falls (a positive insertion on the fuel channel). The plant
+    /// does not reach 1 % at any share -- see
+    /// [`lofc_atws_reactor_shuts_itself_down`].
+    ///
+    /// **Asserted:** only that the ablation is real (the settled power or the
+    /// minimum fraction moves across the range). Whether the plant shuts down
+    /// is [`lofc_atws_reactor_shuts_itself_down`]'s to report.
+    #[test]
+    #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
+    fn the_kernel_doppler_channel_is_ablated_on_the_lofc_transient() {
+        let mut rows = Vec::new();
+        for share in [Some(0.25), None, Some(1.0)] {
+            let trace = run_lofc_atws_ablated(600.0, 200.0, None, share);
+            let p0 = trace[0].fission_power_w;
+            let one_percent = trace
+                .iter()
+                .find(|s| s.fission_power_w <= 0.01 * p0)
+                .map(|s| s.time_s);
+            let min_frac = trace
+                .iter()
+                .map(|s| s.fission_power_w / p0)
+                .fold(f64::INFINITY, f64::min);
+            let peak_fuel = trace
+                .iter()
+                .map(|s| s.fuel_temperature_k)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let last = trace.last().expect("non-empty");
+            println!(
+                "fuel_share {:<8}: p0 {:.4} MW, 1% at {}, min fraction {:.5}, peak fuel {:.1} K, \
+                 end fission {:.4} MW, end fuel {:.1} K, end bed {:.1} K",
+                match share {
+                    Some(f) => format!("{f:.4}"),
+                    None => "shipped".to_string(),
+                },
+                p0 / 1.0e6,
+                match one_percent {
+                    Some(t) => format!("{t:.0} s"),
+                    None => "NOT REACHED".to_string(),
+                },
+                min_frac,
+                peak_fuel,
+                last.fission_power_w / 1.0e6,
+                last.fuel_temperature_k,
+                last.bed_temperature_k,
+            );
+            rows.push((p0, min_frac));
+        }
+        let moved = (rows[0].0 - rows[2].0).abs() / rows[1].0 > 1e-3
+            || (rows[0].1 - rows[2].1).abs() > 1e-3;
+        assert!(moved, "the fuel-share ablation must change the transient; rows {rows:?}");
+    }
+
     /// **HTR-10 loss-of-forced-cooling ATWS: does the reactor shut itself down?**
     ///
     /// This is the first of the four CRP-5 benchmark parameters of interest
@@ -3906,151 +4258,23 @@ mod tests {
     /// exists to demonstrate. The measured time is printed for comparison, not
     /// gated.
     ///
-    /// **Results: printed by this test; see the run output.**
-    /// **ABLATION: what the kernel Doppler channel is worth in a LOFC ATWS —
-    /// and the attribution of a failure it causes.**
+    /// # Results
     ///
-    /// # Why this exists
-    ///
-    /// This workspace requires a calibrated or input-valued parameter to be
-    /// turn-off-able and its contribution measured. The kernel Doppler
-    /// channel's fuel share
-    /// ([`kinetics::KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL`]) is an
-    /// input, so this measures what it is worth on the transient that matters
-    /// most in this simulator — and, because `fuel_share = 0` reproduces the
-    /// pre-2026-09-22 model *exactly*, it is also the tool that attributes any
-    /// LOFC change to that channel or rules it out.
-    ///
-    /// **Methodology.** The real driver
-    /// ([`run_lofc_atws_ablated`]) at both shares — same settle, same
-    /// circulator trip, same 12 s secondary isolation — reporting settled
-    /// power, whether fission reaches 1 % of initial within 600 s, the minimum
-    /// fraction reached, and the peak fuel temperature.
-    ///
-    /// # Results (2026-09-22)
-    ///
-    /// | fuel share | settled `p0` | 1 % reached | min fraction | peak fuel | end fission |
+    /// | run | settled `p0` | 1 % reached | min fraction | peak fuel | at 600 s: fission / fuel / bed |
     /// |---|---|---|---|---|---|
-    /// | **0.0** (pre-2026-09-22) | 0.0896 MW | **383 s** | 0.00109 | 1318.2 K | 0.0001 MW |
-    /// | **shipped (0.7117)** | 3.3652 MW | **NOT REACHED** | 0.13795 | 1213.7 K | 1.0843 MW |
+    /// | pre-change tree (2026-09-28) | 13.3768 MW | NOT REACHED | 0.0167 | 1346.3 K | 1.5551 MW / 1323.9 K / 1224.4 K |
+    /// | **after gh:#360 fuel node + tuas graphite (2026-09-28)** | 16.1826 MW | **NOT REACHED** | 0.0361 | 1341.5 K | 1.8809 MW / 1319.0 K / 1316.3 K |
     ///
-    /// # Interpretation — this channel BREAKS the inherent shutdown, and that
-    /// is recorded rather than hidden
-    ///
-    /// [`lofc_atws_reactor_shuts_itself_down`] fails on the shipped model, and
-    /// this table is why: with the channel on, fission power falls only to
-    /// **13.8 %** of its initial value instead of under 1 %. That test is left
-    /// **failing on purpose** — it is reporting a real defect, and silencing
-    /// it would destroy the only signal that the inherent-shutdown behaviour
-    /// this simulator exists to demonstrate is not being reproduced.
-    ///
-    /// **The mechanism is understood and is not a coding error.** As power
-    /// falls the kernel cools toward the bed, which *removes* Doppler
-    /// absorption and is therefore a **positive** reactivity insertion — real
-    /// physics, and the direction the two-channel split necessarily produces.
-    /// Its magnitude is bounded: the channel saturates at
-    /// `-alpha_D * dT_ref / beta` = `9.963e-5 * 23.45 / 7.26e-3` = **+0.32 $**
-    /// at zero power, and it already sits at **+0.3136 $** at the settled
-    /// condition. So the channel opposes the shutdown by up to a third of a
-    /// dollar, held almost constant across the transient.
-    ///
-    /// **Two things are entangled here and both need a decision.**
-    ///
-    /// 1. **The reference state.** The channel measures the kernel offset from
-    ///    its value at **rated** power, but this simulator settles near
-    ///    3.4 MW. At part load the kernel is permanently cooler than its
-    ///    reference, so the channel contributes a near-constant positive
-    ///    offset rather than a small perturbation about the operating point.
-    ///    The claim on [`kinetics::KernelDopplerChannel`] that the design
-    ///    point is "neutral by construction" is true only at rated power, and
-    ///    is **misleading for the condition this simulator actually opens at**
-    ///    — corrected there.
-    /// 2. ~~**A pre-existing fragility.** `the_opening_rod_position_is_the_critical_one`
-    ///    reports the plant opening **+4.73 $ (+3074 pcm) supercritical** at
-    ///    the shipped rod position of 0.50, against a bisected critical
-    ///    position of 0.6045.~~ **UPDATED 2026-09-27** -- that test was
-    ///    *failing*, not merely reporting, and has been replaced by
-    ///    [`the_opening_rod_position_commands_a_known_reactivity`]; the shipped
-    ///    position is now **0.30**, so the plant opens further above critical
-    ///    still. The substance of the note stands: this failure is not this
-    ///    branch's -- neither the rod worth curve nor
-    ///    `external_reactivity_dollars` is touched by it -- and a plant held
-    ///    that far above critical by construction is one where a third of a
-    ///    dollar decides whether a transient terminates.
-    ///
-    /// Note also that the ablated model settles at **0.0896 MW**, which is not
-    /// the **3 MWth** initial condition the HTR-10 LOFC ATWS test was run
-    /// from and which `GUI_INITIAL_ROD_INSERTION` was bisected to reach. The
-    /// shipped model's 3.3652 MW is much closer to it. So the channel is not
-    /// simply "wrong": it moves the operating point *towards* the published
-    /// test condition while moving the shutdown behaviour *away* from it.
-    /// Which of the two constants is at fault is a maintainer decision, not
-    /// one to take by tuning either until the test passes.
-    ///
-    /// **This test asserts only what it can honestly assert**: that the
-    /// ablation is real (the two shares genuinely differ) and that
-    /// `fuel_share = 0` still reproduces inherent shutdown. It deliberately
-    /// does **not** assert the shipped model shuts down, because it does not,
-    /// and that is `lofc_atws_reactor_shuts_itself_down`'s job to report.
-    #[test]
-    #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
-    fn the_kernel_doppler_channel_is_ablated_on_the_lofc_transient() {
-        let mut rows = Vec::new();
-        for share in [Some(0.0), None] {
-            let trace = run_lofc_atws_ablated(600.0, 200.0, None, share);
-            let p0 = trace[0].fission_power_w;
-            let one_percent = trace
-                .iter()
-                .find(|s| s.fission_power_w <= 0.01 * p0)
-                .map(|s| s.time_s);
-            let min_frac = trace
-                .iter()
-                .map(|s| s.fission_power_w / p0)
-                .fold(f64::INFINITY, f64::min);
-            let peak_fuel = trace
-                .iter()
-                .map(|s| s.fuel_temperature_k)
-                .fold(f64::NEG_INFINITY, f64::max);
-            println!(
-                "fuel_share {:<8}: p0 {:.4} MW, 1% at {}, min fraction {:.5}, peak fuel {:.1} K",
-                match share {
-                    Some(f) => format!("{f:.4}"),
-                    None => "shipped".to_string(),
-                },
-                p0 / 1.0e6,
-                match one_percent {
-                    Some(t) => format!("{t:.0} s"),
-                    None => "NOT REACHED".to_string(),
-                },
-                min_frac,
-                peak_fuel,
-            );
-            rows.push((p0, one_percent, min_frac));
-        }
-
-        let (ablated_p0, ablated_one_percent, ablated_min) = rows[0];
-        let (shipped_p0, _, shipped_min) = rows[1];
-
-        // The ablation must be REAL -- if both shares gave the same answer the
-        // channel would be doing nothing and none of the above would mean
-        // anything.
-        assert!(
-            (shipped_p0 / ablated_p0) > 2.0,
-            "the ablation must actually change the settled power; {ablated_p0:e} vs              {shipped_p0:e} W"
-        );
-        assert!(
-            shipped_min > ablated_min,
-            "the channel opposes the shutdown, so the shipped minimum fraction must be              HIGHER than the ablated one; {shipped_min} vs {ablated_min}"
-        );
-        // The pre-2026-09-22 model must still reproduce inherent shutdown --
-        // if this failed, the regression would be somewhere else entirely and
-        // this whole attribution would be void.
-        assert!(
-            ablated_one_percent.is_some(),
-            "with the channel ablated the reactor must still shut itself down; if it does              not, the LOFC failure is NOT the kernel Doppler channel's and this test's              attribution is wrong"
-        );
-    }
-
+    /// **Still failing, and the failure is reported, not silenced.** The
+    /// predicted consequence of removing the ~-4.5 $ of spurious feedback
+    /// (gh:#360) held: the plant settles hotter and higher (bed ~1303 K at
+    /// 16.2 MW, where the old model had a fuel node 100+ K above a drifting
+    /// bed) and the LOFC dip is shallower (3.6 % against 1.7 %). The old
+    /// model's "fuel 1323.9 K / bed 1224.4 K" at 600 s was the shadow node's
+    /// 100 K drift; the new pair differs by `R P` (2.7 K). The shutdown is
+    /// being tested from a +7.05 $ opening that settles at 16 MW and 1300 K,
+    /// not from HTR-10's 3 MW test condition (gh:#318) -- see
+    /// [`lofc_atws_at_the_published_test_condition`].
     #[test]
     #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn lofc_atws_reactor_shuts_itself_down() {
@@ -4232,6 +4456,11 @@ mod tests {
     /// S-curve, and HTR-10's rods sit in the side reflector rather than the
     /// core. The published B31 spread is 13.06-16.56 %dk/k across codes, so no
     /// position here is meaningful to better than roughly a quarter.
+    /// **Re-measured 2026-09-28 (gh:#360 fuel node, tuas graphite):** the
+    /// insertion holding 3 MWth at 1.290 kg/s moved **0.627597 -> 0.674014**
+    /// (settled 3.0001 MW; external reactivity -0.9436 $ -> **-2.6649 $**).
+    /// With the spurious ~-4.5 $ fuel-node drift gone, more rod is needed to
+    /// hold the same power. Opening position still worth +7.0548 $.
     #[test]
     #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn report_the_rod_position_that_holds_three_megawatts() {
@@ -4328,6 +4557,22 @@ mod tests {
     /// 7e-9 MW by 900 s, then rang between 0.58 and 5.93 MW for the next
     /// 900 s. That is the model relaxing an initial condition nobody chose,
     /// not plant behaviour.
+    ///
+    /// # Results (2026-09-28, both at the shipped 0.45 rod / 4.3 kg/s, 6000 s)
+    ///
+    /// | model | power | bed | fuel node | fuel - bed |
+    /// |---|---|---|---|---|
+    /// | pre-change working tree | 5.9956 MW | 740.36 K | 1318.43 K | **578.1 K** |
+    /// | **gh:#360 fuel node + tuas graphite** | **16.1212 MW** | **1303.39 K** | 1323.36 K | **19.97 K** (= `R P`) |
+    ///
+    /// The old "steady state" was not one: the shadow fuel node was pinned
+    /// near 1318 K by the reactivity balance while the bed kept cooling (the
+    /// gh:#360 drift), so the -4.5 $-and-growing spurious feedback held power
+    /// at 6 MW. With it gone the plant settles 2.7x higher in power and 563 K
+    /// hotter in the bed, as gh:#360 predicted in sign. The opening rod is
+    /// worth +7.05 $ (gh:#318), so this is a hot plant by construction. The
+    /// bed to seed at is now **1303.39 K**; the seed has not been changed here
+    /// (the maintainer owns the opening condition).
     #[test]
     #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn report_the_steady_state_bed_temperature_at_the_opening_condition() {

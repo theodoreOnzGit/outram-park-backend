@@ -96,12 +96,31 @@ cargo run --release --example fhr_sim_v2
 
 ### `htgr_sim_v1`
 
-A helium-cooled, graphite-moderated prismatic-block HTGR: reactor kinetics, a
+**Status: ~~scaffold~~ demo** (CHANGED 2026-09-28, maintainer: "no longer a
+scaffold, but a demo"). A demo is an offline demonstration for education and
+research, not a validated or operational tool (`RESPONSIBLE_USE.md`).
+
+A helium-cooled, graphite-moderated ~~prismatic-block~~ **pebble-bed**
+(HTR-10-shaped; CORRECTED 2026-09-28 — the prismatic core was replaced by the
+pebble bed in `physics/reactor_model/one_node.rs`) HTGR: reactor kinetics, a
 helium primary loop, and a steam secondary loop, drawn entirely on this crate's
 reusable widgets.
 
 **What is real:**
 
+> **Not re-checked in full (2026-09-28).** Parts of this list predate the
+> pebble-bed rewrite and are known stale — e.g. ~~Haaland pipe friction~~ was
+> removed in favour of the KTA packed-bed correlation, and the IHX is now a
+> nodalised counter-flow steam generator (`physics/steam_generator.rs`), not an
+> effectiveness-NTU lump. The module doc comments are the authority.
+
+- **Core energy chain (2026-09-28, gh:#360):** fission (prompt share) and decay
+  heat are deposited in a **fuel node** (the TRISO kernels and coatings, the
+  Nordheim-Fuchs node), which conducts to the **pebble bed** through the
+  resolved two-zone pebble; the bed loses to the helium and, in parallel, to
+  the reflector -> vessel -> RCCS chain. Graphite `c_p` and conductivity come
+  from `tuas_boussinesq_solver` (`NuclearGraphiteMatrixA3HighTemp`, IG-110 for
+  the reflector annulus); conductivity above 2000 K is **extrapolated**.
 - Kinetics wired to `teh-o-prke`'s prompt-excursion layer and
   `DelayedNeutronLayer`.
 - Helium `c_p` and density from the CoolProp-derived Helmholtz EOS

@@ -82,11 +82,9 @@ HTR-10 core inventory in `activity::inventory`, plus, added 2026-09-28, the
 published HTR-10 annual airborne release in `activity::airborne_release`, the
 published HTR-10 end-of-life primary-helium activity in
 `activity::primary_helium`, and
-the published HTR-10 normal-operation dose-versus-distance table in
-`activity::published_dose_by_distance`, and the published HTR-10 accident
-dose-versus-distance table (Table 9, depressurization and water ingress) in
-`activity::published_accident_dose_by_distance`, both stored as cited data and
-not computed.
+~~the published HTR-10 normal-operation and accident dose-versus-distance
+tables (Tables 7 and 9)~~ (**MOVED 2026-09-28** to the dose crate,
+`buangkok::published`; changi holds no dose data).
 Nothing consumes ~~either~~ any of these tables yet). It has no upstream and no
 code-to-code verification (see its module doc). `htgr_sim_v1` uses it
 (`changi::activity::{chi_over_q, inventory, source, survey, deposition}`) together

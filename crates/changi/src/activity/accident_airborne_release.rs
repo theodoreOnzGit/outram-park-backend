@@ -6,7 +6,7 @@
 //!
 //! The activity of each nuclide that the source calculates is released to the
 //! environment, **in Bq per accident**, for the same two accidents as the
-//! paper's Table 9 doses ([`published_accident_dose_by_distance`][T9]):
+//! paper's Table 9 doses (now in `buangkok::published::accident_dose_by_distance`):
 //!
 //! - **Depressurization accident** ([`AccidentCase::Depressurization`][D]):
 //!   primary helium lost through a ruptured 65 mm fuel-element charging tube.
@@ -23,8 +23,9 @@
 //!
 //! No release from the coated particles is assumed in either case. Both go
 //! out through the 40 m stack with no filtering or plate-out credited. The
-//! [`AccidentCase`][AC] enum is the one Table 9's loader defines, reused here so
-//! the two tables name the accidents identically.
+//! [`AccidentCase`][AC] enum is defined here and re-exported by buangkok's
+//! Table 9 loader, so the two tables name the accidents identically. (It was
+//! defined by the Table 9 loader until that moved to buangkok, 2026-09-28.)
 //!
 //! It is a **published model result, not a measurement.** The paper does not
 //! name a code for the release calculation. STOERNEU, named in its Section
@@ -85,15 +86,26 @@
 //! and is **not** redistributed here; only the cited table of 36 values is,
 //! which is ordinary scientific citation.
 //!
-//! [T9]: crate::activity::published_accident_dose_by_distance
-//! [AC]: crate::activity::published_accident_dose_by_distance::AccidentCase
-//! [D]: crate::activity::published_accident_dose_by_distance::AccidentCase::Depressurization
-//! [W]: crate::activity::published_accident_dose_by_distance::AccidentCase::WaterIngress
+//! [AC]: AccidentCase
+//! [D]: AccidentCase::Depressurization
+//! [W]: AccidentCase::WaterIngress
 
 use uom::si::f64::Radioactivity;
 use uom::si::radioactivity::becquerel;
 
-pub use super::published_accident_dose_by_distance::AccidentCase;
+/// Which of the paper's two tabulated accidents a release (Table 8) or dose
+/// (Table 9, now in `buangkok::published::accident_dose_by_distance`)
+/// belongs to. Defined here, where the release lives; buangkok re-exports it
+/// so both tables name the accidents identically.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccidentCase {
+    /// Primary-circuit depressurization through a ruptured 65 mm
+    /// fuel-element charging tube (paper Section 4.1.1).
+    Depressurization,
+    /// Water ingress through two ruptured steam-generator tubes with the
+    /// steam relief system failed (paper Section 4.1.2).
+    WaterIngress,
+}
 
 /// The table, compiled in so a missing file is a build error rather than a
 /// silently empty table.

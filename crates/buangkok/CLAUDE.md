@@ -7,11 +7,38 @@ research-grade safety analysis.
 The workspace root `CLAUDE.md` binds here in full. This file adds only what is
 specific to this crate.
 
-## Status: placeholder (2026-09-28)
+## Status: partial pyDOSEIA port (2026-09-28)
 
-Nothing is implemented. The crate exists to reserve the name and state the
-scope. Do not describe it as providing anything, and do not add code here
-without the maintainer asking for it.
+~~Nothing is implemented. The crate exists to reserve the name and state the
+scope.~~ **CHANGED 2026-09-28** (maintainer asked for the pyDOSEIA port). Two
+things live here:
+
+- `pydoseia`: met processing, dilution factors, and the inhalation,
+  ground-shine and submersion doses. It is code-to-code verified against
+  upstream (`tests/pydoseia_code_to_code.rs`, `docs/pydoseia-code-to-code.md`).
+- `published`: the Liu and Cao dose tables.
+
+Ingestion and plume shine are not ported (`docs/pydoseia-port-scoping.md`).
+The crate is **not mature**: no maturity bar has been declared, and there is
+no validation.
+
+## pyDOSEIA port rules
+
+- **Faithful first.** The port reproduces upstream's control flow, constants
+  and defects, bit-exact where the arithmetic allows. A correction is a
+  separate, labelled divergence, never a silent edit, and the default stays
+  upstream's. The defects found so far are D1–D7 in
+  `docs/pydoseia-code-to-code.md`. Read upstream (`vendor/pyDOSEIA`, commit
+  `dca4cdc3`) before changing any ported function.
+- **No upstream data in the repo.** The code-to-code fixture is generated from
+  synthetic tables. Regenerate it with
+  `verification_and_validation/pydoseia_code_to_code/gen_pydoseia_reference.py`
+  (it needs a Python venv with numpy, pandas, scipy, openpyxl, xlrd, joblib
+  and matplotlib), and commit the script and the fixture together.
+- **Every ported file keeps the MIT provenance header** and points at
+  `NOTICE`.
+- **`chi/Q` is `changi`'s `DilutionFactor`.** Do not add a second s/m^3
+  type.
 
 ## Rules for when work starts
 
@@ -24,8 +51,15 @@ without the maintainer asking for it.
   them. Record provenance per `DATA_POLICY.md`.
 - **Search before building.** CHANGI supplies air concentration and
   deposition; RAFFLES supplies uncertainty propagation. Reuse them.
-- **The Table 7 and Table 9 dose tables stay in `changi`** until the maintainer
-  decides to move them.
+- **Port, don't write from scratch.** The first candidate upstream is
+  **pyDOSEIA** (Sadhu et al., *Health Physics* 130(1) (2026) 94–110,
+  doi:10.1097/HP.0000000000002014; code MIT-licensed at
+  github.com/BiswajitSadhu/pyDOSEIA, commit `dca4cdc3` checked 2026-09-28).
+  Keep its MIT notice on ported files and verify code-to-code against it,
+  but check the licence of each dose-coefficient table it bundles first.
+- **The Table 7 and Table 9 dose tables live here** (`published`), moved from
+  changi 2026-09-28. `AccidentCase` stays defined in changi (Table 8, the
+  accident releases, uses it) and is re-exported here — keep it that way.
 - **Units:** `uom` 0.38 has no sievert quantity (checked 2026-09-28). Decide
   how dose is typed before the first API, and do not use `AvailableEnergy`
   (J/kg) as a stand-in.

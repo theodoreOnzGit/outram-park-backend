@@ -82,6 +82,38 @@ pub fn save_with_message(
     repository::save_repository_with_message(root, note)
 }
 
+/// Save Repository and then, when `push` is set, push the corpora and the
+/// Kovan repository ([`crate::save_push::push_after_save`], whose doc has the
+/// order and the safety rules). The push runs after any successful save,
+/// including one with nothing new to commit (earlier saves may be
+/// unpushed), and never after a failed one. `push` is normally
+/// [`push_after_save_setting`]; the GUI passes its checkbox.
+///
+/// Returns the save's own result unchanged (so the commit-note handling is
+/// exactly as before) and the push report, `None` when nothing was pushed
+/// because pushing is off or the save failed.
+pub fn save_and_push(
+    root: &KovanRoot,
+    note: &str,
+    push: bool,
+) -> (
+    Result<Option<SaveSummary>, RepositoryError>,
+    Option<crate::save_push::PushReport>,
+) {
+    let saved = repository::save_repository_with_message(root, note);
+    let pushed = (push && saved.is_ok()).then(|| crate::save_push::push_after_save(root));
+    (saved, pushed)
+}
+
+/// Whether this library pushes after a save (`[save] push_after_save` in
+/// `kovan_root.toml`, default ON), read from the file on disk rather than
+/// `root`'s in-memory copy, which may predate a change of the checkbox.
+pub fn push_after_save_setting(root: &KovanRoot) -> bool {
+    KovanRoot::open(root.path())
+        .map(|r| r.config().save.push_after_save)
+        .unwrap_or(root.config().save.push_after_save)
+}
+
 /// Up to `max` commits of history, newest first — reuses
 /// `kovan_discovery::git::GitProvider`, already this workspace's tested
 /// git-history reader, rather than a second implementation.

@@ -18,7 +18,7 @@
 //! temperature. Not the bed average, not the helium — the temperature inside
 //! the kernel, which is where the fission products are and which is what
 //! `Q/RT` refers to. That is the same temperature
-//! [`super::kinetics::KernelDopplerChannel`] was rewired onto in this change,
+//! `KernelDopplerChannel` (removed 2026-09-28, gh:#360) was rewired onto in this change,
 //! and it is not a coincidence that the two arrived together: resolving the
 //! pebble produced a kernel temperature, and a kernel temperature is exactly
 //! what a Doppler coefficient and a release model both want and neither could
@@ -130,7 +130,9 @@ use boon_lay::triso_atops_fork::normal_operation::{
     normal_operation_node, NodalActivitiesCurie, NodeState, ParentPools, PlantConstants,
 };
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::supported_nuclides;
-use boon_lay::triso_atops_fork::nuclide_model::TrisoAtopsNuclide;
+use boon_lay::triso_atops_fork::nuclide_model::{ElementGroup, TrisoAtopsNuclide};
+
+use super::pebble_bed::FuelStackTemperatures;
 
 use uom::si::f64::{Frequency, Length, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
@@ -427,6 +429,8 @@ pub struct TrisoAtopsReleaseChannel {
     /// The kernel temperature the latest evaluation was taken at, for display
     /// and so a reader can see which temperature produced these numbers.
     evaluated_at_kernel: Option<ThermodynamicTemperature>,
+    /// The whole fuel stack of the most recent evaluation.
+    evaluated_at: Option<FuelStackTemperatures>,
     /// Plant time of the most recent evaluation \[s\], for the throttle.
     last_evaluated_s: Option<f64>,
 }
@@ -459,31 +463,44 @@ impl TrisoAtopsReleaseChannel {
             nuclides,
             latest: Vec::new(),
             evaluated_at_kernel: None,
+            evaluated_at: None,
             last_evaluated_s: None,
         }
     }
 
     /// Re-evaluate the release channel if the throttle allows, at the fuel
-    /// kernel and graphite temperatures the core currently reports.
+    /// stack temperatures the core currently reports.
     ///
-    /// `kernel_temperature` is [`super::pebble_bed::PebbleBedPorousMediaNode::peak_kernel_temperature`]
-    /// — `None` when the resolved pebble solve was out of range, in which case
-    /// **this channel does not evaluate at all**. It deliberately does not
-    /// substitute the bed temperature: `D(T)` is exponential, so a bed
-    /// temperature passed in as a fuel temperature would not produce a
-    /// slightly wrong release, it would produce a confidently wrong one, and
-    /// the display would carry no sign that the kernel was unavailable.
-    /// Holding the previous evaluation and showing its timestamp is the honest
-    /// failure mode.
+    /// ~~`kernel_temperature` is `PebbleBedPorousMediaNode::peak_kernel_temperature`~~
+    /// **CHANGED 2026-09-28 (gh:#360, maintainer direction).** The channel is
+    /// handed the whole fuel stack ([`FuelStackTemperatures`]) and uses the
+    /// physically matching temperature for each term:
+    ///
+    /// | TRISO-ATOPS input | Before | Now |
+    /// |---|---|---|
+    /// | kernel diffusion (`core_temp`) | peak kernel centre of a core-average pebble (bed + offset, start-of-step) | **inventory-averaged kernel** = the kinetics fuel node |
+    /// | silver breakthrough through SiC | the kernel temperature (as upstream) | **average particle's SiC-layer mean** |
+    /// | graphite hold-up (`graph_temp`) | bed volume average (whole ball) | **fuelled-zone matrix mean** |
+    ///
+    /// Why each: upstream TRISO-ATOPS takes a per-node fuel temperature for the
+    /// node's whole inventory (`trisoatops.py:36-106`), i.e. a representative
+    /// temperature, not a peak -- the inventory-weighted kernel is that, where
+    /// the peak centre over-stated `D` by a factor ~1.2-2 at Arrhenius
+    /// `Q = 126-488 kJ/mol` (gh:#360). Silver breakthrough is diffusion through
+    /// the **SiC**, so its temperature is the SiC's (a deliberate, documented
+    /// departure from upstream, which passes the kernel temperature). The
+    /// graphite hold-up is diffusion through the matrix around the particles,
+    /// which is the fuelled zone, not the cooler unfuelled shell.
+    ///
+    /// `None` -- the stack could not be formed -- means **this channel does not
+    /// evaluate**; it still refuses to substitute the bed temperature (`D(T)`
+    /// is exponential, so a wrong temperature gives a confidently wrong answer).
+    /// Since 2026-09-28 the stack exists on every tier and up to the 3000 K
+    /// window, so `None` is now reached only past it.
     ///
     /// Returns `true` when an evaluation actually ran.
-    pub fn update(
-        &mut self,
-        sim_time_s: f64,
-        kernel_temperature: Option<ThermodynamicTemperature>,
-        graphite_temperature: ThermodynamicTemperature,
-    ) -> bool {
-        let Some(kernel) = kernel_temperature else {
+    pub fn update(&mut self, sim_time_s: f64, temperatures: Option<FuelStackTemperatures>) -> bool {
+        let Some(stack) = temperatures else {
             return false;
         };
         let due = match self.last_evaluated_s {
@@ -494,10 +511,47 @@ impl TrisoAtopsReleaseChannel {
             return false;
         }
 
-        self.latest = self.evaluate(sim_time_s, kernel, graphite_temperature);
-        self.evaluated_at_kernel = Some(kernel);
+        self.latest = self.evaluate_stack(sim_time_s, stack);
+        self.evaluated_at_kernel = Some(stack.kernel);
+        self.evaluated_at = Some(stack);
         self.last_evaluated_s = Some(sim_time_s);
         true
+    }
+
+    /// [`Self::evaluate`] with the whole fuel stack: kernel diffusion at the
+    /// kernel temperature, **silver breakthrough at the SiC temperature**,
+    /// graphite hold-up at the fuelled-zone matrix. See [`Self::update`].
+    pub fn evaluate_stack(
+        &self,
+        sim_time_s: f64,
+        stack: FuelStackTemperatures,
+    ) -> Vec<NuclideRelease> {
+        self.evaluate_with_sic(
+            sim_time_s,
+            stack.kernel,
+            stack.silicon_carbide,
+            stack.fuelled_zone_matrix,
+        )
+    }
+
+    /// A fuel stack with one kernel temperature and one graphite temperature,
+    /// the SiC at the kernel's (upstream TRISO-ATOPS's own convention) -- for
+    /// tests and sweeps that vary a single fuel temperature.
+    pub fn kernel_and_graphite(
+        kernel: ThermodynamicTemperature,
+        graphite: ThermodynamicTemperature,
+    ) -> FuelStackTemperatures {
+        FuelStackTemperatures {
+            kernel,
+            silicon_carbide: kernel,
+            fuelled_zone_matrix: graphite,
+            peak_kernel: kernel,
+        }
+    }
+
+    /// The fuel stack the most recent evaluation was taken at.
+    pub fn evaluated_at(&self) -> Option<FuelStackTemperatures> {
+        self.evaluated_at
     }
 
     /// Evaluate every tracked nuclide at the given temperatures, ignoring the
@@ -520,18 +574,49 @@ impl TrisoAtopsReleaseChannel {
     /// the circulating activity of I-131 and Xe-133 by whatever their tracked
     /// parents would have contributed, and the direction is stated so a reader
     /// can bound it.
+    ///
+    /// This form passes the **kernel** temperature to silver's SiC
+    /// breakthrough, exactly as upstream does; [`Self::evaluate_with_sic`] is
+    /// the form the plant uses.
     pub fn evaluate(
         &self,
         sim_time_s: f64,
         kernel_temperature: ThermodynamicTemperature,
         graphite_temperature: ThermodynamicTemperature,
     ) -> Vec<NuclideRelease> {
+        self.evaluate_with_sic(
+            sim_time_s,
+            kernel_temperature,
+            kernel_temperature,
+            graphite_temperature,
+        )
+    }
+
+    /// [`Self::evaluate`] with a separate SiC temperature for the silver
+    /// group. For silver, TRISO-ATOPS's `rb_fail` uses its temperature argument
+    /// **only** in the SiC diffusion coefficient `D_SiC,Ag(T)`
+    /// (`boon_lay::triso_atops_fork::release_models::rb_fail`, Silver arm), and
+    /// the kernel diffusion coefficient it computes for silver is not used by
+    /// that arm; so handing the silver group the SiC temperature as its
+    /// "core" temperature changes the breakthrough term and nothing else. Every
+    /// other group gets the kernel temperature.
+    pub fn evaluate_with_sic(
+        &self,
+        sim_time_s: f64,
+        kernel_temperature: ThermodynamicTemperature,
+        silicon_carbide_temperature: ThermodynamicTemperature,
+        graphite_temperature: ThermodynamicTemperature,
+    ) -> Vec<NuclideRelease> {
         let mut plant = self.inputs.plant;
         plant.run_time =
             Time::new::<second>(Htr10TrisoAtopsInputs::IRRADIATION_TIME_S + sim_time_s.max(0.0));
 
-        let node = NodeState {
+        let kernel_node = NodeState {
             core_temperature: kernel_temperature,
+            graphite_temperature,
+        };
+        let silver_node = NodeState {
+            core_temperature: silicon_carbide_temperature,
             graphite_temperature,
         };
         // One curie of this nuclide in the core: the unit basis every number
@@ -544,6 +629,11 @@ impl TrisoAtopsReleaseChannel {
         self.nuclides
             .iter()
             .map(|nuclide| {
+                let node = if nuclide.element_group() == ElementGroup::Silver {
+                    silver_node
+                } else {
+                    kernel_node
+                };
                 // "Short-lived" selects the secular-equilibrium <R/B> branch
                 // rather than the long-lived Booth release fraction. The
                 // criterion is the half-life against the irradiation time:
@@ -1027,26 +1117,32 @@ mod tests {
         let kernel = Some(ThermodynamicTemperature::new::<kelvin>(1200.0));
 
         assert!(
-            ch.update(0.0, kernel, graphite),
+            ch.update(
+                0.0,
+                kernel.map(|k| TrisoAtopsReleaseChannel::kernel_and_graphite(k, graphite))
+            ),
             "the first call must evaluate"
         );
         assert_eq!(ch.latest().len(), TRACKED_NUCLIDES.len());
         assert!(
-            !ch.update(0.5, kernel, graphite),
+            !ch.update(
+                0.5,
+                kernel.map(|k| TrisoAtopsReleaseChannel::kernel_and_graphite(k, graphite))
+            ),
             "half an interval later must NOT re-evaluate"
         );
         assert!(
-            ch.update(1.0, kernel, graphite),
+            ch.update(
+                1.0,
+                kernel.map(|k| TrisoAtopsReleaseChannel::kernel_and_graphite(k, graphite))
+            ),
             "a full interval later must re-evaluate"
         );
 
         // No kernel: no evaluation, and the previous one survives with its own
         // timestamp so the display cannot present it as current.
         let before = ch.last_evaluated_s();
-        assert!(
-            !ch.update(99.0, None, graphite),
-            "a missing kernel must not evaluate"
-        );
+        assert!(!ch.update(99.0, None), "a missing kernel must not evaluate");
         assert_eq!(
             ch.last_evaluated_s(),
             before,

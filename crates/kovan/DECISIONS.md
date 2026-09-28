@@ -1662,6 +1662,63 @@ column alignment, images (shown as links — no image loaders are installed).
   `advanced_git::save_with_message`. Neither `kovan-cli` (code tooling, no
   save command) nor the TUI has a save/commit command, so no `-m` flag was
   added.
+- **2026-09-28 — Save Repository pushes by default: the proprietary and open
+  corpora to their own remotes, then the Kovan repository.** Maintainer:
+  "kovan should be able to push pdfs to the proprietary repos by default",
+  then "and open source". ~~Saving never pushes~~ (never written down as a
+  decision; it was simply how `save_repository` behaved since `op-9vo6.19`)
+  **CHANGED 2026-09-28**: after any successful save (including one with
+  nothing new, so earlier unpushed saves go up), `save_push::push_after_save`
+  pushes, in order, the proprietary corpus, the open corpus, then the Kovan
+  repository — the parent only if neither corpus push failed or was refused,
+  so it never publishes a gitlink to a corpus commit its remote lacks (a
+  corpus merely *skipped*, e.g. not downloaded or with no remote configured,
+  does not block it). The standard corpus is never pushed. **Default ON;
+  opt-out** is the "Push after save" checkbox under the note box, persisted
+  as `[save] push_after_save = false` in the library's `kovan_root.toml`
+  (per library, so it travels with it; the table is omitted while at the
+  default; written by `KovanRoot::set_push_after_save`, which re-reads the
+  file first so a stale in-memory root cannot revert other settings).
+  **Safety rules**, each pinned by a test in `src/save_push/tests.rs`
+  (temp repos, local bare remotes): never forced (refspec
+  `refs/heads/B:refs/heads/B`, no `+`, no `--force`), so a remote that moved
+  on fails as "pull first" with the local commit kept; never from a detached
+  HEAD — the commit is put on the tracked branch (`.gitmodules` `branch =`,
+  else `refs/remotes/origin/HEAD`, else `ls-remote --symref`) only if that
+  branch's local and remote-tracking tips are ancestors (a fast-forward),
+  otherwise refused with nothing moved; every push URL (`remote get-url
+  --push --all`, so a separate `pushurl` is checked too) of the proprietary
+  corpus must be the private remote (`[private_submodule] remote` and
+  `[corpora] proprietary_remote`, which must agree) and must not be the open
+  or standard-corpus remote, and the open corpus's must be `open_remote` and
+  must not be a proprietary one — URL spellings (`https://`, `ssh://`,
+  `git@host:`) are normalised before comparing; nothing is ever pushed to an
+  `outram-park-backend` URL. Network via system `git` with
+  `GIT_TERMINAL_PROMPT=0` (credential helpers still run; a missing
+  credential fails fast with Git's own words). Each repository's result
+  (pushed / nothing to push / not pushed and why / refused / failed) is
+  listed under the Save button, red if any failed or was refused; the note
+  box is still cleared only by a save that committed, whatever the push did.
+  API: `advanced_git::save_and_push(root, note, push)`,
+  `advanced_git::push_after_save_setting`, `save_push::{push_after_save,
+  PushReport, PushOutcome}`.
+- **2026-09-28 — A Save now writes the index; it had been leaving staged
+  deletions behind.** Found diagnosing the maintainer's real proprietary
+  submodule, which showed four saved PDFs as `D ` (staged deletion) plus
+  `??` and `yuanzhong2002fission.pdf` as `MM`. Cause: Save commits with
+  `gix` from a tree built off the worktree and never wrote `.git/index`, so
+  the index stayed at whatever it last was (there: exactly commit `ddcd155`,
+  2026-09-24) while five further saves moved `HEAD`; one plain `git commit`
+  would have deleted the PDFs. Reproduced in a temp repo (the regression
+  test showed `MM papers/c.pdf`, `D  papers/d.pdf`, `?? papers/d.pdf`) and
+  fixed in `repository::sync_index`: after each commit the index is rebuilt
+  from the committed tree, keeping stat data for unchanged entries. Pinned by
+  `after_a_save_git_status_is_clean_in_every_repository_it_committed`. The
+  same submodule's **detached HEAD** was not made by Save itself: it came
+  from `git submodule update --init` in setup on 2026-09-22 15:58, ten
+  minutes before `corpus_repos::attach_to_branch` existed (16:08), and Save
+  then committed onto it; the push above now puts such commits on their
+  branch.
 - **2026-09-28 — "Edit digitisation" prefills the wizard and restores the
   saved curves; a successful graph save returns to the PDF reader.**
   Maintainer: "next time we have an edit digitisation, please pre-fill the

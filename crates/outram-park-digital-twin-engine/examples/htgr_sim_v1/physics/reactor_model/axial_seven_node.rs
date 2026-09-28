@@ -66,7 +66,6 @@
 
 use super::one_node::PebbleBedPorousMediaNode;
 use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
-use uom::si::power::watt;
 
 /// Placeholder seven-node axial core. Currently a thin wrapper around
 /// [`PebbleBedPorousMediaNode`] -- every method below delegates to it
@@ -100,17 +99,31 @@ impl AxialSevenNodeCore {
     pub fn step(
         &mut self,
         dt: Time,
-        fission_power: Power,
+        net_heat_to_bed: Power,
+        pebble_conduction_power: Power,
         helium_inlet_temperature: ThermodynamicTemperature,
         helium_mass_flow: MassRate,
     ) -> Power {
         self.fallback.step(
             dt,
-            fission_power,
-            Power::new::<watt>(0.0),
+            net_heat_to_bed,
+            pebble_conduction_power,
             helium_inlet_temperature,
             helium_mass_flow,
         )
+    }
+
+    /// Delegates to [`PebbleBedPorousMediaNode::fuel_bed_coupling`]. Every
+    /// tier needs one since 2026-09-28 (gh:#360): the fuel node in
+    /// `physics::kinetics` loses its heat to the bed through it, whatever
+    /// tier the bed is.
+    pub fn fuel_bed_coupling(&self) -> Option<super::one_node::FuelBedCoupling> {
+        self.fallback.fuel_bed_coupling()
+    }
+
+    /// Delegates to [`PebbleBedPorousMediaNode::last_step_energy`].
+    pub fn last_step_energy(&self) -> super::one_node::BedStepEnergy {
+        self.fallback.last_step_energy()
     }
 
     /// Delegates to [`PebbleBedPorousMediaNode::pebble_temperature`]. A real

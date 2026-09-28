@@ -23,16 +23,62 @@ offsite chain:
 Dose has its own crate so the dispersion and source-term crates keep their
 "no dose" boundary, and so none of them reads as a health-assessment tool.
 
-## Status: placeholder, nothing is implemented
+## Status: partial pyDOSEIA port, code-to-code verified (2026-09-28)
 
-Created 2026-09-28 to reserve the name and state the scope. The crate has no
-dependencies and no behaviour. Its only public item is the `SCOPE` string
-constant. Do not cite it as the location of any calculation.
+~~Status: placeholder, nothing is implemented.~~ **CHANGED 2026-09-28.** The
+crate was created that day to reserve the name. It now holds:
 
-Two published HTR-10 dose-versus-distance tables currently live in `changi`,
-parked there by the maintainer: normal operation (Liu and Cao 2002, Table 7)
-and two design-basis accidents (Table 9, added 2026-09-28). Whether they move
-here is undecided.
+- **`buangkok::pydoseia`**, a partial, faithful Rust port of the MIT-licensed
+  **pyDOSEIA** (commit `dca4cdc3`, see below). It covers:
+  - met processing: the triple joint frequency distribution, and the missing
+    and calm corrections;
+  - Gaussian-plume dilution factors for three release modes: a single plume,
+    and a long-term release with or without met data;
+  - the **inhalation**, **ground-shine** and **submersion** dose pathways, with
+    their age brackets, absorption-type selection, progeny correction,
+    deposition velocities and weathering.
+- **Verification:** code-to-code against pyDOSEIA itself, on synthetic inputs.
+  The fixture has 1 015 cases and 13 422 values; 19 of the 20 function groups
+  are bit-exact and the last agrees to 4.8e-16. Five mutation tests show the
+  suite can fail. Methodology and results are in
+  [`docs/pydoseia-code-to-code.md`](docs/pydoseia-code-to-code.md).
+- **What this does not show:** agreement with pyDOSEIA is not agreement with
+  reality. There is **no validation** of any kind, and seven upstream defects
+  are recorded (D1–D7). The port reproduces them, and corrected variants are
+  labelled as divergences.
+- **Not ported yet:** ingestion, plume shine, upstream's multi-source DCF
+  screening, and its I/O and input generator. The scope and the reasons are
+  in [`docs/pydoseia-port-scoping.md`](docs/pydoseia-port-scoping.md).
+- **No dose-coefficient data ships with the crate.** Upstream's tables are
+  ICRP-derived (inhalation) or FGR-15 (external), so the caller supplies
+  tables in upstream's CSV layout. Half-lives come from `boon-lay`, not from
+  here.
+- Nothing in the workspace calls it yet. It is not wired into `htgr_sim_v1`.
+
+**Published dose tables (moved here 2026-09-28):** `buangkok::published` holds
+the HTR-10 dose-versus-distance tables from Liu and Cao (2002) — normal
+operation (Table 7, mSv/a) and two design-basis accidents (Table 9, thyroid
+and whole-body mSv) — as cited reference data, with provenance in
+`docs/References.md`. Nothing computes a dose from them.
+
+## Reference implementations and literature to build from
+
+- **pyDOSEIA** — B. Sadhu, T. Sarkar, S. Anand, K. D. Singh and D. K. Aswal,
+  "pyDOSEIA: A Python Package for Radiological Impact Assessment during
+  Long-term or Accidental Atmospheric Releases", *Health Physics* **130**(1)
+  (2026) 94–110, doi:[10.1097/HP.0000000000002014](https://doi.org/10.1097/HP.0000000000002014),
+  PMID [40622262](https://pubmed.ncbi.nlm.nih.gov/40622262/) (Bhabha Atomic
+  Research Centre). A Gaussian-plume dose code following IAEA and AERB
+  guidance: age-, distance- and radionuclide-specific doses from inhalation,
+  ingestion, groundshine, submersion and plumeshine, for long-term and
+  accidental releases. The **article** is © 2025 Health Physics Society
+  (cite, don't reproduce). The **code** is open source under the **MIT
+  licence** at <https://github.com/BiswajitSadhu/pyDOSEIA> (checked
+  2026-09-28, commit `dca4cdc3`), so its logic may be ported into this
+  GPL-3.0 crate with attribution (MIT notice kept, verbatim in
+  [`NOTICE`](NOTICE)). **Partly ported as `buangkok::pydoseia` (2026-09-28).**
+  Each bundled data table's licence is assessed in the scoping note; none is
+  copied.
 
 ## Bookkeeping status
 

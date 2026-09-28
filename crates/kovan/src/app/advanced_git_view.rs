@@ -19,6 +19,18 @@
 //! `crate::advanced_git`/`crate::repository`'s own behaviour changed here —
 //! this file is presentation only.
 //!
+//! # Push after save (2026-09-28)
+//!
+//! A "Push after save" checkbox, **ticked by default**, sits under the note
+//! box. Ticked, Save Repository also pushes the proprietary corpus, the open
+//! corpus and the Kovan repository ([`crate::save_push`] has the order and
+//! the safety rules), and each repository's result — pushed, nothing to
+//! push, not pushed and why, refused, failed with Git's words — is listed
+//! under the button. Unticking it is persisted as
+//! `[save] push_after_save = false` in the library's `kovan_root.toml`
+//! (so it travels with the library), via
+//! [`crate::root::KovanRoot::set_push_after_save`].
+//!
 //! # One exception to "presentation only": the conflicted-pull prompt
 //!
 //! Since GH issue #279 this file also owns a decision, not just a
@@ -99,6 +111,10 @@ pub struct AdvancedGitState {
     /// after a save that actually committed; kept on failure and on a
     /// nothing-to-save, so what the user typed is never lost.
     commit_note: String,
+    /// The "Push after save" checkbox: loaded from the library's
+    /// `kovan_root.toml` on every refresh (default ON) and written back when
+    /// the user changes it. See the module doc.
+    push_after_save: bool,
     /// A pull Git stopped on a conflict, waiting for the user's answer to
     /// the "sure anot?" prompt (GH issue #279). `None` the rest of the time.
     pending_force_pull: Option<ForcePullPrompt>,
@@ -126,6 +142,7 @@ impl AdvancedGitState {
     fn refresh(&mut self, root: &KovanRoot) {
         self.loaded_once = true;
         self.stale = false;
+        self.push_after_save = advanced_git::push_after_save_setting(root);
         match advanced_git::status(root) {
             Ok(s) => self.status = Some(s),
             Err(e) => self.set_error(e.to_string()),
@@ -205,6 +222,18 @@ impl AdvancedGitState {
         ui.small("Added to the commit message under \"Save Kovan repository\".");
         ui.add_space(4.0);
 
+        if ui
+            .checkbox(&mut self.push_after_save, "Push after save")
+            .on_hover_text(
+                "Also push the proprietary corpus, the open corpus and this Kovan folder. \
+                 Each corpus goes only to its own remote in kovan_root.toml; never forced.",
+            )
+            .changed()
+        {
+            self.persist_push_setting(root);
+        }
+        ui.add_space(4.0);
+
         let mut save_result = None;
         ui.horizontal(|ui| {
             // op-nswf, GH issue #35 2026-09-01 05:42: "Under the git tab, i
@@ -212,14 +241,18 @@ impl AdvancedGitState {
             // the backend (`crate::repository::save_repository`) already
             // existed and was tested; it just had no button wired to it.
             if ui.button("Save Repository").clicked() {
-                save_result = Some(advanced_git::save_with_message(root, &self.commit_note));
+                save_result = Some(advanced_git::save_and_push(
+                    root,
+                    &self.commit_note,
+                    self.push_after_save,
+                ));
             }
             if ui.button("Refresh").clicked() {
                 self.refresh(root);
             }
         });
-        if let Some(result) = save_result {
-            if self.record_save(result) {
+        if let Some((result, pushed)) = save_result {
+            if self.record_save(result, pushed) {
                 self.refresh(root);
             }
         }
@@ -294,12 +327,56 @@ impl AdvancedGitState {
         self.force_pull_prompt_ui(&ctx, root);
     }
 
+    /// Write the checkbox to `kovan_root.toml`; on failure, say so and put
+    /// the checkbox back to what the file still says.
+    fn persist_push_setting(&mut self, root: &KovanRoot) {
+        let wanted = self.push_after_save;
+        let written = KovanRoot::open(root.path())
+            .map_err(|e| e.to_string())
+            .and_then(|mut fresh| fresh.set_push_after_save(wanted));
+        match written {
+            Ok(()) => self.set_status(if wanted {
+                "push after save: on"
+            } else {
+                "push after save: off — saves stay on this computer until you push"
+            }),
+            Err(e) => {
+                self.push_after_save = advanced_git::push_after_save_setting(root);
+                self.set_error(format!("could not save the push setting: {e}"));
+            }
+        }
+    }
+
     /// File what a Save Repository returned, and decide the commit note's
     /// fate: cleared only when something was committed, kept otherwise (a
     /// failure, or nothing to save) so the user never loses what they typed.
     /// Returns whether a commit was made (the caller then re-scans). Split
     /// out from [`Self::ui`] so it is testable without a repository.
+    ///
+    /// `pushed` is the push-after-save report, if a push ran: one line per
+    /// repository is appended to the message, which turns red when any push
+    /// failed or was refused. The note's fate does not depend on the push —
+    /// the commit it went into exists either way.
     fn record_save(
+        &mut self,
+        result: Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError>,
+        pushed: Option<crate::save_push::PushReport>,
+    ) -> bool {
+        let committed = self.record_commit(result);
+        if let Some(report) = pushed {
+            for line in report.lines() {
+                self.message.push('\n');
+                self.message.push_str(&line);
+            }
+            if report.has_problem() {
+                self.message_is_error = true;
+            }
+        }
+        committed
+    }
+
+    /// The commit half of [`Self::record_save`].
+    fn record_commit(
         &mut self,
         result: Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError>,
     ) -> bool {
@@ -618,19 +695,113 @@ mod tests {
             ..Default::default()
         };
         let err = crate::repository::RepositoryError::Git("boom".into());
-        assert!(!state.record_save(Err(err)));
+        assert!(!state.record_save(Err(err), None));
         assert_eq!(state.commit_note, typed);
         assert!(state.message_is_error);
 
-        assert!(!state.record_save(Ok(None)));
+        assert!(!state.record_save(Ok(None), None));
         assert_eq!(state.commit_note, typed);
 
         let summary = crate::repository::SaveSummary {
             added: vec!["notes.md".into()],
             ..Default::default()
         };
-        assert!(state.record_save(Ok(Some(summary))));
+        assert!(state.record_save(Ok(Some(summary)), None));
         assert!(state.commit_note.is_empty());
         assert!(!state.message_is_error);
+    }
+
+    /// Each repository's push result is shown under the save line; a
+    /// refused or failed push turns the message red but still clears the
+    /// note, because the commit it went into was made (2026-09-28).
+    #[test]
+    fn push_results_are_listed_per_repository_and_a_problem_is_red() {
+        use crate::save_push::{PushOutcome, PushRepo, PushReport, RepoPush};
+        let summary = crate::repository::SaveSummary {
+            added: vec!["a.pdf".into()],
+            ..Default::default()
+        };
+        let report = PushReport {
+            repos: vec![
+                RepoPush {
+                    repo: PushRepo::ProprietaryCorpus,
+                    dir: PathBuf::new(),
+                    outcome: PushOutcome::Pushed {
+                        remote_url: "https://example.com/private.git".into(),
+                        branch: "main".into(),
+                        attached: true,
+                    },
+                },
+                RepoPush {
+                    repo: PushRepo::OpenCorpus,
+                    dir: PathBuf::new(),
+                    outcome: PushOutcome::Failed {
+                        message: "the remote has commits this folder does not have — pull first"
+                            .into(),
+                    },
+                },
+                RepoPush {
+                    repo: PushRepo::KovanRepository,
+                    dir: PathBuf::new(),
+                    outcome: PushOutcome::Skipped {
+                        reason: "a corpus above was not pushed".into(),
+                    },
+                },
+            ],
+        };
+        let mut state = AdvancedGitState {
+            commit_note: "note".into(),
+            ..Default::default()
+        };
+        assert!(state.record_save(Ok(Some(summary.clone())), Some(report)));
+        assert!(state.commit_note.is_empty());
+        assert!(state.message_is_error);
+        let lines: Vec<&str> = state.message.lines().collect();
+        assert!(lines[0].starts_with("saved: 1 added"), "{lines:?}");
+        assert!(lines[1]
+            .starts_with("Proprietary corpus: pushed main to https://example.com/private.git"));
+        assert!(
+            lines[2].starts_with("Open corpus: push FAILED") && lines[2].contains("pull first")
+        );
+        assert!(lines[3].starts_with("Kovan repository: not pushed"));
+
+        let ok = PushReport {
+            repos: vec![RepoPush {
+                repo: PushRepo::KovanRepository,
+                dir: PathBuf::new(),
+                outcome: PushOutcome::UpToDate {
+                    branch: "main".into(),
+                },
+            }],
+        };
+        let mut state = AdvancedGitState::default();
+        state.record_save(Ok(Some(summary)), Some(ok));
+        assert!(!state.message_is_error);
+        assert!(state.message.contains("nothing to push"));
+    }
+
+    /// Drawn headless, the checkbox shows the library's persisted setting:
+    /// ticked by default, unticked once the library opted out.
+    #[test]
+    fn the_push_checkbox_reflects_the_library_setting() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut root =
+            KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+                .unwrap();
+        let ctx = egui::Context::default();
+        let mut state = AdvancedGitState::default();
+        let _ = ctx.run_ui(Default::default(), |ui| state.ui(ui, &root));
+        assert!(state.push_after_save, "default must be ticked");
+
+        root.set_push_after_save(false).unwrap();
+        let mut state = AdvancedGitState::default();
+        let _ = ctx.run_ui(Default::default(), |ui| state.ui(ui, &root));
+        assert!(!state.push_after_save);
+
+        // Changing it writes the file.
+        state.push_after_save = true;
+        state.persist_push_setting(&root);
+        assert!(crate::advanced_git::push_after_save_setting(&root));
+        assert!(!state.message_is_error, "{}", state.message);
     }
 }

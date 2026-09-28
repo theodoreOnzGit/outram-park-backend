@@ -707,7 +707,7 @@ impl eframe::App for HtgrSimApp {
 
         egui::Panel::top("htgr_top").show(ui, |ui| {
             ui.heading(
-                "HTGR Educational Simulator v1.1 -- scaffold (OUTRAM PARK digital-twin engine)",
+                "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
             );
             ui.horizontal(|ui| {
                 egui::global_theme_preference_buttons(ui);
