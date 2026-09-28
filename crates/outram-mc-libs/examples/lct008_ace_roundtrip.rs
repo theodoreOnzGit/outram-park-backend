@@ -193,8 +193,14 @@
 //! essentially the whole 4.6x transport gap. So the cause is cross-section
 //! lookup, not secondary sampling.
 //!
-//! Of the three candidates above, **two are refuted**: the inelastic level
-//! count is **40 on both** routes, and the fission spectrum cannot be
+//! Of the three candidates above, **two are refuted**: ~~the inelastic level
+//! count is **40 on both** routes~~ (**CORRECTED 2026-09-29, GitHub #366**:
+//! true for the tables this example wrote on 2026-09-23, which carried no
+//! MT=4. Since 2026-09-26 the writer emits MT=4 as NJOY2016 does, and
+//! `Nuclide::from_ace` then keeps the MT=4 lump with Q = 0 and drops all 40
+//! levels. Verified with `examples/ace_vs_endf_nuclide_probe.rs` on U-235:
+//! `inelastic_levels_table()` is `[(4, 0.0, true)]` on the ACE route. Any ACE
+//! arm of this example run after that date carries the defect), and the fission spectrum cannot be
 //! implicated by a measurement that does no sampling. The premise held (the
 //! ENDF route does carry URR 20-149 keV and DBRC; the ACE route carries
 //! neither), which sharpens rather than resolves it -- the ACE route does

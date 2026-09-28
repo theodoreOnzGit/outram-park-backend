@@ -53,6 +53,21 @@
 > thing that turns this file back into a live result.
 
 
+> **Update 2026-09-29 — five-route campaign** ([`five_route_keff_2026_09_29.md`](five_route_keff_2026_09_29.md)),
+> 32 seeds per case, URR and DBRC on, corrected PURR grid:
+>
+> | case | OpenMC + NJOY2016 | outram-mc ENDF route |
+> |---|---|---|
+> | Godiva | +16 ± 21 pcm | −67 ± 35 pcm |
+> | Jemima | −406 ± 17 pcm | −301 ± 29 pcm |
+> | HST-009 | +234 ± 22 pcm | −38 ± 27 pcm |
+>
+> - **Jemima.** OpenMC reproduces Jemima's low residual on identical data, which
+>   argues against an outram-mc transport cause.
+> - **HST-009.** outram-mc sits −271 ± 35 pcm below OpenMC (#367).
+> - **ACE route.** outram-mc's ACE route is defective on fast cases (#366).
+> - **LCT-008.** Not re-measured here: the campaign ran the simplified model only.
+
 Committed OpenMC input files for the ICSBEP criticality benchmarks this crate
 runs as **external** oracles — cases whose answer does not come from any deck
 under test, because an ICSBEP *critical* configuration has benchmark

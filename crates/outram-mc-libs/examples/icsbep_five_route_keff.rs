@@ -375,7 +375,23 @@ fn main() {
         }
         "ace" => {
             let dir = ace_dir.clone().expect("--route ace needs --ace-dir");
-            let n = names.iter().map(|n| load_ace(&dir, n)).collect();
+            // `--endf-nuclides U238,...` (diagnostic): load the listed nuclides
+            // from ENDF instead, so a route difference can be localised to one
+            // nuclide's ACE table. Unset = every nuclide from ACE, the route.
+            let from_endf: Vec<String> = flag(&args, "--endf-nuclides")
+                .map(|v| v.split(',').map(str::to_string).collect())
+                .unwrap_or_default();
+            let n = names
+                .iter()
+                .map(|n| {
+                    if from_endf.iter().any(|m| m == n) {
+                        eprintln!("    {n}: from ENDF (--endf-nuclides)");
+                        load_endf(n)
+                    } else {
+                        load_ace(&dir, n)
+                    }
+                })
+                .collect();
             let sab = c.sab_on_h1.then(|| {
                 let p = dir.join("293.6K").join("HinH2O.ace");
                 let raw = njoy_outram_park_fork::acer::read::read(&p)
@@ -393,6 +409,29 @@ fn main() {
             .expect("S(a,b) needs H1 in the case");
         let h = nuclides.remove(i);
         nuclides.insert(i, h.with_thermal_scattering(s));
+    }
+    // `--ablate a,b` (diagnostic): explicit, visible ablations applied to every
+    // nuclide, for localising a route difference. Recorded in the CSV `route`
+    // label by the caller; the campaign itself never passes this flag.
+    if let Some(list) = flag(&args, "--ablate") {
+        for a in list.split(',') {
+            eprintln!("  ABLATION: {a}");
+            nuclides = nuclides
+                .into_iter()
+                .map(|n| match a {
+                    "iso-elastic" => n.with_isotropic_elastic_scattering(),
+                    "iso-inelastic" => n.with_isotropic_inelastic_scattering(),
+                    "iso-continuum" => n.with_isotropic_continuum_scattering(),
+                    "frozen-nubar" => n.with_frozen_nubar(1.0e6),
+                    "frozen-chi" => n.with_frozen_fission_spectrum(1.0e6),
+                    "no-urr" => n.without_urr_probability_tables(),
+                    "no-dbrc" => n.without_dbrc(),
+                    "unit-n2n" => n.with_unit_n2n_multiplicity(),
+                    "no-inelastic" => n.without_inelastic(),
+                    other => panic!("unknown --ablate {other}"),
+                })
+                .collect();
+        }
     }
     let load_s = t0.elapsed().as_secs_f64();
 

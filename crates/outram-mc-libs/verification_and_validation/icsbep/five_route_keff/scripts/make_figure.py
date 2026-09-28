@@ -161,10 +161,14 @@ def main():
     handles = [plt.Line2D([], [], ls="", marker=MARKERS[i], color=COLORS[i], ms=8, mec="white",
                           label=lab.replace("\n", " + ")) for i, (_, lab) in enumerate(ROUTES)]
     fig.legend(handles=handles, loc="outside lower center", ncol=5, frameon=False, fontsize=8.5)
-    fig.suptitle("Four ICSBEP cases by transport code and nuclear-data route — ENDF/B-VIII.0, 293.6 K",
-                 fontsize=11, x=0.01, ha="left")
+    fig.suptitle("Four ICSBEP cases by transport code and nuclear-data route — ENDF/B-VIII.0, 293.6 K\n"
+                 "Routes 3/5 on Godiva and Jemima carry two outram-mc ACE-reader defects found by this "
+                 "campaign\n(GitHub #366: MT=4 lump replaces the inelastic levels with Q = 0; U-234 fission "
+                 "lost). HST-009 routes 3/5 not run (#365). Data as measured, not corrected.",
+                 fontsize=10, x=0.01, ha="left", linespacing=1.5)
     (OUT / "figures").mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT / "figures" / "five_route_keff.png", dpi=200, metadata={"Software": None})
+    fig.savefig(OUT / "figures" / "five_route_keff.png", dpi=200, metadata={"Software": None},
+                bbox_inches="tight", pad_inches=0.15)
     print("wrote", OUT / "figures" / "five_route_keff.png")
 
 
