@@ -353,6 +353,7 @@ pub fn draw_controls(
         "Reactivity margin: {:+.3} $",
         snapshot.reactivity_margin_dollars
     ));
+    draw_reactivity_budget(ui, snapshot);
     // Reference marker: where the published bank worth and cold clean excess
     // imply criticality. Indicative only -- it carries no burnup, xenon or
     // temperature defect, so it is not where HTR-10's rods actually sit. The
@@ -1035,6 +1036,49 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             temperature_row(ui, "Cooling-water outlet", s.cooling_water_outlet_temp_k);
         });
+}
+
+/// **Reactivity budget**: each term the kinetics integrate, in dollars and in
+/// pcm, and their net (highlighted). Every value is read off
+/// [`HtgrSnapshot`], which the physics fills from `HtgrKinetics`' own terms;
+/// nothing is re-derived here except the display conversion
+/// [`crate::app::state::reactivity_pcm`], at the kinetics' own `beta`.
+///
+/// The external term is what the kinetics were handed (after any scram
+/// demand), so it can differ from the "External reactivity" line above,
+/// which is the operator's rod command converted with the delayed layer's
+/// `beta` -- the gh:#387 mismatch, stated on the panel rather than hidden.
+fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
+    use crate::app::state::reactivity_pcm;
+    let beta = snapshot.kinetics_beta;
+    ui.add_space(4.0);
+    ui.label(egui::RichText::new("Reactivity budget (kinetics' own terms)").strong());
+    let row = |ui: &mut egui::Ui, name: &str, dollars: f64| {
+        ui.label(format!(
+            "  {name}: {dollars:+.4} $  =  {:+.1} pcm",
+            reactivity_pcm(dollars, beta)
+        ));
+    };
+    row(ui, "External (rods)", snapshot.budget_external_dollars);
+    row(ui, "Fuel / Doppler feedback", snapshot.budget_fuel_dollars);
+    row(ui, "Moderator feedback", snapshot.budget_moderator_dollars);
+    row(ui, "Xenon", snapshot.budget_xenon_dollars);
+    ui.label(
+        egui::RichText::new(format!(
+            "  NET: {:+.4} $  =  {:+.1} pcm",
+            snapshot.budget_net_dollars,
+            reactivity_pcm(snapshot.budget_net_dollars, beta)
+        ))
+        .strong()
+        .color(egui::Color32::from_rgb(230, 170, 40)),
+    );
+    ui.small(format!(
+        "pcm at beta = {beta:.5} ({:.0} pcm), the kinetics' value. The rod-worth \
+         conversion to $ uses a different beta ({:.0} pcm, the delayed layer's sum) \
+         -- a known mismatch, gh:#387, not resolved here.",
+        beta * 1e5,
+        snapshot.delayed_neutron_fraction_pcm
+    ));
 }
 
 #[cfg(test)]

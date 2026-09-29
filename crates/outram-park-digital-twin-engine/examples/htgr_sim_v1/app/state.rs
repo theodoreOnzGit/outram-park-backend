@@ -124,6 +124,14 @@ pub struct ReceptorSnapshot {
 /// [`crate::physics::atmospheric_dispersion::RECEPTOR_COUNT`].
 pub const DISPERSION_RECEPTORS: usize = 24;
 
+/// Reactivity in pcm from dollars at `beta`: `rho [pcm] = $ x beta x 1e5`.
+/// The one conversion the reactivity budget uses, so the panel and its test
+/// cannot disagree about it. Pass the KINETICS' beta
+/// ([`HtgrSnapshot::kinetics_beta`]) for the budget's terms.
+pub fn reactivity_pcm(dollars: f64, beta: f64) -> f64 {
+    dollars * beta * 1.0e5
+}
+
 /// Scalar snapshot of the HTGR plant, shared between the physics thread (which
 /// writes the output fields) and the GUI thread (which writes the control-input
 /// fields and reads everything for display).
@@ -478,6 +486,22 @@ pub struct HtgrSnapshot {
     pub external_reactivity_dollars: f64,
     /// Reactivity margin \[dollars\].
     pub reactivity_margin_dollars: f64,
+    /// **Reactivity budget** (2026-09-29), every term in the KINETICS' own
+    /// dollars, read straight off `HtgrKinetics` -- the panel re-derives
+    /// nothing. External (rods, after any scram demand) \[$\].
+    pub budget_external_dollars: f64,
+    /// Fuel (Doppler) feedback \[$\].
+    pub budget_fuel_dollars: f64,
+    /// Moderator (bed graphite) feedback \[$\].
+    pub budget_moderator_dollars: f64,
+    /// Xenon \[$\] (zero while the xenon channel is off).
+    pub budget_xenon_dollars: f64,
+    /// Net: the sum the kinetics integrate \[$\].
+    pub budget_net_dollars: f64,
+    /// The `beta` the kinetics convert those dollars with (dimensionless) --
+    /// NOT [`Self::delayed_neutron_fraction_pcm`], which is the delayed
+    /// layer's `sum(beta_i)` the rod-worth conversion uses (gh:#387).
+    pub kinetics_beta: f64,
     /// Effective total delayed-neutron fraction \[pcm\].
     pub delayed_neutron_fraction_pcm: f64,
 
@@ -818,6 +842,12 @@ impl Default for HtgrSnapshot {
             dispersion_source_rate_absolute_by_nuclide_bq_per_s: [f64::NAN;
                 TRACKED_RELEASE_NUCLIDES],
             reactivity_margin_dollars: 0.0,
+            budget_external_dollars: 0.0,
+            budget_fuel_dollars: 0.0,
+            budget_moderator_dollars: 0.0,
+            budget_xenon_dollars: 0.0,
+            budget_net_dollars: 0.0,
+            kinetics_beta: 7.26e-3,
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,
             core_outlet_temp_k: 600.15,

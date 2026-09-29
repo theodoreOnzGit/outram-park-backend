@@ -1759,6 +1759,15 @@ impl HtgrPlant {
         s.trip_reason = self.protection.trip_reason();
         s.scram_insertion_fraction = self.protection.scram_insertion();
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
+        s.budget_external_dollars = self.kinetics.external_reactivity_dollars();
+        s.budget_fuel_dollars = self.kinetics.fuel_feedback_reactivity_dollars();
+        s.budget_moderator_dollars = self.kinetics.moderator_feedback_reactivity_dollars();
+        s.budget_xenon_dollars = self.kinetics.xenon_reactivity_dollars();
+        s.budget_net_dollars = self.kinetics.net_reactivity_dollars();
+        s.kinetics_beta = self
+            .kinetics
+            .kinetics_delayed_neutron_fraction()
+            .get::<uom::si::ratio::ratio>();
         s.decay_heat_mw = power_in_megawatts(self.kinetics.decay_heat_power());
         s.core_thermal_power_mw = power_in_megawatts(self.kinetics.core_thermal_power());
         let controller = self.secondary.feedwater_controller();

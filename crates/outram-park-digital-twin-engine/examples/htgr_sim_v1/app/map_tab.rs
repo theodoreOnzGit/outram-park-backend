@@ -236,6 +236,39 @@ pub const DOSE_RATE_FRAMING: &str =
     "INDICATIVE dose rate -- research/education only, not a dose to \
      any real person, not for emergency or regulatory use.";
 
+/// **Reference figure, not a threshold or zone:** the NRC's 2023 plume-exposure
+/// EPZ sizing criterion for small modular reactors and other new
+/// technologies, **10 mSv (1 rem) TEDE over 96 hours** \[Sv\] -- 10 CFR
+/// 50.33(g)(2)(i)(A), final rule "Emergency Preparedness for Small Modular
+/// Reactors and Other New Technologies", 88 FR 80050 (16 Nov 2023): the rule
+/// text at 88 FR 80074 and the preamble at 88 FR 80058 ("projected to exceed
+/// 10 millisieverts (mSv) (1 rem) total effective dose equivalent (TEDE) over
+/// 96 hours from the release"), as enclosed in NRC STC-23-079
+/// (`theodore-open-corpus/hjg2023date.pdf`, PDF pp. 12 and 28).
+///
+/// Shown on the Dose-rate basis purely as a **comparison figure**: this map is
+/// indicative, research/education only, and must not be read as emergency-
+/// planning support (`RESPONSIBLE_USE.md`; `changi`'s scope). The criterion is
+/// a projected dose to the public over a spectrum of accidents; the map is an
+/// indicative instantaneous dose rate from this simulator's own release.
+pub const NRC_2023_EPZ_CRITERION_DOSE_SV: f64 = 10.0e-3;
+
+/// The criterion's integration time \[h\]: 96 hours (same source).
+pub const NRC_2023_EPZ_CRITERION_HOURS: f64 = 96.0;
+
+/// The criterion as an **average** dose rate \[µSv/h\]:
+/// `10 mSv / 96 h` = **104.17 µSv/h**. It assumes a constant rate over the
+/// whole 96 hours; a front-loaded release (the usual case) reaches 10 mSv
+/// sooner, so a rate below this line can still exceed the criterion's dose,
+/// and a rate above it need not. A reference marker on the colour scale only.
+pub fn nrc_2023_epz_reference_usv_per_h() -> f64 {
+    NRC_2023_EPZ_CRITERION_DOSE_SV / NRC_2023_EPZ_CRITERION_HOURS * 1.0e6
+}
+
+/// The label the reference marker carries, everywhere it is drawn.
+pub const NRC_2023_EPZ_REFERENCE_LABEL: &str = "10 mSv / 96 h average (NRC 2023 EPZ sizing \
+     criterion, 88 FR 80050) -- reference only, not a zone or threshold";
+
 /// The dose-rate basis's default scale: floor [`FLOOR_USV_PER_H`] (0.8 µSv/h),
 /// top [`TOP_USV_PER_H`] (1 mSv/h), span `log10(1000 / 0.8)` = 3.097 decades.
 pub fn dose_rate_anchor_scale() -> ColourScale {
@@ -651,6 +684,7 @@ fn draw_scale_controls(
             FLOOR_USV_PER_H, TOP_USV_PER_H
         ))
         .on_hover_text(dose_rate_method_text());
+        draw_dose_scale_ramp_with_reference(ui, scale);
         ui.label(dose_rate_missing_note());
         if !basis.factor(s).is_finite() {
             ui.colored_label(
@@ -661,6 +695,52 @@ fn draw_scale_controls(
         }
     }
     (basis, scale)
+}
+
+/// The dose-rate colour ramp as a strip, floor to top, with the
+/// [`nrc_2023_epz_reference_usv_per_h`] **reference marker** on it (a tick and
+/// its label, not a colour change): the colours are exactly the map's, from
+/// [`ColourScale::shade`]. The marker is drawn only while 104.2 µSv/h is
+/// inside the current scale; otherwise a line says where it is.
+fn draw_dose_scale_ramp_with_reference(ui: &mut Ui, scale: ColourScale) {
+    let width = ui.available_width().clamp(200.0, 520.0);
+    let (response, painter) = ui.allocate_painter(Vec2::new(width, 18.0), Sense::hover());
+    let rect = response.rect;
+    let segments = 96;
+    for i in 0..segments {
+        let f0 = i as f64 / segments as f64;
+        let value = scale.floor * 10f64.powf((f0 + 0.5 / segments as f64) * scale.span_decades);
+        let x0 = rect.left() + rect.width() * f0 as f32;
+        let x1 = rect.left() + rect.width() * ((i + 1) as f64 / segments as f64) as f32;
+        painter.rect_filled(
+            egui::Rect::from_min_max(egui::pos2(x0, rect.top()), egui::pos2(x1, rect.bottom())),
+            0.0,
+            scale.shade(value),
+        );
+    }
+    let reference = nrc_2023_epz_reference_usv_per_h();
+    match scale.fraction(reference) {
+        Some(f) if reference < scale.top() => {
+            let x = rect.left() + rect.width() * f as f32;
+            painter.line_segment(
+                [
+                    egui::pos2(x, rect.top() - 2.0),
+                    egui::pos2(x, rect.bottom() + 2.0),
+                ],
+                egui::Stroke::new(2.0, Color32::BLACK),
+            );
+            ui.small(format!(
+                "Tick at {reference:.1} µSv/h: {NRC_2023_EPZ_REFERENCE_LABEL}. Constant-rate \
+                 average; a front-loaded release reaches 10 mSv sooner."
+            ));
+        }
+        _ => {
+            ui.small(format!(
+                "{reference:.1} µSv/h ({NRC_2023_EPZ_REFERENCE_LABEL}) is outside the current \
+                 colour scale."
+            ));
+        }
+    }
 }
 
 /// Draw the dispersion rose: the evaluated `chi/Q` field, with the receptor
@@ -1318,6 +1398,18 @@ fn dose_cell_text(value: f64, floor: f64) -> String {
     }
 }
 
+/// [`dose_cell_text`] with a `*` appended above the
+/// [`nrc_2023_epz_reference_usv_per_h`] reference figure (see the table's
+/// caption for what the flag means and does not mean).
+fn dose_cell_text_with_reference(value: f64, floor: f64) -> String {
+    let text = dose_cell_text(value, floor);
+    if value.is_finite() && value > nrc_2023_epz_reference_usv_per_h() {
+        format!("{text} *")
+    } else {
+        text
+    }
+}
+
 /// The receptor with the highest air-pathway dose rate, for the split table.
 fn peak_air_receptor(s: &HtgrSnapshot) -> Option<&super::state::ReceptorSnapshot> {
     s.receptors
@@ -1370,7 +1462,7 @@ fn draw_dose_rate_tables(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
                     ui.label(format!("{:.0} m", row.distance_m));
                     ui.label(what);
                     for v in values.iter() {
-                        ui.label(dose_cell_text(*v, floor))
+                        ui.label(dose_cell_text_with_reference(*v, floor))
                             .on_hover_text(dose_rate_method_text());
                     }
                     ui.end_row();
@@ -1385,7 +1477,10 @@ fn draw_dose_rate_tables(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
          same number as the dose-rate map pixel under the receptor. Ground shine = the dry \
          deposit one 1200 s puff run leaves x FGR-15 ground coefficient; not on the map (no \
          per-pixel deposit), and it under-states a release held longer. \"below floor\" = at or \
-         under the {floor:.2} µSv/h colour floor. {}",
+         under the {floor:.2} µSv/h colour floor. \"*\" = above {:.1} µSv/h, the {}; a \
+         comparison figure for an indicative rate, not a zone boundary. {}",
+        nrc_2023_epz_reference_usv_per_h(),
+        NRC_2023_EPZ_REFERENCE_LABEL,
         dose_rate_missing_note()
     ));
     ui.add_space(4.0);
@@ -1653,6 +1748,21 @@ pub fn draw_map(
 
 #[cfg(test)]
 mod tests {
+    /// The NRC 2023 EPZ reference figure: `10e-3 Sv / 96 h` = 104.17 µSv/h,
+    /// and it sits inside the dose-rate basis's default 0.8 µSv/h - 1 mSv/h
+    /// scale (so the default ramp shows the tick). Floor and top unchanged.
+    #[test]
+    fn the_nrc_epz_reference_is_ten_millisievert_over_96_hours() {
+        let r = super::nrc_2023_epz_reference_usv_per_h();
+        assert!((r - 104.1666666667).abs() < 1e-6, "{r}");
+        assert!((r - 104.17).abs() < 0.005);
+        let scale = super::dose_rate_anchor_scale();
+        assert!(r > scale.floor && r < scale.top());
+        assert_eq!(super::FLOOR_USV_PER_H, 0.8);
+        assert_eq!(super::TOP_USV_PER_H, 1000.0);
+        assert!(super::dose_cell_text_with_reference(200.0, 0.8).ends_with('*'));
+        assert!(!super::dose_cell_text_with_reference(50.0, 0.8).ends_with('*'));
+    }
     use super::*;
 
     /// The rose's plot convention must match the physics module's site frame,

@@ -274,6 +274,11 @@ pub struct HtgrKinetics {
     heat_to_bed: Power,
     /// Cumulative energy ledger of the fuel node, for the conservation tests.
     ledger: FuelNodeLedger,
+    /// The external (rod) reactivity the most recent [`Self::step`] was
+    /// handed, in the kinetics' dollars \[$\] -- recorded so the reactivity
+    /// budget shows what the kinetics actually integrated (after the
+    /// protection system's scram demand), not the operator's command.
+    last_external_reactivity_dollars: f64,
 }
 
 /// Cumulative energy ledger of the fuel node \[J\], summed over every substep
@@ -728,6 +733,7 @@ impl HtgrKinetics {
             bed_temperature: bed_reference,
             heat_to_bed: reference_power,
             ledger: FuelNodeLedger::default(),
+            last_external_reactivity_dollars: 0.0,
         }
     }
 
@@ -853,6 +859,7 @@ impl HtgrKinetics {
             self.fuel_to_bed_resistance = r;
         }
         self.bed_temperature = bed_temperature;
+        self.last_external_reactivity_dollars = external_reactivity_dollars;
         // The fuel capacity moves with temperature (UO2, SiC, carbon cp); it is
         // refreshed once per plant step at the start-of-step fuel temperature,
         // and the closed form's `C_fuel / f_prompt` with it.
@@ -960,6 +967,36 @@ impl HtgrKinetics {
         TemperatureInterval::new::<temperature_interval::kelvin>(
             self.prompt.fuel_temperature.get::<kelvin>() - self.bed_temperature.get::<kelvin>(),
         )
+    }
+
+    /// The external (rod) reactivity the most recent step integrated \[$\],
+    /// in the kinetics' own dollars (converted to `rho` with
+    /// [`Self::kinetics_delayed_neutron_fraction`]).
+    pub fn external_reactivity_dollars(&self) -> f64 {
+        self.last_external_reactivity_dollars
+    }
+
+    /// **The net reactivity the kinetics integrates** \[$\]: external (rods)
+    /// + fuel/Doppler + moderator + xenon, every term in the kinetics' own
+    /// dollars. This is the sum the Nordheim-Fuchs step sees -- `rho = beta
+    /// (external + xenon + moderator) + alpha_fuel (T_f - T_ref)` -- divided
+    /// by the same `beta`. Evaluated at the end of the most recent step
+    /// (the xenon term at the end-of-step inventory), so it is a budget of the
+    /// current state, not an average over the step.
+    pub fn net_reactivity_dollars(&self) -> f64 {
+        self.external_reactivity_dollars()
+            + self.fuel_feedback_reactivity_dollars()
+            + self.moderator_feedback_reactivity_dollars()
+            + self.xenon_reactivity_dollars()
+    }
+
+    /// The delayed-neutron fraction the kinetics convert every dollar term
+    /// with (the Nordheim-Fuchs stepper's `beta`, 7.26e-3 published). **Not**
+    /// the delayed layer's `sum(beta_i)` that [`Self::delayed_neutron_fraction`]
+    /// reports and the rod-worth conversion uses (0.0065) -- that mismatch is
+    /// gh:#387, left as it is here and shown on the panel.
+    pub fn kinetics_delayed_neutron_fraction(&self) -> Ratio {
+        self.prompt.delayed_neutron_fraction
     }
 
     /// Reactivity worth of the current Xe-135 inventory, in dollars.
@@ -1135,6 +1172,49 @@ pub fn power_in_megawatts(p: Power) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The reactivity budget sums to the net, in the kinetics' own terms**
+    /// (panel reactivity budget, 2026-09-29).
+    ///
+    /// Methodology: a published-HTR-10 kinetics with the xenon channel on,
+    /// stepped 20 s at 0.1 s against a bed held at 1000 K with an external
+    /// +0.5 $; every step require `external + fuel + moderator + xenon =
+    /// net` to 1e-12 absolute (dollars), the recorded external equal to what
+    /// was handed in, and `pcm = $ x beta_kinetics x 1e5` for each term with
+    /// `beta_kinetics = 7.26e-3`.
+    #[test]
+    fn the_reactivity_budget_sums_to_the_net_in_kinetics_dollars() {
+        use uom::si::thermodynamic_temperature::kelvin;
+        let mut k = HtgrKinetics::new_htr10_published(Power::new::<megawatt>(10.0));
+        k.enable_xenon_at_equilibrium(Power::new::<megawatt>(10.0));
+        let beta = k.kinetics_delayed_neutron_fraction().get::<ratio>();
+        assert!((beta - 7.26e-3).abs() < 1e-15);
+        for _ in 0..200 {
+            k.step(
+                Time::new::<second>(0.1),
+                0.5,
+                ThermodynamicTemperature::new::<kelvin>(1000.0),
+                None,
+            );
+            let terms = [
+                k.external_reactivity_dollars(),
+                k.fuel_feedback_reactivity_dollars(),
+                k.moderator_feedback_reactivity_dollars(),
+                k.xenon_reactivity_dollars(),
+            ];
+            assert_eq!(terms[0], 0.5);
+            let net = k.net_reactivity_dollars();
+            assert!((terms.iter().sum::<f64>() - net).abs() < 1e-12);
+            for t in terms {
+                let pcm = crate::app::state::reactivity_pcm(t, beta);
+                assert!((pcm - t * beta * 1e5).abs() < 1e-12 * pcm.abs().max(1.0));
+            }
+        }
+        assert!(
+            k.xenon_reactivity_dollars() < 0.0,
+            "the xenon channel must be on"
+        );
+    }
     use uom::si::heat_capacity::joule_per_kelvin;
     use uom::si::power::megawatt;
     use uom::si::thermodynamic_temperature::kelvin;
