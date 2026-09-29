@@ -492,6 +492,55 @@ pub fn open_corpus_pdfs(repo: &Path) -> Vec<PathBuf> {
     out
 }
 
+/// Where the OUTRAM PARK workspace mounts the standard corpus
+/// ([`crate::corpus::CORPUS_REPOSITORY_URL`]) as a Git submodule, relative to
+/// the workspace root.
+pub const WORKSPACE_CORPUS_PATH: &str = "crates/kovan-literature/reactor-literature";
+
+/// Fetch the workspace's own literature submodule ([`WORKSPACE_CORPUS_PATH`])
+/// when it is registered but not checked out.
+///
+/// A plain `git clone` of the workspace leaves the path an **empty directory
+/// rather than an error**, so nothing complains until something looks for a
+/// PDF and does not find one. Before 2026-09-30 nothing in Kovan fetched it:
+/// [`ensure_library_corpora`] and [`ensure_standard_corpus`] only ever touch a
+/// *Kovan folder* and the application-data clone, never this mount, and an
+/// audit that needed the HTR-10 literature found the directory empty.
+///
+/// - Not a submodule of `workspace` (another checkout layout, or a test
+///   tree): `Ok(None)`, nothing done.
+/// - Already checked out: `Ok(Some(`[`RepoState::Existing`]`))`, untouched —
+///   updating it is an explicit, separate action, per the module's safety
+///   rules.
+/// - Registered but empty: `git submodule update --init`, then put on its
+///   remote's default branch; `Ok(Some(`[`RepoState::Cloned`]`))`.
+///
+/// Failures (offline, no `git`) are values, as everywhere in this module.
+pub fn ensure_workspace_corpus(workspace: &Path) -> Result<Option<RepoState>, CorpusRepoError> {
+    if !is_submodule(workspace, WORKSPACE_CORPUS_PATH) {
+        return Ok(None);
+    }
+    let dir = workspace.join(WORKSPACE_CORPUS_PATH);
+    if is_git_repo(&dir) {
+        return Ok(Some(RepoState::Existing));
+    }
+    if !crate::advanced_git::system_git_available() {
+        return Err(CorpusRepoError::GitUnavailable);
+    }
+    let output = submodule_git(workspace)
+        .args(["submodule", "update", "--init", "--", WORKSPACE_CORPUS_PATH])
+        .output()?;
+    if output.status.success() {
+        attach_to_branch(&dir);
+        Ok(Some(RepoState::Cloned))
+    } else {
+        Err(CorpusRepoError::Clone {
+            remote: crate::corpus::CORPUS_REPOSITORY_URL.to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -884,5 +933,49 @@ mod tests {
             2,
             "root layout, .git skipped"
         );
+    }
+
+    /// A plain clone of a workspace that mounts the literature at
+    /// [`WORKSPACE_CORPUS_PATH`] leaves it empty; [`ensure_workspace_corpus`]
+    /// fetches it, and a second call leaves it alone. A workspace without the
+    /// submodule is not touched.
+    #[test]
+    fn the_workspace_literature_submodule_is_fetched_when_empty() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let t = tmp.path();
+        let git = |dir: &Path, args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(["-c", "protocol.file.allow=always"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        let literature = source_repo(&t.join("lit"), "kovan-standard-open-corpus/a.pdf");
+        let upstream = t.join("workspace");
+        std::fs::create_dir_all(&upstream).unwrap();
+        git(&upstream, &["init", "-q", "-b", "main"]);
+        git(&upstream, &["submodule", "add", "-q", &literature, WORKSPACE_CORPUS_PATH]);
+        git(&upstream, &["commit", "-q", "-m", "mount literature"]);
+
+        let clone = t.join("clone");
+        git(t, &["clone", "-q", &upstream.to_string_lossy(), &clone.to_string_lossy()]);
+        let pdf = clone.join(WORKSPACE_CORPUS_PATH).join("kovan-standard-open-corpus/a.pdf");
+        assert!(!pdf.exists(), "a plain clone should leave the mount empty");
+
+        assert_eq!(ensure_workspace_corpus(&clone).unwrap(), Some(RepoState::Cloned));
+        assert!(pdf.exists());
+        assert_eq!(ensure_workspace_corpus(&clone).unwrap(), Some(RepoState::Existing));
+
+        let bare = t.join("no-mount");
+        std::fs::create_dir_all(&bare).unwrap();
+        git(&bare, &["init", "-q"]);
+        assert_eq!(ensure_workspace_corpus(&bare).unwrap(), None);
     }
 }

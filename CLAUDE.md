@@ -559,7 +559,9 @@ since 2026-09-22), holding the open literature PDFs (see "Literature and the
 Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
 `git submodule update --init` afterwards. A plain clone leaves each path an
 **empty directory rather than an error**, so nothing complains until something
-looks for a file and does not find one.
+looks for a file and does not find one. (Since 2026-09-30 the first workspace
+`kovan-cli` command fetches the literature submodule if it is empty; the ACE
+submodule is still yours to fetch.)
 
 ```bash
 cargo build --workspace --release                   # all libraries

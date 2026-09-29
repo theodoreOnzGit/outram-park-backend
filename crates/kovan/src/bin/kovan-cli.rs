@@ -465,6 +465,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, how) = commands::workspace::resolve(root.as_deref())
                 .map_err(|e| e.to_string())?;
             eprintln!("workspace: {} ({how})", root.display());
+            commands::workspace::fetch_literature(&root);
             let format = match format.as_str() {
                 "list" => commands::affected::Format::List,
                 _ => commands::affected::Format::CargoArgs,
@@ -504,6 +505,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, root_how) =
                 commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
             println!("workspace {} ({root_how})", root.display());
+            commands::workspace::fetch_literature(&root);
             let (out_dir, how) = commands::agent_docs_gen::resolve_out_dir(out.as_deref())
                 .map_err(|error| error.to_string())?;
             println!("writing to {} ({how})", out_dir.display());
@@ -527,6 +529,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, how) =
                 commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
             println!("workspace {} ({how})", root.display());
+            commands::workspace::fetch_literature(&root);
             commands::api_docs::run(&root, krate.as_deref(), all, include_missing, private)
                 .map_err(|error| error.to_string())
         }
@@ -542,6 +545,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, how) =
                 commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
             println!("workspace {} ({how})", root.display());
+            commands::workspace::fetch_literature(&root);
             let out_dir = out.unwrap_or_else(|| commands::kloc::default_out_dir(&root));
             commands::kloc::run(out_dir, clone, from_github, fetch, check, no_figure)
                 .map_err(|error| error.to_string())

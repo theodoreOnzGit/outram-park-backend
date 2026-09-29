@@ -563,7 +563,14 @@ pub enum CorpusPullOutcome {
     /// Already at the remote's tip; now on `branch` (it may have been
     /// detached at that same commit before).
     UpToDate { branch: String },
-    /// Not attempted: not downloaded here, no remote, no system `git`.
+    /// Was not downloaded in this Kovan folder, and has now been fetched from
+    /// its configured remote (a registered submodule initialised, or a new
+    /// one added) and left on `branch` at `head`. A plain clone of someone's
+    /// Kovan folder, or a folder whose corpora were configured but never
+    /// fetched, lands here on its first pull.
+    Downloaded { branch: String, head: String },
+    /// Not attempted: not downloaded here and no remote configured to
+    /// download it from, or no system `git`.
     Skipped { reason: String },
     /// Following the remote would destroy local work (`reason` says which),
     /// so nothing was touched. The caller asks the user, and on "yes"
@@ -595,6 +602,9 @@ impl CorpusPull {
                 format!("updated {branch} {}..{}", short(from), short(to))
             }
             CorpusPullOutcome::UpToDate { branch } => format!("up to date ({branch})"),
+            CorpusPullOutcome::Downloaded { branch, head } => {
+                format!("downloaded (was missing), on {branch} at {}", short(head))
+            }
             CorpusPullOutcome::Skipped { reason } => format!("not pulled — {reason}"),
             CorpusPullOutcome::NeedsConfirmation { reason, .. } => {
                 format!("NOT pulled yet — {reason}; asking before overriding")
@@ -605,7 +615,7 @@ impl CorpusPull {
     }
 }
 
-/// Bring every downloaded corpus to its remote's branch tip — run after the
+/// Bring every corpus to its remote's branch tip, downloading any not yet here — run after the
 /// Kovan folder itself was pulled (GH issue #422; maintainer, 2026-09-29:
 /// *"when pulling from kovan corpus, i want the submodules to pull in and
 /// override the local one as well"*).
@@ -628,25 +638,67 @@ impl CorpusPull {
 ///
 /// The gitlinks in the Kovan folder are not committed here; the next Save
 /// records the corpora where they now are.
+///
+/// **A corpus that is configured but not downloaded is downloaded** (the
+/// open and proprietary corpora from `[corpora]`, the standard corpus from
+/// [`crate::corpus::CORPUS_REPOSITORY_URL`]), through
+/// [`crate::corpus_repos::ensure_corpus`], then followed as above
+/// ([`CorpusPullOutcome::Downloaded`]). Before this, Pull reported such a
+/// corpus as "not downloaded" and left it empty, so a fresh clone of a Kovan
+/// folder never got its literature (maintainer, 2026-09-30: *"make sure the
+/// pull button from kovan gui also pulls in both corpuses"*).
 pub fn pull_corpora(root: &KovanRoot) -> Vec<CorpusPull> {
+    pull_corpora_with(
+        root,
+        crate::corpus::CORPUS_REPOSITORY_URL,
+        crate::corpus::CORPUS_REPOSITORY_BRANCH,
+    )
+}
+
+/// [`pull_corpora`] with the standard corpus's remote and branch given, so
+/// tests can use a local repository instead of the network (as
+/// [`crate::corpus_repos::ensure_library_corpora_with`] does).
+pub fn pull_corpora_with(
+    root: &KovanRoot,
+    standard_remote: &str,
+    standard_branch: &str,
+) -> Vec<CorpusPull> {
+    let configured = &root.config().corpora;
     let corpora = [
-        (CorpusKind::Proprietary, root.restricted_sources_dir()),
-        (CorpusKind::Open, root.open_corpus_dir()),
-        (CorpusKind::Standard, root.standard_corpus_dir()),
+        (
+            CorpusKind::Proprietary,
+            root.restricted_sources_dir(),
+            configured.proprietary_remote.clone(),
+            None,
+        ),
+        (
+            CorpusKind::Open,
+            root.open_corpus_dir(),
+            configured.open_remote.clone(),
+            None,
+        ),
+        (
+            CorpusKind::Standard,
+            root.standard_corpus_dir(),
+            Some(standard_remote.to_string()),
+            Some(standard_branch),
+        ),
     ];
     let git_ok_here = crate::advanced_git::system_git_available();
     let mut out: Vec<CorpusPull> = Vec::new();
-    for (corpus, dir) in corpora {
+    for (corpus, dir, remote, branch) in corpora {
         // Two corpora configured on one folder: pull it once.
         if out.iter().any(|p| same_dir(&p.dir, &dir)) {
             continue;
         }
-        let outcome = if git_ok_here {
-            pull_one_corpus(root, &dir)
-        } else {
+        let outcome = if !git_ok_here {
             CorpusPullOutcome::Skipped {
                 reason: "no usable system `git`, which pulling needs".into(),
             }
+        } else if dir.join(".git").exists() {
+            pull_one_corpus(root, &dir)
+        } else {
+            download_corpus(root, &dir, remote.as_deref(), branch)
         };
         out.push(CorpusPull {
             corpus,
@@ -655,6 +707,43 @@ pub fn pull_corpora(root: &KovanRoot) -> Vec<CorpusPull> {
         });
     }
     out
+}
+
+/// [`pull_corpora_with`] for a corpus with no checkout at `dir`: fetch it
+/// from `remote` with [`crate::corpus_repos::ensure_corpus`] (which never
+/// overwrites files already there), then follow its branch as
+/// [`pull_one_corpus`] does.
+fn download_corpus(
+    root: &KovanRoot,
+    dir: &Path,
+    remote: Option<&str>,
+    branch: Option<&str>,
+) -> CorpusPullOutcome {
+    let Some(url) = remote else {
+        return CorpusPullOutcome::Skipped {
+            reason: "not downloaded in this Kovan folder, and no remote is configured \
+                     to download it from"
+                .into(),
+        };
+    };
+    if let Err(e) = crate::corpus_repos::ensure_corpus(root, dir, Some(url), branch) {
+        return CorpusPullOutcome::Failed {
+            message: format!("downloading it failed: {e}"),
+        };
+    }
+    match pull_one_corpus(root, dir) {
+        CorpusPullOutcome::Updated { branch, to, .. } => CorpusPullOutcome::Downloaded {
+            branch,
+            head: to,
+        },
+        CorpusPullOutcome::UpToDate { branch } => {
+            let head = git_ok(dir, &["rev-parse", "HEAD"])
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default();
+            CorpusPullOutcome::Downloaded { branch, head }
+        }
+        other => other,
+    }
 }
 
 /// [`pull_corpora`] for the corpus at `dir`.
