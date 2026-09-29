@@ -23,9 +23,13 @@ Conversions stated, not hidden:
 - Output is written UNROUNDED: upstream's 3-significant-figure display
   rounding (`vectorized_format`) is bypassed (identity) for this driver.
 - Initial release = circulating + x_liftoff x plate-out (upstream
-  `accident_case`'s t = 0 term; the fuel and graphite accident releases are
-  zero before any heat-up). The FINAL release needs the Fig. 5 accident
-  profiles, which are not yet digitised (gh:#413), so it is not computed.
+  `accident_case`'s t = 0 term).
+- FINAL release: each Fig. 5 curve (the maintainer's digitisation,
+  `fig05_accident_temperature_c.csv`; negative-time noise points clamped to
+  t = 0) applied uniformly to all 14 x 3 nodes, one upstream `accident_case`
+  run per curve, the last value of each run combined by Eq. (29), then the
+  paper's x10 building reduction applied to the part after the initial puff
+  (s.III.A.5). `*_accident.csv` carries every intermediate.
 
 A DIAGNOSTIC second run per case uses k_plate = 7.5e-4 1/s -- upstream's own
 GUI default (`trisoatops_gui.py:300`) and its manual's (p. 374 of the text
@@ -89,6 +93,45 @@ def main():
                 initial = vals[3] + c("x_liftoff") * vals[4]
                 w.writerow([name] + [repr(v) for v in vals] + [repr(initial)])
         print(f"case {case}: {len(fmt[1])} nuclides -> {out.relative_to(CRATE)}; columns {cols}")
+
+        # ---- accident: the four Fig. 5 curves, each applied to the WHOLE core
+        # (s.III.A.3: "four transient cases representing different core
+        # sections"), combined by Eq. (29). Upstream accident_case per curve.
+        curves = {}
+        for r in rows("fig05_accident_temperature_c.csv"):
+            curves.setdefault(r["core_fraction_percent"], []).append(
+                (max(0.0, float(r["time_h"])), float(r["temperature_c"])))  # clamp noise t < 0 to 0
+        weights = {"5": 0.05, "20": 0.2, "25": 0.25, "50": 0.5}  # Eq. (29)
+        per_curve = {}
+        for pct, pts in curves.items():
+            times = np.array([t for t, _ in pts]) * 3600.0
+            temp = np.array([T for _, T in pts])
+            acc = np.broadcast_to(temp[None, :, None], (3, temp.size, 14)).copy()
+            totals, _ = tri.accident_case(constants, names, nodal, acc, times, log, True)
+            per_curve[pct] = {n: float(np.asarray(v)[-1]) for n, v in totals.items()}
+        nuclides = sorted(set().union(*[set(v) for v in per_curve.values()]),
+                          key=lambda n: [r["nuclide"] for r in inv_rows].index(n))
+        out = DATA / f"upstream_case_{case}{suffix}_accident.csv"
+        with open(out, "w", newline="") as f:
+            f.write(f"# Upstream TRISO-ATOPS de374c8 accident_case, Stoyer Case {case.upper()}, k_plate = {c('k_plate')} 1/s.\n"
+                    "# total_<p> = accident_case's last value for the Fig. 5 curve <p>% applied to the whole core; eq29 = sum w_p total_p;\n"
+                    "# initial = circulating + x_liftoff x plate-out (t = 0 term, curve-independent);\n"
+                    "# final_as_paper = initial + (eq29 - initial)/10  (s.III.A.5: the x10 building reduction applies to releases AFTER the initial puff);\n"
+                    "# final_div10_all = eq29/10 (the alternative reading, reported for comparison only). Empty = nuclide not selected for that curve.\n")
+            w = csv.writer(f)
+            w.writerow(["nuclide", "total_5", "total_20", "total_25", "total_50", "eq29", "initial",
+                        "final_as_paper", "final_div10_all"])
+            for n in nuclides:
+                tot = [per_curve[p].get(n) for p in ("5", "20", "25", "50")]
+                if any(v is None for v in tot):
+                    w.writerow([n] + ["" if v is None else repr(v) for v in tot] + ["", "", "", ""])
+                    continue
+                eq29 = sum(weights[p] * per_curve[p][n] for p in ("5", "20", "25", "50"))
+                k = [r["nuclide"] for r in inv_rows].index(n)
+                initial = float(output[k][3]) + c("x_liftoff") * float(output[k][4])
+                w.writerow([n] + [repr(v) for v in tot] + [repr(eq29), repr(initial),
+                            repr(initial + (eq29 - initial) / 10.0), repr(eq29 / 10.0)])
+        print(f"case {case}{suffix}: accident -> {out.relative_to(CRATE)}")
 
 if __name__ == "__main__":
     main()

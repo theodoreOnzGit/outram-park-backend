@@ -67,10 +67,63 @@ On this evidence, Table 3's `7.50E-05` is a misprint for `7.50E-04`. The
 committed inputs keep the value as printed, and the 7.5e-4 run is labelled a
 diagnostic.
 
-**Not yet done: the final (heat-up) releases.** They need the four accident
-temperature curves of **Fig. 5** (printed p. 15, pdf p. 16). Those exist only
-as a plot and must be digitised first; this was requested on #413.
+## Fig. 5 and the final (heat-up) releases (added 2026-09-29)
 
-The paper reduces its final releases "by an order of magnitude" for
-10 %/day building leakage (s.III.A.5). That post-processing will be
-replicated as stated, and flagged.
+**Source of the curves.** `fig05_accident_temperature_c.csv` holds the
+maintainer's (teddy0) **manual digitisation** in kovan.
+- Kovan artifact id: `fig-5-transient-temperature-profiles-for-the-mhtgr-test-cases-5-curve-from-ref-15`
+  (kind `digitised_graph`).
+- Hand-placed points, digitised 2026-09-29T12:04:42Z, from pdf page 16.
+- Calibration: x, px 100.303 = 0 h to px 509.756 = 140 h; y, px 341.680 =
+  200 °C to px 30.210 = 1600 °C, both linear.
+- Stored in the maintainer's kovan notes, outside this repo.
+- The values are copied verbatim.
+- **Negative times:** two points sit at slightly negative time (20 % curve
+  -0.36 h; 25 % curve -0.54 h). This is digitisation noise. They are kept
+  in the CSV as digitised, and both drivers clamp them to t = 0. None is
+  dropped.
+
+**The paper's "-200 / -400 / -600 °C" rule, over the whole transient.**
+Each curve was compared with the 5 % curve lowered by the stated offset,
+interpolated at the curve's own points:
+- **From ~10 h on:** agreement within -12 to +15 °C.
+- **In the first ~10 h:** the curves are colder than the rule, by up to
+  131 °C (20 %), 28 °C (25 %) and 81 °C (50 %).
+- **Peaks:** 1565 / 1361 / 1154 / 963 °C, against 1565 / 1365 / 1165 / 965.
+
+The rule describes the plotted peaks, not the plotted start of the
+transient. The **digitised curves are used as plotted**, because they are
+what the paper's code was run on.
+
+**Method.**
+- Each curve is applied uniformly to all 14 x 3 nodes.
+- There is one `accident_case` run per curve, through upstream and through
+  the port.
+- The last totals are combined by Eq. (29), weights 0.05 / 0.2 / 0.25 / 0.5.
+- The paper's post-processing is then replicated and **flagged**: final =
+  initial + (Eq. 29 - initial) / 10. This is "reduced by an order of
+  magnitude ... applied to releases following the initial breach",
+  s.III.A.5.
+- `upstream_case_*_accident.csv` holds every intermediate. It also carries
+  the alternative reading, Eq. 29 / 10, which differs by < 1 %.
+
+**Results.**
+- **Port vs upstream:** worst relative difference **2.2e-11**.
+- **Against the paper's final column:** a near-uniform **~0.83**.
+  - Case A: median 0.830, range 0.80-0.93.
+  - Case B: median 0.83. Outliers are Ag-111 (1.75 at printed `k_plate`,
+    0.71 at 7.5e-4) and Cs-134 (~0.64).
+  - The plate-out constant barely moves the final releases.
+- **Leading hypothesis for the common factor:** the **venting (breathing)
+  fraction**. It multiplies every fuel and graphite release and depends on
+  each curve's starting temperature.
+  - The rendered figure shows t = 0 markers on the 5 % curve (~800 °C) and
+    the 50 % curve (~200 °C) that are **not in the digitisation**. Their
+    first digitised points are 923 °C at 0.32 h and 326 °C at 1.35 h.
+  - Some early points are non-monotonic, which makes upstream's venting
+    mask gappy.
+  - The resulting vent fractions are 0.44 / 0.48 / 0.62 / 0.41 (5 / 20 /
+    25 / 50 %).
+  - Not corrected here, because adding points would be a second, unreviewed
+    digitisation. Re-digitising the first few markers of the 5 % and 50 %
+    curves was requested on #413.
