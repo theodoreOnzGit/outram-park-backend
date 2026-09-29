@@ -1,119 +1,124 @@
 # Four ICSBEP cases, five code × data routes — k_eff
 
-**Class:** verification, i.e. code-to-code and data-route-to-data-route, plus a
-comparison with the three critical experiments. **No human V&V sign-off.** This
-is an AI-assisted draft under `RESPONSIBLE_USE.md`. It is not for any
-operational, licensing or safety use.
+**Class:** verification (code-to-code and data-route-to-data-route) plus
+comparison with three critical experiments. **No human V&V sign-off.** This is
+an AI-assisted draft under `RESPONSIBLE_USE.md`, not for any operational,
+licensing or safety use.
 
-**Status (2026-09-29): measured.** The campaign ran 2026-09-29 06:00–06:23 SGT
-at commit `be4206c2d3` and wrote 576 rows. The only failures were HST-009 on
-routes 3 and 5, both from the F-19 refusal predicted in §4 of the preparation
-findings.
+**Status (2026-09-29, INTERIM).**
 
-The campaign found **two outram-mc ACE-reader defects (GitHub #366)** and **one
-unexplained ENDF-route gap on HST-009 (GitHub #367)**. The *Predictions*
-section was written the evening before, when no campaign number existed.
+| route(s) | state |
+|---|---|
+| 1 and 2 | final for all four cases |
+| 3, 4 and 5 | await the ACE agent's delayed-neutron-spectra commit (default on, both outram routes, moves route 4 by +87 / −96 pcm on Godiva / Jemima); this record's route 3/4/5 numbers predate it |
+| LCT-008 route 5 | not yet run |
+| LCT-008 route 3 | 15 of 32 seeds (the run was stopped when that commit was announced) |
 
-Files: [`five_route_keff/`](five_route_keff/). Launcher:
-`five_route_keff/run_all.sh`. Per-seed data: `five_route_keff/data/per_seed_keff.csv`.
-Figure and summary: `five_route_keff/scripts/make_figure.py`.
+Launcher: `five_route_keff/run_all.sh`. Data: `five_route_keff/data/`. Figure:
+[`five_route_keff/figures/five_route_keff.png`](five_route_keff/figures/five_route_keff.png).
+
+> **2026-09-29: the homogenised-sphere LCT-008 case (`lct008s`) and all its
+> results were deleted at the maintainer's direction because it was the wrong
+> model; the case-1 lattice below replaces it.**
 
 ## Methodology
 
 ### Cases
 
-| key | benchmark | model | source of the numbers |
+| key | benchmark | model | source |
 |---|---|---|---|
 | `godiva` | HEU-MET-FAST-001 | bare sphere, r = 8.7407 cm, U-234/235/238 | `examples/godiva_keff_endf_local.rs` |
-| `jemima` | IEU-MET-FAST-002 | 4-cell cylinder: core plus natural-U reflector | `examples/jemima_keff.rs` |
+| `jemima` | IEU-MET-FAST-002 | 4-cell cylinder, core plus natural-U reflector | `examples/jemima_keff.rs` |
 | `hst009` | HEU-SOL-THERM-009 case 1 | 3 spheres: solution, Al tank, water. U-236 and Cu/Zn dropped, O-17 folded into O-16 | `examples/hst009_keff.rs` |
-| `lct008s` | **LEU-COMP-THERM-008 case 1, SIMPLIFIED** | homogenised sphere, r = 40 cm, 30 % fuel / 70 % borated water by volume | `examples/lct008_ace_roundtrip.rs` |
+| `lct008` | LEU-COMP-THERM-008 case 1 | **the real lattice**: 22 assembly lattices in a 7 × 7 core, parsed at run time from the committed `mit-crpg/benchmarks` OpenMC cards (`leu-comp-therm-008/`) | `examples/common/lct008_model.rs`, shared with `lct008_keff.rs` and `lct008_ace_roundtrip.rs` |
 
-**How "simplified" differs from the benchmark.** The real LCT-008 case 1 is a
-lattice of 22 distinct 15 × 15 assemblies of 1.03 cm UO₂ pins. The pins are
-clad in Al-6061 and sit in 1511 ppm borated water. Its whole value is the
-lumping: a pellet is ~176 mean free paths across at 6.674 eV. `lct008s`
-removes all of that:
+**LCT-008 is "simplified" only in its nuclide list.** It uses `lct008_keff.rs`'s
+`--cheap-nuclides` tier of 11 nuclides: H1, B10, O16, U234, U235, U238, Al27,
+Si28, Si29, Si30, Mn55. The 24 other nuclides the model names are **dropped,
+not renormalised** (identically on both codes):
 
-- fuel and moderator are homogenised into one sphere;
-- the cladding, U-234 and B-11 are dropped;
-- the fuel volume fraction (0.30) is a chosen value, not a benchmark value.
+| material | dropped | amount |
+|---|---|---|
+| water | B-11 | 6.75e-5 /b·cm, 0.07 % of its atoms |
+| Al-6061 clad | Mg-24/25/26, Ti-46–50, Cr-50/52/53/54, Fe-54/56/57/58, Cu-63/65, Zn-64/66/67/68/70 | 1.03e-3 /b·cm, 1.86 % of its atoms |
 
-**Its k (≈ 0.85) is therefore not comparable to 1.0000 and is not an LCT-008
-result.** It is compared between routes only. One change from the source
-example: H-1 carries S(α,β) H in H₂O on every route here. The round-trip
-example used free-gas H.
+The fuel, including U-234 and its B-10 impurity, is complete.
 
-OpenMC runs **exactly these four models**, not the full benchmark decks
-(`openmc_inputs/icsbep_openmc.py`). Densities and dimensions are copied from
-the Rust driver.
+- **Geometry self-check.** 200 000 points pass. Volume shares are water 68.9 %,
+  fuel 22.6 %, clad 8.5 %.
+- **OpenMC deck.** OpenMC reads the same XML with its own readers and drops the
+  same 24 nuclides (`openmc_inputs/icsbep_openmc.py`, `lct008()`).
+- **Benchmark k.** The reference is 1.0000 by construction, because an ICSBEP
+  critical is reduced to k = 1. **No handbook uncertainty is cited.** The ICSBEP
+  handbook is licence-restricted (`DATA_POLICY.md`), and none of the repo, the
+  literature corpus or the local notes holds it. The figure's ±0.006 band is the
+  examples' stand-in and is labelled as such; Godiva's ±0.0010 is the one
+  quoted ICSBEP value.
 
 ### Routes
 
 | route | transport | nuclear data |
 |---|---|---|
 | 1 | OpenMC 0.16.1-dev25 (`d7d3284a1`) | NJOY2016 2016.79 (`ac5adf5`) ACE → HDF5 |
-| 2 | OpenMC, same build | this workspace's Rust NJOY port → ACE → HDF5 |
-| 3 | outram-mc (`examples/icsbep_five_route_keff.rs`) | NJOY2016 ACE |
-| 4 | outram-mc | Rust NJOY, ENDF read directly (`Nuclide::from_endf_file_with_speed`, default tier) |
+| 2 | OpenMC | this workspace's Rust NJOY port → ACE → HDF5 |
+| 3 | outram-mc | NJOY2016 ACE |
+| 4 | outram-mc | Rust NJOY, ENDF read directly (default tier) |
 | 5 | outram-mc | Rust-NJOY ACE |
 
-All data comes from ENDF/B-VIII.0 tapes in `reference-data/endf/`, processed at
-293.6 K with a RECONR tolerance of 0.001.
+Data and decks:
 
-- **NJOY2016 decks.** The committed `openmc_godiva_cross_code/make_ace.sh` for
-  RECONR → BROADR → PURR(20 bins, 64 ladders) → ACER, and `make_ace_0k.sh` for
-  the 0 K companion.
-- **Uranium from the submodule.** U-234/235/238 at 293.6 K and U-235 at 0 K are
-  taken from the `reference-data/ace` submodule, which was built with the same
-  deck and the same NJOY build.
-- **H in H₂O.** Built with OpenMC's `make_ace_thermal` driver with `iwt = 1`
-  (IFENG = 0), because outram-mc refuses IFENG = 2.
-- **Rust NJOY.** `njoy-outram-park-fork/examples/write_ace_library.rs` writes
-  `build_full_with_purr(20, 64, 10 000)`, a 0 K companion (`build_full`,
-  kT = 0) and `AceTable::thermal_from_mf7`. The thermal table uses NJOY2016's
-  incident grid and bin counts (118 energies, 64 bins × 16 cosines) and the
-  tape's own B(6) = 2 as natom.
+- **Evaluations.** ENDF/B-VIII.0 tapes in `reference-data/endf/`, processed at
+  293.6 K with a RECONR tolerance of 0.001.
+- **NJOY2016 decks.** `openmc_godiva_cross_code/make_ace.sh` (RECONR → BROADR →
+  PURR 20/64 → ACER) and `make_ace_0k.sh` for the 0 K DBRC companions. The
+  uranium tables come from the `reference-data/ace` submodule, which was built
+  with the same deck and the same NJOY build.
+- **NJOY2016 H in H₂O.** OpenMC's `make_ace_thermal` with `iwt = 1` (IFENG = 0;
+  outram-mc refuses IFENG = 2) and THERMR `tol = 0.001`.
+- **Rust NJOY.** `njoy-outram-park-fork/examples/write_ace_library.rs`:
+  `build_full_with_purr(20, 64, 10 000)`, the 0 K companions, and
+  `thermal_from_mf7_with_tolerance` at `tol = 0.001` on NJOY2016's incident grid
+  (118 energies, 64 bins × 16 cosines), natom = the tape's B(6) = 2.
 - **HDF5 conversion.** `openmc_inputs/ace_to_hdf5_route.py` converts both
-  libraries. It attaches 0 K elastic from each library's own 0 K table. It does
-  not use `add_elastic_0K_from_endf`, which would run NJOY inside route 2.
+  libraries, attaching 0 K elastic from each library's own 0 K table.
 
-### Physics carried, per route, and every asymmetry
+### Physics per route, and the asymmetries
 
 | term | OpenMC (1, 2) | outram-mc ENDF (4) | outram-mc ACE (3, 5) |
 |---|---|---|---|
-| URR probability tables | on (`ptables`), from the table's UNR block | on, built at load: PURR 20 bins / **16 ladders / 2000 samples** | on, from the UNR block: 20 / 64 (NJOY) or 20 / 64 / 10 000 (Rust) |
-| resonance elastic scattering | `dbrc`, 1e-5 eV ≤ E ≤ 1 keV, all nuclides | DBRC, E ≤ 1 keV, all nuclides | DBRC, E ≤ 1 keV, all nuclides (0 K companion paired by `from_ace_file`) |
-| S(α,β) H in H₂O (hst009, lct008s) | ACE table, IFENG = 0 | from `tsl-HinH2O.endf` with this crate's own emission grid | ACE table, IFENG = 0 |
-| k estimator in `k` column | combined (`StatePoint.keff`); `k_alt` = generation mean | generation mean | generation mean |
+| URR probability tables | on, from the UNR block | on, built at load (PURR 20 bins / 16 ladders / 2000 samples) | on, from the UNR block |
+| resonance elastic scattering | `dbrc`, 1e-5 eV to 1 keV, all nuclides | DBRC, E ≤ 1 keV, all nuclides | DBRC, E ≤ 1 keV, 0 K companion paired |
+| S(α,β) H in H₂O (hst009, lct008) | ACE table, IFENG = 0 | this crate's ENDF kernel | ACE table, IFENG = 0 |
+| k in the `k` column | combined estimator (`k_alt` holds the generation mean) | generation mean | generation mean |
 
-**Known asymmetries, stated rather than removed:**
+**Known asymmetries:**
 
-- **URR ladders.** The ENDF route uses fewer PURR ladders and samples than
-  either ACE library.
-- **S(α,β) discretisation.** The ENDF route's S(α,β) uses a different
-  discretisation from the ACE routes.
+- **URR ladders.** The ENDF route builds its tables with 16 ladders and 2000
+  samples; the ACE libraries used 64.
+- **S(α,β) discretisation.** The ENDF route uses its own discretisation.
 - **DBRC lower bound.** OpenMC's DBRC starts at 1e-5 eV because its API refuses
-  0. outram-mc has no lower bound. This matters only below the S(α,β) cutoff
-  for H and below 1e-5 eV otherwise.
-- **k estimator.** OpenMC's headline estimator differs from outram-mc's. Both
-  are recorded, and the comparison uses the seed-scatter uncertainty.
+  0; outram-mc has no lower bound.
+- **Estimators.** OpenMC's generation-mean k agrees with its combined k to
+  within 1σ on every case.
+- **Thermal sampling (#188).** outram-mc's thermal scattering uses the
+  deliberate #188 scheme, not OpenMC's. It is now excluded as the cause of #367
+  (see below).
 
 ### Settings and statistics
 
-- **Histories.** 5000 histories × [40 inactive + 120 active] on every route,
-  for both codes.
-- **Threads.** 8 threads per job, run one job at a time (`RAYON_NUM_THREADS=8`,
-  `openmc -s 8`).
-- **Seeds.** 32 independent seeds per case × route (seeds 1..32). The same seed
-  numbers are used on every route, but runs are not paired across codes.
-- **Uncertainty.** Quoted per case × route as the **standard error of the mean
-  over seeds** (sd / √n). Each run's internal σ is not averaged.
-- **Δ vs experiment.** `(mean − 1) × 1e5` pcm ± sem.
-- **Δ vs route 1.** Its σ is √(sem_r² + sem_1²), because the runs are
-  independent.
+| setting | Godiva, Jemima, HST-009 | lattice LCT-008 |
+|---|---|---|
+| histories | 5000 × [40 + 120] | 10 000 × [250 + 400] |
+| threads | 8 threads (first campaign) and 4 threads (later runs), one job at a time | 4 threads, one job at a time |
 
-## Preparation findings (measured 2026-09-28)
+- **Thread count does not change the answer.** Both codes' multi-thread results
+  are independent of the thread count.
+- **Seeds.** 32 independent seeds per case × route.
+- **Uncertainty.** The sem of the per-seed k: sd / √n, with no averaging of the
+  internal σ.
+- **Δ vs route 1.** σ = √(sem² + sem₁²).
+
+## Preparation findings (2026-09-28)
 
 ### 1. The two ACE libraries, compared before any transport
 
@@ -147,252 +152,146 @@ truncated Type-1 file.
 - **Detection.** `make_njoy_library.sh` detects the abort from NJOY's stdout
   rather than special-casing B-10.
 
-### 3. Two defects in this study's own thermal-table build, caught before any run
+### 3. The Rust H(H₂O) table: four defects, all fixed (GitHub #368)
 
-The first Rust H(H₂O) table was built wrong twice. The defects were in the new
-library writer, not in the port.
-
-- **Wrong temperature.** `parse_mf7` returns the tape's **base-temperature**
-  (283.6 K) S(α,β), which was then evaluated at 293.6 K. σ_inel came out 1.68×
-  NJOY's at 1e-5 eV.
-- **Wrong natom.** natom was passed as 1 where the tape's B(6) is 2, giving
-  σ_inel **2.0×** NJOY's across the grid.
-
-Both were found by differencing against the NJOY2016 table, after a smoke run
-had HST-009 route 2 about 2800 pcm below route 1 and LCT-008s about 2700 pcm
-above it.
-
-**After the fix**, compared with the NJOY2016 table:
-
-| quantity | worst | typical |
+| # | defect | effect |
 |---|---|---|
-| σ_inel | **6.6e-2** relative, at the lowest grid point (1e-5 eV) | median 3.9e-3 relative; ≈3e-2 at 5.85–10 eV |
-| emission E′ | 8.2e-2 relative | median 1.5e-3 relative |
-| emission cosines | 0.144 absolute | mean 1.7e-3 absolute |
+| 1 | tape base-temperature S(α,β) evaluated at 293.6 K | σ_inel 1.68× NJOY's |
+| 2 | natom 1 instead of the tape's B(6) = 2 | σ_inel 2.0× NJOY's |
+| 3 | THERMR `tol` hard-coded at 0.05, while NJOY2016's reference used 0.001 | emission E′ up to 8.2e-2, cosines 0.144 |
+| 4 | ITIX written as an analytic integral instead of THERMR's `calcem` `xsi` via `terp` (`thermr.f90:2166-2173`, `:2459`; `aceth.f90:131`) | σ_inel up to 6.6e-2 at 1e-5 eV |
 
-These worst values are larger than the recorded thermal-ACE parity
-(`njoy-outram-park-fork/verification_and_validation/acer_thermal_vs_njoy2016.md`:
-7.6e-3 on E′, 4.3e-2 on cosines, taken at 283.6 K). **This is unexplained**,
-and it is carried into the interpretation of routes 2 and 5 on the two thermal
-cases.
+Defects 1 and 2 were in this study's library writer and were caught before
+any run. Defects 3 and 4 were in the port: 3 is fixed by the new
+`thermal_from_mf7_with_tolerance`, and 4 by a port of THERMR's `terp`.
 
-### 4. Routes 3 and 5 cannot run HEU-SOL-THERM-009
+**After all four fixes**, against NJOY2016's table:
 
-`Nuclide::from_ace_file` refuses F-19 on **both** libraries. F-19's MT=16
-(n,2n) is an ACE LNW chain of two law-61 distributions, applicable from
-10.99 MeV to 20 MeV, and the transport side has no mixture-of-correlated-laws
-representation. Filed as **GitHub #365**.
-
-**Not worked around.** Dropping F-19 or its MT=16 would change the model. The
-figure marks those two points "not run".
-
-### 5. Cost
-
-Full-length single runs, 8 threads:
-
-| run | load | transport per seed |
-|---|---|---|
-| outram-mc LCT-008s, route 3 | 2 s | 1.6 s |
-| outram-mc HST-009, route 4 | 43 s | 4.3 s |
-| OpenMC HST-009, route 1 | — | 4.4 s end to end |
-
-ENDF-route loads are 33–45 s per case, and ACE-route loads about 2 s. The whole
-campaign (4 × 5 × 32 seeds) is estimated at **30–45 min** of wall time.
-
-## Predictions (written before the campaign)
-
-1. **Routes 1 ≡ 2 and 3 ≡ 5** exactly, seed by seed, on Godiva and Jemima (§1).
-2. **Route 2 − route 1 and route 5 − route 3 on HST-009 and LCT-008s** are
-   carried by the S(α,β) table alone, because every other neutron table has
-   identical ESZ. No sign is predicted: the σ_inel residual changes sign across
-   the grid.
-3. **Route 4 − route 3.** This isolates ENDF-direct against ACE inside
-   outram-mc, with the PURR-ladder and S(α,β)-grid asymmetries above. The
-   earlier 8-seed LCT-008s parity record bounds it below ~250 pcm at 2σ on the
-   free-gas model.
-4. **Route 3 − route 1** is the transport comparison on identical NJOY2016
-   data. It is the cleanest number here.
-
-## Results (2026-09-29, commit `be4206c2d3`, 32 seeds per case × route)
-
-Figure: [`five_route_keff/figures/five_route_keff.png`](five_route_keff/figures/five_route_keff.png).
-Tables: `five_route_keff/data/summary_keff.{csv,md}`, generated from
-`data/per_seed_keff.csv` by `scripts/make_figure.py`.
-
-### Results table
-
-Uncertainty is the sem over seeds. Δ vs route 1 carries σ = √(sem² + sem₁²).
-
-| case | route | k_eff ± sem | seed sd [pcm] | Δ vs k = 1 [pcm] | Δ vs route 1 [pcm] |
-|---|---|---|---|---|---|
-| Godiva | 1 OpenMC + NJOY2016 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | reference |
-| Godiva | 2 OpenMC + Rust-NJOY | 1.00016 ± 0.00021 | 118 | +16 ± 21 | +0 ± 29 |
-| Godiva | 3 outram-mc + NJOY2016 ACE | 1.01869 ± 0.00031 | 175 | +1869 ± 31 | **+1853 ± 37** (defect #366) |
-| Godiva | 4 outram-mc + Rust-NJOY ENDF | 0.99933 ± 0.00035 | 197 | −67 ± 35 | −83 ± 41 (2.0σ) |
-| Godiva | 5 outram-mc + Rust-NJOY ACE | 1.01869 ± 0.00031 | 175 | +1869 ± 31 | **+1853 ± 37** (defect #366) |
-| Jemima | 1 | 0.99594 ± 0.00017 | 99 | −406 ± 17 | reference |
-| Jemima | 2 | 0.99594 ± 0.00017 | 99 | −406 ± 17 | +0 ± 25 |
-| Jemima | 3 | 0.98671 ± 0.00037 | 207 | −1329 ± 37 | **−923 ± 40** (defect #366) |
-| Jemima | 4 | 0.99699 ± 0.00029 | 163 | −301 ± 29 | +106 ± 34 (3.1σ) |
-| Jemima | 5 | 0.98671 ± 0.00037 | 207 | −1329 ± 37 | **−923 ± 40** (defect #366) |
-| HST-009 | 1 | 1.00234 ± 0.00022 | 127 | +234 ± 22 | reference |
-| HST-009 | 2 | 1.00138 ± 0.00024 | 134 | +138 ± 24 | −96 ± 33 (2.9σ) |
-| HST-009 | 3 | not run (#365) | | | |
-| HST-009 | 4 | 0.99962 ± 0.00027 | 152 | −38 ± 27 | **−271 ± 35** (7.8σ, #367) |
-| HST-009 | 5 | not run (#365) | | | |
-| LCT-008s | 1 | 0.85107 ± 0.00019 | 106 | not meaningful | reference |
-| LCT-008s | 2 | 0.85053 ± 0.00021 | 121 | not meaningful | −54 ± 28 (1.9σ) |
-| LCT-008s | 3 | 0.85058 ± 0.00026 | 150 | not meaningful | −49 ± 32 (1.5σ) |
-| LCT-008s | 4 | 0.85078 ± 0.00030 | 167 | not meaningful | −29 ± 35 (0.8σ) |
-| LCT-008s | 5 | 0.85041 ± 0.00030 | 170 | not meaningful | −66 ± 35 (1.9σ) |
-
-**Which numbers to quote.**
-
-- **Routes 1, 2 and 4** are the valid measurements.
-- **Routes 3 and 5 on Godiva and Jemima** measure defect #366, not the code, and
-  must not be quoted as outram-mc results.
-- **Routes 3 and 5 on LCT-008s** are unaffected: that case has no U-234, and its
-  inelastic scattering matters little in a thermal system.
-- **Estimator check.** OpenMC's generation-mean k agrees with its combined k to
-  within 1σ on all four cases (e.g. Godiva 1.00010 ± 0.00025 against 1.00016).
-  The estimator choice is not a source of difference.
-
-### The predictions, checked
-
-1. **Routes 1 ≡ 2 and 3 ≡ 5, seed for seed, on Godiva and Jemima — HELD.**
-   All 32 seeds on all four pairings are identical in every printed digit, `k`
-   and `k_alt` both. The two ACE libraries are interchangeable for uranium, as
-   §1 of the preparation findings predicted from the table comparison.
-2. **Thermal route differences carried by the S(α,β) table alone — consistent,
-   weakly tested.** Route 2 − 1 is −96 ± 33 pcm on HST-009 and −54 ± 28 pcm on
-   LCT-008s. Route 5 − 3 on LCT-008s is −17 ± 40 pcm. No sign was predicted. Both
-   OpenMC numbers are negative, and HST-009's is 2.9σ. That is compatible with
-   the unexplained emission-table differences in §3 of the preparation findings,
-   but this campaign cannot attribute it.
-3. **Route 4 − route 3 below ~250 pcm — HELD on LCT-008s (+20 ± 40), FAILED
-   on Godiva (−1936) and Jemima (+1028).** The failure is defect #366.
-4. **Route 3 − route 1 as the cleanest transport comparison — FAILED as
-   framed.** On the fast cases it measures an ACE-reader defect, not transport.
-   It stands only on LCT-008s (−49 ± 32).
-
-### The ACE-route defect: localised, confirmed, not fixed (GitHub #366)
-
-Diagnostic runs are in `data/diagnostics.csv`, all at campaign settings. The
-driver's `--ablate` and `--endf-nuclides` flags were added for these runs; the
-campaign never uses them.
-
-**Per-nuclide swap on Godiva, route 3, 16 seeds.** One nuclide at a time is
-loaded from ENDF instead of ACE:
-
-| nuclide from ENDF | route 3 result |
+| quantity | worst |
 |---|---|
-| U-235 | +1869 → −612 pcm |
-| U-234 | → +2361 |
-| U-238 | → +1885 (no change) |
+| σ_inel | 1.55e-4 (median 3.0e-5) |
+| emission E′ | 1.9e-4 |
+| emission cosines | 0.010 |
 
-**The quantities transport consumes, both routes**
-(`examples/ace_vs_endf_nuclide_probe.rs`):
+Regression: `njoy-outram-park-fork/tests/thermal_ace_tolerance.rs`. All nine
+njoy thermal test binaries pass, as does outram-mc's `thermal_from_ace`.
 
-- For U-235, the cross sections, ν̄(E), the sampled fission spectrum, and the
-  elastic and per-level CM mean cosines all agree to printed precision.
-- **But the ACE route's inelastic channel list is `[(MT=4, Q=0)]` against 40
-  discrete levels on the ENDF route.** `ce_decode::channel_mts` exists to
-  reconstruct the total without double counting, and prefers the MT=4 lump
-  whenever it is in MTR. `Nuclide::from_ace` reuses that rule to choose its
-  transport channels. Inelastic scattering therefore loses no energy, and MT=91
-  is never sampled.
-- OpenMC marks MT=4 redundant when its components exist
-  (`openmc/data/neutron.py:634-640`).
-- U-234's table has no MT=18, only partials MT=19/20/21/38, and the pointwise
-  tier reads fission from MT=18 only. **U-234 fission is zero on the ACE route**
-  (ENDF route: 1.09 b at 1 MeV).
+### 4. HST-009 on the ACE route was blocked by F-19
 
-**Confirmation.** A temporary patch was applied, measured and reverted; none of
-it is committed. It made `channel_mts` prefer the levels over the MT=4 lump.
-The prediction was recorded before running.
+HST-009 could not run on routes 3 and 5 until the F-19 refusal (#365) was
+fixed; it runs since then.
 
-| run | prediction | result | verdict |
-|---|---|---|---|
-| Jemima, patch | within ~60 pcm of route 1 | −457 → **−51 ± 33** pcm vs route 1 | met |
-| Godiva, patch | within ~60 pcm of route 1 | **−583 ± 34** | failed: over-corrected, exposing the U-234 fission defect |
-| Godiva, patch + U-234 from ENDF | — | **1.00011 ± 0.00030**, i.e. **−5 ± 37 pcm** vs route 1 | both defects together account for the whole gap |
+## Predictions (written before each measurement)
 
-**LCT-008s under the patch.** Route 3 gives 0.85157 ± 0.00032 and route 5 gives
-0.84929 ± 0.00027, so route 5 − 3 = **−228 ± 42 pcm**. Unpatched it was
-−17 ± 40. Recorded, not explained. It is measured on an uncommitted patch, and
-the patch itself deserves re-measurement once #366 is fixed properly.
+| # | prediction | verdict |
+|---|---|---|
+| P1 | route 2 ≡ route 1 and route 5 ≡ route 3, seed for seed, on Godiva and Jemima | **held**: 32/32 identical in every printed digit, both pairings, both campaigns |
+| P2 | after the thermal fixes, route 2 − route 1 within 2σ of 0 on HST-009 and LCT-008 | **held**: +41 ± 38 and −3 ± 11 (was −96 ± 33 and −94 ± 11) |
+| P3 | #367: if outram-mc's S(α,β) sampling (#188) causes HST-009's gap, a free-gas A/B closes it | **refuted**: −247 ± 37 |
+| P4 | #367: if F-19 causes it, dropping F-19 closes it | **refuted**: −272 ± 38 |
+| P5 | route 3 with the #366 fix lands within ~60 pcm of route 1 on Godiva and Jemima | met on the patch test (Godiva −5 ± 37, Jemima −51 ± 33); the post-fix campaign gives −54 ± 40 and +124 ± 38, the latter since attributed to the delayed spectra (see below) |
 
-**History.** `examples/godiva_ace_roundtrip.rs` recorded +206 pcm (one seed) on
-2026-09-23. That was before this workspace's ACE writer emitted MT=4
-(2026-09-26, "ACE blocks reproduce NJOY2016's word for word"). NJOY2016's own
-tables always carried MT=4, so **every outram-mc k on an NJOY ACE table, and
-every one on a Rust-NJOY table since 2026-09-26, carries this defect** for
-nuclides with MT=4 or with partial fission only.
+## Results — interim (2026-09-29)
 
-### Against the experiments (routes 1 and 4, valid)
+**Route 1 and 2 rows are final. The route 3/4/5 rows predate the delayed-neutron-spectra commit.**
 
-| case | OpenMC + NJOY2016 | outram-mc ENDF route | benchmark band |
-|---|---|---|---|
-| Godiva | +16 ± 21 | −67 ± 35 | ±100 (ICSBEP) |
-| Jemima | −406 ± 17 | −301 ± 29 | ±300 (stand-in) |
-| HST-009 | +234 ± 22 | −38 ± 27 | ±600 (stand-in) |
+| case | route | n | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] | Δ vs route 1 [pcm] |
+|---|---|---|---|---|---|---|
+| godiva | route1 | 32 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | reference |
+| godiva | route2 | 32 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | +0 ± 29 (+0.0σ) |
+| godiva | route3 | 32 | 0.99962 ± 0.00035 | 195 | -38 ± 35 | -54 ± 40 (-1.3σ) |
+| godiva | route4 | 32 | 0.99933 ± 0.00035 | 197 | -67 ± 35 | -83 ± 41 (-2.0σ) |
+| godiva | route5 | 32 | 0.99962 ± 0.00035 | 195 | -38 ± 35 | -54 ± 40 (-1.3σ) |
+| jemima | route1 | 32 | 0.99594 ± 0.00017 | 99 | -406 ± 17 | reference |
+| jemima | route2 | 32 | 0.99594 ± 0.00017 | 99 | -406 ± 17 | +0 ± 25 (+0.0σ) |
+| jemima | route3 | 32 | 0.99718 ± 0.00034 | 191 | -282 ± 34 | +124 ± 38 (+3.3σ) |
+| jemima | route4 | 32 | 0.99699 ± 0.00029 | 163 | -301 ± 29 | +106 ± 34 (+3.1σ) |
+| jemima | route5 | 32 | 0.99718 ± 0.00034 | 191 | -282 ± 34 | +124 ± 38 (+3.3σ) |
+| hst009 | route1 | 32 | 1.00234 ± 0.00022 | 127 | +234 ± 22 | reference |
+| hst009 | route2 | 32 | 1.00275 ± 0.00031 | 174 | +275 ± 31 | +41 ± 38 (+1.1σ) |
+| hst009 | route3 | 32 | 1.00002 ± 0.00033 | 189 | +2 ± 33 | -232 ± 40 (-5.8σ) |
+| hst009 | route4 | 32 | 0.99962 ± 0.00027 | 152 | -38 ± 27 | -271 ± 35 (-7.8σ) |
+| hst009 | route5 | 32 | 0.99931 ± 0.00044 | 248 | -69 ± 44 | -302 ± 49 (-6.1σ) |
+| lct008 | route1 | 32 | 1.00251 ± 0.00007 | 42 | +251 ± 7 | reference |
+| lct008 | route2 | 32 | 1.00248 ± 0.00008 | 45 | +248 ± 8 | -3 ± 11 (-0.3σ) |
+| lct008 | route3 | 15 | 1.00212 ± 0.00015 | 60 | +212 ± 15 | -39 ± 17 (-2.3σ) |
+| lct008 | route4 | 32 | 1.00192 ± 0.00012 | 67 | +192 ± 12 | -59 ± 14 (-4.2σ) |
 
-**Jemima's low residual is shared by OpenMC**, and OpenMC's is 105 pcm deeper.
-That moves the long-running Jemima investigation in this directory's
-`README.md`, which eliminated three material-property candidates. The −300
-to −400 pcm now looks like a property of the model or the ENDF/B-VIII.0 data
-that an independent code reproduces, not an outram-mc transport defect. This
-is an inference from one code-to-code comparison and is not established.
+Binaries:
 
-**HST-009 flips.** outram-mc's ENDF route sits close to k = 1. OpenMC sits
-+234 pcm above it, on data whose uranium and light-nuclide tables are identical
-to within 7.7e-7. The −271 ± 35 pcm between them is unexplained (#367). The
-S(α,β) representation is the first candidate, because route 2 − 1 shows the
-thermal table alone moving this case by about 100 pcm.
+- routes 3 and 5: `25270acb67` (post-#365 and #366, pre-URR interpolation, pre-delayed spectra);
+- lattice route 4: `3d9526e5a1`;
+- Godiva, Jemima and HST-009 route 4: `be4206c2d3` (the first campaign).
 
-### Cost
+Earlier states of routes 2, 3 and 5 are archived rather than overwritten:
 
-The campaign took 23 min of wall time on 8 threads, one job at a time:
+- `data/per_seed_keff_pre366_routes35.csv`: routes 3 and 5 before #366's fix,
+  i.e. Godiva +1853 and Jemima −923 pcm against route 1;
+- `data/per_seed_keff_pre_thermalfix_route2.csv`: route 2 with the pre-fix
+  thermal table.
 
-- outram-mc ENDF-route loads: 33–45 s per case;
-- transport per seed: 0.2–4.8 s, depending on case and code.
+### What the numbers say
 
-It came in under the 30–45 min estimate.
+- **Data routes (route 2 against route 1).** The Rust NJOY port's library is at
+  k-parity with NJOY2016's on all four cases:
+  - identical seed for seed on the two uranium-only cases;
+  - +41 ± 38 on HST-009;
+  - −3 ± 11 on the lattice.
+- **The outram-mc ACE route (#366).** Since the fix, outram-mc on ACE and
+  outram-mc on ENDF agree to within 2σ on every case. The remaining gaps to
+  OpenMC are shared by both outram routes, so they are transport-side, not
+  data-side.
+- **Jemima.** The shared +106 to +124 pcm is, per the ACE agent's measurement,
+  carried by the delayed-neutron spectra. Its pending commit gives route 4
+  −1 ± 39 against route 1. To be re-measured here once it lands.
+- **HST-009 (#367).** The shared −232 to −302 pcm is open. Excluded so far,
+  each by an A/B with the prediction recorded first (data in
+  `data/diagnostics.csv`):
+  - the S(α,β) data: route 3 reads OpenMC's own table;
+  - the #188 thermal-sampling scheme: free-gas A/B, −247 ± 37;
+  - F-19: F-19-free A/B, −272 ± 38.
+- **Lattice LCT-008.** Routes 1, 2 and 4 all sit at +190 to +250 pcm above
+  k = 1, inside the stand-in band. Route 4 − route 1 is −59 ± 14. That is small,
+  but resolved at 4σ, and it is to be re-measured with the delayed spectra.
+
+### The ACE-route defect, as found by the first campaign (GitHub #366, fixed at `a15958912c`)
+
+- **Symptom.** outram-mc on either ACE library was +1853 ± 37 pcm (Godiva) and
+  −923 ± 40 pcm (Jemima) against OpenMC on the identical tables.
+- **Cause, part 1.** `Nuclide::from_ace` took its transport channels from
+  `ce_decode::channel_mts`, a total-reconstruction rule. That kept the MT=4
+  lump with Q = 0 in place of the 40 discrete levels.
+- **Cause, part 2.** U-234's partial-fission-only table gave zero fission.
+- **Confirmation.** A temporary patch plus U-234 from ENDF brought Godiva to
+  −5 ± 37 pcm. Localised with `examples/ace_vs_endf_nuclide_probe.rs`,
+  per-nuclide swaps, and ablations (`data/diagnostics.csv`).
 
 ## What this cannot do
 
-- **Benchmark uncertainties are not the handbook's.** Only Godiva's ±0.0010 is
-  a quoted ICSBEP value. Jemima's ±0.003 and HST-009's ±0.006 are the
-  examples' stand-ins, because the handbook is licence-restricted (see
-  `README.md` in this directory).
-- **LCT-008s says nothing about LEU-COMP-THERM-008.**
-- **HST-009 on routes 3 and 5**: blocked by #365, and #366 would also need fixing
-  before those two rows could be trusted.
-- **Only one data library.** Everything is ENDF/B-VIII.0 at 293.6 K.
+- **Benchmark bands.** The handbook uncertainties are not available here;
+  Jemima, HST-009 and LCT-008 bands are stand-ins.
+- **Data library.** Only ENDF/B-VIII.0 at 293.6 K is covered.
+- **LCT-008 nuclide list.** The lattice runs an 11-nuclide tier, not the full
+  36-nuclide model `lct008_keff.rs` runs by default.
 
 ## Appendix — OpenMC provenance and driver script (verbatim)
 
-**Provenance of the OpenMC side:**
-
 | item | value |
 |---|---|
-| OpenMC | 0.16.1-dev25, commit `d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b`, `~/Documents/research/openmcbin/bin/openmc` |
+| OpenMC | 0.16.1-dev25, commit `d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b` |
 | cross sections | built in this study (see *Routes*) |
-| run settings | 5000 particles, 40 inactive + 120 active batches, `-s 8`, seeds 1..32 |
+| run settings | as in *Settings and statistics* |
 
-No Shannon-entropy check was run on either code. The 40 inactive generations
-match the outram-mc examples' own settings.
-
-The ACE→HDF5 converter is committed beside it, as
-[`five_route_keff/openmc_inputs/ace_to_hdf5_route.py`](five_route_keff/openmc_inputs/ace_to_hdf5_route.py).
+No Shannon-entropy check was run. The lattice's 250 inactive generations are
+`lct008_keff.rs`'s own setting.
 
 ```python
 """OpenMC decks for the four ICSBEP cases of the five-route study (routes 1, 2).
 
-The SAME models `examples/icsbep_five_route_keff.rs` runs on outram-mc, with the
-atom densities and dimensions copied from that file (which cites its own
-sources: godiva_keff_endf_local.rs, jemima_keff.rs, hst009_keff.rs,
-lct008_ace_roundtrip.rs). Only the cross-section library differs between
+The SAME models `examples/icsbep_five_route_keff.rs` runs on outram-mc: Godiva,
+Jemima and HST-009 with the atom densities and dimensions copied from that file
+(which cites godiva_keff_endf_local.rs, jemima_keff.rs, hst009_keff.rs), and
+LCT-008 case 1 read from the committed benchmark XML (see `lct008()` below). Only the cross-section library differs between
 route 1 (NJOY2016 ACE -> HDF5) and route 2 (Rust-NJOY ACE -> HDF5), selected
 with --xs <cross_sections.xml>.
 
@@ -491,20 +390,36 @@ def hst009():
     return [sol, tank, water], geo, src
 
 
-def lct008s():
-    fv, wv = 0.30, 0.70
-    mix = lambda f, w: f * fv + w * wv  # noqa: E731
-    m = mat("LCT-008 case 1, homogenised 30/70", [
-        ("U235", mix(0.00056868, 0.0)), ("U238", mix(0.022268, 0.0)),
-        ("O16", mix(0.045683, 0.033369)), ("H1", mix(0.0, 0.066737)),
-        ("B10", mix(2.6055e-07, 1.6769e-05))], sab=True)
-    s = openmc.Sphere(r=40.0, boundary_type="vacuum")
-    geo = openmc.Geometry([openmc.Cell(fill=m, region=-s)])
-    src = openmc.stats.spherical_uniform(r_outer=40.0)
-    return [m], geo, src
+# LEU-COMP-THERM-008 case 1, the REAL lattice: the same committed
+# mit-crpg/benchmarks cards outram-mc parses (examples/common/lct008_model.rs),
+# read here with OpenMC's own XML readers, so geometry and densities are the
+# file's, not a transcription. Restricted to the SAME 11-nuclide tier outram-mc
+# runs (lct008_keff.rs `TAPES_CHEAP`): every other nuclide is dropped and NOT
+# renormalised, matching `build_materials` (density units="sum" then sums what
+# is left, exactly as outram-mc's per-nuclide atom densities do).
+LCT008_DIR = pathlib.Path(__file__).resolve().parents[2] / "leu-comp-therm-008"
+LCT008_TIER = {"H1", "B10", "O16", "U234", "U235", "U238", "Al27",
+               "Si28", "Si29", "Si30", "Mn55"}
 
 
-CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008s": lct008s}
+def lct008():
+    mats = openmc.Materials.from_xml(str(LCT008_DIR / "materials.xml"))
+    dropped = set()
+    for m in mats:
+        m.temperature = T
+        for nuc in [n.name for n in m.nuclides]:
+            if nuc not in LCT008_TIER:
+                m.remove_nuclide(nuc)
+                dropped.add(nuc)
+    print("lct008: dropped (not in the outram-mc tier):", ", ".join(sorted(dropped)))
+    geo = openmc.Geometry.from_xml(str(LCT008_DIR / "geometry.xml"), materials=mats)
+    used = list(geo.get_all_materials().values())
+    # Same source region as outram-mc: the core cylinder's bounding box.
+    src = openmc.stats.Box((-76.2, -76.2, -81.662), (76.2, 76.2, 81.662))
+    return used, geo, src
+
+
+CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008": lct008}
 
 
 def main():
@@ -520,10 +435,21 @@ def main():
     ap.add_argument("--inactive", type=int, default=40)
     ap.add_argument("--active", type=int, default=120)
     ap.add_argument("--commit", default="unknown")
+    ap.add_argument("--drop-nuclide", default=None,
+                    help="diagnostic (GitHub #367): remove one nuclide everywhere")
+    ap.add_argument("--no-sab", action="store_true",
+                    help="diagnostic (GitHub #367): drop S(a,b), H-1 free gas")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()
 
     mats, geo, space = CASES[a.case]()
+    if a.no_sab:
+        for m in mats:
+            m._sab = []
+    if a.drop_nuclide:
+        for m in mats:
+            if a.drop_nuclide in [n.name for n in m.nuclides]:
+                m.remove_nuclide(a.drop_nuclide)
     materials = openmc.Materials(mats)
     materials.cross_sections = str(pathlib.Path(a.xs).resolve())
     s = openmc.Settings()
@@ -562,7 +488,7 @@ def main():
         n_nuc = len({n.name for m in mats for n in m.nuclides})
         w.writerow([a.case, a.label, "openmc", a.seed, f"{k.nominal_value:.6f}",
                     f"{k.std_dev:.6f}", a.particles, a.inactive, a.active, a.threads,
-                    f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008s)).lower(),
+                    f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008)).lower(),
                     a.commit, f"{kgen.mean():.6f}"])
     print(f"{a.case} {a.label} seed {a.seed}: k = {k.nominal_value:.5f} +/- {k.std_dev:.5f}"
           f"  (generation mean {kgen.mean():.5f})  {wall:.1f} s")
