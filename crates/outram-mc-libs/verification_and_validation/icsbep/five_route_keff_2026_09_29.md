@@ -100,8 +100,11 @@ Data and decks:
   0; outram-mc has no lower bound.
 - **Estimators.** OpenMC's generation-mean k agrees with its combined k to
   within 1σ on every case.
-- **Thermal sampling (#188).** outram-mc's thermal scattering uses the
-  deliberate #188 scheme, not OpenMC's. It is now excluded as the cause of #367
+- **Thermal sampling (#188).** ~~outram-mc's thermal scattering uses the
+  deliberate #188 scheme, not OpenMC's.~~ **CORRECTED 2026-09-29: never a maintainer decision; replaced by OpenMC's scheme per the maintainer** (GitHub #407): the
+  equiprobable S(a,b) form is now sampled with OpenMC's
+  `IncoherentInelasticAEDiscrete` on both routes. The #188 scheme survives only
+  as `--ablate legacy-thermal-sampling`. It was excluded as the cause of #367
   (see below).
 
 ### Settings and statistics

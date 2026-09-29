@@ -746,6 +746,25 @@ fn graphite_sab_mean_cosine_against_njoy_thermr() {
 /// — both tightened on 2026-09-12 from the 50 % / 15 %-below-0.2 eV
 /// characterisation bounds that described the old defect. Tighten them again
 /// when `N_OUTGOING` rises; **never widen either.**
+///
+/// # Two samplers since 2026-09-29 (GitHub #407)
+///
+/// The default is now OpenMC's `IncoherentInelasticAEDiscrete`, whose `E'` is
+/// one of the 64 bin energies. It carries the representation's narrow
+/// truncation, which the legacy continuous-in-bin scheme partly undid. The
+/// #188 scheme was **never a maintainer decision** (CORRECTED 2026-09-29;
+/// replaced by OpenMC's scheme per the maintainer).
+///
+/// - **The tight gates above keep their bounds, unwidened**, and apply to the
+///   scheme they were set on, now the ablation
+///   `with_legacy_equiprobable_sampling`.
+/// - **The default** is held to the table's general envelope
+///   (`GRAPHITE_KERNEL_WIDTH_TOL`) and the broad ceiling. The broad ceiling is
+///   the sign a truncating representation must have.
+///
+/// Measured 2026-09-29 at 200 000 samples: default worst −0.88 % (−1.25 % on
+/// another stream, the documented 0.8-point stream-to-stream scatter); legacy
+/// worst +0.81 %.
 #[test]
 fn graphite_sab_kernel_width_against_njoy_thermr() {
     use outram_mc_libs::vv::njoy_golden::{
@@ -755,9 +774,53 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
     };
     const N: usize = 200_000;
 
-    let Some(law) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite") else {
+    let Some(law_default) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite")
+    else {
         return;
     };
+    // The DEFAULT sampler, OpenMC's `IncoherentInelasticAEDiscrete` (GitHub
+    // #407): `E'` is one of the 64 discrete bin energies, so the width carries
+    // the representation's one-signed narrow truncation (see `N_OUTGOING`).
+    // Gated at the table's general envelope `GRAPHITE_KERNEL_WIDTH_TOL` and
+    // the narrow sign. Measured 2026-09-29: worst -1.25 % at 5 meV.
+    {
+        let mut seed = 20_260_929_u64;
+        let mut worst_d = 0.0_f64;
+        println!("  default sampler (OpenMC IncoherentInelasticAEDiscrete):");
+        for &(e, w_njoy) in GRAPHITE_KERNEL_WIDTH {
+            let (mut s1, mut s2, mut k) = (0.0, 0.0, 0usize);
+            for _ in 0..N {
+                let Some((ep, _mu)) = law_default.sample(e, &mut seed) else {
+                    continue;
+                };
+                if (ep - e).abs() <= 1.0e-12 * e {
+                    continue;
+                }
+                s1 += ep;
+                s2 += ep * ep;
+                k += 1;
+            }
+            let (m1, m2) = (s1 / k as f64, s2 / k as f64);
+            let w = (m2 - m1 * m1).max(0.0).sqrt() / m1;
+            let rel = w / w_njoy - 1.0;
+            println!("  {e:>9.4e}  NJOY {w_njoy:>8.5}  ours {w:>8.5}  {:>+7.2} %", 100.0 * rel);
+            assert!(
+                rel.abs() < GRAPHITE_KERNEL_WIDTH_TOL && rel < GRAPHITE_KERNEL_WIDTH_BROAD_CEILING,
+                "default sampler: graphite width {:+.2} % from NJOY at {e:.4e} eV",
+                100.0 * rel
+            );
+            if rel.abs() > worst_d.abs() {
+                worst_d = rel;
+            }
+        }
+        println!("  default worst {:+.2} %", 100.0 * worst_d);
+    }
+    // The LEGACY #188 sampler (`E'` continuous in the bin), which the tight
+    // gates below were set on. It is now the ablation
+    // `with_legacy_equiprobable_sampling`, and they still hold it to exactly
+    // the bounds they always did.
+    let law = law_default.with_legacy_equiprobable_sampling();
+    println!("  legacy ablation (#188 continuous-in-bin):");
     let mut seed = 20_260_912_u64;
     let (mut worst, mut worst_e) = (0.0_f64, 0.0_f64);
     for &(e, w_njoy) in GRAPHITE_KERNEL_WIDTH {

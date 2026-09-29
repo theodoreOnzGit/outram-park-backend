@@ -140,6 +140,74 @@ impl Material {
             .sum()
     }
 
+    /// Σ_t(E) \[cm⁻¹\] as a neutron carrying the URR stream seed `urr_seed`
+    /// sees it: each nuclide in its unresolved range contributes its **band**
+    /// total, the band chosen by `future_prn(nuclide_idx, urr_seed)`
+    /// ([`urr_xi`]), exactly as OpenMC's `Nuclide::calculate_urr_xs` draws it
+    /// (`src/nuclide.cpp`; one stream, `STREAM_URR_PTABLE`, offset by the
+    /// nuclide's global index). Outside the unresolved range this equals
+    /// [`Self::macro_xs_total`] bit for bit. GitHub #407.
+    pub fn macro_xs_total_urr(&self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> f64 {
+        self.components
+            .iter()
+            .map(|c| {
+                let nuc = &nuclides[c.nuclide_idx];
+                let t = if nuc.needs_urr_draw(e) {
+                    nuc.band_total(e, self.temperature, urr_xi(c.nuclide_idx, urr_seed))
+                } else {
+                    nuc.total_at_energy(e, self.temperature)
+                };
+                c.atom_density * t
+            })
+            .sum()
+    }
+
+    /// An upper bound on Σ_t(E) \[cm⁻¹\] over every URR band, for
+    /// delta-tracking majorants (GitHub #407). Equal to
+    /// [`Self::macro_xs_total`] outside the unresolved range.
+    pub fn macro_xs_total_upper_bound(&self, e: f64, nuclides: &[Nuclide]) -> f64 {
+        self.components
+            .iter()
+            .map(|c| c.atom_density * nuclides[c.nuclide_idx].total_upper_bound(e, self.temperature))
+            .sum()
+    }
+
+    /// [`Self::sample_nuclide`] with each nuclide weighted by its **band**
+    /// total (see [`Self::macro_xs_total_urr`]), as OpenMC's
+    /// `sample_nuclide` weights by the same cached micro total it flew on.
+    /// Identical to `sample_nuclide`, same draw, when no component is in its
+    /// unresolved range. GitHub #407.
+    pub fn sample_nuclide_urr(
+        &self,
+        e: f64,
+        seed: &mut u64,
+        nuclides: &[Nuclide],
+        urr_seed: u64,
+    ) -> usize {
+        if !self.components.iter().any(|c| nuclides[c.nuclide_idx].needs_urr_draw(e)) {
+            return self.sample_nuclide(e, seed, nuclides);
+        }
+        let t = |c: &NuclideComponent| {
+            let nuc = &nuclides[c.nuclide_idx];
+            if nuc.needs_urr_draw(e) {
+                nuc.band_total(e, self.temperature, urr_xi(c.nuclide_idx, urr_seed))
+            } else {
+                nuc.selection_total(e, self.temperature)
+            }
+        };
+        let totals: Vec<f64> = self.components.iter().map(|c| c.atom_density * t(c)).collect();
+        let sigma_t: f64 = totals.iter().sum();
+        let xi = prn(seed) * sigma_t;
+        let mut acc = 0.0;
+        for (i, st) in totals.iter().enumerate() {
+            acc += st;
+            if xi < acc {
+                return i;
+            }
+        }
+        self.components.len() - 1
+    }
+
     /// Sample which nuclide the neutron collides with, weighted by each
     /// nuclide's contribution N_i·σ_t,i(E) to the macroscopic total.
     ///
@@ -166,4 +234,16 @@ impl Material {
         }
         self.components.len() - 1
     }
+}
+
+/// The URR band variate of nuclide `nuclide_idx` (its index in the global
+/// nuclide array) for a neutron whose URR stream seed is `urr_seed`: OpenMC's
+/// `future_prn(index_, p.seeds(STREAM_URR_PTABLE))` (`src/nuclide.cpp`,
+/// `calculate_urr_xs`). The same neutron at the same energy therefore sees the
+/// same band of a nuclide in every material and at every event until its
+/// energy changes, when the kernel advances `urr_seed` by the number of
+/// nuclides (`physics.cpp`, `advance_prn_seed(data::nuclides.size(), ..)`).
+pub fn urr_xi(nuclide_idx: usize, urr_seed: u64) -> f64 {
+    let mut s = crate::rng::lcg::future_seed(nuclide_idx as u64, urr_seed);
+    prn(&mut s)
 }

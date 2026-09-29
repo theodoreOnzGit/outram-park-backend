@@ -556,6 +556,21 @@ impl Nuclide {
         })
     }
 
+    /// **Ablation (GitHub #407):** sample this nuclide's equiprobable
+    /// (IFENG = 0) S(α,β) table with the legacy #188 scheme, not OpenMC's. See
+    /// [`ThermalScattering::with_legacy_equiprobable_sampling`]. It does nothing
+    /// without a thermal table.
+    pub fn with_legacy_thermal_sampling(mut self) -> Self {
+        self.thermal = self.thermal.map(|t| t.with_legacy_equiprobable_sampling());
+        self
+    }
+
+    /// Whether [`Self::with_legacy_thermal_sampling`] is in force. `false` by
+    /// default, and pinned by `tests/correct_physics_is_default.rs`.
+    pub fn uses_legacy_thermal_sampling(&self) -> bool {
+        self.thermal.as_ref().is_some_and(|t| t.uses_legacy_equiprobable_sampling())
+    }
+
     /// Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
     /// (builder style, consumes and returns `self`).
     ///
@@ -1159,6 +1174,43 @@ impl Nuclide {
         self.urr.as_ref().is_some_and(|t| t.covers(e))
     }
 
+    /// The total cross section \[b\] this nuclide presents to a neutron at
+    /// `e` \[eV\] whose URR band variate is `xi`: the **band** total
+    /// ([`Self::xs_at_energy_urr`]) inside the unresolved range, the smooth
+    /// selection total outside it.
+    ///
+    /// OpenMC computes a nuclide's micro cross sections once per energy
+    /// (`Nuclide::calculate_xs`, `src/nuclide.cpp`) and, in the unresolved
+    /// range, from one band (`calculate_urr_xs`). That one band then serves
+    /// the flight distance (the macroscopic total), the choice of nuclide and
+    /// the reaction. GitHub #407: this crate used the infinitely-dilute total
+    /// for flight and selection, and drew a band only at the collision.
+    pub fn band_total(&self, e: f64, temp_k: f64, xi: f64) -> f64 {
+        if self.needs_urr_draw(e) {
+            self.xs_at_energy_urr(e, temp_k, xi).total
+        } else {
+            self.selection_total(e, temp_k)
+        }
+    }
+
+    /// An **upper bound** \[b\] on every total this nuclide can present at
+    /// `e` \[eV\], whatever its band: the largest band total (exact, every
+    /// selectable band pair is visited through
+    /// `UrrProbabilityTables::band_representatives`) or the smooth total,
+    /// whichever is larger. What a delta-tracking majorant must bound now that
+    /// flight uses band totals (GitHub #407).
+    pub fn total_upper_bound(&self, e: f64, temp_k: f64) -> f64 {
+        let smooth = self.total_at_energy(e, temp_k);
+        match &self.urr {
+            Some(t) if t.covers(e) => t
+                .band_representatives(e)
+                .into_iter()
+                .map(|xi| self.xs_at_energy_urr(e, temp_k, xi).total)
+                .fold(smooth, f64::max),
+            _ => smooth,
+        }
+    }
+
     /// Enable the **DBRC** resonance-elastic correction below `e_max_ev` \[eV\].
     ///
     /// # What it fixes
@@ -1185,14 +1237,20 @@ impl Nuclide {
     /// LOW (`Core`) tier, or an evaluation with no MT=2 below the cap — so this
     /// can be called unconditionally over a material's nuclide list.
     ///
-    /// # Not yet measured here
+    /// # ~~Not yet measured here~~
     ///
-    /// The published literature puts DBRC at order 100-200 pcm in an LWR pin
-    /// cell. **This crate has not measured it**, and would not see it on its
-    /// current validation case: Godiva is a bare fast sphere with essentially no
-    /// flux in U-238's resolved resonances. Pricing it needs a thermal or
-    /// epithermal case — which is the same gap `docs/neutronics-physics-coverage.md`
-    /// records as the project's largest.
+    /// ~~The published literature puts DBRC at order 100-200 pcm in an LWR pin
+    /// cell. **This crate has not measured it**~~. **CORRECTED 2026-09-29
+    /// (GitHub #407):** it has been bounded on a thermal case.
+    /// `verification_and_validation/ace_route_physics/urr_dbrc_worth_2026_09_25.md`
+    /// bounds URR + DBRC on the homogenised LCT-008 below 154 pcm at 2 sigma.
+    /// The #407 upstream survey ran OpenMC with DBRC cut at 10.12 eV and got
+    /// −14 ± 12 pcm on the lattice. Before 2026-09-29, DBRC here **never acted
+    /// above 400 kT** (10.1 eV at 293.6 K), because the at-rest test ran first;
+    /// its window was half OpenMC's; and it did not resample candidates above
+    /// the window. All three now follow OpenMC's `sample_target_velocity`: a
+    /// resonant nuclide is at rest only above `e_max_ev`. The A/B worth of that
+    /// fix is recorded on #407.
     pub fn with_dbrc(mut self, e_max_ev: f64) -> Self {
         let cap = e_max_ev.min(DBRC_GRID_MAX_EV);
         self.dbrc = DbrcTable::from_pairs(&self.elastic_0k, cap);
@@ -2994,11 +3052,14 @@ impl Nuclide {
     /// band and **replaces** the total; this returns the infinitely-dilute one,
     /// exactly as `xs_at_energy` does. That matches what
     /// [`Material::macro_xs_total`](crate::material::material::Material::macro_xs_total)
-    /// has always returned, so nothing changed here — but it means that with
-    /// URR tables attached the flight-distance path and the collision path use
-    /// **different totals** in the unresolved range. That predates this
-    /// function and is dormant while URR defaults off; do not reach for this
-    /// as "the" total in a URR-aware context without fixing that first.
+    /// has always returned. ~~With URR tables attached the flight-distance
+    /// path and the collision path use **different totals** in the unresolved
+    /// range. That predates this function and is dormant while URR defaults
+    /// off.~~ **CORRECTED 2026-09-29 (GitHub #407):** URR has been on by
+    /// default since 2026-09-20, so this was not dormant, and the transport
+    /// kernels now use [`Self::band_total`] for flight, nuclide choice and the
+    /// reaction alike, as OpenMC does. This function stays the smooth
+    /// (infinitely-dilute) total, for callers that want exactly that.
     pub fn total_at_energy(&self, e: f64, temp_k: f64) -> f64 {
         // The bound-atom override needs channels the fast path does not
         // compute, so the full evaluation is unavoidable when it is in play.

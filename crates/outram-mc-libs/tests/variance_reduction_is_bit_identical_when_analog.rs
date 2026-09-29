@@ -144,6 +144,26 @@
 //! recorded in
 //! `verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
 //!
+//! ## Re-recorded 2026-09-29 (evening): URR band per energy and DBRC as OpenMC (GitHub #407)
+//!
+//! The URR band now comes from its own stream (`STREAM_URR_PTABLE`, one band
+//! per nuclide and energy serving the flight, the nuclide choice and the
+//! reaction). The collision no longer draws `prn(seed)` for it, so the
+//! transport stream shifts at the first unresolved-range collision. The first
+//! generation moves too. DBRC now follows OpenMC's gate and window. **Cause
+//! proved:** with `physics/transport_csg.rs` and `physics/scatter.rs` put back
+//! to their previous versions (everything else as it now is), the test
+//! reproduces the previous row **bit for bit**, all four values.
+//!
+//! | quantity | correlated angles (superseded) | #407 URR + DBRC |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.92702845023975877e-1`~~ | `9.89128190214768388e-1` |
+//! | `k_std` | ~~`5.09258853928865312e-3`~~ | `5.49770408934844787e-3` |
+//! | first generation | ~~`8.90099531919115061e-1`~~ | `9.35484563494561105e-1` |
+//! | last generation | ~~`9.89550193757308016e-1`~~ | `9.82661289061869225e-1` |
+//!
+//! It is one 2000-history draw. The paired worth is on #407.
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -178,10 +198,10 @@ const TEMP: f64 = 293.6;
 /// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.927_028_450_239_758_77e-1;
-const K_STD_PRE_258: f64 = 5.092_588_539_288_653_12e-3;
-const K_GEN_FIRST_PRE_258: f64 = 8.900_995_319_191_150_61e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.895_501_937_573_080_16e-1;
+const K_MEAN_PRE_258: f64 = 9.891_281_902_147_683_88e-1;
+const K_STD_PRE_258: f64 = 5.497_704_089_348_447_87e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.826_612_890_618_692_25e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

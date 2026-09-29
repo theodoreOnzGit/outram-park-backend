@@ -1474,11 +1474,14 @@ fn collide_batched(
     let ci = material.sample_nuclide(e, seed, nuclides);
     let nuc = &nuclides[material.components[ci].nuclide_idx];
     let x = if nuc.needs_urr_draw(e) {
-        // Unresolved-resonance self-shielding: draw one band. The
-        // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-        // bit-identical to one from before they existed -- an
-        // unconditional draw would shift every RNG stream in the crate
-        // for no physical reason.
+        // Unresolved-resonance self-shielding: draw one band.
+        //
+        // **Not OpenMC's scheme here (GitHub #407).** The CPU kernels use one
+        // band per nuclide and energy for the flight, the nuclide choice and
+        // the reaction (`Material::macro_xs_total_urr`, `urr_xi`). This GPU
+        // path flies on a union-grid table of the smooth total and draws the
+        // band only at the collision, from the transport stream. Carrying the
+        // URR stream across the GPU flight is not ported.
         nuc.xs_at_energy_urr(e, temp, prn(seed))
     } else {
         nuc.xs_at_energy(e, temp)
@@ -1698,14 +1701,22 @@ fn transport_history(
     let mut production = 0.0;
     // Same-generation work stack: the source neutron plus any (n,2n) secondaries.
     let mut stack: Vec<Site> = vec![site];
+    // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`: see
+    // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
+    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
+        let mut urr_e_last = e;
 
         loop {
-            let sigma_t = material.macro_xs_total(e, nuclides);
+            if e != urr_e_last {
+                urr_seed = future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
+            }
+            let sigma_t = material.macro_xs_total_urr(e, nuclides, urr_seed);
             if !(sigma_t > 0.0) {
                 break; // no interaction possible; treat as escape
             }
@@ -1718,15 +1729,13 @@ fn transport_history(
 
             // Collide: advance to the collision site and pick the target nuclide.
             r = stream(r, u, d_col);
-            let ci = material.sample_nuclide(e, seed, nuclides);
-            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+            let nuc_idx = material.components[ci].nuclide_idx;
+            let nuc = &nuclides[nuc_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
-                nuc.xs_at_energy_urr(e, temp, prn(seed))
+                // The same band the flight and the nuclide choice used
+                // (GitHub #407; OpenMC `calculate_urr_xs`).
+                nuc.xs_at_energy_urr(e, temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
             } else {
                 nuc.xs_at_energy(e, temp)
             };
@@ -1998,11 +2007,9 @@ fn transport_history_tabulated(
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
+                // Unresolved-resonance self-shielding: draw one band. As in
+                // `collide_batched`, this GPU path does not carry OpenMC's URR
+                // stream (GitHub #407): it flies on the smooth total.
                 nuc.xs_at_energy_urr(e, temp, prn(seed))
             } else {
                 nuc.xs_at_energy(e, temp)

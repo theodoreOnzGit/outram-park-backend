@@ -588,6 +588,9 @@ fn main() {
                     // The other neutron-emitting reactions sampled as elastic,
                     // as before GitHub #365's audit.
                     "no-other-channels" => n.without_other_neutron_channels(),
+                    // The #188 equiprobable S(a,b) scheme, as before GitHub
+                    // #407 put OpenMC's discrete sampler in as the default.
+                    "legacy-thermal-sampling" => n.with_legacy_thermal_sampling(),
                     other => panic!("unknown --ablate {other}"),
                 })
                 .collect();

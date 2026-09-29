@@ -159,6 +159,35 @@ impl UrrProbabilityTables {
         e > self.e_low && e < self.e_high
     }
 
+    /// One representative `xi` for **every distinct band pair** [`Self::sample`]
+    /// can select at `e` \[eV\]: the midpoints between the sorted union of the
+    /// two bracketing tables' cumulative probabilities (and `0`). `sample` is
+    /// piecewise constant in `xi` between those breakpoints, so evaluating it at
+    /// these points visits every value it can return at `e`, exactly. Empty
+    /// outside the unresolved range.
+    ///
+    /// Used to bound the band total from above, for delta-tracking majorants,
+    /// now that transport uses the band total for flight too (GitHub #407; OpenMC
+    /// `Nuclide::calculate_xs` feeds the URR total into the macroscopic total).
+    pub fn band_representatives(&self, e: f64) -> Vec<f64> {
+        if !self.covers(e) || self.energy.is_empty() {
+            return Vec::new();
+        }
+        let n = self.energy.len();
+        let mut cuts: Vec<f64> = vec![0.0, 1.0];
+        let i = self.energy.partition_point(|&x| x <= e).saturating_sub(1).min(n.saturating_sub(2));
+        for p in self.points.iter().skip(i).take(2) {
+            cuts.extend(p.cum.iter().copied().filter(|c| (0.0..=1.0).contains(c)));
+        }
+        cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        cuts.dedup();
+        let mut reps: Vec<f64> = cuts.windows(2).map(|w| 0.5 * (w[0] + w[1])).collect();
+        // `sample` picks the first band whose cumulative probability EXCEEDS
+        // xi, so a breakpoint itself selects the band above it: include them.
+        reps.extend(cuts.iter().copied().filter(|&c| c < 1.0));
+        reps
+    }
+
     /// Sample the tables at energy `e` \[eV\] with the uniform `xi` in `[0, 1)`.
     ///
     /// Returns `None` when `e` is outside the unresolved range, so a caller can

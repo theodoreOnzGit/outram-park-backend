@@ -225,8 +225,11 @@ pub const FREE_GAS_THRESHOLD: f64 = 400.0;
 /// σ is taken as constant over the target velocity distribution, which is exactly
 /// consistent with using a Doppler-broadened σ for the collision *rate* — the rate
 /// already carries the target motion, and this supplies the matching kinematics.
-/// (OpenMC's DBRC refinement, which resamples σ at the relative energy inside a
-/// resonance, is a further correction and is not modelled here.)
+/// (~~OpenMC's DBRC refinement, which resamples σ at the relative energy inside a
+/// resonance, is a further correction and is not modelled here.~~ **CORRECTED
+/// 2026-09-29 (GitHub #407):** DBRC is modelled, in
+/// [`free_gas_elastic_scatter_dbrc`], and is on by default for every nuclide
+/// that carries a 0 K elastic grid.)
 ///
 /// `kt_ev` is the material temperature as `k_B·T` \[eV\]; `mu_cm` is the
 /// centre-of-mass cosine from the nuclide's ENDF MF=4 law, sampled by the caller
@@ -263,10 +266,24 @@ pub fn free_gas_elastic_scatter_dbrc(
     seed: &mut u64,
     dbrc: Option<&DbrcTable>,
 ) -> (f64, Direction) {
-    // Same gate as OpenMC: heavy target, energy well above thermal ⇒ at rest.
-    // A non-positive kT (a caller with no temperature) also falls through here,
-    // preserving the previous behaviour rather than sampling a degenerate gas.
-    if !(kt_ev > 0.0) || (e >= FREE_GAS_THRESHOLD * kt_ev && awr > 1.0) {
+    // OpenMC's gate (`sample_target_velocity`, `src/physics.cpp`): a
+    // **resonant** nuclide (one with a DBRC table, OpenMC's `nuc.resonant_`)
+    // is at rest only above the resonance-scattering upper bound
+    // (`res_scat_energy_max`, here the table's `e_max`). Every other nuclide is
+    // at rest at and above `400 kT` when heavier than a neutron.
+    //
+    // ~~The 400 kT test ran first for every nuclide~~ until 2026-09-29 (GitHub
+    // #407), so DBRC never acted above 400 kT (10.1 eV at 293.6 K), and U-238's
+    // resonances above that were scattered off a target at rest.
+    //
+    // A non-positive kT (a caller with no temperature) is at rest, preserving
+    // the previous behaviour rather than sampling a degenerate gas.
+    let at_rest = match dbrc {
+        _ if !(kt_ev > 0.0) => true,
+        Some(t) => !t.applies(e),
+        None => e >= FREE_GAS_THRESHOLD * kt_ev && awr > 1.0,
+    };
+    if at_rest {
         return two_body_scatter_with_mu(e, u, awr, 0.0, mu_cm, seed);
     }
 
@@ -351,22 +368,21 @@ pub struct DbrcTable {
 }
 
 impl DbrcTable {
-    /// Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid,
-    /// restricted to `e <= e_max_ev`.
+    /// Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid, applied
+    /// below `e_max_ev`.
     ///
-    /// Returns `None` when fewer than two points survive the restriction —
+    /// ~~Restricted to `e <= e_max_ev`~~ **CORRECTED 2026-09-29 (GitHub
+    /// #407):** the whole supplied grid is kept. The rejection window of a
+    /// neutron just below `e_max_ev` reaches above it, and OpenMC reads the 0 K
+    /// cross section there (`nuclide.energy_0K_` spans the whole table).
+    ///
+    /// Returns `None` when fewer than two points lie at or below `e_max_ev` —
     /// a nuclide with no resolved resonance structure in the window has
     /// nothing for DBRC to correct.
     pub fn from_pairs(pairs: &[(f64, f64)], e_max_ev: f64) -> Option<Self> {
-        let mut energy = Vec::new();
-        let mut xs = Vec::new();
-        for &(e, s) in pairs {
-            if e <= e_max_ev {
-                energy.push(e);
-                xs.push(s);
-            }
-        }
-        if energy.len() < 2 {
+        let energy: Vec<f64> = pairs.iter().map(|p| p.0).collect();
+        let xs: Vec<f64> = pairs.iter().map(|p| p.1).collect();
+        if energy.iter().filter(|&&e| e <= e_max_ev).count() < 2 {
             return None;
         }
         Some(DbrcTable {
@@ -430,9 +446,20 @@ impl DbrcTable {
         m
     }
 
-    /// Whether DBRC applies to a neutron of energy `e` \[eV\].
+    /// Whether DBRC (target motion with the 0 K rejection) applies to a
+    /// neutron of energy `e` \[eV\]: at or below `e_max`, OpenMC's
+    /// `res_scat_energy_max`. Above it a resonant nuclide's target is at rest.
     pub fn applies(&self, e: f64) -> bool {
         e <= self.e_max
+    }
+
+    /// Whether any tabulated point lies strictly inside `(lo, hi)`. When none
+    /// does, both ends fall in one grid interval, where the 0 K cross section
+    /// is linear. OpenMC then uses the constant-cross-section sampler
+    /// (`i_E_up == i_E_low`, "the degenerate case").
+    fn has_point_inside(&self, lo: f64, hi: f64) -> bool {
+        let a = self.energy.partition_point(|&x| x <= lo);
+        a < self.energy.len() && self.energy[a] < hi
     }
 }
 
@@ -478,6 +505,62 @@ fn sample_target_velocity_dbrc(
     let beta_vn = (awr * e / kt_ev).sqrt();
     let alpha = 1.0 / (1.0 + PI.sqrt() * beta_vn / 2.0);
 
+    // OpenMC's resonance-scattering window (`physics.cpp`,
+    // `sample_target_velocity`, `ResScatMethod::dbrc`):
+    //   E_low = (max(0, √(AE/kT) − 4))² kT/A,  E_up = (√(AE/kT) + 4)² kT/A.
+    // ~~`E ± 4√(kT E/A)`~~ until 2026-09-29 (GitHub #407): about half that
+    // width, so the envelope `σ_max` could miss a peak the target reaches.
+    // DBRC applies at and above OpenMC's `res_scat_energy_min` (0.01 eV); below
+    // it, and in the degenerate case where the window holds no grid point,
+    // the constant-cross-section sampler is used, as upstream.
+    const RES_SCAT_ENERGY_MIN: f64 = 0.01;
+    let window = dbrc.filter(|t| t.applies(e) && e >= RES_SCAT_ENERGY_MIN).and_then(|t| {
+        let e_low = (beta_vn - 4.0).max(0.0).powi(2) * kt_ev / awr;
+        let e_up = (beta_vn + 4.0).powi(2) * kt_ev / awr;
+        t.has_point_inside(e_low, e_up).then(|| (t, e_up, t.xs_max_over(e_low, e_up)))
+    });
+
+    let (beta_vt_sq, mu) = match window {
+        None => sample_cxs_target(beta_vn, alpha, seed),
+        Some((t, e_up, s_max)) => {
+            // OpenMC: draw CXS candidates until E_rel < E_up, then accept with
+            // σ⁰ᴷ(E_rel)/σ_max; on rejection start again from a new candidate.
+            // Bounded, so a pathological RNG cannot hang transport.
+            let mut last = (0.0, 0.0);
+            'outer: for _ in 0..4096 {
+                let mut cand = (0.0, 0.0);
+                let mut e_rel = f64::INFINITY;
+                for _ in 0..4096 {
+                    cand = sample_cxs_target(beta_vn, alpha, seed);
+                    let beta_vt = cand.0.sqrt();
+                    e_rel = (beta_vn * beta_vn + cand.0 - 2.0 * beta_vn * beta_vt * cand.1).max(0.0)
+                        * kt_ev
+                        / awr;
+                    if e_rel < e_up {
+                        break;
+                    }
+                }
+                last = cand;
+                if !(s_max > 0.0) || prn(seed) < t.xs_at(e_rel) / s_max {
+                    break 'outer;
+                }
+            }
+            last
+        }
+    };
+
+    // Back to |v| = √E units: E_t = β²v_t² · kT / A.
+    let vt = (beta_vt_sq * kt_ev / awr).sqrt();
+    let u_t = rotate_direction(u, mu.clamp(-1.0, 1.0), seed);
+    [vt * u_t.u, vt * u_t.v, vt * u_t.w]
+}
+
+/// One target velocity in the **constant cross-section** approximation, as
+/// `(β²v_t², μ)`: OpenMC's `sample_cxs_target_velocity` (`src/physics.cpp`).
+/// The speed comes from the two-branch Maxwellian mixture and the pair is
+/// accepted with `|v_n − v_t| / (v_n + v_t)`. The draw sequence is exactly the
+/// one this crate always used, so the no-DBRC path is bit-identical.
+fn sample_cxs_target(beta_vn: f64, alpha: f64, seed: &mut u64) -> (f64, f64) {
     let (mut beta_vt_sq, mut mu) = (0.0_f64, 0.0_f64);
     // The rejection accepts with probability ≥ (v_n − v_t)/(v_n + v_t) and in
     // practice within a handful of trials; the bound keeps a pathological RNG
@@ -504,41 +587,10 @@ fn sample_target_velocity_dbrc(
             1.0
         };
         if prn(seed) < accept {
-            // DBRC: a SECOND, independent rejection weighting the candidate by
-            // the 0 K elastic cross section at the relative energy. Skipped
-            // entirely (no draw consumed) when there is no table or the
-            // incident energy is above its window, which is what keeps the
-            // no-DBRC path bit-identical.
-            if let Some(t) = dbrc {
-                if t.applies(e) {
-                    // Relative energy in the same |v| = sqrt(E) units:
-                    // E_rel = (v_n - v_t)^2, expanded via the sampled cosine.
-                    let beta_vt = beta_vt_sq.sqrt();
-                    let e_rel = (beta_vn * beta_vn + beta_vt_sq - 2.0 * beta_vn * beta_vt * mu)
-                        .max(0.0)
-                        * kt_ev
-                        / awr;
-                    // Envelope over the window this target's motion can reach.
-                    let spread = 4.0 * (kt_ev * e / awr).sqrt();
-                    let lo = (e - spread).max(0.0);
-                    let hi = e + spread;
-                    let s_max = t.xs_max_over(lo, hi);
-                    if s_max > 0.0 {
-                        let ratio = (t.xs_at(e_rel) / s_max).clamp(0.0, 1.0);
-                        if prn(seed) >= ratio {
-                            continue; // reject; draw another target velocity
-                        }
-                    }
-                }
-            }
             break;
         }
     }
-
-    // Back to |v| = √E units: E_t = β²v_t² · kT / A.
-    let vt = (beta_vt_sq * kt_ev / awr).sqrt();
-    let u_t = rotate_direction(u, mu.clamp(-1.0, 1.0), seed);
-    [vt * u_t.u, vt * u_t.v, vt * u_t.w]
+    (beta_vt_sq, mu)
 }
 
 /// A uniform strictly inside `(0, 1)`, so `ln` of it is always finite.
@@ -840,6 +892,95 @@ pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
 
 #[cfg(test)]
 mod tests {
+
+    /// **DBRC samples the target as OpenMC's kernel does (GitHub #407).**
+    ///
+    /// The DBRC target-velocity density is the constant-cross-section (CXS)
+    /// density times `σ⁰ᴷ(E_rel)` over OpenMC's window. So a histogram of
+    /// `E_rel` from the DBRC sampler must equal the CXS sampler's histogram
+    /// **reweighted by `σ⁰ᴷ(E_rel)`**. That is an importance-weighting
+    /// identity, independent of how the rejection is coded.
+    ///
+    /// Synthetic 0 K elastic: 10 b background plus a Breit-Wigner peak of
+    /// 5000 b at 20.0 eV, `Γ = 0.02 eV`, on a 1 meV grid. AWR 236, kT 0.0253 eV,
+    /// incident 20.3 eV. Every defect the #407 survey named fails here:
+    /// - 20.3 eV is above 400 kT, where the old gate held the target at rest;
+    /// - the peak sits outside the old half-width window, so its envelope
+    ///   missed it and the acceptance clamped;
+    /// - candidates above `E_up` were not resampled.
+    ///
+    /// Pass: every one of 30 bins over the window within 5 sigma.
+    #[test]
+    fn dbrc_target_density_is_cxs_times_sigma_0k() {
+        let (a, kt, e) = (236.0_f64, 0.0253_f64, 20.3_f64);
+        let sig = |x: f64| 10.0 + 5000.0 / (1.0 + ((x - 20.0) / 0.01).powi(2));
+        let pairs: Vec<(f64, f64)> =
+            (0..20_000).map(|i| 12.0 + 0.001 * i as f64).map(|x| (x, sig(x))).collect();
+        let t = DbrcTable::from_pairs(&pairs, 1.0e3).unwrap();
+        let u = Direction::new(0.0, 0.0, 1.0);
+        let vn = e.sqrt();
+        let e_rel = |v_t: [f64; 3]| {
+            let d = [-v_t[0], -v_t[1], vn - v_t[2]];
+            d[0] * d[0] + d[1] * d[1] + d[2] * d[2]
+        };
+        let beta_vn = (a * e / kt).sqrt();
+        let (lo, hi) = (
+            (beta_vn - 4.0).max(0.0).powi(2) * kt / a,
+            (beta_vn + 4.0).powi(2) * kt / a,
+        );
+        const NB: usize = 30;
+        const N: usize = 400_000;
+        let bin = |x: f64| (((x - lo) / (hi - lo)) * NB as f64).floor() as isize;
+        let mut h_dbrc = [0.0_f64; NB];
+        let mut seed = 0xDB_0001_u64;
+        let mut outside = 0usize;
+        for _ in 0..N {
+            let v = sample_target_velocity_dbrc(e, u, a, kt, &mut seed, Some(&t));
+            let b = bin(e_rel(v));
+            if (0..NB as isize).contains(&b) {
+                h_dbrc[b as usize] += 1.0;
+            } else {
+                outside += 1;
+            }
+        }
+        assert_eq!(outside, 0, "DBRC must never return E_rel outside OpenMC's window");
+        let (mut h_w, mut h_w2) = ([0.0_f64; NB], [0.0_f64; NB]);
+        let mut seed2 = 0xDB_0002_u64;
+        const M: usize = 2_000_000;
+        for _ in 0..M {
+            let v = sample_target_velocity_dbrc(e, u, a, kt, &mut seed2, None);
+            let x = e_rel(v);
+            let b = bin(x);
+            if (0..NB as isize).contains(&b) {
+                let w = t.xs_at(x);
+                h_w[b as usize] += w;
+                h_w2[b as usize] += w * w;
+            }
+        }
+        let (sd, sw): (f64, f64) = (h_dbrc.iter().sum(), h_w.iter().sum());
+        let mut worst: f64 = 0.0;
+        for k in 0..NB {
+            let (p, q) = (h_dbrc[k] / sd, h_w[k] / sw);
+            let var_p = p * (1.0 - p) / sd;
+            let var_q = h_w2[k] / (sw * sw);
+            let z = (p - q) / (var_p + var_q).sqrt().max(1e-12);
+            worst = worst.max(z.abs());
+            assert!(z.abs() < 5.0, "bin {k}: DBRC {p:.5} vs CXS x sigma {q:.5}, z {z:.2}");
+        }
+        println!("DBRC vs CXS x sigma_0K: worst |z| over {NB} bins = {worst:.2}");
+
+        // The gate: a resonant nuclide's target moves up to the table's
+        // `e_max`, so the neutron can gain energy at 20.3 eV (target at rest
+        // caps E' at E). It was held at rest above 400 kT before GitHub #407.
+        let mut s3 = 0xDB_0003_u64;
+        let up = (0..20_000)
+            .filter(|_| {
+                let mu = 2.0 * prn(&mut s3) - 1.0;
+                free_gas_elastic_scatter_dbrc(e, u, a, kt, mu, &mut s3, Some(&t)).0 > e
+            })
+            .count();
+        assert!(up > 1000, "only {up} of 20000 up-scattered: target held at rest");
+    }
 
     // ── Free-gas target motion (bead op-50vu) ────────────────────────────────
 

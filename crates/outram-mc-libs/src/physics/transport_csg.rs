@@ -57,7 +57,7 @@
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
 use crate::geometry::cell::{SurfaceToken, TrackingMethod};
-use crate::pebble_beds::delta_tracking::{bounded_delta_flight, DeltaStep, Majorant};
+use crate::pebble_beds::delta_tracking::{bounded_delta_flight_urr, DeltaStep, Majorant};
 
 /// Virtual-collision budget for a delta-tracked region before the history is
 /// declared lost. Matches `keff_delta.rs`'s `MAX_VIRTUAL` so the two paths
@@ -1213,6 +1213,17 @@ pub(crate) fn transport_history_vr(
     // fission get independent groups rather than `n`
     // copies of the same one.
     let mut delayed_seed = crate::rng::lcg::future_seed(DELAYED_STRIDE, *seed);
+    // **The URR probability-table stream** (GitHub #407), OpenMC's
+    // `STREAM_URR_PTABLE`: one per history, separate from the transport
+    // stream, so a band draw never shifts it. A nuclide's band at the current
+    // energy is `future_prn(nuclide_idx, urr_seed)` (`material::urr_xi`), and
+    // it serves the flight, the choice of nuclide and the reaction alike. The
+    // stream advances by the number of nuclides whenever the energy has
+    // changed since the band was last used, which is OpenMC's
+    // `advance_prn_seed(data::nuclides.size(), ..)` after a collision that
+    // changed `E` (`physics.cpp`).
+    let mut urr_seed = crate::rng::lcg::future_seed(URR_STRIDE, *seed);
+    let mut urr_e_last = f64::NAN;
     let mut neg_dist: u64 = 0;
     let mut neg_level: u64 = 0;
     let mut neg_worst = 0.0_f64;
@@ -1230,6 +1241,9 @@ pub(crate) fn transport_history_vr(
     /// child's stream and the delayed-group stream of the same history cannot
     /// land on each other.
     const DELAYED_STRIDE: u64 = 3 * crate::rng::lcg::DEFAULT_STRIDE;
+    /// Jump-ahead distance for the URR stream, another multiple of the
+    /// per-particle stride, disjoint from the two above.
+    const URR_STRIDE: u64 = 5 * crate::rng::lcg::DEFAULT_STRIDE;
     let mut production = 0.0;
     // (site, weight, optional own RNG stream). `None` continues the shared
     // stream, which is what every secondary before #258 did and is what keeps
@@ -1285,6 +1299,10 @@ pub(crate) fn transport_history_vr(
 
     while let Some((start, start_wgt, own_seed, start_ww, start_time)) = stack.pop() {
         time_s = start_time;
+        // A newly popped particle keeps the history's URR stream as it stands
+        // and draws its first bands at its own energy without advancing it,
+        // as an OpenMC secondary revived from the bank does.
+        urr_e_last = f64::NAN;
         // **The precursor group this particle descends from** (gh:#262). Every
         // secondary it produces that is NOT a fission neutron inherits this:
         // the quantity is "which precursor did this lineage come from", not
@@ -1449,8 +1467,18 @@ pub(crate) fn transport_history_vr(
             let cell_instance =
                 distribcell.and_then(|d| d.instance_of(geom, &path.levels));
 
+            // Advance the URR stream once the energy has changed since the
+            // bands were last drawn (a collision changed it). The first flight
+            // of each particle only records its energy: OpenMC advances after
+            // a collision, never at birth.
+            if urr_e_last.is_nan() {
+                urr_e_last = e;
+            } else if e != urr_e_last {
+                urr_seed = crate::rng::lcg::future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
+            }
             let sigma_t = match path.material {
-                Some(m) => materials[m].macro_xs_total(e, nuclides),
+                Some(m) => materials[m].macro_xs_total_urr(e, nuclides, urr_seed),
                 None => 0.0, // void: stream freely to the next boundary
             };
 
@@ -1504,7 +1532,7 @@ pub(crate) fn transport_history_vr(
                     // The region's OWN extent, not the nearest surface -- a bed
                     // is full of internal surfaces the tracker exists to cross.
                     let exit_at = geom.distance_out_of_level(&path, path.tracking_level);
-                    let step = bounded_delta_flight(
+                    let step = bounded_delta_flight_urr(
                         r,
                         u,
                         e,
@@ -1524,6 +1552,7 @@ pub(crate) fn transport_history_vr(
                                 .and_then(|q| q.material)
                         },
                         seed,
+                        Some(urr_seed),
                     );
                     match step {
                         DeltaStep::Collision {
@@ -1692,15 +1721,15 @@ pub(crate) fn transport_history_vr(
                 // above: a per-material quantity read from the wrong source at
                 // the collision site.
                 let mat_temp = material.temperature;
-                let ci = material.sample_nuclide(e, seed, nuclides);
-                let nuc = &nuclides[material.components[ci].nuclide_idx];
+                let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+                let nuc_idx = material.components[ci].nuclide_idx;
+                let nuc = &nuclides[nuc_idx];
                 let x = if nuc.needs_urr_draw(e) {
-                    // Unresolved-resonance self-shielding: draw one band. The
-                    // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                    // bit-identical to one from before they existed -- an
-                    // unconditional draw would shift every RNG stream in the crate
-                    // for no physical reason.
-                    nuc.xs_at_energy_urr(e, mat_temp, prn(seed))
+                    // Unresolved-resonance self-shielding: the SAME band the
+                    // flight and the nuclide choice used (GitHub #407; OpenMC
+                    // `calculate_urr_xs`). ~~A fresh `prn(seed)` from the
+                    // transport stream~~ until 2026-09-29.
+                    nuc.xs_at_energy_urr(e, mat_temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
                 } else {
                     nuc.xs_at_energy(e, mat_temp)
                 };

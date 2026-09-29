@@ -29,7 +29,9 @@ use. The refusal existed because the transport side held only the binned form.
   3. shift `E'` to the actual incident energy;
   4. interpolate the equiprobable cosine between rows `j` and `j+1`, then smear it.
 
-  The binned forms (IFENG = 0) keep the #188 scheme, unchanged.
+  ~~The binned forms (IFENG = 0) keep the #188 scheme, unchanged.~~ **CORRECTED 2026-09-29: never a maintainer decision; replaced by OpenMC's scheme per the maintainer**
+  (GitHub #407): IFENG = 0 now uses OpenMC's `IncoherentInelasticAEDiscrete`, and
+  the #188 scheme is the ablation `--ablate legacy-thermal-sampling`.
 
 ## Test table (NJOY2016 2016.79, built in `target/ace_extra/HH2O_iwt2/`)
 
