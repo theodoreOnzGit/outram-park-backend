@@ -651,11 +651,10 @@ fn read_tabulated_law(
         // spectrum that integrates to 1e6.
         let pdf: Vec<f64> = col(1).iter().map(|p| p / EV_PER_MEV).collect();
         let cdf = col(2);
-        if n_discrete > 0 {
-            return Err(NjoyError::NotPorted(
-                "ACE tabulated law with discrete lines (INTTp >= 10)",
-            ));
-        }
+        // Discrete lines (INTTp >= 10): ~~refused~~ read since the GitHub #365
+        // audit, as `energy_distribution.py:1239-1262` reads them -- the first
+        // `n_discrete` points are lines, carried in `ChiEout::n_discrete` and
+        // sampled as OpenMC's `ContinuousTabular::sample`.
         let kalbach = (law == 44).then(|| {
             let r = col(3);
             let a = col(4);
@@ -691,6 +690,7 @@ fn read_tabulated_law(
                 pdf,
                 cdf,
                 linlin: intt == 2,
+                n_discrete,
             },
             kalbach,
             cosines,

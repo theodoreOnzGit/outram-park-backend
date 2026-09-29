@@ -132,6 +132,7 @@ fn flat_branch(p: Tab1) -> ContinuumBranch {
                     pdf: vec![1.0, 1.0],
                     cdf: vec![0.0, 1.0],
                     linlin: false,
+                    n_discrete: 0,
                 };
                 2
             ],

@@ -43,6 +43,7 @@ fn law(lct: i32, e0: f64, w: f64) -> UncorrelatedEmission {
         pdf: vec![1.0 / w, 1.0 / w],
         cdf: vec![0.0, 1.0],
         linlin: false,
+        n_discrete: 0,
     };
     UncorrelatedEmission {
         energy: FissionSpectrum::ContinuousTabular(ChiTabular {

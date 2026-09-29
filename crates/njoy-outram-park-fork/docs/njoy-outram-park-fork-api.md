@@ -9665,9 +9665,9 @@ ITCA : incoherent only, equally-probable cosines
 ```
 
 `NXS(3) = NIL` is `nang - 1`, `NXS(4) = NIEB`, `NXS(5) = IDPNC` selects the
-elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed; ~~all read~~
-**CORRECTED 2026-09-29**: 5 is refused, having been silently decoded as 3 —
-see the IDPNC match below), and
+elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed; 5 was silently
+decoded as 3 until 2026-09-29, then refused, and is now read as OpenMC reads
+it — see the IDPNC match below), and
 `NXS(7) = IFENG` the inelastic form.
 
 # ~~IFENG=2 is REFUSED, not approximated~~ **CORRECTED 2026-09-29 — read (GitHub #365 audit)**
@@ -9975,6 +9975,14 @@ pub enum AceThermalElastic {
         energy: Vec<f64>,
         cumulative: Vec<f64>,
     },
+    Mixed {
+        coh_energy: Vec<f64>,
+        coh_cumulative: Vec<f64>,
+        inc_energy: Vec<f64>,
+        inc_xs: Vec<f64>,
+        inc_cosines: Vec<f64>,
+        inc_n_mu: usize,
+    },
     Incoherent {
         energy: Vec<f64>,
         xs: Vec<f64>,
@@ -10001,6 +10009,22 @@ Fields:
 |------|------|---------------|
 | `energy` | `Vec<f64>` | Bragg edge energies \[eV\], ascending. |
 | `cumulative` | `Vec<f64>` | Cumulative `S*E` \[eV·b\] at each edge. |
+
+###### `Mixed`
+
+`IDPNC = 5` — **mixed**: coherent (ITCE/ITCX) plus incoherent
+(ITCEI/ITCXI/ITCAI, `NXS(8)` = cosines − 1). GitHub #365 audit.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `coh_energy` | `Vec<f64>` | Coherent Bragg edges \[eV\]. |
+| `coh_cumulative` | `Vec<f64>` | Coherent cumulative `S*E` \[eV·b\]. |
+| `inc_energy` | `Vec<f64>` | Incoherent incident energies \[eV\]. |
+| `inc_xs` | `Vec<f64>` | Incoherent σ_el \[barn\]. |
+| `inc_cosines` | `Vec<f64>` | Incoherent cosines, row-major. |
+| `inc_n_mu` | `usize` | Incoherent cosines per energy. |
 
 ###### `Incoherent`
 
@@ -17950,6 +17974,7 @@ Keff uses the total directly).
 pub struct NuBar {
     pub energy: Vec<f64>,
     pub nu_total: Vec<f64>,
+    pub poly: Option<Vec<f64>>,
 }
 ```
 
@@ -17959,6 +17984,7 @@ pub struct NuBar {
 |------|------|---------------|
 | `energy` | `Vec<f64>` | Incident-energy grid \[eV\], ascending. |
 | `nu_total` | `Vec<f64>` | Total ν̄ aligned with `energy`. |
+| `poly` | `Option<Vec<f64>>` | The evaluation's **polynomial** ν̄(E) = Σ c_k E^k, E in **eV**, when it<br>is given in that form (ENDF `LNU = 1`, ACE NU `LNU = 1`); `None` for a<br>tabulated ν̄. When present, [`Self::at`] evaluates it **exactly and<br>unclamped at every energy**, as OpenMC's `Polynomial` does<br>(`openmc/data/reaction.py:263-268`, coefficients scaled by<br>`EV_PER_MEV**-k`), and `energy`/`nu_total` are only a tabulation of it<br>for consumers that read the table. GitHub #365 audit: the polynomial<br>used to be tabulated on 1e-5 eV – 20 MeV and read lin-lin, which is an<br>approximation inside that range (a quadratic is not piecewise linear)<br>and a clamp above it. |
 
 ##### Implementations
 
@@ -17972,7 +17998,7 @@ pub struct NuBar {
 - ```rust
   pub fn at(self: &Self, e: f64) -> f64 { /* ... */ }
   ```
-  Interpolate ν̄ at incident energy `e` \[eV\] (lin-lin, clamped at the ends).
+  ν̄ at incident energy `e` \[eV\]: the polynomial exactly when the
 
 ###### Trait Implementations
 
@@ -18370,6 +18396,7 @@ pub struct ChiEout {
     pub pdf: Vec<f64>,
     pub cdf: Vec<f64>,
     pub linlin: bool,
+    pub n_discrete: usize,
 }
 ```
 
@@ -18381,6 +18408,7 @@ pub struct ChiEout {
 | `pdf` | `Vec<f64>` | Probability density g(E') \[eV⁻¹\], aligned with `e_out`, ∫ = 1. |
 | `cdf` | `Vec<f64>` | Cumulative distribution, aligned with `e_out` (`cdf[0]=0`, `cdf[last]=1`). |
 | `linlin` | `bool` | `true` ⇒ lin-lin between grid points (ENDF INT=2); `false` ⇒ histogram. |
+| `n_discrete` | `usize` | The number of **discrete lines** at the head of the table (ACE<br>`INTT = 10·ND + LEP`, ENDF MF=6 LAW=1 `ND`): `e_out[..n_discrete]` are<br>line energies with cumulative probabilities `cdf[..n_discrete]`, and the<br>continuum starts at `e_out[n_discrete]`. `0` for a pure continuum, which<br>every table in ENDF/B-VIII.0 is (scanned 2026-09-29). Sampled as OpenMC's<br>`ContinuousTabular::sample` samples it. GitHub #365 audit. |
 
 ##### Implementations
 

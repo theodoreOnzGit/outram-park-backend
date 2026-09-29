@@ -199,6 +199,13 @@ pub struct ChiEout {
     pub cdf: Vec<f64>,
     /// `true` ⇒ lin-lin between grid points (ENDF INT=2); `false` ⇒ histogram.
     pub linlin: bool,
+    /// The number of **discrete lines** at the head of the table (ACE
+    /// `INTT = 10·ND + LEP`, ENDF MF=6 LAW=1 `ND`): `e_out[..n_discrete]` are
+    /// line energies with cumulative probabilities `cdf[..n_discrete]`, and the
+    /// continuum starts at `e_out[n_discrete]`. `0` for a pure continuum, which
+    /// every table in ENDF/B-VIII.0 is (scanned 2026-09-29). Sampled as OpenMC's
+    /// `ContinuousTabular::sample` samples it. GitHub #365 audit.
+    pub n_discrete: usize,
 }
 
 /// Energy-dependent tabulated fission spectrum χ(E→E') — the ENDF MF=5 / MT=18
@@ -1345,6 +1352,7 @@ fn lab_angle_energy_emission(
             pdf: pdf_ev,
             cdf,
             linlin: true,
+            n_discrete: 0,
         });
         ang_tables.push(ContinuumAngularTable { rows });
     }
@@ -1590,6 +1598,7 @@ pub fn phase_space_chi(
             pdf,
             cdf: cdf_in.to_vec(),
             linlin: true,
+            n_discrete: 0,
         });
     }
     if incident.len() < 2 {
@@ -1651,19 +1660,12 @@ impl ContinuumEmission {
             let mut incident = Vec::with_capacity(neutron.law4.incident.len());
             let mut tables = Vec::with_capacity(neutron.law4.incident.len());
             for t in &neutron.law4.incident {
-                // `ND > 0` means the table's leading entries are **discrete
-                // lines**, not a continuum. [`ChiTabular`] is a pure continuum
-                // pdf/cdf and cannot represent them: sampled as continuum, a
-                // zero-width discrete line is either lost or smeared. Refuse the
-                // whole emission rather than return a law that samples wrongly —
-                // the caller's documented behaviour on `None` is to keep its own
-                // fallback, which is a known approximation rather than a silent
-                // one. No evaluation in `reference-data/endf/` currently has
-                // `ND > 0` on a neutron subsection, so this is a guard, not a
-                // live path.
-                if t.nd() != 0 {
-                    return Ok(None);
-                }
+                // `ND > 0`: the table's leading entries are **discrete lines**.
+                // ~~Refused (the whole emission returned `None`), since
+                // `ChiTabular` was a pure continuum.~~ Carried since the GitHub
+                // #365 audit in `ChiEout::n_discrete` and sampled as OpenMC's
+                // `ContinuousTabular::sample`. No evaluation in ENDF/B-VIII.0
+                // has one on a neutron subsection (scanned: 2377 of them).
                 incident.push(t.e_in_mev * EMEV);
                 tables.push(ChiEout {
                     e_out: t.e_out_mev.iter().map(|&x| x * EMEV).collect(),
@@ -1674,6 +1676,7 @@ impl ContinuumEmission {
                     // so a histogram table carrying discrete lines reads `intt =
                     // 11` and a bare `intt != 1` would call it lin-lin.
                     linlin: t.lep() != 1,
+                    n_discrete: t.nd() as usize,
                 });
             }
             if incident.is_empty() {
@@ -1992,6 +1995,7 @@ fn parse_lf1_tabular(
             pdf,
             cdf,
             linlin,
+            n_discrete: 0,
         });
     }
     Ok(ChiTabular {

@@ -286,6 +286,7 @@ fn chi_eout_from_tab1(
         pdf: pdf.iter().map(|p| p / total).collect(),
         cdf: cdf.iter().map(|c| c / total).collect(),
         linlin: int == 2,
+        n_discrete: 0,
     })
 }
 

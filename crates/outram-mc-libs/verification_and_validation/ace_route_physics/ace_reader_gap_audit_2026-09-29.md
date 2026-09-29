@@ -54,7 +54,7 @@ it would take.
 | DLW law 2, 3, 33 | JXS(10,11) | `angle_energy.py:83-88` | read | read |
 | DLW law 4 / 44 / 61 | same | `energy_distribution.py`, `kalbach_mann.py`, `correlated.py` | read | read |
 | **Law 4 as a continuum on MT=91/16/17: its AND cosine** | AND | `reaction.py:1131-1135` | AND ignored (stored as correlated-isotropic) | **fixed**: placed as `UncorrelatedEmission` with AND; test `ace_law4_continuum_cosine` on NJOY2016 Li-7 (ENDF/B-VIII.0) and U-238 (JENDL-3.3) |
-| Law 4 / 44 / 61 **discrete lines** (INTT ≥ 10) | DLW | `energy_distribution.py:1239-1262` | refused by name | **open**: no held table has one; recorded on #365 |
+| Law 4 / 44 / 61 **discrete lines** (INTT ≥ 10); ENDF MF=6 LAW=1 `ND > 0` | DLW | `energy_distribution.py:1239-1262`, `correlated.py:352-381`; `distribution_energy.cpp` | refused by name (ENDF: no law) | **fixed** (both readers; sampler as OpenMC: lines unscaled, envelope from `e_out[n_discrete]`). No ENDF/B-VIII.0 neutron subsection has lines (2377 scanned, 557 tapes), so a format-exact table was **constructed** from NJOY2016 Li-7 MT=16; test `ace_discrete_lines_vs_openmc`: ⟨E′⟩ at 5 energies |z| ≤ 2.40 (re-drawn with two other seed bases, |z| ≤ 2.35, signs mixed); ignoring the lines fails at z = −12.9. The ENDF-side path has no table to verify against |
 | Law-61 cosine-table `intt` | DLW | `correlated.py` | discarded | **refused by name** when not 2 (same reader, same census) |
 | DLW law 7 / 9 / 11 | same | `energy_distribution.py` | read | read |
 | DLW law 66 | same | `nbody.py:122` | read | read |

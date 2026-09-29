@@ -4148,12 +4148,20 @@ pub(crate) fn sample_continuous_tabular_indexed(
 
     // (3) invert table l's outgoing-energy CDF.
     let (e_out, k) = sample_ct_table_indexed(&chi.tables[l], prn(seed));
+    // A discrete line is emitted at its own energy, unscaled (OpenMC:
+    // `if (k < n_discrete) E_out = E_l_k;`, no envelope interpolation).
+    if k < chi.tables[l].n_discrete {
+        return (e_out, l, k);
+    }
 
     // (4) interpolate the outgoing energy between the i and i+1 table envelopes.
+    // The envelope starts at the first CONTINUUM point, `e_out[n_discrete]`, as
+    // upstream's `E_i_1 = e_out[n_discrete]` (0 for a pure continuum, so this is
+    // the same index as before for every table without lines).
     let ti = &chi.tables[i];
     let ti1 = &chi.tables[i + 1];
-    let (e_i_1, e_i_k) = (ti.e_out[0], ti.e_out[ti.e_out.len() - 1]);
-    let (e_i1_1, e_i1_k) = (ti1.e_out[0], ti1.e_out[ti1.e_out.len() - 1]);
+    let (e_i_1, e_i_k) = (ti.e_out[ti.n_discrete], ti.e_out[ti.e_out.len() - 1]);
+    let (e_i1_1, e_i1_k) = (ti1.e_out[ti1.n_discrete], ti1.e_out[ti1.e_out.len() - 1]);
     let e_1 = e_i_1 + r * (e_i1_1 - e_i_1);
     let e_k = e_i_k + r * (e_i1_k - e_i_k);
     let scaled = if l == i {
@@ -4189,12 +4197,23 @@ fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
     if n == 1 {
         return (t.e_out[0], 0);
     }
-    // Continuous-portion CDF search (n_discrete = 0), mirroring the C++ loop:
-    // leaves k as the lower edge with c[k] ≤ r1 < c[k+1] (k clamped to n−2).
     let mut c_k = t.cdf[0];
     let mut k = 0usize;
-    let end = n.saturating_sub(2); // n_energy_out − 2
-    for j in 0..end {
+    let mut end = n.saturating_sub(2); // n_energy_out − 2
+    // Discrete portion (GitHub #365 audit), OpenMC's loop verbatim: the first
+    // line whose cumulative probability exceeds r1 is emitted.
+    for j in 0..t.n_discrete.min(n) {
+        k = j;
+        c_k = t.cdf[k];
+        if r1 < c_k {
+            end = j;
+            break;
+        }
+    }
+    // Continuous-portion CDF search, mirroring the C++ loop: leaves k as the
+    // lower edge with c[k] ≤ r1 < c[k+1] (k clamped to n−2). With no lines
+    // this is exactly the loop it always was (start 0, `end = n - 2`).
+    for j in t.n_discrete..end {
         k = j;
         let c_k1 = t.cdf[k + 1];
         if r1 < c_k1 {
@@ -4202,6 +4221,11 @@ fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
         }
         k = j + 1;
         c_k = c_k1;
+    }
+
+    // A line (the draw fell in the discrete portion): its own energy.
+    if k < t.n_discrete {
+        return (t.e_out[k], k);
     }
 
     let e_l_k = t.e_out[k];
@@ -4998,6 +5022,7 @@ mod tests {
             pdf: vec![5.0e-7, 5.0e-7, 5.0e-7], // ∫ = 1 over [0, 2 MeV]
             cdf: vec![0.0, 0.5, 1.0],
             linlin: false,
+            n_discrete: 0,
         };
         let n = 100_000usize;
         let mut sum = 0.0;
@@ -5026,12 +5051,14 @@ mod tests {
             pdf: vec![5.0e-7, 5.0e-7, 5.0e-7],
             cdf: vec![0.0, 0.5, 1.0],
             linlin: false,
+            n_discrete: 0,
         };
         let high = ChiEout {
             e_out: vec![0.0, 2.0e6, 4.0e6],
             pdf: vec![2.5e-7, 2.5e-7, 2.5e-7],
             cdf: vec![0.0, 0.5, 1.0],
             linlin: false,
+            n_discrete: 0,
         };
         let chi = ChiTabular {
             incident: vec![1.0e5, 2.0e7],
