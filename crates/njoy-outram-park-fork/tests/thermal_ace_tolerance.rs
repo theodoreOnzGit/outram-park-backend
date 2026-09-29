@@ -16,8 +16,9 @@
 //!    `thermal_from_mf7_with_tolerance(.., CALCEM_TOL)` word for word, so every
 //!    byte-parity gate taken at 0.05 still measures what it measured.
 //! 2. **The tolerance reaches `calcem`.** Building at 0.001 changes the
-//!    emission block (ITXE) and leaves the cross-section block (ITIE/ITIX),
-//!    which `calcem` does not produce, identical.
+//!    emission block (ITXE) **and the inelastic cross section (ITIX)**, which is
+//!    `calcem`'s own `xsi` since 2026-09-29, and leaves the incident-energy grid
+//!    (ITIE), which the caller supplies, identical.
 
 use std::fs::File;
 
@@ -77,11 +78,18 @@ fn thermr_tol_reaches_calcem_and_the_default_is_unchanged() {
         default.nxs, fine.nxs,
         "the table's dimensions do not depend on tol"
     );
+    let itie = (default.jxs[jxs::ITIE] - 1) as usize;
+    let itix = (default.jxs[jxs::ITIX] - 1) as usize;
     let itxe = (default.jxs[jxs::ITXE] - 1) as usize;
     assert_eq!(
-        default.xss[..itxe],
-        fine.xss[..itxe],
-        "the cross-section blocks ahead of ITXE are not calcem's and must not move"
+        default.xss[itie..itix],
+        fine.xss[itie..itix],
+        "the incident-energy grid is the caller's and must not depend on tol"
+    );
+    assert_ne!(
+        default.xss[itix..itxe],
+        fine.xss[itix..itxe],
+        "ITIX is calcem's xsi, so a finer tol must change it"
     );
     let moved = default.xss[itxe..]
         .iter()
