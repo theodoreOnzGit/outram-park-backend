@@ -85,9 +85,7 @@
 use tuas_boussinesq_solver::heat_transfer_correlations::heat_transfer_interactions::conductance::simple_radiation_conductance;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_ig_110_thermal_conductivity_unirradiated;
 use uom::si::area::square_meter;
-#[cfg(test)]
 use uom::si::energy::joule;
-#[cfg(test)]
 use uom::si::f64::Energy;
 use uom::si::f64::{Area, HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time};
 use uom::si::heat_capacity::joule_per_kelvin;
@@ -654,7 +652,9 @@ impl CoreToRccsPath {
     /// Sensible energy held in the two solid nodes, `C_refl T_refl + C_rpv
     /// T_rpv`, measured from 0 K. Only its *change* is meaningful; it lets a
     /// plant-level test close the energy balance across the seam with the bed.
-    #[cfg(test)]
+    ///
+    /// No longer `#[cfg(test)]` (2026-09-29, gh:#394): the plant's global
+    /// energy ledger reads it every step.
     pub fn stored_energy(&self) -> Energy {
         Energy::new::<joule>(
             self.reflector_capacity.get::<joule_per_kelvin>()

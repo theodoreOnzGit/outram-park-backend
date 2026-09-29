@@ -2528,10 +2528,11 @@ mod tests {
             // Drive the primary by a specified bed-outlet temperature, the
             // boundary condition `step_hot_leg` now takes. The equivalent of
             // the old `power` argument at this flow and inlet.
-            let bed_out = ThermodynamicTemperature::new::<kelvin>(
-                primary.core_inlet_temperature().get::<kelvin>()
-                    + power.get::<watt>() / (pebble_bed::nominal_helium_flow_kg_per_s() * 5189.3),
-            );
+            // On enthalpy since 2026-09-29 (gh:#393): h_in + Q/m_dot.
+            let bed_out = primary.core_inlet_enthalpy()
+                + uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(
+                    power.get::<watt>() / pebble_bed::nominal_helium_flow_kg_per_s(),
+                );
             primary.step(
                 dt(),
                 bed_out,
@@ -2543,7 +2544,7 @@ mod tests {
                 dt(),
                 design_commands(),
                 primary.steam_generator_duty_to_secondary(),
-                primary.core_outlet_temperature(),
+                primary.hot_duct_temperature(),
             );
 
             let util = secondary.absorbable_duty_utilisation();

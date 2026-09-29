@@ -484,14 +484,26 @@ pub struct HtgrSnapshot {
     // --- Primary helium loop outputs ---
     /// Core inlet helium temperature \[K\].
     pub core_inlet_temp_k: f64,
-    /// Core outlet helium temperature \[K\].
+    /// Core outlet helium temperature \[K\] -- the helium leaving the bed
+    /// (its fluid node). Since 2026-09-29 (gh:#391) no longer a lagged value.
     pub core_outlet_temp_k: f64,
+    /// Hot-duct CV helium temperature \[K\] -- the hot-gas plenum and hot gas
+    /// duct, i.e. the steam generator's helium inlet (gh:#391, 2026-09-29).
+    pub hot_duct_temp_k: f64,
     /// Helium mass flow \[kg/s\].
     pub helium_mass_flow_kg_per_s: f64,
-    /// IHX duty transferred to the secondary loop \[MW\].
+    /// Steam-generator duty **leaving the helium** \[MW\], `m_dot (h_in -
+    /// h_out)` on the helium side. ~~"IHX duty transferred to the secondary
+    /// loop"~~ **CORRECTED 2026-09-29**: `write_snapshot` fills this from the
+    /// helium side; what the water absorbs is [`Self::sg_secondary_duty_mw`].
     pub ihx_duty_mw: f64,
-    /// Helium-side IHX outlet temperature \[K\] -- what the core inlet
-    /// relaxes toward once the return transport lag has played out.
+    /// Steam-generator duty **entering the water/steam** \[MW\]. Differs from
+    /// [`Self::ihx_duty_mw`] by the tube metal's stored-energy rate.
+    pub sg_secondary_duty_mw: f64,
+    /// Helium-side IHX outlet temperature \[K\] -- ~~what the core inlet
+    /// relaxes toward once the return transport lag has played out~~
+    /// **CORRECTED 2026-09-29**: the inflow to the cold-return CV, whose own
+    /// state is the core inlet (the 8 s lag was deleted, gh:#392).
     pub ihx_outlet_temp_k: f64,
     /// Helium loop residence time \[s\] (`m/m_dot`), driving the primary
     /// flow tracers in the schematic.
@@ -505,8 +517,31 @@ pub struct HtgrSnapshot {
     /// in this model that is a real correlation result rather than a carried
     /// published figure.
     pub bed_pressure_drop_kpa: f64,
-    /// Circulator hydraulic power \[MW\].
+    /// Circulator shaft power \[MW\] -- delivered to the helium in the
+    /// cold-return CV since 2026-09-29 (gh:#392).
     pub circulator_power_mw: f64,
+    /// Passive decay-heat loss from the bed to the reflector \[MW\].
+    pub passive_heat_loss_mw: f64,
+    /// Lumped side-reflector temperature \[K\] (passive path node).
+    pub reflector_temp_k: f64,
+    /// Lumped reactor-pressure-vessel temperature \[K\] (passive path node).
+    pub rpv_temp_k: f64,
+    /// **Plant energy ledger, cumulative since construction \[J\]** (gh:#394):
+    /// fission (prompt) + decay heat deposited in the fuel.
+    pub energy_source_j: f64,
+    /// Cumulative change in energy stored in every lumped CV \[J\]: fuel
+    /// node, bed graphite, bed void helium, hot-duct and cold-return CVs,
+    /// reflector and RPV. (The steam generator's arrays are outside it; the
+    /// ledger's boundary on that side is the helium stream.)
+    pub energy_stored_j: f64,
+    /// Cumulative enthalpy handed from the helium to the steam generator \[J\].
+    pub energy_to_steam_generator_j: f64,
+    /// Cumulative heat to the RCCS \[J\].
+    pub energy_to_rccs_j: f64,
+    /// Cumulative circulator work delivered to the helium \[J\].
+    pub energy_circulator_work_j: f64,
+    /// Cumulative residual `source + work - stored - to SG - to RCCS` \[J\].
+    pub energy_residual_j: f64,
     /// Helium isobaric specific heat \[J/(kg K)\] at the current bulk mean
     /// temperature, from the real EOS -- shown so the operator can see the
     /// property is evaluated live rather than frozen.
@@ -786,13 +821,24 @@ impl Default for HtgrSnapshot {
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,
             core_outlet_temp_k: 600.15,
+            hot_duct_temp_k: 600.15,
             helium_mass_flow_kg_per_s: 4.3,
             ihx_duty_mw: 0.0,
+            sg_secondary_duty_mw: 0.0,
             ihx_outlet_temp_k: 439.15,
             helium_residence_time_s: 0.0,
             primary_pressure_drop_kpa: 0.0,
             bed_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
+            passive_heat_loss_mw: 0.0,
+            reflector_temp_k: f64::NAN,
+            rpv_temp_k: f64::NAN,
+            energy_source_j: 0.0,
+            energy_stored_j: 0.0,
+            energy_to_steam_generator_j: 0.0,
+            energy_to_rccs_j: 0.0,
+            energy_circulator_work_j: 0.0,
+            energy_residual_j: 0.0,
             helium_cp_j_per_kg_k: 5193.0,
             steam_pressure_mpa: 4.0,
             sg_steam_outlet_temp_k: 509.15,

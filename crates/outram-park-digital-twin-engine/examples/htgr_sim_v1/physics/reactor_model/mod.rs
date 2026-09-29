@@ -90,7 +90,7 @@ use axial_seven_node::AxialSevenNodeCore;
 use coarse_mesh_genfoam::CoarseMeshGenFoamCore;
 use one_node::PebbleBedPorousMediaNode;
 use std::fmt;
-use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
+use uom::si::f64::{AvailableEnergy, MassRate, Power, ThermodynamicTemperature, Time};
 
 /// Which pebble-bed fidelity tier is selected -- the `HeaterType`-shaped
 /// marker for [`ReactorModel`].
@@ -223,7 +223,7 @@ impl ReactorModel {
         dt: Time,
         net_heat_to_bed: Power,
         pebble_conduction_power: Power,
-        helium_inlet_temperature: ThermodynamicTemperature,
+        helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
     ) -> Power {
         match self {
@@ -231,21 +231,21 @@ impl ReactorModel {
                 dt,
                 net_heat_to_bed,
                 pebble_conduction_power,
-                helium_inlet_temperature,
+                helium_inlet_enthalpy,
                 helium_mass_flow,
             ),
             Self::AxialSevenNode(core) => core.step(
                 dt,
                 net_heat_to_bed,
                 pebble_conduction_power,
-                helium_inlet_temperature,
+                helium_inlet_enthalpy,
                 helium_mass_flow,
             ),
             Self::CoarseMeshGenFoam(core) => core.step(
                 dt,
                 net_heat_to_bed,
                 pebble_conduction_power,
-                helium_inlet_temperature,
+                helium_inlet_enthalpy,
                 helium_mass_flow,
             ),
         }
@@ -274,6 +274,18 @@ impl ReactorModel {
             Self::OneNodePorousMedia(core) => core.helium_temperature(),
             Self::AxialSevenNode(core) => core.helium_outlet_temperature(),
             Self::CoarseMeshGenFoam(core) => core.helium_outlet_temperature(),
+        }
+    }
+
+    /// Specific enthalpy of the helium leaving the bed \[J/kg\] -- the
+    /// fluid node's integrated state (gh:#393, 2026-09-29), which the primary
+    /// loop's hot-duct CV receives. Every tier: the placeholders are one node
+    /// underneath.
+    pub fn helium_outlet_enthalpy(&self) -> AvailableEnergy {
+        match self {
+            Self::OneNodePorousMedia(core) => core.helium_outlet_enthalpy(),
+            Self::AxialSevenNode(core) => core.helium_outlet_enthalpy(),
+            Self::CoarseMeshGenFoam(core) => core.helium_outlet_enthalpy(),
         }
     }
 
@@ -363,7 +375,7 @@ mod tests {
     fn placeholder_tiers_reproduce_one_node_porous_media_exactly() {
         let dt = Time::new::<second>(0.1);
         let fission_power = Power::new::<watt>(1.0e7);
-        let inlet = ThermodynamicTemperature::new::<kelvin>(523.15);
+        let inlet = one_node::helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(523.15));
         let flow = MassRate::new::<kilogram_per_second>(4.3);
 
         let mut one_node = ReactorModel::new(ReactorModelKind::OneNodePorousMedia);

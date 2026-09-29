@@ -27,22 +27,33 @@
 //!
 //! ## Nodalisation -- read this first
 //!
-//! **The entire helium circuit is ONE control volume**, with two temperatures
-//! carried at its boundaries rather than a mesh through it:
+//! ~~**The entire helium circuit is ONE control volume**, with two
+//! temperatures carried at its boundaries~~ **CHANGED 2026-09-29 (gh:#388,
+//! #391-#393)** -- the helium circuit is **four enthalpy-balance control
+//! volumes and a resolved exchanger**, closed around one prescribed mass flow:
+//!
+//! ```text
+//!   bed void helium (LTNE fluid node, pebble_bed)  --m_dot h_f-->  HOT DUCT CV
+//!        ^                                                            |
+//!        | m_dot h_c                                                  | m_dot h_h
+//!   COLD RETURN CV  <--m_dot h_sg,out--  STEAM GENERATOR (8 nodes)  <-+
+//!     + W_circ (circulator work)
+//! ```
 //!
 //! | Region | Nodes | What is assumed uniform inside |
 //! |---|---|---|
-//! | Helium through the bed | **1** | one `c_p` and one density, both at the bulk mean `(T_in + T_out)/2` |
-//! | Hot gas duct, plenums, SG shell, return leg | **0** | collapsed into one first-order transport lag |
+//! | Helium through the bed | **1** | ~~one `c_p` and one density at the bulk mean~~ the bed's own LTNE fluid node, an enthalpy balance over the 197 cm bed's void ([`super::pebble_bed::PebbleBedPorousMediaNode`]); the bulk mean is still where the KTA friction is evaluated |
+//! | Hot-gas plenum + hot gas duct | ~~**0**~~ **1** | the hot-duct CV: well-mixed enthalpy, mass `rho V` over [`hot_duct_volume`] |
 //! | Steam generator, helium side | **8** (~~an effectiveness-NTU lump~~ **CORRECTED 2026-09-17**) | one `UA_hot` per node against the tube metal; the cold side is a resolved IF97 array, not an isothermal sink -- see [`super::steam_generator`] |
-//! | Reflector cooling channels | **0** | not modelled |
+//! | Connection tubes, circulator, annuli, riser channels, top plenum | ~~**0**~~ **1** | the cold-return CV: well-mixed enthalpy, mass over [`cold_return_volume`], circulator work as its source |
+//! | Reflector cooling channels | **0** (as heat transfer) | their helium is in the cold-return CV; the helium-to-reflector convection is not modelled yet (gh:#397) |
 //!
-//! The core inlet and core outlet temperatures are the **boundary values of
-//! that one node**, related by an energy balance, each relaxed by its own
-//! first-order lag: the outlet by the gas thermal inertia
-//! ([`CORE_THERMAL_TIME_CONSTANT_S`]), the inlet by the return transport lag
-//! ([`RETURN_TRANSPORT_TIME_CONSTANT_S`]). Neither lag comes from a resolved
-//! volume; both are stand-ins for one.
+//! ~~The core inlet and core outlet temperatures are the **boundary values of
+//! that one node** ... each relaxed by its own first-order lag~~ -- both lags
+//! (`CORE_THERMAL_TIME_CONSTANT_S`, `RETURN_TRANSPORT_TIME_CONSTANT_S`) and
+//! the core-outlet clamp were deleted 2026-09-29; see the block above
+//! [`hot_duct_volume`]. The core outlet is the bed fluid node's own state;
+//! the core inlet is the cold-return CV's.
 //!
 //! **What that costs.** There is no axial helium temperature profile through
 //! the bed, so no local heat flux and no local Reynolds number: the KTA
@@ -106,9 +117,17 @@
 //!   bed's 9 MJ/K of solid-phase thermal inertia (plus its own fluid-node
 //!   capacitance) and hands this loop the heat rate that actually crosses the
 //!   pebble surface.
-//! - **The loop is closed.** The core inlet temperature is *computed* as the
-//!   steam-generator helium-side outlet, relaxed through the return transport
-//!   lag; it is not pinned to a fixed number.
+//! - **The loop is closed.** The core inlet temperature is *computed* --
+//!   ~~as the steam-generator helium-side outlet, relaxed through the return
+//!   transport lag~~ (**CHANGED 2026-09-29**) as the state of the cold-return
+//!   CV, an enthalpy balance fed by the steam-generator helium outlet plus the
+//!   circulator work; it is not pinned to a fixed number.
+//! - **The helium circuit conserves energy, and it is checked.** Every helium
+//!   CV balances enthalpy on the one CoolProp helium EOS, every seam carries a
+//!   single flux, and the plant's global ledger closes from fission to the
+//!   steam generator and the RCCS at rounding level
+//!   (`super::tests::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator`,
+//!   gh:#394).
 //! - **The steam generator is pinch-limited node by node.**
 //!   ~~by an effectiveness-NTU model against the secondary saturation
 //!   temperature~~ **CORRECTED 2026-09-17** -- since 2026-08-12 this module
@@ -168,12 +187,15 @@
 
 use outram_park_digital_twin_engine::htr10::design::{Htr10DesignPoint, Htr10FuelTemperatureLimits};
 use outram_park_digital_twin_engine::htr10::kta;
-use outram_park_fork_coolprop::{state_pt, viscosity, Fluid};
+use outram_park_digital_twin_engine::components::pipe::CoaxialDuctGeometry;
+use outram_park_fork_coolprop::{state_pt, viscosity, Fluid, FluidState};
+use uom::si::available_energy::joule_per_kilogram;
+use uom::si::length::meter;
 use tampines::compressible::CoolPropFluid;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{
-    AvailableEnergy, DynamicViscosity, Mass, MassDensity, MassRate, Power, Pressure,
+    AvailableEnergy, DynamicViscosity, Length, Mass, MassDensity, MassRate, Power, Pressure,
     SpecificHeatCapacity, ThermalConductance, ThermodynamicTemperature, Time, Volume,
 };
 use uom::si::thermal_conductance::watt_per_kelvin;
@@ -467,67 +489,96 @@ fn steam_generator_substep_s() -> f64 {
     super::steam_generator_substep_seconds()
 }
 
-/// Thermal-inertia time constant of the lumped helium node in the core \[s\],
-/// **derived** from the gas holdup rather than invented.
-///
-/// This is the *gas* inertia; the graphite's much larger inertia lives in
-/// [`super::pebble_bed::PebbleBedPorousMediaNode`]. It is the helium's residence time in
-/// the bed void, `tau = m_gas / m_dot`, with `m_gas = rho * V_void` from the
-/// published bed volume and porosity and the real helium density.
-///
-/// **This replaced an invented flat 5.0 s on 2026-08-14, and the old value was
-/// not a harmless one.** The gas holdup is about 3 kg of helium against
-/// 5,280 kg of graphite, so at the rated 4.3 kg/s the real lag is under a
-/// second. A 5 s lag let the core outlet trail the bed on a cooldown for long
-/// enough to sit **above** the graphite that was cooling it -- a residue of
-/// about +2.5 K that reads as a second-law violation, because a gas cannot
-/// stay hotter than the wall it is in contact with. Deriving the lag from the
-/// holdup removes most of it; [`bounded_core_outlet`] removes the rest.
-fn core_thermal_time_constant_s(mass_flow: MassRate, density: f64) -> f64 {
-    let void_volume = pebble_bed::bed_void_volume().get::<uom::si::volume::cubic_meter>();
-    let gas_mass = (density.max(1.0e-6)) * void_volume;
-    let m_dot = mass_flow
-        .get::<kilogram_per_second>()
-        .abs()
-        .max(MIN_HELIUM_FLOW_KG_PER_S);
-    // Floored at one plant timestep: a lag shorter than the step cannot be
-    // resolved and would just be an instantaneous jump with extra arithmetic.
-    (gas_mass / m_dot).max(super::PLANT_TIMESTEP_S)
+// ---------------------------------------------------------------------------
+// THE TWO HELIUM CONTROL VOLUMES OUTSIDE THE BED (gh:#388, 2026-09-29)
+//
+// ~~`core_thermal_time_constant_s` -- a first-order lag on the core outlet with
+// `tau = rho V_void / m_dot`~~, ~~`bounded_core_outlet` -- "a hard second-law
+// guard"~~ and ~~`RETURN_TRANSPORT_TIME_CONSTANT_S = 8.0` s (invented)~~ were
+// DELETED on 2026-09-29 (gh:#391, #392). The lag counted the bed void helium's
+// inertia a second time (the LTNE fluid node in `pebble_bed` already carries
+// it, from the same void volume); neither lag had a capacitance or an
+// enthalpy of its own, so what the bed discharged and what the steam
+// generator received differed by energy nobody stored; the clamp stood in for
+// a formulation; and the 8 s return lag did not depend on flow, so after a
+// circulator trip the core inlet still followed the steam generator in 8 s.
+// The engine CLAUDE.md: "If a term needs a guard to stay physical, the
+// formulation is wrong -- fix the formulation, do not add the guard."
+//
+// They are replaced by two lumped helium control volumes, each an enthalpy
+// balance on a mass taken from a stated volume, so the residence time of each
+// is `M / m_dot` and emerges from the CV rather than being typed in:
+//
+//   HOT DUCT CV   = hot-gas plenum in the bottom reflector + hot gas duct
+//                   centre tube (in-reflector run + cross-vessel run)
+//   COLD RETURN CV = SG-outlet connection tubes + circulator casing + SG
+//                   vessel/sleeve annulus + coaxial-duct annulus + RPV/barrel
+//                   annulus + the 20 side-reflector riser boreholes + top cold
+//                   plenum
+//
+// The published flow path these two lump is `docs/reactor-scoping/
+// htr10-plant-data.md` section 4.4 ([S2] section 5, [S5] section 2).
+// ---------------------------------------------------------------------------
+
+/// Hot-gas plenum in the bottom reflector \[m^3\] -- **INVENTED**. [S5] section
+/// 2 says the bottom reflector "contains the hot gas plenum" and that its flow
+/// passage is split into two sections; no source in the scoping sheet
+/// dimensions it. 0.75 m^3 is about 0.3 m of the 2.545 m^2 core cross-section.
+/// A sourced plenum volume would replace it.
+const HOT_GAS_PLENUM_VOLUME_M3: f64 = 0.75;
+
+/// Hot gas duct centre-tube volume **inside the reflector region** \[m^3\]:
+/// 0.70686e5 cm^3, **published** -- the "Hot gas duct" void volume of the
+/// [S3] KENO VI model, Table VI (`docs/reactor-scoping/htr10-plant-data.md`
+/// section 4.3). It equals a 1.0 m run of the published 300 mm bore.
+const HOT_GAS_DUCT_IN_REFLECTOR_VOLUME_M3: f64 = 0.070686;
+
+/// Length of the hot gas duct's cross-vessel run between the reactor and
+/// steam-generator pressure vessels \[m\] -- **INVENTED**. The scoping sheet
+/// (section 4.1) records the duct length as "not stated in any of the five
+/// sources". The bore it is multiplied by is the published 300 mm
+/// ([`CoaxialDuctGeometry::htr10_hot_gas_duct`]).
+const HOT_GAS_DUCT_CROSS_VESSEL_LENGTH_M: f64 = 3.0;
+
+/// The 20 cold-helium riser boreholes in the side reflector \[m^3\]:
+/// 5.07681e5 cm^3, **published** -- [S3] Table VI, "Coolant channels (20)".
+/// Part of the cold-return CV; carried as its own constant so the published
+/// part of that CV's volume stays visible.
+const RISER_BOREHOLE_VOLUME_M3: f64 = 0.507681;
+
+/// Helium volume of the **hot-duct CV** \[m^3\]: the invented plenum, the
+/// published in-reflector duct volume and the cross-vessel run
+/// (invented length times published bore). 1.0328 m^3.
+pub fn hot_duct_volume() -> Volume {
+    let bore_area = CoaxialDuctGeometry::htr10_hot_gas_duct().inner_flow_area();
+    Volume::new::<cubic_meter>(HOT_GAS_PLENUM_VOLUME_M3 + HOT_GAS_DUCT_IN_REFLECTOR_VOLUME_M3)
+        + bore_area * Length::new::<meter>(HOT_GAS_DUCT_CROSS_VESSEL_LENGTH_M)
 }
 
-/// Bound a core-outlet temperature between the helium inlet and the bed
-/// temperature.
-///
-/// **A hard second-law guard, not a cosmetic clamp.** The helium is heated by
-/// the graphite: it can approach the bed temperature asymptotically but can
-/// never pass it, and when the bed is the colder body the helium cannot stay
-/// hotter than it either. This module's own bed closure is expected to
-/// respect that already (it did, exactly, for the now-removed effectiveness-NTU
-/// `PebbleBedCore` closure -- see `reactor_model::one_node`'s "History" note --
-/// and the diagonally-dominant coupled solve
-/// [`super::pebble_bed::PebbleBedPorousMediaNode::step`] uses now is not
-/// proven bounded the same way by construction); what can still break it here
-/// is the first-order gas lag, which during a fast cooldown relaxes *down*
-/// toward the bed from a hotter past value and is therefore momentarily
-/// above it.
-///
-/// Clamping is the right treatment rather than a smaller timestep, because the
-/// bound is a physical statement about the model's own state, not a numerical
-/// tolerance. If this clamp ever binds hard and persistently, that is a signal
-/// the gas lag is mis-sized -- not that the clamp needs loosening.
-fn bounded_core_outlet(relaxed_k: f64, inlet_k: f64, bed_k: f64) -> f64 {
-    let (lo, hi) = if bed_k >= inlet_k {
-        (inlet_k, bed_k)
-    } else {
-        (bed_k, inlet_k)
-    };
-    relaxed_k.clamp(lo, hi)
+/// Helium volume of the steam generator's **shell side** \[m^3\], as the
+/// resolved exchanger's own helium array holds it:
+/// `shell_flow_area x shell_flow_length` of
+/// [`SteamGeneratorGeometry::htr10_illustrative`] (both invented), 1.25 m^3.
+pub fn steam_generator_shell_volume() -> Volume {
+    let g = SteamGeneratorGeometry::htr10_illustrative();
+    g.shell_flow_area * g.shell_flow_length
 }
 
-/// Transport lag from the steam-generator helium outlet round to the core inlet
-/// \[s\] (**invented**), so a change in secondary heat removal reaches the core
-/// inlet with a delay rather than instantly.
-const RETURN_TRANSPORT_TIME_CONSTANT_S: f64 = 8.0;
+/// Helium volume of the **cold-return CV** \[m^3\]: the invented
+/// [`LOOP_GAS_VOLUME_OUTSIDE_BED_M3`] less the hot-duct CV and less the steam
+/// generator's shell side. 3.7172 m^3, of which 0.5077 m^3 is the published
+/// riser-borehole volume ([`RISER_BOREHOLE_VOLUME_M3`]); the rest is invented.
+///
+/// **Why the shell side is subtracted.** The 6 m^3 allowance was defined to
+/// include "the steam-generator shell side", but that helium is now resolved
+/// by the exchanger's own helium array, which carries its own inertia. Leaving
+/// it in this CV as well would count it twice -- the same defect class as the
+/// deleted core-outlet lag.
+pub fn cold_return_volume() -> Volume {
+    Volume::new::<cubic_meter>(LOOP_GAS_VOLUME_OUTSIDE_BED_M3)
+        - hot_duct_volume()
+        - steam_generator_shell_volume()
+}
 
 /// Floor on the commanded helium flow \[kg/s\] (**invented**), keeping the
 /// energy-balance denominator and the residence time finite when the user
@@ -633,66 +684,148 @@ pub fn steam_generator_config() -> SteamGeneratorConfig {
     }
 }
 
+/// One lumped helium control volume's integrated state: the specific enthalpy
+/// (stored exactly -- it is what the balance integrates) and the `(p, h)`
+/// flash of it, which supplies the temperature, density and `c_p`.
+///
+/// Added 2026-09-29 (gh:#388, #393). Every helium CV in the circuit --
+/// the bed's void node, the hot duct, the cold return -- is balanced on
+/// enthalpy with the same CoolProp helium EOS
+/// ([`pebble_bed::helium_enthalpy_at`], [`pebble_bed::helium_state_at`]), so
+/// an enthalpy handed from one CV to the next means the same energy on both
+/// sides of the seam.
+#[derive(Clone, Copy, Debug)]
+pub struct HeliumNode {
+    /// Specific enthalpy \[J/kg\] -- the integrated state.
+    enthalpy: f64,
+    /// `(p, h)` flash of [`Self::enthalpy`] at the primary pressure.
+    state: FluidState,
+}
+
+impl HeliumNode {
+    /// A node at `temperature` and the primary pressure: the enthalpy is
+    /// [`pebble_bed::helium_enthalpy_at`], the state its `(p, h)` flash.
+    fn at_temperature(temperature: ThermodynamicTemperature) -> Self {
+        let enthalpy = pebble_bed::helium_enthalpy_at(temperature);
+        Self {
+            enthalpy: enthalpy.get::<joule_per_kilogram>(),
+            state: pebble_bed::helium_state_at(enthalpy),
+        }
+    }
+
+    /// The node at a new `enthalpy` \[J/kg\] (one `(p, h)` flash, seeded at
+    /// this node's current temperature -- the state it is moving from).
+    fn moved_to(&self, enthalpy: f64) -> Self {
+        Self {
+            enthalpy,
+            state: pebble_bed::helium_state_at_seeded(
+                AvailableEnergy::new::<joule_per_kilogram>(enthalpy),
+                Some(self.state.temperature),
+            ),
+        }
+    }
+
+    /// Specific enthalpy \[J/kg\].
+    pub fn enthalpy(&self) -> AvailableEnergy {
+        AvailableEnergy::new::<joule_per_kilogram>(self.enthalpy)
+    }
+
+    /// Temperature \[K\], from the EOS inverse of the enthalpy.
+    pub fn temperature(&self) -> ThermodynamicTemperature {
+        ThermodynamicTemperature::new::<kelvin>(self.state.temperature)
+    }
+
+    /// Helium mass `rho V` held in `volume` at this state \[kg\].
+    fn mass_in(&self, volume: Volume) -> Mass {
+        Mass::new::<kilogram>(self.state.density * volume.get::<cubic_meter>())
+    }
+}
+
+/// Energy terms of the primary loop's most recent pass \[J\], each from the
+/// coefficients that pass actually used (gh:#394, 2026-09-29).
+///
+/// **Identity** (exact, by construction):
+///
+/// ```text
+/// from_bed + circulator_work = hot_duct_storage + to_steam_generator + cold_return_storage
+/// ```
+///
+/// `from_bed` is `m_dot (h_bed,out - h_core,in) dt` with `h_core,in` the
+/// inlet enthalpy the **bed was handed** -- the same number, term for term,
+/// as the bed's own [`pebble_bed::BedStepEnergy::throughflow_out`], which is
+/// what lets the plant close a global balance across the seam.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PrimaryStepEnergy {
+    /// Enthalpy the bed's throughflow delivered to the circuit above what the
+    /// circuit delivered to the bed, `m_dot (h_bed,out - h_core,in) dt`.
+    pub from_bed: f64,
+    /// Change in the hot-duct CV's helium enthalpy, `M_h (h_h' - h_h)`.
+    pub hot_duct_storage: f64,
+    /// Enthalpy handed to the steam generator's helium side,
+    /// `m_dot (h_h' - h_sg,out) dt` -- the steam generator's hot-side duty
+    /// times `dt`; zero while the secondary is isolated.
+    pub to_steam_generator: f64,
+    /// Circulator shaft work delivered to the helium, `W dt`.
+    pub circulator_work: f64,
+    /// Change in the cold-return CV's helium enthalpy, `M_c (h_c' - h_c)`.
+    pub cold_return_storage: f64,
+}
+
 /// The lumped scalars [`HeliumPrimaryLoop`] integrates, snapshotted so a plant
 /// outer corrector can rewind them to the start of a timestep.
 ///
-/// All fields are `uom`-typed: temperatures in kelvin, flow in kg/s, duties in
-/// watts. See [`HeliumPrimaryLoop::lumped_state`].
+/// **Held inside the loop as one field** (2026-09-29), so a new lumped
+/// quantity is rewound by construction rather than by remembering to add it
+/// to a copy list. Everything except the steam generator's three arrays and
+/// the two operator/protection flags lives here. See
+/// [`HeliumPrimaryLoop::lumped_state`].
 #[derive(Clone, Copy, Debug)]
 pub struct PrimaryLumpedState {
-    /// Core-inlet helium temperature \[K\].
-    pub core_inlet_temperature: ThermodynamicTemperature,
-    /// Core-outlet helium temperature \[K\].
-    pub core_outlet_temperature: ThermodynamicTemperature,
-    /// Circulator mass flow \[kg/s\].
-    pub mass_flow: MassRate,
-    /// Heat rate leaving the helium in the steam generator \[W\].
-    pub ihx_duty: Power,
-    /// Heat rate entering the water/steam in the steam generator \[W\].
-    pub secondary_duty: Power,
-    /// Helium-side steam-generator outlet temperature \[K\].
-    pub ihx_outlet_temperature: ThermodynamicTemperature,
+    /// Helium leaving the bed on the most recent pass (the bed's own fluid
+    /// node, handed in) -- the core outlet.
+    bed_outlet: HeliumNode,
+    /// The hot-duct CV (hot-gas plenum + hot gas duct centre tube).
+    hot_duct: HeliumNode,
+    /// The cold-return CV (connection tubes, circulator, annuli, risers, top
+    /// plenum) -- its state is the core inlet.
+    cold_return: HeliumNode,
+    /// Steam-generator helium-side outlet specific enthalpy \[J/kg\].
+    sg_outlet_enthalpy: f64,
+    /// Steam-generator helium-side outlet temperature.
+    sg_outlet_temperature: ThermodynamicTemperature,
+    /// Circulator mass flow.
+    mass_flow: MassRate,
+    /// Heat rate leaving the helium in the steam generator.
+    ihx_duty: Power,
+    /// Heat rate entering the water/steam in the steam generator.
+    secondary_duty: Power,
+    /// Isobaric specific heat of helium at the bed's bulk mean temperature.
+    c_p: SpecificHeatCapacity,
+    /// Helium density at the bed's bulk mean temperature \[kg/m^3\] -- the
+    /// density the KTA bed friction is formed on.
+    density: f64,
+    /// Helium dynamic viscosity at the bed's bulk mean temperature.
+    dynamic_viscosity: DynamicViscosity,
+    /// Frictional pressure drop around the whole loop.
+    pressure_drop: Pressure,
+    /// The pebble-bed part of that drop alone, from KTA.
+    bed_pressure_drop: Pressure,
+    /// Circulator shaft power delivered to the helium.
+    circulator_power: Power,
+    /// Energy terms of the most recent pass.
+    last_step_energy: PrimaryStepEnergy,
 }
 
 /// Lumped helium primary-loop state.
 pub struct HeliumPrimaryLoop {
-    /// Isobaric specific heat of helium at the current bulk mean temperature
-    /// (re-evaluated every step from the real EOS).
-    c_p: SpecificHeatCapacity,
-    /// Helium density at the current bulk mean temperature (real EOS).
-    density: f64,
-    /// Helium dynamic viscosity at the current bulk mean temperature (real
-    /// transport model) -- the KTA Reynolds number consumes it.
-    dynamic_viscosity: DynamicViscosity,
+    /// Every rollback-able lumped scalar. See [`PrimaryLumpedState`].
+    lumped: PrimaryLumpedState,
     /// Helium density at the published 250 degC cold-leg reference condition,
     /// used to scale the quadratic non-bed loop loss.
     reference_density: f64,
-    /// Current (transient) core-inlet temperature -- the steam-generator helium
-    /// outlet after the return transport lag.
-    core_inlet_temperature: ThermodynamicTemperature,
-    /// Current (transient) core-outlet helium temperature.
-    core_outlet_temperature: ThermodynamicTemperature,
-    /// Current helium mass flow (driven by the circulator setpoint).
-    mass_flow: MassRate,
-    /// Most recently computed heat rate **leaving the helium** in the steam
-    /// generator.
-    ihx_duty: Power,
-    /// Most recently computed heat rate **entering the water/steam** in the
-    /// steam generator. Differs from [`Self::ihx_duty`] by the rate of change of
-    /// energy stored in the tube metal.
-    secondary_duty: Power,
-    /// Helium-side steam-generator outlet temperature (feeds the core inlet).
-    ihx_outlet_temperature: ThermodynamicTemperature,
     /// The nodalised counter-flow steam generator itself: helium shell side,
     /// steel tube metal, water/steam tube side.
     steam_generator: NodalisedCounterFlowSteamGenerator,
-    /// Frictional pressure drop around the whole loop at the current flow: the
-    /// KTA bed term plus the published non-bed remainder.
-    pressure_drop: Pressure,
-    /// The **pebble-bed** part of that drop alone, from the KTA correlation.
-    bed_pressure_drop: Pressure,
-    /// Circulator hydraulic power required to sustain the total pressure drop.
-    circulator_power: Power,
     /// Whether the helium circulator has tripped.
     ///
     /// **This exists so the simulator can enter loss of forced cooling at all.**
@@ -748,8 +881,8 @@ impl HeliumPrimaryLoop {
     }
 
     /// Construct the loop at the published HTR-10 operating point:
-    /// `nominal_flow` helium mass flow, core inlet seeded at 250 degC and core
-    /// outlet at 700 degC, helium properties evaluated at their mean.
+    /// `nominal_flow` helium mass flow, the cold-return CV (core inlet) seeded
+    /// at 250 degC and the hot-duct CV and core outlet at 700 degC.
     ///
     /// Seeding at the published end states rather than at a single cold
     /// temperature means the simulator opens near its operating point instead
@@ -760,62 +893,67 @@ impl HeliumPrimaryLoop {
         let (c_p, density, dynamic_viscosity) =
             helium_properties(0.5 * (published_core_inlet_k() + published_core_outlet_k()));
         let (_, reference_density, _) = helium_properties(pressure_drop_reference_temperature_k());
+        let cold = HeliumNode::at_temperature(inlet);
+        let hot = HeliumNode::at_temperature(outlet);
 
         Self {
-            c_p,
-            density,
-            dynamic_viscosity,
+            lumped: PrimaryLumpedState {
+                bed_outlet: hot,
+                hot_duct: hot,
+                cold_return: cold,
+                sg_outlet_enthalpy: cold.enthalpy,
+                sg_outlet_temperature: inlet,
+                mass_flow: nominal_flow,
+                ihx_duty: Power::new::<watt>(0.0),
+                secondary_duty: Power::new::<watt>(0.0),
+                c_p,
+                density,
+                dynamic_viscosity,
+                pressure_drop: Pressure::new::<pascal>(0.0),
+                bed_pressure_drop: Pressure::new::<pascal>(0.0),
+                circulator_power: Power::new::<watt>(0.0),
+                last_step_energy: PrimaryStepEnergy::default(),
+            },
             reference_density,
-            core_inlet_temperature: inlet,
-            core_outlet_temperature: outlet,
-            mass_flow: nominal_flow,
             // The loop is constructed at the operating point, circulator
             // running and the secondary connected.
             circulator_tripped: false,
             secondary_isolated: false,
-            ihx_duty: Power::new::<watt>(0.0),
-            secondary_duty: Power::new::<watt>(0.0),
-            ihx_outlet_temperature: inlet,
-            pressure_drop: Pressure::new::<pascal>(0.0),
-            bed_pressure_drop: Pressure::new::<pascal>(0.0),
-            circulator_power: Power::new::<watt>(0.0),
             steam_generator: NodalisedCounterFlowSteamGenerator::new(steam_generator_config())
                 .expect("the HTR-10 steam-generator configuration must be constructible"),
         }
     }
 
-    /// Advance the loop by `dt`.
+    /// Advance the loop by `dt` -- **the composite API for an isolated loop**,
+    /// with the bed replaced by a prescribed outlet enthalpy.
     ///
-    /// `core_heat_to_helium` is the heat rate crossing the **pebble surface**
-    /// into the helium, as returned by
-    /// [`super::pebble_bed::PebbleBedPorousMediaNode::step`] -- not the raw fission power.
-    /// Routing the fission power through the graphite first is what gives the
-    /// loop the bed's thermal inertia.
+    /// `bed_outlet_enthalpy` is the specific enthalpy of the helium leaving
+    /// the bed. `flow_setpoint` is the commanded circulator flow, clamped to
+    /// the circulator's illustrative range. `feedwater_enthalpy` and
+    /// `secondary_mass_flow` describe the water entering the steam
+    /// generator's tube side.
     ///
-    /// `flow_setpoint` is the commanded circulator flow, clamped to the
-    /// circulator's illustrative range. `feedwater_enthalpy` and
-    /// `secondary_mass_flow` describe the water entering the steam generator's
-    /// tube side.
+    /// The prescribed "bed" is taken to have been handed this loop's
+    /// start-of-step core inlet, so the cold-return CV discharges that
+    /// enthalpy (see [`Self::close_return_leg`]).
     ///
-    /// The step, in order:
+    /// The step, in order (the plant calls the parts itself, around its bed):
     ///
-    /// 1. Helium `c_p` and density are re-evaluated from the real EOS at the
-    ///    current bulk mean temperature `(T_in + T_out)/2`.
-    /// 2. Core energy balance: steady-state outlet `T_in + Q/(m_dot c_p)`,
-    ///    with the displayed outlet relaxed toward it over
-    ///    [`CORE_THERMAL_TIME_CONSTANT_S`].
-    /// 3. **Steam generator, nodalised counter-flow.** The core-outlet helium
-    ///    enters the shell side of
-    ///    [`super::steam_generator::NodalisedCounterFlowSteamGenerator`], the
-    ///    feedwater enters the tube side at the opposite end, and the exchanger
-    ///    is advanced. The duty is *not* a formula evaluated here -- it is the
-    ///    helium stream's own enthalpy drop across a resolved exchanger, and the
-    ///    helium-side outlet temperature comes back with it.
-    /// 4. The core inlet relaxes toward that helium-side outlet over
-    ///    [`RETURN_TRANSPORT_TIME_CONSTANT_S`], closing the loop.
-    /// 5. Loop pressure drop -- KTA over the bed plus the published non-bed
-    ///    component sum -- and circulator hydraulic power at the current flow
-    ///    and density.
+    /// 1. [`Self::command_flow`] -- the circulator flow for the step.
+    /// 2. [`Self::step_hot_duct`] -- the hot-duct CV's enthalpy balance on the
+    ///    bed outflow.
+    /// 3. [`Self::advance_steam_generator`] -- the nodalised counter-flow
+    ///    exchanger, handed the hot-duct enthalpy; the duty and the
+    ///    helium-side outlet enthalpy both come **out** of it.
+    /// 4. [`Self::close_return_leg`] -- loop hydraulics and circulator work,
+    ///    then the cold-return CV's enthalpy balance, circulator work as its
+    ///    source.
+    ///
+    /// ~~2. Core energy balance: steady-state outlet `T_in + Q/(m_dot c_p)`,
+    /// with the displayed outlet relaxed toward it over
+    /// `CORE_THERMAL_TIME_CONSTANT_S`.~~ ~~4. The core inlet relaxes toward
+    /// that helium-side outlet over `RETURN_TRANSPORT_TIME_CONSTANT_S`.~~ Both
+    /// lags were replaced by CVs on 2026-09-29 (gh:#391, #392).
     ///
     /// # What changed on 2026-08-12
     ///
@@ -832,47 +970,37 @@ impl HeliumPrimaryLoop {
     /// did, so the duty was over-predicted and the steam ran far too hot. The
     /// nodalised exchanger evaluates the driving difference at local node
     /// temperatures instead. See that module's docs for the full account.
-    #[allow(dead_code)] // the composite API, exercised by the loop tests; `HtgrPlant` calls the three parts
+    #[allow(dead_code)] // the composite API, exercised by the loop tests; `HtgrPlant` calls the parts
     pub fn step(
         &mut self,
         dt: Time,
-        core_outlet_from_bed: ThermodynamicTemperature,
+        bed_outlet_enthalpy: AvailableEnergy,
         flow_setpoint: MassRate,
         feedwater_enthalpy: AvailableEnergy,
         secondary_mass_flow: MassRate,
     ) {
-        self.step_hot_leg(dt, core_outlet_from_bed, flow_setpoint);
+        let inlet_seen_by_bed = self.core_inlet_enthalpy();
+        self.command_flow(flow_setpoint);
+        self.step_hot_duct(dt, bed_outlet_enthalpy);
         self.advance_steam_generator(dt, feedwater_enthalpy, secondary_mass_flow);
-        self.close_return_leg(dt);
+        self.close_return_leg(dt, inlet_seen_by_bed);
     }
 
-    /// **Part 1 of [`Self::step`]: the cheap hot leg.** Clamps the commanded
-    /// flow, re-evaluates the helium properties, and advances the core-outlet
-    /// temperature through its first-order gas thermal inertia.
+    /// Set the circulator flow for this timestep from the commanded setpoint,
+    /// clamped to the circulator's range.
     ///
-    /// Split out of `step` so that [`super::HtgrPlant`]'s outer-corrector loop
-    /// can re-advance it several times per plant timestep against improving
-    /// estimates of the coupled quantities, **without** re-advancing
-    /// [`Self::advance_steam_generator`], which is 96% of the plant's compute
-    /// (measured 2026-08-13). Costs one CoolProp helium flash per call.
+    /// **Called before the bed is stepped** (2026-09-29): the flow is
+    /// prescribed (there is no momentum equation), so the bed, both helium
+    /// CVs and the steam generator must all see the same `m_dot` within a
+    /// timestep. Until 2026-09-29 the bed read the previous step's flow while
+    /// the hot leg and the exchanger read the new one, which on a flow change
+    /// (a circulator trip) put different mass flows on the two sides of the
+    /// bed-outlet seam.
     ///
-    /// Idempotent with respect to the caller's own bookkeeping only in the
-    /// sense that it reads `self.core_inlet_temperature` and
-    /// `self.core_outlet_temperature` and writes the latter: to call it twice
-    /// for the same timestep, restore [`Self::lumped_state`] in between.
-    pub fn step_hot_leg(
-        &mut self,
-        dt: Time,
-        core_outlet_from_bed: ThermodynamicTemperature,
-        flow_setpoint: MassRate,
-    ) {
-        // Clamp the commanded flow to the circulator's range so the energy
-        // balance denominator and the residence time never blow up, and so a
-        // setpoint scaled for a different plant cannot drive this one.
-        //
-        // A TRIPPED circulator is not a commanded setpoint, so it does not get
-        // the commanded floor: it would put 7 % of rated flow through a core
-        // that is supposed to have lost forced cooling entirely.
+    /// A TRIPPED circulator is not a commanded setpoint, so it does not get
+    /// the commanded floor: it would put 7 % of rated flow through a core
+    /// that is supposed to have lost forced cooling entirely.
+    pub fn command_flow(&mut self, flow_setpoint: MassRate) {
         let floor = if self.circulator_tripped {
             TRIPPED_HELIUM_FLOW_KG_PER_S
         } else {
@@ -881,47 +1009,68 @@ impl HeliumPrimaryLoop {
         let flow_kg_s = flow_setpoint
             .get::<kilogram_per_second>()
             .clamp(floor, MAX_HELIUM_FLOW_KG_PER_S);
-        self.mass_flow = MassRate::new::<kilogram_per_second>(flow_kg_s);
+        self.lumped.mass_flow = MassRate::new::<kilogram_per_second>(flow_kg_s);
+    }
 
-        // 1. Real helium properties at the current bulk mean temperature.
-        let t_in_k = self.core_inlet_temperature.get::<kelvin>();
-        let t_out_k = self.core_outlet_temperature.get::<kelvin>();
-        let (c_p, density, dynamic_viscosity) = helium_properties(0.5 * (t_in_k + t_out_k));
-        self.c_p = c_p;
-        self.density = density;
-        self.dynamic_viscosity = dynamic_viscosity;
-        let c_p_j = self.c_p.get::<joule_per_kilogram_kelvin>();
-
+    /// **The hot-duct CV**: the hot-gas plenum in the bottom reflector and the
+    /// hot gas duct's centre tube, one well-mixed helium volume
+    /// ([`hot_duct_volume`]) between the bed and the steam generator.
+    ///
+    /// Backward Euler on its enthalpy balance, with the mass frozen at the
+    /// start-of-step state:
+    ///
+    /// ```text
+    /// M_h (h_h' - h_h) / dt = m_dot (h_bed,out - h_h')
+    /// => h_h' = (M_h h_h + m_dot dt h_bed,out) / (M_h + m_dot dt)
+    /// ```
+    ///
+    /// `h_h'` is a convex combination of `h_h` and `h_bed,out`, so it can never
+    /// leave the interval they span -- the second law on this leg is a
+    /// property of the formulation, not of a clamp. Its residence time is
+    /// `M_h / m_dot` (about 0.36 s at rated flow and 973 K, ~150 s at the
+    /// 0.01 kg/s trip floor); nothing is typed in.
+    ///
+    /// Also re-evaluates the helium properties at the bed's bulk mean
+    /// `(T_core,in + T_core,out)/2` for the KTA friction and the display.
+    ///
+    /// Replaces ~~`step_hot_leg`~~ (a first-order lag on the core outlet with
+    /// a second-law clamp; gh:#391). To call it twice for the same timestep,
+    /// restore [`Self::lumped_state`] in between.
+    pub fn step_hot_duct(&mut self, dt: Time, bed_outlet_enthalpy: AvailableEnergy) {
         let dt_s = dt.get::<second>();
-        let capacity_rate = flow_kg_s * c_p_j; // C_min = m_dot c_p [W/K]
+        let m_dot = self.lumped.mass_flow.get::<kilogram_per_second>();
 
-        // 2. Core energy balance with first-order gas thermal inertia.
-        //
-        // The steady-state outlet is taken from the BED's own balance rather
-        // than re-derived here as `T_in + Q/(m c_p)`. Both routes are the
-        // same balance in principle, but this module evaluates `c_p` at the
-        // bulk mean while the bed evaluates its own properties internally,
-        // and re-deriving let a small disagreement between them put the core
-        // outlet above the bed temperature on the now-removed effectiveness-NTU
-        // `PebbleBedCore` closure -- a second-law violation (see
-        // `reactor_model::one_node`'s "History" note). Reading the outlet the
-        // bed published keeps that structural rather than re-opening it. See
-        // `pebble_bed::PebbleBedPorousMediaNode::step`.
-        let t_out_ss_k = core_outlet_from_bed.get::<kelvin>();
-        let _ = capacity_rate;
-        let tau_gas = core_thermal_time_constant_s(self.mass_flow, self.density);
-        let alpha_core = (dt_s / tau_gas).clamp(0.0, 1.0);
-        let t_out_next_k = t_out_k + alpha_core * (t_out_ss_k - t_out_k);
-        // Second-law guard on the lag -- see `bounded_core_outlet`. The bed
-        // temperature is recovered from the outlet the bed published, which is
-        // `T_bed - (T_bed - T_in) exp(-NTU)`, so the bed is at or above it.
-        let t_out_next_k = bounded_core_outlet(t_out_next_k, t_in_k, t_out_ss_k.max(t_in_k));
-        self.core_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_out_next_k);
+        // What left the core. One (p, h) flash, for the temperature.
+        self.lumped.bed_outlet = self
+            .lumped
+            .bed_outlet
+            .moved_to(bed_outlet_enthalpy.get::<joule_per_kilogram>());
+
+        // Real helium properties at the bed's bulk mean.
+        let t_in_k = self.lumped.cold_return.state.temperature;
+        let t_out_k = self.lumped.bed_outlet.state.temperature;
+        let (c_p, density, dynamic_viscosity) = helium_properties(0.5 * (t_in_k + t_out_k));
+        self.lumped.c_p = c_p;
+        self.lumped.density = density;
+        self.lumped.dynamic_viscosity = dynamic_viscosity;
+
+        // The CV's own enthalpy balance.
+        let mass = self
+            .lumped
+            .hot_duct
+            .mass_in(hot_duct_volume())
+            .get::<kilogram>();
+        let h_old = self.lumped.hot_duct.enthalpy;
+        let h_in = self.lumped.bed_outlet.enthalpy;
+        let h_new = (mass * h_old + m_dot * dt_s * h_in) / (mass + m_dot * dt_s);
+        self.lumped.hot_duct = self.lumped.hot_duct.moved_to(h_new);
+        self.lumped.last_step_energy.hot_duct_storage = mass * (h_new - h_old);
     }
 
     /// **Part 2 of [`Self::step`]: the expensive exchanger.** Advances the
-    /// resolved counter-flow steam generator by `dt` and stores both stream
-    /// duties and the helium-side outlet.
+    /// resolved counter-flow steam generator by `dt`, handed the hot-duct
+    /// CV's **enthalpy**, and stores both stream duties and the helium-side
+    /// outlet enthalpy and temperature.
     ///
     /// The duty and the helium-side outlet both come **out** of the exchanger;
     /// neither is computed here. The secondary flow is floored so the tube side
@@ -933,7 +1082,7 @@ impl HeliumPrimaryLoop {
     /// three arrays hold their own history and cannot be rolled back cheaply.
     /// [`super::HtgrPlant::step`] therefore calls it **exactly once per plant
     /// timestep**, on the final outer corrector, so that the hot-inlet
-    /// temperature and the feedwater state it is handed are the converged
+    /// enthalpy and the feedwater state it is handed are the converged
     /// end-of-step values rather than the start-of-step ones.
     pub fn advance_steam_generator(
         &mut self,
@@ -951,20 +1100,22 @@ impl HeliumPrimaryLoop {
         // the HTR-10 test procedure avoids by isolating the secondary 12 s
         // after the trip (Hu et al. 2006 section 3).
         if self.secondary_isolated {
-            self.ihx_duty = Power::new::<watt>(0.0);
-            self.secondary_duty = Power::new::<watt>(0.0);
-            // The helium side is valved out too, so the return leg sees the
-            // core outlet rather than a cooled steam-generator outlet.
-            self.ihx_outlet_temperature = self.core_outlet_temperature;
+            self.lumped.ihx_duty = Power::new::<watt>(0.0);
+            self.lumped.secondary_duty = Power::new::<watt>(0.0);
+            // The helium side is valved out too, so the cold-return CV
+            // receives the hot-duct helium rather than a cooled
+            // steam-generator outlet.
+            self.lumped.sg_outlet_enthalpy = self.lumped.hot_duct.enthalpy;
+            self.lumped.sg_outlet_temperature = self.lumped.hot_duct.temperature();
             return;
         }
 
         let sg = self
             .steam_generator
-            .advance_timestep(
+            .advance_timestep_from_hot_inlet_enthalpy(
                 dt,
-                self.core_outlet_temperature,
-                self.mass_flow,
+                self.lumped.hot_duct.enthalpy(),
+                self.lumped.mass_flow,
                 feedwater_enthalpy,
                 MassRate::new::<kilogram_per_second>(
                     secondary_mass_flow
@@ -973,77 +1124,109 @@ impl HeliumPrimaryLoop {
                 ),
             )
             .expect("the steam generator must advance");
-        self.ihx_duty = sg.hot_side_duty;
-        self.secondary_duty = sg.cold_side_duty;
-        self.ihx_outlet_temperature = sg.hot_outlet_temperature;
+        self.lumped.ihx_duty = sg.hot_side_duty;
+        self.lumped.secondary_duty = sg.cold_side_duty;
+        self.lumped.sg_outlet_enthalpy = sg.hot_outlet_enthalpy.get::<joule_per_kilogram>();
+        self.lumped.sg_outlet_temperature = sg.hot_outlet_temperature;
     }
 
-    /// **Part 3 of [`Self::step`]: the cheap return leg.** Relaxes the core
-    /// inlet toward the steam generator's helium-side outlet through the return
-    /// transport lag, closing the circuit, then updates the loop pressure drop
-    /// and circulator power.
+    /// **The cold-return CV**, and the loop hydraulics that set its source.
     ///
-    /// Reads [`Self::ihx_outlet_temperature`], which
-    /// [`Self::advance_steam_generator`] wrote (or, on an outer corrector that
-    /// has not yet advanced the exchanger, whatever the previous plant timestep
-    /// left there).
-    pub fn close_return_leg(&mut self, dt: Time) {
+    /// One well-mixed helium volume ([`cold_return_volume`]) from the steam
+    /// generator's helium outlet to the top of the bed: the six connection
+    /// tubes, the circulator casing, the annuli down the SG vessel, the
+    /// coaxial duct and the RPV, the 20 side-reflector riser boreholes and the
+    /// top cold plenum. Its state is the core inlet.
+    ///
+    /// 1. **Hydraulics.** KTA over the bed plus the published non-bed
+    ///    remainder, and the circulator shaft power `W = m_dot dp / (rho eta)`
+    ///    -- with `rho` the **cold-return CV's** density, where the circulator
+    ///    sits (see [`Self::update_hydraulics`]).
+    /// 2. **Energy.** Backward Euler, mass frozen at the start-of-step state,
+    ///    **circulator work as the source** (gh:#392):
+    ///
+    ///    ```text
+    ///    M_c (h_c' - h_c) / dt = m_dot (h_sg,out - h_core,in) + W
+    ///    ```
+    ///
+    /// # Why the outflow is `h_core,in`, the enthalpy the bed was handed
+    ///
+    /// The steam generator is advanced once per plant step, on the final outer
+    /// corrector, after the bed; so the bed on that corrector has already been
+    /// solved against the **previous corrector's** estimate of this CV's state.
+    /// The enthalpy crossing the seam into the bed is therefore that estimate,
+    /// and this CV discharges exactly the same number -- the flux across the
+    /// seam is evaluated once and used on both sides, so the seam conserves
+    /// energy exactly. As the outer correctors converge the estimate converges
+    /// to `h_c'` and the balance becomes the implicit well-mixed one. With one
+    /// corrector it is explicit upwind, stable while `m_dot dt / M_c < 1`:
+    /// **measured margin** at the 8 kg/s circulator ceiling and a 1000 K cold
+    /// return (the lightest the CV gets), `0.8 kg / 5.3 kg = 0.15`.
+    /// `core_inlet_enthalpy_seen_by_bed` is that estimate.
+    ///
+    /// Residence time `M_c / m_dot`: about 2.3 s at rated flow, growing
+    /// without bound as the flow falls -- replaces
+    /// ~~`RETURN_TRANSPORT_TIME_CONSTANT_S = 8.0` s, invented and
+    /// flow-independent~~.
+    pub fn close_return_leg(&mut self, dt: Time, core_inlet_enthalpy_seen_by_bed: AvailableEnergy) {
         let dt_s = dt.get::<second>();
-        let t_in_k = self.core_inlet_temperature.get::<kelvin>();
-        let t_ihx_out_k = self.ihx_outlet_temperature.get::<kelvin>();
-        let alpha_return = (dt_s / RETURN_TRANSPORT_TIME_CONSTANT_S).clamp(0.0, 1.0);
-        let t_in_next_k = t_in_k + alpha_return * (t_ihx_out_k - t_in_k);
-        self.core_inlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_in_next_k);
+        let m_dot = self.lumped.mass_flow.get::<kilogram_per_second>();
 
-        self.update_hydraulics(self.mass_flow.get::<kilogram_per_second>());
+        self.update_hydraulics(m_dot);
+        let work = self.lumped.circulator_power.get::<watt>();
+
+        let mass = self
+            .lumped
+            .cold_return
+            .mass_in(cold_return_volume())
+            .get::<kilogram>();
+        let h_old = self.lumped.cold_return.enthalpy;
+        let h_to_bed = core_inlet_enthalpy_seen_by_bed.get::<joule_per_kilogram>();
+        let h_from_sg = self.lumped.sg_outlet_enthalpy;
+        let h_new = h_old + dt_s / mass * (m_dot * (h_from_sg - h_to_bed) + work);
+        self.lumped.cold_return = self.lumped.cold_return.moved_to(h_new);
+
+        let e = &mut self.lumped.last_step_energy;
+        e.cold_return_storage = mass * (h_new - h_old);
+        e.circulator_work = work * dt_s;
+        e.to_steam_generator = m_dot * (self.lumped.hot_duct.enthalpy - h_from_sg) * dt_s;
+        e.from_bed = m_dot * (self.lumped.bed_outlet.enthalpy - h_to_bed) * dt_s;
     }
 
     /// Every **lumped scalar** this loop integrates, as one `Copy` value.
     ///
-    /// This is the loop's whole rollback-able state: the two circuit
-    /// temperatures, the flow, and the three quantities the exchanger last
-    /// returned. It deliberately excludes the steam generator's three arrays,
-    /// which hold their own spatial history -- see
-    /// [`Self::advance_steam_generator`] for why that one part of a timestep is
-    /// not repeated.
+    /// This is the loop's whole rollback-able state: the three helium nodes
+    /// (bed outlet, hot duct, cold return), the steam-generator outlet, the
+    /// flow, the duties, the hydraulics and the last pass's energy terms. It
+    /// deliberately excludes the steam generator's three arrays, which hold
+    /// their own spatial history -- see [`Self::advance_steam_generator`] for
+    /// why that one part of a timestep is not repeated.
     ///
     /// Used by [`super::HtgrPlant::step`]'s outer-corrector loop with
     /// [`Self::restore_lumped_state`].
     pub fn lumped_state(&self) -> PrimaryLumpedState {
-        PrimaryLumpedState {
-            core_inlet_temperature: self.core_inlet_temperature,
-            core_outlet_temperature: self.core_outlet_temperature,
-            mass_flow: self.mass_flow,
-            ihx_duty: self.ihx_duty,
-            secondary_duty: self.secondary_duty,
-            ihx_outlet_temperature: self.ihx_outlet_temperature,
-        }
+        self.lumped
     }
 
     /// Restore the lumped scalars saved by [`Self::lumped_state`], rewinding
     /// this loop to the start of the current plant timestep. Does **not** touch
     /// the steam generator.
     pub fn restore_lumped_state(&mut self, s: PrimaryLumpedState) {
-        self.core_inlet_temperature = s.core_inlet_temperature;
-        self.core_outlet_temperature = s.core_outlet_temperature;
-        self.mass_flow = s.mass_flow;
-        self.ihx_duty = s.ihx_duty;
-        self.secondary_duty = s.secondary_duty;
-        self.ihx_outlet_temperature = s.ihx_outlet_temperature;
+        self.lumped = s;
     }
 
     /// Loop pressure drop -- **KTA over the bed, published sum for the rest** --
-    /// and the circulator hydraulic power needed to sustain it.
+    /// and the circulator shaft power needed to sustain it.
     ///
     /// Two terms, and they are not the same kind of number:
     ///
     /// 1. **The pebble bed: real.** [`bed_pressure_drop`] evaluates the KTA
     ///    packed-bed correlation
     ///    ([`outram_park_digital_twin_engine::htr10::kta`]) at the current bed
-    ///    mass flux, the live helium density and viscosity, the published
-    ///    pebble diameter and bed porosity, integrated over the published bed
-    ///    height. A friction factor is genuinely evaluated; nothing about this
-    ///    term is anchored to a target.
+    ///    mass flux, the live helium density and viscosity at the bed's bulk
+    ///    mean, the published pebble diameter and bed porosity, integrated
+    ///    over the published bed height. A friction factor is genuinely
+    ///    evaluated; nothing about this term is anchored to a target.
     /// 2. **Everything else: the published sum, scaled.** The side-reflector
     ///    pass, the mixture plenums, the steam generator and the hot gas duct
     ///    total [`PUBLISHED_NON_BED_DROP_AT_RATED_PA`] (25.9 kPa of the 27.2 kPa
@@ -1052,18 +1235,32 @@ impl HeliumPrimaryLoop {
     ///    fully-turbulent shape; **no density correction is applied to this
     ///    term**, because the published sum already embeds each component's own
     ///    local temperature (the steam generator and cold legs are cold, the
-    ///    duct and plenums hot) and this single-node model resolves only one
-    ///    density. Correcting it with the bulk-mean density would inflate the
-    ///    cold components by ~40%.
+    ///    duct and plenums hot) and this lumped model resolves only one
+    ///    density per CV. Correcting it with the bulk-mean density would
+    ///    inflate the cold components by ~40%.
     ///
-    /// Circulator power is `m_dot dp_total / (rho eta)` with the illustrative
-    /// efficiency [`CIRCULATOR_EFFICIENCY`].
+    /// Circulator shaft power is `m_dot dp_total / (rho eta)` with the
+    /// illustrative efficiency [`CIRCULATOR_EFFICIENCY`], and **all of it is
+    /// delivered to the helium** as the cold-return CV's source: an adiabatic
+    /// compressor raises the stream's enthalpy by `W / m_dot`, and the
+    /// isentropic inefficiency is dissipated in the gas, not lost from it.
+    /// That assumes the drive motor's own losses (on the upper shaft, [S2])
+    /// do not reach the helium; it is stated rather than sourced.
+    ///
+    /// **CHANGED 2026-09-29 (gh:#392): `rho` is the cold-return CV's
+    /// density**, where the circulator sits ([`pressure_drop_reference_temperature_k`]
+    /// already says so: "the published 250 degC cold leg, where the circulator
+    /// sits"). ~~It was the bed's bulk-mean density~~, which is ~30 % lower at
+    /// the design point and inflated the work by the same factor. That did not
+    /// matter while the work was computed and discarded; it matters now that
+    /// the work is a source term.
     fn update_hydraulics(&mut self, flow_kg_s: f64) {
-        let rho = self.density;
-        if !(rho > 0.0) || !(self.reference_density > 0.0) {
-            self.pressure_drop = Pressure::new::<pascal>(0.0);
-            self.bed_pressure_drop = Pressure::new::<pascal>(0.0);
-            self.circulator_power = Power::new::<watt>(0.0);
+        let rho = self.lumped.density;
+        let rho_circulator = self.lumped.cold_return.state.density;
+        if !(rho > 0.0) || !(self.reference_density > 0.0) || !(rho_circulator > 0.0) {
+            self.lumped.pressure_drop = Pressure::new::<pascal>(0.0);
+            self.lumped.bed_pressure_drop = Pressure::new::<pascal>(0.0);
+            self.lumped.circulator_power = Power::new::<watt>(0.0);
             return;
         }
 
@@ -1072,66 +1269,142 @@ impl HeliumPrimaryLoop {
         let bed_dp = bed_pressure_drop(
             bed_flow,
             MassDensity::new::<kilogram_per_cubic_meter>(rho),
-            self.dynamic_viscosity,
+            self.lumped.dynamic_viscosity,
         );
-        self.bed_pressure_drop = bed_dp;
+        self.lumped.bed_pressure_drop = bed_dp;
 
         // 2. The published remainder of the loop, quadratic in flow.
         let flow_ratio = flow_kg_s / pebble_bed::nominal_helium_flow_kg_per_s();
         let non_bed_dp = PUBLISHED_NON_BED_DROP_AT_RATED_PA * flow_ratio * flow_ratio;
 
         let dp = bed_dp.get::<pascal>() + non_bed_dp;
-        self.pressure_drop = Pressure::new::<pascal>(dp);
-        self.circulator_power = Power::new::<watt>(flow_kg_s * dp / (rho * CIRCULATOR_EFFICIENCY));
+        self.lumped.pressure_drop = Pressure::new::<pascal>(dp);
+        self.lumped.circulator_power =
+            Power::new::<watt>(flow_kg_s * dp / (rho_circulator * CIRCULATOR_EFFICIENCY));
     }
 
     /// Total helium-filled volume of the primary circuit: the bed void volume
     /// derived from the published core geometry, plus the illustrative
-    /// allowance for the plenums, duct, steam-generator shell and circulator.
+    /// allowance for the plenums, duct, steam-generator shell and circulator
+    /// (now split into the hot-duct CV, the steam generator's shell side and
+    /// the cold-return CV -- the total is unchanged).
     pub fn gas_volume(&self) -> Volume {
         pebble_bed::bed_void_volume() + Volume::new::<cubic_meter>(LOOP_GAS_VOLUME_OUTSIDE_BED_M3)
     }
 
-    /// Helium inventory held in the circuit, `rho V` from the real EOS density.
+    /// Helium inventory held in the circuit \[kg\]: the two CVs' own masses,
+    /// plus the bed void and the steam-generator shell side at the bed's
+    /// bulk-mean density (those two nodes belong to the bed and the exchanger,
+    /// which own their own densities).
     pub fn helium_inventory(&self) -> Mass {
-        Mass::new::<kilogram>(self.density * self.gas_volume().get::<cubic_meter>())
+        let rho_bulk = self.lumped.density;
+        self.lumped.hot_duct.mass_in(hot_duct_volume())
+            + self.lumped.cold_return.mass_in(cold_return_volume())
+            + Mass::new::<kilogram>(
+                rho_bulk
+                    * (pebble_bed::bed_void_volume() + steam_generator_shell_volume())
+                        .get::<cubic_meter>(),
+            )
     }
 
-    /// Current (transient) core-inlet helium temperature -- the steam-generator
-    /// helium outlet after the return transport lag.
+    /// Core-inlet helium temperature -- the cold-return CV's state.
     pub fn core_inlet_temperature(&self) -> ThermodynamicTemperature {
-        self.core_inlet_temperature
+        self.lumped.cold_return.temperature()
     }
 
-    /// Current (transient) core-outlet helium temperature.
+    /// Core-inlet helium specific enthalpy -- the cold-return CV's state, and
+    /// the enthalpy the bed is handed.
+    pub fn core_inlet_enthalpy(&self) -> AvailableEnergy {
+        self.lumped.cold_return.enthalpy()
+    }
+
+    /// Core-outlet helium temperature -- the helium **leaving the bed** (its
+    /// fluid node), as handed to [`Self::step_hot_duct`].
+    ///
+    /// **CHANGED 2026-09-29 (gh:#391):** this was the lagged-and-clamped
+    /// value the steam generator saw. The steam generator's inlet is now the
+    /// hot-duct CV, [`Self::hot_duct_temperature`].
     pub fn core_outlet_temperature(&self) -> ThermodynamicTemperature {
-        self.core_outlet_temperature
+        self.lumped.bed_outlet.temperature()
     }
 
-    /// Bulk mean helium temperature in the core, `(T_in + T_out)/2` -- the
-    /// coolant temperature the pebble bed exchanges heat with.
+    /// Hot-duct CV temperature -- the steam generator's helium inlet.
+    pub fn hot_duct_temperature(&self) -> ThermodynamicTemperature {
+        self.lumped.hot_duct.temperature()
+    }
+
+    /// Hot-duct CV specific enthalpy -- what the steam generator is handed.
+    pub fn hot_duct_enthalpy(&self) -> AvailableEnergy {
+        self.lumped.hot_duct.enthalpy()
+    }
+
+    /// Helium mass held in the hot-duct CV \[kg\].
+    pub fn hot_duct_mass(&self) -> Mass {
+        self.lumped.hot_duct.mass_in(hot_duct_volume())
+    }
+
+    /// Helium mass held in the cold-return CV \[kg\].
+    pub fn cold_return_mass(&self) -> Mass {
+        self.lumped.cold_return.mass_in(cold_return_volume())
+    }
+
+    /// Residence time of the hot-duct CV, `M_h / m_dot` -- emerges from the
+    /// CV's mass and the flow; nothing is typed in.
+    pub fn hot_duct_residence_time(&self) -> Time {
+        self.hot_duct_mass() / self.lumped.mass_flow
+    }
+
+    /// Residence time of the cold-return CV, `M_c / m_dot`.
+    pub fn cold_return_residence_time(&self) -> Time {
+        self.cold_return_mass() / self.lumped.mass_flow
+    }
+
+    /// Bulk mean helium temperature in the core, `(T_in + T_out)/2`.
+    #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
     pub fn helium_bulk_temperature(&self) -> ThermodynamicTemperature {
         ThermodynamicTemperature::new::<kelvin>(
-            0.5 * (self.core_inlet_temperature.get::<kelvin>()
-                + self.core_outlet_temperature.get::<kelvin>()),
+            0.5 * (self.core_inlet_temperature().get::<kelvin>()
+                + self.core_outlet_temperature().get::<kelvin>()),
         )
     }
 
     /// Helium-side steam-generator outlet temperature.
     pub fn ihx_outlet_temperature(&self) -> ThermodynamicTemperature {
-        self.ihx_outlet_temperature
+        self.lumped.sg_outlet_temperature
+    }
+
+    /// Helium-side steam-generator outlet specific enthalpy.
+    #[allow(dead_code)] // read by the V&V tests
+    pub fn ihx_outlet_enthalpy(&self) -> AvailableEnergy {
+        AvailableEnergy::new::<joule_per_kilogram>(self.lumped.sg_outlet_enthalpy)
     }
 
     /// Current helium mass flow.
     pub fn mass_flow(&self) -> MassRate {
-        self.mass_flow
+        self.lumped.mass_flow
+    }
+
+    /// Energy terms of the most recent pass. See [`PrimaryStepEnergy`].
+    pub fn last_step_energy(&self) -> PrimaryStepEnergy {
+        self.lumped.last_step_energy
     }
 
     /// Heat rate **leaving the helium** in the steam generator on the most
     /// recent step -- the helium stream's own enthalpy drop across the resolved
     /// exchanger, `m_dot (h_in - h_out)`.
     pub fn ihx_duty(&self) -> Power {
-        self.ihx_duty
+        self.lumped.ihx_duty
+    }
+
+    /// The nodalised steam generator, read-only.
+    ///
+    /// Added 2026-09-27 for diagnosis: the cold side reached the 273.15 K IF97
+    /// floor and nothing outside this module could see the node temperatures
+    /// that got it there. A read-only accessor, so it cannot become a second
+    /// way to drive the exchanger.
+    #[allow(dead_code)]
+    pub fn steam_generator(&self) -> &NodalisedCounterFlowSteamGenerator {
+        &self.steam_generator
     }
 
     /// Heat rate **entering the water/steam** in the steam generator on the most
@@ -1142,18 +1415,8 @@ impl HeliumPrimaryLoop {
     /// difference is the rate of change of energy stored in the tube metal. That
     /// gap is the physics the metal exists to provide, not a bookkeeping error;
     /// at steady state it closes.
-    /// The nodalised steam generator, read-only.
-    ///
-    /// Added 2026-09-27 for diagnosis: the cold side reached the 273.15 K IF97
-    /// floor and nothing outside this module could see the node temperatures
-    /// that got it there. A read-only accessor, so it cannot become a second
-    /// way to drive the exchanger.
-    pub fn steam_generator(&self) -> &NodalisedCounterFlowSteamGenerator {
-        &self.steam_generator
-    }
-
     pub fn steam_generator_duty_to_secondary(&self) -> Power {
-        self.secondary_duty
+        self.lumped.secondary_duty
     }
 
     /// The nodalised steam generator's most recent state -- per-node
@@ -1209,28 +1472,28 @@ impl HeliumPrimaryLoop {
 
     /// Isobaric specific heat of helium at the current bulk mean temperature.
     pub fn specific_heat(&self) -> SpecificHeatCapacity {
-        self.c_p
+        self.lumped.c_p
     }
 
     /// Helium density at the current bulk mean temperature \[kg/m^3\], from the
     /// real EOS.
     #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
     pub fn density(&self) -> f64 {
-        self.density
+        self.lumped.density
     }
 
     /// Frictional pressure drop around the **whole loop** at the current flow:
     /// the KTA bed term plus the published non-bed remainder. Not a bed
     /// friction result on its own -- for that, see [`Self::bed_pressure_drop`].
     pub fn pressure_drop(&self) -> Pressure {
-        self.pressure_drop
+        self.lumped.pressure_drop
     }
 
     /// The **pebble-bed** pressure drop alone, from the KTA correlation at the
     /// current bed mass flux and live helium properties. This one *is* an
     /// evaluated packed-bed friction result.
     pub fn bed_pressure_drop(&self) -> Pressure {
-        self.bed_pressure_drop
+        self.lumped.bed_pressure_drop
     }
 
     /// Helium dynamic viscosity at the current bulk mean temperature, from the
@@ -1238,12 +1501,14 @@ impl HeliumPrimaryLoop {
     /// property the KTA Reynolds number is formed on.
     #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
     pub fn dynamic_viscosity(&self) -> DynamicViscosity {
-        self.dynamic_viscosity
+        self.lumped.dynamic_viscosity
     }
 
-    /// Circulator hydraulic power required to sustain [`Self::pressure_drop`].
+    /// Circulator shaft power required to sustain [`Self::pressure_drop`] --
+    /// and, since 2026-09-29 (gh:#392), the power delivered to the helium as
+    /// the cold-return CV's source. ~~Computed and discarded~~ until then.
     pub fn circulator_power(&self) -> Power {
-        self.circulator_power
+        self.lumped.circulator_power
     }
 }
 
@@ -1352,18 +1617,16 @@ mod tests {
     /// bed's own balance, precisely so the outlet cannot be derived from a
     /// duty with a `c_p` that disagrees with the bed's and end up above the
     /// bed temperature. See `pebble_bed::PebbleBedPorousMediaNode::step`.
-    fn bed_outlet_for(
-        duty: Power,
-        inlet: ThermodynamicTemperature,
-        flow: MassRate,
-    ) -> ThermodynamicTemperature {
-        let capacity = flow.get::<kilogram_per_second>() * 5189.3;
-        ThermodynamicTemperature::new::<kelvin>(
-            inlet.get::<kelvin>() + duty.get::<watt>() / capacity,
-        )
+    ///
+    /// **On enthalpy since 2026-09-29 (gh:#393)**: `h_out = h_in + Q/m_dot`,
+    /// exact, where it used to be `T_in + Q/(m_dot 5189.3)`.
+    fn bed_outlet_for(duty: Power, inlet: AvailableEnergy, flow: MassRate) -> AvailableEnergy {
+        inlet
+            + AvailableEnergy::new::<joule_per_kilogram>(
+                duty.get::<watt>() / flow.get::<kilogram_per_second>(),
+            )
     }
     use super::*;
-    use uom::si::available_energy::joule_per_kilogram;
     use uom::si::power::megawatt;
 
     fn nominal_loop() -> HeliumPrimaryLoop {
@@ -1406,8 +1669,9 @@ mod tests {
     /// March the loop to a settled state at `power`, returning it.
     ///
     /// 200 s of simulated time at the plant timestep. That is more than ten times the
-    /// steam generator's ~38 s metal time constant and forty times the 5 s core
-    /// gas lag, so nothing here is still moving materially. Deliberately shorter
+    /// steam generator's ~38 s metal time constant and ~80 times the two helium
+    /// CVs' residence times (~2.5 s together at rated flow; ~~the 5 s core gas
+    /// lag~~, deleted), so nothing here is still moving materially. Deliberately shorter
     /// than the 400 s the pre-2026-08-12 tests used, because each second of
     /// simulated time now advances three coupled fluid/solid arrays -- about
     /// 1 s of wall clock per simulated second, measured 2026-08-13 -- rather
@@ -1415,7 +1679,7 @@ mod tests {
     fn settled(power: Power) -> HeliumPrimaryLoop {
         let mut loop_ = nominal_loop();
         for _ in 0..steps_for(200.0) {
-            let bed_out = bed_outlet_for(power, loop_.core_inlet_temperature(), nominal_flow());
+            let bed_out = bed_outlet_for(power, loop_.core_inlet_enthalpy(), nominal_flow());
             loop_.step(dt(), bed_out, nominal_flow(), feedwater(), secondary_flow());
         }
         loop_
@@ -1580,7 +1844,7 @@ mod tests {
         for _ in 0..steps_for(200.0) {
             let bed_out = bed_outlet_for(
                 Power::new::<megawatt>(10.0),
-                loop_.core_inlet_temperature(),
+                loop_.core_inlet_enthalpy(),
                 nominal_flow(),
             );
             loop_.step(dt(), bed_out, nominal_flow(), feedwater(), secondary_flow());
@@ -1727,9 +1991,9 @@ mod tests {
         for _ in 0..steps_for(75.0) {
             let dt = dt();
             let q = Power::new::<megawatt>(10.0);
-            let bed_out = bed_outlet_for(q, strong.core_inlet_temperature(), nominal_flow());
+            let bed_out = bed_outlet_for(q, strong.core_inlet_enthalpy(), nominal_flow());
             strong.step(dt, bed_out, nominal_flow(), feedwater(), secondary_flow());
-            let bed_out = bed_outlet_for(q, weak.core_inlet_temperature(), nominal_flow());
+            let bed_out = bed_outlet_for(q, weak.core_inlet_enthalpy(), nominal_flow());
             weak.step(
                 dt,
                 bed_out,
@@ -2007,7 +2271,7 @@ mod tests {
             let q = Power::new::<megawatt>(10.0);
             let bed_out = bed_outlet_for(
                 q,
-                slow.core_inlet_temperature(),
+                slow.core_inlet_enthalpy(),
                 MassRate::new::<kilogram_per_second>(2.0),
             );
             slow.step(
@@ -2019,7 +2283,7 @@ mod tests {
             );
             let bed_out = bed_outlet_for(
                 q,
-                fast.core_inlet_temperature(),
+                fast.core_inlet_enthalpy(),
                 MassRate::new::<kilogram_per_second>(6.0),
             );
             fast.step(
@@ -2036,6 +2300,228 @@ mod tests {
             fast.bed_pressure_drop().get::<pascal>() > slow.bed_pressure_drop().get::<pascal>()
         );
         assert!(fast.circulator_power().get::<watt>() > slow.circulator_power().get::<watt>());
+    }
+
+    /// Run the loop with the steam generator valved out and a prescribed bed
+    /// outlet: settle at `pre_k` for `settle_s`, then step the bed outlet to
+    /// `step_k` and trace the core-inlet enthalpy \[J/kg\] for `seconds`.
+    /// Cheap: the exchanger is not advanced while isolated.
+    fn isolated_step_response(
+        flow_kg_s: f64,
+        pre_k: f64,
+        step_k: f64,
+        settle_s: f64,
+        seconds: f64,
+    ) -> (Vec<f64>, HeliumPrimaryLoop) {
+        let mut loop_ = nominal_loop();
+        loop_.isolate_secondary(true);
+        let flow = MassRate::new::<kilogram_per_second>(flow_kg_s);
+        let at =
+            |k: f64| pebble_bed::helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(k));
+        for _ in 0..steps_for(settle_s) {
+            loop_.step(dt(), at(pre_k), flow, feedwater(), secondary_flow());
+        }
+        let mut trace = vec![loop_.core_inlet_enthalpy().get::<joule_per_kilogram>()];
+        for _ in 0..steps_for(seconds) {
+            loop_.step(dt(), at(step_k), flow, feedwater(), secondary_flow());
+            trace.push(loop_.core_inlet_enthalpy().get::<joule_per_kilogram>());
+        }
+        (trace, loop_)
+    }
+
+    /// Time \[s\] at which `trace` first covers 63.2 % of its change to its
+    /// final value.
+    fn time_to_63_percent(trace: &[f64]) -> f64 {
+        let (h0, h_end) = (trace[0], *trace.last().unwrap());
+        let i = trace
+            .iter()
+            .position(|h| (h - h0) / (h_end - h0) >= 1.0 - (-1.0f64).exp())
+            .expect("the trace must reach 63.2 % of its change");
+        i as f64 * crate::physics::PLANT_TIMESTEP_S
+    }
+
+    /// The 63.2 % time \[s\] of two first-order lags in series, from
+    /// equilibrium, `y(t) = 1 - (t1 e^(-t/t1) - t2 e^(-t/t2))/(t1 - t2)` --
+    /// the analytic answer the CV cascade is checked against (bisection).
+    fn cascade_63_percent_time(t1: f64, t2: f64) -> f64 {
+        let y = |t: f64| 1.0 - (t1 * (-t / t1).exp() - t2 * (-t / t2).exp()) / (t1 - t2);
+        let target = 1.0 - (-1.0f64).exp();
+        let (mut lo, mut hi) = (0.0, 20.0 * (t1 + t2));
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            if y(mid) < target {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        0.5 * (lo + hi)
+    }
+
+    /// V&V (gh:#392): **the return leg's residence time emerges from the CV's
+    /// mass and scales as `1/m_dot`**, and **the circulator's work reaches
+    /// the helium**.
+    ///
+    /// # Methodology
+    ///
+    /// The steam generator is valved out, so the helium runs bed outlet ->
+    /// hot-duct CV -> cold-return CV -> core inlet with nothing in between.
+    /// The loop is settled with the bed outlet at 523.15 K, then the bed
+    /// outlet is stepped to 543.15 K -- a small step, so each CV's mass (and
+    /// residence time) stays within ~4 % over the response -- and the
+    /// core-inlet enthalpy is traced for ~40 residence times, at the rated
+    /// 4.3 kg/s and at a tenth of it.
+    ///
+    /// 1. **Residence time.** Two well-mixed CVs in series answer a step with
+    ///    the analytic two-lag response; its 63.2 % time is computed from the
+    ///    CVs' own `tau = M/m_dot` (read at the end of the run) by
+    ///    [`cascade_63_percent_time`]. Pass: the traced 63.2 % time within 5 %
+    ///    of it at each flow (the `dt = 0.1 s` discretisation and the ~4 % mass
+    ///    change are the tolerance), and the low-flow time at least 8x the
+    ///    rated one.
+    /// 2. **Circulator work.** Once settled, the core inlet must sit above the
+    ///    hot-duct CV by exactly the work per unit mass, `h_c - h_h = W /
+    ///    m_dot`, to 1e-6 relative.
+    ///
+    /// **Both fail on the pre-2026-09-29 loop.** Its core inlet relaxed
+    /// through `RETURN_TRANSPORT_TIME_CONSTANT_S = 8.0` s at every flow, so
+    /// the 63.2 % time was about 8 s at both flows (a ratio of 1, against
+    /// 1.8 s expected at rated flow), and the computed circulator power was
+    /// never added to the gas (`h_c = h_sg`).
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Printed by the test; recorded on gh:#392.
+    #[test]
+    fn the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work() {
+        let mut t63 = Vec::new();
+        for flow in [4.3, 0.43] {
+            let tau_guess = 14.0 / flow; // ~ (M_h + M_c) / m_dot, for the run lengths only
+            let (trace, loop_) =
+                isolated_step_response(flow, 523.15, 543.15, 12.0 * tau_guess, 30.0 * tau_guess);
+            let t = time_to_63_percent(&trace);
+            let tau_h = loop_.hot_duct_residence_time().get::<second>();
+            let tau_c = loop_.cold_return_residence_time().get::<second>();
+            let expected = cascade_63_percent_time(tau_h, tau_c);
+            let w = loop_.circulator_power().get::<watt>();
+            let rise = (loop_.core_inlet_enthalpy() - loop_.hot_duct_enthalpy())
+                .get::<joule_per_kilogram>();
+            let expected_rise = w / flow;
+            println!(
+                "m_dot = {flow:.2} kg/s: 63.2 % time {t:.2} s against the two-lag {expected:.3} s \
+                 (tau_h {tau_h:.3} s, tau_c {tau_c:.3} s; M_h = {:.3} kg, M_c = {:.3} kg); \
+                 W = {:.1} W, h_core,in - h_hot = {rise:.4} J/kg against W/m_dot = \
+                 {expected_rise:.4} J/kg",
+                loop_.hot_duct_mass().get::<kilogram>(),
+                loop_.cold_return_mass().get::<kilogram>(),
+                w,
+            );
+            assert!(
+                (t - expected).abs() / expected < 0.05,
+                "63.2 % time {t} s is not the CVs' two-lag response {expected} s"
+            );
+            assert!(w > 0.0);
+            assert!(
+                (rise - expected_rise).abs() / expected_rise < 1e-6,
+                "the circulator work did not reach the helium: rise {rise} J/kg, W/m_dot {expected_rise} J/kg"
+            );
+            t63.push(t);
+        }
+        assert!(
+            t63[1] / t63[0] > 8.0,
+            "the return-leg lag must grow as the flow falls: {t63:?}"
+        );
+    }
+
+    /// V&V (gh:#394): **the primary loop closes its own energy balance on every
+    /// pass, and the steam generator's hot-side duty is `m_dot (h_hot duct -
+    /// h_SG,out)`**.
+    ///
+    /// # Methodology
+    ///
+    /// 5 s of the isolated-component loop at 10 MWth into a 4.3 kg/s stream,
+    /// steam generator running. At every step:
+    ///
+    /// 1. `from_bed + circulator_work = hot_duct_storage + to_steam_generator
+    ///    + cold_return_storage` ([`PrimaryStepEnergy`]) to 1e-12 of the
+    ///    step's gross energy;
+    /// 2. `ihx_duty dt = to_steam_generator` and `ihx_duty = m_dot (h_hot duct
+    ///    - h_SG,out)`, to 1e-12 relative -- the exchanger was handed exactly
+    ///    the enthalpy the hot-duct CV holds;
+    /// 3. the hot-duct CV's new enthalpy lies between its old one and the bed
+    ///    outlet (second law on that leg, from the formulation -- nothing
+    ///    clamps it).
+    ///
+    /// Before 2026-09-29 (1) had no terms to test, and (2) was false in any
+    /// transient: the exchanger was handed a lagged, clamped temperature that
+    /// was not the enthalpy the bed discharged.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Printed by the test; recorded on gh:#394.
+    #[test]
+    fn the_primary_loop_closes_its_own_balance_and_hands_the_exchanger_its_enthalpy() {
+        let mut loop_ = nominal_loop();
+        let q = Power::new::<megawatt>(10.0);
+        let mut worst_identity = 0.0f64;
+        let mut worst_duty = 0.0f64;
+        let dt_s = dt().get::<second>();
+        for _ in 0..steps_for(5.0) {
+            let h_hot_before = loop_.hot_duct_enthalpy().get::<joule_per_kilogram>();
+            let bed_out = bed_outlet_for(q, loop_.core_inlet_enthalpy(), nominal_flow());
+            loop_.step(dt(), bed_out, nominal_flow(), feedwater(), secondary_flow());
+            let e = loop_.last_step_energy();
+            let gross = e.from_bed.abs()
+                + e.circulator_work.abs()
+                + e.hot_duct_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.cold_return_storage.abs();
+            let identity = e.from_bed + e.circulator_work
+                - e.hot_duct_storage
+                - e.to_steam_generator
+                - e.cold_return_storage;
+            worst_identity = worst_identity.max(identity.abs() / gross);
+
+            let duty = loop_.ihx_duty().get::<watt>();
+            let m_dot = loop_.mass_flow().get::<kilogram_per_second>();
+            let stream = m_dot
+                * (loop_.hot_duct_enthalpy() - loop_.ihx_outlet_enthalpy())
+                    .get::<joule_per_kilogram>();
+            worst_duty = worst_duty
+                .max((duty - stream).abs() / duty.abs())
+                .max((duty * dt_s - e.to_steam_generator).abs() / (duty * dt_s).abs());
+
+            let h_hot = loop_.hot_duct_enthalpy().get::<joule_per_kilogram>();
+            let h_bed = bed_out.get::<joule_per_kilogram>();
+            let (lo, hi) = (h_hot_before.min(h_bed), h_hot_before.max(h_bed));
+            assert!(
+                h_hot >= lo - 1e-9 * hi.abs() && h_hot <= hi + 1e-9 * hi.abs(),
+                "the hot-duct CV left the interval of its inputs"
+            );
+        }
+        println!(
+            "primary identity worst {worst_identity:.3e} of the step's gross energy; SG duty vs \
+             m_dot (h_hot - h_sg,out) worst {worst_duty:.3e}; final duty {:.4} MW",
+            loop_.ihx_duty().get::<watt>() / 1e6
+        );
+        assert!(worst_identity < 1e-12);
+        assert!(worst_duty < 1e-12);
+    }
+
+    /// The two CV volumes are what their definitions say: the hot duct holds
+    /// the published in-reflector duct volume and the published 300 mm bore,
+    /// the cold return holds at least the published riser boreholes, and the
+    /// split plus the steam generator's shell side is the whole 6 m^3
+    /// allowance.
+    #[test]
+    fn the_cv_volumes_split_the_allowance_without_double_counting_the_shell() {
+        let hot = hot_duct_volume().get::<cubic_meter>();
+        let cold = cold_return_volume().get::<cubic_meter>();
+        let shell = steam_generator_shell_volume().get::<cubic_meter>();
+        println!("hot duct {hot:.4} m^3, cold return {cold:.4} m^3, SG shell {shell:.4} m^3");
+        assert!((hot + cold + shell - LOOP_GAS_VOLUME_OUTSIDE_BED_M3).abs() < 1e-12);
+        assert!(hot > HOT_GAS_DUCT_IN_REFLECTOR_VOLUME_M3);
+        assert!(cold > RISER_BOREHOLE_VOLUME_M3);
     }
 
     /// The helium inventory must be positive so the residence time driving the
@@ -2061,11 +2547,17 @@ mod tests {
     /// not drive a 10 MWth core.
     #[test]
     fn commanded_flow_is_clamped_to_the_circulator_range() {
+        // The prescribed bed outlet is formed at the flow the loop will
+        // actually CARRY (the clamped one), not the commanded one. Until
+        // 2026-09-29 the stopped case below formed it at the commanded
+        // 0 kg/s -- 10 MW into zero flow, an infinite outlet enthalpy -- and
+        // the since-deleted core-outlet clamp silently bounded the infinity.
+        // With the clamp gone the helium flash fails loud on it, as it should.
         let mut too_fast = nominal_loop();
         let bed_out = bed_outlet_for(
             Power::new::<megawatt>(10.0),
-            too_fast.core_inlet_temperature(),
-            MassRate::new::<kilogram_per_second>(85.0),
+            too_fast.core_inlet_enthalpy(),
+            MassRate::new::<kilogram_per_second>(MAX_HELIUM_FLOW_KG_PER_S),
         );
         too_fast.step(
             dt(),
@@ -2082,8 +2574,8 @@ mod tests {
         let mut stopped = nominal_loop();
         let bed_out = bed_outlet_for(
             Power::new::<megawatt>(10.0),
-            stopped.core_inlet_temperature(),
-            MassRate::new::<kilogram_per_second>(0.0),
+            stopped.core_inlet_enthalpy(),
+            MassRate::new::<kilogram_per_second>(MIN_HELIUM_FLOW_KG_PER_S),
         );
         stopped.step(
             dt(),

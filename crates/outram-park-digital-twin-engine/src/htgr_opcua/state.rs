@@ -131,24 +131,32 @@ pub struct HtgrPlantSnapshot {
     pub core_inlet_temp_k: f64,
     /// Core outlet helium temperature \[K\]. Typical range 700-1300 K.
     pub core_outlet_temp_k: f64,
-    /// Helium mass flow \[kg/s\], floored at 1 kg/s by the loop model.
+    /// Helium mass flow \[kg/s\], clamped to 0.3-8.0 kg/s by the loop model
+    /// (0.01 kg/s floor after a circulator trip). ~~floored at 1 kg/s~~
+    /// **CORRECTED 2026-09-29**.
     pub helium_mass_flow_kg_per_s: f64,
     /// Helium loop transport residence time `m/m_dot` \[s\].
     pub helium_residence_time_s: f64,
-    /// Frictional pressure drop around the helium loop \[Pa\]. Order 1.8e4 Pa
-    /// at the nominal 85 kg/s.
+    /// Frictional pressure drop around the helium loop \[Pa\]. ~~Order 1.8e4 Pa
+    /// at the nominal 85 kg/s~~ **CORRECTED 2026-09-29**: order 2.6e4 Pa at the
+    /// HTR-10's nominal 4.3 kg/s (the 85 kg/s figure was the prismatic plant's).
     pub primary_pressure_drop_pa: f64,
-    /// Circulator hydraulic power \[W\]. Order 5.6e5 W at nominal flow.
+    /// Circulator shaft power \[W\], delivered to the helium since 2026-09-29.
+    /// ~~Order 5.6e5 W at nominal flow~~ **CORRECTED 2026-09-29**: order 5e4 W
+    /// at 4.3 kg/s.
     pub circulator_power_w: f64,
     /// Helium isobaric specific heat at the current bulk mean temperature
-    /// \[J/(kg K)\]. Near 5189 J/(kg K) at 7 MPa across the loop's range.
+    /// \[J/(kg K)\]. Near 5191 J/(kg K) at ~~7 MPa~~ 3.0 MPa (**CORRECTED
+    /// 2026-09-29**) across the loop's range.
     pub helium_cp_j_per_kg_k: f64,
 
     // ---- Intermediate heat exchanger ----
     /// IHX duty transferred from helium to the steam side \[W\].
     pub ihx_duty_w: f64,
-    /// Helium-side IHX outlet temperature \[K\] — what the core inlet relaxes
-    /// toward once the return transport lag has played out.
+    /// Helium-side IHX outlet temperature \[K\] — ~~what the core inlet relaxes
+    /// toward once the return transport lag has played out~~ **CORRECTED
+    /// 2026-09-29 (gh:#392)**: the inflow to the cold-return helium CV, whose
+    /// own state is the core inlet.
     pub ihx_outlet_temp_k: f64,
 
     // ---- Secondary steam cycle ----

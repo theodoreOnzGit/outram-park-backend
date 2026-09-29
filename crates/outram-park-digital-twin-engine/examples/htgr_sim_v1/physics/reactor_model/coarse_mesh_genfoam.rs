@@ -77,7 +77,7 @@
 //! unvalidated coupling ahead of it being real.
 
 use super::one_node::PebbleBedPorousMediaNode;
-use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
+use uom::si::f64::{AvailableEnergy, MassRate, Power, ThermodynamicTemperature, Time};
 
 /// Placeholder coarse-mesh GeN-Foam core. Currently a thin wrapper around
 /// [`PebbleBedPorousMediaNode`] -- every method below delegates to it
@@ -115,14 +115,14 @@ impl CoarseMeshGenFoamCore {
         dt: Time,
         net_heat_to_bed: Power,
         pebble_conduction_power: Power,
-        helium_inlet_temperature: ThermodynamicTemperature,
+        helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
     ) -> Power {
         self.fallback.step(
             dt,
             net_heat_to_bed,
             pebble_conduction_power,
-            helium_inlet_temperature,
+            helium_inlet_enthalpy,
             helium_mass_flow,
         )
     }
@@ -153,6 +153,11 @@ impl CoarseMeshGenFoamCore {
     /// temperature.
     pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
         self.fallback.helium_temperature()
+    }
+
+    /// Delegates to [`PebbleBedPorousMediaNode::helium_outlet_enthalpy`].
+    pub fn helium_outlet_enthalpy(&self) -> AvailableEnergy {
+        self.fallback.helium_outlet_enthalpy()
     }
 }
 

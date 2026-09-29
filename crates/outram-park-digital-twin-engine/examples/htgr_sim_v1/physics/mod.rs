@@ -920,6 +920,84 @@ pub fn nominal_helium_flow() -> MassRate {
     pebble_bed::nominal_helium_flow()
 }
 
+/// The plant's **global energy ledger** \[J\] (gh:#394, 2026-09-29): every
+/// term from each subsystem's own final-corrector bookkeeping, so the balance
+/// from fission to the steam generator and the RCCS can be checked rather
+/// than assumed.
+///
+/// ```text
+/// residual = source + circulator_work
+///          - (fuel + bed_solid + bed_helium + hot_duct + cold_return + passive) storage
+///          - to_steam_generator - to_rccs
+/// ```
+///
+/// **Boundary.** The fuel node, the bed's graphite and void helium, the
+/// primary loop's hot-duct and cold-return CVs and the passive path's
+/// reflector and RPV are inside; the steam generator is outside, and the
+/// boundary on that side is the helium stream, `m_dot (h_hot duct - h_SG,out)`
+/// -- the exchanger's hot-side duty. The exchanger's own three arrays are
+/// coupled explicitly (Lie split), so its internal closure is `O(dt)` rather
+/// than exact (+0.34 % at the design point; see
+/// `primary_loop::steam_generator_substep_s`); putting it inside would make
+/// this ledger report that known closure instead of the seams it exists to
+/// check.
+///
+/// Every internal seam -- fuel to bed, bed to passive path, bed to hot duct,
+/// hot duct to steam generator, steam generator to cold return, cold return
+/// to bed -- carries one flux used identically on both sides, so the residual
+/// is a statement about the seams and is expected at rounding level.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PlantEnergyLedger {
+    /// Fission (prompt) and decay heat deposited in the fuel node.
+    pub source: f64,
+    /// Fuel-node stored-energy change.
+    pub fuel_storage: f64,
+    /// Bed graphite enthalpy change.
+    pub bed_solid_storage: f64,
+    /// Bed void-helium enthalpy change.
+    pub bed_helium_storage: f64,
+    /// Hot-duct CV enthalpy change.
+    pub hot_duct_storage: f64,
+    /// Cold-return CV enthalpy change.
+    pub cold_return_storage: f64,
+    /// Reflector + RPV stored-energy change.
+    pub passive_storage: f64,
+    /// Enthalpy handed from the helium to the steam generator.
+    pub to_steam_generator: f64,
+    /// Heat to the RCCS.
+    pub to_rccs: f64,
+    /// Circulator work delivered to the helium.
+    pub circulator_work: f64,
+    /// `source + circulator_work - storage - to_steam_generator - to_rccs`.
+    pub residual: f64,
+}
+
+impl PlantEnergyLedger {
+    /// Sum of every storage term.
+    pub fn stored(&self) -> f64 {
+        self.fuel_storage
+            + self.bed_solid_storage
+            + self.bed_helium_storage
+            + self.hot_duct_storage
+            + self.cold_return_storage
+            + self.passive_storage
+    }
+
+    fn accumulate(&mut self, step: &PlantEnergyLedger) {
+        self.source += step.source;
+        self.fuel_storage += step.fuel_storage;
+        self.bed_solid_storage += step.bed_solid_storage;
+        self.bed_helium_storage += step.bed_helium_storage;
+        self.hot_duct_storage += step.hot_duct_storage;
+        self.cold_return_storage += step.cold_return_storage;
+        self.passive_storage += step.passive_storage;
+        self.to_steam_generator += step.to_steam_generator;
+        self.to_rccs += step.to_rccs;
+        self.circulator_work += step.circulator_work;
+        self.residual += step.residual;
+    }
+}
+
 /// The full plant model: kinetics + pebble-bed core + helium primary loop +
 /// steam secondary loop, plus the running simulation clock.
 pub struct HtgrPlant {
@@ -1007,6 +1085,14 @@ pub struct HtgrPlant {
     /// step -- the core's *thermal* output, which lags the fission power by the
     /// graphite time constant.
     core_heat_to_helium: Power,
+    /// Passive decay-heat loss from the bed to the reflector on the most
+    /// recent step (final corrector).
+    passive_heat_loss: Power,
+    /// The global energy ledger of the most recent step. See
+    /// [`PlantEnergyLedger`].
+    last_step_energy: PlantEnergyLedger,
+    /// The global energy ledger accumulated since construction.
+    energy: PlantEnergyLedger,
 }
 
 impl HtgrPlant {
@@ -1029,7 +1115,22 @@ impl HtgrPlant {
             dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
             scenario_started_at: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
+            passive_heat_loss: Power::new::<watt>(0.0),
+            last_step_energy: PlantEnergyLedger::default(),
+            energy: PlantEnergyLedger::default(),
         }
+    }
+
+    /// The global energy ledger of the most recent step \[J\]. See
+    /// [`PlantEnergyLedger`].
+    #[allow(dead_code)] // read by the conservation tests
+    pub fn last_step_energy(&self) -> PlantEnergyLedger {
+        self.last_step_energy
+    }
+
+    /// The global energy ledger accumulated since construction \[J\].
+    pub fn energy_ledger(&self) -> PlantEnergyLedger {
+        self.energy
     }
 
     /// The fuel stack temperatures -- kernel (the kinetics fuel node), SiC
@@ -1263,7 +1364,15 @@ impl HtgrPlant {
         // `pebble_bed::PebbleBedPorousMediaNode::step`) instead gives the
         // helium its own implicit thermal node against this same inlet
         // boundary condition, never an arithmetic mean.
-        let mut core_inlet = self.primary.core_inlet_temperature();
+        //
+        // CHANGED 2026-09-29 (gh:#393): an ENTHALPY, the cold-return CV's
+        // state. The same number is handed to the bed and, on the final
+        // corrector, discharged by the cold-return CV -- the seam's single
+        // flux (see `primary_loop::HeliumPrimaryLoop::close_return_leg`).
+        let mut core_inlet_enthalpy = self.primary.core_inlet_enthalpy();
+        // Start-of-step readings for the global energy ledger.
+        let fuel_ledger_at_step_start = self.kinetics.ledger();
+        let passive_stored_at_step_start = self.decay_heat_path.stored_energy();
         let mut feedwater_enthalpy = self.secondary.feedwater_enthalpy();
         let mut secondary_flow = self.secondary.mass_flow();
 
@@ -1284,6 +1393,13 @@ impl HtgrPlant {
                     .restore_integrated_state(secondary_at_step_start);
                 self.decay_heat_path = decay_heat_path_at_step_start.clone();
             }
+
+            // 0. The circulator flow for this step. Prescribed (there is no
+            //    momentum equation), so it is set BEFORE the bed: the bed,
+            //    both helium CVs and the steam generator must all carry the
+            //    same m_dot (2026-09-29; the bed used to read the previous
+            //    step's flow).
+            self.primary.command_flow(helium_flow_setpoint);
 
             // 1. Kinetics -> reactor fission power. The reactivity feedback
             //    stays inside Nordheim-Fuchs's closed form (that exactness is
@@ -1353,24 +1469,26 @@ impl HtgrPlant {
             let passive_heat_loss = self.decay_heat_path.advance(dt, bed_for_passive_path);
             let net_core_source = heat_from_fuel - passive_heat_loss;
 
+            self.passive_heat_loss = passive_heat_loss;
+
             self.core_heat_to_helium = self.core.step(
                 dt,
                 net_core_source,
                 heat_from_fuel,
-                core_inlet,
+                core_inlet_enthalpy,
                 self.primary.mass_flow(),
             );
             bed_for_passive_path = self.core.temperature();
 
-            // 3a. Primary hot leg: helium properties and the core-outlet
-            //     temperature. Cheap (one CoolProp flash), so it is inside the
-            //     loop.
+            // 3a. Primary hot-duct CV: the hot-gas plenum and the hot gas
+            //     duct, an enthalpy balance on the bed's outflow.
+            //     ~~A first-order lag on the core outlet plus a second-law
+            //     clamp~~ -- deleted 2026-09-29 (gh:#391): the lag counted the
+            //     bed helium's inertia twice and the clamp stood in for a
+            //     formulation.
             mark_component("helium primary loop (circulator + hot gas duct)");
-            self.primary.step_hot_leg(
-                dt,
-                self.core.helium_outlet_temperature(),
-                helium_flow_setpoint,
-            );
+            self.primary
+                .step_hot_duct(dt, self.core.helium_outlet_enthalpy());
 
             // 3b. The steam generator, ONCE, on the final corrector -- with the
             //     converged core-outlet temperature as its hot inlet and the
@@ -1384,10 +1502,14 @@ impl HtgrPlant {
                     .advance_steam_generator(dt, feedwater_enthalpy, secondary_flow);
             }
 
-            // 3c. Primary return leg: the core inlet relaxes toward the
-            //     exchanger's helium-side outlet, closing the circuit, and the
-            //     loop hydraulics are updated.
-            self.primary.close_return_leg(dt);
+            // 3c. Primary cold-return CV: loop hydraulics and circulator
+            //     work, then the CV's enthalpy balance with the work as its
+            //     source. It discharges exactly the enthalpy the bed was
+            //     handed above, so the seam is one flux.
+            //     ~~The core inlet relaxes toward the exchanger's helium-side
+            //     outlet over an invented, flow-independent 8 s~~ -- deleted
+            //     2026-09-29 (gh:#392).
+            self.primary.close_return_leg(dt, core_inlet_enthalpy);
 
             // 4. Secondary steam loop, driven by the duty the steam generator's
             //    TUBE SIDE actually absorbed -- not by the heat the helium gave
@@ -1401,17 +1523,51 @@ impl HtgrPlant {
             //    balance downstream is already bounded. See
             //    `secondary_loop::tests::the_absorbable_duty_cap_no_longer_binds`.
             mark_component("steam generator + secondary steam loop (IF97)");
+            //    The hot-side inlet it is handed for that backstop is the
+            //    steam generator's own helium inlet, the hot-duct CV.
             self.secondary.step(
                 dt,
                 secondary_commands,
                 self.primary.steam_generator_duty_to_secondary(),
-                self.primary.core_outlet_temperature(),
+                self.primary.hot_duct_temperature(),
             );
 
             // Hand the improved coupling values to the next corrector.
-            core_inlet = self.primary.core_inlet_temperature();
+            core_inlet_enthalpy = self.primary.core_inlet_enthalpy();
             feedwater_enthalpy = self.secondary.feedwater_enthalpy();
             secondary_flow = self.secondary.mass_flow();
+        }
+
+        // The global energy ledger, from each subsystem's final-corrector
+        // bookkeeping. See `PlantEnergyLedger`.
+        {
+            use uom::si::energy::joule;
+            let dt_s = dt.get::<second>();
+            let fuel = self.kinetics.ledger();
+            let bed = self.core.last_step_energy();
+            let primary = self.primary.last_step_energy();
+            let mut step = PlantEnergyLedger {
+                source: (fuel.deposited_prompt - fuel_ledger_at_step_start.deposited_prompt)
+                    + (fuel.deposited_decay - fuel_ledger_at_step_start.deposited_decay),
+                fuel_storage: fuel.stored - fuel_ledger_at_step_start.stored,
+                bed_solid_storage: bed.solid_storage,
+                bed_helium_storage: bed.fluid_storage,
+                hot_duct_storage: primary.hot_duct_storage,
+                cold_return_storage: primary.cold_return_storage,
+                passive_storage: (self.decay_heat_path.stored_energy()
+                    - passive_stored_at_step_start)
+                    .get::<joule>(),
+                to_steam_generator: primary.to_steam_generator,
+                to_rccs: self.decay_heat_path.heat_to_rccs().get::<watt>() * dt_s,
+                circulator_work: primary.circulator_work,
+                residual: 0.0,
+            };
+            step.residual = step.source + step.circulator_work
+                - step.stored()
+                - step.to_steam_generator
+                - step.to_rccs;
+            self.last_step_energy = step;
+            self.energy.accumulate(&step);
         }
 
         // 5. Turbine-generator shaft. Driven by the SAME enthalpy-drop power
@@ -1609,8 +1765,23 @@ impl HtgrPlant {
         // Primary loop.
         s.core_inlet_temp_k = self.primary.core_inlet_temperature().get::<kelvin>();
         s.core_outlet_temp_k = self.primary.core_outlet_temperature().get::<kelvin>();
+        s.hot_duct_temp_k = self.primary.hot_duct_temperature().get::<kelvin>();
         s.helium_mass_flow_kg_per_s = self.primary.mass_flow().get::<kilogram_per_second>();
         s.ihx_duty_mw = self.primary.ihx_duty().get::<megawatt>();
+        s.sg_secondary_duty_mw = self
+            .primary
+            .steam_generator_duty_to_secondary()
+            .get::<megawatt>();
+        s.passive_heat_loss_mw = self.passive_heat_loss.get::<megawatt>();
+        s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
+        s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
+        let e = self.energy;
+        s.energy_source_j = e.source;
+        s.energy_stored_j = e.stored();
+        s.energy_to_steam_generator_j = e.to_steam_generator;
+        s.energy_to_rccs_j = e.to_rccs;
+        s.energy_circulator_work_j = e.circulator_work;
+        s.energy_residual_j = e.residual;
         s.ihx_outlet_temp_k = self.primary.ihx_outlet_temperature().get::<kelvin>();
         s.helium_residence_time_s =
             residence_time_from_flow(self.primary.helium_inventory(), self.primary.mass_flow())
@@ -2018,7 +2189,8 @@ mod tests {
     ///
     /// The step's two loops are then broken down the same way, one level
     /// deeper: [`primary_loop::HeliumPrimaryLoop::advance_steam_generator`],
-    /// [`primary_loop::HeliumPrimaryLoop::step_hot_leg`] and
+    /// [`primary_loop::HeliumPrimaryLoop::step_hot_duct`] (~~`step_hot_leg`~~
+    /// until 2026-09-29; the table below was measured on it) and
     /// [`secondary_loop::SteamSecondaryLoop::step`] are each timed on the
     /// plant in the state the run left it, with the arguments
     /// [`HtgrPlant::step_with_correctors`] passes them, and charged at
@@ -2184,7 +2356,7 @@ mod tests {
         let feedwater_enthalpy = plant.secondary.feedwater_enthalpy();
         let secondary_flow = plant.secondary.mass_flow();
         let core_outlet = plant.primary.core_outlet_temperature();
-        let core_outlet_from_bed = plant.core.temperature();
+        let core_outlet_from_bed = plant.core.helium_outlet_enthalpy();
         let duty = plant.primary.steam_generator_duty_to_secondary();
 
         let started = std::time::Instant::now();
@@ -2197,11 +2369,7 @@ mod tests {
 
         let started = std::time::Instant::now();
         for _ in 0..inner_repeats {
-            plant.primary.step_hot_leg(
-                dt,
-                core_outlet_from_bed,
-                commands.helium_flow_setpoint,
-            );
+            plant.primary.step_hot_duct(dt, core_outlet_from_bed);
         }
         let hot_leg_per_call = started.elapsed().as_secs_f64() / inner_repeats as f64;
 
@@ -2251,7 +2419,7 @@ mod tests {
         );
         println!(
             "    primary: hot leg + core    {:.4} ms/call x {per_corrector} x {steps} = {:.2} % \
-             (primary_loop::step_hot_leg)",
+             (primary_loop::step_hot_duct)",
             hot_leg_per_call * 1e3,
             share(hot_leg_total)
         );
@@ -2794,6 +2962,129 @@ mod tests {
             residual.abs() / sources
         );
         assert!(residual.abs() / sources < 1e-6);
+    }
+
+    /// V&V (gh:#394): **the whole plant conserves energy from fission to the
+    /// steam generator and the RCCS** -- through normal operation and a
+    /// circulator trip -- with every helium CV inside the ledger.
+    ///
+    /// # Methodology
+    ///
+    /// [`PlantEnergyLedger`] per plant step, over 60 s from the GUI's opening
+    /// commands and then 60 s of LOFC (circulator tripped to the 0.01 kg/s
+    /// floor; secondary isolated 12 s later), at the plant's own corrector
+    /// count:
+    ///
+    /// ```text
+    /// residual = [f_prompt P + P_decay] dt + W dt
+    ///          - dE_fuel - dE_bed,solid - dE_bed,helium - dE_hot duct - dE_cold return
+    ///          - dE_refl+RPV - m_dot (h_hot duct - h_SG,out) dt - Q_RCCS dt
+    /// ```
+    ///
+    /// Pass: every step's residual below 1e-9 of that step's gross energy
+    /// (the sum of the magnitudes of its terms), and the accumulated residual
+    /// below 1e-9 of the accumulated source. Also asserted, per step: the bed
+    /// -> hot-duct seam carries one flux (the bed's `throughflow_out` equals
+    /// the primary loop's `from_bed` to 1e-12 relative); and after the trip
+    /// the cold-return residence time `M_c/m_dot` exceeds 100 s (it was a
+    /// fixed 8 s).
+    ///
+    /// The opening state is a slow transient, not a steady state -- this
+    /// model does not settle inside a test budget -- so "normal operation"
+    /// here is that transient; the ledger has no term that knows the
+    /// difference.
+    ///
+    /// **Why this could not be asserted before 2026-09-29.** The hot leg was
+    /// a first-order lag and the return leg an 8 s lag, neither with a mass or
+    /// an enthalpy, so the energy between the bed's discharge and what the
+    /// exchanger received, and between the exchanger's outlet and the core
+    /// inlet, had no storage term to put in a ledger; circulator work was
+    /// computed and discarded; and the bed read the previous step's flow while
+    /// the exchanger read the new one. `the_core_side_energy_chain_conserves_energy`
+    /// therefore stopped at the bed boundary.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Printed by the test; recorded on gh:#394.
+    #[test]
+    fn the_whole_plant_conserves_energy_from_fission_to_the_steam_generator() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let dt_s = dt.get::<second>();
+        let mut worst_normal = 0.0f64;
+        let mut worst_trip = 0.0f64;
+        let mut worst_seam = 0.0f64;
+        let mut max_residence_after_trip = 0.0f64;
+        for i in 0..1200 {
+            let mut commands = design_commands();
+            if i >= 600 {
+                commands.scenario = Scenario::Lofc;
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_return_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs();
+            let r = e.residual.abs() / gross;
+            if i < 600 {
+                worst_normal = worst_normal.max(r);
+            } else {
+                worst_trip = worst_trip.max(r);
+                max_residence_after_trip = max_residence_after_trip
+                    .max(plant.primary.cold_return_residence_time().get::<second>());
+            }
+            let bed = plant.core.last_step_energy();
+            let primary = plant.primary.last_step_energy();
+            worst_seam = worst_seam.max(
+                (bed.throughflow_out - primary.from_bed).abs() / bed.throughflow_out.abs().max(1.0),
+            );
+        }
+        let total = plant.energy_ledger();
+        println!(
+            "WHOLE-PLANT ENERGY LEDGER, 60 s normal + 60 s LOFC (trip at 60 s, secondary \
+             isolated at 72 s):\n  source {:.6e} J, circulator work {:.6e} J\n  storage: fuel \
+             {:.6e}, bed graphite {:.6e}, bed helium {:.6e}, hot duct {:.6e}, cold return \
+             {:.6e}, reflector+RPV {:.6e}\n  out: steam generator {:.6e}, RCCS {:.6e}\n  \
+             accumulated residual {:.3e} J = {:.3e} of the source; worst step {:.3e} (normal), \
+             {:.3e} (trip); bed->hot-duct seam worst {:.3e}; cold-return residence after trip \
+             up to {:.1} s (flow {:.3} kg/s)",
+            total.source,
+            total.circulator_work,
+            total.fuel_storage,
+            total.bed_solid_storage,
+            total.bed_helium_storage,
+            total.hot_duct_storage,
+            total.cold_return_storage,
+            total.passive_storage,
+            total.to_steam_generator,
+            total.to_rccs,
+            total.residual,
+            total.residual.abs() / total.source.abs(),
+            worst_normal,
+            worst_trip,
+            worst_seam,
+            max_residence_after_trip,
+            plant.primary.mass_flow().get::<kilogram_per_second>(),
+        );
+        let _ = dt_s;
+        assert!(
+            worst_normal < 1e-9,
+            "normal-operation step residual {worst_normal:e}"
+        );
+        assert!(worst_trip < 1e-9, "trip step residual {worst_trip:e}");
+        assert!(total.residual.abs() / total.source.abs() < 1e-9);
+        assert!(worst_seam < 1e-12, "bed -> hot duct seam {worst_seam:e}");
+        assert!(
+            max_residence_after_trip > 100.0,
+            "the cold-return residence time must grow as the flow falls: {max_residence_after_trip} s"
+        );
     }
 
     /// Run the circulator flow ramp-down transient at `dt` with `n_outer` plant
@@ -3443,8 +3734,15 @@ mod tests {
     /// 3. **An invented 5 s gas thermal lag.** The helium holdup is about 3 kg
     ///    against 5,280 kg of graphite, so the real lag is under a second. A
     ///    5 s lag let the outlet trail above the bed on a cooldown by ~2.5 K.
-    ///    Fixed by deriving the lag from the gas holdup, with
-    ///    `bounded_core_outlet` as a hard guard on the remainder.
+    ///    ~~Fixed by deriving the lag from the gas holdup, with
+    ///    `bounded_core_outlet` as a hard guard on the remainder.~~
+    ///    **CHANGED 2026-09-29 (gh:#391):** the lag and its clamp are
+    ///    **deleted**. The bed's LTNE fluid node already is the core helium's
+    ///    inertia (the lag counted it twice), and the engine `CLAUDE.md`
+    ///    forbids a guard in place of a formulation. The "core outlet" this
+    ///    test reads is now the bed fluid node itself, whose implicit row makes
+    ///    `T_f'` a weighted combination of `T_f`, `T_s'` and `T_in` -- so the
+    ///    invariant must hold **on the formulation alone**.
     ///
     /// # Results (2026-08-14)
     ///
@@ -3452,6 +3750,12 @@ mod tests {
     /// gives `T_out = 905.147 K` against `T_bed = 905.560 K` -- the helium
     /// approaches the graphite closely, as it should at NTU ~ 6.6, without
     /// passing it.
+    ///
+    /// # Results (2026-09-29, clamp deleted)
+    ///
+    /// No violation at any step; worst `T_out - T_bed` over the run
+    /// **-28.9479 K** (at step 0, from the seeds). Passes with no guard
+    /// anywhere between the bed and the steam generator.
     #[test]
     fn the_helium_never_leaves_the_core_hotter_than_the_bed() {
         let mut plant = HtgrPlant::new();
@@ -4293,6 +4597,15 @@ mod tests {
     /// |---|---|---|---|---|---|
     /// | pre-change tree (2026-09-28) | 13.3768 MW | NOT REACHED | 0.0167 | 1346.3 K | 1.5551 MW / 1323.9 K / 1224.4 K |
     /// | **after gh:#360 fuel node + tuas graphite (2026-09-28)** | 16.1826 MW | **NOT REACHED** | 0.0361 | 1341.5 K | 1.8809 MW / 1319.0 K / 1316.3 K |
+    /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | 16.1364 MW | **NOT REACHED** | -- | 1341.9 K | 1.8741 MW / 1319.0 K / 1316.4 K |
+    ///
+    /// **2026-09-29:** re-measured before (`a79755763b`, reproducing the
+    /// 2026-09-28 row exactly) and after the primary-circuit change. The
+    /// outcome does not move: the return-leg residence time now grows to
+    /// ~1000 s after the trip instead of staying at 8 s, but with the
+    /// secondary isolated at 12 s the helium path carries almost nothing
+    /// either way, and what decides this transient is the passive path and the
+    /// reactivity reference (gh:#389, #387).
     ///
     /// **Still failing, and the failure is reported, not silenced.** The
     /// predicted consequence of removing the ~-4.5 $ of spurious feedback
@@ -4593,6 +4906,12 @@ mod tests {
     /// |---|---|---|---|---|
     /// | pre-change working tree | 5.9956 MW | 740.36 K | 1318.43 K | **578.1 K** |
     /// | **gh:#360 fuel node + tuas graphite** | **16.1212 MW** | **1303.39 K** | 1323.36 K | **19.97 K** (= `R P`) |
+    /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | **16.0742 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
+    ///
+    /// **2026-09-29:** -0.29 % in power, +0.04 K in the bed. The circulator's
+    /// 52 kW now reaches the helium instead of being discarded, so the same
+    /// feedback balance needs ~47 kW less fission power. Before/after taken
+    /// the same day on the same build otherwise (before: `a79755763b`).
     ///
     /// The old "steady state" was not one: the shadow fuel node was pinned
     /// near 1318 K by the reactivity balance while the bed kept cooling (the

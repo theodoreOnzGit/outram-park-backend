@@ -353,6 +353,15 @@ deriving the same outlet with different `c_p`, and an invented 5 s gas lag.
 None of the three would have been found by making the existing tests stricter,
 because none of them was testing the invariant at all.
 
+**Follow-up, 2026-09-29 (gh:#391).** Cause (3) was "fixed" on 2026-08-14 by
+deriving the lag from the gas holdup and adding a hard second-law clamp on the
+remainder. Both were deleted on 2026-09-29: once the bed had its own helium
+node (2026-08-17) the lag counted that helium's inertia twice, and the clamp
+was a guard standing in for a formulation. The invariant test now passes on
+the formulation alone, and the helium circuit outside the bed is two
+enthalpy-balance CVs inside a global energy ledger
+(`the_whole_plant_conserves_energy_from_fission_to_the_steam_generator`).
+
 *Lesson:* a passing suite is evidence about the properties someone thought to
 assert. Physical invariants -- second law, mass conservation, bounded
 temperatures -- must be asserted **explicitly**, and noticing a violation is

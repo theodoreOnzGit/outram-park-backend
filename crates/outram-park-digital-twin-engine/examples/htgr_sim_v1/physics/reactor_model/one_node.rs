@@ -48,7 +48,7 @@
 //! |---|---|---|
 //! | Pebble bed (all 27,000 elements) | **1** | temperature, burnup, power density, graphite properties |
 //! | Inside a single pebble | ~~**1**~~ **2** (2026-09-28) | ~~fuel kernel, graphite matrix and outer shell are one temperature~~ the TRISO particles are the **fuel node** (`physics::kinetics`); matrix and shell are this node, with the resolved profile between them |
-//! | Helium in the bed | **0 (external)** | supplied by the caller as one bulk mean temperature |
+//! | Helium in the bed | ~~**0 (external)**~~ **1** (**CORRECTED 2026-09-29**: its own LTNE fluid node since 2026-08-17, on enthalpy since 2026-09-29) | ~~supplied by the caller as one bulk mean temperature~~ one well-mixed enthalpy state over the 197 cm bed's void; the caller supplies the inlet enthalpy |
 //! | Reflector, core barrel, vessel | **0** | not modelled at all |
 //!
 //! The node boundary is the **pebble surface**: everything inside it is the
@@ -234,7 +234,8 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{Material, Sol
 use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacityModel;
 use outram_park_fork_offbeat::materials::MaterialState;
 use outram_foam_basic_lib::prelude::SquareMatrix;
-use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, viscosity};
+use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_ph, state_pt, viscosity};
+use uom::si::available_energy::joule_per_kilogram;
 use uom::si::thermal_resistance::kelvin_per_watt;
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::dynamic_viscosity::pascal_second;
@@ -1334,6 +1335,89 @@ pub fn helium_specific_heat(temperature: ThermodynamicTemperature) -> SpecificHe
     }
 }
 
+/// Specific enthalpy of helium at `temperature` and the primary pressure
+/// \[J/kg\], from the CoolProp-fork Helmholtz EOS (Ortiz-Vega et al.).
+///
+/// **The one helium `h(T)` for the whole primary circuit** (gh:#393,
+/// 2026-09-29): the bed's fluid row, the primary loop's hot-duct and
+/// cold-return CVs and the steam generator's helium array all sit on this
+/// EOS and datum, so an enthalpy handed from one CV to the next means the
+/// same energy on both sides. Used to seed states and to convert prescribed
+/// boundary temperatures; the balances themselves carry enthalpy.
+///
+/// # Panics
+///
+/// If the `(p, T)` flash fails -- the stale-state policy: no fallback
+/// number stands in for an EOS that declined.
+pub fn helium_enthalpy_at(temperature: ThermodynamicTemperature) -> AvailableEnergy {
+    let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
+    let state = state_pt(Fluid::Helium, temperature.get::<kelvin>(), pressure_pa)
+        .unwrap_or_else(|e| panic!("helium (p,T) flash at {temperature:?}: {e:?}"));
+    AvailableEnergy::new::<joule_per_kilogram>(state.enthalpy)
+}
+
+/// Helium state at specific enthalpy `enthalpy` and the primary pressure --
+/// the **backward** `(p, h)` flash ([`outram_park_fork_coolprop::state_ph`])
+/// that turns an integrated enthalpy back into a temperature, density and
+/// `c_p`. The inverse of [`helium_enthalpy_at`] on the same EOS, so
+/// `h -> T -> h` closes to the flash tolerance (`dT < 1e-11 T`).
+///
+/// # Panics
+///
+/// If the flash fails, for the reason [`helium_enthalpy_at`] gives.
+pub fn helium_state_at(enthalpy: AvailableEnergy) -> FluidState {
+    helium_state_at_seeded(enthalpy, None)
+}
+
+/// [`helium_state_at`] with an optional temperature seed \[K\].
+///
+/// **Why a seed.** [`outram_park_fork_coolprop::state_ph`] always starts its
+/// outer Newton at `1.1 T_crit` -- 5.7 K for helium -- and damps each step to
+/// 30 %, so reaching an HTGR state takes about 20 `(p, T)` flashes per call.
+/// This runs **the same outer Newton** (`dT = -(h(T) - h)/c_p`, converged on
+/// `|dT| <= 1e-11 T`, exactly `state_ph`'s `solve_pt_outer` criterion) from a
+/// seed instead: the caller's previous iterate when it has one, otherwise an
+/// ideal-gas extrapolation from a 300 K reference state. Helium is near-ideal
+/// here, so it converges in one or two steps. If it does not converge in 50
+/// it falls back to `state_ph` itself, so correctness never rests on the
+/// seed. Measured 2026-09-29: the 60 000-step
+/// `tests::two_node_balance_settles_with_all_power_leaving_via_helium_throughflow`
+/// took 49.8 s with `state_ph` and 2.41 s with this, with the same settled
+/// numbers to every printed digit.
+///
+/// # Panics
+///
+/// If both the seeded Newton and `state_ph` fail.
+pub fn helium_state_at_seeded(enthalpy: AvailableEnergy, seed_k: Option<f64>) -> FluidState {
+    let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
+    let h = enthalpy.get::<joule_per_kilogram>();
+    let seed = match seed_k {
+        Some(t) if t.is_finite() && t > 2.0 => Some(t),
+        _ => state_pt(Fluid::Helium, 300.0, pressure_pa)
+            .ok()
+            .filter(|r| r.cp > 0.0)
+            .map(|r| 300.0 + (h - r.enthalpy) / r.cp)
+            .filter(|t| t.is_finite() && *t > 2.0),
+    };
+    if let Some(mut t) = seed {
+        for _ in 0..50 {
+            let Ok(state) = state_pt(Fluid::Helium, t, pressure_pa) else {
+                break;
+            };
+            if !(state.cp > 0.0) {
+                break;
+            }
+            let step = -(state.enthalpy - h) / state.cp;
+            if step.abs() <= 1.0e-11 * t {
+                return state;
+            }
+            t += step.clamp(-0.3 * t, 0.3 * t);
+        }
+    }
+    state_ph(Fluid::Helium, pressure_pa, h)
+        .unwrap_or_else(|e| panic!("helium (p,h) flash at {enthalpy:?}: {e:?}"))
+}
+
 /// Helium thermal conductivity \[W/(m K)\], Prandtl number and dynamic
 /// viscosity \[Pa s\] at `temperature` and the primary-loop pressure, from the
 /// real CoolProp-derived helium models.
@@ -1486,11 +1570,19 @@ pub fn temperature_from_specific_enthalpy(
 /// C_f dT_f/dt = h A (T_s - T_f) - m_dot c_p (T_f - T_in)
 /// ```
 ///
+/// **CHANGED 2026-09-29 (gh:#393): the fluid row below is now written and
+/// solved in enthalpy**, `M_f dh_f/dt = h A (T_s - T(h_f)) + m_dot (h_in -
+/// h_f)`, with `M_f = rho V_void` ([`helium_void_mass`]) and `T(h)` the
+/// CoolProp `(p, h)` inverse -- see [`Self::step`] and
+/// [`assemble_backward_euler_system`]. The temperature form is kept below as
+/// the derivation's history; with `C_f = M_f c_p` and `m_dot c_p` it is the
+/// first-order approximation of the enthalpy form.
+///
 /// `C_s` is [`bed_heat_capacity`] (unchanged). `C_f` is the thermal mass of
 /// the helium actually held in the bed's void space at the current density,
 /// `rho_He(T_f, p) * V_void * c_p(T_f)`, with `V_void` this struct's own
-/// [`Self`]`::pebble_bed_helium_volume` field -- see
-/// [`fluid_node_heat_capacity`]. `rho_He` and `c_p(T_f)` are read straight
+/// [`Self`]`::pebble_bed_helium_volume` field (the 197 cm bed since
+/// 2026-09-29). `rho_He` and `c_p(T_f)` are read straight
 /// off [`Self::helium_state`] rather than re-evaluated, since that state was
 /// itself solved for at the end of the previous step (or seeded at
 /// construction).
@@ -1551,12 +1643,29 @@ pub struct PebbleBedPorousMediaNode {
     /// space -- not just a bare temperature. See the module comment above
     /// for why the whole state is stored: the fluid-phase balance needs
     /// density and `c_p` as well as temperature, all mutually consistent.
+    ///
+    /// **CHANGED 2026-09-29 (gh:#393)** -- this is now the `(p, h)` flash of
+    /// [`Self::helium_enthalpy`], which is the integrated state. Its
+    /// temperature, density and `c_p` are read off it; its own `enthalpy`
+    /// field agrees with [`Self::helium_enthalpy`] only to the flash
+    /// tolerance, so the balance never reads it.
     helium_state: FluidState,
-    /// Helium gas volume in the void space between packed pebbles -- from
-    /// [`super::htr10_rz_geometry::pebble_bed_helium_volume`], with the
-    /// same NOT-VALIDATED caveat that derivation carries. Fixed at
-    /// construction: a geometric property of the benchmark core, not plant
-    /// state.
+    /// Specific enthalpy of the helium in the voids \[J/kg\] -- **the fluid
+    /// row's integrated state** since 2026-09-29 (gh:#393). Stored exactly,
+    /// not re-read from a flash, so the enthalpy the step closes its balance
+    /// on is the enthalpy the next step starts from and the enthalpy the
+    /// primary loop receives as the core outlet.
+    helium_enthalpy: f64,
+    /// Helium gas volume in the void space between packed pebbles.
+    ///
+    /// ~~from [`super::htr10_rz_geometry::pebble_bed_helium_volume`]~~ (zone
+    /// 99, the 123.06 cm critical-loading bed) **CHANGED 2026-09-29
+    /// (gh:#393)** -- now [`bed_void_volume`], the 197 cm operational bed the
+    /// graphite mass ([`graphite_mass`], 27 000 pebbles) is taken from. The
+    /// two nodes of this one control volume used to describe different core
+    /// loadings: 1.2213 m^3 of void helium against the 1.9551 m^3 that the
+    /// 27 000-pebble bed actually has. Fixed at construction: a geometric
+    /// property of the core, not plant state.
     pebble_bed_helium_volume: Volume,
     /// Heat rate exchanged between the two phases across `h A` on the most
     /// recent [`Self::step`] (positive: solid phase heating the fluid).
@@ -1615,10 +1724,13 @@ pub struct BedStepEnergy {
     /// Change in graphite enthalpy, `m (h(T') - h(T))` (secant capacitance
     /// times the temperature change).
     pub solid_storage: f64,
-    /// Change in helium stored in the voids, `C_f (T_f' - T_f)`.
+    /// Change in helium stored in the voids, `M_f (h_f' - h_f)` (~~`C_f (T_f'
+    /// - T_f)`~~, changed to enthalpy 2026-09-29, gh:#393).
     pub fluid_storage: f64,
     /// Enthalpy carried out by the throughflow above the inlet,
-    /// `m_dot c_p (T_f' - T_in) dt`.
+    /// `m_dot (h_f' - h_in) dt` (~~`m_dot c_p (T_f' - T_in) dt`~~, changed
+    /// 2026-09-29, gh:#393). This is exactly what the primary loop's hot-duct
+    /// CV receives less what its cold-return CV discharged into the bed.
     pub throughflow_out: f64,
 }
 
@@ -1640,7 +1752,8 @@ impl PebbleBedPorousMediaNode {
         Self {
             pebble_temperature: ThermodynamicTemperature::new::<kelvin>(SEED_BED_TEMPERATURE_K),
             helium_state,
-            pebble_bed_helium_volume: super::htr10_rz_geometry::pebble_bed_helium_volume(),
+            helium_enthalpy: helium_state.enthalpy,
+            pebble_bed_helium_volume: bed_void_volume(),
             heat_to_helium: Power::new::<watt>(0.0),
             overall_htc: HeatTransfer::new::<watt_per_square_meter_kelvin>(
                 LEGACY_LUMPED_HTC_W_PER_M2_K,
@@ -1695,7 +1808,30 @@ impl PebbleBedPorousMediaNode {
     ///
     /// iterated to a fixed point (a handful of passes; `h` is analytic), so on
     /// exit `m (h(T') - h(T)) = dt (Q - h A (T_s' - T_f'))` holds to
-    /// 1e-10 relative. The fluid row is unchanged.
+    /// 1e-10 relative. ~~The fluid row is unchanged.~~
+    ///
+    /// # The fluid row is closed on ENTHALPY too (2026-09-29, gh:#393)
+    ///
+    /// ~~`C_f dT_f/dt = h A (T_s - T_f) - m_dot c_p (T_f - T_in)`~~, with
+    /// `c_p` at the node and `C_f` frozen, was the `T + Q/(m c_p)` shortcut
+    /// the maintainer rejected (engine `CLAUDE.md`, human-review item 3). The
+    /// row is now the helium's own enthalpy balance,
+    ///
+    /// ```text
+    /// M_f (h_f' - h_f) / dt = h A (T_s' - T(h_f')) + m_dot (h_in - h_f')
+    /// ```
+    ///
+    /// with `M_f = rho(h_f) V_void` the start-of-step void helium mass,
+    /// `h_in` the enthalpy of the helium the primary loop delivers, and
+    /// `T(h)` the CoolProp helium `(p, h)` inverse
+    /// ([`outram_park_fork_coolprop::state_ph`], the same Helmholtz EOS the
+    /// steam generator's helium array and the primary loop's CVs use). The
+    /// interfacial term is Newton-linearised about the current iterate,
+    /// `T(h) ~ T_k + (h - h_k)/c_p,k`, and the pass is repeated with the solid
+    /// secant until `|T(h_f') - T_lin| < 1e-9 K`. The energy identity
+    /// `source = solid + fluid storage + throughflow` holds **exactly** for
+    /// every pass, because the same interfacial term appears in both rows;
+    /// only the temperature the interface is evaluated at converges.
     ///
     /// # Panics
     ///
@@ -1708,10 +1844,10 @@ impl PebbleBedPorousMediaNode {
         dt: Time,
         net_heat_to_bed: Power,
         pebble_conduction_power: Power,
-        helium_inlet_temperature: ThermodynamicTemperature,
+        helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
     ) -> Power {
-        // 1. Coefficient and the fluid capacitance at the start-of-step state.
+        // 1. Coefficient and the void helium mass at the start-of-step state.
         let helium_temperature_now =
             ThermodynamicTemperature::new::<kelvin>(self.helium_state.temperature);
         // One resolved-pebble solve per step, at the GROSS conduction power,
@@ -1751,82 +1887,110 @@ impl PebbleBedPorousMediaNode {
         );
         let conductance: ThermalConductance = htc * heat_transfer_area();
 
-        let fluid_capacity =
-            fluid_node_heat_capacity(self.helium_state, self.pebble_bed_helium_volume);
+        // Start-of-step void helium mass, frozen over the step (the same
+        // treatment the solid's secant gives its capacitance's start point).
+        let helium_mass = helium_void_mass(self.helium_state, self.pebble_bed_helium_volume);
 
-        // 2. m_dot c_p, floored so a stopped circulator does not divide by zero.
+        // 2. The throughflow, floored so a stopped circulator does not leave
+        //    the fluid row without a sink. The primary loop never commands
+        //    less than 1e-2 kg/s, so the floor does not bind in the plant.
         let flow_floor = MassRate::new::<kilogram_per_second>(1.0e-6);
-        let capacity_rate: ThermalConductance = helium_mass_flow.abs().max(flow_floor)
-            * SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.helium_state.cp);
+        let mass_flow = helium_mass_flow.abs().max(flow_floor);
 
-        // 3. Secant-capacitance fixed point on the graphite enthalpy.
+        // 3. Fixed point on BOTH phases' state functions: the solid secant
+        //    capacitance on the graphite enthalpy, and the Newton
+        //    linearisation of T(h) on the helium.
         let mass = graphite_mass();
         let t_n = self.pebble_temperature;
         let h_n = pebble_bed_specific_enthalpy_from_temperature(t_n);
+        let helium_enthalpy_now = self.helium_enthalpy;
         let mut solid_capacity = bed_heat_capacity(t_n);
-        let mut solved = [t_n.get::<kelvin>(), helium_temperature_now.get::<kelvin>()];
+        let mut linearisation = self.helium_state;
+        let mut linearisation_enthalpy = self.helium_enthalpy;
+        let mut solved_solid_k = t_n.get::<kelvin>();
+        let mut solved_helium_enthalpy = helium_enthalpy_now;
+        let mut helium_at_solution = self.helium_state;
         for _ in 0..40 {
             let (matrix, rhs) = assemble_backward_euler_system(
                 dt,
                 net_heat_to_bed,
-                helium_inlet_temperature,
+                helium_inlet_enthalpy,
                 t_n,
-                helium_temperature_now,
+                helium_enthalpy_now,
                 conductance,
                 solid_capacity,
-                fluid_capacity,
-                capacity_rate,
+                helium_mass,
+                mass_flow,
+                linearisation,
+                linearisation_enthalpy,
             );
             let solution = matrix.solve(&rhs).expect(
                 "the backward-Euler matrix is diagonally dominant by construction (positive \
                  capacitance-over-dt and conductance terms on every diagonal) and is never \
                  singular -- see the struct doc comment",
             );
-            solved = [solution[0], solution[1]];
-            let dt_s_k = solved[0] - t_n.get::<kelvin>();
+            solved_solid_k = solution[0];
+            // The fluid unknown is h_f'/c_p,k (kelvin-scaled; see
+            // `assemble_backward_euler_system`).
+            solved_helium_enthalpy = solution[1] * linearisation.cp;
+
+            let dt_s_k = solved_solid_k - t_n.get::<kelvin>();
             let secant = if dt_s_k.abs() > 1.0e-9 {
                 let h_new =
                     pebble_bed_specific_enthalpy_from_temperature(ThermodynamicTemperature::new::<
                         kelvin,
-                    >(solved[0]));
+                    >(solved_solid_k));
                 mass * (h_new - h_n)
                     / TemperatureInterval::new::<temperature_interval::kelvin>(dt_s_k)
             } else {
                 bed_heat_capacity(t_n)
             };
-            let converged = ((secant - solid_capacity) / solid_capacity)
+            let solid_converged = ((secant - solid_capacity) / solid_capacity)
                 .get::<ratio>()
                 .abs()
                 < 1.0e-12;
             solid_capacity = secant;
-            if converged {
+
+            // The helium temperature this pass's interface term was evaluated
+            // at, against the EOS temperature of the enthalpy it solved for.
+            let linearised_k = linearisation.temperature
+                + (solved_helium_enthalpy - linearisation_enthalpy) / linearisation.cp;
+            helium_at_solution = helium_state_at_seeded(
+                AvailableEnergy::new::<joule_per_kilogram>(solved_helium_enthalpy),
+                Some(linearised_k),
+            );
+            let helium_converged = (helium_at_solution.temperature - linearised_k).abs() < 1.0e-9;
+            linearisation = helium_at_solution;
+            linearisation_enthalpy = solved_helium_enthalpy;
+            if solid_converged && helium_converged {
                 break;
             }
         }
 
         // 4. Energy bookkeeping, from the coefficients the final solve used.
         let dt_s = dt.get::<second>();
-        let c_f = fluid_capacity.get::<joule_per_kelvin>();
-        let m_dot_cp = capacity_rate.get::<watt_per_kelvin>();
+        let m_dot = mass_flow.get::<kilogram_per_second>();
+        let h_in = helium_inlet_enthalpy.get::<joule_per_kilogram>();
         self.last_step_energy = BedStepEnergy {
             source: net_heat_to_bed.get::<watt>() * dt_s,
             solid_storage: solid_capacity.get::<joule_per_kelvin>()
-                * (solved[0] - t_n.get::<kelvin>()),
-            fluid_storage: c_f * (solved[1] - helium_temperature_now.get::<kelvin>()),
-            throughflow_out: m_dot_cp
-                * (solved[1] - helium_inlet_temperature.get::<kelvin>())
-                * dt_s,
+                * (solved_solid_k - t_n.get::<kelvin>()),
+            fluid_storage: helium_mass.get::<kilogram>()
+                * (solved_helium_enthalpy - helium_enthalpy_now),
+            throughflow_out: m_dot * (solved_helium_enthalpy - h_in) * dt_s,
         };
 
-        // 5. Store the solved solid temperature and re-flash the helium.
-        self.pebble_temperature = ThermodynamicTemperature::new::<kelvin>(solved[0]);
-        let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
-        self.helium_state = state_pt(Fluid::Helium, solved[1], pressure_pa)
-            .expect("helium (T,p) flash failed to converge at the solved fluid-node temperature");
+        // 5. Store the solved solid temperature and the helium enthalpy (the
+        //    integrated state, exactly) with its flashed state.
+        self.pebble_temperature = ThermodynamicTemperature::new::<kelvin>(solved_solid_k);
+        self.helium_enthalpy = solved_helium_enthalpy;
+        self.helium_state = helium_at_solution;
 
         // 6. Publish the exchanged heat rate, the coefficient, and what the
         //    profile says about the fuel stack.
-        let delta = TemperatureInterval::new::<temperature_interval::kelvin>(solved[0] - solved[1]);
+        let delta = TemperatureInterval::new::<temperature_interval::kelvin>(
+            solved_solid_k - helium_at_solution.temperature,
+        );
         self.heat_to_helium = conductance * delta;
         self.overall_htc = htc;
         self.peak_kernel_temperature = profile.map(|p| p.peak_kernel_centre);
@@ -1947,6 +2111,20 @@ impl PebbleBedPorousMediaNode {
         ThermodynamicTemperature::new::<kelvin>(self.helium_state.temperature)
     }
 
+    /// Helium void volume this node's fluid row holds \[m^3\] -- the 197 cm
+    /// operational bed's since 2026-09-29 (gh:#393).
+    #[allow(dead_code)] // read by the one-core-state test
+    pub fn helium_void_volume(&self) -> Volume {
+        self.pebble_bed_helium_volume
+    }
+
+    /// Specific enthalpy of the helium leaving this node \[J/kg\] -- the
+    /// well-mixed node's own state, exactly as the step closed its balance
+    /// on it. The primary loop's hot-duct CV receives `m_dot` times this.
+    pub fn helium_outlet_enthalpy(&self) -> AvailableEnergy {
+        AvailableEnergy::new::<joule_per_kilogram>(self.helium_enthalpy)
+    }
+
     /// Heat rate exchanged between the phases across `h A` on the most
     /// recent step.
     pub fn heat_to_helium(&self) -> Power {
@@ -1960,68 +2138,74 @@ impl Default for PebbleBedPorousMediaNode {
     }
 }
 
-/// Thermal capacitance of the helium held in a bed void volume
-/// `void_volume` at thermodynamic state `helium_state` \[J/K\]:
-/// `rho * V_void * c_p`. This is `C_f` in the
-/// [`PebbleBedPorousMediaNode`] derivation.
+/// Mass of the helium held in a bed void volume `void_volume` at
+/// thermodynamic state `helium_state` \[kg\]: `rho V_void`. This is `M_f` in
+/// the [`PebbleBedPorousMediaNode`] derivation.
 ///
-/// Takes the already-evaluated [`FluidState`] rather than a bare
-/// temperature so the density and `c_p` it reads are guaranteed consistent
-/// with each other and with whatever temperature that state was flashed
-/// at -- see the module comment above [`PebbleBedPorousMediaNode`] for why
-/// that matters.
-fn fluid_node_heat_capacity(helium_state: FluidState, void_volume: Volume) -> HeatCapacity {
-    HeatCapacity::new::<joule_per_kelvin>(
-        helium_state.density * void_volume.get::<cubic_meter>() * helium_state.cp,
-    )
+/// ~~`fluid_node_heat_capacity`, `rho V_void c_p`~~ -- **replaced 2026-09-29
+/// (gh:#393)**: the fluid row balances enthalpy, so it needs the mass, not a
+/// capacitance built on a local `c_p`.
+fn helium_void_mass(helium_state: FluidState, void_volume: Volume) -> Mass {
+    Mass::new::<kilogram>(helium_state.density * void_volume.get::<cubic_meter>())
 }
 
 /// Assemble the 2x2 backward-Euler coefficient matrix and right-hand side
-/// for one [`PebbleBedPorousMediaNode::step`]. See the struct doc comment
-/// for the derivation these four matrix entries and two right-hand-side
-/// entries come from.
+/// for one pass of [`PebbleBedPorousMediaNode::step`].
 ///
-/// Row/column order is `[T_pebble^{n+1}, T_helium^{n+1}]` for both the
-/// matrix and the returned right-hand side, so `matrix.solve(&rhs)[0]` is
-/// the solved pebble temperature and `[1]` is the solved helium
-/// temperature, both in kelvin.
+/// Unknowns, in order: `x = [T_s', y]` with `y = h_f' / c_p,k` -- the helium
+/// enthalpy scaled by the linearisation point's `c_p` so both unknowns are in
+/// kelvin and the matrix keeps the diagonally dominant shape of the old
+/// temperature form. `matrix.solve(&rhs)[0]` is the solved pebble temperature
+/// \[K\]; `[1] * c_p,k` is the solved helium enthalpy \[J/kg\].
 ///
-/// `reactor_thermal_power` is the ALREADY-SUMMED source term `Q` -- fission
-/// power plus fission-product decay heat, `Q_fission` in the derivation --
-/// so this function does not itself know or care how that sum was formed;
-/// see [`PebbleBedPorousMediaNode::step`]'s doc comment for why the split
-/// is kept at the call site instead.
+/// With `T(h) ~ T_k + (h - h_k)/c_p,k` about the linearisation state
+/// `(T_k, h_k, c_p,k)` and `a = T_k - h_k/c_p,k`:
+///
+/// | | col 0: `T_s'` | col 1: `y` | `b` |
+/// |---|---|---|---|
+/// | row 0 (solid) | `C_s/dt + hA` | `-hA` | `C_s/dt T_s + Q + hA a` |
+/// | row 1 (helium) | `-hA` | `M_f c_p,k/dt + hA + m_dot c_p,k` | `M_f/dt h_f + m_dot h_in - hA a` |
+///
+/// Row 1 is `M_f (h_f' - h_f)/dt = hA (T_s' - T_lin(h_f')) + m_dot (h_in -
+/// h_f')`; row 0 is the solid balance with the same interfacial term, which is
+/// why the two rows' sum is the node's exact energy identity.
+///
+/// `reactor_thermal_power` is the net source `Q` on the solid.
+#[allow(clippy::too_many_arguments)]
 fn assemble_backward_euler_system(
     dt: Time,
     reactor_thermal_power: Power,
-    helium_inlet_temperature: ThermodynamicTemperature,
+    helium_inlet_enthalpy: AvailableEnergy,
     pebble_temperature: ThermodynamicTemperature,
-    helium_temperature: ThermodynamicTemperature,
+    helium_enthalpy: f64,
     conductance: ThermalConductance,
     solid_capacity: HeatCapacity,
-    fluid_capacity: HeatCapacity,
-    capacity_rate: ThermalConductance,
+    helium_mass: Mass,
+    mass_flow: MassRate,
+    linearisation: FluidState,
+    linearisation_enthalpy: f64,
 ) -> (SquareMatrix, [f64; 2]) {
     let dt_s = dt.get::<second>();
     let h_a = conductance.get::<watt_per_kelvin>();
     let c_s = solid_capacity.get::<joule_per_kelvin>();
-    let c_f = fluid_capacity.get::<joule_per_kelvin>();
-    let m_dot_cp = capacity_rate.get::<watt_per_kelvin>();
+    let m_f = helium_mass.get::<kilogram>();
+    let m_dot = mass_flow.get::<kilogram_per_second>();
+    let cp_k = linearisation.cp;
+    let offset = linearisation.temperature - linearisation_enthalpy / cp_k;
 
     let t_s_n = pebble_temperature.get::<kelvin>();
-    let t_f_n = helium_temperature.get::<kelvin>();
-    let t_in = helium_inlet_temperature.get::<kelvin>();
+    let h_in = helium_inlet_enthalpy.get::<joule_per_kilogram>();
     let q_source = reactor_thermal_power.get::<watt>();
 
     let mut matrix = SquareMatrix::new(2);
     matrix.set(0, 0, c_s / dt_s + h_a);
     matrix.set(0, 1, -h_a);
     matrix.set(1, 0, -h_a);
-    matrix.set(1, 1, c_f / dt_s + h_a + m_dot_cp);
+    matrix.set(1, 1, m_f * cp_k / dt_s + h_a + m_dot * cp_k);
 
     let rhs = [
-        c_s / dt_s * t_s_n + q_source,
-        c_f / dt_s * t_f_n + m_dot_cp * t_in,
+        c_s / dt_s * t_s_n + q_source + h_a * offset,
+        m_f / dt_s * helium_enthalpy + m_dot * h_in - h_a * offset,
     ];
 
     (matrix, rhs)
@@ -2062,7 +2246,7 @@ mod tests {
         let mut node = PebbleBedPorousMediaNode::new();
         let t_start = node.pebble_temperature();
         let power = Power::new::<megawatt>(50.0);
-        let inlet = ThermodynamicTemperature::new::<kelvin>(673.15);
+        let inlet = helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(673.15));
         node.step(
             Time::new::<second>(5.0),
             power,
@@ -2877,9 +3061,17 @@ mod tests {
     /// so a ~0.1 K move is what the change should give -- it comes from the
     /// resolved pebble, not the heat capacity.
     ///
+    /// **Re-measured 2026-09-29 (gh:#393: the fluid row on enthalpy, the void
+    /// volume from the 197 cm bed):** `T_pebble = 1184.6528 K` (+0.0139 K),
+    /// `T_helium = 1120.7149 K` (+0.0141 K), `heat_to_helium = 9.991322 MW`,
+    /// throughflow `m_dot (h_f - h_in) = 9.991311 MW`. The void volume cannot
+    /// move a steady state; the +0.014 K is the `c_p` shortcut removed from
+    /// the throughflow -- `m_dot c_p(T_f) (T_f - T_in)` against the exact
+    /// enthalpy difference over a 448 K rise.
+    ///
     /// **Interpretation.** The two independent routes to the same duty --
     /// the interfacial exchange `h A (T_s - T_f)` and the throughflow
-    /// `m_dot c_p (T_f - T_in)` -- agree at steady state, which is exactly
+    /// ~~`m_dot c_p (T_f - T_in)`~~ `m_dot (h_f - h_in)` (2026-09-29) -- agree at steady state, which is exactly
     /// the identity the solid and fluid balances jointly enforce (see the
     /// struct doc comment's derivation). This says nothing about whether
     /// 934.7746 K / 903.3439 K are themselves accurate -- the fluid-node
@@ -2891,7 +3083,7 @@ mod tests {
         let mut node = PebbleBedPorousMediaNode::new();
         let power = Power::new::<megawatt>(10.0);
         let inlet_k = 673.15;
-        let inlet = ThermodynamicTemperature::new::<kelvin>(inlet_k);
+        let inlet = helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(inlet_k));
         let flow = nominal_helium_flow();
         let dt = Time::new::<second>(0.05);
 
@@ -2907,9 +3099,11 @@ mod tests {
             "settled exchanged heat {removed} W does not match the 10 MW source"
         );
 
-        let cp = node.helium_state().cp;
+        // The throughflow on ENTHALPY since 2026-09-29 (gh:#393), not
+        // `m_dot c_p (T_f - T_in)`.
         let t_f = node.helium_temperature().get::<kelvin>();
-        let throughflow_removed = flow.get::<kilogram_per_second>() * cp * (t_f - inlet_k);
+        let throughflow_removed = flow.get::<kilogram_per_second>()
+            * (node.helium_outlet_enthalpy() - inlet).get::<joule_per_kilogram>();
         assert!(
             (throughflow_removed - 1.0e7).abs() / 1.0e7 < 5.0e-3,
             "settled throughflow duty {throughflow_removed} W departs from the 10 MW source"
@@ -2923,6 +3117,30 @@ mod tests {
             removed / 1.0e6,
             throughflow_removed / 1.0e6,
         );
+    }
+
+    /// **One core state (gh:#393, 2026-09-29): the fluid node's void helium
+    /// and the graphite node describe the same 197 cm, 27 000-pebble bed.**
+    ///
+    /// **Methodology.** The fluid row's void volume must equal
+    /// [`bed_void_volume`] (`eps pi D^2 H / 4` on the published 1.8 m x 1.97 m
+    /// bed, the geometry [`graphite_mass`] and [`pebble_count`] are drawn
+    /// from), to 1e-12 relative, and must differ from the zone-99
+    /// critical-loading void ([`super::super::htr10_rz_geometry::pebble_bed_helium_volume`]).
+    ///
+    /// **Fails before the change**: the node took zone 99, 1.2213 m^3 against
+    /// the bed's 1.9551 m^3 (-37.5 %). **Results (2026-09-29):** 1.955085 m^3
+    /// on both sides.
+    #[test]
+    fn the_fluid_and_graphite_nodes_describe_the_same_bed() {
+        let node = PebbleBedPorousMediaNode::new();
+        let v_node = node.helium_void_volume().get::<cubic_meter>();
+        let v_bed = bed_void_volume().get::<cubic_meter>();
+        let v_zone99 =
+            super::super::htr10_rz_geometry::pebble_bed_helium_volume().get::<cubic_meter>();
+        println!("fluid-node void {v_node:.6} m^3, 197 cm bed void {v_bed:.6} m^3, zone 99 void {v_zone99:.6} m^3");
+        assert!((v_node - v_bed).abs() / v_bed < 1e-12);
+        assert!((v_node - v_zone99).abs() / v_bed > 0.1);
     }
 
     /// V&V: the bed step closes its own energy balance, on the graphite's
@@ -2949,7 +3167,7 @@ mod tests {
     fn the_bed_step_closes_its_own_energy_balance() {
         use uom::si::available_energy::joule_per_kilogram;
         let mut node = PebbleBedPorousMediaNode::new();
-        let inlet = ThermodynamicTemperature::new::<kelvin>(523.15);
+        let inlet = helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(523.15));
         let dt = Time::new::<second>(0.1);
         let mut worst_balance = 0.0f64;
         let mut worst_enthalpy = 0.0f64;

@@ -685,6 +685,16 @@ pub struct SteamGeneratorState {
     pub cold_side_duty: Power,
     /// Hot-fluid outlet temperature.
     pub hot_outlet_temperature: ThermodynamicTemperature,
+    /// Hot-fluid outlet specific enthalpy -- the `h_out` in
+    /// [`Self::hot_side_duty`]. Added 2026-09-29 (gh:#388) so a downstream
+    /// control volume receives exactly the enthalpy the duty was computed
+    /// against, rather than re-deriving it from
+    /// [`Self::hot_outlet_temperature`] through a second flash.
+    pub hot_outlet_enthalpy: AvailableEnergy,
+    /// Hot-fluid inlet specific enthalpy this state's duty was computed
+    /// against (the `h_in` in [`Self::hot_side_duty`]). Added 2026-09-29
+    /// (gh:#388) for the same reason.
+    pub hot_inlet_enthalpy: AvailableEnergy,
     /// Water/steam outlet temperature -- the live steam temperature.
     pub cold_outlet_temperature: ThermodynamicTemperature,
     /// Water/steam outlet specific enthalpy.
@@ -924,6 +934,16 @@ impl NodalisedCounterFlowSteamGenerator {
             hot_side_duty: Power::new::<watt>(0.0),
             cold_side_duty: Power::new::<watt>(0.0),
             hot_outlet_temperature: config.initial_cold_end_temperature,
+            hot_outlet_enthalpy: hot_fluid_enthalpy(
+                config.hot_fluid,
+                config.initial_cold_end_temperature,
+                config.hot_pressure,
+            ),
+            hot_inlet_enthalpy: hot_fluid_enthalpy(
+                config.hot_fluid,
+                config.initial_hot_end_temperature,
+                config.hot_pressure,
+            ),
             cold_outlet_temperature: config.initial_cold_outlet_temperature,
             cold_outlet_enthalpy: AvailableEnergy::new::<joule_per_kilogram>(0.0),
             hot_node_temperatures: hot_seed,
@@ -1099,6 +1119,37 @@ impl NodalisedCounterFlowSteamGenerator {
         cold_inlet_enthalpy: AvailableEnergy,
         cold_mass_flow: MassRate,
     ) -> Result<SteamGeneratorState, SteamGeneratorError> {
+        let hot_inlet_enthalpy = hot_fluid_enthalpy(
+            self.config.hot_fluid,
+            hot_inlet_temperature,
+            self.config.hot_pressure,
+        );
+        self.advance_timestep_from_hot_inlet_enthalpy(
+            dt,
+            hot_inlet_enthalpy,
+            hot_mass_flow,
+            cold_inlet_enthalpy,
+            cold_mass_flow,
+        )
+    }
+
+    /// [`Self::advance_timestep`] with the hot stream's inlet given as a
+    /// **specific enthalpy** rather than a temperature.
+    ///
+    /// Added 2026-09-29 (gh:#388) for a caller whose upstream control volume
+    /// integrates enthalpy: handing over the enthalpy itself means the duty
+    /// `m_dot (h_in - h_out)` is computed against exactly the enthalpy that
+    /// left the upstream CV, with no `h -> T -> h` round trip in between. The
+    /// temperature entry point converts and delegates here, so the two cannot
+    /// drift apart.
+    pub fn advance_timestep_from_hot_inlet_enthalpy(
+        &mut self,
+        dt: Time,
+        hot_inlet_enthalpy: AvailableEnergy,
+        hot_mass_flow: MassRate,
+        cold_inlet_enthalpy: AvailableEnergy,
+        cold_mass_flow: MassRate,
+    ) -> Result<SteamGeneratorState, SteamGeneratorError> {
         let n = self.config.node_count;
 
         // Accumulate onto the exchanger's own clock. Below one whole substep
@@ -1113,12 +1164,6 @@ impl NodalisedCounterFlowSteamGenerator {
             return Ok(self.last_state.clone());
         }
         self.pending -= dt_sub * (substeps as f64);
-
-        let hot_inlet_enthalpy = hot_fluid_enthalpy(
-            self.config.hot_fluid,
-            hot_inlet_temperature,
-            self.config.hot_pressure,
-        );
 
         for _ in 0..substeps {
             // 1. Boundary conditions. Mass-flow inlets, not velocity inlets: the
@@ -1209,6 +1254,8 @@ impl NodalisedCounterFlowSteamGenerator {
             hot_side_duty,
             cold_side_duty,
             hot_outlet_temperature: self.hot.get_outlet_temperature(),
+            hot_outlet_enthalpy: hot_out_h,
+            hot_inlet_enthalpy,
             cold_outlet_temperature: self.cold.get_outlet_temperature(),
             cold_outlet_enthalpy: cold_out_h,
             hot_node_temperatures,
