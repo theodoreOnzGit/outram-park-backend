@@ -253,6 +253,14 @@ fn normal_operation_external_band_against_table_7() {
 /// | 45 | 2.8e-5 | 3.69e-5 | 2.23e-6 | 6.9e-5 | 8.62e-5 | 5.21e-6 |
 /// | 75 | 2.0e-6 | 2.08e-5 | 1.07e-6 | 4.7e-6 | 4.86e-5 | 2.51e-6 |
 ///
+/// The table above was measured with the ENDF 0.94699 branching. **Re-measured
+/// 2026-09-29 with FGR-15's 0.944** (buangkok's progeny table): every accident
+/// value is 0.3 % or less lower, e.g. depressurization 0.25 km band max
+/// 1.42e-3 -> 1.419e-3, water ingress 0.25 km band max 3.32e-3 -> 3.311e-3,
+/// water ingress 1.5 km D/3 m/s 5.22e-4 -> 5.200e-4. No inside/outside verdict
+/// changes. The normal-operation table above is unchanged at its printed
+/// precision: Ar-41 submersion dominates there.
+///
 /// Table 9 falls inside the band from 45 km out, and above it closer in.
 ///
 /// **Interpretation.**
