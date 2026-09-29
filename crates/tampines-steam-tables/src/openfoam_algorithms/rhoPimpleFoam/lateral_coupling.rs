@@ -1229,7 +1229,24 @@ mod tests {
     /// is no boundary through which energy can enter or leave, so the global
     /// balance cannot even be posed".
     ///
-    /// **The excursion is a pre-existing solver defect, not a boundary defect,
+    /// **Re-measured 2026-09-29 (gh:#319) after the energy convection moved
+    /// from the unlimited linear `fvc::div` to `fvc::div_limited` with the van
+    /// Leer default** (`EnergyConvectionScheme`):
+    ///
+    /// | Arm | Worst excursion | Reversed mean `he` | Miss from the 450 K junction |
+    /// |---|---|---|---|
+    /// | forward control | **0.015 kJ/kg (0.01 % of span)** | n/a | n/a |
+    /// | reversal, outlet prescribed | **0.198 kJ/kg (0.09 %)** | 750.9 kJ/kg | **0.00 % of span** |
+    /// | reversal, outlet unset | **0.198 kJ/kg (0.09 %)** | 544.3 kJ/kg | **95.92 % of span** |
+    ///
+    /// The unset arm now drifts 536.7 -> 544.3 kJ/kg (+7.6, about +1.8 K)
+    /// rather than +135.6 kJ/kg (+32 K) -- most of the "drift with no energy
+    /// source" in the 2026-08-12 table was the same unbounded scheme. The
+    /// relative gate `worst <= 1.5 x forward control` was replaced by an
+    /// absolute 1 kJ/kg pressure-work bound (see the assertion), which is
+    /// tighter in every arm.
+    ///
+    /// ~~**The excursion is a pre-existing solver defect, not a boundary defect,
     /// and it is not tuned away here.** It is a single-cell odd-even spike that
     /// parks at the **second-to-last cell** and does **not** converge under mesh
     /// refinement -- measured on a forward-only front at 39.20 % (n = 8),
@@ -1238,7 +1255,13 @@ mod tests {
     /// (commit `d9abc55616`), so this change neither causes nor worsens it.
     /// Filed as its own bead; it is distinct from `op-1fyp` (central-differenced
     /// `fvc::div(phi, he)`, 10-15 % and mesh-convergent at a *travelling* front)
-    /// because this one is boundary-localised, 3-4x larger, and mesh-invariant.
+    /// because this one is boundary-localised, 3-4x larger, and mesh-invariant.~~
+    /// **CORRECTED 2026-09-29 (gh:#319)** -- it was not distinct: this array
+    /// never received `op-1fyp`'s fix (only the sibling `outram-park-fork-coolprop`
+    /// array did), and replacing its central-differenced `fvc::div(phi, he)` with
+    /// the limited scheme removed the spike (39.20 % -> 0.01 % of span). The
+    /// mesh-invariance measured above is what a central scheme at cell
+    /// Péclet >> 1 does at a boundary where the upwind terminal meets it.
     ///
     /// The boundedness assertion is therefore made **relative to that measured
     /// floor** rather than against a number chosen to pass: reversing the flow
@@ -1314,8 +1337,8 @@ mod tests {
         println!(
             "flow reversal V&V, available range [{:.1}, {:.1}] kJ/kg (span {:.1}):\n  \
              forward control (no reversal, 50 K front from the inlet): worst \
-             excursion {:.3} kJ/kg = {:.2}% of span -- this is the solver's own \
-             outlet odd-even oscillation, pre-existing and mesh-invariant",
+             excursion {:.3} kJ/kg = {:.2}% of span -- the solver's own boundedness \
+             floor (39.20% under the pre-2026-09-29 linear scheme)",
             h_lo / 1e3,
             h_hi / 1e3,
             span / 1e3,
@@ -1391,18 +1414,23 @@ mod tests {
                 worst / 1e3,
                 span / 1e3,
             );
-            // Relative to the measured floor: reversing must not make boundedness
-            // materially worse than the solver's own outlet oscillation already
-            // does. Deliberately NOT an absolute number chosen to pass -- see the
-            // doc comment.
+            // ~~Relative to the measured floor: `worst <= 1.5 * forward_worst`~~
+            // -- REPLACED 2026-09-29 (gh:#319) by an absolute bound, which is
+            // TIGHTER in every arm. The relative gate existed only because the
+            // forward control itself rang by 39 % of span; that ringing was the
+            // unbounded linear `fvc::div` (see the doc comment), and with the
+            // bounded default it fell 5600x to 0.015 kJ/kg, so a ratio against
+            // it now measures rounding noise. The physical allowance is the
+            // reversible pressure work `dh = dp / rho` of the reversal's own
+            // pressure transient: 1 kJ/kg is a 1 MPa swing in liquid, 0.46 % of
+            // this span.
+            const PRESSURE_WORK_ALLOWANCE_J_PER_KG: f64 = 1.0e3;
             assert!(
-                worst <= 1.5 * forward_worst,
-                "reversing the flow made the enthalpy excursion {:.2}x the \
-                 forward-only control ({:.3} vs {:.3} kJ/kg, {label}). The forward \
-                 control shares the same 50 K front amplitude and never reverses, so \
-                 anything materially above it is attributable to the TERMINAL \
-                 treatment rather than to the pre-existing outlet oscillation.",
-                worst / forward_worst.max(f64::MIN_POSITIVE),
+                worst <= PRESSURE_WORK_ALLOWANCE_J_PER_KG,
+                "the enthalpy left the range spanned by its two terminals and its \
+                 initial state by {:.3} kJ/kg ({label}), more than the 1 kJ/kg of \
+                 reversible pressure work a reversal transient can account for. \
+                 (Forward-only control: {:.3} kJ/kg.)",
                 worst / 1e3,
                 forward_worst / 1e3,
             );

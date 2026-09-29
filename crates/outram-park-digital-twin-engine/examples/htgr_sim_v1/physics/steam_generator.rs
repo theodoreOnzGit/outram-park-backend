@@ -448,7 +448,7 @@ pub struct SteamGeneratorConfig {
     /// | Array timestep | `Co_hot` | Settled `Q_hot` | Outcome |
     /// |---|---|---|---|
     /// | 0.1 s | 1.776 | -- | **fails** (also at 8 and 32 outer correctors) |
-    /// | 0.05 s | 0.888 | -- | **fails** (also at 4, 8, 16 outer correctors); enthalpy goes odd-even and clamps |
+    /// | ~~0.05 s~~ | ~~0.888~~ | ~~--~~ | ~~**fails** (also at 4, 8, 16 outer correctors); enthalpy goes odd-even and clamps~~ **CORRECTED 2026-09-29** -- stale since 2026-08-13 (helium side made implicit 15 min after this row); 0.05 s, which this plant ships, completes. See `tampines::components::helical_coil_steam_generator::SteamGeneratorConfig::substep` for the re-measured sweep (0.05 s completes, 0.075 s and 0.1 s panic under the bounded cold-side convection, gh:#319). |
     /// | 0.025 s | 0.444 | 9.8244 MW | stable, but **+1.44%** off converged |
     /// | **0.0125 s** | **0.222** | **9.6854 MW** | **stable, +0.003% off converged** |
     /// | 0.00625 s | 0.111 | 9.6851 MW | reference |
@@ -527,7 +527,10 @@ pub struct SteamGeneratorConfig {
 ///
 /// - `n_outer` -- outer (PIMPLE/SIMPLE-like) correctors per array timestep.
 ///   Each one re-solves momentum, pressure and energy from the same old-time
-///   state with the latest iterate. Because both arrays carry their enthalpy
+///   state with the latest iterate. Because ~~both arrays carry~~ the cold
+///   array carries (**CORRECTED 2026-09-29**, gh:#319: the hot array is
+///   `EnergyBalanceMode::Implicit`, and the cold array used an unlimited linear
+///   `fvc::div` until that date) its enthalpy
 ///   convection as an **explicit** `fvc::div_limited` source inside this loop,
 ///   the loop is a Picard iteration whose contraction factor is the cell
 ///   Courant number `Co`: residual reduction over the step is roughly
@@ -1026,7 +1029,12 @@ impl NodalisedCounterFlowSteamGenerator {
     ///
     /// # Why this matters here
     ///
-    /// Both arrays carry the enthalpy convection term **explicitly** -- their
+    /// ~~Both arrays carry~~ **CORRECTED 2026-09-29 (gh:#319)** -- only the cold
+    /// array does: the hot array is `EnergyBalanceMode::Implicit` (constructor),
+    /// and the cold array's source was an unlimited linear `fvc::div`, not
+    /// `fvc::div_limited`, until 2026-09-29. See
+    /// `tampines::components::helical_coil_steam_generator` for the full note.
+    /// The enthalpy convection term is carried **explicitly** -- the
     /// energy equation adds `fvc::div_limited(phi, he, limiter)` as a source
     /// rather than an `fvm::div` matrix contribution -- inside the PIMPLE outer
     /// corrector loop. That makes the outer loop a Picard iteration on an
@@ -1431,7 +1439,10 @@ mod tests {
     /// faster is a larger substep, and the standing question is whether more
     /// PIMPLE outer correctors buy one -- which is what an outer corrector does
     /// for an implicitly-discretised convection term. Here it does not, and the
-    /// reason is structural: both arrays add their enthalpy convection as an
+    /// reason is structural: ~~both arrays add~~ the cold array adds
+    /// (**CORRECTED 2026-09-29**, gh:#319 -- the hot array is implicit, and the
+    /// cold array's source was an unlimited linear `fvc::div` until that date)
+    /// its enthalpy convection as an
     /// **explicit** `fvc::div_limited` source *inside* the outer loop, so the
     /// loop is a Picard iteration on that source whose contraction factor is
     /// the cell Courant number. Below `Co = 1` correctors converge it (and the

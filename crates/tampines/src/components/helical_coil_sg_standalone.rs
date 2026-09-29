@@ -51,7 +51,9 @@
 //! **CORRECTED 2026-09-27 — the 0.05 s "fails" row was stale and has been
 //! struck.** This harness is what settled it:
 //! [`tests::how_far_the_implicit_coupling_raises_the_stable_substep`] (244.81 s)
-//! measures 0.05 s and 0.075 s both **completing**, at 1 coupling iteration and
+//! measures 0.05 s and ~~0.075 s~~ both **completing** (0.075 s panics since
+//! 2026-09-29, when the cold side's convection became bounded -- gh:#319; see
+//! that test's re-measured table), at 1 coupling iteration and
 //! at 8; 0.1 s panics. The row was written at 10:12 on 2026-08-13, 15 minutes
 //! before commit `68e35551c2` put the helium side's energy convection on
 //! `EnergyBalanceMode::Implicit` and removed the ceiling it was measuring, and
@@ -263,7 +265,8 @@ pub struct SgTraceRow {
 /// 0.05 s and 0.075 s both complete at 1 and at 8 coupling iterations, 0.1 s
 /// panics). So there is currently **no measured substep at which this metric has
 /// been shown to diagnose a checkerboard** — it is a sound instrument with no
-/// calibrated reading yet. A 0.075 s run reports 75.3475 K, but with no
+/// calibrated reading yet. A 0.075 s run reported 75.3475 K (before
+/// 2026-09-29; 0.075 s panics under the bounded cold-side scheme, gh:#319), but with no
 /// smooth-profile baseline for this 8-node dome-crossing cold side that number
 /// cannot yet be attributed to oscillation rather than real curvature.
 pub fn odd_even_roughness(profile: &[f64]) -> f64 {
@@ -438,7 +441,9 @@ mod tests {
     /// # used to claim it was
     ///
     /// ~~`the_exchanger_runs_at_one_tenth_second_with_no_substepping_faster_than_real_time`~~
-    /// **RENAMED 2026-09-27.** At a 0.075 s substep this passes; at the requested
+    /// **RENAMED 2026-09-27.** At a 0.075 s substep this passes (**0.05 s since
+    /// 2026-09-29**, gh:#319 -- 0.075 s panics under the bounded cold-side
+    /// convection); at the requested
     /// **0.1 s it panics**, with the cold side leaving IF97 Region 5's 2273.15 K
     /// upper bound. It panics identically with 1 coupling iteration and with 8,
     /// so what blocks 0.1 s is a Courant/advection limit **inside**
@@ -525,7 +530,13 @@ mod tests {
         let cfg = SgStandaloneConfig {
             steps,
             caller_dt_s: 0.1,
-            // 0.075 s, NOT the 0.1 s asked for. 0.1 s panics -- the cold side
+            // CHANGED 2026-09-29 (gh:#319): 0.05 s, re-measured as the largest
+            // stable substep once `TampinesSteamArray`'s energy convection became
+            // bounded (van Leer); 0.075 s now panics. See
+            // `how_far_the_implicit_coupling_raises_the_stable_substep`. The
+            // original reasoning, which is about 0.1 s and still holds:
+            //
+            // ~~0.075 s~~, NOT the 0.1 s asked for. 0.1 s panics -- the cold side
             // leaves IF97 Region 5's 2273.15 K top -- with 1 coupling iteration
             // and with 8 alike, so the blocker is the arrays' own advection
             // Courant limit, not the coupling this change made implicit. Measured
@@ -535,7 +546,7 @@ mod tests {
             // caller step it means ONE substep per call plus a 0.025 s remainder
             // carried -- so this is not yet "no substepping". Honest state of the
             // target, not a claim of having hit it.
-            substep_s: 0.075,
+            substep_s: 0.05,
             sample_every: 100,
             ..Default::default()
         };
@@ -559,7 +570,7 @@ mod tests {
         let tol = htr10_illustrative_config(0.1, 8).coupling_tolerance_kelvin;
 
         println!(
-            "IMPLICIT HELIUM-TUBE-STEAM COUPLING, 0.1 s caller step, 0.075 s substep\n               (a 0.1 s substep -- the requested no-substepping case -- PANICS; see the doc)\n               exchanger time      = {plant_seconds:.1} s in {steps} steps\n               wall clock          = {wall:.3} s  ->  {:.2}x real time\n               coupling iterations = {max_iters_used} max used (ceiling {ceiling})\n               worst residual      = {worst_residual:.3e} K (tolerance {tol:.1e} K)\n               coldest water node  = {coldest:.4} K\n               steam outlet        = {:.2} K, hot duty {:.4} MW, cold duty {:.4} MW\n               odd-even roughness  = {:.4} K\n               stop                = {stop:?}",
+            "IMPLICIT HELIUM-TUBE-STEAM COUPLING, 0.1 s caller step, 0.05 s substep\n               (a 0.1 s substep -- the requested no-substepping case -- PANICS; see the doc)\n               exchanger time      = {plant_seconds:.1} s in {steps} steps\n               wall clock          = {wall:.3} s  ->  {:.2}x real time\n               coupling iterations = {max_iters_used} max used (ceiling {ceiling})\n               worst residual      = {worst_residual:.3e} K (tolerance {tol:.1e} K)\n               coldest water node  = {coldest:.4} K\n               steam outlet        = {:.2} K, hot duty {:.4} MW, cold duty {:.4} MW\n               odd-even roughness  = {:.4} K\n               stop                = {stop:?}",
             plant_seconds / wall,
             last.cold_outlet_k,
             last.hot_duty_w / 1.0e6,
@@ -644,6 +655,26 @@ mod tests {
     /// | 0.0500 s | Completed, coldest 320.2 K | Completed, coldest 320.2 K | **4** |
     /// | 0.0750 s | Completed, coldest 320.2 K | Completed, coldest 320.2 K | **6** |
     /// | **0.1000 s** | **PANIC** | **PANIC** | -- |
+    ///
+    /// # RE-MEASURED 2026-09-29 (gh:#319), after the cold side's convection became bounded
+    ///
+    /// `TampinesSteamArray` moved from an unbounded linear face value to van
+    /// Leer (the linear scheme walked the inlet cell to the 273.15 K floor).
+    /// Same sweep, 115.74 s:
+    ///
+    /// | Substep | Jacobi (1 iteration) | Picard (up to 8) | Iterations Picard used |
+    /// |---|---|---|---|
+    /// | 0.0125 s | Completed, coldest 320.3 K | Completed, coldest 320.3 K | **3** |
+    /// | 0.0250 s | Completed, coldest 320.3 K | Completed, coldest 320.4 K | **4** |
+    /// | 0.0500 s | Completed, coldest 320.3 K | Completed, coldest 320.3 K | **4** |
+    /// | **0.0750 s** | **PANIC** | **PANIC** | -- |
+    /// | **0.1000 s** | **PANIC** | **PANIC** | -- |
+    ///
+    /// The ceiling moved down one row. The 0.1 s panic is preceded by a
+    /// drained-cell hold in vapour cell 6 (the explicit continuity removes more
+    /// mass than the cell holds), so the remaining limit is a mass-Courant one
+    /// inside the array, as finding 2 below argued. Findings 2 and 3 refer to
+    /// the 2026-09-27 table.
     ///
     /// # Two findings, and the second is the one that matters
     ///
