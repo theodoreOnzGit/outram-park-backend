@@ -70,7 +70,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, ZCylinder, ZPlane};
+use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -392,6 +392,52 @@ fn main() {
         .map(|s| s.parse().expect("seed"))
         .collect();
     let mut c = case(&case_name);
+    // `--variant solution-inf|solution-bare` (diagnostic A/B, GitHub #367, HST-009
+    // only): the solution sphere alone, with a REFLECTIVE boundary (its k_inf) or
+    // with vacuum outside (no tank, no water). Splits a residual between the
+    // multiplying medium and the leakage/reflector return.
+    if let Some(v) = flag(&args, "--variant") {
+        assert_eq!(case_name, "hst009", "--variant is defined for hst009 only");
+        let bc = match v.as_str() {
+            "solution-inf" => BoundaryType::Reflective,
+            "solution-bare" => BoundaryType::Vacuum,
+            other => panic!("unknown --variant {other}"),
+        };
+        eprintln!("  VARIANT: {v} (solution sphere alone, {bc:?} boundary)");
+        let r = 11.5177;
+        let g = Geometry {
+            surfaces: vec![SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r,
+                bc,
+            })],
+            cells: vec![Cell::material(
+                1,
+                vec![RegionToken::HalfSpace {
+                    surface_idx: 0,
+                    sense: HalfSpaceSense::Inside,
+                }],
+                0,
+                TEMP_K,
+            )],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0],
+            }],
+            lattices: vec![],
+            root_universe: 0,
+        };
+        c.materials.truncate(1);
+        c.model = Model::Csg(
+            g,
+            SourceBox {
+                lower: Position::new(-r, -r, -r),
+                upper: Position::new(r, r, r),
+            },
+        );
+    }
     // `--drop-nuclide N` (diagnostic A/B, GitHub #367): remove one nuclide from
     // every material, to localise a residual to it. Not renormalised.
     if let Some(drop) = flag(&args, "--drop-nuclide") {

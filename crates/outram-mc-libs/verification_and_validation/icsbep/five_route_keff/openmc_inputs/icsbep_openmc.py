@@ -147,6 +147,9 @@ def main():
     ap.add_argument("--inactive", type=int, default=40)
     ap.add_argument("--active", type=int, default=120)
     ap.add_argument("--commit", default="unknown")
+    ap.add_argument("--variant", default=None, choices=["solution-inf", "solution-bare"],
+                    help="diagnostic (GitHub #367, hst009 only): the solution sphere alone, "
+                         "reflective or vacuum boundary")
     ap.add_argument("--drop-nuclide", default=None,
                     help="diagnostic (GitHub #367): remove one nuclide everywhere")
     ap.add_argument("--no-sab", action="store_true",
@@ -155,6 +158,13 @@ def main():
     a = ap.parse_args()
 
     mats, geo, space = CASES[a.case]()
+    if a.variant:
+        assert a.case == "hst009", "--variant is defined for hst009 only"
+        sol = mats[0]
+        bc = "reflective" if a.variant == "solution-inf" else "vacuum"
+        s1 = openmc.Sphere(r=11.5177, boundary_type=bc)
+        geo = openmc.Geometry([openmc.Cell(fill=sol, region=-s1)])
+        mats = [sol]
     if a.no_sab:
         for m in mats:
             m._sab = []
