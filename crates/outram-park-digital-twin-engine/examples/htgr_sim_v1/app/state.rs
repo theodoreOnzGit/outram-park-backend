@@ -546,6 +546,9 @@ pub struct HtgrSnapshot {
     pub circulator_power_mw: f64,
     /// Passive decay-heat loss from the bed to the reflector \[MW\].
     pub passive_heat_loss_mw: f64,
+    /// Heat the side reflector gives the helium rising through its channels
+    /// \[MW\] (gh:#397) -- enters the cold-return CV.
+    pub riser_heat_mw: f64,
     /// Lumped side-reflector temperature \[K\] (passive path node).
     pub reflector_temp_k: f64,
     /// Lumped reactor-pressure-vessel temperature \[K\] (passive path node).
@@ -861,6 +864,7 @@ impl Default for HtgrSnapshot {
             bed_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
             passive_heat_loss_mw: 0.0,
+            riser_heat_mw: 0.0,
             reflector_temp_k: f64::NAN,
             rpv_temp_k: f64::NAN,
             energy_source_j: 0.0,

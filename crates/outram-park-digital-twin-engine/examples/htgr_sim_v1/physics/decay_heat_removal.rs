@@ -119,6 +119,52 @@
 //! bed), so the dispersion branch sees the outlet temperature over the whole
 //! wall, which **over-states** it near the cold top of the bed.
 //!
+//! ## The riser leg: reflector -> cold helium in the side-reflector channels (gh:#397)
+//!
+//! Cold helium from the circulator rises through **20 channels** in the side
+//! reflector ([S2] section 5, [S5] section 2, [S3] section 2; Jun et al. 2009
+//! Table 1) on its way to the top plenum, and cools the reflector as it goes.
+//! The leg is a heat-transfer path out of the reflector row of the bed's
+//! implicit solve and into the primary loop's cold-return CV.
+//!
+//! **Geometry, all published or derived from published figures:**
+//! diameter **0.08 m** and channel-centre radius 1.446 m (Jun, Lim & Lee
+//! 2009, *Nucl. Eng. Technol.* 41(3), Table 1 "Diameter of cold helium flow
+//! channel, m 0.08"); total channel volume **0.507681 m^3** ([S3] KENO VI,
+//! Table VI); hence length `L = V / (20 pi d^2/4)` = **5.05 m** (derived,
+//! consistent with the 4.70 m graphite annulus plus the channels' run into
+//! the top and bottom reflectors). Flow: **3.846 / 4.32 = 89.0 %** of the loop
+//! ([`crate::physics::primary_loop::RISER_FLOW_FRACTION`], Gao & Shi 2002
+//! Table 1).
+//!
+//! **Heat transfer.** `h` from the Gnielinski correlation in its laminar /
+//! transition / turbulent interpolated form (Gnielinski 2013, *Int. J. Heat
+//! Mass Transfer* 63, 134-140), as implemented in `tuas`
+//! (`gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing_bulk_fluid_prandtl`)
+//! with the entrance correction at `L/d = 63` and the Churchill smooth-pipe
+//! friction factor; Dittus-Boelter is the cross-check
+//! (`tests::the_riser_leg_uses_gnielinski_and_vanishes_without_flow`). The
+//! channel wall sits at the reflector temperature and the helium enters at
+//! the cold-return CV's temperature, which is the classic isothermal-wall
+//! channel, so the leg is the exact effectiveness form
+//!
+//! ```text
+//! Q_riser = m_r c_p (1 - exp(-h A / (m_r c_p))) (T_r - T_cold),   A = 20 pi d L
+//! ```
+//!
+//! which is bounded by the stream's capacity and **vanishes with the flow**
+//! (a trip leaves it negligible; stagnant natural convection in the channels
+//! is not modelled).
+//!
+//! **Assumptions, stated.** (a) The channel walls are at the lumped
+//! reflector node's temperature: the graphite conduction between the node and
+//! the channels at r = 1.446 m is neglected, which **over-states** the leg;
+//! (b) `tuas`'s Gnielinski is the liquids form, used with `Pr_wall = Pr_bulk`
+//! so its liquid viscosity-ratio correction is unity, and the gas
+//! temperature-ratio correction is omitted; its laminar branch is the
+//! uniform-heat-flux `Nu = 4.36`; (c) the riser helium properties are
+//! evaluated at the cold-return temperature (the channel inlet).
+//!
 //! ## The boundary condition, and where the number comes from
 //!
 //! The RCCS is held at a **fixed 50 degC** throughout, which is what GAMMA+
@@ -149,9 +195,9 @@
 //!   carries the ZBS sphere radiation.
 //! - ~~**Bed-to-wall convection** -- pending literature~~ -- present since
 //!   2026-09-29 (Achenbach 1995, above).
-//! - **The helium-to-reflector riser leg** (cold helium rising in the 20
-//!   side-reflector channels, gh:#397) -- not yet; it biases the reflector
-//!   hot under forced flow.
+//! - ~~**The helium-to-reflector riser leg** -- not yet; it biases the
+//!   reflector hot under forced flow~~ -- present since 2026-09-29 (gh:#397);
+//!   see "The riser leg" below.
 //! - **No natural circulation.** After the blower baffle closes the real core
 //!   establishes a buoyancy-driven helium loop that Chen et al. (2009) section
 //!   5 call an effective heat-transport mechanism alongside conduction and
@@ -655,6 +701,69 @@ fn ua_reflector_to_rpv_w_per_k(
         + 1.0 / ua_gap_to_rpv_w_per_k(reflector, rpv))
 }
 
+/// Riser channel count (published; see the module doc).
+const RISER_CHANNEL_COUNT: f64 = 20.0;
+
+/// Riser channel diameter \[m\]: **0.08**, Jun, Lim & Lee (2009) Table 1.
+const RISER_CHANNEL_DIAMETER_M: f64 = 0.08;
+
+/// Riser channel length \[m\], derived: the published total volume over the
+/// published count and bore, `V / (20 pi d^2 / 4)` = 5.05 m.
+fn riser_channel_length_m() -> f64 {
+    crate::physics::primary_loop::RISER_BOREHOLE_VOLUME_M3
+        / (RISER_CHANNEL_COUNT * std::f64::consts::PI * RISER_CHANNEL_DIAMETER_M.powi(2) / 4.0)
+}
+
+/// Riser helium flow \[kg/s\] from the loop flow.
+fn riser_mass_flow_kg_s(loop_flow: MassRate) -> f64 {
+    loop_flow.get::<kilogram_per_second>().abs() * crate::physics::primary_loop::RISER_FLOW_FRACTION
+}
+
+/// Riser Nusselt number and Reynolds number at the cold helium temperature
+/// and loop flow: `tuas`'s interpolated Gnielinski (2013), `Pr_wall =
+/// Pr_bulk`, Churchill smooth-pipe friction, `L/d` from the derived length.
+fn riser_nusselt_and_reynolds(
+    cold_helium: ThermodynamicTemperature,
+    loop_flow: MassRate,
+) -> (f64, f64, f64, f64) {
+    let (k_g, prandtl, mu) = super::pebble_bed::helium_transport(cold_helium);
+    let per_channel = riser_mass_flow_kg_s(loop_flow) / RISER_CHANNEL_COUNT;
+    let re = 4.0 * per_channel / (std::f64::consts::PI * RISER_CHANNEL_DIAMETER_M * mu);
+    let darcy = tuas_boussinesq_solver::fluid_mechanics_correlations::darcy(re.max(1.0), 0.0)
+        .unwrap_or_else(|e| panic!("riser Churchill friction at Re {re}: {e:?}"));
+    let nu = tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::pipe_correlations::gnielinski_correlation_interpolated_uniform_heat_flux_liquids_developing_bulk_fluid_prandtl(
+        re.max(1.0),
+        prandtl,
+        prandtl,
+        darcy,
+        riser_channel_length_m() / RISER_CHANNEL_DIAMETER_M,
+    );
+    (nu, re, prandtl, k_g)
+}
+
+/// **The riser leg \[W/K\]**: `m_r c_p (1 - exp(-h A / (m_r c_p)))`, the
+/// exact isothermal-wall channel conductance against the channel INLET
+/// temperature (the cold-return CV). Zero at zero flow. See the module doc.
+fn ua_reflector_to_risers_w_per_k(
+    cold_helium: ThermodynamicTemperature,
+    loop_flow: MassRate,
+) -> f64 {
+    let m_r = riser_mass_flow_kg_s(loop_flow);
+    if !(m_r > 0.0) {
+        return 0.0;
+    }
+    let (nu, _, _, k_g) = riser_nusselt_and_reynolds(cold_helium, loop_flow);
+    let h = nu * k_g / RISER_CHANNEL_DIAMETER_M;
+    let area = RISER_CHANNEL_COUNT
+        * std::f64::consts::PI
+        * RISER_CHANNEL_DIAMETER_M
+        * riser_channel_length_m();
+    let cp =
+        super::pebble_bed::helium_specific_heat(cold_helium).get::<joule_per_kilogram_kelvin>();
+    let capacity_rate = m_r * cp;
+    capacity_rate * (1.0 - (-h * area / capacity_rate).exp())
+}
+
 /// The conductances and secant capacities of the passive path at one iterate
 /// of the bed's implicit solve -- what [`super::pebble_bed::PebbleBedPorousMediaNode::step`]
 /// puts in its reflector and RPV rows and on the bed solid row's diagonal.
@@ -675,6 +784,12 @@ pub struct PassiveCoupling {
     pub reflector_to_rpv: f64,
     /// RPV -> RCCS, radiative.
     pub rpv_to_rccs: f64,
+    /// Reflector -> riser helium (gh:#397), against
+    /// [`Self::riser_helium_temperature_k`].
+    pub reflector_to_risers: f64,
+    /// Temperature of the helium entering the risers -- the cold-return CV's
+    /// state as handed to the bed \[K\].
+    pub riser_helium_temperature_k: f64,
     /// Reflector node secant capacity (graphite + boronated brick) from the
     /// start-of-step temperature to the iterate.
     pub reflector_capacity: f64,
@@ -702,6 +817,9 @@ pub struct CoreToRccsPath {
     heat_from_core: Power,
     /// Heat rate reaching the RCCS on the most recent step.
     heat_to_rccs: Power,
+    /// Heat rate given to the riser helium on the most recent step (gh:#397)
+    /// -- what the cold-return CV receives.
+    heat_to_risers: Power,
 }
 
 impl CoreToRccsPath {
@@ -722,8 +840,8 @@ impl CoreToRccsPath {
     /// literature-derived leg set, every capacity the derived `m c_p(T)`; the
     /// only thing chosen here is the node temperatures, and they are not a
     /// choice: they are the steady state for a bed whose solid sits at
-    /// `bed_solid`, whose helium sits at `bed_helium`, at loop flow
-    /// `mass_flow`.
+    /// `bed_solid`, whose helium sits at `bed_helium`, with riser helium
+    /// entering at `cold_helium`, at loop flow `mass_flow`.
     ///
     /// # Why this is not optional
     ///
@@ -735,6 +853,7 @@ impl CoreToRccsPath {
     pub fn new_at_steady_state(
         bed_solid: ThermodynamicTemperature,
         bed_helium: ThermodynamicTemperature,
+        cold_helium: ThermodynamicTemperature,
         mass_flow: MassRate,
     ) -> Self {
         let t_sink = Self::rccs_boundary().get::<kelvin>();
@@ -745,9 +864,10 @@ impl CoreToRccsPath {
             rpv_temperature: ThermodynamicTemperature::new::<kelvin>(t_sink + 50.0),
             heat_from_core: Power::new::<watt>(0.0),
             heat_to_rccs: Power::new::<watt>(0.0),
+            heat_to_risers: Power::new::<watt>(0.0),
         };
         // Steady state: the same network with no storage (dt -> infinity).
-        path.solve_with_bed_held(bed_solid, bed_helium, mass_flow, None);
+        path.solve_with_bed_held(bed_solid, bed_helium, cold_helium, mass_flow, None);
         path
     }
 
@@ -762,6 +882,7 @@ impl CoreToRccsPath {
         &mut self,
         bed_solid: ThermodynamicTemperature,
         bed_helium: ThermodynamicTemperature,
+        cold_helium: ThermodynamicTemperature,
         mass_flow: MassRate,
         dt_s: Option<f64>,
     ) {
@@ -774,6 +895,7 @@ impl CoreToRccsPath {
         let mut c = self.coupling(
             bed_solid,
             bed_helium,
+            cold_helium,
             mass_flow,
             self.reflector_temperature,
             self.rpv_temperature,
@@ -788,18 +910,18 @@ impl CoreToRccsPath {
                 c.helium_to_near_wall,
                 c.near_wall_to_reflector,
             );
-            let (g2, g3) = (c.reflector_to_rpv, c.rpv_to_rccs);
+            let (g2, g3, g_riser) = (c.reflector_to_rpv, c.rpv_to_rccs, c.reflector_to_risers);
             let mut m = outram_foam_basic_lib::prelude::SquareMatrix::new(3);
             m.set(0, 0, gs + gf + gw);
             m.set(0, 1, -gw);
             m.set(1, 0, -gw);
-            m.set(1, 1, a_r + gw + g2);
+            m.set(1, 1, a_r + gw + g2 + g_riser);
             m.set(1, 2, -g2);
             m.set(2, 1, -g2);
             m.set(2, 2, a_v + g2 + g3);
             let rhs = [
                 gs * t_s + gf * t_f,
-                a_r * t_r0,
+                a_r * t_r0 + g_riser * c.riser_helium_temperature_k,
                 a_v * t_v0 + g3 * c.rccs_temperature_k,
             ];
             let x = m
@@ -816,6 +938,7 @@ impl CoreToRccsPath {
             c = self.coupling(
                 bed_solid,
                 bed_helium,
+                cold_helium,
                 mass_flow,
                 ThermodynamicTemperature::new::<kelvin>(t_r),
                 ThermodynamicTemperature::new::<kelvin>(t_v),
@@ -826,6 +949,7 @@ impl CoreToRccsPath {
             ThermodynamicTemperature::new::<kelvin>(t_v),
             Power::new::<watt>(c.near_wall_to_reflector * (t_w - t_r)),
             Power::new::<watt>(c.rpv_to_rccs * (t_v - c.rccs_temperature_k)),
+            Power::new::<watt>(c.reflector_to_risers * (t_r - c.riser_helium_temperature_k)),
         );
     }
 
@@ -836,7 +960,8 @@ impl CoreToRccsPath {
     // Chen et al.'s balance point be wanted as V&V.
 
     /// The legs and secant capacities at an iterate of the bed's implicit
-    /// solve: bed solid at `bed_solid`, bed helium at `bed_helium`, loop flow
+    /// solve: bed solid at `bed_solid`, bed helium at `bed_helium`, riser
+    /// inlet helium (the cold-return CV) at `cold_helium`, loop flow
     /// `mass_flow`, reflector at `reflector`, RPV at `rpv`. The
     /// capacities run from this path's stored (start-of-step) temperatures to
     /// the iterate, so a converged solve conserves enthalpy exactly.
@@ -845,10 +970,12 @@ impl CoreToRccsPath {
     ///
     /// Outside the property windows (IG-110 300-2000 K, the Kim steel
     /// 300-1700 K).
+    #[allow(clippy::too_many_arguments)]
     pub fn coupling(
         &self,
         bed_solid: ThermodynamicTemperature,
         bed_helium: ThermodynamicTemperature,
+        cold_helium: ThermodynamicTemperature,
         mass_flow: MassRate,
         reflector: ThermodynamicTemperature,
         rpv: ThermodynamicTemperature,
@@ -862,6 +989,8 @@ impl CoreToRccsPath {
             ),
             reflector_to_rpv: ua_reflector_to_rpv_w_per_k(reflector, rpv),
             rpv_to_rccs: ua_rpv_rccs_w_per_k(rpv),
+            reflector_to_risers: ua_reflector_to_risers_w_per_k(cold_helium, mass_flow),
+            riser_helium_temperature_k: cold_helium.get::<kelvin>(),
             // Graphite and brick share the graphite c_p(T) (see
             // `boronated_brick_mass`), so one secant on the summed mass.
             reflector_capacity: secant_capacity(
@@ -883,11 +1012,13 @@ impl CoreToRccsPath {
         rpv: ThermodynamicTemperature,
         heat_from_core: Power,
         heat_to_rccs: Power,
+        heat_to_risers: Power,
     ) {
         self.reflector_temperature = reflector;
         self.rpv_temperature = rpv;
         self.heat_from_core = heat_from_core;
         self.heat_to_rccs = heat_to_rccs;
+        self.heat_to_risers = heat_to_risers;
     }
 
     /// Enthalpy held in the two solid nodes \[J\], `m h(T)` on each (graphite
@@ -914,11 +1045,13 @@ impl CoreToRccsPath {
         dt: uom::si::f64::Time,
         bed_solid: ThermodynamicTemperature,
         bed_helium: ThermodynamicTemperature,
+        cold_helium: ThermodynamicTemperature,
         mass_flow: MassRate,
     ) -> Power {
         self.solve_with_bed_held(
             bed_solid,
             bed_helium,
+            cold_helium,
             mass_flow,
             Some(dt.get::<uom::si::time::second>()),
         );
@@ -944,6 +1077,13 @@ impl CoreToRccsPath {
     /// Heat rate reaching the RCCS boundary on the most recent step.
     pub fn heat_to_rccs(&self) -> Power {
         self.heat_to_rccs
+    }
+
+    /// Heat rate given to the helium rising through the side-reflector
+    /// channels on the most recent step (gh:#397) -- the cold-return CV's
+    /// riser source.
+    pub fn heat_to_risers(&self) -> Power {
+        self.heat_to_risers
     }
 }
 
@@ -972,10 +1112,17 @@ mod tests {
         MassRate::new::<kilogram_per_second>(kg_s)
     }
 
+    /// The published 250 degC core inlet -- the riser helium's temperature in
+    /// these component tests (IAEA-TECDOC-1382 via `htr10::design`).
+    fn cold() -> ThermodynamicTemperature {
+        crate::physics::pebble_bed::design().helium_inlet_phase1
+    }
+
     fn design_path() -> CoreToRccsPath {
         CoreToRccsPath::new_at_steady_state(
             k(DESIGN_BED_TEMPERATURE_K),
             k(DESIGN_BED_TEMPERATURE_K),
+            cold(),
             flow(0.0),
         )
     }
@@ -995,11 +1142,14 @@ mod tests {
             let bed = ThermodynamicTemperature::new::<degree_celsius>(900.0);
             let dt = Time::new::<second>(0.1);
             let e0 = path.stored_energy().get::<joule>();
-            let q_in = path.advance(dt, bed, bed, flow(m_dot)).get::<watt>();
-            let q_out = path.heat_to_rccs().get::<watt>();
+            let q_in = path
+                .advance(dt, bed, bed, cold(), flow(m_dot))
+                .get::<watt>();
+            // Out: the RCCS AND (since 2026-09-29, gh:#397) the riser helium.
+            let q_out = path.heat_to_rccs().get::<watt>() + path.heat_to_risers().get::<watt>();
             let stored = path.stored_energy().get::<joule>() - e0;
             let residual = (q_in - q_out) * 0.1 - stored;
-            println!("flow {m_dot} kg/s: in {q_in:.3} W, out {q_out:.3} W, stored {stored:.6e} J, residual {residual:.3e} J");
+            println!("flow {m_dot} kg/s: in {q_in:.3} W, out {q_out:.3} W (risers {:.3} W), stored {stored:.6e} J, residual {residual:.3e} J", path.heat_to_risers().get::<watt>());
             assert!(
                 (residual / (q_in * 0.1).abs().max(1.0)).abs() < 1.0e-9,
                 "energy is not conserved across the chain at {m_dot} kg/s"
@@ -1022,7 +1172,7 @@ mod tests {
         let mut path = design_path();
         let hot = ThermodynamicTemperature::new::<degree_celsius>(900.0);
         for _ in 0..1000 {
-            path.advance(Time::new::<second>(0.1), hot, hot, flow(0.0));
+            path.advance(Time::new::<second>(0.1), hot, hot, cold(), flow(0.0));
             assert_eq!(
                 CoreToRccsPath::rccs_boundary(),
                 sink,
@@ -1049,7 +1199,7 @@ mod tests {
         let bed = k(DESIGN_BED_TEMPERATURE_K + 200.0);
         let e0 = path.stored_energy().get::<joule>();
         let q_in = path
-            .advance(Time::new::<second>(1.0e10), bed, bed, flow(0.0))
+            .advance(Time::new::<second>(1.0e10), bed, bed, cold(), flow(0.0))
             .get::<watt>();
         let q_out = path.heat_to_rccs().get::<watt>();
         let (t_r, t_v) = (
@@ -1079,14 +1229,20 @@ mod tests {
     fn heat_flows_downhill_and_reverses_rather_than_over_cooling() {
         let mut path = design_path();
         let hot = ThermodynamicTemperature::new::<degree_celsius>(900.0);
-        path.advance(Time::new::<second>(0.1), hot, hot, flow(4.3));
+        path.advance(Time::new::<second>(0.1), hot, hot, cold(), flow(4.3));
         assert!(path.heat_from_core().get::<watt>() > 0.0);
         assert!(path.heat_to_rccs().get::<watt>() > 0.0);
 
         let mut path = design_path();
-        let cold = ThermodynamicTemperature::new::<degree_celsius>(100.0);
+        let cold_bed = ThermodynamicTemperature::new::<degree_celsius>(100.0);
         let q = path
-            .advance(Time::new::<second>(0.1), cold, cold, flow(0.0))
+            .advance(
+                Time::new::<second>(0.1),
+                cold_bed,
+                cold_bed,
+                cold(),
+                flow(0.0),
+            )
             .get::<watt>();
         assert!(
             q < 0.0,
@@ -1212,9 +1368,31 @@ mod tests {
     /// | 4.3 kg/s, 950 K bed and helium (reported) | **316.5 kW**, reflector 463.0 degC, RPV 227.4 degC | 206 kW | **+53.6 %** |
     /// | the plant's own state at 300 s (headless trace) | **784.8 kW** at a 1303 K bed | 206 kW | -- (a 1303 K bed, not a design state) |
     ///
-    /// **Interpretation.** On the reading that describes the same state as
-    /// the reference (forced flow), the model now removes heat about half as
-    /// fast again as Hu's figure. Nothing was tuned to close that. Candidate
+    /// # Results after the riser leg (2026-09-29, gh:#397) -- and which quantity is Hu's
+    ///
+    /// **Hu's 206 kW is what the surface cooling system dissipates -- the
+    /// RCCS duty.** Until the riser leg the bed -> reflector heat and the RCCS
+    /// heat were the same number at steady state, so the tests compared the
+    /// former. With the risers, part of the bed -> reflector heat goes back
+    /// into the helium (it is not lost from the plant), so the comparable
+    /// quantity is `heat_to_rccs`, and both are now printed:
+    ///
+    /// | Reading | bed -> reflector | to risers | **to RCCS (Hu's quantity)** | reflector / RPV |
+    /// |---|---|---|---|---|
+    /// | stagnant, 950 K (**gated**, bed->reflector) | 254.0 kW | 0 | **254.0 kW (+23.3 %)** | 411.6 / 205.6 degC |
+    /// | 4.3 kg/s, 950 K, risers at 250 degC | 589.1 kW | 454.5 kW | **134.6 kW (-34.7 %)** | 295.9 / 153.0 degC |
+    ///
+    /// The gate is unchanged (at zero flow both quantities are the same
+    /// 254.0 kW, and the riser leg vanishes). On forced flow the risers now
+    /// hold the reflector near the cold helium, so **less** heat reaches the
+    /// vessel and the RCCS than Hu's figure -- the sign has flipped from the
+    /// stage (b) reading, and the -34.7 % is reported, not tuned. The riser
+    /// leg's assumption (a) (channel walls at the node temperature) is the
+    /// one that pushes this reading low.
+    ///
+    /// **Interpretation (stage (b) reading, superseded above).** On the
+    /// reading that describes the same state as the reference (forced flow),
+    /// the model removed heat about half as fast again as Hu's figure. Nothing was tuned to close that. Candidate
     /// physics, for the record: the dispersion branch sees the
     /// outlet-referenced helium over the whole wall (assumption (d) in the
     /// module doc, an over-statement); the riser leg (gh:#397, stage (c)) is
@@ -1242,13 +1420,16 @@ mod tests {
         );
 
         // Added, not gated: the same bed at the rated flow.
-        let forced = CoreToRccsPath::new_at_steady_state(bed, bed, flow(4.3));
+        let forced = CoreToRccsPath::new_at_steady_state(bed, bed, cold(), flow(4.3));
         let q_forced = forced.heat_from_core().get::<watt>();
         println!(
-            "FORCED 950 K, 4.3 kg/s (reported, not gated): core {:.1} kW ({:+.1} % against 206 kW); \
-             reflector {:.1} degC, RPV {:.1} degC",
+            "FORCED 950 K, 4.3 kg/s, risers at 250 degC (reported, not gated): core {:.1} kW \
+             ({:+.1} % against 206 kW), of which {:.1} kW to the riser helium and {:.1} kW to the \
+             RCCS; reflector {:.1} degC, RPV {:.1} degC",
             q_forced / 1e3,
             100.0 * (q_forced / DESIGN_PASSIVE_HEAT_LOSS_W - 1.0),
+            forced.heat_to_risers().get::<watt>() / 1e3,
+            forced.heat_to_rccs().get::<watt>() / 1e3,
             forced.reflector_temperature().get::<degree_celsius>(),
             forced.rpv_temperature().get::<degree_celsius>(),
         );
@@ -1265,7 +1446,7 @@ mod tests {
         );
         assert!(
             q_forced >= q_core,
-            "adding the flow-dispersion leg in parallel cannot reduce the first leg's conductance"
+            "adding the flow-dispersion and riser legs cannot reduce the heat leaving the bed"
         );
     }
 
@@ -1315,6 +1496,7 @@ mod tests {
         let c = path.coupling(
             k(DESIGN_BED_TEMPERATURE_K),
             k(DESIGN_BED_TEMPERATURE_K),
+            cold(),
             flow(0.0),
             t_r,
             t_v,
@@ -1334,7 +1516,7 @@ mod tests {
         // The secant capacity is the enthalpy change, exactly.
         let t_new = k(t_r.get::<kelvin>() + 50.0);
         let secant = path
-            .coupling(k(950.0), k(950.0), flow(0.0), t_new, t_v)
+            .coupling(k(950.0), k(950.0), cold(), flow(0.0), t_new, t_v)
             .reflector_capacity
             * 50.0;
         let m = (reflector_graphite_mass() + boronated_brick_mass()).get::<kilogram>();
@@ -1410,5 +1592,57 @@ mod tests {
             ua_helium_to_near_wall_w_per_k(he, flow(2.0))
                 < ua_helium_to_near_wall_w_per_k(he, flow(4.3))
         );
+    }
+
+    /// V&V (gh:#397): **the riser leg uses Gnielinski, is bounded by the
+    /// stream, and vanishes without flow.**
+    ///
+    /// # Methodology
+    ///
+    /// 1. Geometry: the derived channel length `V/(20 pi d^2/4)` equals
+    ///    0.507681 / (20 pi 0.08^2 / 4) m, recomputed here.
+    /// 2. At the rated 4.3 kg/s and the published 250 degC inlet, print the
+    ///    riser Reynolds number, the Gnielinski Nusselt number `tuas`
+    ///    returns, and the Dittus-Boelter cross-check `0.023 Re^0.8 Pr^0.4`
+    ///    (heating); require the two to agree within 25 % (Dittus-Boelter's
+    ///    usual scatter band against Gnielinski in fully turbulent flow).
+    /// 3. The leg never exceeds the stream capacity `m_r c_p` and is zero at
+    ///    zero flow; it rises with flow.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// At 4.3 kg/s and 523.15 K: `L = 5.050 m`, `Re = 103 867` (turbulent),
+    /// `Pr = 0.6585`; **Nu_Gnielinski = 186.77**, Nu_Dittus-Boelter = 200.60
+    /// (**+7.4 %**, inside the band); `h = 539.9 W/(m^2 K)`, `hA = 13.70 kW/K`
+    /// against the stream's `m_r c_p = 19.87 kW/K` (NTU 0.690), so the leg is
+    /// **9.90 kW/K** -- the largest conductance out of the reflector at power,
+    /// about 5x the bed -> reflector leg it now competes with.
+    #[test]
+    fn the_riser_leg_uses_gnielinski_and_vanishes_without_flow() {
+        let expected_l = 0.507681 / (20.0 * std::f64::consts::PI * 0.08f64.powi(2) / 4.0);
+        assert!((riser_channel_length_m() - expected_l).abs() < 1e-12);
+
+        let (nu, re, pr, k_g) = riser_nusselt_and_reynolds(cold(), flow(4.3));
+        let db = tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::pipe_correlations::dittus_boelter_correlation(re, pr, true);
+        let g = ua_reflector_to_risers_w_per_k(cold(), flow(4.3));
+        let cp = crate::physics::pebble_bed::helium_specific_heat(cold())
+            .get::<joule_per_kilogram_kelvin>();
+        let capacity = riser_mass_flow_kg_s(flow(4.3)) * cp;
+        let h = nu * k_g / RISER_CHANNEL_DIAMETER_M;
+        let area =
+            20.0 * std::f64::consts::PI * RISER_CHANNEL_DIAMETER_M * riser_channel_length_m();
+        println!(
+            "riser at 4.3 kg/s, 523.15 K: L = {:.3} m, Re = {re:.0}, Pr = {pr:.4}, Nu_Gnielinski = \
+             {nu:.2}, Nu_Dittus-Boelter = {db:.2} ({:+.1} %), h = {h:.1} W/(m^2 K), hA = {:.1} W/K, \
+             m_r c_p = {capacity:.1} W/K, NTU = {:.3}, G = {g:.1} W/K",
+            riser_channel_length_m(),
+            100.0 * (db / nu - 1.0),
+            h * area,
+            h * area / capacity,
+        );
+        assert!((db / nu - 1.0).abs() < 0.25);
+        assert!(g > 0.0 && g <= capacity);
+        assert_eq!(ua_reflector_to_risers_w_per_k(cold(), flow(0.0)), 0.0);
+        assert!(ua_reflector_to_risers_w_per_k(cold(), flow(2.0)) < g);
     }
 }

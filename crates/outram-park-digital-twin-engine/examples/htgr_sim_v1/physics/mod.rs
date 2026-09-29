@@ -1109,6 +1109,7 @@ impl HtgrPlant {
         let decay_heat_path = decay_heat_removal::CoreToRccsPath::new_at_steady_state(
             core.temperature(),
             core.temperature(),
+            primary.core_inlet_temperature(),
             primary.mass_flow(),
         );
         Self {
@@ -1517,7 +1518,13 @@ impl HtgrPlant {
             //     ~~The core inlet relaxes toward the exchanger's helium-side
             //     outlet over an invented, flow-independent 8 s~~ -- deleted
             //     2026-09-29 (gh:#392).
-            self.primary.close_return_leg(dt, core_inlet_enthalpy);
+            //     Its source includes the heat the side reflector gave the
+            //     riser helium (gh:#397), computed in the bed's solve above.
+            self.primary.close_return_leg(
+                dt,
+                core_inlet_enthalpy,
+                self.decay_heat_path.heat_to_risers(),
+            );
 
             // 4. Secondary steam loop, driven by the duty the steam generator's
             //    TUBE SIDE actually absorbed -- not by the heat the helium gave
@@ -1790,6 +1797,7 @@ impl HtgrPlant {
             .steam_generator_duty_to_secondary()
             .get::<megawatt>();
         s.passive_heat_loss_mw = self.passive_heat_loss.get::<megawatt>();
+        s.riser_heat_mw = self.decay_heat_path.heat_to_risers().get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
         let e = self.energy_ledger();
@@ -2786,6 +2794,7 @@ mod tests {
                         .get::<uom::si::thermodynamic_temperature::kelvin>()
                         + 150.0,
                 ),
+                plant.primary.core_inlet_temperature(),
                 plant.primary.mass_flow(),
             );
             let dt = Time::new::<second>(0.1);
@@ -2793,7 +2802,9 @@ mod tests {
             plant.step_with_correctors(dt, design_commands(), n_outer);
             let after = plant.decay_heat_path.stored_energy().get::<joule>();
             let q_in = plant.decay_heat_path.heat_from_core().get::<watt>();
-            let q_out = plant.decay_heat_path.heat_to_rccs().get::<watt>();
+            // Out: the RCCS and (gh:#397) the riser helium.
+            let q_out = plant.decay_heat_path.heat_to_rccs().get::<watt>()
+                + plant.decay_heat_path.heat_to_risers().get::<watt>();
             let expected = (q_in - q_out) * dt.get::<second>();
             let scale = (q_in * dt.get::<second>()).abs().max(1.0);
             assert!(
@@ -2862,7 +2873,9 @@ mod tests {
             let res = source - (l1.stored - l0.stored) - e.solid_storage - e.fluid_storage
                 - (r1 - r0)
                 - e.throughflow_out
-                - plant.decay_heat_path.heat_to_rccs().get::<watt>() * dt.get::<second>();
+                - (plant.decay_heat_path.heat_to_rccs().get::<watt>()
+                    + plant.decay_heat_path.heat_to_risers().get::<watt>())
+                    * dt.get::<second>();
             worst = worst.max(res.abs() / source.abs().max(1.0));
             let stack = plant
                 .fuel_stack_temperatures()
@@ -2955,7 +2968,11 @@ mod tests {
                 + (ledger1.deposited_decay - ledger0.deposited_decay);
             let fuel = ledger1.stored - ledger0.stored;
             let refl = refl1 - refl0;
-            let rccs = plant.decay_heat_path.heat_to_rccs().get::<watt>() * dt_s;
+            // The chain's exits: the RCCS and (gh:#397) the riser helium,
+            // which leaves this CV set for the primary loop's cold return.
+            let rccs = (plant.decay_heat_path.heat_to_rccs().get::<watt>()
+                + plant.decay_heat_path.heat_to_risers().get::<watt>())
+                * dt_s;
             let r = source - fuel - bed.solid_storage - bed.fluid_storage - refl
                 - bed.throughflow_out
                 - rccs;
@@ -3050,6 +3067,7 @@ mod tests {
     /// |---|---|---|---|
     /// | stage (a), 2026-09-29 | -4.6e-4 J = **9.2e-14** of 4.95e9 J | 2.4e-11 / 1.2e-10 | 0 |
     /// | stage (b), 2026-09-29 (passive path in the bed's solve) | +1.5e-5 J = **3.1e-15** | 1.1e-11 / 9.0e-11 | 0 |
+    /// | stage (c), 2026-09-29 (riser leg: reflector -> cold return) | +5.1e-4 J = **1.0e-13** | 1.2e-11 / 4.4e-11 | 0 |
     ///
     /// Stage (b) totals: source 4.9475e9 J, circulator work 3.155e6 J;
     /// storage fuel 1.078e8, bed graphite 3.876e9, bed helium 5.27e6, hot duct
@@ -4649,6 +4667,7 @@ mod tests {
     /// | **after gh:#360 fuel node + tuas graphite (2026-09-28)** | 16.1826 MW | **NOT REACHED** | 0.0361 | 1341.5 K | 1.8809 MW / 1319.0 K / 1316.3 K |
     /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | 16.1364 MW | **NOT REACHED** | -- | 1341.9 K | 1.8741 MW / 1319.0 K / 1316.4 K |
     /// | **passive path in the bed's solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | 16.1468 MW | **NOT REACHED** | -- | 1343.7 K | 1.6827 MW / 1320.7 K / 1318.3 K |
+    /// | **riser leg (2026-09-29, gh:#397)** | 16.1377 MW | **NOT REACHED** | -- | 1343.5 K | 1.6886 MW / 1320.8 K / 1318.4 K |
     ///
     /// **Stage (b), 2026-09-29:** fission at 600 s fell 10 % (1.8741 ->
     /// 1.6827 MW), but the outcome does not change. The reflector capacity is
@@ -4964,6 +4983,12 @@ mod tests {
     /// | **gh:#360 fuel node + tuas graphite** | **16.1212 MW** | **1303.39 K** | 1323.36 K | **19.97 K** (= `R P`) |
     /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | **16.0742 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
     /// | **passive path in the bed's implicit solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | **16.0693 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
+    /// | **riser leg (2026-09-29, gh:#397)** | **15.8803 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
+    ///
+    /// **Riser leg:** -1.18 % in power. The side reflector now hands about
+    /// 0.33 MW to the helium rising through its channels, which re-enters the
+    /// core ~15 K warmer (core inlet 522.2 -> 537.4 K at 300 s in the
+    /// baseline), so the same feedback balance holds at a lower power.
     ///
     /// **2026-09-29:** -0.29 % in power, +0.04 K in the bed. The circulator's
     /// 52 kW now reaches the helium instead of being discarded, so the same

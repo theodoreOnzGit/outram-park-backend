@@ -392,11 +392,6 @@ impl FeedbackSplit {
         }
     }
 
-    /// The fuel share `f`.
-    pub fn fuel_share(&self) -> f64 {
-        self.fuel_share
-    }
-
     /// `alpha_fuel = f alpha_iso` \[1/K\] — carried by the Nordheim-Fuchs node.
     pub fn fuel_coefficient(&self) -> TemperatureCoefficient {
         use uom::si::temperature_coefficient::per_kelvin;
@@ -535,6 +530,7 @@ impl XenonChannel {
     /// `I = gamma_I * F / lambda_I` and
     /// `X = (gamma_I + gamma_X) * F / lambda_X`, the latter because every
     /// iodine atom eventually becomes a xenon atom.
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
     pub fn new_at_equilibrium(power: Power) -> Self {
         let f = Self::fission_rate_per_cm3_s(power);
         let iodine = Self::YIELD_IODINE * f / Self::LAMBDA_IODINE_PER_S;
@@ -574,11 +570,6 @@ impl XenonChannel {
     /// Xenon reactivity in dollars: negative, and proportional to inventory.
     pub fn reactivity_dollars(&self) -> f64 {
         -EQUILIBRIUM_XENON_WORTH_DOLLARS * self.xenon_per_cm3 / self.equilibrium_per_cm3
-    }
-
-    /// Current Xe-135 number density \[atoms/cm^3\].
-    pub fn xenon_per_cm3(&self) -> f64 {
-        self.xenon_per_cm3
     }
 }
 
@@ -910,16 +901,6 @@ impl HtgrKinetics {
         self.heat_to_bed
     }
 
-    /// The fuel node's real heat capacity on the most recent step \[J/K\].
-    pub fn fuel_heat_capacity(&self) -> HeatCapacity {
-        self.fuel_heat_capacity
-    }
-
-    /// The fuel-to-bed resistance used on the most recent step \[K/W\].
-    pub fn fuel_to_bed_resistance(&self) -> ThermalResistance {
-        self.fuel_to_bed_resistance
-    }
-
     /// Cumulative energy ledger of the fuel node. See [`FuelNodeLedger`].
     pub fn ledger(&self) -> FuelNodeLedger {
         self.ledger
@@ -932,12 +913,14 @@ impl HtgrKinetics {
     /// the bed -- is approached, not reached; `f = 1e-3` leaves 0.1 % on the
     /// fuel node. ~~`0.0` restores the pre-2026-09-22 model exactly~~ (that
     /// model -- a bed-tracking shadow node -- no longer exists to restore).
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
     pub fn set_fuel_share(&mut self, fuel_share: f64) {
         self.feedback_split.fuel_share = fuel_share.clamp(1.0e-3, 1.0);
         self.prompt.fuel_feedback_coefficient = self.feedback_split.fuel_coefficient();
     }
 
     /// The feedback split, for display and for tests.
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
     pub fn feedback_split(&self) -> &FeedbackSplit {
         &self.feedback_split
     }
@@ -959,14 +942,6 @@ impl HtgrKinetics {
         let beta = self.prompt.delayed_neutron_fraction.get::<ratio>();
         self.feedback_split
             .moderator_reactivity_dollars(self.bed_temperature, beta)
-    }
-
-    /// How far the fuel node sits above the bed it last stepped against.
-    pub fn fuel_offset_above_bed(&self) -> TemperatureInterval {
-        use uom::si::thermodynamic_temperature::kelvin;
-        TemperatureInterval::new::<temperature_interval::kelvin>(
-            self.prompt.fuel_temperature.get::<kelvin>() - self.bed_temperature.get::<kelvin>(),
-        )
     }
 
     /// The external (rod) reactivity the most recent step integrated \[$\],
@@ -1025,21 +1000,9 @@ impl HtgrKinetics {
     /// opening state for a reactor that has been at power: the HTR-10 LOFC
     /// ATWS test was run on a core that had been operating, so its xenon was
     /// saturated when the circulator tripped.
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
     pub fn enable_xenon_at_equilibrium(&mut self, power: Power) {
         self.xenon = Some(XenonChannel::new_at_equilibrium(power));
-    }
-
-    /// Disable the Xe-135 channel.
-    pub fn disable_xenon(&mut self) {
-        self.xenon = None;
-    }
-
-    /// Current Xe-135 number density, or zero if the channel is disabled.
-    pub fn xenon_number_density_per_cm3(&self) -> f64 {
-        self.xenon
-            .as_ref()
-            .map(|x| x.xenon_per_cm3())
-            .unwrap_or(0.0)
     }
 
     /// Heat the fuel node by the fission-product decay heat generated over
@@ -1184,7 +1147,6 @@ mod tests {
     /// `beta_kinetics = 7.26e-3`.
     #[test]
     fn the_reactivity_budget_sums_to_the_net_in_kinetics_dollars() {
-        use uom::si::thermodynamic_temperature::kelvin;
         let mut k = HtgrKinetics::new_htr10_published(Power::new::<megawatt>(10.0));
         k.enable_xenon_at_equilibrium(Power::new::<megawatt>(10.0));
         let beta = k.kinetics_delayed_neutron_fraction().get::<ratio>();

@@ -1943,9 +1943,15 @@ impl PebbleBedPorousMediaNode {
             0.5 * (t_n.get::<kelvin>() + passive_path.reflector_temperature().get::<kelvin>());
         let mut reflector_k = passive_path.reflector_temperature().get::<kelvin>();
         let mut rpv_k = passive_path.rpv_temperature().get::<kelvin>();
+        // The riser helium enters at the cold-return CV's state -- the inlet
+        // enthalpy this step was handed (gh:#397).
+        let riser_inlet = ThermodynamicTemperature::new::<kelvin>(
+            helium_state_at(helium_inlet_enthalpy).temperature,
+        );
         let mut coupling = passive_path.coupling(
             t_n,
             helium_temperature_now,
+            riser_inlet,
             mass_flow,
             passive_path.reflector_temperature(),
             passive_path.rpv_temperature(),
@@ -2021,6 +2027,7 @@ impl PebbleBedPorousMediaNode {
             coupling = passive_path.coupling(
                 ThermodynamicTemperature::new::<kelvin>(solved_solid_k),
                 ThermodynamicTemperature::new::<kelvin>(helium_at_solution.temperature),
+                riser_inlet,
                 mass_flow,
                 ThermodynamicTemperature::new::<kelvin>(reflector_k),
                 ThermodynamicTemperature::new::<kelvin>(rpv_k),
@@ -2033,6 +2040,8 @@ impl PebbleBedPorousMediaNode {
         let h_in = helium_inlet_enthalpy.get::<joule_per_kilogram>();
         let to_reflector_w = coupling.near_wall_to_reflector * (near_wall_k - reflector_k);
         let to_rccs_w = coupling.rpv_to_rccs * (rpv_k - coupling.rccs_temperature_k);
+        let to_risers_w =
+            coupling.reflector_to_risers * (reflector_k - coupling.riser_helium_temperature_k);
         self.last_step_energy = BedStepEnergy {
             source: heat_from_fuel.get::<watt>() * dt_s,
             solid_storage: solid_capacity.get::<joule_per_kelvin>()
@@ -2059,6 +2068,7 @@ impl PebbleBedPorousMediaNode {
             ThermodynamicTemperature::new::<kelvin>(rpv_k),
             Power::new::<watt>(to_reflector_w),
             Power::new::<watt>(to_rccs_w),
+            Power::new::<watt>(to_risers_w),
         );
 
         // 6. Publish the exchanged heat rate, the coefficient, and what the
@@ -2237,14 +2247,16 @@ fn helium_void_mass(helium_state: FluidState, void_volume: Volume) -> Mass {
 /// With `T(h) ~ T_k + (h - h_k)/c_p,k = y + a`, `a = T_k - h_k/c_p,k`, and
 /// the passive path's legs `G_s` (solid -> near wall), `G_f` (helium -> near
 /// wall), `G_w` (near wall -> reflector), `G_2` (reflector -> RPV), `G_3`
-/// (RPV -> RCCS) and secant capacities `C_r`, `C_v`:
+/// (RPV -> RCCS), `G_riser` (reflector -> riser helium entering at the
+/// cold-return temperature `T_cold`, gh:#397) and secant capacities `C_r`,
+/// `C_v`:
 ///
 /// | | `T_s'` | `y` | `T_nw'` | `T_r'` | `T_v'` | `b` |
 /// |---|---|---|---|---|---|---|
 /// | solid | `C_s/dt + hA + G_s` | `-hA` | `-G_s` | | | `C_s/dt T_s + Q + hA a` |
 /// | helium | `-hA` | `M_f c_p,k/dt + hA + m_dot c_p,k + G_f` | `-G_f` | | | `M_f/dt h_f + m_dot h_in - (hA + G_f) a` |
 /// | near wall | `-G_s` | `-G_f` | `G_s + G_f + G_w` | `-G_w` | | `G_f a` |
-/// | reflector | | | `-G_w` | `C_r/dt + G_w + G_2` | `-G_2` | `C_r/dt T_r` |
+/// | reflector | | | `-G_w` | `C_r/dt + G_w + G_2 + G_riser` | `-G_2` | `C_r/dt T_r + G_riser T_cold` |
 /// | RPV | | | | `-G_2` | `C_v/dt + G_2 + G_3` | `C_v/dt T_v + G_3 T_rccs` |
 ///
 /// Every exchange appears with opposite signs in the two rows it joins, which
@@ -2299,7 +2311,7 @@ fn assemble_backward_euler_system(
     matrix.set(2, 2, g_s + g_f + g_w);
     matrix.set(2, 3, -g_w);
     matrix.set(3, 2, -g_w);
-    matrix.set(3, 3, c_r / dt_s + g_w + g_2);
+    matrix.set(3, 3, c_r / dt_s + g_w + g_2 + coupling.reflector_to_risers);
     matrix.set(3, 4, -g_2);
     matrix.set(4, 3, -g_2);
     matrix.set(4, 4, c_v / dt_s + g_2 + g_3);
@@ -2308,7 +2320,7 @@ fn assemble_backward_euler_system(
         c_s / dt_s * t_s_n + q_source + h_a * offset,
         m_f / dt_s * helium_enthalpy + m_dot * h_in - (h_a + g_f) * offset,
         g_f * offset,
-        c_r / dt_s * t_r_n,
+        c_r / dt_s * t_r_n + coupling.reflector_to_risers * coupling.riser_helium_temperature_k,
         c_v / dt_s * t_v_n + g_3 * coupling.rccs_temperature_k,
     ];
 
@@ -2325,6 +2337,7 @@ mod tests {
     fn seeded_passive_path(node: &PebbleBedPorousMediaNode) -> CoreToRccsPath {
         CoreToRccsPath::new_at_steady_state(
             node.pebble_temperature(),
+            node.helium_temperature(),
             node.helium_temperature(),
             MassRate::new::<kilogram_per_second>(0.0),
         )
@@ -3349,7 +3362,9 @@ mod tests {
             // Across the seam: what left the bed = reflector + RPV storage + RCCS.
             let path_storage = path.stored_energy().get::<uom::si::energy::joule>() - path_e0;
             let rccs = path.heat_to_rccs().get::<watt>() * dt.get::<second>();
-            worst_path = worst_path.max((e.to_passive_path - path_storage - rccs).abs() / gross);
+            let risers = path.heat_to_risers().get::<watt>() * dt.get::<second>();
+            worst_path =
+                worst_path.max((e.to_passive_path - path_storage - rccs - risers).abs() / gross);
             let dh = (pebble_bed_specific_enthalpy_from_temperature(node.pebble_temperature())
                 - pebble_bed_specific_enthalpy_from_temperature(t_before))
             .get::<joule_per_kilogram>()

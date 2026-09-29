@@ -46,7 +46,7 @@
 //! | Hot-gas plenum + hot gas duct | ~~**0**~~ **1** | the hot-duct CV: well-mixed enthalpy, mass `rho V` over [`hot_duct_volume`] |
 //! | Steam generator, helium side | **8** (~~an effectiveness-NTU lump~~ **CORRECTED 2026-09-17**) | one `UA_hot` per node against the tube metal; the cold side is a resolved IF97 array, not an isothermal sink -- see [`super::steam_generator`] |
 //! | Connection tubes, circulator, annuli, riser channels, top plenum | ~~**0**~~ **1** | the cold-return CV: well-mixed enthalpy, mass over [`cold_return_volume`], circulator work as its source |
-//! | Reflector cooling channels | **0** (as heat transfer) | their helium is in the cold-return CV; the helium-to-reflector convection is not modelled yet (gh:#397) |
+//! | Reflector cooling channels | **0** nodes; a heat-transfer leg since 2026-09-29 | their helium is in the cold-return CV; the reflector -> riser-helium convection (gh:#397, `decay_heat_removal`) is a leg of the bed's implicit solve whose heat enters the cold-return CV |
 //!
 //! ~~The core inlet and core outlet temperatures are the **boundary values of
 //! that one node** ... each relaxed by its own first-order lag~~ -- both lags
@@ -544,8 +544,17 @@ const HOT_GAS_DUCT_CROSS_VESSEL_LENGTH_M: f64 = 3.0;
 /// 5.07681e5 cm^3, **published** -- [S3] Table VI, "Coolant channels (20)".
 /// Part of the cold-return CV; carried as its own constant so the published
 /// part of that CV's volume stays visible.
-#[cfg(test)] // the riser leg (gh:#397) is its model consumer; until then the volume test reads it
-const RISER_BOREHOLE_VOLUME_M3: f64 = 0.507681;
+/// Read by the riser leg (gh:#397, `decay_heat_removal`) to derive the
+/// channels' length from their published diameter.
+pub const RISER_BOREHOLE_VOLUME_M3: f64 = 0.507681;
+
+/// Fraction of the loop flow that passes up the side-reflector riser
+/// channels: **3.846 of 4.32 kg/s = 0.8903**, published -- Gao & Shi (2002)
+/// Table 1, "Coolant pass in side reflector 0.7 kPa at 3.846 kg/s" against the
+/// 4.32 kg/s loop total (the table above). The rest goes to the control-rod
+/// holes and the fuel discharge tube ([S2] section 5, `docs/reactor-scoping/
+/// htr10-plant-data.md` section 4.4). Read by the riser leg.
+pub const RISER_FLOW_FRACTION: f64 = 3.846 / 4.32;
 
 /// Helium volume of the **hot-duct CV** \[m^3\]: the invented plenum, the
 /// published in-reflector duct volume and the cross-vessel run
@@ -748,7 +757,8 @@ impl HeliumNode {
 /// **Identity** (exact, by construction):
 ///
 /// ```text
-/// from_bed + circulator_work = hot_duct_storage + to_steam_generator + cold_return_storage
+/// from_bed + circulator_work + from_reflector_risers
+///     = hot_duct_storage + to_steam_generator + cold_return_storage
 /// ```
 ///
 /// `from_bed` is `m_dot (h_bed,out - h_core,in) dt` with `h_core,in` the
@@ -768,6 +778,10 @@ pub struct PrimaryStepEnergy {
     pub to_steam_generator: f64,
     /// Circulator shaft work delivered to the helium, `W dt`.
     pub circulator_work: f64,
+    /// Heat the side reflector gave the helium rising through its channels,
+    /// `Q_riser dt` (gh:#397) -- the same flux the reflector row lost in the
+    /// bed's implicit solve, so the seam is one flux.
+    pub from_reflector_risers: f64,
     /// Change in the cold-return CV's helium enthalpy, `M_c (h_c' - h_c)`.
     pub cold_return_storage: f64,
 }
@@ -979,7 +993,8 @@ impl HeliumPrimaryLoop {
         self.command_flow(flow_setpoint);
         self.step_hot_duct(dt, bed_outlet_enthalpy);
         self.advance_steam_generator(dt, feedwater_enthalpy, secondary_mass_flow);
-        self.close_return_leg(dt, inlet_seen_by_bed);
+        // The isolated loop has no reflector, so no riser heat.
+        self.close_return_leg(dt, inlet_seen_by_bed, Power::new::<watt>(0.0));
     }
 
     /// Set the circulator flow for this timestep from the commanded setpoint,
@@ -1142,8 +1157,13 @@ impl HeliumPrimaryLoop {
     ///    **circulator work as the source** (gh:#392):
     ///
     ///    ```text
-    ///    M_c (h_c' - h_c) / dt = m_dot (h_sg,out - h_core,in) + W
+    ///    M_c (h_c' - h_c) / dt = m_dot (h_sg,out - h_core,in) + W + Q_riser
     ///    ```
+    ///
+    ///    `Q_riser` (gh:#397) is the heat the side reflector gave the helium
+    ///    rising through its 20 channels -- computed by the bed's implicit
+    ///    solve, where it leaves the reflector row, and handed in here as
+    ///    `heat_from_reflector_risers`, so the one flux is used on both sides.
     ///
     /// # Why the outflow is `h_core,in`, the enthalpy the bed was handed
     ///
@@ -1164,7 +1184,12 @@ impl HeliumPrimaryLoop {
     /// without bound as the flow falls -- replaces
     /// ~~`RETURN_TRANSPORT_TIME_CONSTANT_S = 8.0` s, invented and
     /// flow-independent~~.
-    pub fn close_return_leg(&mut self, dt: Time, core_inlet_enthalpy_seen_by_bed: AvailableEnergy) {
+    pub fn close_return_leg(
+        &mut self,
+        dt: Time,
+        core_inlet_enthalpy_seen_by_bed: AvailableEnergy,
+        heat_from_reflector_risers: Power,
+    ) {
         let dt_s = dt.get::<second>();
         let m_dot = self.lumped.mass_flow.get::<kilogram_per_second>();
 
@@ -1179,12 +1204,14 @@ impl HeliumPrimaryLoop {
         let h_old = self.lumped.cold_return.enthalpy;
         let h_to_bed = core_inlet_enthalpy_seen_by_bed.get::<joule_per_kilogram>();
         let h_from_sg = self.lumped.sg_outlet_enthalpy;
-        let h_new = h_old + dt_s / mass * (m_dot * (h_from_sg - h_to_bed) + work);
+        let riser = heat_from_reflector_risers.get::<watt>();
+        let h_new = h_old + dt_s / mass * (m_dot * (h_from_sg - h_to_bed) + work + riser);
         self.lumped.cold_return = self.lumped.cold_return.moved_to(h_new);
 
         let e = &mut self.lumped.last_step_energy;
         e.cold_return_storage = mass * (h_new - h_old);
         e.circulator_work = work * dt_s;
+        e.from_reflector_risers = riser * dt_s;
         e.to_steam_generator = m_dot * (self.lumped.hot_duct.enthalpy - h_from_sg) * dt_s;
         e.from_bed = m_dot * (self.lumped.bed_outlet.enthalpy - h_to_bed) * dt_s;
     }
@@ -2488,7 +2515,7 @@ mod tests {
                 + e.hot_duct_storage.abs()
                 + e.to_steam_generator.abs()
                 + e.cold_return_storage.abs();
-            let identity = e.from_bed + e.circulator_work
+            let identity = e.from_bed + e.circulator_work + e.from_reflector_risers
                 - e.hot_duct_storage
                 - e.to_steam_generator
                 - e.cold_return_storage;

@@ -108,6 +108,9 @@ pub struct TraceRow {
     pub passive_loss_mw: f64,
     /// Circulator work delivered to the helium \[MW\].
     pub circulator_work_mw: f64,
+    /// Reflector -> riser helium heat \[MW\] (gh:#397; internal to the
+    /// ledger: it leaves the reflector and enters the cold-return CV).
+    pub riser_heat_mw: f64,
     /// Lumped reflector temperature \[K\].
     pub reflector_k: f64,
     /// Lumped RPV temperature \[K\].
@@ -131,7 +134,7 @@ impl TraceRow {
     pub fn csv_header() -> &'static str {
         "step,sim_time_s,reactor_power_mw,prompt_power_mw,delayed_power_mw,fuel_temperature_k,bed_temperature_k,\
 helium_flow_kg_per_s,core_inlet_k,core_outlet_k,hot_duct_k,sg_helium_outlet_k,sg_helium_duty_mw,\
-sg_secondary_duty_mw,passive_loss_mw,circulator_work_mw,reflector_k,rpv_k,e_source_j,e_stored_j,\
+sg_secondary_duty_mw,passive_loss_mw,circulator_work_mw,riser_heat_mw,reflector_k,rpv_k,e_source_j,e_stored_j,\
 e_to_steam_generator_j,e_to_rccs_j,e_circulator_work_j,e_residual_j"
     }
 
@@ -144,7 +147,7 @@ e_to_steam_generator_j,e_to_rccs_j,e_circulator_work_j,e_residual_j"
     pub fn to_csv(&self) -> String {
         format!(
             "{},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},\
-             {:.9},{:.9},{:.9},{:.9},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e}",
+             {:.9},{:.9},{:.9},{:.9},{:.9},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e}",
             self.step,
             self.sim_time_s,
             self.reactor_power_mw,
@@ -161,6 +164,7 @@ e_to_steam_generator_j,e_to_rccs_j,e_circulator_work_j,e_residual_j"
             self.sg_secondary_duty_mw,
             self.passive_loss_mw,
             self.circulator_work_mw,
+            self.riser_heat_mw,
             self.reflector_k,
             self.rpv_k,
             self.e_source_j,
@@ -232,6 +236,7 @@ impl HeadlessModel for HtgrHeadless {
             sg_secondary_duty_mw: snap.sg_secondary_duty_mw,
             passive_loss_mw: snap.passive_heat_loss_mw,
             circulator_work_mw: snap.circulator_power_mw,
+            riser_heat_mw: snap.riser_heat_mw,
             reflector_k: snap.reflector_temp_k,
             rpv_k: snap.rpv_temp_k,
             e_source_j: snap.energy_source_j,
@@ -370,6 +375,17 @@ mod tests {
     /// wall-film legs (the bed -> reflector leg is more conductive under
     /// forced flow), and the reflector opens in equilibrium with that, 51 K
     /// hotter. Ledger residual at 300 s: +3.1e-4 J on 8.16e9 J.
+    ///
+    /// ## Regenerated again 2026-09-29 (gh:#397) -- the riser leg
+    ///
+    /// | t | power | core inlet | passive loss / to risers | reflector / RPV |
+    /// |---|---|---|---|---|
+    /// | 0.1 s | 134.831961 -> 134.832817 MW | 515.98 -> 516.79 K | 0.2859 -> 0.5559 / 0.4451 MW | 736.2 -> 569.0 / 500.6 -> 426.1 K |
+    /// | 297.6 s | 16.125588 -> **16.114366 MW** | 522.24 -> **537.40 K** | 0.7848 -> 1.0936 / 0.3334 MW | 737.4 -> 571.0 / 500.6 -> 426.1 K |
+    ///
+    /// The risers hold the reflector ~166 K cooler, so more heat leaves the
+    /// bed sideways; about a third of it returns to the core inlet through the
+    /// cold return. Ledger residual at 300 s: -1.4e-4 J on 8.16e9 J.
     ///
     /// **This is not the loosening the note below warns against.** When
     /// parallel execution lands and reduction order legitimately changes,
