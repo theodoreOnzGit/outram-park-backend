@@ -23,6 +23,29 @@
 //! ACE-arm result from earlier builds measures that defect as well as the
 //! format. `--endf-only` runs arm A alone.
 //!
+//! # Results (2026-09-30, code `f78b5180d5`, `--purr --seeds 8 --threads 3`)
+//!
+//! The lattice at 10000 × [250 + 400], 8 seeds per arm:
+//!
+//! | arm | k_eff |
+//! |---|---|
+//! | ENDF route | 1.00275 ± 0.00028 |
+//! | ACE route (with PURR) | 1.00225 ± 0.00015 |
+//! | ENDF with DBRC ablated, the same physics as ACE | 1.00254 ± 0.00032 |
+//!
+//! - **ACE − ENDF:** −49.5 ± 31.9 pcm (1.55σ).
+//! - **ACE − ablated ENDF (same physics):** −28.4 ± 35.3 pcm (0.80σ).
+//! - **DBRC worth here:** −21.1 ± 42.4 pcm.
+//!
+//! The routes agree within statistics. Resolving a ~50 pcm gap at 3σ would
+//! need about 4× the seeds. Timing:
+//! - building the ACE library: 183 s and 312 MB;
+//! - reading it back: 0.7 s;
+//! - the ENDF route: 57 s.
+//!
+//! Before this run the lattice had been measured at seed 1 only (ENDF 1.00294,
+//! ACE 1.00178), on an older build.
+//!
 //! # This is an EXAMPLE, not a test, on purpose
 //!
 //! It generates multi-hundred-megabyte ACE files on disk and reads them back.
