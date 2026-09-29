@@ -1774,4 +1774,188 @@ mod tests {
         assert_eq!(hit.incremental_sic, base.incremental_sic);
         assert_eq!(base.heavy_metal, 5.0e-5);
     }
+
+    /// The design-point fuel stack the plant opens at: the bed at its seed
+    /// temperature, plus `bed_offset_k`, and the fuel node at the bed plus
+    /// `R P_rated`. This mirrors `KineticsChannel::new_htr10_published`, so
+    /// the comparison is taken at the same state the kinetics is seeded at.
+    fn design_point_stack(bed_offset_k: f64) -> FuelStackTemperatures {
+        use super::super::pebble_bed::{FuelBedCoupling, PebbleBedPorousMediaNode};
+        use uom::si::power::megawatt;
+        let bed = PebbleBedPorousMediaNode::new()
+            .pebble_temperature()
+            .get::<kelvin>()
+            + bed_offset_k;
+        let coupling = FuelBedCoupling::at_design_point();
+        let rise = (coupling.resistance * uom::si::f64::Power::new::<megawatt>(10.0))
+            .get::<uom::si::temperature_interval::kelvin>();
+        coupling.stack(
+            ThermodynamicTemperature::new::<kelvin>(bed),
+            ThermodynamicTemperature::new::<kelvin>(bed + rise),
+        )
+    }
+
+    /// **V&V (gh:#378): the absolute circulating activity against Liu and Cao
+    /// (2002) Table 3, the published HTR-10 primary-helium activity.**
+    ///
+    /// # Methodology
+    ///
+    /// - **Computed.** `NuclideRelease::absolute.circulating_activity` \[Bq\] for
+    ///   the five [`TRACKED_NUCLIDES`], evaluated by the plant's own channel
+    ///   ([`TrisoAtopsReleaseChannel::evaluate_stack`]) at the **design-point
+    ///   fuel stack** the simulator is seeded at: bed 950 K (the seed), and the
+    ///   fuel node at bed + `R P` for 10 MW through
+    ///   [`FuelBedCoupling::at_design_point`](super::super::pebble_bed::FuelBedCoupling::at_design_point).
+    ///   This is the state `KineticsChannel::new_htr10_published` opens at.
+    /// - **Reference.** `changi::activity::primary_helium`, Liu and Cao (2002)
+    ///   Table 3: primary-helium activity at the **end of a 20-year full-power
+    ///   life** \[Bq\].
+    /// - **Adjustment column, labelled, not a model run.** #370: the absolute arm
+    ///   converts the equilibrium-core inventory to a birth rate by dividing by
+    ///   `1 - exp(-lambda t_irr)` with `t_irr` = 1 y, which inflates long-lived
+    ///   nuclides. `ratio x (1 - exp(-lambda t_irr))` removes that one factor
+    ///   analytically, for long-lived nuclides only. Ag-110m is on the
+    ///   short-lived branch today (#369), so it carries no inflation and needs
+    ///   no adjustment. Fixing #369 would add exactly this factor to it and
+    ///   #370 would then remove it, so the two defects cancel for Ag-110m.
+    /// - **Sensitivity.** The bed is moved -100 K and +100 K from the seed,
+    ///   because #372 shows the one-node bed is outlet-referenced, not
+    ///   core-average.
+    /// - **Pass criterion: a sanity check only, NOT a physics gate.** Each ratio
+    ///   is finite and positive (silver: non-negative, see below). **Nothing is
+    ///   tuned to Table 3**; the numbers are recorded, not matched.
+    ///   *History, stated because it would otherwise look like goal-post
+    ///   moving:* a 1e-4..1e4 "wiring band" was set before the first
+    ///   measurement. Cs-137 (2.8e-6) and then Ag-110m (2.5e-18) fell outside
+    ///   it for physical reasons, not wiring faults, so the band was dropped
+    ///   rather than widened a second time. The spread IS the finding.
+    ///
+    /// # Results (2026-09-29, branch `claude/htgr-sim-v1-source-term-u7qwe0`)
+    ///
+    /// Run with `cargo test --release -p outram-park-digital-twin-engine
+    /// --example htgr_sim_v1 -- circulating_activity_against_liu_and_cao
+    /// --nocapture`. `adj.` is sim/T3 x (1 - exp(-lambda t_irr)) (#370, long-lived only).
+    ///
+    /// **Design stack (bed 954.9 K matrix, 955.1 K SiC, 960.3 K kernel):**
+    ///
+    /// | Nuclide | sim \[Bq\] | Table 3 \[Bq\] | sim/T3 | adj. |
+    /// |---|---|---|---|---|
+    /// | Kr-85 | 2.8227e4 | 3.0e6 | 9.409e-3 | 5.881e-4 |
+    /// | Xe-133 | 1.5625e7 | 2.2e9 | 7.102e-3 | (short) |
+    /// | I-131 | 5.8893e5 | 2.1e6 | 2.804e-1 | (short) |
+    /// | Cs-137 | 8.4268e-3 | 1.6e3 | 5.267e-6 | 1.200e-7 |
+    /// | Ag-110m | 0 | 26 | 0 | (short) |
+    ///
+    /// **Sensitivity, sim/T3 at bed -100 K / seed / +100 K:**
+    ///
+    /// | Nuclide | -100 K | seed | +100 K |
+    /// |---|---|---|---|
+    /// | Kr-85 | 3.333e-3 | 9.409e-3 | 2.184e-2 |
+    /// | Xe-133 | 2.765e-3 | 7.102e-3 | 1.527e-2 |
+    /// | I-131 | 1.092e-1 | 2.804e-1 | 6.029e-1 |
+    /// | Cs-137 | 2.776e-6 | 5.267e-6 | **2.708e1** |
+    /// | Ag-110m | 2.5e-18 | 0 | 4.4e-11 |
+    ///
+    /// # Interpretation
+    ///
+    /// 1. **The simulator is LOW for every tracked nuclide at its design
+    ///    stack**, by 100-140x for the noble gases and 3.6x for I-131. #359's
+    ///    expectation, and #370's direction for the long-lived arm, was that
+    ///    the absolute arm might read high. Removing the #370 inflation makes
+    ///    Kr-85 and Cs-137 **lower still**, so that inflation is not what sets
+    ///    the gap.
+    /// 2. **For the noble gases, the helium-purification rate constant alone
+    ///    accounts for most of it.** Without plate-out, `C = R/(lambda +
+    ///    k_clean)`. For Xe-133, `(lambda + k_clean)/lambda` = (1.52e-6 +
+    ///    8.77e-5)/1.52e-6 ~ 59, and `k_clean` is TRISO-ATOPS's NP-MHTGR
+    ///    reference value, not HTR-10's (see
+    ///    [`Htr10TrisoAtopsInputs::TRISO_ATOPS_CLEAN_UP_PER_S`]). That is
+    ///    arithmetic on the model's own form, not a separate run. The remainder
+    ///    (~2x) sits in the failure fractions (TRISO-ATOPS reference, not
+    ///    HTR-10) and the noble-gas `R/B` at 960 K.
+    /// 3. **Cs-137 is dominated by graphite hold-up, and it is a cliff:** x5e6
+    ///    between the seed and +100 K. So the temperature the graphite term is
+    ///    evaluated at (#371) and the outlet-referenced bed (#372) are not
+    ///    second-order for caesium. They decide the answer.
+    /// 4. **Ag-110m is ~0**: TRISO-ATOPS releases silver only by breakthrough
+    ///    of *intact* SiC, and failed particles add none on that path. At
+    ///    955 K the SiC diffusion lag `a^2/6D` is of order 10^3 years. The
+    ///    nonzero values at 855 K and 1055 K are f64 round-off in an
+    ///    ill-conditioned series (see `boon-lay`'s code-to-code doc).
+    ///    Table 3's 26 Bq therefore needs a mechanism this model does not have.
+    /// 5. **Bases differ, stated rather than corrected:** Table 3 is the end of
+    ///    a 20-year life; the simulator uses a 1-year irradiation and the
+    ///    Table 1 equilibrium-core inventory.
+    ///
+    /// Nothing here is a validation of anything. It is the first measured
+    /// comparison of this chain against published HTR-10 primary-circuit data,
+    /// and it says the placeholder circuit constants, not the release physics,
+    /// dominate the noble-gas and iodine answer.
+    #[test]
+    fn circulating_activity_against_liu_and_cao_table_3() {
+        use changi::activity::primary_helium::htr10_primary_helium_activity;
+        use uom::si::radioactivity::becquerel;
+
+        let channel = TrisoAtopsReleaseChannel::new_htr10();
+        let t_irr = Htr10TrisoAtopsInputs::IRRADIATION_TIME_S;
+
+        for offset in [-100.0, 0.0, 100.0] {
+            let stack = design_point_stack(offset);
+            println!(
+                "bed offset {offset:+.0} K: kernel {:.2} K, SiC {:.2} K, fuelled-zone matrix {:.2} K",
+                stack.kernel.get::<kelvin>(),
+                stack.silicon_carbide.get::<kelvin>(),
+                stack.fuelled_zone_matrix.get::<kelvin>(),
+            );
+            println!(
+                "{:>8} {:>7} {:>12} {:>12} {:>10} {:>12} {:>14}",
+                "nuclide",
+                "branch",
+                "sim [Bq]",
+                "Table 3 [Bq]",
+                "sim/T3",
+                "#370 factor",
+                "sim/T3 adj."
+            );
+            for r in channel.evaluate_stack(0.0, stack) {
+                let sim = r
+                    .absolute
+                    .expect("tracked nuclides all have an inventory")
+                    .circulating_activity;
+                let table3 = htr10_primary_helium_activity(r.name)
+                    .unwrap_or_else(|| panic!("{} is not in Table 3", r.name))
+                    .get::<becquerel>();
+                let lambda = r.decay_constant.get::<hertz>();
+                let long_lived = std::f64::consts::LN_2 / lambda >= t_irr;
+                let inflation_removed = if long_lived {
+                    1.0 - (-lambda * t_irr).exp()
+                } else {
+                    1.0
+                };
+                let ratio = sim / table3;
+                println!(
+                    "{:>8} {:>7} {:>12.4e} {:>12.4e} {:>10.4e} {:>12.4e} {:>14.4e}",
+                    r.name,
+                    if long_lived { "long" } else { "short" },
+                    sim,
+                    table3,
+                    ratio,
+                    inflation_removed,
+                    ratio * inflation_removed,
+                );
+                // Silver's intact-SiC breakthrough is ~0 at these temperatures and
+                // sits at f64 round-off (see the doc), so it may legitimately be 0.
+                let floor_ok = if r.name == "Ag-110m" {
+                    ratio >= 0.0
+                } else {
+                    ratio > 0.0
+                };
+                assert!(
+                    ratio.is_finite() && floor_ok,
+                    "{}: sim/Table 3 = {ratio:e} is not finite and in range",
+                    r.name
+                );
+            }
+        }
+    }
 }
