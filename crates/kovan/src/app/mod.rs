@@ -24,6 +24,8 @@ mod plot_setup;
 mod saved_digitisation;
 #[cfg(test)]
 mod edit_digitisation_tests;
+#[cfg(test)]
+mod axes_lock_tests;
 mod series_select;
 mod setup;
 mod table_digitiser;
@@ -414,6 +416,15 @@ pub struct DigitiseApp {
     /// corner. Takes priority over `ref_dragging` when a drag starts on a
     /// corner (see `image_panel`'s hit test).
     ref_dragging_corner: Option<(usize, usize)>,
+    /// Whether the axes are locked (GH issue #421). Unlocked, only the
+    /// calibration can be changed: the reference lines/corners drag, and
+    /// tracing, adding, editing and erasing points are all disabled. Locked,
+    /// it is the other way round — the lines cannot be grabbed, so editing a
+    /// point near an axis can no longer drag the axis with it (maintainer,
+    /// 2026-09-29: "otherwise i accidentally drag them around when
+    /// digitising plots ... don't allow me to start drawing traces until i
+    /// fix the axes"). See [`Self::lock_axes`] / [`Self::unlock_axes`].
+    axes_locked: bool,
     /// Which calibration shape is active (op-vyb9) — see [`CalibrationShape`].
     calibration_shape: CalibrationShape,
     /// Parallelogram corner pixel positions, order `[top_left, top_right,
@@ -614,6 +625,7 @@ impl Default for DigitiseApp {
             ref_val: Default::default(),
             ref_dragging: None,
             ref_dragging_corner: None,
+            axes_locked: false,
             calibration_shape: CalibrationShape::default(),
             para_corners: [None; 4],
             para_dragging: None,
@@ -1308,7 +1320,77 @@ impl DigitiseApp {
         } else {
             self.set_status(msg);
         }
+        // The points were placed through this calibration: it is the
+        // figure's, so the axes come back locked (#421).
+        self.axes_locked = true;
         true
+    }
+
+    /// Lock the axes (GH issue #421): the reference lines stop responding
+    /// to drags, and tracing and point editing become available.
+    ///
+    /// Refused, with the reason shown, while the calibration is incomplete —
+    /// locking unusable axes would only move the error to the first point.
+    /// If points already exist under a different calibration (the axes were
+    /// unlocked and moved), each point with a pixel position is re-read
+    /// through the new calibration, in every series on the figure: moving
+    /// the axes means exactly that, and leaving the old values would let the
+    /// lines on screen disagree with the numbers saved.
+    fn lock_axes(&mut self) {
+        let cal = match self.calibration() {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_error(format!("cannot lock the axes yet: {e}"));
+                return;
+            }
+        };
+        let mut reread = 0usize;
+        for d in self.dataset.iter_mut().chain(self.completed_series.iter_mut()) {
+            if d.calibration == cal {
+                continue;
+            }
+            d.calibration = cal;
+            for p in &mut d.points {
+                let (Some(px), Some(py)) = (p.x_px, p.y_px) else {
+                    continue;
+                };
+                (p.x, p.y) = cal.point_at(px, py);
+                let ((x_minus, x_plus), (y_minus, y_plus)) =
+                    xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
+                (p.x_minus, p.x_plus) = (x_minus, x_plus);
+                (p.y_minus, p.y_plus) = (y_minus, y_plus);
+                reread += 1;
+            }
+        }
+        self.axes_locked = true;
+        self.ref_dragging = None;
+        self.ref_dragging_corner = None;
+        self.para_dragging = None;
+        self.set_status(if reread > 0 {
+            format!(
+                "axes locked — the calibration changed, so {reread} existing point(s) were \
+                 re-read from their pixels through the new axes"
+            )
+        } else {
+            "axes locked — draw the trace or place points".to_string()
+        });
+    }
+
+    /// Unlock the axes to re-calibrate (GH issue #421). Tracing and point
+    /// editing pause until they are locked again; if points exist, the
+    /// message says that locking again re-reads them through the new axes.
+    fn unlock_axes(&mut self) {
+        self.axes_locked = false;
+        self.stroke.clear();
+        self.dragging = None;
+        let has_points = self.dataset.as_ref().is_some_and(|d| !d.points.is_empty())
+            || !self.completed_series.is_empty();
+        self.set_status(if has_points {
+            "axes unlocked — tracing and editing are paused. Moving the axes changes the \
+             value of every existing point: they are re-read when you lock again"
+        } else {
+            "axes unlocked — drag the lines onto the axes, then lock them"
+        });
     }
 
     pub fn load_image_from_raster(
@@ -1383,6 +1465,8 @@ impl DigitiseApp {
         self.selected = None;
         self.ref_dragging = None;
         self.ref_dragging_corner = None;
+        // A new figure has its own axes, not yet placed (#421).
+        self.axes_locked = false;
         self.crop_provenance = None;
         self.set_status(status);
     }
@@ -2001,17 +2085,24 @@ impl DigitiseApp {
         ui.separator();
 
         ui.label("1. Calibration shape (op-vyb9):");
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::AxisAligned,
-                "Rectangle",
-            );
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::Parallelogram,
-                "Parallelogram",
-            );
+        // #421: the calibration is edited only while unlocked; locked, it is
+        // shown but greyed out, so neither a drag nor a stray keystroke in a
+        // value field can move the axes under existing points.
+        ui.scope(|ui| {
+            if self.axes_locked {
+                ui.disable();
+            }
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::AxisAligned,
+                    "Rectangle",
+                );
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::Parallelogram,
+                    "Parallelogram",
+                );
         });
         match self.calibration_shape {
             CalibrationShape::AxisAligned => {
@@ -2056,38 +2147,72 @@ impl DigitiseApp {
         }
         ui.checkbox(&mut self.x_log, "x axis logarithmic");
         ui.checkbox(&mut self.y_log, "y axis logarithmic");
+        });
+        ui.horizontal(|ui| {
+            if self.axes_locked {
+                if ui
+                    .button("\u{1F513} Unlock axes")
+                    .on_hover_text("move the axes again; tracing and editing pause until you re-lock")
+                    .clicked()
+                {
+                    self.unlock_axes();
+                }
+                ui.colored_label(Color32::from_rgb(90, 200, 90), "\u{1F512} axes locked");
+            } else {
+                if ui
+                    .button("\u{1F512} Lock axes")
+                    .on_hover_text(
+                        "fix the calibration so the lines cannot be dragged by accident; \
+                         tracing and point editing unlock once the axes are locked",
+                    )
+                    .clicked()
+                {
+                    self.lock_axes();
+                }
+                ui.colored_label(
+                    Color32::from_rgb(230, 160, 60),
+                    "lock the axes before tracing",
+                );
+            }
+        });
         ui.separator();
 
-        // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
-        // strategy/step controls are gone from this panel (maintainer,
-        // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
-        // `auto.rs` remain for `kovan-cli digitise`, which is a different
-        // surface and was not part of that decision.
-        ui.label("2. Trace the curve:");
-        ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
-        ui.add(
-            egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
-                .text("point spacing (px)")
-                .step_by(1.0),
-        )
-        .on_hover_text("distance between points along the stroke you draw");
-        ui.horizontal(|ui| {
-            if ui
-                .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
-                .on_hover_text(
-                    "hold the left button and draw along the curve; let go and the \
-                     stroke snaps onto it. Hold the right button and drag to erase",
-                )
-                .clicked()
-            {
-                self.mode = ClickMode::DrawTrace;
-                if self.dataset.is_none() {
+        // #421: steps 2 and 3 are unavailable until the axes are locked.
+        ui.scope(|ui| {
+            if !self.axes_locked {
+                ui.disable();
+            }
+
+            // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
+            // strategy/step controls are gone from this panel (maintainer,
+            // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
+            // `auto.rs` remain for `kovan-cli digitise`, which is a different
+            // surface and was not part of that decision.
+            ui.label("2. Trace the curve:");
+            ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
+            ui.add(
+                egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
+                    .text("point spacing (px)")
+                    .step_by(1.0),
+            )
+            .on_hover_text("distance between points along the stroke you draw");
+            ui.horizontal(|ui| {
+                if ui
+                    .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
+                    .on_hover_text(
+                        "hold the left button and draw along the curve; let go and the \
+                         stroke snaps onto it. Hold the right button and drag to erase",
+                    )
+                    .clicked()
+                {
+                    self.mode = ClickMode::DrawTrace;
+                    if self.dataset.is_none() {
+                        self.start_empty();
+                    }
+                }
+                if ui.button("Start empty (hand-place)").clicked() {
                     self.start_empty();
                 }
-            }
-            if ui.button("Start empty (hand-place)").clicked() {
-                self.start_empty();
-            }
         });
         ui.separator();
 
@@ -2111,6 +2236,7 @@ impl DigitiseApp {
         ui.small(
             "double-click adds a marker (Add points mode) · right-click removes the nearest one",
         );
+        });
         ui.separator();
 
         // A figure routinely carries several curves against one pair of axes
@@ -2417,7 +2543,10 @@ impl DigitiseApp {
             // cursor regardless of mode (graphReader precedent), checked
             // before the mode-dispatched left-click handling below so a
             // stray left click from the same gesture can't also fire.
-            if response.secondary_clicked() {
+            // #421: every point gesture below needs locked axes; the
+            // reference-line drags need them unlocked. One flag, read once.
+            let points_live = self.axes_locked;
+            if points_live && response.secondary_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
@@ -2431,12 +2560,15 @@ impl DigitiseApp {
             // `dragged()` rather than `drag_started()` so holding the button
             // down and moving keeps erasing, which is the whole reason the
             // mode is worth having over the per-point right-click.
-            if self.mode == ClickMode::Erase {
+            if points_live && self.mode == ClickMode::Erase {
                 // The pointer says which mode is live: an eraser that looks
                 // like the point tool costs someone their trace.
                 response.clone().on_hover_cursor(egui::CursorIcon::NoDrop);
             }
-            if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
+            if points_live
+                && self.mode == ClickMode::Erase
+                && (response.clicked() || response.dragged())
+            {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     self.erase_near(px, py, 12.0 / zoom as f64);
@@ -2446,7 +2578,7 @@ impl DigitiseApp {
             // the ink. `dragged()` rather than `drag_started()` so every
             // frame of the gesture contributes a vertex — the stroke is the
             // path the pointer took, not its two ends.
-            if self.mode == ClickMode::DrawTrace {
+            if points_live && self.mode == ClickMode::DrawTrace {
                 // Right-drag erases while drawing (maintainer, 2026-09-28:
                 // "right click and drag should be eraser behaviour ... when
                 // in draw trace mode"), so a bad stretch of trace can be
@@ -2483,13 +2615,13 @@ impl DigitiseApp {
             // Adding a point is a double left-click (graphReader precedent) —
             // a single click in AddPoint mode is reserved for future
             // click-drag box-select, so it deliberately does not add here.
-            if self.mode == ClickMode::AddPoint && response.double_clicked() {
+            if points_live && self.mode == ClickMode::AddPoint && response.double_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     self.add_point(px, py);
                 }
             }
-            if self.mode == ClickMode::EditPoints {
+            if points_live && self.mode == ClickMode::EditPoints {
                 if let Some(pos) = response
                     .clicked()
                     .then(|| response.interact_pointer_pos())
@@ -2529,7 +2661,9 @@ impl DigitiseApp {
             if response.drag_started_by(PointerButton::Primary) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    let claimed = match self.calibration_shape {
+                    // #421: locked axes are never grabbed — this is the
+                    // accidental drag the lock exists to prevent.
+                    let claimed = !points_live && match self.calibration_shape {
                         CalibrationShape::AxisAligned => {
                             self.ref_dragging_corner =
                                 hit_ref_corner(&self.ref_px, corner_tol, px, py);
@@ -2546,7 +2680,7 @@ impl DigitiseApp {
                             self.para_dragging.is_some()
                         }
                     };
-                    if !claimed && self.mode == ClickMode::EditPoints {
+                    if !claimed && points_live && self.mode == ClickMode::EditPoints {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
@@ -2573,7 +2707,8 @@ impl DigitiseApp {
                     self.para_corners[i] = Some((px, py));
                 }
             }
-            if self.mode == ClickMode::EditPoints
+            if points_live
+                && self.mode == ClickMode::EditPoints
                 && self.ref_dragging.is_none()
                 && self.ref_dragging_corner.is_none()
                 && self.para_dragging.is_none()
@@ -2592,14 +2727,22 @@ impl DigitiseApp {
                 self.para_dragging = None;
                 self.dragging = None;
             }
-            if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
+            if points_live
+                && ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace))
+            {
                 self.delete_selected();
             }
 
             // --- overlays: reference lines/quad, then points ---
             match self.calibration_shape {
                 CalibrationShape::AxisAligned => {
-                    let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
+                    // #421: locked lines are drawn grey and without handles,
+                    // so it is plain that they will not move.
+                    let ref_stroke = if self.axes_locked {
+                        Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(150, 150, 150, 170))
+                    } else {
+                        Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255))
+                    };
                     let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
                     let stroke_for = |i: usize| {
                         if self.ref_dragging == Some(i) {
@@ -2626,6 +2769,9 @@ impl DigitiseApp {
                     // at once) is discoverable rather than a hidden
                     // hit-test-only gesture.
                     for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
+                        if self.axes_locked {
+                            break;
+                        }
                         let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
                             continue;
                         };
@@ -2662,11 +2808,21 @@ impl DigitiseApp {
                         {
                             painter.line_segment(
                                 [a, b],
-                                Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255)),
+                                if self.axes_locked {
+                                    Stroke::new(
+                                        1.5_f32,
+                                        Color32::from_rgba_unmultiplied(150, 150, 150, 170),
+                                    )
+                                } else {
+                                    Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255))
+                                },
                             );
                         }
                     }
                     for (i, sc) in screen_corners.iter().enumerate() {
+                        if self.axes_locked {
+                            break;
+                        }
                         let Some(pos) = sc else { continue };
                         let active = self.para_dragging == Some(i);
                         painter.circle_filled(
