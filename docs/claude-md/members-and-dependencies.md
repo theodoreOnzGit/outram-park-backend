@@ -106,7 +106,7 @@ that `outram-foam-basic-lib` stays publishable independently.
 **Internal dependency edges** are all by **path**, not crates.io. The ones
 worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
 `{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
-`outram-park-digital-twin-engine → nee_soon`; `tampines` dev-deps →
+`outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set); `tampines` dev-deps →
 `{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
 `outram-mc-libs → njoy-outram-park-fork` (cross sections).
 `outram-foam-basic-lib` has no internal deps, and `njoy-outram-park-fork` is

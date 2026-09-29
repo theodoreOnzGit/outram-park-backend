@@ -1,52 +1,52 @@
-# Fast tests — the five platforms, long tests excluded.
+# Fast tests: a compile gate over the whole workspace plus a short smoke set,
+# redesigned 2026-09-29 (GitHub #314, #414-#417; maintainer decisions).
 #
-# WHAT "FAST" MEANS HERE. The workspace gates every test over 5 minutes behind
-# a default-on `long-tests` feature (see the HARD RULE in the root CLAUDE.md).
-# `cargo quick-test` is the repo's own alias for turning those off:
+# WHY IT CHANGED. The previous version ran `cargo quick-test` over every crate a
+# push could reach. Measured over its last 100 runs: 1 success, 28 failures,
+# 69 cancelled; runs averaged 90 min and took up to 261 (2026-09-25). Most
+# pushes were superseded before they reported, and one deliberately failing
+# test turned every run red, so a new regression could not be told apart
+# from the known one. The maintainer disabled it on 2026-09-29 ("way too long,
+# and it's failing its purpose") and chose this shape instead.
 #
-#     quick-test = ["test", "--release", "--lib", "--tests", "--no-default-features"]
+# ── What each push runs, on ubuntu / windows / macos ────────────────────────
 #
-# This workflow runs THAT ALIAS rather than spelling the flags out, so CI and a
-# developer's local fast run cannot drift apart. `--no-default-features` is the
-# only mechanism Cargo offers for disabling a single default feature, so it also
-# drops `kovan`'s `gui` and `petir`'s `transfer-fn`; both build and test without,
-# and dropping `gui` is desirable on a headless runner anyway.
+# 1. COMPILE GATE (#414). One `cargo test --release --no-run --lib --tests`
+#    over only the TOP crates, the members no other member depends on,
+#    computed each run by `kovan-cli ci top-crates` so a new crate cannot be
+#    left out. Every library in the workspace is built exactly ONCE, as a
+#    dependency. Measured 2026-09-29: 15 of 46 members are top-level, and
+#    with `--tests` they reach all 46.
+#    NOT covered, accepted: low-level crates' own tests, examples and benches,
+#    and features no dependent enables.
 #
-# RELEASE MODE IS NOT NEGOTIABLE. The root CLAUDE.md mandates `--release` for
-# every build and test. It costs CI time and is kept regardless.
+# 2. SMOKE SET (#415, #416), `ci/smoke-tests.toml`. The maintainer's
+#    selection: Godiva (HIGH tier, from the repo's ENDF/B-VIII.0 tapes),
+#    Edwards, the outram-foam cavity and the Sod shock tube. They are copies
+#    hosted in top crates, run by `kovan-cli ci smoke --run` in one invocation
+#    over the same package set as the gate, so nothing is compiled twice.
 #
-# WORK IS NOT DONE ON A GREEN RUN HERE. This is the edit-compile-check loop,
-# not the gate. The real suite is
-#     cargo test --workspace --lib --tests --release
-# which includes the long tests this workflow deliberately skips. A green badge
-# from this file means "nothing fast is broken", never "the suite passes".
+# Tests left failing ON PURPOSE are listed as `[[known_failure]]` and run in
+# the `known-failures` job, which may fail without turning this run red.
 #
-# That real suite now RUNS, in `.github/workflows/full-tests.yml`, on `main`.
-# Until 2026-09-20 nothing ran it: this workflow covered both `develop` and
-# `main` and passed `--no-default-features` on both, so the `long-tests` tier
-# was never exercised by CI at all.
+# RELEASE MODE IS NOT NEGOTIABLE (root CLAUDE.md, "EVERYTHING is release").
+# That includes the Android and iOS checks below, which ran in the dev profile
+# until 2026-09-29.
 #
-# ── What each platform can actually do ───────────────────────────────────────
-#
-# Linux / Windows / macOS  RUN the tests.
-# Android / iOS            COMPILE ONLY. A CI runner has no device and no
-#                          emulator here, so these are `cargo check`. That is
-#                          the same bar the root CLAUDE.md sets for Android:
-#                          `--all-targets`, because a `--lib`-only check
-#                          silently misses broken examples, tests and benches —
-#                          exactly the gap that let an un-gated example ship.
+# WORK IS NOT DONE ON A GREEN RUN HERE. A green badge means "everything
+# compiles and the four smoke cases pass", never "the suite passes". The real
+# suite is `cargo test --workspace --lib --tests --release`.
+# ~~That real suite now RUNS, in `.github/workflows/full-tests.yml`, on
+# `main`.~~ CORRECTED 2026-09-29: it has NEVER run on CI. `main` has no
+# `.github/workflows/` directory, so GitHub never registered `full-tests.yml`
+# (`gh workflow list --all` lists only `fast tests` and `manual tests`).
+# Whether it should run nightly on `develop` is an open question on #417.
 #
 # NOT COVERED, deliberately: `wasm32-unknown-unknown`, which has its own gate at
-# `scripts/check-wasm.sh` with a documented per-crate exclusion list. Folding it
-# in here would duplicate that logic and hide the exclusions.
+# `scripts/check-wasm.sh` with a documented per-crate exclusion list.
 
 name: fast tests
 
-# DEVELOP ONLY, as of 2026-09-20 (maintainer direction). `main` is covered by
-# `full-tests.yml`, which runs the same tests PLUS the `long-tests` tier —
-# `cargo test --workspace --lib --tests --release` is a strict superset of
-# `cargo quick-test`, so running this file on `main` as well would be pure
-# duplication. The split is: develop = short, main = long.
 on:
   push:
     branches: [develop]
@@ -62,124 +62,93 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Supersede only PULL-REQUEST runs, never pushes to develop/main.
-  #
-  # `cancel-in-progress: true` was tried first and is wrong here, measured
-  # rather than guessed: the three `test` legs compile 40 crates in release and
-  # take far longer than the compile-only jobs, so on an active branch every
-  # new push killed them before they finished. Two consecutive runs
-  # (35299832412, 35300663774) completed android and ios but cancelled all
-  # three `test` legs — i.e. the slowest and most valuable jobs were the only
-  # ones that never ran, which is exactly backwards.
-  #
-  # On a PR, superseding is still right: only the tip matters and pushes are
-  # frequent. On a develop push each commit is a thing someone may later bisect
-  # to, so its run should complete. (This file no longer covers `main`; see the
-  # DEVELOP ONLY note above.)
+  # Supersede only PULL-REQUEST runs, never pushes to develop: each develop
+  # commit is something someone may later bisect to. (Measured earlier:
+  # `cancel-in-progress: true` killed the slow legs on every push, runs
+  # 35299832412 and 35300663774.)
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # ── Tests that actually RUN ────────────────────────────────────────────────
+  # ── Compile gate + smoke set, on the three desktop OSes ─────────────────────
   test:
     name: test / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # 150, raised from 90 on 2026-09-21 because 90 could not finish. MEASURED
-    # from run 35555855296's ubuntu leg rather than guessed:
-    #
-    #   cache restored      02:58:41
-    #   first test output   03:20:11   ->  ~21 min building
-    #   test time            77.7 min  ->  summed over 190 test binaries
-    #                                      (the slowest single binary: 811 s)
-    #   total needed        ~99 min
-    #
-    # Both the ubuntu and macOS legs hit the 90-minute wall mid-suite and were
-    # reported as failures; windows only escaped by failing fast on a real
-    # `bedok` defect (GitHub issue #222). The build is NOT the problem — the
-    # cache restores fine and 21 minutes of it is reasonable for 43 crates in
-    # release. The tests are.
-    #
-    # THIS IS A CEILING, NOT A FIX. A "fast" suite that takes an hour and a
-    # half is only fast relative to the long tier. The real fix is to split
-    # this job into a matrix over crate groups so the 77 minutes run in
-    # parallel rather than in series; that is a bigger change and is not done
-    # here. If this timeout ever needs raising again, do the split instead.
-    timeout-minutes: 150
+    # A ceiling, not a target. Measured locally 2026-09-29 (36 threads, warm
+    # cache): gate 41 s, smoke 72 s + 30 s. A cold 4-core runner is far slower:
+    # the gate is a release build of the whole workspace, and Godiva's
+    # RECONR/BROADR scales with cores. Replace this with a measured figure
+    # after the first runs.
+    timeout-minutes: 120
     strategy:
       fail-fast: false # one platform's failure must not hide the others'
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-        with:
-          # The crate selector diffs against the merge base; a shallow clone
-          # has no merge base and the diff would select everything.
-          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: fast-${{ matrix.os }}
-          # A 40-crate release build is the dominant cost; without this the
-          # matrix is ~3x slower and the intel-mkl-static download repeats.
+          key: smoke-${{ matrix.os }}
           cache-on-failure: true
 
-      # NO SYSTEM BLAS STEP, DELIBERATELY. `outram-foam-basic-lib` used to
-      # carry `ndarray-linalg` as a target-gated DEV-dependency, which Cargo
-      # pulls for every `cargo test` regardless of which test runs — so the
-      # fast suite needed `libopenblas-dev` on Linux and a slow
-      # `intel-mkl-static` build on macOS/Windows, all for one timing
-      # benchmark that asserts nothing. It is now an optional regular
-      # dependency behind that crate's `blas-bench` feature, with
-      # `required-features` on the test target, so `cargo quick-test` does not
-      # resolve it on any platform.
-      #
-      # If a BLAS install step ever reappears here, something has regressed
-      # back into the default graph — fix the dependency, not this file.
+      # NO SYSTEM BLAS STEP, DELIBERATELY: `ndarray-linalg` is behind
+      # `outram-foam-basic-lib`'s `blas-bench` feature and out of the default
+      # graph. If a BLAS install step ever becomes necessary here, something has
+      # regressed back into the default graph. Fix the dependency.
 
-      # ── Crate selection (2026-09-24, maintainer direction) ──────────────
-      #
-      # `cargo quick-test` over all 43 crates runs ~190 test binaries in
-      # series. `kovan-cli affected` narrows that to the crates a push can
-      # actually reach: the ones it edited, CLOSED OVER REVERSE DEPENDENCIES
-      # so a change to `njoy-outram-park-fork` still tests `outram-mc-libs`
-      # and everything downstream of it.
-      #
-      # Measured on real commits from this branch's history:
-      #   a kovan-only change      ->  1 crate   (was 43)
-      #   a nee_soon examples fix  ->  2 crates
-      #   a njoy write-path commit -> 10 crates  (njoy is deep; this is the
-      #                                           worst realistic case)
-      #
-      # IT FAILS SAFE. Any changed path outside `crates/<member>/` selects the
-      # WHOLE workspace and the selector prints no `-p` at all — which is
-      # exactly what an unqualified `cargo quick-test` means, so the step
-      # below is correct either way without branching. The root `Cargo.toml`
-      # (where every version lives), `Cargo.lock`, the toolchain file, this
-      # workflow, and anything new and unrecognised all take that path.
-      #
-      # `fetch-depth: 0` above is required: the selector diffs against the
-      # merge base, which a shallow clone does not have.
-      #
-      # THIS IS NOT THE WHOLE FIX. This file's own measurement (see the
-      # timeout comment) puts ~21 min on the build and 77.7 min on the tests,
-      # summed over 190 binaries in series. Selection cuts both, but the
-      # remaining serial test time is still serial. Splitting the survivors
-      # across a matrix — the fix this file already recommends — is
-      # complementary and still worth doing.
-      - name: Which crates does this change affect?
-        id: affected
+      - name: Build kovan-cli (the CI selector)
+        shell: bash
+        run: cargo build --release -q -p kovan --bin kovan-cli
+
+      - name: Which crates are top-level?
+        id: top
         shell: bash
         run: |
-          cargo run --release -q -p kovan --bin kovan-cli -- \
-            affected --base "${{ github.event.before || 'origin/develop' }}" \
-            --format cargo-args > affected.txt || echo > affected.txt
-          echo "args=$(cat affected.txt)" >> "$GITHUB_OUTPUT"
-          echo "selected: $(cat affected.txt || echo '(whole workspace)')"
+          ./target/release/kovan-cli ci top-crates > top.txt
+          echo "args=$(cat top.txt)" >> "$GITHUB_OUTPUT"
+          echo "top crates: $(cat top.txt)"
 
-      - name: Fast tests (long tests excluded)
+      - name: Check the smoke list against the tree
         shell: bash
-        run: cargo quick-test ${{ steps.affected.outputs.args }}
+        run: ./target/release/kovan-cli ci smoke
+
+      # One invocation over the top crates. `--no-run` builds every library
+      # once plus the top crates' own lib and test targets, and links them,
+      # so this is a stronger gate than `cargo check`. The smoke step below
+      # reuses these artifacts.
+      - name: Compile gate (top crates, --lib --tests)
+        shell: bash
+        run: cargo test --release --no-run --lib --tests ${{ steps.top.outputs.args }}
+
+      - name: Smoke set (Godiva HIGH, Edwards, cavity, Sod)
+        shell: bash
+        run: ./target/release/kovan-cli ci smoke --run
+
+  # ── Tests left failing on purpose; allowed to fail ────────────────────────
+  known-failures:
+    name: known failures (allowed to fail)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: known-failures
+          cache-on-failure: true
+
+      # Runs each `[[known_failure]]` in `ci/smoke-tests.toml` BY EXACT NAME
+      # with `--ignored`. A bare `--ignored` would also start the multi-hour
+      # tests that `#[ignore]` marks elsewhere. A known failure that starts
+      # passing is printed as NOW PASSING: propose closing its issue.
+      - name: Known failures
+        shell: bash
+        run: cargo run --release -q -p kovan --bin kovan-cli -- ci known-failures
 
   # ── Compile-only platforms ─────────────────────────────────────────────────
   android:
@@ -222,7 +191,7 @@ jobs:
       # defect (epic op-zfr), which is the entire point of the job.
       - name: Check all targets for ${{ matrix.target }}
         run: |
-          cargo check --workspace \
+          cargo check --release --workspace \
             --exclude outram-park-digital-twin-engine \
             --all-targets --target ${{ matrix.target }}
 
@@ -273,4 +242,4 @@ jobs:
       # `scripts/check-wasm.sh` gates its exclusions, rather than deleting the
       # job.
       - name: Check libraries for ${{ matrix.target }}
-        run: cargo check --workspace --lib --target ${{ matrix.target }}
+        run: cargo check --release --workspace --lib --target ${{ matrix.target }}
