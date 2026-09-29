@@ -495,6 +495,14 @@ fn main() {
         }
         other => panic!("--route must be endf|ace, got {other}"),
     };
+    // `--no-sab` (diagnostic A/B, GitHub #367): H-1 stays free gas even where
+    // the case carries S(a,b), to localise a thermal-scattering residual.
+    let sab = if args.iter().any(|a| a == "--no-sab") {
+        eprintln!("  ABLATION: no S(a,b) (--no-sab); H-1 is free gas");
+        None
+    } else {
+        sab
+    };
     if let Some(s) = sab {
         let i = names
             .iter()

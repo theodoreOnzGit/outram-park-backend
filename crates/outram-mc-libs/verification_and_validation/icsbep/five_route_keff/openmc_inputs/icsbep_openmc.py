@@ -147,10 +147,15 @@ def main():
     ap.add_argument("--inactive", type=int, default=40)
     ap.add_argument("--active", type=int, default=120)
     ap.add_argument("--commit", default="unknown")
+    ap.add_argument("--no-sab", action="store_true",
+                    help="diagnostic (GitHub #367): drop S(a,b), H-1 free gas")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()
 
     mats, geo, space = CASES[a.case]()
+    if a.no_sab:
+        for m in mats:
+            m._sab = []
     materials = openmc.Materials(mats)
     materials.cross_sections = str(pathlib.Path(a.xs).resolve())
     s = openmc.Settings()
