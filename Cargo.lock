@@ -1001,6 +1001,7 @@ dependencies = [
 name = "buangkok"
 version = "0.0.1"
 dependencies = [
+ "boon-lay",
  "changi",
  "petir",
  "uom 0.38.0",
