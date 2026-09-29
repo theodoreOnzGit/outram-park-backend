@@ -289,8 +289,12 @@ and pages: `crates/buangkok/docs/References.md`). Adult.
 | Cs-137 + Ba-137m × 0.944 | 9.37e-17 + 2.68e-14 × 0.944 (p. 200) | 8.63e-9, class D (p. 137) | 3.01e-18 + 3.87e-16 × 0.944 (p. 45) |
 | Ag-110m | 1.28e-13 (p. 196) | 2.17e-8, class Y = max of D/W/Y (p. 132) | 1.73e-15 (p. 41) |
 
-- **Map pixel** = live chi/Q × Σ over nuclides (submersion + committed
-  inhalation) at that nuclide's release rate. **Ground shine is in the table
+- **Map pixel** = Σ over live puffs of (the puff's kernel × its emission's
+  Σ over nuclides of (submersion + committed inhalation) at that nuclide's
+  **stack** release rate *when the puff was emitted*) — gh:#400. ~~live chi/Q
+  × Σ over nuclides at today's release rate~~ (until 2026-09-29): that
+  rescaled every puff, including ones emitted twenty minutes earlier, the
+  moment the rate moved (#346). **Ground shine is in the table
   only**: the map has no per-pixel deposit field (the deposit is changi's
   survey at the 24 receptors, left by one 1200 s puff run, so it
   under-states a release held longer).
@@ -307,9 +311,28 @@ and pages: `crates/buangkok/docs/References.md`). Adult.
   a cited source; indicative, not regulatory. Below-floor pixels draw grey
   and a whole-field-below-floor note gives the reason.
 
-### What the map shows (measured 2026-09-29, map puff model)
+### What the map shows (re-measured 2026-09-29 after gh:#399/#400, map puff model)
 
-`app::map_tab::tests::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum`:
+`app::map_tab::tests::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum`,
+release = the live primary pools (gh:#399) leaking at 1 %/day into the
+bishan reactor-building CV and out of its stack (gh:#400), held at one
+kernel temperature from t = 0:
+
+| Kernel | Absolute stack release [Bq/s] | Peak field air dose rate [µSv/h] | Peak ring ground shine [µSv/h] | Below the 0.8 µSv/h floor by |
+|---|---|---|---|---|
+| 1200 K (default) | 58.69 | 6.659e-8 | 2.399e-11 | 7.1 decades |
+| 1400 K | 223.5 | 2.542e-7 | 9.143e-11 | 6.5 decades |
+| 1600 K | 2.070e4 | 2.348e-5 | 8.460e-9 | 4.5 decades |
+| 1800 K | 1.054e5 | 1.195e-4 | 4.306e-8 | 3.8 decades |
+| 2000 K | 3.935e5 | 4.463e-4 | 1.608e-7 | 3.3 decades |
+
+On the Absolute basis the default run peaks at **4.437e-3 Bq/m^3** over the
+field, 3.7 decades under the 19.92 "≈ banana" floor. The dose rate at 1200 K
+fell 3.4x while the Bq/s rose 6.2x, so the stack mix moved towards the
+low-coefficient noble gases; not decomposed nuclide by nuclide.
+
+~~Superseded~~ earlier 2026-09-29 figures (release = circulating activity ×
+a flat 1e-6/s leak fraction, no building):
 
 | Kernel | Absolute release [Bq/s] | Peak field air dose rate [µSv/h] | Peak ring ground shine [µSv/h] | Below the 0.8 µSv/h floor by |
 |---|---|---|---|---|
@@ -336,8 +359,11 @@ the plume.
   pixel = Σ buangkok pathway functions within 1e-12 relative; measured
   2.2e-16.
 - `app::map_tab::tests::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum`:
-  every table air cell is bit-identical to `field_value(live chi/Q,
-  DoseRate)`, the texture's function, and equals the split table's sums.
+  every table air cell is bit-identical to the receptor's emission-weighted
+  air dose rate (the same sum the texture paints; ~~`field_value(live chi/Q,
+  DoseRate)`~~ before gh:#400), equals `live chi/Q × today's factor` within
+  one f32 epsilon for this constant-rate run (measured 1.4e-8), and equals
+  the split table's sums.
 - `the_fgr_values_match_the_csv`, `missing_coefficients_are_missing_not_zero`,
   `the_anchors_are_the_maintainers`, `the_dose_rate_defaults_are_the_maintainers_anchors`,
   `missing_and_below_floor_cells_are_never_zero`,

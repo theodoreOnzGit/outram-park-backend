@@ -8,12 +8,19 @@
 //! scrubbing, and release categories. The question it answers is **"what
 //! leaves the building, how, and how often?"**
 //!
-//! # STATUS: PLACEHOLDER. Nothing is implemented.
+//! # STATUS: one component implemented; the rest of the scope is not
+//!
+//! ~~PLACEHOLDER. Nothing is implemented.~~ **CHANGED 2026-09-29 (gh:#400,
+//! maintainer's source-term plan):** [`building`] is a lumped HTR-10
+//! reactor-building (vented confinement) control volume -- inflow from the
+//! primary circuit, decay, deposition, filtered exhaust to the stack -- from
+//! published figures (Jiang et al. 2002; Liu & Cao 2002). Everything else in
+//! the scope below (severe-accident progression, aerosol transport, pool
+//! scrubbing, release categories, RAFFLES) is **not implemented**; do not cite
+//! this crate for it.
 //!
 //! Created 2026-09-28 by maintainer direction to reserve the name and state
-//! the scope, not to hold code. It has no dependencies and no behaviour. **Do
-//! not describe it as providing anything**, and do not cite it as the location
-//! of any containment, building or release calculation.
+//! the scope.
 //!
 //! The name and backronym come from the workspace roadmap slides
 //! (`slides/outram-park.tex`, 2026-09-14): "Level 2 PSA. Severe-accident
@@ -50,6 +57,8 @@
 //! BISHAN ends at what is released: activity, timing, release category. Dose
 //! is out of its scope, as it is for SEMBAWANG and (today) CHANGI.
 #![forbid(unsafe_code)]
+
+pub mod building;
 
 /// The scope this crate reserves, as a machine-readable string.
 ///

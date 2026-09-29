@@ -103,6 +103,7 @@ use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 
 use super::state::HtgrSnapshot;
 use crate::physics::dose_rate::{self, Pathway};
+use crate::physics::atmospheric_dispersion::FieldWeighting;
 use crate::physics::fission_product_release::TRACKED_NUCLIDES;
 
 /// Fraction of the tab's height the map square takes.
@@ -331,10 +332,27 @@ impl MapBasis {
         }
     }
 
-    /// The factor that turns instantaneous `chi/Q` \[s/m^3\] into this
-    /// basis: a release rate \[Bq/s\] or \[Bq/s per Ci\], 1, or (dose rate)
-    /// the air-pathway dose rate per unit `chi/Q` \[µSv/h per s/m^3\] from
-    /// `buangkok`. `NAN` when the rate is not available.
+    /// The field weighting the physics must sum the map in for this basis
+    /// (gh:#400): each puff at the release rate of ITS emission, not the
+    /// whole plume at today's rate.
+    fn weighting(self) -> FieldWeighting {
+        match self {
+            MapBasis::Absolute => FieldWeighting::AbsoluteBqPerM3,
+            MapBasis::PerCi => FieldWeighting::PerCiBqPerM3,
+            MapBasis::ChiOverQ => FieldWeighting::ChiOverQ,
+            MapBasis::DoseRate => FieldWeighting::DoseRateUsvPerH,
+        }
+    }
+
+    /// The CURRENT release's factor on this basis: a release rate \[Bq/s\]
+    /// or \[Bq/s per Ci\], 1, or (dose rate) the air-pathway dose rate per
+    /// unit `chi/Q` \[µSv/h per s/m^3\] from `buangkok`. `NAN` when the
+    /// rate is not available. **Used only to tell whether a basis is
+    /// available** -- ~~the texture multiplied the whole instantaneous
+    /// `chi/Q` field by it~~ **CORRECTED 2026-09-29 (gh:#400, #346)**: that
+    /// rescaled puffs emitted an hour ago by the release rate of now; the
+    /// physics now sums each puff at its own emission's rate
+    /// ([`FieldWeighting`]).
     fn factor(self, s: &HtgrSnapshot) -> f64 {
         match self {
             MapBasis::Absolute => s.dispersion_source_rate_absolute_bq_per_s,
@@ -360,11 +378,39 @@ fn effective_basis(requested: MapBasis, s: &HtgrSnapshot) -> MapBasis {
     }
 }
 
-/// The value the map paints for one `chi/Q` sample on `basis`. The texture,
-/// the absolute table's LIVE column and the dose-rate table's air row all call
-/// this, so a row and the pixel under it cannot disagree by construction.
-fn field_value(chi_over_q: f64, basis: MapBasis, s: &HtgrSnapshot) -> f64 {
-    chi_over_q * basis.factor(s)
+/// The value the map paints for one grid sample on `basis`: the sample
+/// itself when the physics summed the grid in `basis`'s weighting, `NAN`
+/// (painted as nothing) for the frame or two after a basis switch before the
+/// physics has re-summed it. ~~`chi/Q x the current rate`~~ **CORRECTED
+/// 2026-09-29 (gh:#400)**: the grid is already in the painted unit, each puff
+/// at its emission's rate, so nothing is rescaled here. The receptor tables
+/// read the same emission-weighted sums per nuclide
+/// (`ReceptorSnapshot::instantaneous_air_bq_per_m3_by_nuclide`).
+fn field_value(sample: f64, basis: MapBasis, s: &HtgrSnapshot) -> f64 {
+    if s.dispersion_grid_weighting == basis.weighting() {
+        sample
+    } else {
+        f64::NAN
+    }
+}
+
+/// The instantaneous air concentration at a receptor summed over the tracked
+/// nuclides \[Bq/m^3\], each puff at its emission's rate -- the Absolute
+/// pixel under the receptor. `NAN` when any nuclide's rate is unavailable.
+fn receptor_air_absolute(r: &super::state::ReceptorSnapshot) -> f64 {
+    r.instantaneous_air_bq_per_m3_by_nuclide.iter().sum()
+}
+
+/// Air-pathway (submersion + committed inhalation) dose rate at a receptor
+/// \[µSv/h\] from its per-nuclide live air concentration -- the dose-rate
+/// pixel under the receptor (the pathway sums are linear in the
+/// concentration, so summing puffs then converting equals converting each
+/// puff then summing).
+fn receptor_air_dose_rate(r: &super::state::ReceptorSnapshot) -> f64 {
+    dose_rate::air_dose_rate_per_unit_chi_over_q(
+        &r.instantaneous_air_bq_per_m3_by_nuclide,
+        dose_rate::coefficients(),
+    )
 }
 
 /// The map's logarithmic colour scale: a **floor** (the minimum reading that
@@ -489,7 +535,7 @@ struct TextureKey {
     cells: usize,
     plume_time_s: f64,
     basis: MapBasis,
-    factor: f64,
+    weighting: FieldWeighting,
     scale: ColourScale,
 }
 
@@ -555,7 +601,7 @@ impl MapTabState {
             cells,
             plume_time_s: s.dispersion_grid_time_s,
             basis,
-            factor: basis.factor(s),
+            weighting: s.dispersion_grid_weighting,
             scale,
         };
         if self.built_for != Some(key) || self.texture.is_none() {
@@ -584,8 +630,9 @@ impl MapTabState {
     }
 }
 
-/// The largest `chi/Q` in the snapshot's field \[s/m^3\].
-fn field_peak_chi_over_q(s: &HtgrSnapshot) -> f64 {
+/// The largest sample in the snapshot's field, in the unit of
+/// `dispersion_grid_weighting` (~~`chi/Q` \[s/m^3\]~~ before gh:#400).
+fn field_peak_sample(s: &HtgrSnapshot) -> f64 {
     s.dispersion_grid.iter().copied().fold(0.0_f32, f32::max) as f64
 }
 
@@ -597,7 +644,7 @@ fn draw_scale_controls(
     s: &HtgrSnapshot,
     state: &mut MapTabState,
 ) -> (MapBasis, ColourScale) {
-    let peak_chi = field_peak_chi_over_q(s);
+    let peak_chi = field_value(field_peak_sample(s), MapBasis::ChiOverQ, s);
     ui.horizontal_wrapped(|ui| {
         ui.label("Map shows:");
         for basis in MapBasis::ALL {
@@ -821,7 +868,7 @@ fn draw_dispersion_rose(
     // than an interpolation between 24 -- which is what the rose's own docs
     // rule out.
     // The peak in the PAINTED unit, for the readout below.
-    let field_peak = field_value(field_peak_chi_over_q(s), basis, s);
+    let field_peak = field_value(field_peak_sample(s), basis, s);
     let grid_px = max_radius * (s.dispersion_grid_half_width_m / outermost) as f32;
     if let Some(texture) = state.field_texture(ui, s, basis, scale) {
         let field_rect = Rect::from_center_size(centre, Vec2::splat(2.0 * grid_px));
@@ -1326,8 +1373,8 @@ struct DoseRateRow {
     distance_m: f64,
     bearings_deg: Vec<f64>,
     /// Air pathways (submersion + committed inhalation) \[µSv/h\] -- the
-    /// value of the dose-rate map pixel under the receptor, through the same
-    /// [`field_value`] the texture uses.
+    /// value of the dose-rate map pixel under the receptor
+    /// ([`receptor_air_dose_rate`], the same emission-weighted sum).
     air: Vec<f64>,
     /// Ground shine from the dry deposit \[µSv/h\]; `NAN` when unavailable.
     /// Not on the map.
@@ -1337,10 +1384,10 @@ struct DoseRateRow {
 /// Ground-shine rate at one receptor \[µSv/h\], summed over the nuclides
 /// through `buangkok` (every tracked nuclide has a ground coefficient, so the
 /// sum is complete); `NAN` when the deposit is unavailable.
-fn receptor_ground_rate(r: &super::state::ReceptorSnapshot, s: &HtgrSnapshot) -> f64 {
+fn receptor_ground_rate(r: &super::state::ReceptorSnapshot) -> f64 {
     let split = dose_rate::receptor_split(
-        r.instantaneous_chi_over_q,
-        &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+        1.0,
+        &r.instantaneous_air_bq_per_m3_by_nuclide,
         &r.ground_bq_per_m2_absolute_by_nuclide,
         dose_rate::coefficients(),
     );
@@ -1374,12 +1421,8 @@ fn dose_rate_rows(s: &HtgrSnapshot) -> Vec<DoseRateRow> {
             DoseRateRow {
                 distance_m: row.distance_m,
                 bearings_deg: row.bearings_deg.clone(),
-                air: row
-                    .live
-                    .iter()
-                    .map(|chi| field_value(*chi, MapBasis::DoseRate, s))
-                    .collect(),
-                ground: at.iter().map(|r| receptor_ground_rate(r, s)).collect(),
+                air: at.iter().map(|r| receptor_air_dose_rate(r)).collect(),
+                ground: at.iter().map(|r| receptor_ground_rate(r)).collect(),
             }
         })
         .collect()
@@ -1415,10 +1458,7 @@ fn peak_air_receptor(s: &HtgrSnapshot) -> Option<&super::state::ReceptorSnapshot
     s.receptors
         .iter()
         .filter(|r| r.distance_m > 0.0)
-        .max_by(|a, b| {
-            a.instantaneous_chi_over_q
-                .total_cmp(&b.instantaneous_chi_over_q)
-        })
+        .max_by(|a, b| receptor_air_dose_rate(a).total_cmp(&receptor_air_dose_rate(b)))
 }
 
 /// The whole-table note when every air cell is below the floor, or `None`.
@@ -1492,9 +1532,11 @@ fn draw_dose_rate_tables(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
         "Per-pathway split at the peak receptor ({:.0} deg, {:.0} m) [µSv/h]",
         peak.bearing_deg, peak.distance_m
     ));
+    // Unit chi/Q against the receptor's per-nuclide live air concentration:
+    // the emission-weighted air, not today's rate x instantaneous chi/Q.
     let split = dose_rate::receptor_split(
-        peak.instantaneous_chi_over_q,
-        &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+        1.0,
+        &peak.instantaneous_air_bq_per_m3_by_nuclide,
         &peak.ground_bq_per_m2_absolute_by_nuclide,
         dose_rate::coefficients(),
     );
@@ -1583,12 +1625,9 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
             for r in downwind_rows(s) {
                 ui.label(format!("{:.0} deg", r.bearing_deg));
                 ui.label(format!("{:.0} m", r.distance_m));
-                // The same function the map texture uses, so this equals the
-                // Absolute-basis pixel under the receptor.
-                ui.label(sci_or_dash(
-                    field_value(r.instantaneous_chi_over_q, MapBasis::Absolute, s),
-                    3,
-                ));
+                // The same emission-weighted sum the Absolute-basis texture
+                // paints, so this equals the pixel under the receptor.
+                ui.label(sci_or_dash(receptor_air_absolute(r), 3));
                 ui.label(sci_or_dash(r.air_bq_s_per_m3_absolute, 3));
                 ui.label(sci_or_dash(r.ground_bq_per_m2_absolute, 3));
                 ui.end_row();
@@ -1701,6 +1740,72 @@ fn resolution_request_changed(current: usize, wanted: usize) -> bool {
     (current as f64 - wanted as f64).abs() > tolerance
 }
 
+/// What the Map tab asks its host to do after a frame (gh:#400).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MapAction {
+    /// Nothing this frame.
+    None,
+    /// **Reset plant**: discard the run and start the plant from its default
+    /// operating point -- the same fresh start as the crash modal's restart
+    /// (`HtgrSimApp::restart_simulation`), so there is one reset path.
+    ResetPlant,
+}
+
+/// One accident-scenario button on the Map tab and whether it can be pressed
+/// yet. A button stays disabled until the stage that implements its physics
+/// lands (source-term plan, gh:#398): pressing a button whose release is not
+/// modelled would draw an invented plume that looks exactly like a computed
+/// one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct AccidentButton {
+    label: &'static str,
+    enabled: bool,
+    /// Why it is disabled, or what it does.
+    hover: &'static str,
+}
+
+/// The accident buttons, in the order drawn.
+const ACCIDENT_BUTTONS: [AccidentButton; 2] = [
+    AccidentButton {
+        label: "Water ingress",
+        enabled: false,
+        hover: "Not yet modelled: steam-generator tube rupture with steam-graphite \
+                oxidation lands with source-term stage 3 (gh:#401).",
+    },
+    AccidentButton {
+        label: "DLOFC + ATWS + air ingress",
+        enabled: false,
+        hover: "Not yet modelled: depressurised loss of forced cooling without scram, \
+                with air ingress, lands with source-term stage 4 (gh:#402).",
+    },
+];
+
+/// The scenario row: the accident buttons (disabled until their stage lands)
+/// and **Reset plant**.
+fn draw_scenario_buttons(ui: &mut Ui) -> MapAction {
+    let mut action = MapAction::None;
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Scenarios:");
+        for b in ACCIDENT_BUTTONS {
+            ui.add_enabled(b.enabled, egui::Button::new(b.label))
+                .on_hover_text(b.hover)
+                .on_disabled_hover_text(b.hover);
+        }
+        if ui
+            .button("Reset plant")
+            .on_hover_text(
+                "Discard this run and start the plant from its default operating point: \
+                 power, temperatures, pools, building, plume and clock all reset. Map \
+                 display settings are kept.",
+            )
+            .clicked()
+        {
+            action = MapAction::ResetPlant;
+        }
+    });
+    action
+}
+
 /// Draw the whole Map tab: the Gaussian puff dispersion widgets.
 ///
 /// `view` is the tab's viewport, measured by the caller **outside** the scroll
@@ -1718,8 +1823,9 @@ pub fn draw_map(
     s: &HtgrSnapshot,
     state: &mut MapTabState,
     view: Vec2,
-) {
+) -> MapAction {
     ui.heading("Atmospheric dispersion -- Gaussian puff");
+    let action = draw_scenario_buttons(ui);
     // The one puff-model configuration every basis and table below uses
     // (maintainer direction 2026-09-29; `map_puff_model`, gh:#384).
     ui.label(crate::physics::map_puff_model::regime_label());
@@ -1739,11 +1845,17 @@ pub fn draw_map(
     if resolution_request_changed(s.map_field_cells_requested, wanted) {
         physics.update(|state| state.map_field_cells_requested = wanted);
     }
+    // And which basis to sum the field in (gh:#400), the same way.
+    let weighting = basis.weighting();
+    if s.map_field_weighting != weighting {
+        physics.update(|state| state.map_field_weighting = weighting);
+    }
 
     ui.add_space(8.0);
     ui.separator();
     let dose_scale = state.scale_for(MapBasis::DoseRate, s, 0.0);
     draw_dispersion_table(ui, s, dose_scale);
+    action
 }
 
 #[cfg(test)]
@@ -2009,15 +2121,25 @@ mod tests {
     ///    `atmospheric_dispersion::tests::the_live_ring_sample_agrees_with_the_field_cell_under_it`
     ///    ties to the grid cell under the receptor;
     /// 2. each integrated cell equals the receptor's time-integrated `chi/Q`;
-    /// 3. the absolute LIVE value equals `chi/Q x source_rate_absolute` -- the
-    ///    exact function (`field_value`) the texture shades.
+    /// 3. the absolute LIVE value ([`receptor_air_absolute`], the
+    ///    emission-weighted sum the Absolute texture paints) equals
+    ///    `chi/Q x source_rate_absolute` within one f32 epsilon (1.19e-7)
+    ///    relative, the f32 storage of the weighted puff weight (measured
+    ///    2026-09-29: 1.1e-8), plus `F32_SUBNORMAL_FLOOR` absolute for
+    ///    subnormal tail receptors -- equal only because this run holds the release
+    ///    at one rate (gh:#400: with a moving rate the two differ, and the
+    ///    weighted sum is the right one).
     ///
-    /// # Results (2026-09-28)
+    /// # Results (2026-09-29, gh:#400)
     ///
-    /// Pass: 3 distances x 8 bearings, all equal. Printed: peak LIVE `chi/Q` on
-    /// the ring 1.805e-5 s/m^3, absolute release rate 9.515 Bq/s, so peak
-    /// absolute LIVE air concentration **1.717e-4 Bq/m^3** -- about **5.1
-    /// decades below** the default "≈ banana" floor (19.92). Interpretation: on
+    /// Pass: 3 distances x 8 bearings. Printed: peak LIVE `chi/Q` on the ring
+    /// 1.805e-5 s/m^3 (unchanged), absolute **stack** release rate 58.69 Bq/s,
+    /// peak absolute LIVE air concentration **1.059e-3 Bq/m^3** -- about
+    /// **4.3 decades below** the default "≈ banana" floor (19.92).
+    /// ~~9.515 Bq/s and 1.717e-4 Bq/m^3, 5.1 decades below~~ (2026-09-28):
+    /// that rate was circulating activity x a flat 1e-6/s leak fraction; the
+    /// rate is now the live primary pools of gh:#399 leaking into the bishan
+    /// building and out of its stack (gh:#400). Interpretation unchanged: on
     /// the default scale a normal-operation plume at this kernel temperature
     /// paints nothing; `below_floor_note` says so on the map.
     #[test]
@@ -2036,6 +2158,8 @@ mod tests {
             )),
         );
         let mut channel = AtmosphericDispersionChannel::new();
+        // `update` stamps the emission rates the puffs then carry (gh:#400).
+        assert!(channel.update(0.0, &release));
         channel.refresh_field(600.0);
         let result = channel.evaluate(600.0, &release);
 
@@ -2049,6 +2173,7 @@ mod tests {
             slot.ground_bq_per_m2 = r.ground_bq_per_m2;
             slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
             slot.ground_bq_per_m2_absolute = r.ground_bq_per_m2_absolute.unwrap_or(f64::NAN);
+            slot.instantaneous_air_bq_per_m3_by_nuclide = r.instantaneous_air_bq_per_m3_by_nuclide;
         }
         s.dispersion_source_rate_per_ci_bq_per_s = result.source_rate_per_ci_bq_per_s;
         s.dispersion_source_rate_absolute_bq_per_s =
@@ -2070,10 +2195,21 @@ mod tests {
                     .expect("receptor in the ring");
                 assert_eq!(row.live[k], r.instantaneous_chi_over_q);
                 assert_eq!(row.integrated[k], r.chi_over_q);
-                let abs_live = field_value(row.live[k], MapBasis::Absolute, &s);
-                assert_eq!(
-                    abs_live,
-                    r.instantaneous_chi_over_q * result.source_rate_absolute_bq_per_s.unwrap()
+                let slot = s
+                    .receptors
+                    .iter()
+                    .find(|x| {
+                        (x.distance_m - r.distance_m).abs() < 1e-9
+                            && (x.bearing_deg - r.bearing_deg).abs() < 1e-9
+                    })
+                    .expect("projected receptor");
+                let abs_live = receptor_air_absolute(slot);
+                let constant_rate =
+                    r.instantaneous_chi_over_q * result.source_rate_absolute_bq_per_s.unwrap();
+                assert!(
+                    (abs_live - constant_rate).abs()
+                        <= f32::EPSILON as f64 * constant_rate.abs() + F32_SUBNORMAL_FLOOR,
+                    "{abs_live} vs {constant_rate}"
                 );
                 checked += 1;
             }
@@ -2088,7 +2224,7 @@ mod tests {
             "peak LIVE chi/Q on the ring {peak_live:.3e} s/m^3; absolute rate {:.3e} Bq/s; \
              peak absolute LIVE air {:.3e} Bq/m^3 vs default floor {:.3e}",
             s.dispersion_source_rate_absolute_bq_per_s,
-            field_value(peak_live, MapBasis::Absolute, &s),
+            peak_live * s.dispersion_source_rate_absolute_bq_per_s,
             anchor_scale().floor
         );
         assert!(
@@ -2223,6 +2359,18 @@ mod tests {
 
     /// The clock readout must be `h:mm:ss` and must not panic on the `NAN`
     /// the snapshot carries before the first field.
+    /// The accident buttons stay disabled until their stage lands (gh:#401,
+    /// gh:#402), and each says why. Flip `enabled` in the change that lands
+    /// the physics, and this test with it.
+    #[test]
+    fn the_accident_buttons_wait_for_their_stages() {
+        let labels: Vec<&str> = ACCIDENT_BUTTONS.iter().map(|b| b.label).collect();
+        assert_eq!(labels, ["Water ingress", "DLOFC + ATWS + air ingress"]);
+        assert!(ACCIDENT_BUTTONS.iter().all(|b| !b.enabled));
+        assert!(ACCIDENT_BUTTONS[0].hover.contains("gh:#401"));
+        assert!(ACCIDENT_BUTTONS[1].hover.contains("gh:#402"));
+    }
+
     #[test]
     fn the_clock_reads_out_in_hours_minutes_seconds() {
         assert_eq!(clock_text(0.0), "0:00:00");
@@ -2235,9 +2383,18 @@ mod tests {
 
     // ----- Dose-rate basis (2026-09-29) ---------------------------------
 
+    /// Absolute allowance for a receptor deep in a plume's tail, where the
+    /// per-puff f32 contribution falls below `f32::MIN_POSITIVE` (1.18e-38)
+    /// and keeps no relative precision (subnormals): one normal-floor unit per
+    /// puff for up to 1000 puffs (the map population is ~120). Fixed by the
+    /// f32 representation, not by any comparison.
+    const F32_SUBNORMAL_FLOOR: f64 = 1.0e3 * f32::MIN_POSITIVE as f64;
+
     /// A snapshot projected from a real dispersion run on the MAP's puff
-    /// model, exactly as `physics::write_snapshot` projects it.
-    fn map_snapshot(kernel_k: f64) -> HtgrSnapshot {
+    /// model, exactly as `physics::write_snapshot` projects it, with the
+    /// field summed on `basis` (gh:#400). The release is held at one rate
+    /// from t = 0, so every puff carries the same emission rates.
+    fn map_snapshot(kernel_k: f64, basis: MapBasis) -> HtgrSnapshot {
         use crate::physics::atmospheric_dispersion::AtmosphericDispersionChannel;
         use crate::physics::fission_product_release::TrisoAtopsReleaseChannel;
         use uom::si::f64::ThermodynamicTemperature;
@@ -2253,6 +2410,11 @@ mod tests {
         );
         let mut channel = AtmosphericDispersionChannel::new();
         channel.set_meteorology(crate::physics::map_puff_model::map_meteorology(1.0, 0.0));
+        let mut request = channel.field_request();
+        request.weighting = basis.weighting();
+        channel.set_field_request(request);
+        // `update` stamps the emission rates the puffs then carry.
+        assert!(channel.update(0.0, &release));
         channel.refresh_field(1200.0);
         let result = channel.evaluate(1200.0, &release);
         let mut s = HtgrSnapshot::default();
@@ -2264,13 +2426,15 @@ mod tests {
             slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
             slot.ground_bq_per_m2_absolute = r.ground_bq_per_m2_absolute.unwrap_or(f64::NAN);
             slot.ground_bq_per_m2_absolute_by_nuclide = r.ground_bq_per_m2_absolute_by_nuclide;
+            slot.instantaneous_air_bq_per_m3_by_nuclide = r.instantaneous_air_bq_per_m3_by_nuclide;
         }
         s.dispersion_source_rate_absolute_bq_per_s =
             result.source_rate_absolute_bq_per_s.unwrap_or(f64::NAN);
         s.dispersion_source_rate_absolute_by_nuclide_bq_per_s = result
             .source_rate_absolute_by_nuclide_bq_per_s
             .map(|r| r.unwrap_or(f64::NAN));
-        s.dispersion_grid = result.grid.chi_over_q.iter().map(|v| *v as f32).collect();
+        s.dispersion_grid = result.grid.values.iter().map(|v| *v as f32).collect();
+        s.dispersion_grid_weighting = result.grid.weighting;
         s.dispersion_grid_cells = result.grid.cells;
         s
     }
@@ -2283,23 +2447,39 @@ mod tests {
     /// Real dispersion run on the map's puff model (inter-monsoon, class B,
     /// 1 m/s, from 0 deg), 1200 K kernel, settled 1200 s. For every receptor:
     ///
-    /// 1. the table's air cell equals `field_value(live chi/Q, DoseRate)` --
-    ///    the function the texture shades -- bit for bit;
+    /// 1. the table's air cell equals the receptor's emission-weighted
+    ///    air dose rate ([`receptor_air_dose_rate`]) bit for bit and, the
+    ///    release being held at one rate, `live chi/Q x today's dose factor`
+    ///    (the pre-gh:#400 formula, which is exact only in this constant-rate
+    ///    case) within one f32 epsilon (1.19e-7) relative -- the weighted
+    ///    puff weight is stored as f32 (`changi::puff::wgsl::PuffState`), one
+    ///    rounding of at most half an epsilon per puff, fixed by the storage
+    ///    and not by this comparison; measured 2026-09-29: 1.4e-8 -- plus
+    ///    `F32_SUBNORMAL_FLOOR` absolute for tail receptors whose per-puff f32
+    ///    contribution is subnormal (one at ~8e-42 µSv/h differs at 6e-6
+    ///    relative);
     /// 2. that equals the split table's submersion + inhalation totals
     ///    (buangkok functions called per nuclide) within 1e-12 relative
     ///    (f64 reassociation only);
     /// 3. the ground row equals the split table's ground-shine total.
     ///
-    /// # Results (2026-09-29)
+    /// # Results (2026-09-29, re-measured after gh:#400)
     ///
-    /// Pass. At the 1200 K default: peak ring air dose rate 1.625e-7 µSv/h,
-    /// peak field air 2.269e-7 µSv/h (6.5 decades under the 0.8 floor), peak
-    /// ring ground shine 1.140e-10 µSv/h; absolute peak field concentration
-    /// 7.194e-4 Bq/m^3. At 2000 K the field peak is 3.048e-6 µSv/h. Full table
-    /// in `reference/References.md` ("Dose-rate basis").
+    /// Pass. At the 1200 K default: absolute stack release 58.69 Bq/s, peak
+    /// ring air dose rate 4.769e-8 µSv/h, peak field air 6.659e-8 µSv/h (7.1
+    /// decades under the 0.8 floor), peak ring ground shine 2.399e-11 µSv/h;
+    /// absolute peak field concentration 4.437e-3 Bq/m^3. Kernel sweep, peak
+    /// field air: 1400 K 2.542e-7, 1600 K 2.348e-5, 1800 K 1.195e-4, 2000 K
+    /// 4.463e-4 µSv/h. ~~1.625e-7 / 2.269e-7 / 1.140e-10 µSv/h, 7.194e-4
+    /// Bq/m^3, 2000 K 3.048e-6 µSv/h~~ (earlier 2026-09-29, before the
+    /// gh:#399 live pools and the gh:#400 building): more activity leaves the
+    /// stack now (58.7 vs 9.5 Bq/s) yet the air dose rate at 1200 K fell by
+    /// 3.4x, so the per-nuclide mix moved towards the low-coefficient noble
+    /// gases; the shift is not decomposed nuclide by nuclide here. The table
+    /// in `reference/References.md` ("Dose-rate basis") carries both.
     #[test]
     fn the_dose_rate_table_is_the_pixel_and_the_buangkok_sum() {
-        let s = map_snapshot(1200.0);
+        let s = map_snapshot(1200.0, MapBasis::DoseRate);
         let rows = dose_rate_rows(&s);
         assert_eq!(rows.len(), 3);
         let c = dose_rate::coefficients();
@@ -2315,13 +2495,21 @@ mod tests {
                             && (r.bearing_deg - b).abs() < 1e-9
                     })
                     .unwrap();
-                assert_eq!(
-                    row.air[k],
-                    field_value(r.instantaneous_chi_over_q, MapBasis::DoseRate, &s)
+                assert_eq!(row.air[k], receptor_air_dose_rate(r));
+                let constant_rate = r.instantaneous_chi_over_q
+                    * dose_rate::air_dose_rate_per_unit_chi_over_q(
+                        &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+                        c,
+                    );
+                assert!(
+                    (row.air[k] - constant_rate).abs()
+                        <= f32::EPSILON as f64 * constant_rate.abs() + F32_SUBNORMAL_FLOOR,
+                    "{} vs {constant_rate}",
+                    row.air[k]
                 );
                 let split = dose_rate::receptor_split(
-                    r.instantaneous_chi_over_q,
-                    &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+                    1.0,
+                    &r.instantaneous_air_bq_per_m3_by_nuclide,
                     &r.ground_bq_per_m2_absolute_by_nuclide,
                     c,
                 );
@@ -2345,8 +2533,8 @@ mod tests {
             }
         }
         for kernel in [1400.0, 1600.0, 1800.0, 2000.0] {
-            let h = map_snapshot(kernel);
-            let p = field_value(field_peak_chi_over_q(&h), MapBasis::DoseRate, &h);
+            let h = map_snapshot(kernel, MapBasis::DoseRate);
+            let p = field_value(field_peak_sample(&h), MapBasis::DoseRate, &h);
             let g = dose_rate_rows(&h)
                 .iter()
                 .flat_map(|r| r.ground.iter())
@@ -2358,12 +2546,13 @@ mod tests {
                 h.dispersion_source_rate_absolute_bq_per_s
             );
         }
-        let field_peak = field_value(field_peak_chi_over_q(&s), MapBasis::DoseRate, &s);
+        let field_peak = field_value(field_peak_sample(&s), MapBasis::DoseRate, &s);
+        let a = map_snapshot(1200.0, MapBasis::Absolute);
         println!(
             "default (1200 K kernel) map puff model: absolute release {:.3e} Bq/s, peak field \
              air concentration {:.3e} Bq/m^3",
             s.dispersion_source_rate_absolute_bq_per_s,
-            field_value(field_peak_chi_over_q(&s), MapBasis::Absolute, &s)
+            field_value(field_peak_sample(&a), MapBasis::Absolute, &a)
         );
         println!(
             "default (1200 K kernel) map puff model: peak ring air dose rate {peak_air:.3e} uSv/h, \
@@ -2418,7 +2607,7 @@ mod tests {
             "{note}"
         );
         assert!(below_floor_note(5.0, a, MapBasis::DoseRate).is_none());
-        let s = map_snapshot(1200.0);
+        let s = map_snapshot(1200.0, MapBasis::DoseRate);
         let rows = dose_rate_rows(&s);
         let table_note = dose_table_below_floor_note(&rows, a.floor)
             .expect("default release is below the floor");
@@ -2429,8 +2618,8 @@ mod tests {
     /// wall clock, RNG or I/O dependence (the headless-determinism property).
     #[test]
     fn the_dose_rate_table_is_deterministic() {
-        let a = dose_rate_rows(&map_snapshot(1200.0));
-        let b = dose_rate_rows(&map_snapshot(1200.0));
+        let a = dose_rate_rows(&map_snapshot(1200.0, MapBasis::DoseRate));
+        let b = dose_rate_rows(&map_snapshot(1200.0, MapBasis::DoseRate));
         assert_eq!(format!("{a:?}"), format!("{b:?}"));
     }
 }

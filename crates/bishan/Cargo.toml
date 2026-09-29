@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "BISHAN (Building Internal Source-term and Hazard Analysis Network) — Level 2 PSA: severe-accident progression inside the plant, containment and building response, in-building aerosol transport and pool scrubbing, release categories. Placeholder: nothing is implemented."
+description = "BISHAN (Building Internal Source-term and Hazard Analysis Network) — Level 2 PSA: severe-accident progression inside the plant, containment and building response, in-building aerosol transport and pool scrubbing, release categories. First code (2026-09-29): a lumped HTR-10 reactor-building CV; the rest of the scope is not implemented."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -13,8 +13,8 @@ categories.workspace = true
 # write-ups). Excluded so it never ships to crates.io.
 exclude = ["docs"]
 
-# NO DEPENDENCIES YET, deliberately. The roadmap has BISHAN resting on RAFFLES
-# for its probabilistic machinery, but declaring that edge before any code
-# calls into it would be an architectural claim nothing here has earned, and
-# an unused dependency enters the lock file and every downstream build graph.
+# `uom` since 2026-09-29: the building CV (gh:#400) is the first code, and
+# its API carries physical quantities. RAFFLES (the roadmap's probabilistic
+# machinery) is still NOT declared: nothing calls into it yet.
 [dependencies]
+uom.workspace = true

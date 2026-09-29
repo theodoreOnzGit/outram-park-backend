@@ -96,6 +96,10 @@ pub struct ReceptorSnapshot {
     /// cell must not be compared to a table row applies to `chi_over_q`, not to
     /// this.
     pub instantaneous_chi_over_q: f64,
+    /// Instantaneous air concentration per tracked nuclide \[Bq/m^3\], each
+    /// puff at its emission's stack rate (gh:#400). All zero before the first
+    /// evaluation.
+    pub instantaneous_air_bq_per_m3_by_nuclide: [f64; TRACKED_RELEASE_NUCLIDES],
     /// Time-integrated air concentration, Bq.s/m^3 per Ci of core inventory.
     /// Not a concentration at any reactor.
     pub air_bq_s_per_m3: f64,
@@ -359,12 +363,16 @@ pub struct HtgrSnapshot {
     /// One entry per receptor, ordered distance-major then compass sector.
     /// All-zero before the first dispersion evaluation.
     pub receptors: [ReceptorSnapshot; DISPERSION_RECEPTORS],
-    /// The evaluated `chi/Q` field the Map tab paints, `s/m^3` per cell,
-    /// row-major and **north-up** so it can be drawn straight down the screen.
+    /// The evaluated field the Map tab paints, per cell, row-major and
+    /// **north-up** so it can be drawn straight down the screen, **in the
+    /// basis [`Self::dispersion_grid_weighting`] names** (gh:#400; ~~always
+    /// `chi/Q` s/m^3~~ until 2026-09-29).
     ///
     /// `f32`, not `f64`: this exists to drive a colour ramp, and the snapshot
     /// is cloned every frame. Empty until the first dispersion run.
     pub dispersion_grid: Vec<f32>,
+    /// The basis [`Self::dispersion_grid`] was summed in.
+    pub dispersion_grid_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// Cells per side of [`Self::dispersion_grid`].
     pub dispersion_grid_cells: usize,
     /// Half-width of the square the grid covers \[m\].
@@ -396,6 +404,9 @@ pub struct HtgrSnapshot {
     /// [`crate::physics::atmospheric_dispersion::max_grid_cells`] -- so an
     /// oversized request costs a coarser map, never a missed tick.
     pub map_field_cells_requested: usize,
+    /// The basis the Map tab shows, so the physics sums the field in it with
+    /// each puff at its emission's rate (gh:#400). A control input.
+    pub map_field_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// How far ahead of the plant clock the operator has run the **plume**
     /// clock \[s\] -- the Map tab's fast-forward.
     ///
@@ -829,10 +840,12 @@ impl Default for HtgrSnapshot {
             particle_sic_k: f64::NAN,
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
             dispersion_grid: Vec::new(),
+            dispersion_grid_weighting: Default::default(),
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,
             dispersion_grid_time_s: f64::NAN,
             map_field_cells_requested: crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
+            map_field_weighting: Default::default(),
             plume_clock_offset_s: 0.0,
             // The map regime's representative speed (inter-monsoon, 1 m/s;
             // `map_puff_model`, maintainer 2026-09-29).

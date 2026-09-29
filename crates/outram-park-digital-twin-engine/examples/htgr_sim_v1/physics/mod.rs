@@ -1733,6 +1733,8 @@ impl HtgrPlant {
                 slot.distance_m = r.distance_m;
                 slot.chi_over_q = r.chi_over_q;
                 slot.instantaneous_chi_over_q = r.instantaneous_chi_over_q;
+                slot.instantaneous_air_bq_per_m3_by_nuclide =
+                    r.instantaneous_air_bq_per_m3_by_nuclide;
                 slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
                 slot.ground_bq_per_m2 = r.ground_bq_per_m2;
                 slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
@@ -1749,7 +1751,8 @@ impl HtgrPlant {
             // this runs on every write.
             s.dispersion_grid.clear();
             s.dispersion_grid
-                .extend(result.grid.chi_over_q.iter().map(|v| *v as f32));
+                .extend(result.grid.values.iter().map(|v| *v as f32));
+            s.dispersion_grid_weighting = result.grid.weighting;
             s.dispersion_grid_cells = result.grid.cells;
             s.dispersion_grid_half_width_m = result.grid.half_width_m;
             // The PLUME clock, which is the plant clock plus the operator's

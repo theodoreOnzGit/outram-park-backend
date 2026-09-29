@@ -21,11 +21,13 @@ offsite chain:
                      categories
 ```
 
-## Status: placeholder, nothing is implemented
+## Status: one component implemented
 
-Created 2026-09-28 to reserve the name and state the scope. The crate has no
-dependencies and no behaviour. Its only public item is the `SCOPE` string
-constant. Do not cite it as the location of any calculation.
+~~Placeholder, nothing is implemented.~~ Since 2026-09-29 (GitHub #400),
+`bishan::building` is a lumped HTR-10 reactor-building control volume: inflow
+from the primary circuit, decay, deposition and filtered exhaust to the stack,
+from published figures (Jiang et al. 2002; Liu & Cao 2002), stepped exactly.
+Everything else in the scope below is **not implemented**.
 
 The name and backronym come from the roadmap slides (`slides/outram-park.tex`,
 2026-09-14), which also say BISHAN depends on RAFFLES for its probabilistic

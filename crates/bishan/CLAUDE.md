@@ -7,11 +7,16 @@ in-building aerosol transport and pool scrubbing, release categories.
 The workspace root `CLAUDE.md` binds here in full. This file adds only what is
 specific to this crate.
 
-## Status: placeholder (2026-09-28)
+## Status: one component (2026-09-29)
 
-Nothing is implemented. The crate exists to reserve the name and state the
-scope. Do not describe it as providing anything, and do not add code here
-without the maintainer asking for it.
+~~Placeholder: nothing is implemented.~~ **CHANGED 2026-09-29 (gh:#400):** the
+maintainer's source-term plan asked for a lumped reactor-building CV here, and
+`src/building.rs` is it (HTR-10 vented confinement; published parameters; exact
+stepping; atom-conservation tests). Nothing else in the scope is implemented.
+Do not add further code without the maintainer asking for it.
+
+The building CV is **in-building** physics and so does not touch the open
+SEMBAWANG boundary question below, which concerns severe-accident progression.
 
 ## Rules for when work starts
 

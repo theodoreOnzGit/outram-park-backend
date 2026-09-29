@@ -196,6 +196,7 @@ pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
         map_field: crate::physics::atmospheric_dispersion::MapFieldRequest {
             cells: s.map_field_cells_requested,
             plume_clock_offset: Time::new::<second>(s.plume_clock_offset_s),
+            weighting: s.map_field_weighting,
         },
         scenario: if s.circulator_tripped {
             crate::physics::Scenario::Lofc
@@ -562,8 +563,12 @@ impl HtgrSimApp {
     /// Discard the crashed run and start a new plant from defaults, in-app,
     /// without the operator closing the window.
     ///
-    /// Called only from the crash modal's **Restart simulation** button (see
-    /// [`show_crash_modal_with_restart`]).
+    /// Called from the crash modal's **Restart simulation** button (see
+    /// [`show_crash_modal_with_restart`]) and from the Map tab's **Reset
+    /// plant** button ([`map_tab::MapAction::ResetPlant`], gh:#400) -- one
+    /// reset path, so a reset plant is identical to a freshly launched one.
+    /// The Map tab's display state (`map_state`) is a display preference and
+    /// is kept, like the open panel.
     ///
     /// # Why this is safe after a panic
     ///
@@ -605,6 +610,14 @@ impl HtgrSimApp {
         self.thread_health = run.thread_health;
         self.tracers = SchematicTracers::new();
         self.plant_clock_rate = PlantClockRate::default();
+    }
+
+    /// Act on what the Map tab asked for this frame (gh:#400).
+    fn apply_map_action(&mut self, action: map_tab::MapAction) {
+        match action {
+            map_tab::MapAction::None => {}
+            map_tab::MapAction::ResetPlant => self.restart_simulation(),
+        }
     }
 }
 
@@ -761,6 +774,9 @@ impl eframe::App for HtgrSimApp {
         // Copied out before the closures below borrow `self` -- the unit is a
         // `Copy` display setting, so the panels take it by value.
         let display_unit = self.display_unit;
+        // What the Map tab asked for this frame, acted on after the panel
+        // closure releases its borrow of `self` (gh:#400).
+        let mut map_action = map_tab::MapAction::None;
         egui::CentralPanel::default().show(ui, |ui| {
             // The schematic tab brings its own pan-and-zoom viewport, so it is
             // kept out of the outer scroll area (nesting two two-axis scroll
@@ -780,14 +796,20 @@ impl eframe::App for HtgrSimApp {
                     Panel::Schematic => {} // drawn above, outside this scroll area
                     Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
                     Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                    Panel::Thermal => {
-                        thermal_tab::draw_thermal(ui, &snapshot, display_unit)
-                    }
+                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot, display_unit),
                     Panel::Map => {
-                        map_tab::draw_map(ui, &self.physics, &snapshot, &mut self.map_state, view)
+                        map_action = map_tab::draw_map(
+                            ui,
+                            &self.physics,
+                            &snapshot,
+                            &mut self.map_state,
+                            view,
+                        )
                     }
                 });
         });
+
+        self.apply_map_action(map_action);
 
         // Keep animating while physics runs on its own threads.
         ui.ctx().request_repaint();
@@ -867,6 +889,36 @@ mod tests {
     ///
     /// **2026-09-22:** the `last_sim_time_s` check was removed with the field
     /// itself, when the tracers moved from the plant clock to frame time.
+    /// **The Map tab's Reset plant button starts the plant from defaults; no
+    /// action leaves the run alone** (gh:#400).
+    ///
+    /// Methodology: a real app; let run 1 advance; apply `MapAction::None`
+    /// and check the same run is still live; then apply `ResetPlant` (the
+    /// button's path) and check the plant clock went back, the old run was
+    /// retired and the new run is live. Result (2026-09-29): pass.
+    #[test]
+    fn the_map_reset_button_restarts_the_plant_and_keeps_the_map_view() {
+        let mut app = HtgrSimApp::start();
+        let mut advanced_to = 0.0;
+        for _ in 0..40 {
+            thread::sleep(Duration::from_millis(50));
+            advanced_to = app.physics.snapshot().sim_time_s;
+            if advanced_to > 0.0 {
+                break;
+            }
+        }
+        assert!(advanced_to > 0.0, "run 1 never advanced");
+        let run_1 = app.thread_health.clone();
+        app.apply_map_action(map_tab::MapAction::None);
+        assert!(run_1.is_running(), "no action must not touch the run");
+
+        app.apply_map_action(map_tab::MapAction::ResetPlant);
+        assert!(!run_1.is_running(), "the reset run must be retired");
+        assert!(app.thread_health.is_running());
+        assert!(app.physics.snapshot().sim_time_s < advanced_to);
+        app.thread_health.retire();
+    }
+
     #[test]
     fn restarting_starts_a_fresh_run_and_abandons_the_old_one() {
         let mut app = HtgrSimApp::start();

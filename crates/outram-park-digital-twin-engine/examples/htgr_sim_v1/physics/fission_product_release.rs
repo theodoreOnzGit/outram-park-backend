@@ -210,8 +210,15 @@ pub struct NodalActivitiesBq {
     /// Clean-up / HPS activity \[Bq\].
     pub clean_up_activity: f64,
     /// Primary-circuit leak rate `k_leak C` \[Bq/s\] (gh:#399) -- what leaves
-    /// the circuit; the building model of gh:#400 receives it.
+    /// the circuit into the reactor building.
     pub leak_rate: f64,
+    /// Release rate **up the stack** \[Bq/s\] (gh:#400): what leaves the
+    /// reactor building (`bishan::building`, HTR-10 vented confinement) at the
+    /// end of the latest step. This, not the circuit leak, is the source the
+    /// atmospheric dispersion receives.
+    pub stack_release_rate: f64,
+    /// Activity airborne in the reactor building \[Bq\] (gh:#400).
+    pub building_activity: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -589,6 +596,21 @@ pub struct NuclideRelease {
 }
 
 impl NuclideRelease {
+    /// Report the reactor-building inventory `b` \[atoms\] as activity and
+    /// its stack release rate (exhaust x (1 - filter capture)).
+    fn set_building(
+        &mut self,
+        b: bishan::building::BuildingInventory,
+        p: bishan::building::BuildingParameters,
+    ) {
+        let lam = self.decay_constant.get::<hertz>();
+        if let Some(a) = self.absolute.as_mut() {
+            a.building_activity = b.airborne * lam;
+            a.stack_release_rate =
+                (1.0 - p.filter_capture) * p.exhaust_turnover.get::<hertz>() * b.airborne * lam;
+        }
+    }
+
     /// Report `pools` (atoms) as this nuclide's circulating, plate-out and
     /// clean-up activities, on both bases, and the leak rate.
     fn set_pools(&mut self, pools: PrimaryPools) {
@@ -630,6 +652,10 @@ pub struct TrisoAtopsReleaseChannel {
     /// (gh:#399). `None` until the first evaluation opens them at the
     /// [`POOL_OPENING_HISTORY_S`] state.
     pools: Option<Vec<PrimaryPools>>,
+    /// The **reactor building** inventory per tracked nuclide \[atoms\]
+    /// (gh:#400), fed by the pools' leak. `None` until the first evaluation
+    /// opens it at the building's steady state for the opening leak.
+    building: Option<Vec<bishan::building::BuildingInventory>>,
     /// Primary loop mass flow the plate-out rate is formed at. Set by the
     /// plant every step ([`Self::set_primary_flow`]); the rated 4.3 kg/s until
     /// then.
@@ -667,6 +693,7 @@ impl TrisoAtopsReleaseChannel {
             evaluated_at: None,
             last_evaluated_s: None,
             pools: None,
+            building: None,
             primary_flow: super::pebble_bed::nominal_helium_flow(),
         }
     }
@@ -727,6 +754,12 @@ impl TrisoAtopsReleaseChannel {
             .last_evaluated_s
             .map_or(0.0, |last| (sim_time_s - last).max(0.0));
         let mut releases = self.evaluate_stack(sim_time_s, stack);
+        // The cumulative leak each pool stood at before this step, so the
+        // building receives exactly what left the circuit during it.
+        let leaked_before: Vec<f64> = self
+            .pools
+            .as_ref()
+            .map_or_else(Vec::new, |p| p.iter().map(|x| x.leaked).collect());
         let pools = match self.pools.take() {
             None => releases.iter().map(|r| r.opening_pools).collect::<Vec<_>>(),
             Some(previous) => previous
@@ -735,10 +768,54 @@ impl TrisoAtopsReleaseChannel {
                 .map(|(pool, r)| live_pools::step(*pool, r.source_atoms_per_s, r.pool_rates, dt).0)
                 .collect(),
         };
-        for (release, pool) in releases.iter_mut().zip(pools.iter()) {
+        // The reactor building (gh:#400), fed by what the circuit leaked
+        // over the step (its exact integral, as a mean rate, so atoms carry
+        // over exactly); opened at its own steady state for the opening leak.
+        let building_parameters = bishan::building::BuildingParameters::htr10();
+        let building = match self.building.take() {
+            None => pools
+                .iter()
+                .zip(releases.iter())
+                .map(|(pool, r)| {
+                    let inflow = r.pool_rates.leak * pool.circulating;
+                    bishan::building::step(
+                        bishan::building::BuildingInventory::default(),
+                        inflow,
+                        r.decay_constant,
+                        building_parameters,
+                        Time::new::<second>(POOL_OPENING_HISTORY_S),
+                    )
+                    .0
+                })
+                .collect::<Vec<_>>(),
+            Some(previous) => previous
+                .iter()
+                .zip(pools.iter())
+                .zip(leaked_before.iter())
+                .zip(releases.iter())
+                .map(|(((b, pool), leaked_before), r)| {
+                    let inflow = if dt > 0.0 {
+                        (pool.leaked - leaked_before) / dt
+                    } else {
+                        0.0
+                    };
+                    bishan::building::step(
+                        *b,
+                        inflow,
+                        r.decay_constant,
+                        building_parameters,
+                        Time::new::<second>(dt),
+                    )
+                    .0
+                })
+                .collect(),
+        };
+        for ((release, pool), b) in releases.iter_mut().zip(pools.iter()).zip(building.iter()) {
             release.set_pools(*pool);
+            release.set_building(*b, building_parameters);
         }
         self.pools = Some(pools);
+        self.building = Some(building);
         self.latest = releases;
         self.evaluated_at_kernel = Some(stack.kernel);
         self.evaluated_at = Some(stack);
@@ -935,6 +1012,8 @@ impl TrisoAtopsReleaseChannel {
                     plate_out_activity: 0.0,
                     clean_up_activity: 0.0,
                     leak_rate: 0.0,
+                    stack_release_rate: 0.0,
+                    building_activity: 0.0,
                 });
 
                 let mut release = NuclideRelease {

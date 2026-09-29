@@ -148,6 +148,8 @@ outram-park-fork-coolprop.workspace = true
 # one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
 # fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
 boon-lay.workspace = true
+# The reactor-building CV between the primary leak and the stack (gh:#400).
+bishan.workspace = true
 
 # htgr_sim_v1's fuel node (gh:#360, 2026-09-28) needs the heat capacity of the
 # TRISO kernel and SiC coating: `outram-park-fork-offbeat`'s MATPRO UO2 and

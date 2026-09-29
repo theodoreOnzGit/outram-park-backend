@@ -846,6 +846,9 @@ dependencies = [
 [[package]]
 name = "bishan"
 version = "0.0.1"
+dependencies = [
+ "uom 0.38.0",
+]
 
 [[package]]
 name = "bit-set"
@@ -6758,6 +6761,7 @@ name = "outram-park-digital-twin-engine"
 version = "0.0.2"
 dependencies = [
  "async-opcua",
+ "bishan",
  "boon-lay",
  "buangkok",
  "changi",
