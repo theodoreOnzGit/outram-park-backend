@@ -66,6 +66,8 @@ pub struct PlantControls {
     pub circulator_tripped: bool,
     /// Operator has started the water-ingress accident (gh:#401).
     pub water_ingress: bool,
+    /// Operator has started the DLOFC + ATWS accident (gh:#402).
+    pub dlofc: bool,
     pub feedwater_manual: bool,
     pub feedwater_manual_flow_kg_per_s: f64,
     pub feedwater_target_steam_temp_k: f64,
@@ -90,6 +92,7 @@ impl PlantControls {
             helium_flow_setpoint_kg_per_s: s.helium_flow_setpoint_kg_per_s,
             circulator_tripped: s.circulator_tripped,
             water_ingress: s.water_ingress_triggered,
+            dlofc: s.dlofc_triggered,
             feedwater_manual: s.feedwater_manual,
             feedwater_manual_flow_kg_per_s: s.feedwater_manual_flow_kg_per_s,
             feedwater_target_steam_temp_k: s.feedwater_target_steam_temp_k,
@@ -112,7 +115,11 @@ impl PlantControls {
             helium_flow_setpoint: MassRate::new::<kilogram_per_second>(
                 self.helium_flow_setpoint_kg_per_s,
             ),
-            scenario: crate::physics::scenario_from(self.circulator_tripped, self.water_ingress),
+            scenario: crate::physics::scenario_from(
+                self.circulator_tripped,
+                self.water_ingress,
+                self.dlofc,
+            ),
             secondary: SecondaryCommands {
                 feedwater: if self.feedwater_manual {
                     FeedwaterCommand::Manual {
@@ -156,6 +163,7 @@ impl Default for PlantControls {
             helium_flow_setpoint_kg_per_s: d.helium_flow_setpoint.get::<kilogram_per_second>(),
             circulator_tripped: d.scenario == crate::physics::Scenario::Lofc,
             water_ingress: d.scenario == crate::physics::Scenario::WaterIngress,
+            dlofc: d.scenario == crate::physics::Scenario::DlofcAtws,
             feedwater_manual: manual,
             feedwater_manual_flow_kg_per_s: manual_flow,
             feedwater_target_steam_temp_k: target_t,

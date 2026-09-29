@@ -922,6 +922,41 @@ impl TrisoAtopsReleaseChannel {
         true
     }
 
+    /// **Accident (gh:#402): depressurisation lift-off** (Liu & Cao 2002
+    /// s.4.1.1.2-4), applied once at the rupture, moving atoms into the
+    /// circulating pool (from which the blowdown vents them):
+    ///
+    /// - plate-out desorption: iodine and metals, `2.4 x` the circulating
+    ///   pool, taken from the plate-out pool (and capped by it, so no atom is
+    ///   invented);
+    /// - dust: `dust_share(z) x 10 %` of the (remaining) plate-out;
+    /// - purification system: `purification(z)` of the clean-up pool.
+    ///
+    /// Returns whether anything was applied (false before the first
+    /// evaluation).
+    pub fn depressurisation_lift_off(&mut self) -> bool {
+        use super::depressurisation as d;
+        let Some(pools) = self.pools.as_mut() else {
+            return false;
+        };
+        for (pool, r) in pools.iter_mut().zip(self.latest.iter()) {
+            if d::desorbs(r.z) {
+                let moved = (d::DESORPTION_MULTIPLE * pool.circulating).min(pool.plate_out);
+                pool.plate_out -= moved;
+                pool.circulating += moved;
+            }
+            if let Some(share) = d::dust_share(r.z) {
+                let moved = pool.plate_out * share * d::DUST_RELEASED_FRACTION;
+                pool.plate_out -= moved;
+                pool.circulating += moved;
+            }
+            let moved = pool.clean_up * d::purification_release_fraction(r.z);
+            pool.clean_up -= moved;
+            pool.circulating += moved;
+        }
+        true
+    }
+
     /// **Accident (gh:#401): vent `fraction` of the primary gas**, and with it
     /// that fraction of every circulating pool, up the stack (building not
     /// credited; gh:#409). Applied to the pools now; reported as stack rate
@@ -1963,6 +1998,36 @@ mod tests {
             0.0,
             "applied once, never reversed"
         );
+    }
+
+    /// **The depressurisation lift-off moves atoms between pools and never
+    /// makes any** (gh:#402): per nuclide, circulating + plate-out + clean-up
+    /// is unchanged; noble gases gain only the purification system's hold-up
+    /// (100 %); iodine and metals gain the capped desorption, the dust and
+    /// 10 % of the hold-up.
+    #[test]
+    fn the_depressurisation_lift_off_conserves_atoms() {
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = TrisoAtopsReleaseChannel::kernel_and_graphite(k(1200.0), k(950.0));
+        let mut ch = channel();
+        ch.update(0.0, Some(stack));
+        let before: Vec<PrimaryPools> = ch.pools().unwrap().to_vec();
+        assert!(ch.depressurisation_lift_off());
+        for ((b, a), r) in before.iter().zip(ch.pools().unwrap()).zip(ch.latest()) {
+            let sum = |p: &PrimaryPools| p.circulating + p.plate_out + p.clean_up;
+            assert!((sum(a) - sum(b)).abs() <= 1e-9 * sum(b), "{}", r.name);
+            if matches!(r.z, 36 | 54) {
+                assert_eq!(a.plate_out, b.plate_out, "{}", r.name);
+                assert!(
+                    a.clean_up.abs() <= 1e-12 * b.clean_up.max(1.0),
+                    "{}",
+                    r.name
+                );
+            } else {
+                assert!(a.circulating >= b.circulating, "{}", r.name);
+                assert!((a.clean_up - 0.9 * b.clean_up).abs() <= 1e-9 * b.clean_up.max(1.0));
+            }
+        }
     }
 
     /// **Building not credited by default (gh:#409):** the stack rate IS the

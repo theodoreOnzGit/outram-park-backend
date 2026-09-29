@@ -177,6 +177,7 @@
 pub mod control_rods;
 pub mod atmospheric_dispersion;
 pub mod decay_heat_removal;
+pub mod depressurisation;
 pub mod dose_rate;
 pub mod fission_product_release;
 pub mod kinetics;
@@ -539,12 +540,20 @@ pub enum Scenario {
     /// secondary isolated 50 s) applied by the scenario. See
     /// [`water_ingress`].
     WaterIngress,
+    /// **DLOFC + ATWS + air ingress** (gh:#402): the DN65 fuel-loading tube
+    /// ruptures, the circulator stops, the rods stay where they are, the
+    /// primary and secondary isolate at 28.06 s (Gao & Shi 2002 s.5.3.1).
+    /// See [`depressurisation`]; the air-ingress O2 supply is unpublished and
+    /// zero (gh:#420).
+    DlofcAtws,
 }
 
-/// The scenario an operator's two accident switches select. Water ingress
-/// wins if both are set (it trips the circulator itself).
-pub fn scenario_from(circulator_tripped: bool, water_ingress: bool) -> Scenario {
-    if water_ingress {
+/// The scenario an operator's accident switches select. DLOFC wins, then
+/// water ingress (each trips the circulator itself), then a plain LOFC.
+pub fn scenario_from(circulator_tripped: bool, water_ingress: bool, dlofc: bool) -> Scenario {
+    if dlofc {
+        Scenario::DlofcAtws
+    } else if water_ingress {
         Scenario::WaterIngress
     } else if circulator_tripped {
         Scenario::Lofc
@@ -990,8 +999,10 @@ pub struct PlantEnergyLedger {
     pub to_rccs: f64,
     /// Circulator work delivered to the helium.
     pub circulator_work: f64,
-    /// Heat absorbed by the endothermic graphite-steam reaction in the bed
-    /// (water ingress, gh:#401; zero otherwise).
+    /// Net heat absorbed by chemistry in the bed graphite: the endothermic
+    /// graphite-steam reaction (water ingress, gh:#401) counts positive, the
+    /// exothermic graphite-air oxidation (DLOFC, gh:#402) negative; zero
+    /// otherwise.
     pub chemistry_absorbed: f64,
     /// `source + circulator_work - storage - to_steam_generator - to_rccs
     /// - chemistry_absorbed`.
@@ -1111,6 +1122,8 @@ pub struct HtgrPlant {
     /// The water-ingress accident's state while [`Scenario::WaterIngress`]
     /// runs (gh:#401).
     water_ingress: Option<water_ingress::WaterIngress>,
+    /// The DLOFC accident's state while [`Scenario::DlofcAtws`] runs.
+    depressurisation: Option<depressurisation::Depressurisation>,
     /// Heat rate crossing the pebble surface into the helium on the most recent
     /// step -- the core's *thermal* output, which lags the fission power by the
     /// graphite time constant.
@@ -1158,6 +1171,7 @@ impl HtgrPlant {
             dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
             scenario_started_at: None,
             water_ingress: None,
+            depressurisation: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
             passive_heat_loss: Power::new::<watt>(0.0),
             last_step_energy: PlantEnergyLedger::default(),
@@ -1333,11 +1347,22 @@ impl HtgrPlant {
                 Some(self.sim_time)
             }
             (Scenario::WaterIngress, Some(t0)) => Some(t0),
+            (Scenario::DlofcAtws, None) => {
+                // The DN65 tube ruptures; the circulator stops; no scram.
+                self.primary.trip_circulator(true);
+                self.depressurisation = Some(depressurisation::Depressurisation::start(
+                    fission_product_release::htr10_primary_helium_inventory_kg(),
+                ));
+                self.release.depressurisation_lift_off();
+                Some(self.sim_time)
+            }
+            (Scenario::DlofcAtws, Some(t0)) => Some(t0),
             (Scenario::Normal, _) => {
                 // Scenario cleared: put the plant back to normal operation.
                 self.primary.trip_circulator(false);
                 self.primary.isolate_secondary(false);
                 self.water_ingress = None;
+                self.depressurisation = None;
                 None
             }
         };
@@ -1369,6 +1394,22 @@ impl HtgrPlant {
             }
             None => None,
         };
+        // DLOFC + ATWS (gh:#402): blowdown and, once air reaches the core,
+        // graphite oxidation -- whose O2 supply is unpublished and zero
+        // (gh:#420).
+        let dlofc_step = match self.depressurisation.as_mut() {
+            Some(d) => {
+                let st = d.step(
+                    dt.get::<second>(),
+                    self.core.temperature(),
+                    reactor_model::one_node::graphite_mass().get::<uom::si::mass::kilogram>(),
+                    depressurisation::PUBLISHED_OXYGEN_SUPPLY_MOL_PER_S.unwrap_or(0.0),
+                );
+                self.primary.isolate_secondary(st.secondary_isolated);
+                Some(st)
+            }
+            None => None,
+        };
 
         // The protection system isolates the secondary a fixed delay after the
         // trip. This is the PLANT acting, not the operator, which is why it
@@ -1389,6 +1430,7 @@ impl HtgrPlant {
                 Some(st) if st.circulator_tripped => MassRate::new::<kilogram_per_second>(0.0),
                 _ => helium_flow_setpoint,
             },
+            Scenario::DlofcAtws => MassRate::new::<kilogram_per_second>(0.0),
         };
 
         self.sim_time += dt;
@@ -1426,7 +1468,12 @@ impl HtgrPlant {
                         .get::<uom::si::ratio::ratio>()
             });
         // Heat the graphite-steam reaction draws from the bed this step.
-        let chemistry_heat = Power::new::<watt>(ingress_step.map_or(0.0, |st| st.chemistry_heat_w));
+        // (Net: the endothermic steam reaction absorbs, graphite oxidation
+        // by air releases.)
+        let chemistry_heat = Power::new::<watt>(
+            ingress_step.map_or(0.0, |st| st.chemistry_heat_w)
+                - dlofc_step.map_or(0.0, |st| st.oxidation_heat_w),
+        );
 
         // Old-time snapshot of everything the corrector loop re-advances. All
         // of it is scalar, so this is cheap next to one exchanger substep.
@@ -1717,6 +1764,11 @@ impl HtgrPlant {
         // Water ingress (gh:#401): what the relief vented goes up the stack,
         // and steam reaching exposed kernels releases their stored noble gas
         // (TECDOC-978 Eq. 5-2, at the fuel node's temperature).
+        if let Some(st) = dlofc_step {
+            if st.vented_fraction > 0.0 {
+                self.release.vent_circulating(st.vented_fraction);
+            }
+        }
         if let Some(st) = ingress_step {
             if st.vented_fraction > 0.0 {
                 self.release.vent_circulating(st.vented_fraction);
@@ -1970,6 +2022,10 @@ impl HtgrPlant {
         s.ingress_co_percent = w.map_or(f64::NAN, |w| 100.0 * w.co_fraction());
         s.ingress_vented_fraction = w.map_or(f64::NAN, |w| w.vented_fraction);
         s.ingress_hydrolysis_out_of_range = w.is_some_and(|w| w.hydrolysis_out_of_range());
+        let d = self.depressurisation.as_ref();
+        s.dlofc_discharged_kg = d.map_or(f64::NAN, |d| d.discharged_kg);
+        s.dlofc_vented_fraction = d.map_or(f64::NAN, |d| d.vented_fraction);
+        s.dlofc_graphite_oxidised_kg = d.map_or(f64::NAN, |d| d.carbon_oxidised_kg);
         s.riser_heat_mw = self.decay_heat_path.heat_to_risers().get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
@@ -5422,5 +5478,176 @@ mod tests {
             );
         }
         assert!(w.carbon_corroded_kg.is_finite() && w.peak_pressure_pa.is_finite());
+    }
+
+    /// **DLOFC + ATWS through the whole plant conserves energy, vents the
+    /// published mass, and does not scram** (gh:#402, stage 4a).
+    ///
+    /// Methodology: 30 s normal, then [`Scenario::DlofcAtws`] for 150 s at
+    /// 0.1 s. Every step the global ledger (with the chemistry term) closes
+    /// to 1e-9 of the step's gross; at the end ~150 kg is discharged (5 tau
+    /// = 114 s), the circulator is stopped, the rods never moved (ATWS: the
+    /// effective insertion stays the operator's), the release channel's
+    /// cumulative stack release rose, and -- with no published O2 supply --
+    /// no graphite has oxidised. Correctness checks only.
+    ///
+    /// Results (2026-09-29): printed below; pass.
+    #[test]
+    fn dlofc_atws_conserves_energy_and_vents_the_published_mass() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut worst = 0.0f64;
+        let mut released_at_trip = Vec::new();
+        for i in 0..1800 {
+            let mut commands = design_commands();
+            if i >= 300 {
+                commands.scenario = Scenario::DlofcAtws;
+            }
+            if i == 300 {
+                released_at_trip = plant.release.cumulative_stack_release_bq().to_vec();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_return_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let d = plant.depressurisation.expect("running");
+        let released = plant.release.cumulative_stack_release_bq().to_vec();
+        println!(
+            "DLOFC 150 s: discharged {:.2} kg, vented {:.4}, oxidised {:.3} kg, fission {:.4} MW, \
+             flow {:.3} kg/s, worst step residual {worst:.3e}; stack release since the \
+             rupture: {:?}",
+            d.discharged_kg,
+            d.vented_fraction,
+            d.carbon_oxidised_kg,
+            plant.kinetics.total_power().get::<megawatt>(),
+            plant.primary.mass_flow().get::<kilogram_per_second>(),
+            released
+                .iter()
+                .zip(&released_at_trip)
+                .map(|(a, b)| format!("{:.3e}", a - b))
+                .collect::<Vec<_>>()
+        );
+        assert!(worst < 1e-9, "{worst:e}");
+        assert!((d.discharged_kg - 150.0).abs() < 0.5);
+        assert_eq!(d.carbon_oxidised_kg, 0.0, "no published O2 supply (gh:#420)");
+        assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
+        assert!(!plant.protection.is_tripped(), "ATWS: nothing drives the rods");
+        assert!(released.iter().zip(&released_at_trip).all(|(a, b)| a > b));
+    }
+
+    /// **V&V, first measurement (gh:#402): DLOFC + ATWS, uncalibrated,
+    /// against Liu & Cao (2002) Table 8's depressurisation column** and the
+    /// feedback-only shutdown.
+    ///
+    /// Methodology: default plant (building not credited), 60 s normal, then
+    /// [`Scenario::DlofcAtws`] for 2 h. Released activity per tracked nuclide
+    /// (accident minus a no-accident reference over the same time) against
+    /// Table 8: Kr-85 1.5e8, Xe-133 2.2e10, I-131 2.5e7, Cs-137 1.3e8,
+    /// Ag-110m 5.1e4 Bq. Also printed: the fission power's minimum and any
+    /// recriticality (ATWS; the reactivity bookkeeping is #387/#408's
+    /// demo-grade reference). Note the scenario difference: Liu & Cao's
+    /// depressurisation is a DBA WITH scram; this is ATWS, so the fission
+    /// source does not stop at 7 s. Air ingress is off (gh:#420).
+    ///
+    /// # Results (2026-09-29, first and only run under the no-validation rule)
+    ///
+    /// ATWS: fission falls to a minimum of 0.0005 MW at 910 s, recriticality
+    /// peaks at 3.34 MW at 1282 s, and it then sits at ~0.73 MW with fuel
+    /// 1285 K and bed 1284 K at 1 h and 2 h. The core does not heat up here
+    /// (the passive path holds it; demo-grade reactivity reference, gh:#408).
+    ///
+    /// | Nuclide | released \[Bq\] | Table 8 | ratio |
+    /// |---|---|---|---|
+    /// | Kr-85 | 3.04e8 | 1.5e8 | **2.0** |
+    /// | Xe-133 | 8.73e8 | 2.2e10 | 0.040 |
+    /// | I-131 | 1.80e6 | 2.5e7 | 0.072 |
+    /// | Cs-137 | 5.39e5 | 1.3e8 | 0.0041 |
+    /// | Ag-110m | 1.17e6 | 5.1e4 | 23 |
+    ///
+    /// # Interpretation (not tuned)
+    ///
+    /// - The released inventory is essentially **the primary pools at the
+    ///   rupture** plus Liu & Cao's lift-off terms, vented in ~2 min; the fuel
+    ///   does not heat up, so there is no heat-up release term here.
+    /// - **Kr-85 x2 and Xe-133 x0.04** mirror the pools' own ratios to Liu &
+    ///   Cao's circulating activity at the design stack (gh:#378: Kr-85
+    ///   2.7e-2, Xe-133 5.1e-2 of Table 3). The purification hold-up (100 %
+    ///   released, #399's 99 % clean-up) adds the long-lived Kr-85, so Kr
+    ///   comes out above Table 8 while the short-lived Xe does not.
+    /// - **Cs-137 and I-131 are low** for the same reason as #378 (their
+    ///   pools are low at the design stack) and because the capped desorption
+    ///   cannot move more than the plate-out holds.
+    /// - **Ag-110m x23**: the release channel's silver plate-out at the
+    ///   design stack exceeds what Liu & Cao carry; their Table 3 silver is
+    ///   26 Bq circulating.
+    /// - **Scenario difference, stated:** Liu & Cao's case scrams at 7 s;
+    ///   this is ATWS. No air ingress (gh:#420).
+    #[test]
+    #[ignore = "over the 1-minute headless budget: a 2 h whole-plant transient. First measurement for the DLOFC V&V; not re-run under the no-validation rule."]
+    fn dlofc_atws_against_liu_and_cao_table_8() {
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let steps = (2.0 * 3600.0 / PLANT_TIMESTEP_S) as usize;
+        let lead = 600;
+        let run = |accident: bool| {
+            let mut plant = HtgrPlant::new();
+            let (mut p_min, mut t_min, mut p_peak_after, mut t_peak) = (f64::MAX, 0.0, 0.0, 0.0);
+            for i in 0..(lead + steps) {
+                let mut commands = design_commands();
+                if accident && i >= lead {
+                    commands.scenario = Scenario::DlofcAtws;
+                }
+                plant.step(dt, commands);
+                if accident && i >= lead {
+                    let t = (i - lead) as f64 * PLANT_TIMESTEP_S;
+                    let p = plant.kinetics.total_power().get::<megawatt>();
+                    if p < p_min {
+                        (p_min, t_min, p_peak_after) = (p, t, 0.0);
+                    } else if p > p_peak_after {
+                        (p_peak_after, t_peak) = (p, t);
+                    }
+                    if i % 36000 == 0 {
+                        println!(
+                            "  t {t:>6.0} s: fission {p:.4} MW, fuel {:.1} K, bed {:.1} K",
+                            plant.kinetics.fuel_temperature().get::<kelvin>(),
+                            plant.core.temperature().get::<kelvin>()
+                        );
+                    }
+                }
+            }
+            (
+                plant.release.cumulative_stack_release_bq().to_vec(),
+                (p_min, t_min, p_peak_after, t_peak),
+            )
+        };
+        let ((with, (p_min, t_min, p_peak, t_peak)), (without, _)) = std::thread::scope(|scope| {
+            let a = scope.spawn(|| run(true));
+            let b = scope.spawn(|| run(false));
+            (a.join().expect("accident run"), b.join().expect("reference run"))
+        });
+        println!(
+            "ATWS: fission minimum {p_min:.4} MW at {t_min:.0} s; largest later peak {p_peak:.4} MW \
+             at {t_peak:.0} s"
+        );
+        let table8 = [1.5e8, 2.2e10, 2.5e7, 1.3e8, 5.1e4];
+        for (k, name) in fission_product_release::TRACKED_NUCLIDES.iter().enumerate() {
+            let accident = with[k] - without[k];
+            println!(
+                "  {name:>8}: released {accident:.3e} Bq, Table 8 {:.1e}, ratio {:.3e}",
+                table8[k],
+                accident / table8[k]
+            );
+        }
+        assert!(with.iter().all(|v| v.is_finite()));
     }
 }

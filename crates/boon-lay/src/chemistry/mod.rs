@@ -6,6 +6,8 @@
 //!
 //! - [`graphite_steam`] -- IG-110 oxidation by steam, `C + H2O -> CO + H2`
 //!   (Wang & Sun 2023, Boltzmann-enhanced Langmuir-Hinshelwood fit).
+//! - [`graphite_air`] -- IG-110 oxidation by air (Contescu et al., ORNL
+//!   review, Table 3), with the O2-supply limit (gh:#402).
 //! - [`kernel_hydrolysis`] -- the burst of stored fission gas from exposed
 //!   UO2 kernels meeting water vapour (IAEA-TECDOC-978 Eq. 5-2).
 //!
@@ -13,5 +15,6 @@
 //! each only valid inside its stated range, and the caller is told when it
 //! leaves it.
 
+pub mod graphite_air;
 pub mod graphite_steam;
 pub mod kernel_hydrolysis;

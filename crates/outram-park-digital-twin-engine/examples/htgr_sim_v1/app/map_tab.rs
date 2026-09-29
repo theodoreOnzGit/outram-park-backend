@@ -1751,6 +1751,8 @@ pub enum MapAction {
     ResetPlant,
     /// Start the water-ingress accident (gh:#401).
     StartWaterIngress,
+    /// Start the DLOFC + ATWS accident (gh:#402).
+    StartDlofc,
 }
 
 /// One accident-scenario button on the Map tab and whether it can be pressed
@@ -1780,11 +1782,14 @@ const ACCIDENT_BUTTONS: [AccidentButton; 2] = [
                 Building not credited (gh:#409). Research and education only.",
     },
     AccidentButton {
-        label: "DLOFC + ATWS + air ingress",
-        enabled: false,
-        action: MapAction::None,
-        hover: "Not yet modelled: depressurised loss of forced cooling without scram, \
-                with air ingress, lands with source-term stage 4 (gh:#402).",
+        label: "DLOFC + ATWS (air ingress: rate not published, pending)",
+        enabled: true,
+        action: MapAction::StartDlofc,
+        hover: "DN65 fuel-loading tube rupture (Gao & Shi 2002 s.5.3.1): blowdown, circulator \
+                stop, NO scram (feedback-only shutdown), plate-out lift-off, dust and \
+                purification-system release (Liu & Cao), building not credited (gh:#409). \
+                Air ingress: rate not published, pending -- O2 supply is zero (gh:#420). \
+                Source-term stage 4 (gh:#402).",
     },
 ];
 
@@ -1839,6 +1844,20 @@ pub fn draw_map(
 ) -> MapAction {
     ui.heading("Atmospheric dispersion -- Gaussian puff");
     let action = draw_scenario_buttons(ui);
+    if s.dlofc_triggered {
+        ui.colored_label(
+            Color32::from_rgb(200, 120, 20),
+            format!(
+                "DLOFC + ATWS running: helium discharged {:.1} kg, primary gas vented {:.2} %, \
+                 graphite oxidised {:.2} kg. Air ingress: rate not published, pending -- O2 \
+                 supply is zero (gh:#420). No scram: shutdown is by temperature feedback only. \
+                 Building not credited (gh:#409).",
+                s.dlofc_discharged_kg,
+                100.0 * s.dlofc_vented_fraction,
+                s.dlofc_graphite_oxidised_kg
+            ),
+        );
+    }
     if s.water_ingress_triggered {
         ui.colored_label(
             Color32::from_rgb(200, 120, 20),
@@ -2400,15 +2419,25 @@ mod tests {
     /// The clock readout must be `h:mm:ss` and must not panic on the `NAN`
     /// the snapshot carries before the first field.
     /// An accident button is enabled only once its stage lands: water
-    /// ingress (gh:#401) is live and starts its scenario; DLOFC (gh:#402)
-    /// still waits. Flip `enabled` in the change that lands the physics, and
+    /// ingress (gh:#401) and DLOFC (gh:#402, air-ingress rate pending,
+    /// gh:#420) are live and start their scenarios. Flip `enabled` in the change that lands the physics, and
     /// this test with it.
     #[test]
     fn the_accident_buttons_wait_for_their_stages() {
         let labels: Vec<&str> = ACCIDENT_BUTTONS.iter().map(|b| b.label).collect();
-        assert_eq!(labels, ["Water ingress", "DLOFC + ATWS + air ingress"]);
-        assert!(ACCIDENT_BUTTONS[0].enabled && !ACCIDENT_BUTTONS[1].enabled);
+        assert_eq!(
+            labels,
+            [
+                "Water ingress",
+                "DLOFC + ATWS (air ingress: rate not published, pending)"
+            ]
+        );
+        assert!(ACCIDENT_BUTTONS.iter().all(|b| b.enabled));
         assert_eq!(ACCIDENT_BUTTONS[0].action, MapAction::StartWaterIngress);
+        assert_eq!(ACCIDENT_BUTTONS[1].action, MapAction::StartDlofc);
+        assert!(ACCIDENT_BUTTONS[1]
+            .label
+            .contains("rate not published, pending"));
         assert!(ACCIDENT_BUTTONS[0].hover.contains("gh:#401"));
         assert!(ACCIDENT_BUTTONS[1].hover.contains("gh:#402"));
     }

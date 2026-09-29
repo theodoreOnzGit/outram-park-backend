@@ -166,6 +166,14 @@ pub struct HtgrSnapshot {
     /// Operator has started the **water-ingress** accident (gh:#401) from the
     /// Map tab. A control input; see `physics::Scenario::WaterIngress`.
     pub water_ingress_triggered: bool,
+    /// Operator has started the DLOFC + ATWS accident (gh:#402) from the Map
+    /// tab. A control input; see `physics::Scenario::DlofcAtws`.
+    pub dlofc_triggered: bool,
+    /// DLOFC readouts (gh:#402), `NAN` unless it runs: helium discharged
+    /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\].
+    pub dlofc_discharged_kg: f64,
+    pub dlofc_vented_fraction: f64,
+    pub dlofc_graphite_oxidised_kg: f64,
     /// Water-ingress readouts (gh:#401), `NAN` unless the accident runs:
     /// primary pressure \[MPa\], steam in the primary \[kg\], graphite
     /// gasified \[kg\], H2 and CO mole fractions \[%\], fraction of the
@@ -805,6 +813,10 @@ impl Default for HtgrSnapshot {
             // The blower runs at startup; the operator trips it deliberately.
             circulator_tripped: false,
             water_ingress_triggered: false,
+            dlofc_triggered: false,
+            dlofc_discharged_kg: f64::NAN,
+            dlofc_vented_fraction: f64::NAN,
+            dlofc_graphite_oxidised_kg: f64::NAN,
             ingress_pressure_mpa: f64::NAN,
             ingress_steam_kg: f64::NAN,
             ingress_graphite_corroded_kg: f64::NAN,
