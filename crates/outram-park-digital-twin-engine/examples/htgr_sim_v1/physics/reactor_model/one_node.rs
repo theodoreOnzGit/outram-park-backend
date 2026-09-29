@@ -235,6 +235,7 @@ use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacity
 use outram_park_fork_offbeat::materials::MaterialState;
 use outram_foam_basic_lib::prelude::SquareMatrix;
 use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_ph, state_pt, viscosity};
+use super::super::decay_heat_removal::{CoreToRccsPath, PassiveCoupling};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::thermal_resistance::kelvin_per_watt;
 use uom::si::thermal_conductance::watt_per_kelvin;
@@ -1427,7 +1428,7 @@ pub fn helium_state_at_seeded(enthalpy: AvailableEnergy, seed_k: Option<f64>) ->
 /// [`super::super::primary_loop`] uses): a GUI frame must not panic on a transient
 /// excursion, and helium at these conditions is close enough to ideal that the
 /// fallback is a sane bound rather than a fabricated number.
-fn helium_transport(temperature: ThermodynamicTemperature) -> (f64, f64, f64) {
+pub fn helium_transport(temperature: ThermodynamicTemperature) -> (f64, f64, f64) {
     /// Representative helium conductivity \[W/(m K)\] near 1000 K, 3 MPa.
     const FALLBACK_CONDUCTIVITY: f64 = 0.35;
     /// Helium Prandtl number is near 0.67 over this whole range.
@@ -1714,12 +1715,13 @@ pub struct PebbleBedPorousMediaNode {
 /// Energy terms of one [`PebbleBedPorousMediaNode::step`] \[J\], each computed
 /// from the coefficients that step's solve actually used.
 ///
-/// `source` = `solid_storage + fluid_storage + throughflow_out` to solver
-/// tolerance: that identity is the node's energy balance, pinned by
+/// `source` = `solid_storage + fluid_storage + throughflow_out +
+/// to_passive_path` to solver tolerance: that identity is the node's energy balance, pinned by
 /// `tests::the_bed_step_closes_its_own_energy_balance`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct BedStepEnergy {
-    /// Net heat delivered to the solid over the step, `Q_net dt`.
+    /// Heat the fuel delivered to the solid over the step, `Q dt`
+    /// (~~`Q_net dt`, net of the passive loss~~ until 2026-09-29).
     pub source: f64,
     /// Change in graphite enthalpy, `m (h(T') - h(T))` (secant capacitance
     /// times the temperature change).
@@ -1732,6 +1734,10 @@ pub struct BedStepEnergy {
     /// 2026-09-29, gh:#393). This is exactly what the primary loop's hot-duct
     /// CV receives less what its cold-return CV discharged into the bed.
     pub throughflow_out: f64,
+    /// Heat leaving the bed to the passive path (reflector, RPV, RCCS) over
+    /// the step, `[G_s (T_s' - T_nw') + G_f (T_f' - T_nw')] dt` (gh:#395,
+    /// 2026-09-29). Before then the passive loss was netted out of `source`.
+    pub to_passive_path: f64,
 }
 
 impl PebbleBedPorousMediaNode {
@@ -1785,10 +1791,13 @@ impl PebbleBedPorousMediaNode {
     /// the **fuel node** (`physics::kinetics`), and the bed receives what the
     /// fuel conducts to it. So the two arguments are now:
     ///
-    /// - `net_heat_to_bed` — the source term `Q` of the solid balance: the
-    ///   fuel-to-bed conduction **less** the passive loss to the reflector,
-    ///   both over this step. It can be negative (a cooling bed after a scram
-    ///   with the passive path still drawing).
+    /// - ~~`net_heat_to_bed` — the fuel-to-bed conduction **less** the
+    ///   passive loss to the reflector ... It can be negative~~ **CHANGED
+    ///   2026-09-29 (gh:#395):** `heat_from_fuel`, the fuel-to-bed conduction
+    ///   alone. The passive loss is no longer subtracted from the source: the
+    ///   reflector and RPV (`passive_path`) are unknowns of this step's own
+    ///   implicit solve -- see "One implicit solve with the passive path"
+    ///   below.
     /// - `pebble_conduction_power` — the **gross** heat the kernels are
     ///   conducting out through the pebble this step, which is what the
     ///   resolved pebble profile must be solved at. ~~Solving it at the net
@@ -1809,6 +1818,24 @@ impl PebbleBedPorousMediaNode {
     /// iterated to a fixed point (a handful of passes; `h` is analytic), so on
     /// exit `m (h(T') - h(T)) = dt (Q - h A (T_s' - T_f'))` holds to
     /// 1e-10 relative. ~~The fluid row is unchanged.~~
+    ///
+    /// # One implicit solve with the passive path (2026-09-29, gh:#395)
+    ///
+    /// The unknowns are `[T_s', y = h_f'/c_p,k, T_nw', T_r', T_v']`: the bed
+    /// solid and helium, the algebraic near-wall node, and the reflector and
+    /// RPV of [`CoreToRccsPath`]. The bed -> reflector transfer is Achenbach's
+    /// network (see [`super::super::decay_heat_removal`]): a stagnant-ZBS
+    /// branch `G_s` from the solid and a flow-dispersion branch `G_f` from the
+    /// helium into the near-wall node, then the wall film and the inner
+    /// annulus half `G_w` to the reflector, `G_2` on to the RPV and `G_3` to
+    /// the fixed RCCS. Every branch is on the diagonal; nothing is subtracted
+    /// from a source. The legs and the reflector/RPV secant capacities are
+    /// re-evaluated at the latest iterate, inside the same fixed point as the
+    /// solid secant and the helium `T(h)` linearisation, until every node moves
+    /// less than 1e-9 K. The energy identity `source = solid + helium storage
+    /// + throughflow + to_passive_path` holds exactly on every pass, and
+    /// `to_passive_path = (reflector + RPV storage) + RCCS` to the secant
+    /// convergence.
     ///
     /// # The fluid row is closed on ENTHALPY too (2026-09-29, gh:#393)
     ///
@@ -1842,10 +1869,11 @@ impl PebbleBedPorousMediaNode {
     pub fn step(
         &mut self,
         dt: Time,
-        net_heat_to_bed: Power,
+        heat_from_fuel: Power,
         pebble_conduction_power: Power,
         helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
+        passive_path: &mut CoreToRccsPath,
     ) -> Power {
         // 1. Coefficient and the void helium mass at the start-of-step state.
         let helium_temperature_now =
@@ -1897,9 +1925,10 @@ impl PebbleBedPorousMediaNode {
         let flow_floor = MassRate::new::<kilogram_per_second>(1.0e-6);
         let mass_flow = helium_mass_flow.abs().max(flow_floor);
 
-        // 3. Fixed point on BOTH phases' state functions: the solid secant
-        //    capacitance on the graphite enthalpy, and the Newton
-        //    linearisation of T(h) on the helium.
+        // 3. Fixed point on every state function and temperature-dependent
+        //    leg: the solid secant capacitance on the graphite enthalpy, the
+        //    Newton linearisation of T(h) on the helium, and the passive
+        //    path's legs and secant capacities (gh:#395).
         let mass = graphite_mass();
         let t_n = self.pebble_temperature;
         let h_n = pebble_bed_specific_enthalpy_from_temperature(t_n);
@@ -1910,10 +1939,22 @@ impl PebbleBedPorousMediaNode {
         let mut solved_solid_k = t_n.get::<kelvin>();
         let mut solved_helium_enthalpy = helium_enthalpy_now;
         let mut helium_at_solution = self.helium_state;
-        for _ in 0..40 {
+        let mut near_wall_k =
+            0.5 * (t_n.get::<kelvin>() + passive_path.reflector_temperature().get::<kelvin>());
+        let mut reflector_k = passive_path.reflector_temperature().get::<kelvin>();
+        let mut rpv_k = passive_path.rpv_temperature().get::<kelvin>();
+        let mut coupling = passive_path.coupling(
+            t_n,
+            helium_temperature_now,
+            mass_flow,
+            passive_path.reflector_temperature(),
+            passive_path.rpv_temperature(),
+        );
+        let mut linearised_helium_k = helium_temperature_now.get::<kelvin>();
+        for _ in 0..60 {
             let (matrix, rhs) = assemble_backward_euler_system(
                 dt,
-                net_heat_to_bed,
+                heat_from_fuel,
                 helium_inlet_enthalpy,
                 t_n,
                 helium_enthalpy_now,
@@ -1923,68 +1964,102 @@ impl PebbleBedPorousMediaNode {
                 mass_flow,
                 linearisation,
                 linearisation_enthalpy,
+                passive_path,
+                &coupling,
             );
             let solution = matrix.solve(&rhs).expect(
                 "the backward-Euler matrix is diagonally dominant by construction (positive \
                  capacitance-over-dt and conductance terms on every diagonal) and is never \
                  singular -- see the struct doc comment",
             );
+            let moved = (solution[0] - solved_solid_k)
+                .abs()
+                .max((solution[2] - near_wall_k).abs())
+                .max((solution[3] - reflector_k).abs())
+                .max((solution[4] - rpv_k).abs());
             solved_solid_k = solution[0];
             // The fluid unknown is h_f'/c_p,k (kelvin-scaled; see
             // `assemble_backward_euler_system`).
             solved_helium_enthalpy = solution[1] * linearisation.cp;
+            near_wall_k = solution[2];
+            reflector_k = solution[3];
+            rpv_k = solution[4];
 
             let dt_s_k = solved_solid_k - t_n.get::<kelvin>();
-            let secant = if dt_s_k.abs() > 1.0e-9 {
-                let h_new =
-                    pebble_bed_specific_enthalpy_from_temperature(ThermodynamicTemperature::new::<
-                        kelvin,
-                    >(solved_solid_k));
-                mass * (h_new - h_n)
-                    / TemperatureInterval::new::<temperature_interval::kelvin>(dt_s_k)
-            } else {
-                bed_heat_capacity(t_n)
-            };
+            let secant =
+                if dt_s_k.abs() > 1.0e-9 {
+                    let h_new = pebble_bed_specific_enthalpy_from_temperature(
+                        ThermodynamicTemperature::new::<kelvin>(solved_solid_k),
+                    );
+                    mass * (h_new - h_n)
+                        / TemperatureInterval::new::<temperature_interval::kelvin>(dt_s_k)
+                } else {
+                    bed_heat_capacity(t_n)
+                };
             let solid_converged = ((secant - solid_capacity) / solid_capacity)
                 .get::<ratio>()
                 .abs()
                 < 1.0e-12;
             solid_capacity = secant;
 
-            // The helium temperature this pass's interface term was evaluated
-            // at, against the EOS temperature of the enthalpy it solved for.
-            let linearised_k = linearisation.temperature
+            // The helium temperature this pass's interface terms were
+            // evaluated at, against the EOS temperature of the enthalpy it
+            // solved for.
+            linearised_helium_k = linearisation.temperature
                 + (solved_helium_enthalpy - linearisation_enthalpy) / linearisation.cp;
             helium_at_solution = helium_state_at_seeded(
                 AvailableEnergy::new::<joule_per_kilogram>(solved_helium_enthalpy),
-                Some(linearised_k),
+                Some(linearised_helium_k),
             );
-            let helium_converged = (helium_at_solution.temperature - linearised_k).abs() < 1.0e-9;
-            linearisation = helium_at_solution;
-            linearisation_enthalpy = solved_helium_enthalpy;
-            if solid_converged && helium_converged {
+            let helium_converged =
+                (helium_at_solution.temperature - linearised_helium_k).abs() < 1.0e-9;
+            if solid_converged && helium_converged && moved < 1.0e-9 {
                 break;
             }
+            linearisation = helium_at_solution;
+            linearisation_enthalpy = solved_helium_enthalpy;
+            coupling = passive_path.coupling(
+                ThermodynamicTemperature::new::<kelvin>(solved_solid_k),
+                ThermodynamicTemperature::new::<kelvin>(helium_at_solution.temperature),
+                mass_flow,
+                ThermodynamicTemperature::new::<kelvin>(reflector_k),
+                ThermodynamicTemperature::new::<kelvin>(rpv_k),
+            );
         }
 
         // 4. Energy bookkeeping, from the coefficients the final solve used.
         let dt_s = dt.get::<second>();
         let m_dot = mass_flow.get::<kilogram_per_second>();
         let h_in = helium_inlet_enthalpy.get::<joule_per_kilogram>();
+        let to_reflector_w = coupling.near_wall_to_reflector * (near_wall_k - reflector_k);
+        let to_rccs_w = coupling.rpv_to_rccs * (rpv_k - coupling.rccs_temperature_k);
         self.last_step_energy = BedStepEnergy {
-            source: net_heat_to_bed.get::<watt>() * dt_s,
+            source: heat_from_fuel.get::<watt>() * dt_s,
             solid_storage: solid_capacity.get::<joule_per_kelvin>()
                 * (solved_solid_k - t_n.get::<kelvin>()),
             fluid_storage: helium_mass.get::<kilogram>()
                 * (solved_helium_enthalpy - helium_enthalpy_now),
             throughflow_out: m_dot * (solved_helium_enthalpy - h_in) * dt_s,
+            // Evaluated as the two branches INTO the near-wall node, exactly
+            // as the solid and helium rows carry them (the linearised helium
+            // temperature is the one the rows used).
+            to_passive_path: (coupling.solid_to_near_wall * (solved_solid_k - near_wall_k)
+                + coupling.helium_to_near_wall * (linearised_helium_k - near_wall_k))
+                * dt_s,
         };
 
-        // 5. Store the solved solid temperature and the helium enthalpy (the
-        //    integrated state, exactly) with its flashed state.
+        // 5. Store the solved solid temperature, the helium enthalpy (the
+        //    integrated state, exactly) with its flashed state, and the
+        //    passive path's two nodes and boundary heat rates.
         self.pebble_temperature = ThermodynamicTemperature::new::<kelvin>(solved_solid_k);
         self.helium_enthalpy = solved_helium_enthalpy;
         self.helium_state = helium_at_solution;
+        passive_path.commit(
+            ThermodynamicTemperature::new::<kelvin>(reflector_k),
+            ThermodynamicTemperature::new::<kelvin>(rpv_k),
+            Power::new::<watt>(to_reflector_w),
+            Power::new::<watt>(to_rccs_w),
+        );
 
         // 6. Publish the exchanged heat rate, the coefficient, and what the
         //    profile says about the fuel stack.
@@ -2149,28 +2224,31 @@ fn helium_void_mass(helium_state: FluidState, void_volume: Volume) -> Mass {
     Mass::new::<kilogram>(helium_state.density * void_volume.get::<cubic_meter>())
 }
 
-/// Assemble the 2x2 backward-Euler coefficient matrix and right-hand side
-/// for one pass of [`PebbleBedPorousMediaNode::step`].
+/// Assemble the 5x5 backward-Euler coefficient matrix and right-hand side
+/// for one pass of [`PebbleBedPorousMediaNode::step`] (~~2x2~~ until
+/// 2026-09-29; the passive path's nodes joined it for gh:#395).
 ///
-/// Unknowns, in order: `x = [T_s', y]` with `y = h_f' / c_p,k` -- the helium
-/// enthalpy scaled by the linearisation point's `c_p` so both unknowns are in
-/// kelvin and the matrix keeps the diagonally dominant shape of the old
-/// temperature form. `matrix.solve(&rhs)[0]` is the solved pebble temperature
-/// \[K\]; `[1] * c_p,k` is the solved helium enthalpy \[J/kg\].
+/// Unknowns, in order: `x = [T_s', y, T_nw', T_r', T_v']` with `y = h_f' /
+/// c_p,k` -- the helium enthalpy scaled by the linearisation point's `c_p` so
+/// every unknown is in kelvin and the matrix keeps the diagonally dominant
+/// shape of the old temperature form. `[1] * c_p,k` is the solved helium
+/// enthalpy \[J/kg\]; the others are kelvin.
 ///
-/// With `T(h) ~ T_k + (h - h_k)/c_p,k` about the linearisation state
-/// `(T_k, h_k, c_p,k)` and `a = T_k - h_k/c_p,k`:
+/// With `T(h) ~ T_k + (h - h_k)/c_p,k = y + a`, `a = T_k - h_k/c_p,k`, and
+/// the passive path's legs `G_s` (solid -> near wall), `G_f` (helium -> near
+/// wall), `G_w` (near wall -> reflector), `G_2` (reflector -> RPV), `G_3`
+/// (RPV -> RCCS) and secant capacities `C_r`, `C_v`:
 ///
-/// | | col 0: `T_s'` | col 1: `y` | `b` |
-/// |---|---|---|---|
-/// | row 0 (solid) | `C_s/dt + hA` | `-hA` | `C_s/dt T_s + Q + hA a` |
-/// | row 1 (helium) | `-hA` | `M_f c_p,k/dt + hA + m_dot c_p,k` | `M_f/dt h_f + m_dot h_in - hA a` |
+/// | | `T_s'` | `y` | `T_nw'` | `T_r'` | `T_v'` | `b` |
+/// |---|---|---|---|---|---|---|
+/// | solid | `C_s/dt + hA + G_s` | `-hA` | `-G_s` | | | `C_s/dt T_s + Q + hA a` |
+/// | helium | `-hA` | `M_f c_p,k/dt + hA + m_dot c_p,k + G_f` | `-G_f` | | | `M_f/dt h_f + m_dot h_in - (hA + G_f) a` |
+/// | near wall | `-G_s` | `-G_f` | `G_s + G_f + G_w` | `-G_w` | | `G_f a` |
+/// | reflector | | | `-G_w` | `C_r/dt + G_w + G_2` | `-G_2` | `C_r/dt T_r` |
+/// | RPV | | | | `-G_2` | `C_v/dt + G_2 + G_3` | `C_v/dt T_v + G_3 T_rccs` |
 ///
-/// Row 1 is `M_f (h_f' - h_f)/dt = hA (T_s' - T_lin(h_f')) + m_dot (h_in -
-/// h_f')`; row 0 is the solid balance with the same interfacial term, which is
-/// why the two rows' sum is the node's exact energy identity.
-///
-/// `reactor_thermal_power` is the net source `Q` on the solid.
+/// Every exchange appears with opposite signs in the two rows it joins, which
+/// is why the rows' sum is the exact energy identity.
 #[allow(clippy::too_many_arguments)]
 fn assemble_backward_euler_system(
     dt: Time,
@@ -2184,7 +2262,9 @@ fn assemble_backward_euler_system(
     mass_flow: MassRate,
     linearisation: FluidState,
     linearisation_enthalpy: f64,
-) -> (SquareMatrix, [f64; 2]) {
+    passive_path: &CoreToRccsPath,
+    coupling: &PassiveCoupling,
+) -> (SquareMatrix, [f64; 5]) {
     let dt_s = dt.get::<second>();
     let h_a = conductance.get::<watt_per_kelvin>();
     let c_s = solid_capacity.get::<joule_per_kelvin>();
@@ -2197,15 +2277,39 @@ fn assemble_backward_euler_system(
     let h_in = helium_inlet_enthalpy.get::<joule_per_kilogram>();
     let q_source = reactor_thermal_power.get::<watt>();
 
-    let mut matrix = SquareMatrix::new(2);
-    matrix.set(0, 0, c_s / dt_s + h_a);
+    let (g_s, g_f, g_w) = (
+        coupling.solid_to_near_wall,
+        coupling.helium_to_near_wall,
+        coupling.near_wall_to_reflector,
+    );
+    let (g_2, g_3) = (coupling.reflector_to_rpv, coupling.rpv_to_rccs);
+    let (c_r, c_v) = (coupling.reflector_capacity, coupling.rpv_capacity);
+    let t_r_n = passive_path.reflector_temperature().get::<kelvin>();
+    let t_v_n = passive_path.rpv_temperature().get::<kelvin>();
+
+    let mut matrix = SquareMatrix::new(5);
+    matrix.set(0, 0, c_s / dt_s + h_a + g_s);
     matrix.set(0, 1, -h_a);
+    matrix.set(0, 2, -g_s);
     matrix.set(1, 0, -h_a);
-    matrix.set(1, 1, m_f * cp_k / dt_s + h_a + m_dot * cp_k);
+    matrix.set(1, 1, m_f * cp_k / dt_s + h_a + m_dot * cp_k + g_f);
+    matrix.set(1, 2, -g_f);
+    matrix.set(2, 0, -g_s);
+    matrix.set(2, 1, -g_f);
+    matrix.set(2, 2, g_s + g_f + g_w);
+    matrix.set(2, 3, -g_w);
+    matrix.set(3, 2, -g_w);
+    matrix.set(3, 3, c_r / dt_s + g_w + g_2);
+    matrix.set(3, 4, -g_2);
+    matrix.set(4, 3, -g_2);
+    matrix.set(4, 4, c_v / dt_s + g_2 + g_3);
 
     let rhs = [
         c_s / dt_s * t_s_n + q_source + h_a * offset,
-        m_f / dt_s * helium_enthalpy + m_dot * h_in - h_a * offset,
+        m_f / dt_s * helium_enthalpy + m_dot * h_in - (h_a + g_f) * offset,
+        g_f * offset,
+        c_r / dt_s * t_r_n,
+        c_v / dt_s * t_v_n + g_3 * coupling.rccs_temperature_k,
     ];
 
     (matrix, rhs)
@@ -2214,6 +2318,17 @@ fn assemble_backward_euler_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A passive path in equilibrium with the seeded bed, stagnant -- what a
+    /// bed-only test hands `step` now the reflector and RPV are rows of its
+    /// solve (2026-09-29, gh:#395).
+    fn seeded_passive_path(node: &PebbleBedPorousMediaNode) -> CoreToRccsPath {
+        CoreToRccsPath::new_at_steady_state(
+            node.pebble_temperature(),
+            node.helium_temperature(),
+            MassRate::new::<kilogram_per_second>(0.0),
+        )
+    }
 
     /// **The fuel-to-bed coupling is read off the profile solved at the
     /// start-of-step node temperature, at the gross conduction power**
@@ -2247,12 +2362,14 @@ mod tests {
         let t_start = node.pebble_temperature();
         let power = Power::new::<megawatt>(50.0);
         let inlet = helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(673.15));
+        let mut path = seeded_passive_path(&node);
         node.step(
             Time::new::<second>(5.0),
             power,
             power,
             inlet,
             nominal_helium_flow(),
+            &mut path,
         );
         let moved_k = node.pebble_temperature().get::<kelvin>() - t_start.get::<kelvin>();
         // The coupling is read off the REFERENCE-power profile (core-average
@@ -3069,6 +3186,18 @@ mod tests {
     /// the throughflow -- `m_dot c_p(T_f) (T_f - T_in)` against the exact
     /// enthalpy difference over a 448 K rise.
     ///
+    /// **Re-measured 2026-09-29 (gh:#395: the passive path is rows of this
+    /// solve, with Achenbach's dispersion and wall-film legs):** the bed now
+    /// also loses heat to the reflector, so it settles COOLER -- `T_pebble =
+    /// 1154.0664 K` (-30.6 K), `T_helium = 1091.7608 K` (-29.0 K). Passive
+    /// loss 647.750 kW; throughflow 9.344928 MW; their sum 9.992678 MW
+    /// against the 10 MW source (-0.07 %: the reflector is still warming, so
+    /// the path is not yet at its own steady state). The interfacial
+    /// exchange, 9.703171 MW, exceeds the throughflow by the heat the helium
+    /// gives the reflector through the dispersion branch. The test's
+    /// assertions were changed accordingly: the node balance is throughflow
+    /// + passive, not interfacial exchange alone.
+    ///
     /// **Interpretation.** The two independent routes to the same duty --
     /// the interfacial exchange `h A (T_s - T_f)` and the throughflow
     /// ~~`m_dot c_p (T_f - T_in)`~~ `m_dot (h_f - h_in)` (2026-09-29) -- agree at steady state, which is exactly
@@ -3085,19 +3214,25 @@ mod tests {
         let inlet_k = 673.15;
         let inlet = helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(inlet_k));
         let flow = nominal_helium_flow();
-        let dt = Time::new::<second>(0.05);
+        // 3000 s of settling (16 bed time constants). 0.1 s x 30 000 since
+        // 2026-09-29 (was 0.05 s x 60 000): the steady state does not depend
+        // on dt, and the 5x5 solve made the old count cost 45 s.
+        let dt = Time::new::<second>(0.1);
+        let mut path = seeded_passive_path(&node);
 
-        for _ in 0..60_000 {
+        for _ in 0..30_000 {
             // CHANGED 2026-09-28: (net source to the bed, gross conduction
             // power for the pebble profile) -- the same 10 MW for both here.
-            node.step(dt, power, power, inlet, flow);
+            node.step(dt, power, power, inlet, flow, &mut path);
         }
 
+        // CHANGED 2026-09-29 (gh:#395): the passive path is a row of the
+        // bed's solve. The settled node therefore balances THROUGHFLOW plus
+        // passive loss against the source; and since the helium itself loses
+        // heat to the reflector through Achenbach's dispersion branch, the
+        // interfacial exchange must exceed the throughflow by that branch.
+        let passive = path.heat_from_core().get::<watt>();
         let removed = node.heat_to_helium().get::<watt>();
-        assert!(
-            (removed - 1.0e7).abs() / 1.0e7 < 1.0e-3,
-            "settled exchanged heat {removed} W does not match the 10 MW source"
-        );
 
         // The throughflow on ENTHALPY since 2026-09-29 (gh:#393), not
         // `m_dot c_p (T_f - T_in)`.
@@ -3105,8 +3240,18 @@ mod tests {
         let throughflow_removed = flow.get::<kilogram_per_second>()
             * (node.helium_outlet_enthalpy() - inlet).get::<joule_per_kilogram>();
         assert!(
-            (throughflow_removed - 1.0e7).abs() / 1.0e7 < 5.0e-3,
-            "settled throughflow duty {throughflow_removed} W departs from the 10 MW source"
+            (throughflow_removed + passive - 1.0e7).abs() / 1.0e7 < 5.0e-3,
+            "settled throughflow duty {throughflow_removed} W + passive {passive} W departs from \
+             the 10 MW source"
+        );
+        assert!(
+            removed > throughflow_removed,
+            "the helium loses heat to the reflector (dispersion branch), so the interfacial \
+             exchange {removed} W must exceed the throughflow {throughflow_removed} W"
+        );
+        println!(
+            "settled passive loss {:.3} kW (to the reflector)",
+            passive / 1e3
         );
 
         println!(
@@ -3171,6 +3316,8 @@ mod tests {
         let dt = Time::new::<second>(0.1);
         let mut worst_balance = 0.0f64;
         let mut worst_enthalpy = 0.0f64;
+        let mut worst_path = 0.0f64;
+        let mut path = seeded_passive_path(&node);
         for i in 0..3000 {
             let (source_mw, flow_fraction) = match i {
                 0..=999 => (10.0, 1.0),
@@ -3182,15 +3329,27 @@ mod tests {
                 flow_fraction * nominal_helium_flow_kg_per_s(),
             );
             let t_before = node.pebble_temperature();
-            node.step(dt, source, source.abs(), inlet, flow);
+            let path_e0 = path.stored_energy().get::<uom::si::energy::joule>();
+            node.step(dt, source, source.abs(), inlet, flow, &mut path);
             let e = node.last_step_energy();
             let gross = e.source.abs()
                 + e.solid_storage.abs()
                 + e.fluid_storage.abs()
-                + e.throughflow_out.abs();
+                + e.throughflow_out.abs()
+                + e.to_passive_path.abs();
             worst_balance = worst_balance.max(
-                (e.source - e.solid_storage - e.fluid_storage - e.throughflow_out).abs() / gross,
+                (e.source
+                    - e.solid_storage
+                    - e.fluid_storage
+                    - e.throughflow_out
+                    - e.to_passive_path)
+                    .abs()
+                    / gross,
             );
+            // Across the seam: what left the bed = reflector + RPV storage + RCCS.
+            let path_storage = path.stored_energy().get::<uom::si::energy::joule>() - path_e0;
+            let rccs = path.heat_to_rccs().get::<watt>() * dt.get::<second>();
+            worst_path = worst_path.max((e.to_passive_path - path_storage - rccs).abs() / gross);
             let dh = (pebble_bed_specific_enthalpy_from_temperature(node.pebble_temperature())
                 - pebble_bed_specific_enthalpy_from_temperature(t_before))
             .get::<joule_per_kilogram>()
@@ -3202,10 +3361,11 @@ mod tests {
         println!(
             "bed step energy balance over 3000 steps: worst residual {worst_balance:.3e} of the \
              step's gross energy; worst solid-storage vs true enthalpy {worst_enthalpy:.3e}; \
-             final bed {:.3} K",
+             worst bed->passive-path seam {worst_path:.3e}; final bed {:.3} K",
             node.pebble_temperature().get::<kelvin>()
         );
         assert!(worst_balance < 1e-9);
         assert!(worst_enthalpy < 1e-9);
+        assert!(worst_path < 1e-9);
     }
 }

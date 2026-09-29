@@ -103,6 +103,7 @@ impl AxialSevenNodeCore {
         pebble_conduction_power: Power,
         helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
+        passive_path: &mut crate::physics::decay_heat_removal::CoreToRccsPath,
     ) -> Power {
         self.fallback.step(
             dt,
@@ -110,6 +111,7 @@ impl AxialSevenNodeCore {
             pebble_conduction_power,
             helium_inlet_enthalpy,
             helium_mass_flow,
+            passive_path,
         )
     }
 
@@ -133,13 +135,6 @@ impl AxialSevenNodeCore {
     /// [`super::one_node`] provides.
     pub fn temperature(&self) -> ThermodynamicTemperature {
         self.fallback.pebble_temperature()
-    }
-
-    /// Delegates to [`PebbleBedPorousMediaNode::helium_temperature`] -- in a
-    /// real implementation this becomes the last (outlet) node's helium
-    /// temperature.
-    pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
-        self.fallback.helium_temperature()
     }
 
     /// Delegates to [`PebbleBedPorousMediaNode::helium_outlet_enthalpy`].

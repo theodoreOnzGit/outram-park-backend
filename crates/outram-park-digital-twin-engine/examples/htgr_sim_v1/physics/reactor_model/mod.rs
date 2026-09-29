@@ -225,6 +225,7 @@ impl ReactorModel {
         pebble_conduction_power: Power,
         helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
+        passive_path: &mut crate::physics::decay_heat_removal::CoreToRccsPath,
     ) -> Power {
         match self {
             Self::OneNodePorousMedia(core) => core.step(
@@ -233,6 +234,7 @@ impl ReactorModel {
                 pebble_conduction_power,
                 helium_inlet_enthalpy,
                 helium_mass_flow,
+                passive_path,
             ),
             Self::AxialSevenNode(core) => core.step(
                 dt,
@@ -240,6 +242,7 @@ impl ReactorModel {
                 pebble_conduction_power,
                 helium_inlet_enthalpy,
                 helium_mass_flow,
+                passive_path,
             ),
             Self::CoarseMeshGenFoam(core) => core.step(
                 dt,
@@ -247,6 +250,7 @@ impl ReactorModel {
                 pebble_conduction_power,
                 helium_inlet_enthalpy,
                 helium_mass_flow,
+                passive_path,
             ),
         }
     }
@@ -261,21 +265,10 @@ impl ReactorModel {
         }
     }
 
-    /// Helium temperature leaving the bed.
-    ///
-    /// For `OneNodePorousMedia` this is
-    /// [`one_node::PebbleBedPorousMediaNode::helium_temperature`] -- the
-    /// node's own (well-mixed) fluid temperature, which stands in for an
-    /// "outlet" the same way [`one_node::PebbleBedPorousMediaNode`]'s CSTR
-    /// assumption already treats it (see that struct's doc comment): this
-    /// tier has no separate outlet state to report.
-    pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
-        match self {
-            Self::OneNodePorousMedia(core) => core.helium_temperature(),
-            Self::AxialSevenNode(core) => core.helium_outlet_temperature(),
-            Self::CoarseMeshGenFoam(core) => core.helium_outlet_temperature(),
-        }
-    }
+    // ~~`helium_outlet_temperature`~~ -- deleted 2026-09-29: the primary
+    // loop takes the bed outlet as an ENTHALPY (gh:#393) and reports its
+    // temperature itself (`HeliumPrimaryLoop::core_outlet_temperature`), so
+    // nothing read this any more.
 
     /// Specific enthalpy of the helium leaving the bed \[J/kg\] -- the
     /// fluid node's integrated state (gh:#393, 2026-09-29), which the primary
@@ -289,30 +282,16 @@ impl ReactorModel {
         }
     }
 
-    /// Peak fuel-kernel temperature, where the tier resolves one.
-    ///
-    /// `None` is the honest answer for the two placeholder tiers: neither
-    /// resolves the inside of a pebble, so neither has a kernel temperature to
-    /// report and neither may invent one. Consumers
-    /// (`KernelDopplerChannel` (removed 2026-09-28, gh:#360), the core map, the
-    /// ~~TRISO-ATOPS release channel) fall back to bed-node behaviour on `None`.~~
-    /// **CORRECTED 2026-09-28** — the TRISO-ATOPS release channel does *not*
-    /// fall back: `TrisoAtopsReleaseChannel::update`
-    /// (`fission_product_release.rs:477`, `let Some(kernel) = kernel_temperature
-    /// else { return false; };`) refuses to evaluate on `None` and keeps its
-    /// previous result, never substituting the bed temperature. Not re-checked
-    /// here for the other two consumers.
-    pub fn peak_kernel_temperature(&self) -> Option<ThermodynamicTemperature> {
-        match self {
-            Self::OneNodePorousMedia(core) => core.peak_kernel_temperature(),
-            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => None,
-        }
-    }
+    // ~~`peak_kernel_temperature`~~ -- deleted 2026-09-29: no caller since
+    // gh:#360 moved the release and Doppler channels onto the fuel stack
+    // (`HtgrPlant::fuel_stack_temperatures`). The one-node tier still
+    // resolves it (`one_node::PebbleBedPorousMediaNode::peak_kernel_temperature`),
+    // and `Self::pebble_profile` publishes the whole profile.
 
     /// The whole resolved pebble profile, where the tier resolves one.
     ///
     /// `None` for the two placeholder tiers, on the same terms as
-    /// [`Self::peak_kernel_temperature`]: neither resolves the inside of a
+    /// ~~`Self::peak_kernel_temperature`~~ (deleted 2026-09-29): neither resolves the inside of a
     /// pebble, so neither has an interior to report and neither may invent
     /// one. The Map tab draws "--" rather than a fabricated profile.
     pub fn pebble_profile(
@@ -382,9 +361,21 @@ mod tests {
         let mut axial = ReactorModel::new(ReactorModelKind::AxialSevenNode);
         let mut genfoam = ReactorModel::new(ReactorModelKind::CoarseMeshGenFoam);
 
-        let q_one = one_node.step(dt, fission_power, fission_power, inlet, flow).get::<watt>();
-        let q_axial = axial.step(dt, fission_power, fission_power, inlet, flow).get::<watt>();
-        let q_genfoam = genfoam.step(dt, fission_power, fission_power, inlet, flow).get::<watt>();
+        let path = crate::physics::decay_heat_removal::CoreToRccsPath::new_at_steady_state(
+            one_node.temperature(),
+            one_node.temperature(),
+            flow,
+        );
+        let (mut p1, mut p2, mut p3) = (path, path, path);
+        let q_one = one_node
+            .step(dt, fission_power, fission_power, inlet, flow, &mut p1)
+            .get::<watt>();
+        let q_axial = axial
+            .step(dt, fission_power, fission_power, inlet, flow, &mut p2)
+            .get::<watt>();
+        let q_genfoam = genfoam
+            .step(dt, fission_power, fission_power, inlet, flow, &mut p3)
+            .get::<watt>();
 
         assert_eq!(
             q_one, q_axial,
@@ -397,13 +388,15 @@ mod tests {
         assert_eq!(one_node.temperature(), axial.temperature());
         assert_eq!(one_node.temperature(), genfoam.temperature());
         assert_eq!(
-            one_node.helium_outlet_temperature(),
-            axial.helium_outlet_temperature()
+            one_node.helium_outlet_enthalpy(),
+            axial.helium_outlet_enthalpy()
         );
         assert_eq!(
-            one_node.helium_outlet_temperature(),
-            genfoam.helium_outlet_temperature()
+            one_node.helium_outlet_enthalpy(),
+            genfoam.helium_outlet_enthalpy()
         );
+        assert_eq!(p1.reflector_temperature(), p2.reflector_temperature());
+        assert_eq!(p1.reflector_temperature(), p3.reflector_temperature());
     }
 
     #[test]

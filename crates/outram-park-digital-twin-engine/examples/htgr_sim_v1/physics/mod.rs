@@ -1099,18 +1099,30 @@ impl HtgrPlant {
     /// Construct the plant at the published HTR-10 operating point.
     pub fn new() -> Self {
         let nominal_power = nominal_thermal_power();
+        let core = ReactorModel::default(); // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
+        let primary = HeliumPrimaryLoop::new(nominal_helium_flow());
+        // The passive path opens in equilibrium with the bed as it is seeded
+        // -- the derived constructor (gh:#389; ~~`placeholder()`~~ deleted).
+        // The bed seed itself is #387's business and unchanged here.
+        // The bed seeds both of its phases at the same temperature
+        // (`PebbleBedPorousMediaNode::new`), so that is the helium side too.
+        let decay_heat_path = decay_heat_removal::CoreToRccsPath::new_at_steady_state(
+            core.temperature(),
+            core.temperature(),
+            primary.mass_flow(),
+        );
         Self {
             // Off by default: headless and every test get the deterministic,
             // no-wall-clock path. `with_live_map_field` is the GUI's opt-in.
             map_field_live: false,
             kinetics: HtgrKinetics::new_htr10_published(nominal_power),
-            core: ReactorModel::default(), // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
-            primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
+            core,
+            primary,
             secondary: SteamSecondaryLoop::new(),
             shaft: TurbineGeneratorShaft::new(),
             protection: ReactorProtectionSystem::new(),
             sim_time: Time::new::<second>(0.0),
-            decay_heat_path: decay_heat_removal::CoreToRccsPath::placeholder(),
+            decay_heat_path,
             release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
             dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
             scenario_started_at: None,
@@ -1344,12 +1356,16 @@ impl HtgrPlant {
         // per step while the rewound bed lost their heat once, creating
         // energy in the chain. See
         // `tests::the_passive_path_conserves_energy_through_a_full_plant_step`.
-        let decay_heat_path_at_step_start = self.decay_heat_path.clone();
+        let decay_heat_path_at_step_start = self.decay_heat_path;
         // The bed temperature the passive path is solved against: the
         // start-of-step value on the first corrector, then the previous
         // corrector's end-of-step value, the same predictor-corrector
         // treatment as the helium couplings below.
-        let mut bed_for_passive_path = self.core.temperature();
+        //
+        // (Named for the passive path until 2026-09-29; since the path became
+        // rows of the bed's own solve, only the kinetics' fuel-to-bed coupling
+        // reads this predictor.)
+        let mut bed_temperature_estimate = self.core.temperature();
 
         // The coupling variables. Initialised to their start-of-step values --
         // which is exactly what a single-corrector (plain Lie-split) step would
@@ -1391,7 +1407,7 @@ impl HtgrPlant {
                 self.primary.restore_lumped_state(primary_at_step_start);
                 self.secondary
                     .restore_integrated_state(secondary_at_step_start);
-                self.decay_heat_path = decay_heat_path_at_step_start.clone();
+                self.decay_heat_path = decay_heat_path_at_step_start;
             }
 
             // 0. The circulator flow for this step. Prescribed (there is no
@@ -1427,7 +1443,7 @@ impl HtgrPlant {
             self.kinetics.step(
                 dt,
                 external_reactivity_dollars,
-                bed_for_passive_path,
+                bed_temperature_estimate,
                 self.core.fuel_bed_coupling().map(|c| c.resistance),
             );
 
@@ -1448,37 +1464,29 @@ impl HtgrPlant {
             // step above.
             let heat_from_fuel = self.kinetics.heat_to_bed();
 
-            // 2a. Passive decay-heat path out through the reflector and vessel
-            //     to the RCCS. Advanced BEFORE the bed so the heat it removes
-            //     is subtracted from this step's source rather than the next
-            //     one's, which keeps the energy balance on a single step
-            //     rather than spreading it across two.
-            //
-            //     Under forced flow this is a small correction -- a few hundred
-            //     kW against a multi-MW convective duty. Under loss of forced
-            //     cooling it is the ONLY path out of the core, and without it
-            //     the core cannot cool, the temperature feedback can never
-            //     relax, and the reactor cannot go recritical as the real
-            //     HTR-10 does. See [`decay_heat_removal`].
-            //
-            //     Solved implicitly with the RCCS as a fixed 50 degC boundary
-            //     (see `CoreToRccsPath::advance`), against the corrector's bed
-            //     temperature, and rewound per corrector above; the heat
-            //     returned is exactly what the reflector receives, so the bed
-            //     is charged precisely that.
-            let passive_heat_loss = self.decay_heat_path.advance(dt, bed_for_passive_path);
-            let net_core_source = heat_from_fuel - passive_heat_loss;
-
-            self.passive_heat_loss = passive_heat_loss;
-
+            // 2a. ~~The passive decay-heat path advanced BEFORE the bed against a
+            //     held bed temperature, and its heat subtracted from the bed's
+            //     source (`net_core_source = heat_from_fuel -
+            //     passive_heat_loss`)~~ -- DELETED 2026-09-29 (gh:#395). That
+            //     was the pattern the engine CLAUDE.md names as a defect: a
+            //     transfer term applied as an adjustment to a CV's source
+            //     outside its implicit solve. The reflector and RPV are now
+            //     unknowns of the bed's own backward-Euler system, with the
+            //     bed -> reflector legs on the diagonal (see
+            //     `one_node::PebbleBedPorousMediaNode::step` and
+            //     `decay_heat_removal`). Under forced flow the path is a few
+            //     hundred kW; under LOFC it is the ONLY path out of the core.
+            //     It is rewound per corrector with the rest of the state.
             self.core_heat_to_helium = self.core.step(
                 dt,
-                net_core_source,
+                heat_from_fuel,
                 heat_from_fuel,
                 core_inlet_enthalpy,
                 self.primary.mass_flow(),
+                &mut self.decay_heat_path,
             );
-            bed_for_passive_path = self.core.temperature();
+            self.passive_heat_loss = self.decay_heat_path.heat_from_core();
+            bed_temperature_estimate = self.core.temperature();
 
             // 3a. Primary hot-duct CV: the hot-gas plenum and the hot gas
             //     duct, an enthalpy balance on the bed's outflow.
@@ -1775,7 +1783,7 @@ impl HtgrPlant {
         s.passive_heat_loss_mw = self.passive_heat_loss.get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
-        let e = self.energy;
+        let e = self.energy_ledger();
         s.energy_source_j = e.source;
         s.energy_stored_j = e.stored();
         s.energy_to_steam_generator_j = e.to_steam_generator;
@@ -2762,6 +2770,14 @@ mod tests {
                         .get::<uom::si::thermodynamic_temperature::kelvin>()
                         + 150.0,
                 ),
+                ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(
+                    plant
+                        .core
+                        .temperature()
+                        .get::<uom::si::thermodynamic_temperature::kelvin>()
+                        + 150.0,
+                ),
+                plant.primary.mass_flow(),
             );
             let dt = Time::new::<second>(0.1);
             let before = plant.decay_heat_path.stored_energy().get::<joule>();
@@ -2994,6 +3010,22 @@ mod tests {
     /// here is that transient; the ledger has no term that knows the
     /// difference.
     ///
+    /// # Boundary: the steam generator is OUTSIDE this ledger (explicit, revisitable)
+    ///
+    /// **Decision recorded 2026-09-29, accepted by the maintainer, to be
+    /// revisited** (gh:#394). The ledger's boundary on the steam-generator
+    /// side is the helium stream, `m_dot (h_hot duct - h_SG,out)`; the
+    /// exchanger's three arrays (helium, tube metal, water/steam) and the
+    /// secondary cycle are outside it. The reason: those arrays are coupled
+    /// explicitly (Lie split), so the exchanger's internal closure
+    /// `Q_hot - Q_cold - dE_metal/dt` is `O(dt)` rather than exact -- +0.34 %
+    /// at the design point (`primary_loop::steam_generator_substep_s`), i.e.
+    /// tens of kW at rated duty. Inside this ledger that known closure would
+    /// swamp the seams the ledger exists to check. **To revisit:** make the
+    /// exchanger's lateral coupling implicit (or conservative-flux) and move
+    /// the boundary to the secondary duty, as the approved plan originally
+    /// specified.
+    ///
     /// **Why this could not be asserted before 2026-09-29.** The hot leg was
     /// a first-order lag and the return leg an 8 s lag, neither with a mass or
     /// an enthalpy, so the energy between the bed's discharge and what the
@@ -3005,7 +3037,16 @@ mod tests {
     ///
     /// # Results (2026-09-29)
     ///
-    /// Printed by the test; recorded on gh:#394.
+    /// | Run | accumulated residual | worst step (normal / trip) | bed -> hot-duct seam |
+    /// |---|---|---|---|
+    /// | stage (a), 2026-09-29 | -4.6e-4 J = **9.2e-14** of 4.95e9 J | 2.4e-11 / 1.2e-10 | 0 |
+    /// | stage (b), 2026-09-29 (passive path in the bed's solve) | +1.5e-5 J = **3.1e-15** | 1.1e-11 / 9.0e-11 | 0 |
+    ///
+    /// Stage (b) totals: source 4.9475e9 J, circulator work 3.155e6 J;
+    /// storage fuel 1.078e8, bed graphite 3.876e9, bed helium 5.27e6, hot duct
+    /// 2.09e6, cold return 1.99e6, reflector+RPV 5.06e7; out: steam generator
+    /// 8.686e8, RCCS 3.80e7. After the trip the cold-return residence time
+    /// reaches 1010.6 s at the 0.01 kg/s floor (it was a fixed 8 s).
     #[test]
     fn the_whole_plant_conserves_energy_from_fission_to_the_steam_generator() {
         let mut plant = HtgrPlant::new();
@@ -3871,7 +3912,7 @@ mod tests {
             plant.step(dt, commands);
 
             let t_s = plant.pebble_temperature().get::<kelvin>();
-            let t_f = plant.core.helium_outlet_temperature().get::<kelvin>();
+            let t_f = plant.primary.core_outlet_temperature().get::<kelvin>();
             let t_out = plant.primary.core_outlet_temperature().get::<kelvin>();
             let t_in = plant.primary.core_inlet_temperature().get::<kelvin>();
             let inversion = t_f - t_s;
@@ -4598,6 +4639,12 @@ mod tests {
     /// | pre-change tree (2026-09-28) | 13.3768 MW | NOT REACHED | 0.0167 | 1346.3 K | 1.5551 MW / 1323.9 K / 1224.4 K |
     /// | **after gh:#360 fuel node + tuas graphite (2026-09-28)** | 16.1826 MW | **NOT REACHED** | 0.0361 | 1341.5 K | 1.8809 MW / 1319.0 K / 1316.3 K |
     /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | 16.1364 MW | **NOT REACHED** | -- | 1341.9 K | 1.8741 MW / 1319.0 K / 1316.4 K |
+    /// | **passive path in the bed's solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | 16.1468 MW | **NOT REACHED** | -- | 1343.7 K | 1.6827 MW / 1320.7 K / 1318.3 K |
+    ///
+    /// **Stage (b), 2026-09-29:** fission at 600 s fell 10 % (1.8741 ->
+    /// 1.6827 MW), but the outcome does not change. The reflector capacity is
+    /// now derived (1.11e8 J/K, where the invented value was 1.8e8), so the
+    /// reflector heats faster and the passive path saturates sooner.
     ///
     /// **2026-09-29:** re-measured before (`a79755763b`, reproducing the
     /// 2026-09-28 row exactly) and after the primary-circuit change. The
@@ -4907,6 +4954,7 @@ mod tests {
     /// | pre-change working tree | 5.9956 MW | 740.36 K | 1318.43 K | **578.1 K** |
     /// | **gh:#360 fuel node + tuas graphite** | **16.1212 MW** | **1303.39 K** | 1323.36 K | **19.97 K** (= `R P`) |
     /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | **16.0742 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
+    /// | **passive path in the bed's implicit solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | **16.0693 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
     ///
     /// **2026-09-29:** -0.29 % in power, +0.04 K in the bed. The circulator's
     /// 52 kW now reaches the helium instead of being discarded, so the same

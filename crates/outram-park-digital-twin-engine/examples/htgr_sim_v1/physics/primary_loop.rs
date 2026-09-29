@@ -544,6 +544,7 @@ const HOT_GAS_DUCT_CROSS_VESSEL_LENGTH_M: f64 = 3.0;
 /// 5.07681e5 cm^3, **published** -- [S3] Table VI, "Coolant channels (20)".
 /// Part of the cold-return CV; carried as its own constant so the published
 /// part of that CV's volume stays visible.
+#[cfg(test)] // the riser leg (gh:#397) is its model consumer; until then the volume test reads it
 const RISER_BOREHOLE_VOLUME_M3: f64 = 0.507681;
 
 /// Helium volume of the **hot-duct CV** \[m^3\]: the invented plenum, the
@@ -863,11 +864,6 @@ impl HeliumPrimaryLoop {
     /// floor that was preventing it.
     pub fn trip_circulator(&mut self, tripped: bool) {
         self.circulator_tripped = tripped;
-    }
-
-    /// Whether the circulator is currently tripped.
-    pub fn circulator_tripped(&self) -> bool {
-        self.circulator_tripped
     }
 
     /// Isolate (or reconnect) the secondary circuit at the steam generator.
@@ -1288,6 +1284,7 @@ impl HeliumPrimaryLoop {
     /// allowance for the plenums, duct, steam-generator shell and circulator
     /// (now split into the hot-duct CV, the steam generator's shell side and
     /// the cold-return CV -- the total is unchanged).
+    #[cfg(test)] // read by the CV and conservation tests
     pub fn gas_volume(&self) -> Volume {
         pebble_bed::bed_void_volume() + Volume::new::<cubic_meter>(LOOP_GAS_VOLUME_OUTSIDE_BED_M3)
     }
@@ -1334,27 +1331,32 @@ impl HeliumPrimaryLoop {
     }
 
     /// Hot-duct CV specific enthalpy -- what the steam generator is handed.
+    #[cfg(test)] // read by the CV and conservation tests
     pub fn hot_duct_enthalpy(&self) -> AvailableEnergy {
         self.lumped.hot_duct.enthalpy()
     }
 
     /// Helium mass held in the hot-duct CV \[kg\].
+    #[cfg(test)] // read by the CV and conservation tests
     pub fn hot_duct_mass(&self) -> Mass {
         self.lumped.hot_duct.mass_in(hot_duct_volume())
     }
 
     /// Helium mass held in the cold-return CV \[kg\].
+    #[cfg(test)] // read by the CV and conservation tests
     pub fn cold_return_mass(&self) -> Mass {
         self.lumped.cold_return.mass_in(cold_return_volume())
     }
 
     /// Residence time of the hot-duct CV, `M_h / m_dot` -- emerges from the
     /// CV's mass and the flow; nothing is typed in.
+    #[cfg(test)] // read by the CV and conservation tests
     pub fn hot_duct_residence_time(&self) -> Time {
         self.hot_duct_mass() / self.lumped.mass_flow
     }
 
     /// Residence time of the cold-return CV, `M_c / m_dot`.
+    #[cfg(test)] // read by the CV and conservation tests
     pub fn cold_return_residence_time(&self) -> Time {
         self.cold_return_mass() / self.lumped.mass_flow
     }
@@ -2391,7 +2393,14 @@ mod tests {
     ///
     /// # Results (2026-09-29)
     ///
-    /// Printed by the test; recorded on gh:#392.
+    /// | flow | traced 63.2 % time | analytic two-lag | `tau_h`, `tau_c` | `h_c - h_h` vs `W/m_dot` |
+    /// |---|---|---|---|---|
+    /// | 4.3 kg/s | **3.10 s** | 2.994 s (+3.5 %) | 0.634 s, 2.272 s | 12487.3638 = 12487.3638 J/kg |
+    /// | 0.43 kg/s | **30.70 s** | 30.041 s (+2.2 %) | 6.340 s, 22.821 s | 125.1432 = 125.1432 J/kg |
+    ///
+    /// The ratio 30.70/3.10 = 9.9: the lag scales as `1/m_dot`, where the
+    /// deleted 8 s lag gave a ratio of 1. The +2-4 % is the backward-Euler
+    /// lag at `dt = 0.1 s` against `tau_h = 0.63 s`.
     #[test]
     fn the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work() {
         let mut t63 = Vec::new();
@@ -2458,7 +2467,10 @@ mod tests {
     ///
     /// # Results (2026-09-29)
     ///
-    /// Printed by the test; recorded on gh:#394.
+    /// Primary identity worst **1.8e-15** of the step's gross energy; SG duty
+    /// against `m_dot (h_hot duct - h_SG,out)` worst **0** (bit-identical);
+    /// final duty 9.9120 MW. The hot-duct CV never left its inputs'
+    /// interval.
     #[test]
     fn the_primary_loop_closes_its_own_balance_and_hands_the_exchanger_its_enthalpy() {
         let mut loop_ = nominal_loop();

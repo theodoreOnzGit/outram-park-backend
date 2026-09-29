@@ -1111,6 +1111,12 @@ impl NodalisedCounterFlowSteamGenerator {
     /// # Errors
     ///
     /// [`SteamGeneratorError::Array`] if any composed array refuses.
+    ///
+    /// **Test-only since 2026-09-29**: the plant hands the exchanger an
+    /// enthalpy ([`Self::advance_timestep_from_hot_inlet_enthalpy`]); this
+    /// temperature entry point is kept for the exchanger's own V&V tests,
+    /// which drive it from prescribed temperatures.
+    #[cfg(test)]
     pub fn advance_timestep(
         &mut self,
         dt: Time,

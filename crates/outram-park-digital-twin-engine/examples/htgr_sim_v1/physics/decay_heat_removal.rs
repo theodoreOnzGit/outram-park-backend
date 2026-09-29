@@ -1,31 +1,123 @@
 //! Passive decay-heat removal path: core -> reflector -> RPV -> RCCS.
 //!
-//! **This is a PLACEHOLDER, and the word is load-bearing.** It exists so that
-//! `htgr_sim_v1` has *somewhere for decay heat to go* under a loss of forced
-//! cooling. Until this module, it had none at all: a workspace-wide grep for
+//! ~~**This is a PLACEHOLDER, and the word is load-bearing.**~~ **CORRECTED
+//! 2026-09-29 (gh:#389, #395, #396)** -- it is no longer a placeholder in any
+//! of the senses that sentence meant: every conductance is derived from the
+//! HTR-10 geometry and material data (since 2026-09-17), every heat capacity
+//! is derived from the annulus geometry, published densities and `c_p(T)`
+//! (since 2026-09-29, one labelled exception: the RPV wall thickness), and the
+//! reflector and vessel are solved in **one implicit system with the bed**
+//! (since 2026-09-29) rather than bolted onto its source. What it still is not
+//! is listed under "What is NOT modelled" below.
+//!
+//! It exists so that `htgr_sim_v1` has *somewhere for decay heat to go* under
+//! a loss of forced cooling. Before it, a workspace-wide grep for
 //! `cavity cool`, `reactor cavity`, `RCCS` and `vessel cooling` returned zero
-//! hits in every crate's `src/`, which
-//! `docs/reactor-scoping/htr10.md` records as "the largest single gap on this
-//! slate". The consequence was not subtle -- with the circulator tripped and
-//! the secondary isolated the core could not cool, the negative temperature
-//! feedback could never relax, and the reactor **never went recritical**, where
-//! the real HTR-10 returns to power at about 3000 s and stabilises near 200 kW.
+//! hits in every crate's `src/`, which `docs/reactor-scoping/htr10.md` records
+//! as "the largest single gap on this slate": with the circulator tripped and
+//! the secondary isolated the core could not cool, and the reactor never went
+//! recritical, where the real HTR-10 returns to power at about 3000 s.
 //!
 //! ## What is modelled
 //!
-//! Three lumped control volumes in **series**, which is the actual heat path:
+//! ~~Three lumped control volumes in **series** ... `UA_core_refl
+//! UA_refl_rpv UA_rpv_rccs`~~ **CORRECTED 2026-09-29** -- two solid nodes
+//! (reflector, RPV) behind the bed, joined by **five derived legs**, and the
+//! RCCS as a fixed boundary:
 //!
 //! ```text
-//!   pebble bed ──> graphite moderator/reflector ──> RPV ──> RCCS (50 degC)
-//!                  UA_core_refl        UA_refl_rpv      UA_rpv_rccs
+//!             leg 1 (Achenbach: ZBS + dispersion + wall film) leg 2a
+//!  BED solid + helium ───────────── near-wall node ────────── REFLECTOR node
+//!   (T_s, T_f)       see the next section                      (T_r)
+//!                                                                  │ leg 2b (outer half of the graphite annulus)
+//!                                                                  │ leg 3  (boronated annulus, conduction)
+//!                                                                  │ leg 4  (reflector -> RPV gap, RADIATION)
+//!                                                               RPV node (T_v)
+//!                                                                  │ leg 5  (RPV -> cavity, RADIATION)
+//!                                                                RCCS 50 degC (fixed)
 //! ```
 //!
-//! Series rather than three independent paths to the sink, for two reasons.
-//! Physically, heat leaving the bed *must* cross the reflector before it
-//! reaches the vessel -- they are not parallel routes. Practically, a series
-//! chain makes each `UA` separately identifiable: given a measured core
-//! temperature and a measured heat rate at one instant, the chain has a unique
-//! solution, whereas three parallel conductances to a common sink do not.
+//! **One implicit solve (2026-09-29, gh:#395).** The bed's solid and helium
+//! rows and these two nodes are the four unknowns of one backward-Euler
+//! system ([`super::pebble_bed::PebbleBedPorousMediaNode::step`]); the
+//! bed-to-reflector conductance sits on the bed solid row's diagonal. ~~The
+//! passive loss was computed against a held bed temperature and subtracted
+//! from the bed's source (`net_core_source`)~~ -- the pattern the engine
+//! `CLAUDE.md` names as a defect ("put transfer terms inside the control
+//! volume's own balance, implicitly, not as an adjustment to its source"). The
+//! temperature-dependent legs (`k_eff(T)`, IG-110 `k(T)`, the two radiative
+//! legs) and the secant heat capacities are re-evaluated at the latest iterate
+//! inside the step's fixed point, which converges them to 1e-9 K; the
+//! radiative legs use the exact secant conductance `sigma A eps (T1^2 +
+//! T2^2)(T1 + T2)`, so at convergence they carry exactly `sigma A eps (T1^4 -
+//! T2^4)`.
+//!
+//! ## The bed -> reflector leg: which mechanisms, and where each comes from
+//!
+//! The maintainer's direction (2026-09-29): the bed must transmit heat to the
+//! reflector "via convection and radiation especially", each mechanism on the
+//! implicit diagonal, with nothing counted twice. The structure is taken
+//! whole from **Achenbach, E., "Heat and Flow Characteristics of Packed
+//! Beds", *Exp. Therm. Fluid Sci.* 10 (1995) 17-27** (the KFA Julich review
+//! behind much of KTA 3102; proprietary, cited not redistributed), whose
+//! pseudo-homogeneous bed has an effective conductivity and a wall boundary
+//! condition:
+//!
+//! ```text
+//! lambda_e = lambda_0 + lambda_k                          Achenbach eq. (28), p. 22
+//! lambda_k / lambda_g = Pe / K_r                           eq. (29), p. 23 (Yagi et al.)
+//! K_r = 8 [2 - (1 - 2 d/D)^2]                              eq. (30), p. 23 (Schlunder)
+//! -lambda_e dT/dr |_w = alpha_w dT                         eq. (32), p. 25
+//! Nu_w = alpha_w d / lambda_g = (1 - d/D) Re^0.61 Pr^(1/3) eq. (34), p. 25, 50 < Re < 2e4
+//! ```
+//!
+//! and, below `Re ~ 100`, "the temperature difference `dT` vanishes, which is
+//! equivalent to `alpha_w -> infinity`" (p. 25). In this lumped model that
+//! becomes a small network, every branch on the implicit diagonal:
+//!
+//! ```text
+//!   BED SOLID T_s --[ 8 pi lambda_0(T_s) H ]--+                        (1) stagnant: conduction + sphere radiation
+//!                                             +-- NEAR-WALL node --[ alpha_w A_w  (x)  2 G_annulus ]-- REFLECTOR T_r
+//!   BED HELIUM T_f --[ 8 pi lambda_k H ]------+                        (2) convection: flow dispersion + (3) wall film
+//! ```
+//!
+//! 1. **Stagnant conduction and pebble radiation -- `lambda_0`, from the bed
+//!    solid.** The VTB ZBS table ([`zbs_effective_conductivity`]) is exactly
+//!    Achenbach's `lambda_0`, "the stagnant gas effective conductivity",
+//!    which he lists as including "heat radiation solid-solid and through the
+//!    void area to the next layer" (p. 23). So the pebble radiation is in this
+//!    branch once, and **no separate `sigma eps A (T_s^4 - T_w^4)` surface
+//!    leg is added** -- it would count the same photons twice. IAEA-TECDOC-1694
+//!    records the PBMR-400 benchmark codes coupling the bed to the reflector
+//!    the same way ("the effective pebble bed thermal conductivity correlation
+//!    since conduction and radiation heat transfer mechanisms are taken into
+//!    account in the correlation"). The VTB table is total-only, so the split
+//!    between its two parts is not available, and per gh:#362 the analytic
+//!    `tampines::pebble_bed::ZbsBed` is not substituted. `lambda_0` is
+//!    evaluated at the live bed temperature every pass, which is how the
+//!    `T^3` radiative growth enters the implicit solve.
+//! 2. **Convection through the bed -- `lambda_k`, from the bed helium.** The
+//!    flow-dispersion conductivity is carried by the gas, so it is driven by
+//!    the helium node. `Pe = Re Pr` on the superficial velocity; it is
+//!    proportional to the flow, so it **vanishes at LOFC by construction**.
+//!    At the rated point it exceeds `lambda_0` several times over.
+//! 3. **Convection at the wall -- `alpha_w`, eq. (34), in series.** The wall
+//!    film sits between the near-wall bed and the reflector's inner surface,
+//!    over `A_w = pi D H_bed`. Below `Re = 100` the paper's own statement
+//!    applies (`alpha_w -> infinity`, no film resistance); this makes the leg
+//!    step at `Re = 100` (a loop flow of about 0.19 kg/s, reached only during
+//!    a circulator run-down), because the source gives no blend and none is
+//!    invented.
+//!
+//! **Assumptions, stated.** (a) `Re = u d / nu` on the superficial velocity
+//! of the whole loop flow (the same basis the bed's pebble film uses; the
+//! paper's nomenclature says only "velocity"); (b) the two branches split the
+//! pseudo-homogeneous bed's single temperature into the lumped node's solid
+//! and helium temperatures by mechanism; (c) `8 pi lambda H` is the
+//! mean-to-surface conductance of a uniformly heated cylinder, applied to
+//! both branches; (d) the helium node is outlet-referenced (the well-mixed
+//! bed), so the dispersion branch sees the outlet temperature over the whole
+//! wall, which **over-states** it near the cold top of the bed.
 //!
 //! ## The boundary condition, and where the number comes from
 //!
@@ -40,11 +132,7 @@
 //!
 //! **This citation is second-hand and must not be presented otherwise.** Jun
 //! et al. attribute the 50 degC to their own reference \[12\], which this
-//! workspace does not hold. So the provenance is "50 degC per Jun et al.
-//! (2009) section 2.4, who cite their ref. \[12\] (not obtained)" -- not "50
-//! degC per \[12\]". If \[12\] is ever obtained it may also carry the RCCS
-//! heat-removal characteristic directly, which would replace the fitted `UA`
-//! values below with measured ones.
+//! workspace does not hold.
 //!
 //! A fixed-temperature sink is a real modelling choice, not a shortcut: the
 //! RCCS is a water-cooled panel with its own circulation, so its surface
@@ -53,46 +141,49 @@
 //!
 //! ## What is NOT modelled, and which way each error points
 //!
-//! Stated so a reader can bound a result rather than having to trust it.
-//!
-//! - **The `UA` values are not derived.** They are placeholders (see
-//!   [`CoreToRccsPath::placeholder`]) pending the identification described in
-//!   [`CoreToRccsPath::ua_from_balance_point`]. **No number this module
-//!   produces is a prediction until they are.**
-//! - **Radiation is carried on the LAST link only.** ~~No radiation term as
-//!   such. Radiation across the cavity gap goes as `T^4`, so a constant `UA`
-//!   under-states heat removal when the vessel is hot and over-states it when
-//!   cool.~~ **CORRECTED 2026-09-17** -- the RPV-to-RCCS link is now a real
-//!   `T^4` conductance, re-evaluated at the live vessel temperature every step
-//!   through TUAS's [`simple_radiation_conductance`] (see
-//!   [`RPV_RADIATING_AREA_COEFF_M2`] for the area, view factor and the two
-//!   *assumed* emissivities). The bed-to-reflector and reflector-to-RPV links
-//!   are still constant `UA`s, so any radiative share of the heat crossing the
-//!   graphite internals is folded into a conduction-shaped number and carries
-//!   the bias the struck-out text describes.
+//! - ~~**The `UA` values are not derived.** ... **No number this module
+//!   produces is a prediction until they are.**~~ **CORRECTED** -- derived
+//!   from geometry since 2026-09-17 (see the constants below).
+//! - ~~**Radiation is carried on the LAST link only.**~~ **CORRECTED** -- the
+//!   gap (leg 4) and the vessel-to-cavity leg (5) are `T^4` legs, and leg 1
+//!   carries the ZBS sphere radiation.
+//! - ~~**Bed-to-wall convection** -- pending literature~~ -- present since
+//!   2026-09-29 (Achenbach 1995, above).
+//! - **The helium-to-reflector riser leg** (cold helium rising in the 20
+//!   side-reflector channels, gh:#397) -- not yet; it biases the reflector
+//!   hot under forced flow.
 //! - **No natural circulation.** After the blower baffle closes the real core
 //!   establishes a buoyancy-driven helium loop that Chen et al. (2009) section
 //!   5 call an effective heat-transport mechanism alongside conduction and
-//!   radiation, and which moves the hot spot up about 1.6 m over 3 h. This
-//!   model has one helium node and no gravity term. Omitting it removes a
+//!   radiation. This model has no gravity term. Omitting it removes a
 //!   transport path, so core temperatures here are an **upper bound**.
 //! - **One lumped node per region.** The reflector is 1.0 m of graphite with a
-//!   real internal gradient; treating it as one temperature under-states its
-//!   thermal lag.
-//! - **No cavity, barrel or carbon brick as separate bodies.** They are folded
-//!   into the reflector and RPV volumes.
+//!   real internal gradient; one node under-states its thermal lag.
+//! - **Radial only.** The top and bottom reflectors, and the axial conduction
+//!   through them, are not in the chain, nor in the reflector node's capacity.
+//! - **No core barrel, cavity or carbon brick as separate bodies.** The core
+//!   vessel (3.82 m ID, Jun et al. 2009 Table 1) sits in the gap between the
+//!   boronated brick and the RPV and is not modelled; the gap is radiation
+//!   only.
 
 use tuas_boussinesq_solver::heat_transfer_correlations::heat_transfer_interactions::conductance::simple_radiation_conductance;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_ig_110_thermal_conductivity_unirradiated;
 use uom::si::area::square_meter;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::density::try_get_rho;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_enthalpy::try_get_h;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{Material, SolidMaterial};
+use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
-use uom::si::f64::Energy;
-use uom::si::f64::{Area, HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time};
-use uom::si::heat_capacity::joule_per_kelvin;
+use uom::si::f64::{Area, Energy, Mass, MassRate, Power, Pressure, ThermodynamicTemperature};
+use uom::si::mass::kilogram;
+use uom::si::mass_rate::kilogram_per_second;
+use uom::si::mass_density::kilogram_per_cubic_meter;
+use uom::si::pressure::pascal;
+use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::power::watt;
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
-use uom::si::time::second;
 
 /// RCCS water-cooling-tube temperature held as a fixed boundary \[degC\].
 ///
@@ -100,23 +191,11 @@ use uom::si::time::second;
 /// the full quotation and the caveat that the citation is second-hand.
 pub const RCCS_BOUNDARY_TEMPERATURE_C: f64 = 50.0;
 
-/// Pebble-bed temperature the conductances are sized at \[K\].
-///
-/// The simulator's own design-point bed temperature (about 677 degC), so the
-/// chain is calibrated where the plant actually runs rather than at a round
-/// number chosen for arithmetic.
-const DESIGN_BED_TEMPERATURE_K: f64 = 950.0;
-
-/// Heat the passive path carries at the design point \[W\].
-///
-/// **206 kW**, the power the HTR-10 surface cooling system is quoted as
-/// dissipating -- Hu, S., Wang, R., Gao, Z. (2006), *Nucl. Eng. Des.* **236**,
-/// 677-680, section 2.1, attributed there to Liang (2003).
-///
-/// This is the one measured quantity the three conductances are anchored to.
-/// **It fixes only their SERIES combination, not the split between them** --
-/// see the note on the individual constants.
-const DESIGN_PASSIVE_HEAT_LOSS_W: f64 = 206_000.0;
+// ~~`DESIGN_BED_TEMPERATURE_K = 950.0` ("the conductances are sized at") and
+// `DESIGN_PASSIVE_HEAT_LOSS_W = 206 000` ("the one measured quantity the three
+// conductances are anchored to")~~ -- moved into the test module 2026-09-29:
+// nothing is sized or anchored at either any more. 206 kW is only the V&V
+// reference, and 950 K only the temperature that comparison is taken at.
 
 // ---------------------------------------------------------------------------
 // THE CHAIN, DERIVED FROM GEOMETRY -- NOT FITTED TO THE 206 kW ANCHOR
@@ -133,8 +212,11 @@ const DESIGN_PASSIVE_HEAT_LOSS_W: f64 = 206_000.0;
 // (`reactor_model::htr10_rz_geometry`) and the published vessel dimensions,
 // with the radiative legs evaluated at the live temperatures each step. The
 // 206 kW figure is used **only as an independent check**, never as an input:
-// see `tests::the_derived_chain_agrees_with_the_published_surface_cooling_duty`,
-// which measures **+7.5 %** and is allowed to fail if the physics says so.
+// see ~~`tests::the_derived_chain_agrees_with_the_published_surface_cooling_duty`,
+// which measures **+7.5 %**~~ `tests::the_chain_opens_in_equilibrium_at_its_design_heat`
+// (**CORRECTED 2026-09-29**: the test was renamed and the recorded values are
+// +13.9 % on 2026-09-17 and +23.3 % since 2026-09-28), which is allowed to
+// fail if the physics says so.
 // Calibrating a free parameter until that check passed was considered and
 // rejected by the maintainer -- it would have matched exactly and proved
 // nothing. See the crate `CLAUDE.md`, "Physical correctness is the first
@@ -229,21 +311,139 @@ const SURFACE_EMISSIVITY: f64 = 0.8;
 /// Giving `146.4 * 1.0 * 0.735 = 107.6 m^2`.
 const RPV_RADIATING_AREA_COEFF_M2: f64 = 107.6;
 
-/// Lumped heat capacity of the reflector and the ceramics folded into it
-/// \[J/K\]. Order of magnitude for the graphite internals, **not** derived from
-/// the published masses.
-const REFLECTOR_CAPACITY_J_PER_K: f64 = 1.8e8;
+// ---------------------------------------------------------------------------
+// HEAT CAPACITIES, DERIVED (gh:#396, 2026-09-29)
+//
+// ~~`REFLECTOR_CAPACITY_J_PER_K = 1.8e8` and `RPV_CAPACITY_J_PER_K = 6.0e7`,
+// "order of magnitude, not derived from the published masses", constant in
+// T~~ -- replaced by `m c_p(T)`, integrated as ENTHALPY `m (h(T') - h(T))`
+// (secant capacity), from the same annulus geometry the conductances use.
+// These capacities set every cooldown time constant, including #320's LOFC.
+// ---------------------------------------------------------------------------
 
-/// Lumped heat capacity of the RPV steel \[J/K\]. Order of magnitude, **not**
-/// derived from the published vessel mass.
-const RPV_CAPACITY_J_PER_K: f64 = 6.0e7;
+/// Graphite reflector material: IG-110, the HTTR / HTR-10 reflector grade in
+/// `tuas` -- density 1770 kg/m^3 (NEA/NSC/DOC(2006)1 table 1.27), `c_p(T)`
+/// from Butland & Maddison (1973/74), valid 300-2000 K. The same material the
+/// graphite annulus conductance already uses.
+const REFLECTOR_GRAPHITE: SolidMaterial = SolidMaterial::NuclearGraphiteIG110;
 
-/// Fixed-point passes in [`CoreToRccsPath::advance`]'s implicit solve,
-/// re-evaluating the temperature-dependent conductances at the latest
-/// iterate. The nodes move a fraction of a kelvin per 0.1 s step, so the
-/// conductances barely change and three passes converge far below rounding
-/// of anything displayed; the energy balance is exact at any pass count.
-const IMPLICIT_PICARD_PASSES: usize = 3;
+/// Void volume inside the graphite annulus \[m^3\], **published** ([S3] KENO
+/// VI model, Table VI, `docs/reactor-scoping/htr10-plant-data.md` section
+/// 4.3): the 20 coolant channels 5.07681e5 cm^3, the 13 control-rod /
+/// irradiation channels 7.76484e5 cm^3 and the 7 KLAK channels 2.29410e5
+/// cm^3. All three sit in the side reflector, so they are subtracted from
+/// the annulus. **Assumption:** each lies wholly inside the 4.70 m graphite
+/// annulus the chain uses.
+const GRAPHITE_ANNULUS_CHANNEL_VOID_M3: f64 = 0.507681 + 0.776484 + 0.229410;
+
+/// Boronated carbon brick density \[kg/m^3\]: **1590**, published -- [S3]
+/// Table II ("B4C content 5 wt%, brick density 1.59 g/cm^3"), recorded in
+/// `docs/reactor-scoping/htr10-plant-data.md` section 4.3.
+const BORONATED_BRICK_DENSITY_KG_PER_M3: f64 = 1590.0;
+
+/// RPV wall thickness \[m\] -- **INVENTED**. The scoping sheet records "wall
+/// thicknesses of the RPV, SG vessel and hot gas duct vessel" as not stated
+/// in any source, and no held document (JAERI-Conf 96-010, IAEA-TECDOC-1382,
+/// Jun et al. 2009 Table 1, Chen et al. 2009, Hu et al. 2006) gives it.
+/// 0.10 m is a plausibility choice only: at the published 3.5 MPa design
+/// pressure and 2.1 m radius it gives a membrane hoop stress `p r / t =
+/// 73.5 MPa`, inside what a pressure-vessel steel carries. A sourced
+/// thickness replaces it; it scales the RPV capacity linearly.
+const RPV_WALL_THICKNESS_M: f64 = 0.10;
+
+/// RPV steel stand-in: `SteelSS304LHighTemp` (Kim, ANL-75-55, 300-1700 K),
+/// the only steel in `tuas`'s solid database valid over the vessel's range.
+/// **A substitution, stated:** the HTR-10 RPV is C-Mn-Si steel ([S4] section
+/// 2.7); no carbon-steel property set exists in the workspace. Carbon and
+/// austenitic steels differ in `c_p` by roughly 10-20 % over 300-600 K, so
+/// this biases the vessel capacity by about that much. The steam generator
+/// makes the same kind of substitution for its 2.25Cr1Mo tubes.
+const RPV_STEEL: SolidMaterial = SolidMaterial::SteelSS304LHighTemp;
+
+/// Pressure argument for the `tuas` solid property calls \[Pa\] -- solids
+/// here are pressure independent; the value only satisfies the signature.
+fn solid_property_pressure() -> Pressure {
+    Pressure::new::<pascal>(101_325.0)
+}
+
+/// Density of a `tuas` solid \[kg/m^3\] at 300 K (the solids here are
+/// treated as fixed-mass bodies; density only sets the mass).
+fn solid_density(material: SolidMaterial) -> f64 {
+    try_get_rho(
+        Material::Solid(material),
+        ThermodynamicTemperature::new::<kelvin>(300.0),
+        solid_property_pressure(),
+    )
+    .unwrap_or_else(|e| panic!("{material:?} density: {e:?}"))
+    .get::<kilogram_per_cubic_meter>()
+}
+
+/// Specific enthalpy of a `tuas` solid \[J/kg\] (only differences are used).
+///
+/// # Panics
+///
+/// Outside the material's coded window (IG-110 300-2000 K, Kim steel
+/// 300-1700 K): fail loud, no stale fallback.
+fn solid_enthalpy(material: SolidMaterial, t: ThermodynamicTemperature) -> f64 {
+    try_get_h(Material::Solid(material), t, solid_property_pressure())
+        .unwrap_or_else(|e| panic!("{material:?} enthalpy at {} K: {e:?}", t.get::<kelvin>()))
+        .get::<joule_per_kilogram>()
+}
+
+/// Graphite mass of the side-reflector annulus \[kg\]: IG-110 density times
+/// `pi (1.678^2 - 0.90^2) 4.70 m^3` less the published channel voids.
+/// 28.1 m^3, about 49.7 t.
+pub fn reflector_graphite_mass() -> Mass {
+    let volume =
+        std::f64::consts::PI * (R_GRAPHITE_OUTER_M.powi(2) - R_BED_OUTER_M.powi(2)) * H_GRAPHITE_M
+            - GRAPHITE_ANNULUS_CHANNEL_VOID_M3;
+    Mass::new::<kilogram>(solid_density(REFLECTOR_GRAPHITE) * volume)
+}
+
+/// Boronated carbon brick mass \[kg\]: the published 1590 kg/m^3 times
+/// `pi (1.90^2 - 1.678^2) 6.10 m^3` = 15.2 m^3, about 24.2 t. Lumped into the
+/// reflector node. **Assumption:** its `c_p(T)` is graphite's (Butland &
+/// Maddison) -- it is carbon brick with 5 wt% B4C, and no property set for it
+/// exists here.
+pub fn boronated_brick_mass() -> Mass {
+    let volume = std::f64::consts::PI
+        * (R_BORONATED_OUTER_M.powi(2) - R_GRAPHITE_OUTER_M.powi(2))
+        * H_BORONATED_M;
+    Mass::new::<kilogram>(BORONATED_BRICK_DENSITY_KG_PER_M3 * volume)
+}
+
+/// RPV mass \[kg\]: the lateral shell only, `pi ((r + t)^2 - r^2) H` on the
+/// published 4.2 m bore and 11.1 m height ([`htr10::design`]) and the
+/// invented [`RPV_WALL_THICKNESS_M`], times the stand-in steel's density.
+/// Heads are not included (they are not in the radial chain either).
+pub fn rpv_mass() -> Mass {
+    let design = super::pebble_bed::design();
+    let r = 0.5 * design.rpv_inner_diameter.get::<uom::si::length::meter>();
+    let h = design.rpv_height.get::<uom::si::length::meter>();
+    let volume = std::f64::consts::PI * ((r + RPV_WALL_THICKNESS_M).powi(2) - r * r) * h;
+    Mass::new::<kilogram>(solid_density(RPV_STEEL) * volume)
+}
+
+/// Secant heat capacity `m (h(T') - h(T)) / (T' - T)` \[J/K\] of a body of
+/// `mass` made of `material`, from `t_old` to `t_new` -- what makes a
+/// backward-Euler step on a `c_p(T)` body conserve its enthalpy exactly. The
+/// tangent `m c_p(T)` when the two temperatures coincide.
+fn secant_capacity(
+    mass: Mass,
+    material: SolidMaterial,
+    t_old: ThermodynamicTemperature,
+    t_new: ThermodynamicTemperature,
+) -> f64 {
+    let m = mass.get::<kilogram>();
+    let dt = t_new.get::<kelvin>() - t_old.get::<kelvin>();
+    if dt.abs() > 1.0e-9 {
+        m * (solid_enthalpy(material, t_new) - solid_enthalpy(material, t_old)) / dt
+    } else {
+        m * try_get_cp(Material::Solid(material), t_old, solid_property_pressure())
+            .unwrap_or_else(|e| panic!("{material:?} c_p: {e:?}"))
+            .get::<joule_per_kilogram_kelvin>()
+    }
+}
 
 /// Radiative conductance from the RPV to the fixed 50 degC RCCS \[W/K\].
 fn ua_rpv_rccs_w_per_k(rpv: ThermodynamicTemperature) -> f64 {
@@ -371,22 +571,76 @@ fn ua_gap_to_rpv_w_per_k(
         .get::<watt_per_kelvin>()
 }
 
-/// Conductance from the **bed's mean temperature to the lumped reflector
-/// node** \[W/K\]: leg 1 in series with the *inner half* of the graphite
-/// annulus's resistance.
+/// Achenbach's radial turbulent Peclet number `K_r = 8 [2 - (1 - 2 d/D)^2]`
+/// (eq. (30), p. 23), for the HTR-10 pebble and bed diameters. 9.03.
+fn radial_turbulent_peclet() -> f64 {
+    let d = super::pebble_bed::pebble_diameter().get::<uom::si::length::meter>();
+    let big_d = super::pebble_bed::core_diameter().get::<uom::si::length::meter>();
+    8.0 * (2.0 - (1.0 - 2.0 * d / big_d).powi(2))
+}
+
+/// Reynolds number `u d / nu` of the bed on the superficial velocity, the
+/// helium conductivity \[W/(m K)\] and Prandtl number, at the helium node's
+/// temperature and the loop flow.
+fn bed_flow_numbers(helium: ThermodynamicTemperature, mass_flow: MassRate) -> (f64, f64, f64) {
+    let (k_g, prandtl, mu) = super::pebble_bed::helium_transport(helium);
+    let mass_flux = mass_flow.get::<kilogram_per_second>().abs()
+        / super::pebble_bed::superficial_area().get::<square_meter>();
+    let d = super::pebble_bed::pebble_diameter().get::<uom::si::length::meter>();
+    (mass_flux * d / mu, k_g, prandtl)
+}
+
+/// **Branch (1): bed solid -> near-wall node \[W/K\]**, `8 pi lambda_0 H`
+/// with `lambda_0` the stagnant ZBS conductivity (conduction and sphere
+/// radiation) at the bed temperature -- see [`ua_bed_to_surface_w_per_k`].
+fn ua_solid_to_near_wall_w_per_k(bed: ThermodynamicTemperature) -> f64 {
+    ua_bed_to_surface_w_per_k(bed)
+}
+
+/// **Branch (2): bed helium -> near-wall node \[W/K\]**, `8 pi lambda_k H`
+/// with the flow-dispersion conductivity `lambda_k = lambda_g Pe / K_r`
+/// (Achenbach eqs. (29)-(30), `Pe = Re Pr`). Zero at zero flow.
+fn ua_helium_to_near_wall_w_per_k(helium: ThermodynamicTemperature, mass_flow: MassRate) -> f64 {
+    let (re, k_g, prandtl) = bed_flow_numbers(helium, mass_flow);
+    let lambda_k = k_g * re * prandtl / radial_turbulent_peclet();
+    8.0 * std::f64::consts::PI * lambda_k * H_BED_M
+}
+
+/// **The wall film \[W/K\]**, `alpha_w A_w` with `alpha_w = Nu_w lambda_g /
+/// d` from Achenbach eq. (34), `Nu_w = (1 - d/D) Re^0.61 Pr^(1/3)`, over the
+/// bed's lateral wall `A_w = pi D H_bed`. `None` below `Re = 100`, where the
+/// paper states `alpha_w -> infinity` (no film resistance). Above the
+/// correlation's `Re = 2e4` top it is still applied, and says so here: the
+/// HTR-10 bed reaches `Re ~ 4300` at the 8 kg/s circulator ceiling.
+fn ua_wall_film_w_per_k(helium: ThermodynamicTemperature, mass_flow: MassRate) -> Option<f64> {
+    let (re, k_g, prandtl) = bed_flow_numbers(helium, mass_flow);
+    if re < 100.0 {
+        return None;
+    }
+    let d = super::pebble_bed::pebble_diameter().get::<uom::si::length::meter>();
+    let big_d = super::pebble_bed::core_diameter().get::<uom::si::length::meter>();
+    let nu_w = (1.0 - d / big_d) * re.powf(0.61) * prandtl.powf(1.0 / 3.0);
+    let alpha_w = nu_w * k_g / d;
+    Some(alpha_w * std::f64::consts::PI * big_d * H_BED_M)
+}
+
+/// **Near-wall node -> reflector node \[W/K\]**: the wall film (when it has
+/// a resistance) in series with the inner half of the graphite annulus.
 ///
 /// **Assumption:** the reflector node carries a single volume-mean
-/// temperature, so the annulus's conduction resistance is split evenly either
-/// side of it -- half on the way in, half on the way out. Halving a resistance
-/// doubles the conductance, hence the `2.0 *`. The split is exact in the sense
-/// that the two halves recombine to the full annulus, so the SERIES value of
-/// the whole chain is unchanged by where the node is placed.
-fn ua_core_to_reflector_w_per_k(
-    bed: ThermodynamicTemperature,
+/// temperature, so the annulus's conduction resistance is split evenly
+/// either side of it -- half on the way in, half on the way out (hence
+/// `2.0 *`). The two halves recombine to the full annulus.
+fn ua_near_wall_to_reflector_w_per_k(
+    helium: ThermodynamicTemperature,
+    mass_flow: MassRate,
     reflector: ThermodynamicTemperature,
 ) -> f64 {
-    1.0 / (1.0 / ua_bed_to_surface_w_per_k(bed)
-        + 1.0 / (2.0 * ua_graphite_annulus_w_per_k(reflector)))
+    let annulus_half = 2.0 * ua_graphite_annulus_w_per_k(reflector);
+    match ua_wall_film_w_per_k(helium, mass_flow) {
+        Some(film) => 1.0 / (1.0 / film + 1.0 / annulus_half),
+        None => annulus_half,
+    }
 }
 
 /// Conductance from the **lumped reflector node to the RPV** \[W/K\]: the
@@ -401,41 +655,50 @@ fn ua_reflector_to_rpv_w_per_k(
         + 1.0 / ua_gap_to_rpv_w_per_k(reflector, rpv))
 }
 
-/// Series combination of the whole chain \[W/K\].
+/// The conductances and secant capacities of the passive path at one iterate
+/// of the bed's implicit solve -- what [`super::pebble_bed::PebbleBedPorousMediaNode::step`]
+/// puts in its reflector and RPV rows and on the bed solid row's diagonal.
 ///
-/// Depends on all three temperatures because three of the five legs are
-/// temperature dependent -- two radiative, one through `k_eff(T)`.
-fn series_ua_w_per_k(
-    bed: ThermodynamicTemperature,
-    reflector: ThermodynamicTemperature,
-    rpv: ThermodynamicTemperature,
-) -> f64 {
-    1.0 / (1.0 / ua_core_to_reflector_w_per_k(bed, reflector)
-        + 1.0 / ua_reflector_to_rpv_w_per_k(reflector, rpv)
-        + 1.0 / ua_rpv_rccs_w_per_k(rpv))
+/// Conductances in W/K, capacities in J/K, all evaluated at the iterate
+/// temperatures handed to [`CoreToRccsPath::coupling`].
+#[derive(Clone, Copy, Debug)]
+pub struct PassiveCoupling {
+    /// Branch (1): bed solid -> near-wall node, stagnant ZBS.
+    pub solid_to_near_wall: f64,
+    /// Branch (2): bed helium -> near-wall node, flow dispersion.
+    pub helium_to_near_wall: f64,
+    /// Near-wall node -> reflector node: wall film in series with the inner
+    /// half of the graphite annulus.
+    pub near_wall_to_reflector: f64,
+    /// Reflector node -> RPV: the outer half of the graphite annulus, the
+    /// boronated annulus and the radiative gap, in series.
+    pub reflector_to_rpv: f64,
+    /// RPV -> RCCS, radiative.
+    pub rpv_to_rccs: f64,
+    /// Reflector node secant capacity (graphite + boronated brick) from the
+    /// start-of-step temperature to the iterate.
+    pub reflector_capacity: f64,
+    /// RPV secant capacity from the start-of-step temperature to the iterate.
+    pub rpv_capacity: f64,
+    /// The RCCS boundary temperature \[K\].
+    pub rccs_temperature_k: f64,
 }
 
-/// The passive heat path from the pebble bed out to the RCCS.
-#[derive(Clone, Debug)]
+/// The passive heat path from the pebble bed out to the RCCS: the reflector
+/// and RPV nodes' state. Their energy balances are solved inside the bed's
+/// implicit step; this type owns the legs' physics and the two temperatures.
+#[derive(Clone, Copy, Debug)]
 pub struct CoreToRccsPath {
-    /// Bulk graphite moderator/reflector temperature.
+    /// Bulk graphite reflector temperature (graphite annulus + boronated
+    /// brick, one node).
     reflector_temperature: ThermodynamicTemperature,
     /// Bulk reactor-pressure-vessel temperature.
     rpv_temperature: ThermodynamicTemperature,
-    /// Lumped heat capacity of the reflector and the ceramics folded into it.
-    reflector_capacity: HeatCapacity,
-    /// Lumped heat capacity of the RPV steel.
-    rpv_capacity: HeatCapacity,
-    // NOTE: the two intermediate conductances are deliberately NOT stored.
-    // Three of the five legs depend on temperature -- the two radiative ones
-    // and the bed's `k_eff(T)` -- so caching them would freeze the physics at
-    // whatever state the path was constructed in. They are recomputed every
-    // step from `ua_core_to_reflector_w_per_k` / `ua_reflector_to_rpv_w_per_k`.
-    /// Radiating area coefficient `A*F*epsilon` for the RPV into the cavity.
-    /// The RPV -> RCCS conductance is RADIATIVE and therefore temperature
-    /// dependent -- see [`RPV_RADIATING_AREA_COEFF_M2`].
-    rpv_radiating_area: Area,
-    /// Heat rate leaving the bed on the most recent step, kept for display.
+    // NOTE: the conductances are deliberately NOT stored. Four of the five
+    // legs depend on temperature, so caching them would freeze the physics
+    // at whatever state the path was constructed in. The masses are
+    // recomputed from geometry too; they are a few multiplications.
+    /// Heat rate leaving the pebble bed on the most recent step.
     heat_from_core: Power,
     /// Heat rate reaching the RCCS on the most recent step.
     heat_to_rccs: Power,
@@ -447,224 +710,222 @@ impl CoreToRccsPath {
         ThermodynamicTemperature::new::<degree_celsius>(RCCS_BOUNDARY_TEMPERATURE_C)
     }
 
-    /// Construct the path with **placeholder** conductances and capacities.
-    ///
-    /// # These numbers are not measured, and here is exactly what they are
-    ///
-    /// The three `UA` values are seeded so that the chain passes roughly
-    /// **206 kW** at the plant's normal operating temperatures -- the power
-    /// the HTR-10 surface cooling system is quoted as dissipating (Hu et al.
-    /// 2006 section 2.1, attributed there to Liang 2003). That is a real
-    /// published number, but using it to *seed three conductances* is an
-    /// assumption on top of it: it fixes only their series combination, not
-    /// the split between them, which is divided here in proportion to a rough
-    /// reading of the thermal resistances (the 1.0 m graphite reflector
-    /// dominating, the vessel-to-RCCS gap next, the bed-to-reflector contact
-    /// smallest).
-    ///
-    /// The capacities are order-of-magnitude figures for the graphite
-    /// internals and the vessel steel, **not** derived from the published
-    /// masses.
-    ///
-    /// **Replace these before quoting any cooldown result.** See
-    /// [`Self::ua_from_balance_point`] for the identification Chen et al.
-    /// (2009) makes possible.
-    pub fn placeholder() -> Self {
-        Self::new_at_steady_state(ThermodynamicTemperature::new::<kelvin>(
-            DESIGN_BED_TEMPERATURE_K,
-        ))
-    }
+    // ~~`placeholder()` -- "Construct the path with **placeholder**
+    // conductances and capacities ... seeded so that the chain passes roughly
+    // 206 kW ... **Replace these before quoting any cooldown result**"~~ --
+    // DELETED 2026-09-29 (gh:#389): false since 2026-09-17 (every conductance
+    // derived) and, since 2026-09-29, for the capacities too. The plant now
+    // builds the path with `new_at_steady_state` at its own bed seed.
 
-    /// Construct the path **already in equilibrium** with a given bed
-    /// temperature.
+    /// Construct the path **already in equilibrium** with a given bed --
+    /// the derived constructor. Every conductance is the geometry- and
+    /// literature-derived leg set, every capacity the derived `m c_p(T)`; the
+    /// only thing chosen here is the node temperatures, and they are not a
+    /// choice: they are the steady state for a bed whose solid sits at
+    /// `bed_solid`, whose helium sits at `bed_helium`, at loop flow
+    /// `mass_flow`.
     ///
     /// # Why this is not optional
     ///
-    /// The three conductances fix how much heat the chain carries at a given
-    /// core-to-sink difference, but they say nothing about where the two
+    /// The conductances fix how much heat the chain carries at a given
+    /// core-to-sink difference, but they say nothing about where the
     /// intermediate temperatures sit. Start them anywhere else and the chain
-    /// opens with a large transient: seeding the reflector 277 K below the bed
-    /// makes the FIRST link alone pass `6000 W/K * 277 K ~ 1.66 MW`, which on
-    /// a 3 MW core is over half the source, and the plant promptly over-cools.
-    /// That is not a physical cooldown, it is the model relaxing an initial
-    /// condition nobody chose.
-    ///
-    /// At steady state the same heat `q` crosses all three links, so
-    ///
-    /// ```text
-    /// q      = UA_series (T_bed - T_sink)
-    /// T_refl = T_bed  - q / UA_core_reflector
-    /// T_rpv  = T_sink + q / UA_rpv_rccs
-    /// ```
-    ///
-    /// which is what this computes. The plant therefore opens with the passive
-    /// path carrying exactly its design-point heat and perturbing nothing.
-    pub fn new_at_steady_state(bed_temperature: ThermodynamicTemperature) -> Self {
-        let t_bed = bed_temperature.get::<kelvin>();
+    /// opens with a large transient -- the model relaxing an initial condition
+    /// nobody chose.
+    pub fn new_at_steady_state(
+        bed_solid: ThermodynamicTemperature,
+        bed_helium: ThermodynamicTemperature,
+        mass_flow: MassRate,
+    ) -> Self {
         let t_sink = Self::rccs_boundary().get::<kelvin>();
-
-        // THREE of the five legs are temperature dependent -- the two
-        // radiative ones and the bed's own `k_eff(T)` -- so the steady state
-        // is a fixed point in BOTH intermediate temperatures, not just the
-        // vessel. Iterate: guess the pair, evaluate every leg there, get the
-        // heat, then back both temperatures out of the legs they sit behind.
-        // Contracts quickly because the radiative conductances vary as `T^3`
-        // while the temperatures respond only linearly to `q`.
-        let mut t_refl = 0.5 * (t_bed + t_sink);
-        let mut t_rpv = t_sink + 1.0;
-        let mut q = 0.0;
-        for _ in 0..500 {
-            let refl = ThermodynamicTemperature::new::<kelvin>(t_refl);
-            let rpv = ThermodynamicTemperature::new::<kelvin>(t_rpv);
-            q = series_ua_w_per_k(bed_temperature, refl, rpv) * (t_bed - t_sink);
-            t_refl = t_bed - q / ua_core_to_reflector_w_per_k(bed_temperature, refl);
-            t_rpv = t_sink + q / ua_rpv_rccs_w_per_k(rpv);
-        }
-
-        Self {
-            reflector_temperature: ThermodynamicTemperature::new::<kelvin>(t_refl),
-            rpv_temperature: ThermodynamicTemperature::new::<kelvin>(t_rpv),
-            reflector_capacity: HeatCapacity::new::<joule_per_kelvin>(REFLECTOR_CAPACITY_J_PER_K),
-            rpv_capacity: HeatCapacity::new::<joule_per_kelvin>(RPV_CAPACITY_J_PER_K),
-            rpv_radiating_area: Area::new::<square_meter>(RPV_RADIATING_AREA_COEFF_M2),
-            heat_from_core: Power::new::<watt>(q),
-            heat_to_rccs: Power::new::<watt>(q),
-        }
+        let mut path = Self {
+            reflector_temperature: ThermodynamicTemperature::new::<kelvin>(
+                0.5 * (bed_solid.get::<kelvin>() + t_sink),
+            ),
+            rpv_temperature: ThermodynamicTemperature::new::<kelvin>(t_sink + 50.0),
+            heat_from_core: Power::new::<watt>(0.0),
+            heat_to_rccs: Power::new::<watt>(0.0),
+        };
+        // Steady state: the same network with no storage (dt -> infinity).
+        path.solve_with_bed_held(bed_solid, bed_helium, mass_flow, None);
+        path
     }
 
-    /// Identify the **series** conductance from a measured balance point.
-    ///
-    /// Chen et al. (2009) section 5 states the condition explicitly for this
-    /// transient:
-    ///
-    /// > "the average fuel temperature continues to rise in the period up to
-    /// > 310 s because the instantaneous reactor power briefly exceeds the
-    /// > heat removal from the core"
-    ///
-    /// which is to say that at **t = 310 s generation equals removal**. Given
-    /// the core power and core temperature at that instant,
-    ///
-    /// ```text
-    /// UA_series = P(310 s) / (T_core(310 s) - T_RCCS)
-    /// ```
-    ///
-    /// with no model fitting at all. This returns that series value; splitting
-    /// it across the three links still requires an assumption, or a second
-    /// balance point.
-    ///
-    /// A second, independent route is available from GAMMA+ section 3.1, which
-    /// quotes a cooldown rate numerically ("the maximum fuel temperature is
-    /// slowly decreased by 116 degC in 4000 seconds (-1.74 degC/min)"):
-    /// `UA = (P_decay - C dT/dt) / (T - T_RCCS)`. **The two should agree**; if
-    /// they do not, an assumption behind one of them is wrong, which is itself
-    /// worth knowing.
-    pub fn ua_from_balance_point(
-        core_power: Power,
-        core_temperature: ThermodynamicTemperature,
-    ) -> ThermalConductance {
-        let dt_k = core_temperature.get::<kelvin>() - Self::rccs_boundary().get::<kelvin>();
-        ThermalConductance::new::<watt_per_kelvin>(if dt_k > 1.0 {
-            core_power.get::<watt>() / dt_k
-        } else {
-            0.0
-        })
-    }
-
-    /// Advance the two solid nodes by `dt`, **implicitly**, given the bed
-    /// temperature, with the RCCS a fixed 50 degC boundary.
-    ///
-    /// Returns the heat rate **leaving the pebble bed**, which the caller must
-    /// apply as a sink on the bed so energy is conserved across the seam.
-    ///
-    /// # The scheme
-    ///
-    /// Backward Euler on both nodes, the RCCS a Dirichlet boundary on the
-    /// vessel:
-    ///
-    /// ```text
-    /// C_r (T_r' - T_r)/dt = G1 (T_b - T_r') - G2 (T_r' - T_v')
-    /// C_v (T_v' - T_v)/dt = G2 (T_r' - T_v') - G3 (T_v' - T_rccs)
-    /// ```
-    ///
-    /// linear in the new temperatures `T_r'`, `T_v'` for given conductances,
-    /// so each pass is a 2x2 solve. Three of the conductances are temperature
-    /// dependent (`k_eff(T)` in `G1`, radiation in `G2` and `G3`), so they are
-    /// re-evaluated at the latest iterate and the solve repeated
-    /// ([`IMPLICIT_PICARD_PASSES`]). A few dozen flops per step: no cost to
-    /// real-time running.
-    ///
-    /// **Energy is conserved by construction.** The heat rates returned and
-    /// stored are computed from the SAME conductances the final solve used,
-    /// at the solved temperatures, so `C dT/dt = q_in - q_out` holds on each
-    /// node to rounding, and the bed is charged exactly the heat the
-    /// reflector receives.
-    ///
-    /// ~~Explicit Euler on both nodes, justified by the RPV time constant
-    /// (~2.3e4 s) against the 0.1 s step.~~ **CORRECTED 2026-09-22**
-    /// (maintainer direction): made implicit, and stepped inside the plant's
-    /// corrector loop against the corrector's bed temperature with its state
-    /// rewound per corrector ([`crate::physics::HtgrPlant::step_with_correctors`]).
-    /// The explicit version was advanced once per corrector without a rewind,
-    /// which created energy in the reflector and vessel. Implicit also stays
-    /// stable if the capacities are ever revised far downward.
-    pub fn advance(&mut self, dt: Time, bed_temperature: ThermodynamicTemperature) -> Power {
-        let dt_s = dt.get::<second>();
-        let t_b = bed_temperature.get::<kelvin>();
-        let t_s = Self::rccs_boundary().get::<kelvin>();
+    /// Solve the network behind a **held** bed (solid at `bed_solid`, helium
+    /// at `bed_helium`): the near-wall node (algebraic), the reflector and the
+    /// RPV. `dt_s = Some(dt)` is one backward-Euler step from the stored
+    /// state; `None` is the steady state. The legs and secant capacities are
+    /// re-evaluated at each iterate until the node temperatures move less than
+    /// 1e-10 K. The heat rates stored are from the final pass's conductances
+    /// at its solution, so the balance is exact.
+    fn solve_with_bed_held(
+        &mut self,
+        bed_solid: ThermodynamicTemperature,
+        bed_helium: ThermodynamicTemperature,
+        mass_flow: MassRate,
+        dt_s: Option<f64>,
+    ) {
+        let (t_s, t_f) = (bed_solid.get::<kelvin>(), bed_helium.get::<kelvin>());
         let (t_r0, t_v0) = (
             self.reflector_temperature.get::<kelvin>(),
             self.rpv_temperature.get::<kelvin>(),
         );
-        let a_r = self.reflector_capacity.get::<joule_per_kelvin>() / dt_s;
-        let a_v = self.rpv_capacity.get::<joule_per_kelvin>() / dt_s;
-        let (mut t_r, mut t_v) = (t_r0, t_v0);
-        let (mut g1, mut g2, mut g3) = (0.0, 0.0, 0.0);
-        for _ in 0..IMPLICIT_PICARD_PASSES {
-            let refl = ThermodynamicTemperature::new::<kelvin>(t_r);
-            let rpv = ThermodynamicTemperature::new::<kelvin>(t_v);
-            // G1 moved inside the loop 2026-09-28: the reflector half of it
-            // now depends on the reflector temperature through IG-110 k(T).
-            g1 = ua_core_to_reflector_w_per_k(bed_temperature, refl);
-            g2 = ua_reflector_to_rpv_w_per_k(refl, rpv);
-            g3 = simple_radiation_conductance(self.rpv_radiating_area, rpv, Self::rccs_boundary())
-                .get::<watt_per_kelvin>();
-            // [a11 a12; a21 a22] [T_r'; T_v'] = [b1; b2]
-            let (a11, a12, b1) = (a_r + g1 + g2, -g2, a_r * t_r0 + g1 * t_b);
-            let (a21, a22, b2) = (-g2, a_v + g2 + g3, a_v * t_v0 + g3 * t_s);
-            let det = a11 * a22 - a12 * a21;
-            t_r = (b1 * a22 - a12 * b2) / det;
-            t_v = (a11 * b2 - a21 * b1) / det;
+        let (mut t_w, mut t_r, mut t_v) = (0.5 * (t_s + t_r0), t_r0, t_v0);
+        let mut c = self.coupling(
+            bed_solid,
+            bed_helium,
+            mass_flow,
+            self.reflector_temperature,
+            self.rpv_temperature,
+        );
+        for _ in 0..500 {
+            let (a_r, a_v) = match dt_s {
+                Some(dt) => (c.reflector_capacity / dt, c.rpv_capacity / dt),
+                None => (0.0, 0.0),
+            };
+            let (gs, gf, gw) = (
+                c.solid_to_near_wall,
+                c.helium_to_near_wall,
+                c.near_wall_to_reflector,
+            );
+            let (g2, g3) = (c.reflector_to_rpv, c.rpv_to_rccs);
+            let mut m = outram_foam_basic_lib::prelude::SquareMatrix::new(3);
+            m.set(0, 0, gs + gf + gw);
+            m.set(0, 1, -gw);
+            m.set(1, 0, -gw);
+            m.set(1, 1, a_r + gw + g2);
+            m.set(1, 2, -g2);
+            m.set(2, 1, -g2);
+            m.set(2, 2, a_v + g2 + g3);
+            let rhs = [
+                gs * t_s + gf * t_f,
+                a_r * t_r0,
+                a_v * t_v0 + g3 * c.rccs_temperature_k,
+            ];
+            let x = m
+                .solve(&rhs)
+                .expect("the passive-path matrix is diagonally dominant with a Dirichlet sink");
+            let moved = (x[0] - t_w)
+                .abs()
+                .max((x[1] - t_r).abs())
+                .max((x[2] - t_v).abs());
+            (t_w, t_r, t_v) = (x[0], x[1], x[2]);
+            if moved < 1.0e-10 {
+                break;
+            }
+            c = self.coupling(
+                bed_solid,
+                bed_helium,
+                mass_flow,
+                ThermodynamicTemperature::new::<kelvin>(t_r),
+                ThermodynamicTemperature::new::<kelvin>(t_v),
+            );
         }
-
-        // Heat rates from the conductances the final solve used, at its
-        // solution: this is what makes the balance exact.
-        let q_core_refl = g1 * (t_b - t_r);
-        let q_rpv_rccs = g3 * (t_v - t_s);
-        let _ = g2; // q_refl_rpv = g2 (t_r - t_v) is internal to the chain
-
-        self.reflector_temperature = ThermodynamicTemperature::new::<kelvin>(t_r);
-        self.rpv_temperature = ThermodynamicTemperature::new::<kelvin>(t_v);
-        self.heat_from_core = Power::new::<watt>(q_core_refl);
-        self.heat_to_rccs = Power::new::<watt>(q_rpv_rccs);
-        self.heat_from_core
+        self.commit(
+            ThermodynamicTemperature::new::<kelvin>(t_r),
+            ThermodynamicTemperature::new::<kelvin>(t_v),
+            Power::new::<watt>(c.near_wall_to_reflector * (t_w - t_r)),
+            Power::new::<watt>(c.rpv_to_rccs * (t_v - c.rccs_temperature_k)),
+        );
     }
 
-    /// Sensible energy held in the two solid nodes, `C_refl T_refl + C_rpv
-    /// T_rpv`, measured from 0 K. Only its *change* is meaningful; it lets a
-    /// plant-level test close the energy balance across the seam with the bed.
+    // ~~`ua_from_balance_point` -- identify the series conductance from Chen
+    // et al.'s t = 310 s balance point~~ -- DELETED 2026-09-29: it had no
+    // caller, and the chain is derived rather than identified. The
+    // identification idea is recorded on gh:#389 should a comparison against
+    // Chen et al.'s balance point be wanted as V&V.
+
+    /// The legs and secant capacities at an iterate of the bed's implicit
+    /// solve: bed solid at `bed_solid`, bed helium at `bed_helium`, loop flow
+    /// `mass_flow`, reflector at `reflector`, RPV at `rpv`. The
+    /// capacities run from this path's stored (start-of-step) temperatures to
+    /// the iterate, so a converged solve conserves enthalpy exactly.
     ///
-    /// No longer `#[cfg(test)]` (2026-09-29, gh:#394): the plant's global
-    /// energy ledger reads it every step.
+    /// # Panics
+    ///
+    /// Outside the property windows (IG-110 300-2000 K, the Kim steel
+    /// 300-1700 K).
+    pub fn coupling(
+        &self,
+        bed_solid: ThermodynamicTemperature,
+        bed_helium: ThermodynamicTemperature,
+        mass_flow: MassRate,
+        reflector: ThermodynamicTemperature,
+        rpv: ThermodynamicTemperature,
+    ) -> PassiveCoupling {
+        let reflector_mass = reflector_graphite_mass() + boronated_brick_mass();
+        PassiveCoupling {
+            solid_to_near_wall: ua_solid_to_near_wall_w_per_k(bed_solid),
+            helium_to_near_wall: ua_helium_to_near_wall_w_per_k(bed_helium, mass_flow),
+            near_wall_to_reflector: ua_near_wall_to_reflector_w_per_k(
+                bed_helium, mass_flow, reflector,
+            ),
+            reflector_to_rpv: ua_reflector_to_rpv_w_per_k(reflector, rpv),
+            rpv_to_rccs: ua_rpv_rccs_w_per_k(rpv),
+            // Graphite and brick share the graphite c_p(T) (see
+            // `boronated_brick_mass`), so one secant on the summed mass.
+            reflector_capacity: secant_capacity(
+                reflector_mass,
+                REFLECTOR_GRAPHITE,
+                self.reflector_temperature,
+                reflector,
+            ),
+            rpv_capacity: secant_capacity(rpv_mass(), RPV_STEEL, self.rpv_temperature, rpv),
+            rccs_temperature_k: Self::rccs_boundary().get::<kelvin>(),
+        }
+    }
+
+    /// Store the solved end-of-step state and the two boundary heat rates
+    /// the solve computed from its own final conductances.
+    pub fn commit(
+        &mut self,
+        reflector: ThermodynamicTemperature,
+        rpv: ThermodynamicTemperature,
+        heat_from_core: Power,
+        heat_to_rccs: Power,
+    ) {
+        self.reflector_temperature = reflector;
+        self.rpv_temperature = rpv;
+        self.heat_from_core = heat_from_core;
+        self.heat_to_rccs = heat_to_rccs;
+    }
+
+    /// Enthalpy held in the two solid nodes \[J\], `m h(T)` on each (graphite
+    /// + brick on the reflector, steel on the RPV) from `tuas`'s datum. Only
+    /// its *change* is meaningful; the plant's global energy ledger reads it
+    /// every step (gh:#394). ~~`C T` with the constant capacities~~ since
+    /// 2026-09-29.
     pub fn stored_energy(&self) -> Energy {
+        let reflector_mass = (reflector_graphite_mass() + boronated_brick_mass()).get::<kilogram>();
         Energy::new::<joule>(
-            self.reflector_capacity.get::<joule_per_kelvin>()
-                * self.reflector_temperature.get::<kelvin>()
-                + self.rpv_capacity.get::<joule_per_kelvin>()
-                    * self.rpv_temperature.get::<kelvin>(),
+            reflector_mass * solid_enthalpy(REFLECTOR_GRAPHITE, self.reflector_temperature)
+                + rpv_mass().get::<kilogram>() * solid_enthalpy(RPV_STEEL, self.rpv_temperature),
         )
     }
 
-    /// Graphite moderator/reflector bulk temperature.
+    /// Advance the reflector and RPV by `dt` against a **held** bed -- the
+    /// chain on its own, for the component tests. The plant never calls this:
+    /// there the two nodes are rows of the bed's own implicit solve. Same
+    /// legs, same secant capacities, same fixed point. `mass_flow` zero gives
+    /// the stagnant (LOFC) leg.
+    #[cfg(test)]
+    pub fn advance(
+        &mut self,
+        dt: uom::si::f64::Time,
+        bed_solid: ThermodynamicTemperature,
+        bed_helium: ThermodynamicTemperature,
+        mass_flow: MassRate,
+    ) -> Power {
+        self.solve_with_bed_held(
+            bed_solid,
+            bed_helium,
+            mass_flow,
+            Some(dt.get::<uom::si::time::second>()),
+        );
+        self.heat_from_core
+    }
+
+    /// Graphite reflector bulk temperature.
     pub fn reflector_temperature(&self) -> ThermodynamicTemperature {
         self.reflector_temperature
     }
@@ -674,7 +935,8 @@ impl CoreToRccsPath {
         self.rpv_temperature
     }
 
-    /// Heat rate leaving the pebble bed on the most recent step.
+    /// Heat rate leaving the pebble bed on the most recent step -- the
+    /// passive loss the plant snapshot and trace report.
     pub fn heat_from_core(&self) -> Power {
         self.heat_from_core
     }
@@ -688,40 +950,61 @@ impl CoreToRccsPath {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uom::si::f64::Time;
+    use uom::si::time::second;
 
-    /// **Energy must not appear or vanish in the chain.**
-    ///
-    /// Over one step, the heat leaving the bed must equal the heat reaching the
-    /// RCCS plus the energy stored in the two solid nodes. This is the
-    /// invariant that a seam like this most easily breaks, and this crate's own
-    /// `CLAUDE.md` records a second-law violation that sat unnoticed in a
-    /// passing test's doc comment precisely because no test asserted the
-    /// invariant.
+    /// Pebble-bed temperature the 206 kW comparison is taken at \[K\] -- the
+    /// simulator's illustrative design-point bed temperature, kept as the
+    /// comparison's pre-registered instrument (gh:#389 item 3 records that it
+    /// is not the model's own settled state).
+    const DESIGN_BED_TEMPERATURE_K: f64 = 950.0;
+
+    /// **206 kW**, the HTR-10 surface cooling system's quoted duty -- Hu, S.,
+    /// Wang, R., Gao, Z. (2006), *Nucl. Eng. Des.* **236**, 677-680, section
+    /// 2.1, attributed there to Liang (2003). The V&V reference only.
+    const DESIGN_PASSIVE_HEAT_LOSS_W: f64 = 206_000.0;
+
+    fn k(t: f64) -> ThermodynamicTemperature {
+        ThermodynamicTemperature::new::<kelvin>(t)
+    }
+
+    fn flow(kg_s: f64) -> MassRate {
+        MassRate::new::<kilogram_per_second>(kg_s)
+    }
+
+    fn design_path() -> CoreToRccsPath {
+        CoreToRccsPath::new_at_steady_state(
+            k(DESIGN_BED_TEMPERATURE_K),
+            k(DESIGN_BED_TEMPERATURE_K),
+            flow(0.0),
+        )
+    }
+
+    /// **Energy must not appear or vanish in the chain.** Over one step the
+    /// heat leaving the bed must equal the heat reaching the RCCS plus the
+    /// **enthalpy** stored in the two nodes (`m h(T)`, since 2026-09-29), at
+    /// zero flow and at the rated flow.
     ///
     /// **Result (2026-09-17):** closes to better than 1e-9 relative.
+    /// **Re-measured 2026-09-29** on enthalpy with the derived capacities and
+    /// the Achenbach legs: printed; pass criterion unchanged (1e-9).
     #[test]
     fn the_chain_conserves_energy_over_a_step() {
-        let mut path = CoreToRccsPath::placeholder();
-        let bed = ThermodynamicTemperature::new::<degree_celsius>(900.0);
-        let dt = Time::new::<second>(0.1);
-
-        let t_refl_0 = path.reflector_temperature().get::<kelvin>();
-        let t_rpv_0 = path.rpv_temperature().get::<kelvin>();
-
-        let q_in = path.advance(dt, bed).get::<watt>();
-        let q_out = path.heat_to_rccs().get::<watt>();
-
-        let stored = 1.8e8 * (path.reflector_temperature().get::<kelvin>() - t_refl_0)
-            + 6.0e7 * (path.rpv_temperature().get::<kelvin>() - t_rpv_0);
-        let dt_s = dt.get::<second>();
-
-        let residual = (q_in - q_out) * dt_s - stored;
-        let scale = (q_in * dt_s).abs().max(1.0);
-        assert!(
-            (residual / scale).abs() < 1.0e-9,
-            "energy is not conserved across the core->reflector->RPV->RCCS chain: \
-             in {q_in:.3} W, out {q_out:.3} W, stored {stored:.3} J, residual {residual:.3e} J"
-        );
+        for m_dot in [0.0, 4.3] {
+            let mut path = design_path();
+            let bed = ThermodynamicTemperature::new::<degree_celsius>(900.0);
+            let dt = Time::new::<second>(0.1);
+            let e0 = path.stored_energy().get::<joule>();
+            let q_in = path.advance(dt, bed, bed, flow(m_dot)).get::<watt>();
+            let q_out = path.heat_to_rccs().get::<watt>();
+            let stored = path.stored_energy().get::<joule>() - e0;
+            let residual = (q_in - q_out) * 0.1 - stored;
+            println!("flow {m_dot} kg/s: in {q_in:.3} W, out {q_out:.3} W, stored {stored:.6e} J, residual {residual:.3e} J");
+            assert!(
+                (residual / (q_in * 0.1).abs().max(1.0)).abs() < 1.0e-9,
+                "energy is not conserved across the chain at {m_dot} kg/s"
+            );
+        }
     }
 
     /// **The RCCS is a fixed 50 degC boundary, fed by vessel radiation.**
@@ -729,18 +1012,17 @@ mod tests {
     /// Methodology: the sink must be exactly 50 degC (Jun et al. 2009 section
     /// 2.4, second-hand -- see the module doc) and must not move however long
     /// it receives heat; the heat reaching it must be `sigma A (T_rpv^4 -
-    /// T_rccs^4)` at the vessel's solved temperature, to the Picard tolerance
-    /// (1e-6 relative), i.e. radiation to 50 degC and nothing else.
+    /// T_rccs^4)` at the vessel's solved temperature (1e-6 relative).
     #[test]
     fn the_rccs_is_a_fixed_50_c_sink_fed_by_vessel_radiation() {
         let sink = CoreToRccsPath::rccs_boundary();
         assert!((sink.get::<degree_celsius>() - 50.0).abs() < 1e-12);
         assert!((sink.get::<kelvin>() - 323.15).abs() < 1e-9);
 
-        let mut path = CoreToRccsPath::placeholder();
+        let mut path = design_path();
         let hot = ThermodynamicTemperature::new::<degree_celsius>(900.0);
         for _ in 0..1000 {
-            path.advance(Time::new::<second>(0.1), hot);
+            path.advance(Time::new::<second>(0.1), hot, hot, flow(0.0));
             assert_eq!(
                 CoreToRccsPath::rccs_boundary(),
                 sink,
@@ -758,26 +1040,17 @@ mod tests {
     }
 
     /// **The implicit scheme is stable at any step and relaxes to the steady
-    /// state**, where an explicit one would diverge.
-    ///
-    /// Methodology: one step of 1e10 s from the design state with the bed
-    /// held 200 K hotter. Explicit Euler would overshoot by many orders of
-    /// magnitude; backward Euler must stay bounded (every node between the
-    /// bed and the sink), close the energy balance to 1e-9, and land on the
-    /// new steady state, where the same heat crosses the whole chain.
-    ///
-    /// **Why 1e10 s.** One backward-Euler step still stores `C dT/dt` in the
-    /// nodes, so `q_in - q_out = sum(C dT) / dt`. With ~2.4e8 J/K and a rise
-    /// of order 100 K that is ~2 kW at 1e7 s (first measured: 2.2 kW of
-    /// 357 kW, which is the scheme behaving correctly, not a settling
-    /// failure) and ~2 W at 1e10 s, under the 1e-3 check.
+    /// state.** One step of 1e10 s from the design state with the bed held
+    /// 200 K hotter: every node between bed and sink, the balance closed to
+    /// 1e-9, and `q_in ~ q_out` (the step still stores `sum(C dT)/dt`, ~W).
     #[test]
     fn a_huge_step_lands_on_the_steady_state() {
-        let mut path = CoreToRccsPath::placeholder();
-        let bed = ThermodynamicTemperature::new::<kelvin>(DESIGN_BED_TEMPERATURE_K + 200.0);
+        let mut path = design_path();
+        let bed = k(DESIGN_BED_TEMPERATURE_K + 200.0);
         let e0 = path.stored_energy().get::<joule>();
-        let dt = Time::new::<second>(1.0e10);
-        let q_in = path.advance(dt, bed).get::<watt>();
+        let q_in = path
+            .advance(Time::new::<second>(1.0e10), bed, bed, flow(0.0))
+            .get::<watt>();
         let q_out = path.heat_to_rccs().get::<watt>();
         let (t_r, t_v) = (
             path.reflector_temperature().get::<kelvin>(),
@@ -799,21 +1072,25 @@ mod tests {
         );
     }
 
-    /// **Heat must flow downhill.** With the bed hotter than the reflector,
-    /// which is hotter than the RPV, which is hotter than the sink, every
-    /// link must carry heat outward.
+    /// **Heat must flow downhill**, and **reverse rather than over-cool**: a
+    /// bed hotter than the chain loses heat to it; a bed colder than the
+    /// reflector gains heat from it.
     #[test]
-    fn heat_flows_from_the_core_toward_the_sink() {
-        let mut path = CoreToRccsPath::placeholder();
-        let bed = ThermodynamicTemperature::new::<degree_celsius>(900.0);
-        path.advance(Time::new::<second>(0.1), bed);
+    fn heat_flows_downhill_and_reverses_rather_than_over_cooling() {
+        let mut path = design_path();
+        let hot = ThermodynamicTemperature::new::<degree_celsius>(900.0);
+        path.advance(Time::new::<second>(0.1), hot, hot, flow(4.3));
+        assert!(path.heat_from_core().get::<watt>() > 0.0);
+        assert!(path.heat_to_rccs().get::<watt>() > 0.0);
+
+        let mut path = design_path();
+        let cold = ThermodynamicTemperature::new::<degree_celsius>(100.0);
+        let q = path
+            .advance(Time::new::<second>(0.1), cold, cold, flow(0.0))
+            .get::<watt>();
         assert!(
-            path.heat_from_core().get::<watt>() > 0.0,
-            "heat must leave a bed hotter than the reflector"
-        );
-        assert!(
-            path.heat_to_rccs().get::<watt>() > 0.0,
-            "heat must reach an RCCS colder than the vessel"
+            q < 0.0,
+            "with the bed colder than the reflector heat must flow INTO it ({q} W)"
         );
     }
 
@@ -907,85 +1184,231 @@ mod tests {
     /// ~~Previously asserted equality with 206 kW to 0.1 %.~~ **CORRECTED
     /// 2026-09-17** -- that only held because the conductances had been fitted
     /// to produce it, so the test restated its own input.
+    ///
+    /// # Results (2026-09-29, gh:#395/#396) -- the gated instrument is unchanged; a forced-flow reading is added
+    ///
+    /// The **gated** comparison stays where it was pre-registered: the chain
+    /// alone, in equilibrium with a 950 K bed, **stagnant** (no flow) -- the
+    /// instrument chosen before any of today's changes, kept so the gate is
+    /// not re-chosen after seeing a result. Stage (b) changed nothing on that
+    /// path (the stagnant limit of the new bed -> reflector network is exactly
+    /// the old leg 1 + inner annulus half, and steady states do not depend on
+    /// capacities), so it must reproduce 254.0 kW; see the printed values.
+    ///
+    /// **Added, not gated: the same 950 K bed at the rated 4.3 kg/s.** Hu's
+    /// 206 kW is a normal-operation duty, i.e. under forced flow, so this is
+    /// the reading that describes the same state as the reference. With the
+    /// Achenbach dispersion and wall-film legs now present, it is expected to
+    /// be **higher** than the stagnant one (more conductance in the first leg
+    /// of a series chain). Printed and recorded on gh:#395. The bed helium is
+    /// taken at the solid's 950 K -- an instrument choice, stated: at 10 MW
+    /// the real helium node sits tens of kelvin below the solid, which would
+    /// lower this reading. The model's own settled passive loss is in the
+    /// headless trace (`passive_loss_mw`) and is reported alongside.
+    ///
+    /// | Reading (2026-09-29) | Derived | Published | Difference |
+    /// |---|---|---|---|
+    /// | stagnant, 950 K bed (**gated**) | **254.0 kW**, reflector 411.6 degC, RPV 205.6 degC | 206 kW | **+23.3 %** (unchanged, as predicted) |
+    /// | 4.3 kg/s, 950 K bed and helium (reported) | **316.5 kW**, reflector 463.0 degC, RPV 227.4 degC | 206 kW | **+53.6 %** |
+    /// | the plant's own state at 300 s (headless trace) | **784.8 kW** at a 1303 K bed | 206 kW | -- (a 1303 K bed, not a design state) |
+    ///
+    /// **Interpretation.** On the reading that describes the same state as
+    /// the reference (forced flow), the model now removes heat about half as
+    /// fast again as Hu's figure. Nothing was tuned to close that. Candidate
+    /// physics, for the record: the dispersion branch sees the
+    /// outlet-referenced helium over the whole wall (assumption (d) in the
+    /// module doc, an over-statement); the riser leg (gh:#397, stage (c)) is
+    /// not yet here, and it will cool the reflector and so raise this further;
+    /// unirradiated reflector conductivity; the assumed emissivities; and
+    /// whether Hu's 206 kW is the same heat path. The ungated reading is not
+    /// promoted to a gate after seeing it.
     #[test]
     fn the_chain_opens_in_equilibrium_at_its_design_heat() {
-        let mut path = CoreToRccsPath::placeholder();
-        let bed = ThermodynamicTemperature::new::<kelvin>(DESIGN_BED_TEMPERATURE_K);
+        let bed = k(DESIGN_BED_TEMPERATURE_K);
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1.0);
 
-        let q_core = path.advance(Time::new::<second>(0.1), bed).get::<watt>();
+        // The pre-registered, GATED instrument: stagnant, 950 K.
+        let path = design_path();
+        let q_core = path.heat_from_core().get::<watt>();
         let q_sink = path.heat_to_rccs().get::<watt>();
-
+        let discrepancy = 100.0 * (q_core / DESIGN_PASSIVE_HEAT_LOSS_W - 1.0);
         println!(
-            "design passive loss: core {:.1} kW, RCCS {:.1} kW; reflector {:.1} degC, RPV {:.1} degC",
+            "STAGNANT 950 K (gated): core {:.1} kW, RCCS {:.1} kW; reflector {:.1} degC, RPV {:.1} degC; \
+             {discrepancy:+.1} % against 206 kW (derived, NOT fitted)",
             q_core / 1e3,
             q_sink / 1e3,
             path.reflector_temperature().get::<degree_celsius>(),
             path.rpv_temperature().get::<degree_celsius>(),
         );
 
-        let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1.0);
-
-        // A COMPARISON against published data, not a fit. The band is set by
-        // the assumed graphite conductivity (30 W/m K against a real 20-60
-        // spread on a leg carrying ~25 % of the resistance), NOT by the answer.
-        let discrepancy = 100.0 * (q_core / DESIGN_PASSIVE_HEAT_LOSS_W - 1.0);
+        // Added, not gated: the same bed at the rated flow.
+        let forced = CoreToRccsPath::new_at_steady_state(bed, bed, flow(4.3));
+        let q_forced = forced.heat_from_core().get::<watt>();
         println!(
-            "derived {:.1} kW vs published {:.1} kW -> {discrepancy:+.1} % (derived, NOT fitted)",
-            q_core / 1e3,
-            DESIGN_PASSIVE_HEAT_LOSS_W / 1e3,
+            "FORCED 950 K, 4.3 kg/s (reported, not gated): core {:.1} kW ({:+.1} % against 206 kW); \
+             reflector {:.1} degC, RPV {:.1} degC",
+            q_forced / 1e3,
+            100.0 * (q_forced / DESIGN_PASSIVE_HEAT_LOSS_W - 1.0),
+            forced.reflector_temperature().get::<degree_celsius>(),
+            forced.rpv_temperature().get::<degree_celsius>(),
         );
+
         assert!(
             rel(q_core, DESIGN_PASSIVE_HEAT_LOSS_W) < 0.25,
             "the geometry-derived chain must agree with the published HTR-10 \
-             surface-cooling duty to 25 %: got {q_core:.1} W against \
-             {DESIGN_PASSIVE_HEAT_LOSS_W:.1} W ({discrepancy:+.1} %). Do NOT fix \
-             this by tuning a conductance until it passes -- every leg is \
-             derived from geometry and material properties, so a failure means \
-             one of those is wrong, or the reference does not describe the same \
-             heat path."
+             surface-cooling duty to 25 %: got {q_core:.1} W ({discrepancy:+.1} %). Do NOT fix \
+             this by tuning a conductance until it passes."
         );
         assert!(
             rel(q_core, q_sink) < 1.0e-3,
-            "in equilibrium the heat leaving the core ({q_core:.1} W) must equal \
-             the heat reaching the RCCS ({q_sink:.1} W); a difference means the \
-             chain was not initialised at steady state"
+            "in equilibrium the heat leaving the core must equal the heat reaching the RCCS"
+        );
+        assert!(
+            q_forced >= q_core,
+            "adding the flow-dispersion leg in parallel cannot reduce the first leg's conductance"
         );
     }
 
-    /// **The passive path must not be able to freeze the plant.**
+    /// V&V (gh:#396): **the reflector and RPV capacities are derived** --
+    /// `m c_p(T)` from the annulus geometry, published densities and
+    /// Butland-Maddison graphite / Kim steel `c_p(T)` -- and they replace the
+    /// invented constants.
     ///
-    /// A conductance driven by `UA (T_hot - T_cold)` is self-limiting: as the
-    /// core approaches the sink the flow goes to zero, and it reverses sign
-    /// below it rather than continuing to extract heat. That property is what
-    /// makes this safe to subtract from the core source, so it is asserted
-    /// rather than assumed.
+    /// # Methodology
+    ///
+    /// Recompute the masses independently from the stated inputs --
+    /// graphite annulus `pi (1.67793^2 - 0.90^2) 4.70 - 1.513575 m^3` at
+    /// 1770 kg/m^3; boronated brick `pi (1.90^2 - 1.67793^2) 6.10 m^3` at
+    /// 1590; RPV shell `pi (2.20^2 - 2.10^2) 11.1 m^3` at the Kim steel's
+    /// 300 K density -- and require the module's masses to match to 1e-12.
+    /// Then print the capacities at the design-state node temperatures
+    /// against the deleted constants (1.8e8 and 6.0e7 J/K), and require the
+    /// secant capacity to reproduce the enthalpy change exactly.
+    ///
+    /// **Fails on the pre-change module**: the capacities were those two
+    /// constants, independent of `T` and of any mass.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Masses: graphite **49.7 t**, boronated brick **24.2 t**, RPV
+    /// **118.4 t** (Kim steel at 7894.2 kg/m^3). Capacities at the design-state
+    /// nodes (reflector 684.7 K, RPV 478.8 K): reflector **1.1115e8 J/K**
+    /// (where the invented value was 1.8e8: **-38 %**), RPV **6.3209e7 J/K**
+    /// (where the invented value was 6.0e7: +5 %; this one rests on the
+    /// invented 0.10 m wall). The secant capacity reproduces the enthalpy
+    /// change to 1e-12. A smaller reflector capacity shortens every passive
+    /// cooldown time constant it sets.
     #[test]
-    fn heat_flow_reverses_rather_than_over_cooling() {
-        let mut path = CoreToRccsPath::placeholder();
-        // Drive the bed BELOW the reflector the chain settled against.
-        let cold_bed = ThermodynamicTemperature::new::<degree_celsius>(100.0);
-        let q = path
-            .advance(Time::new::<second>(0.1), cold_bed)
-            .get::<watt>();
-        assert!(
-            q < 0.0,
-            "with the bed colder than the reflector, heat must flow INTO the \
-             core (q = {q:.1} W), not continue draining it"
+    fn the_reflector_and_rpv_capacities_are_derived() {
+        let pi = std::f64::consts::PI;
+        let graphite = 1770.0 * (pi * (1.67793f64.powi(2) - 0.81) * 4.70 - 1.513575);
+        let brick = 1590.0 * pi * (3.61 - 1.67793f64.powi(2)) * 6.10;
+        let steel_rho = solid_density(RPV_STEEL);
+        let rpv = steel_rho * pi * (2.2f64.powi(2) - 2.1f64.powi(2)) * 11.1;
+        let rel = |a: f64, b: f64| (a - b).abs() / b;
+        assert!(rel(reflector_graphite_mass().get::<kilogram>(), graphite) < 1e-12);
+        assert!(rel(boronated_brick_mass().get::<kilogram>(), brick) < 1e-12);
+        assert!(rel(rpv_mass().get::<kilogram>(), rpv) < 1e-12);
+
+        let path = design_path();
+        let (t_r, t_v) = (path.reflector_temperature(), path.rpv_temperature());
+        let c = path.coupling(
+            k(DESIGN_BED_TEMPERATURE_K),
+            k(DESIGN_BED_TEMPERATURE_K),
+            flow(0.0),
+            t_r,
+            t_v,
         );
+        println!(
+            "masses: graphite {:.1} t, boronated brick {:.1} t, RPV {:.1} t (steel rho {steel_rho:.1}); \
+             capacities at T_refl {:.1} K / T_rpv {:.1} K: reflector {:.4e} J/K (was 1.8e8 invented), \
+             RPV {:.4e} J/K (was 6.0e7 invented)",
+            graphite / 1e3,
+            brick / 1e3,
+            rpv / 1e3,
+            t_r.get::<kelvin>(),
+            t_v.get::<kelvin>(),
+            c.reflector_capacity,
+            c.rpv_capacity,
+        );
+        // The secant capacity is the enthalpy change, exactly.
+        let t_new = k(t_r.get::<kelvin>() + 50.0);
+        let secant = path
+            .coupling(k(950.0), k(950.0), flow(0.0), t_new, t_v)
+            .reflector_capacity
+            * 50.0;
+        let m = (reflector_graphite_mass() + boronated_brick_mass()).get::<kilogram>();
+        let dh = m
+            * (solid_enthalpy(REFLECTOR_GRAPHITE, t_new) - solid_enthalpy(REFLECTOR_GRAPHITE, t_r));
+        assert!(rel(secant, dh) < 1e-12);
     }
 
-    /// The balance-point identification must invert cleanly: feeding it a
-    /// power and a temperature must return the conductance that reproduces
-    /// that power.
+    /// V&V (gh:#395): **the bed -> reflector network is Achenbach's**, and
+    /// behaves the way its equations say.
+    ///
+    /// # Methodology
+    ///
+    /// 1. `K_r` equals `8 [2 - (1 - 2 d/D)^2]` (eq. (30)) for d = 0.06 m,
+    ///    D = 1.8 m, recomputed here.
+    /// 2. At the rated 4.3 kg/s and 750 K helium, the dispersion conductance
+    ///    equals `8 pi H lambda_g Re Pr / K_r` and the wall film `(1 - d/D)
+    ///    Re^0.61 Pr^(1/3) lambda_g / d x pi D H` (eq. (34)), both recomputed
+    ///    from the helium transport properties.
+    /// 3. At zero flow the dispersion branch is zero and the film has no
+    ///    resistance (`Re < 100`, `alpha_w -> infinity`), so the leg is the
+    ///    stagnant ZBS branch in series with the annulus half -- the old leg.
+    /// 4. The dispersion conductance rises with flow.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Rated 4.3 kg/s, 750 K helium: `Re = 2688.0` (inside eq. (34)'s
+    /// 50-2e4), `Pr = 0.6601`, `lambda_g = 0.2966 W/(m K)`, `K_r = 9.0311`.
+    /// The dispersion conductivity `lambda_k = 58.28 W/(m K)` is **2.9 times**
+    /// the stagnant ZBS `lambda_0 = 20.25`; `G_s = 1002.4 W/K`, `G_f = 2885.6
+    /// W/K`, wall film `5728.7 W/K` (`alpha_w = 514.2 W/(m^2 K)`). At zero
+    /// flow the leg reduces exactly to the pre-change leg.
     #[test]
-    fn the_balance_point_identification_inverts() {
-        let p = Power::new::<watt>(206_000.0);
-        let t = ThermodynamicTemperature::new::<degree_celsius>(250.0);
-        let ua = CoreToRccsPath::ua_from_balance_point(p, t).get::<watt_per_kelvin>();
-        let dt_k = t.get::<kelvin>() - CoreToRccsPath::rccs_boundary().get::<kelvin>();
+    fn the_bed_to_reflector_legs_follow_achenbach() {
+        let (d, big_d, h) = (0.06f64, 1.8f64, 1.97f64);
+        let k_r = 8.0 * (2.0 - (1.0 - 2.0 * d / big_d).powi(2));
+        assert!((radial_turbulent_peclet() - k_r).abs() < 1e-12);
+
+        let he = k(750.0);
+        let (kg, pr, mu) = crate::physics::pebble_bed::helium_transport(he);
+        let area = std::f64::consts::PI * big_d * big_d / 4.0;
+        let re = 4.3 / area * d / mu;
+        let g_f = ua_helium_to_near_wall_w_per_k(he, flow(4.3));
+        let expected_gf = 8.0 * std::f64::consts::PI * h * kg * re * pr / k_r;
+        let film = ua_wall_film_w_per_k(he, flow(4.3)).expect("rated flow is above Re = 100");
+        let expected_film = (1.0 - d / big_d) * re.powf(0.61) * pr.powf(1.0 / 3.0) * kg / d
+            * std::f64::consts::PI
+            * big_d
+            * h;
+        let g_s = ua_solid_to_near_wall_w_per_k(he);
+        println!(
+            "rated 4.3 kg/s, 750 K helium: Re = {re:.1}, Pr = {pr:.4}, lambda_g = {kg:.4} W/(m K), \
+             K_r = {k_r:.4}; lambda_k = {:.3} W/(m K) vs lambda_0 = {:.3}; G_s = {g_s:.1} W/K, \
+             G_f = {g_f:.1} W/K, wall film {film:.1} W/K (alpha_w = {:.1} W/(m^2 K))",
+            kg * re * pr / k_r,
+            outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity(he)
+                .get::<uom::si::thermal_conductivity::watt_per_meter_kelvin>(),
+            film / (std::f64::consts::PI * big_d * h),
+        );
+        assert!((g_f - expected_gf).abs() / expected_gf < 1e-12);
+        assert!((film - expected_film).abs() / expected_film < 1e-12);
+
+        assert!(ua_helium_to_near_wall_w_per_k(he, flow(0.0)) == 0.0);
+        assert!(ua_wall_film_w_per_k(he, flow(0.0)).is_none());
+        let refl = k(700.0);
         assert!(
-            ((ua * dt_k - p.get::<watt>()) / p.get::<watt>()).abs() < 1.0e-12,
-            "UA * dT must return the power it was identified from"
+            (ua_near_wall_to_reflector_w_per_k(he, flow(0.0), refl)
+                - 2.0 * ua_graphite_annulus_w_per_k(refl))
+            .abs()
+                < 1e-9
+        );
+        assert!(
+            ua_helium_to_near_wall_w_per_k(he, flow(2.0))
+                < ua_helium_to_near_wall_w_per_k(he, flow(4.3))
         );
     }
 }

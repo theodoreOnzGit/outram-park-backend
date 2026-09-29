@@ -358,6 +358,19 @@ mod tests {
     /// duty 15.3168 MW, passive loss 0.7345 MW, circulator work 0.0519 MW, and
     /// a cumulative ledger residual of -4.0e-4 J on 8.16e9 J of source.
     ///
+    /// ## Regenerated again 2026-09-29 (gh:#395, #396) -- the passive path in the bed's solve
+    ///
+    /// | t | power | bed | passive loss | reflector |
+    /// |---|---|---|---|---|
+    /// | 0.1 s | 134.832263 -> 134.831961 MW | 950.0941 -> 950.0948 K | 0.2541 -> 0.2859 MW | 684.74 -> 736.19 K |
+    /// | 100.1 s | 12.465065 -> 12.478451 MW | 1313.7537 -> 1313.7282 K | 0.7505 -> 0.8027 MW | 685.00 -> 736.58 K |
+    /// | 297.6 s | 16.115180 -> **16.125588 MW (+0.06 %)** | 1303.4671 -> 1303.4583 K | 0.7345 -> **0.7848 MW (+6.8 %)** | 685.53 -> 737.38 K |
+    ///
+    /// The passive loss at power rises by the Achenbach flow-dispersion and
+    /// wall-film legs (the bed -> reflector leg is more conductive under
+    /// forced flow), and the reflector opens in equilibrium with that, 51 K
+    /// hotter. Ledger residual at 300 s: +3.1e-4 J on 8.16e9 J.
+    ///
     /// **This is not the loosening the note below warns against.** When
     /// parallel execution lands and reduction order legitimately changes,
     /// *that* still wants its own separate, deliberately-tolerant comparison;

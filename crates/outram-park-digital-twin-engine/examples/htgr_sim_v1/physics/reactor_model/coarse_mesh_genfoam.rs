@@ -117,6 +117,7 @@ impl CoarseMeshGenFoamCore {
         pebble_conduction_power: Power,
         helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
+        passive_path: &mut crate::physics::decay_heat_removal::CoreToRccsPath,
     ) -> Power {
         self.fallback.step(
             dt,
@@ -124,6 +125,7 @@ impl CoarseMeshGenFoamCore {
             pebble_conduction_power,
             helium_inlet_enthalpy,
             helium_mass_flow,
+            passive_path,
         )
     }
 
@@ -146,13 +148,6 @@ impl CoarseMeshGenFoamCore {
     /// stay comparable with the other tiers' bed-average convention.
     pub fn temperature(&self) -> ThermodynamicTemperature {
         self.fallback.pebble_temperature()
-    }
-
-    /// Delegates to [`PebbleBedPorousMediaNode::helium_temperature`] -- in a
-    /// real implementation this becomes the mesh's outlet-boundary helium
-    /// temperature.
-    pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
-        self.fallback.helium_temperature()
     }
 
     /// Delegates to [`PebbleBedPorousMediaNode::helium_outlet_enthalpy`].
