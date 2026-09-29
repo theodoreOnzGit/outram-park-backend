@@ -168,7 +168,7 @@ pub struct BranchInfo {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -381,7 +381,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -562,7 +562,7 @@ pub struct RemoteInfo {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -820,7 +820,8 @@ match `remote`/`branch` exactly, **destroying every local change**.
 
 Concretely — abort whatever merge or rebase the failed pull left behind
 ([`abort_in_progress_in`]), `git fetch <remote> <branch>`,
-`git reset --hard FETCH_HEAD`, then `git clean -fd`.
+`git reset --hard FETCH_HEAD`, `git checkout -B <branch>` (so a detached
+corpus ends up on its branch), then `git clean -fd`.
 
 # This throws work away
 
@@ -1292,7 +1293,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -1526,7 +1527,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -1767,7 +1768,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -1983,7 +1984,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2194,7 +2195,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -2390,7 +2391,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -2588,7 +2589,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2793,7 +2794,7 @@ pub struct Artifact {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -2977,7 +2978,7 @@ pub struct ParsedDocument {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -3147,7 +3148,7 @@ pub struct SeriesBlock {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -3551,7 +3552,7 @@ pub struct Candidate {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -3757,7 +3758,7 @@ A project collection, identified by [`crate::graph::collection_node`].
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -3950,7 +3951,7 @@ pub struct LibraryCandidate {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -4322,7 +4323,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -4545,7 +4546,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -4741,7 +4742,7 @@ The concept is gone; drop the reference.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -4943,7 +4944,7 @@ pub struct LegacyCsvSection {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -5465,7 +5466,7 @@ Delete it and its subtree, dropping every reference to any of them.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -5693,7 +5694,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -5894,7 +5895,7 @@ pub struct Plan {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -6160,7 +6161,7 @@ One crate name per line.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -6353,7 +6354,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -6549,7 +6550,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -6884,7 +6885,7 @@ Every crate under `crates/`, creating mirrors that do not yet exist.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -7013,6 +7014,844 @@ of `crate_dir` and `all` is expected — the CLI enforces that.
 
 ```rust
 pub fn run(workspace_root: &std::path::Path, crate_dir: Option<&str>, all: bool, include_missing: bool, private: bool) -> io::Result<()> { /* ... */ }
+```
+
+## Module `ci`
+
+`kovan-cli ci` — the push CI's compile gate and test selection
+(GitHub #314, #414, #416; maintainer decisions 2026-09-29).
+
+# Why this exists
+
+On CI, **compiling costs far more than running tests** (measured in
+[`super::affected`]: over 150 minutes for the fast tier, almost all of it
+release compilation). So the push job is built around compiling each crate
+**once**:
+
+- **`top-crates`** prints the members no other member depends on. A single
+  `cargo check --release --lib --tests` over them builds every library in
+  the workspace exactly once, as a dependency (measured 2026-09-29: 15 of 46
+  members are top-level, and with `--tests` they reach 46/46). The list is
+  **computed on every run**, so a new top crate cannot be silently left
+  out.
+- **`smoke`** checks, and with `--run` runs, the short test selection in
+  `ci/smoke-tests.toml`: copies of chosen tests placed in **top** crates, so
+  running them reuses libraries the compile gate already built instead of
+  rebuilding a low-level crate as a test program. The check fails if a
+  listed test target, or the source it was copied from, no longer exists,
+  and if a host is not a top crate. The list cannot drift silently.
+- **`known-failures`** runs the `[[known_failure]]` entries (tests left
+  failing on purpose, marked `#[ignore = "known failing, #NNN"]`) **by exact
+  name**. A bare `--ignored` would also start the multi-hour tests that
+  `#[ignore]` marks elsewhere in this workspace. CI runs this in a job that
+  is allowed to fail, so the main job can be green again **without editing
+  any assertion**.
+
+# What the compile gate does not cover (accepted, #414)
+
+Low-level crates' own tests, examples and benches, and features no
+dependent enables, are not compiled on push.
+
+```rust
+pub mod ci { /* ... */ }
+```
+
+### Types
+
+#### Enum `CiCommand`
+
+`kovan-cli ci <subcommand>`.
+
+```rust
+pub enum CiCommand {
+    TopCrates {
+        root: Option<std::path::PathBuf>,
+        format: String,
+    },
+    Smoke {
+        root: Option<std::path::PathBuf>,
+        list: Option<std::path::PathBuf>,
+        run: bool,
+    },
+    KnownFailures {
+        root: Option<std::path::PathBuf>,
+        list: Option<std::path::PathBuf>,
+    },
+}
+```
+
+##### Variants
+
+###### `TopCrates`
+
+The workspace members no other member depends on. Prints `-p a -p b`
+(paste onto one `cargo check --release --lib --tests`), or one name
+per line with `--format list`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `root` | `Option<std::path::PathBuf>` | Workspace root (default: discovered). |
+| `format` | `String` | `cargo-args` (default) or `list`. |
+
+###### `Smoke`
+
+Check `ci/smoke-tests.toml` against the tree, and with `--run` run
+every `[[smoke]]` entry (`cargo test --release -p <crate> --test
+<test>`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `root` | `Option<std::path::PathBuf>` | Workspace root (default: discovered). |
+| `list` | `Option<std::path::PathBuf>` | The list (default: `ci/smoke-tests.toml` under the root). |
+| `run` | `bool` | Run the entries after checking them. |
+
+###### `KnownFailures`
+
+Run every `[[known_failure]]` entry by exact name, with `--ignored`.
+Exits non-zero if any fails. CI allows that job to fail.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `root` | `Option<std::path::PathBuf>` | Workspace root (default: discovered). |
+| `list` | `Option<std::path::PathBuf>` | The list (default: `ci/smoke-tests.toml` under the root). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **FromArgMatches**
+  - ```rust
+    fn from_arg_matches(__clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn from_arg_matches_mut(__clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn update_from_arg_matches(self: &mut Self, __clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<(), clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn update_from_arg_matches_mut<''b>(self: &mut Self, __clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<(), clap::Error> { /* ... */ }
+    ```
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Subcommand**
+  - ```rust
+    fn augment_subcommands<''b>(__clap_app: clap::Command) -> clap::Command { /* ... */ }
+    ```
+
+  - ```rust
+    fn augment_subcommands_for_update<''b>(__clap_app: clap::Command) -> clap::Command { /* ... */ }
+    ```
+
+  - ```rust
+    fn has_subcommand(__clap_name: &str) -> bool { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `SmokeEntry`
+
+One `[[smoke]]` entry.
+
+```rust
+pub struct SmokeEntry {
+    pub name: String,
+    pub krate: String,
+    pub test: String,
+    pub sources: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Short label, e.g. `"godiva"`. |
+| `krate` | `String` | Host crate. Must be a top crate. |
+| `test` | `String` | Test target in the host (`tests/<test>.rs` or `tests/<test>/main.rs`). |
+| `sources` | `Vec<String>` | Repo-relative paths of the originals the copy was taken from. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SmokeEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SmokeEntry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `KnownFailure`
+
+One `[[known_failure]]` entry.
+
+```rust
+pub struct KnownFailure {
+    pub krate: String,
+    pub test: String,
+    pub name: String,
+    pub issue: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `krate` | `String` | Host crate. |
+| `test` | `String` | Test target holding the test. |
+| `name` | `String` | The test's full path inside the target, e.g. `module::test_name`,<br>passed to libtest with `--exact`. |
+| `issue` | `u64` | The GitHub issue that tracks the failure. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KnownFailure { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KnownFailure) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `SmokeList`
+
+The parsed list.
+
+```rust
+pub struct SmokeList {
+    pub smoke: Vec<SmokeEntry>,
+    pub known_failures: Vec<KnownFailure>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `smoke` | `Vec<SmokeEntry>` |  |
+| `known_failures` | `Vec<KnownFailure>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SmokeList { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> SmokeList { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SmokeList) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `run`
+
+Dispatch a `ci` subcommand.
+
+```rust
+pub fn run(command: CiCommand) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `compute_top_crates`
+
+The members of the workspace at `root` that no other member depends on.
+
+```rust
+pub fn compute_top_crates(root: &std::path::Path) -> Result<Vec<String>, String> { /* ... */ }
+```
+
+#### Function `top_crates`
+
+Pure core of [`compute_top_crates`]: a member is top-level when nothing
+depends on it, i.e. it has no entry in the reverse-edge map (every table,
+target-specific ones included; see [`super::affected::dependency_names`]).
+
+```rust
+pub fn top_crates(members: &[String], rev: &std::collections::BTreeMap<String, std::collections::BTreeSet<String>>) -> Vec<String> { /* ... */ }
+```
+
+#### Function `parse_list`
+
+Parse `ci/smoke-tests.toml`. Pure, so malformed lists are testable.
+
+```rust
+pub fn parse_list(text: &str) -> Result<SmokeList, String> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_LIST`
+
+Default location of the smoke list, relative to the workspace root.
+
+```rust
+pub const DEFAULT_LIST: &str = "ci/smoke-tests.toml";
 ```
 
 ## Module `cost`
@@ -7222,7 +8061,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7409,7 +8248,7 @@ pub enum RootFinderArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7594,7 +8433,7 @@ pub enum LinearSolverArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7764,7 +8603,7 @@ pub enum NonlinearSolverArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -7940,7 +8779,7 @@ pub enum OdeSolverArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8107,7 +8946,7 @@ pub enum PdeSchemeArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8394,7 +9233,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -8717,7 +9556,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9037,7 +9876,7 @@ pub struct ToolSpec {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9191,7 +10030,7 @@ Binary missing (or `--force` was given): run `cargo install`.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -9574,7 +10413,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -9864,7 +10703,7 @@ pub enum KindArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10043,7 +10882,7 @@ pub enum LangArg {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10259,7 +11098,7 @@ pub struct Connection {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -10466,7 +11305,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -10767,7 +11606,7 @@ pub struct CorpusTopic {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -10981,7 +11820,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -11173,7 +12012,7 @@ Anything the other kinds do not describe.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -11379,7 +12218,7 @@ Restricted or local-only.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -11578,7 +12417,7 @@ pub struct CorpusLiterature {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -11762,7 +12601,7 @@ pub enum ConnectionOrigin {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -11942,7 +12781,7 @@ pub struct CorpusConnection {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -12285,7 +13124,7 @@ as one, or an existing repository at the path adopted as one.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -12501,7 +13340,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -12678,7 +13517,7 @@ pub struct CorporaSetup {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13158,7 +13997,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13339,7 +14178,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13525,7 +14364,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -13765,7 +14604,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -13993,7 +14832,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14197,7 +15036,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14433,7 +15272,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14615,7 +15454,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -14851,7 +15690,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -15078,7 +15917,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -15294,7 +16133,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -15494,7 +16333,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -15702,7 +16541,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -15913,7 +16752,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16098,7 +16937,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16358,7 +17197,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -16641,7 +17480,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -16838,7 +17677,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17153,7 +17992,7 @@ pub struct AutoArgs {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17399,7 +18238,7 @@ pub struct Startup {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -17637,7 +18476,7 @@ As scanned.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -17870,7 +18709,7 @@ pub struct PlotRaster {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -18089,7 +18928,7 @@ pub struct SyntheticPlotSpec {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -18324,7 +19163,7 @@ pub struct CellPos {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -18516,7 +19355,7 @@ pub struct CellRange {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -18692,7 +19531,7 @@ pub struct CellChange {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -18872,7 +19711,7 @@ pub enum Direction {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -19037,7 +19876,7 @@ pub struct CsvLoadError(/* private field */);
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -19335,7 +20174,7 @@ pub struct TableGrid {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -19628,7 +20467,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -19834,7 +20673,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -20037,7 +20876,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20226,7 +21065,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20420,7 +21259,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -20719,7 +21558,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -21089,7 +21928,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -21307,7 +22146,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -21524,7 +22363,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -21767,7 +22606,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -21970,7 +22809,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -22193,7 +23032,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -22432,7 +23271,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -22765,7 +23604,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -23111,7 +23950,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -23318,7 +24157,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -23525,7 +24364,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -23763,7 +24602,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -23951,7 +24790,7 @@ pub struct WikiLinkRef {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -24225,7 +25064,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -24425,7 +25264,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -24617,7 +25456,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -24851,7 +25690,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -25177,7 +26016,7 @@ so and offer the way out, rather than vanishing from the menu.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -25351,7 +26190,7 @@ pub struct LiteratureCard {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -25544,7 +26383,7 @@ pub struct Citation {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -25724,7 +26563,7 @@ pub struct BibCache {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -25873,7 +26712,7 @@ pub struct LinkCache {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26026,7 +26865,7 @@ pub struct MindmapState {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26256,7 +27095,7 @@ pub struct Point {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26443,7 +27282,7 @@ pub struct Bounds {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26636,7 +27475,7 @@ pub struct Camera {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -26831,7 +27670,7 @@ pub struct LayoutState {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -27153,7 +27992,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -27341,7 +28180,7 @@ pub struct MapNode {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -27523,7 +28362,7 @@ pub struct MapEdge {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -27708,7 +28547,7 @@ pub struct TypedEdge {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -27888,7 +28727,7 @@ pub enum DetailLevel {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -28064,7 +28903,7 @@ pub struct UnknownNodeError(pub String);
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -28365,7 +29204,7 @@ pub struct MindmapModel {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28596,7 +29435,7 @@ pub struct StarLayout {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -28793,7 +29632,7 @@ pub struct CanvasLayout {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -29240,7 +30079,7 @@ pub struct NavHistory<L> {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -29463,7 +30302,7 @@ The Kovan folder the user has open.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -29665,7 +30504,7 @@ corpus id.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -29897,7 +30736,7 @@ pub struct NodeId {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -30159,7 +30998,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -30332,6 +31171,8 @@ Turn page `page_index` of `doc` by `quarter_turns` x 90 degrees
 plus an appended update carrying the page with its new `/Rotate`. The
 page's own entry is set explicitly, so an inherited rotation is honoured
 as the starting point and other pages are untouched.
+
+Refuses a file that kopitiam-pdf had to repair on opening, as MuPDF does.
 
 ```rust
 pub fn rotate_page(doc: &kopitiam_pdf::mupdf::PdfDocument, page_index: usize, quarter_turns: i32) -> Result<Vec<u8>, String> { /* ... */ }
@@ -30518,7 +31359,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30714,7 +31555,7 @@ pub struct IngestPreview {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -30876,7 +31717,7 @@ pub struct IngestChoice {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31110,7 +31951,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31325,7 +32166,7 @@ pub struct PaperSession {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31621,7 +32462,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -31833,7 +32674,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -32033,7 +32874,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -32226,7 +33067,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -32413,7 +33254,7 @@ pub struct SectionContent {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -32912,7 +33753,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -33102,7 +33943,7 @@ pub struct UserRelation {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -33291,7 +34132,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -33536,7 +34377,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -33884,7 +34725,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -34088,7 +34929,7 @@ pub struct SaveSummary {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -34397,7 +35238,7 @@ pub struct ResearchRecordIndex {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -34625,7 +35466,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -34976,7 +35817,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -35165,7 +36006,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -35379,7 +36220,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -35586,7 +36427,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -35794,7 +36635,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -36003,7 +36844,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -36224,7 +37065,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -36554,7 +37395,7 @@ pub struct KovanRoot {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -36860,7 +37701,7 @@ anyone filed it there.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -37038,7 +37879,7 @@ pub struct RuntimeConcept {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -37312,6 +38153,14 @@ its maintainer, and Save never commits into it.
   `GIT_TERMINAL_PROMPT=0` makes a missing credential fail fast with Git's
   own message instead of hanging on a prompt no GUI window can answer.
 
+# Pull: the corpora follow the Kovan folder (GH issue #422)
+
+The reverse direction. After the Kovan folder is pulled, [`pull_corpora`]
+brings each downloaded corpus to its remote's branch tip, so a corpus
+another clone saved into does not fall behind and get refused by the next
+push. It only ever fast-forwards on its own; a corpus whose local work
+would be destroyed is reported, not overridden, and the GUI asks.
+
 ```rust
 pub mod save_push { /* ... */ }
 ```
@@ -37410,7 +38259,7 @@ The Kovan folder's own repository.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -37657,7 +38506,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -37840,7 +38689,7 @@ pub struct RepoPush {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -38034,7 +38883,7 @@ pub struct PushReport {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -38138,6 +38987,623 @@ pub struct PushReport {
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
+#### Enum `CorpusKind`
+
+A corpus [`pull_corpora`] considers, in the order it considers them.
+
+```rust
+pub enum CorpusKind {
+    Proprietary,
+    Open,
+    Standard,
+}
+```
+
+##### Variants
+
+###### `Proprietary`
+
+The private literature submodule.
+
+###### `Open`
+
+The user's open corpus.
+
+###### `Standard`
+
+The read-only standard corpus.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  The label the UI shows.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorpusKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorpusKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `CorpusPullOutcome`
+
+What [`pull_corpora`] did to one corpus.
+
+```rust
+pub enum CorpusPullOutcome {
+    Updated {
+        branch: String,
+        from: String,
+        to: String,
+    },
+    UpToDate {
+        branch: String,
+    },
+    Skipped {
+        reason: String,
+    },
+    NeedsConfirmation {
+        remote: String,
+        branch: String,
+        reason: String,
+    },
+    Failed {
+        message: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Updated`
+
+Moved from `from` to the remote's tip `to`, and left on `branch`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `branch` | `String` |  |
+| `from` | `String` |  |
+| `to` | `String` |  |
+
+###### `UpToDate`
+
+Already at the remote's tip; now on `branch` (it may have been
+detached at that same commit before).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `branch` | `String` |  |
+
+###### `Skipped`
+
+Not attempted: not downloaded here, no remote, no system `git`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reason` | `String` |  |
+
+###### `NeedsConfirmation`
+
+Following the remote would destroy local work (`reason` says which),
+so nothing was touched. The caller asks the user, and on "yes"
+overrides with [`crate::advanced_git::force_pull_in`] against
+`remote`/`branch`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `remote` | `String` |  |
+| `branch` | `String` |  |
+| `reason` | `String` |  |
+
+###### `Failed`
+
+A `git` step failed, with Git's words. Nothing was overridden.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `message` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorpusPullOutcome { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorpusPullOutcome) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CorpusPull`
+
+One corpus's result.
+
+```rust
+pub struct CorpusPull {
+    pub corpus: CorpusKind,
+    pub dir: std::path::PathBuf,
+    pub outcome: CorpusPullOutcome,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `corpus` | `CorpusKind` |  |
+| `dir` | `std::path::PathBuf` |  |
+| `outcome` | `CorpusPullOutcome` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn line(self: &Self) -> String { /* ... */ }
+  ```
+  One human-readable line, e.g. `Open corpus: updated main 1a2b3c4..5d6e7f8`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorpusPull { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorpusPull) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 ### Functions
 
 #### Function `push_after_save`
@@ -38152,6 +39618,36 @@ save before 2026-09-28) go up too.
 
 ```rust
 pub fn push_after_save(root: &crate::root::KovanRoot) -> PushReport { /* ... */ }
+```
+
+#### Function `pull_corpora`
+
+Bring every downloaded corpus to its remote's branch tip — run after the
+Kovan folder itself was pulled (GH issue #422; maintainer, 2026-09-29:
+*"when pulling from kovan corpus, i want the submodules to pull in and
+override the local one as well"*).
+
+Without this, a corpus that another clone saved into falls behind its
+remote, and the next [`push_after_save`] refuses it (its detached save
+does not contain the remote branch, so it cannot fast-forward).
+
+For each of the proprietary, open and standard corpus, when downloaded:
+fetch the tracked branch (`.gitmodules` `branch =`, else the remote's
+default — the same rule the push uses), then
+
+- **nothing local would be lost** (a clean tree, `HEAD` an ancestor of
+  the fetched tip): `git checkout -B <branch> FETCH_HEAD`. The corpus is
+  left *on the branch*, not detached, so the next save pushes cleanly.
+- **something would be lost** (uncommitted or untracked files, or commits
+  the remote does not have): nothing is touched, and the outcome is
+  [`CorpusPullOutcome::NeedsConfirmation`]. Overriding destroys work, so
+  it is the caller's to ask about (the #279 prompt), never done here.
+
+The gitlinks in the Kovan folder are not committed here; the next Save
+records the corpora where they now are.
+
+```rust
+pub fn pull_corpora(root: &crate::root::KovanRoot) -> Vec<CorpusPull> { /* ... */ }
 ```
 
 #### Function `normalize_url`
@@ -38288,7 +39784,7 @@ pub struct PdfJumpTarget {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **ErasedDestructor**
@@ -38487,7 +39983,7 @@ pub struct SyncController {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**
@@ -38736,7 +40232,7 @@ Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
     ```
 
 - **Eq**

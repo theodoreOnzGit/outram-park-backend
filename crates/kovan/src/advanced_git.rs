@@ -369,7 +369,8 @@ fn is_conflict(output: &str) -> bool {
 ///
 /// Concretely — abort whatever merge or rebase the failed pull left behind
 /// ([`abort_in_progress_in`]), `git fetch <remote> <branch>`,
-/// `git reset --hard FETCH_HEAD`, then `git clean -fd`.
+/// `git reset --hard FETCH_HEAD`, `git checkout -B <branch>` (so a detached
+/// corpus ends up on its branch), then `git clean -fd`.
 ///
 /// # This throws work away
 ///
@@ -394,6 +395,11 @@ pub fn force_pull_in(
     // so this works even where no remote-tracking ref exists (a folder set
     // up by `corpus_repos::clone`'s detached checkout, e.g.).
     run_git_in(dir, &["reset", "--hard", "FETCH_HEAD"])?;
+    // Leave the folder on `branch`, not detached: a corpus submodule is
+    // usually detached, and a save on a detached HEAD is refused by
+    // push-after-save when it cannot fast-forward (#422). The commit is the
+    // one just checked out, so no file changes.
+    run_git_in(dir, &["checkout", "-q", "-B", branch])?;
     run_git_in(dir, &["clean", "-fd"])?;
     Ok(format!(
         "{dir} now matches {remote}/{branch} exactly",
