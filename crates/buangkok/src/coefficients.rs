@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Freely usable dose coefficients from the US EPA Federal Guidance Reports,
 //! for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133, I-131, Cs-137,
-//! Ag-110m) plus Cs-137's short-lived daughter Ba-137m.
+//! Ag-110m) plus Cs-137's short-lived daughter Ba-137m, all ages. The two
+//! FGR-15 tables also carry the 18 further nuclides of Liu & Cao (2002)
+//! Tables 5 and 8, **Adult only** (younger ages NaN = missing), added
+//! 2026-09-29 for the gh:#379 cross-check -- the workspace's one source of
+//! FGR coefficients. The progeny table still holds only Cs-137 -> Ba-137m, so
+//! e.g. Kr-88 -> Rb-88 is not corrected for.
 //!
 //! **Not a port.** The pyDOSEIA port ([`crate::pydoseia`]) ships no
 //! coefficient data and takes caller-supplied tables in upstream's CSV layout.
@@ -189,10 +194,18 @@ mod tests {
             fgr11_inhalation_max_over_classes(&inh, "I-131", AgeBracket::Infant),
             None
         );
+        // ~~Sr-90 Adult~~ has a row since 2026-09-29 (the Liu & Cao release
+        // list, gh:#379, Adult only): a nuclide with no row, and an appended
+        // row's blank younger age, are the missing cases now.
         assert_eq!(
-            external_coefficient(&sub, &chains, "Sr-90", AgeBracket::Adult),
+            external_coefficient(&sub, &chains, "Pu-239", AgeBracket::Adult),
             None
         );
+        assert_eq!(
+            external_coefficient(&sub, &chains, "Sr-90", AgeBracket::Infant),
+            None
+        );
+        assert!(external_coefficient(&sub, &chains, "Sr-90", AgeBracket::Adult).is_some());
     }
 
     /// Cs-137's external coefficients carry Ba-137m at 0.944, through the

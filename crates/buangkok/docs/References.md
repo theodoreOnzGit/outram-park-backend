@@ -213,7 +213,12 @@ pass). They are not presented as authoritative values.
 
 `buangkok::coefficients` compiles in five CSVs from `reference/`, holding
 the coefficients for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133,
-I-131, Cs-137, Ag-110m) plus Cs-137's short-lived daughter Ba-137m. They are
+I-131, Cs-137, Ag-110m) plus Cs-137's short-lived daughter Ba-137m.
+**Added 2026-09-29 (gh:#379):** the two FGR-15 CSVs also carry the 18 further nuclides of Liu & Cao (2002) Tables 5 and 8 (Ar-41, Kr-83m, Kr-85m, Kr-87, Kr-88, Xe-131m, Xe-133m, Xe-135m, Xe-135, I-132..I-135, Sr-89, Sr-90, Cs-134, H-3, C-14), **Adult column only**, added 2026-09-29 for the gh:#379 cross-check.
+Those rows were extracted by `kovan-cli` and a deterministic regex; the
+method and its checks are in
+`crates/kovan-literature/derived/epa-fgr15-adult-external-coefficients.md`.
+The six rows both extractions share agreed exactly. They are
 returned as the pyDOSEIA port's own table types (`ExternalDcfTable`,
 `InhalationDcfTable`, `ProgenyChains`), so the port's lookups do the
 selecting. The maintainer asked for the dose-rate map on 2026-09-29.
