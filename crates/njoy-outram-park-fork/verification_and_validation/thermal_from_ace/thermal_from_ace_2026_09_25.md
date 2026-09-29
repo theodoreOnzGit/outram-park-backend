@@ -79,6 +79,12 @@ from ACE: cutoff 4.0000 eV, T = 20.00 K
 worst |diff| in total sigma vs the tape route: 0.952 % at 1.9862e-3 eV
 ```
 
+> **UPDATE 2026-09-29:** re-run after the writer's ITIX became `calcem`'s `xsi`
+> (THERMR's own quantity, see `acer_thermal_vs_njoy2016.md`): **1.282 % at
+> 1.1535e-3 eV**. The ACE side now carries NJOY's definition of σ_inel and the
+> tape route an analytic integral, so this difference is the two definitions'
+> gap, not a reader error; the test still passes.
+
 **0.952 % worst is the ACE grid, not an error in either route.** The ACE table
 carries 40 log-spaced incident energies where the tape's kernel is evaluated
 wherever it is asked; the disagreement is largest at 1.99 meV, between grid
