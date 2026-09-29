@@ -1721,12 +1721,24 @@ impl HtgrPlant {
             if st.vented_fraction > 0.0 {
                 self.release.vent_circulating(st.vented_fraction);
             }
-            let (f, _) = boon_lay::chemistry::kernel_hydrolysis::stored_gas_fraction(
+            let (f, validity) = boon_lay::chemistry::kernel_hydrolysis::stored_gas_fraction(
                 self.kinetics.fuel_temperature(),
                 uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(
                     st.steam_partial_pressure_pa,
                 ),
             );
+            // Named validity check (gh:#401 review, gh:#418): Eq. 5-2 was
+            // fitted at <= 1051 Pa; flag, log once, never cap.
+            if let Some(w) = self.water_ingress.as_mut() {
+                if w.note_hydrolysis(validity) {
+                    eprintln!(
+                        "htgr_sim_v1 WARNING: kernel hydrolysis (TECDOC-978 Eq. 5-2) evaluated \
+                         at {:.0} Pa steam, outside its 2.8-1051 Pa fit ({validity:?}); the \
+                         noble-gas burst is an extrapolation (gh:#418).",
+                        st.steam_partial_pressure_pa
+                    );
+                }
+            }
             self.release
                 .release_stored_noble_gas(f.get::<uom::si::ratio::ratio>());
         }
@@ -1957,6 +1969,7 @@ impl HtgrPlant {
         s.ingress_h2_percent = w.map_or(f64::NAN, |w| 100.0 * w.hydrogen_fraction());
         s.ingress_co_percent = w.map_or(f64::NAN, |w| 100.0 * w.co_fraction());
         s.ingress_vented_fraction = w.map_or(f64::NAN, |w| w.vented_fraction);
+        s.ingress_hydrolysis_out_of_range = w.is_some_and(|w| w.hydrolysis_out_of_range());
         s.riser_heat_mw = self.decay_heat_path.heat_to_risers().get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();

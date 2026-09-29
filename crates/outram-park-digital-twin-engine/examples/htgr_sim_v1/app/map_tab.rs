@@ -1854,6 +1854,15 @@ pub fn draw_map(
                 100.0 * s.ingress_vented_fraction
             ),
         );
+        if s.ingress_hydrolysis_out_of_range {
+            ui.colored_label(
+                Color32::from_rgb(200, 60, 20),
+                "Kernel-hydrolysis noble-gas burst EXTRAPOLATED: TECDOC-978 Eq. 5-2 was fitted \
+                 at <= 1 kPa of water vapour and is being used at hundreds of kPa, where it \
+                 releases the whole stored inventory of every exposed kernel. Kr/Xe releases \
+                 are over-stated (gh:#418).",
+            );
+        }
     }
     // The one puff-model configuration every basis and table below uses
     // (maintainer direction 2026-09-29; `map_puff_model`, gh:#384).

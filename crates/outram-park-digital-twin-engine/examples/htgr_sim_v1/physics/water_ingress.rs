@@ -145,6 +145,10 @@ pub struct WaterIngress {
     /// Whether the graphite-steam rate has ever been evaluated outside Wang &
     /// Sun's measured box.
     pub rate_extrapolated: bool,
+    /// The worst validity of the kernel-hydrolysis burst so far (TECDOC-978
+    /// Eq. 5-2, fitted at 2.8-1051 Pa of water vapour; see
+    /// [`Self::note_hydrolysis`]). `None` until it is first evaluated.
+    pub hydrolysis_validity: Option<boon_lay::chemistry::kernel_hydrolysis::Validity>,
     /// The operating pressure the ideal-gas scaling is referenced to \[Pa\].
     reference_pressure_pa: f64,
     /// `sum V_i / T_i` of the primary gas at the start \[m^3/K\].
@@ -192,6 +196,7 @@ impl WaterIngress {
             relief_chains_open: 0,
             vented_fraction: 0.0,
             rate_extrapolated: false,
+            hydrolysis_validity: None,
             reference_pressure_pa: pressure_pa,
             reference_volume_over_temperature: volume_over_temperature,
         }
@@ -294,6 +299,42 @@ impl WaterIngress {
         }
     }
 
+    /// Record the validity of one kernel-hydrolysis evaluation and keep the
+    /// worst. **Named validity check (gh:#401 review):** in this accident the
+    /// steam partial pressure is hundreds of kPa, far above Eq. 5-2's
+    /// 1051 Pa ceiling, so the burst is an extrapolation that clamps to the
+    /// whole stored inventory of every exposed kernel -- it drove Kr/Xe to
+    /// 500-1500x Liu & Cao Table 8 in the first run. The flag is logged once
+    /// (stderr) and shown on the Map tab; it is NOT capped or tuned
+    /// (gh:#418 tracks a model valid at these pressures). Returns whether this
+    /// is the first time the result left the fitted range.
+    pub fn note_hydrolysis(
+        &mut self,
+        validity: boon_lay::chemistry::kernel_hydrolysis::Validity,
+    ) -> bool {
+        use boon_lay::chemistry::kernel_hydrolysis::Validity as V;
+        let rank = |v: V| match v {
+            V::InsideFittedRange => 0,
+            V::Extrapolated => 1,
+            V::ClampedToWholeInventory => 2,
+        };
+        let before = self.hydrolysis_validity;
+        let worst = match before {
+            Some(b) if rank(b) >= rank(validity) => b,
+            _ => validity,
+        };
+        self.hydrolysis_validity = Some(worst);
+        rank(worst) > 0 && before.map_or(true, |b| rank(b) == 0)
+    }
+
+    /// Whether the kernel-hydrolysis burst has left its fitted range.
+    pub fn hydrolysis_out_of_range(&self) -> bool {
+        !matches!(
+            self.hydrolysis_validity,
+            None | Some(boon_lay::chemistry::kernel_hydrolysis::Validity::InsideFittedRange)
+        )
+    }
+
     /// Hydrogen mole fraction of the primary gas (Gao & Shi report 0.64 %).
     pub fn hydrogen_fraction(&self) -> f64 {
         self.hydrogen_mol / self.total_mol()
@@ -387,6 +428,21 @@ mod tests {
         let last = steps.last().unwrap();
         assert!((last.reactivity_dk_k - STEAM_REACTIVITY_AT_FULL_INGRESS).abs() < 1e-12);
         println!("cold: p {:.4} MPa after 129.9 kg", w.pressure_pa / 1e6);
+    }
+
+    /// The hydrolysis validity check keeps the worst flag, reports only the
+    /// first departure from the fitted range, and never un-flags (gh:#418).
+    #[test]
+    fn the_hydrolysis_validity_check_flags_once_and_keeps_the_worst() {
+        use boon_lay::chemistry::kernel_hydrolysis::Validity as V;
+        let mut w = WaterIngress::start(3.0e6, 210.0, 0.1);
+        assert!(!w.hydrolysis_out_of_range());
+        assert!(!w.note_hydrolysis(V::InsideFittedRange));
+        assert!(w.note_hydrolysis(V::ClampedToWholeInventory));
+        assert!(!w.note_hydrolysis(V::Extrapolated));
+        assert!(!w.note_hydrolysis(V::InsideFittedRange));
+        assert_eq!(w.hydrolysis_validity, Some(V::ClampedToWholeInventory));
+        assert!(w.hydrolysis_out_of_range());
     }
 
     /// The relief opens at 3.5 MPa and closes at 2.9 MPa (hysteresis).

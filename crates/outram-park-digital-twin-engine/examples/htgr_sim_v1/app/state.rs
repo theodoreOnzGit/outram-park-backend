@@ -176,6 +176,9 @@ pub struct HtgrSnapshot {
     pub ingress_h2_percent: f64,
     pub ingress_co_percent: f64,
     pub ingress_vented_fraction: f64,
+    /// Whether the kernel-hydrolysis burst has been evaluated outside its
+    /// TECDOC-978 fit (gh:#418); shown on the Map tab.
+    pub ingress_hydrolysis_out_of_range: bool,
     /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
     /// (`false`).
     ///
@@ -808,6 +811,7 @@ impl Default for HtgrSnapshot {
             ingress_h2_percent: f64::NAN,
             ingress_co_percent: f64::NAN,
             ingress_vented_fraction: f64::NAN,
+            ingress_hydrolysis_out_of_range: false,
             // ~~"Feedwater in AUTO at the published 440 degC ... the opening
             // state is exactly `physics::PlantCommands::default()`."~~
             // **CORRECTED 2026-09-22.** Two claims here were false. The

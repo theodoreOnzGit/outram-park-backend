@@ -25,6 +25,12 @@
 //! clamp is reported. The TECDOC itself notes the extrapolated line reaches
 //! complete release near 2 kPa at 770 degC.
 //!
+//! **Known limitation (gh:#418):** in an HTGR water-ingress accident the
+//! steam partial pressure is hundreds of kPa, three orders of magnitude above
+//! the fit. There the function returns [`Validity::ClampedToWholeInventory`]:
+//! every exposed kernel's whole stored noble gas. Callers must surface that
+//! flag, not swallow it; a model valid at those pressures is gh:#418.
+//!
 //! Not modelled: the stage-2 steady enhancement of `R/B` under continued
 //! water vapour (TECDOC-978 Eq. 5-3, the `h_o` factors), and iodine or metal
 //! release from hydrolysed kernels.
