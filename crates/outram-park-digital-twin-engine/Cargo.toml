@@ -19,6 +19,15 @@ categories.workspace = true
 # Android-portability claim and GUI deps are not confined to examples/.
 tampines.workspace = true
 nee_soon.workspace = true
+
+# REAL (non-dev) dependencies on the Monte Carlo stack, by maintainer direction
+# (2026-09-29: "digital twin engine can use outram-mc-libs/nee-soon as a
+# dependency ... so no dev there"). Both are already compiled beneath `nee_soon`,
+# so this adds no build work. First consumer: the HIGH-tier Godiva case in
+# `tests/ci_smoke/` (GitHub #415). `njoy-outram-park-fork` is named directly only
+# for `reference_data::reference_endf`, which `outram-mc-libs` does not re-export.
+outram-mc-libs.workspace = true
+njoy-outram-park-fork.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
 # REAL (non-dev) dependency: `components::TurbineVisual` renders
@@ -110,6 +119,9 @@ egui_extras.workspace = true
 # balance solve now uses outram-foam-basic-lib's pure-Rust dense LU `SquareMatrix`
 # (an OpenFOAM port) instead of a BLAS/LAPACK linear solver.
 [dev-dependencies]
+# `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
+# already compiled beneath `tampines`, so this adds no build work.
+outram-foam-multiphase.workspace = true
 teh-o-prke.workspace = true
 # tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
 # its generator model from the library, and libraries cannot see dev-deps); it

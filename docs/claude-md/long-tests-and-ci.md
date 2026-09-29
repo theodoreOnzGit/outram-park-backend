@@ -99,16 +99,40 @@ ran.** "Tests pass (quick-test; long tests not run)" is an honest report.
 change** — add the feature to the crate's `Cargo.toml` if it has none, and
 state the measured runtime in the `ignore` message. Do not guess; measure.
 
-### CI runs short on `develop` and long on `main`
+### CI: a compile gate plus a smoke set on `develop`; the full suite on demand
 
-| branch | workflow | command | `long-tests` |
+~~CI runs short on `develop` and long on `main`.~~ **CORRECTED 2026-09-29**:
+the `main` tier has **never run**. `main` has no `.github/workflows/`
+directory, so GitHub never registered `full-tests.yml` (`gh workflow list
+--all` lists only `fast tests` and `manual tests`). And the `develop` tier as
+it stood (`cargo quick-test` over the affected crates) was measured
+impractical: 1 success in 100 runs, 90 min average (GitHub #314). The
+maintainer disabled it on 2026-09-29 and chose this design (#414–#417):
+
+| branch | workflow | what runs | `long-tests` |
 |---|---|---|---|
-| `develop` | `.github/workflows/fast-tests.yml` | `cargo quick-test` | **off** |
-| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release` | **on** |
+| `develop` (push, PR) | `.github/workflows/fast-tests.yml` | **compile gate**: one `cargo test --release --no-run --lib --tests` over the TOP crates from `kovan-cli ci top-crates`, which builds every library once; then the **smoke set** in `ci/smoke-tests.toml` via `kovan-cli ci smoke --run`; on ubuntu, windows and macos | on (default features) |
+| `develop` | same file, `known-failures` job | `[[known_failure]]` entries by exact name, **allowed to fail** | — |
+| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release`, **never registered, never run** | on |
 | *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
 
-`manual-tests.yml` fills the gap the split leaves — running the FULL suite
-against `develop` on demand. It has **two** triggers because GitHub exposes
+- **The smoke set is the maintainer's selection** (2026-09-29): Godiva on the
+  HIGH tier from the repo's ENDF/B-VIII.0 tapes, Edwards, the outram-foam
+  cavity and the Sod shock tube. **That's all.** The tests are **copies**
+  hosted in top crates (`tests/ci_smoke/`), so running them reuses the
+  libraries the gate built. The originals stay authoritative, and `kovan-cli
+  ci smoke` fails if a source goes missing or a host is not a top crate.
+- **Adding to it** means a copy in a top crate plus an entry with a `why`. On
+  CI, compile time dominates, so a test in a low-level crate is expensive
+  there even when it runs in a second.
+- **A test left failing on purpose** is marked `#[ignore = "known failing,
+  #NNN"]` and listed as a `[[known_failure]]`. Never edit its assertion to go
+  green.
+- **Nothing on CI runs the long tests** (#293). Whether to add a nightly full
+  run on `develop` is open on #417.
+
+`manual-tests.yml` fills that gap: it runs the FULL suite against `develop`
+on demand. It has **two** triggers because GitHub exposes
 `workflow_dispatch` only for workflows present on the **default branch**, and
 `main` has no `.github` directory at all. The second trigger is a push to a
 `ci-run/**` branch, which a push event runs from the pushed ref itself:

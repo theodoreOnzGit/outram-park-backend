@@ -602,7 +602,11 @@ receipt.
   `cargo test --workspace --lib --tests --release`, and say which one you ran.
 - TUAS natural-circulation tests are very long: run them in parallel, never
   `--test-threads=1`, and a timeout is not a failure.
-- CI runs quick on `develop` and full on `main`.
+- ~~CI runs quick on `develop` and full on `main`.~~ **CORRECTED
+  2026-09-29**: the `main` tier has never run. CI on `develop` is a compile
+  gate over the top crates plus a four-case smoke set
+  (`ci/smoke-tests.toml`: Godiva HIGH tier, Edwards, cavity, Sod). The full
+  suite runs only on demand (`manual-tests.yml`).
 
 Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md).
 
