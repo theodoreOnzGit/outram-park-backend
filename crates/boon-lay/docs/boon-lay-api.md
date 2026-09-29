@@ -15219,6 +15219,12 @@ linearly, so `σ_t ∝ F_b` and Eq (1) gives `φ₁ ∝ F_b^m`. Going 11 % → 1
 FIMA should therefore raise `φ₁` by `(14/11)^m`, and the 4–9 % spherical
 band should sit well below the 11 % compact.
 
+*That last clause was this module's expectation, not the source's
+(checked 2026-09-29, GitHub #404).* The source groups the 11 % compacts
+**with** the 4–9 % spheres: Figure 21 labels them together as "up to 11 %
+FIMA", and the text puts the failure threshold between 11 % and 14 %. See
+the test `the_burnup_ordering_at_1600c_matches_and_the_level_does_not`.
+
 **Measured, 2026-09-24**, 300 h at 1600 °C, `T_B = 776 °C`, everything else
 as [`super::particle_with`] builds it:
 
