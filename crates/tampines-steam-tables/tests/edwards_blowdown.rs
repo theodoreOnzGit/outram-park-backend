@@ -1,5 +1,15 @@
 //! # V&V: Edwards–O'Brien pipe blowdown on `TampinesSteamArray`
 //!
+//! **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
+//! The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+//! under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
+//! `Gauss linear`), which the array no longer uses by default. Under the bounded
+//! default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
+//! run panics; under upwind the hybrid-ringing check fails. The linear scheme
+//! likely **masks** the break-cell over-drain rather than resolving it. The pin is
+//! kept deliberately, as a save point. Future work: gh:#406. See
+//! `apply_he_scheme_knob` for the measured table.
+//!
 //! ## Methodology
 //!
 //! This is a verification & validation tutorial case that drives OUR current
@@ -135,6 +145,15 @@ use tampines_steam_tables::{
 /// The energy-convection scheme this V&V case runs with: **pinned to
 /// [`EnergyConvectionScheme::Linear`], the pre-2026-09-29 operator, bit for
 /// bit** -- an explicit, visible choice, not the array's default.
+///
+/// **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
+/// The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+/// under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
+/// `Gauss linear`), which the array no longer uses by default. Under the bounded
+/// default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
+/// run panics; under upwind the hybrid-ringing check fails. The linear scheme
+/// likely **masks** the break-cell over-drain rather than resolving it. The pin is
+/// kept deliberately, as a save point. Future work: gh:#406.
 ///
 /// **Why it is pinned (2026-09-29, gh:#319).** `TampinesSteamArray`'s energy
 /// convection moved from the unbounded linear `fvc::div` to a bounded van Leer
