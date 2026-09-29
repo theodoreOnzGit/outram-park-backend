@@ -22,9 +22,9 @@
 //! ```
 //!
 //! `NXS(3) = NIL` is `nang - 1`, `NXS(4) = NIEB`, `NXS(5) = IDPNC` selects the
-//! elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed; ~~all read~~
-//! **CORRECTED 2026-09-29**: 5 is refused, having been silently decoded as 3 —
-//! see the IDPNC match below), and
+//! elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed; 5 was silently
+//! decoded as 3 until 2026-09-29, then refused, and is now read as OpenMC reads
+//! it — see the IDPNC match below), and
 //! `NXS(7) = IFENG` the inelastic form.
 //!
 //! # ~~IFENG=2 is REFUSED, not approximated~~ **CORRECTED 2026-09-29 — read (GitHub #365 audit)**
@@ -92,6 +92,22 @@ pub enum AceThermalElastic {
         energy: Vec<f64>,
         /// Cumulative `S*E` \[eV·b\] at each edge.
         cumulative: Vec<f64>,
+    },
+    /// `IDPNC = 5` — **mixed**: coherent (ITCE/ITCX) plus incoherent
+    /// (ITCEI/ITCXI/ITCAI, `NXS(8)` = cosines − 1). GitHub #365 audit.
+    Mixed {
+        /// Coherent Bragg edges \[eV\].
+        coh_energy: Vec<f64>,
+        /// Coherent cumulative `S*E` \[eV·b\].
+        coh_cumulative: Vec<f64>,
+        /// Incoherent incident energies \[eV\].
+        inc_energy: Vec<f64>,
+        /// Incoherent σ_el \[barn\].
+        inc_xs: Vec<f64>,
+        /// Incoherent cosines, row-major.
+        inc_cosines: Vec<f64>,
+        /// Incoherent cosines per energy.
+        inc_n_mu: usize,
     },
     /// `IDPNC = 3` — incoherent elastic: σ_el(E) plus equally-probable cosines.
     Incoherent {
@@ -334,19 +350,64 @@ pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
     let idpnc = t.nxs[nxs::IDPNC];
     let elastic = match idpnc {
         0 => AceThermalElastic::None,
-        // **IDPNC = 5 (mixed coherent + incoherent) is refused, by name** --
-        // GitHub #365 audit. It used to fall into the incoherent branch below,
-        // which reads the *coherent* ITCE/ITCX Bragg data (cumulative S*E in
-        // MeV.b) as an incoherent cross section in barns, and never reads the
-        // incoherent ITCEI/ITCXI/ITCAI blocks: silently wrong physics.
-        // OpenMC reads both parts (`openmc/data/thermal.py:909-942`). No
-        // evaluation in `reference-data/endf/` is LTHR = 3, so there is no
-        // table to verify a port against; refusing is the honest state.
+        // **IDPNC = 5 (mixed coherent + incoherent)** -- GitHub #365 audit.
+        // ~~refused~~ (and before that silently decoded as incoherent). Read
+        // as OpenMC reads it (`openmc/data/thermal.py:897-942`): the coherent
+        // part from ITCE/ITCX exactly as for IDPNC = 4, the incoherent part
+        // from JXS(7) (count, energies, then sigma contiguous, as upstream reads
+        // it from `jxs[7]` alone) with NXS(8) + 1 cosines per energy at JXS(9).
         5 => {
-            return Err(NjoyError::NotPorted(
-                "ACE thermal table with mixed coherent + incoherent elastic \
-                 (IDPNC = 5): the incoherent part (ITCEI/ITCXI/ITCAI) is not read",
-            ))
+            let itce = t.jxs[jxs::ITCE];
+            let (ce, cc) = {
+                let eat = (itce - 1) as usize;
+                need(t, eat, 1, "ITCE count")?;
+                let n = t.xss[eat] as usize;
+                need(t, eat + 1, 2 * n, "ITCE/ITCX coherent")?;
+                let itcx = t.jxs[jxs::ITCX];
+                let cat = if itcx > 0 {
+                    (itcx - 1) as usize
+                } else {
+                    eat + 1 + n
+                };
+                need(t, cat, n, "ITCX values")?;
+                (
+                    t.xss[eat + 1..eat + 1 + n]
+                        .iter()
+                        .map(|e| e * EV_PER_MEV)
+                        .collect(),
+                    t.xss[cat..cat + n].iter().map(|v| v * EV_PER_MEV).collect(),
+                )
+            };
+            let iat = t.jxs[jxs::ITCEI];
+            if iat <= 0 {
+                return Err(NjoyError::EndfParse(
+                    "thermal ACE IDPNC = 5 with no incoherent block (JXS(7) = 0)".into(),
+                ));
+            }
+            let iat = (iat - 1) as usize;
+            need(t, iat, 1, "ITCEI count")?;
+            let n = t.xss[iat] as usize;
+            need(t, iat + 1, 2 * n, "ITCEI/ITCXI incoherent")?;
+            let n_mu = (t.nxs[nxs::NCLI] + 1).max(0) as usize;
+            let itcai = t.jxs[jxs::ITCAI];
+            if n_mu == 0 || itcai <= 0 {
+                return Err(NjoyError::EndfParse(
+                    "thermal ACE IDPNC = 5: the incoherent part has no cosines".into(),
+                ));
+            }
+            let aat = (itcai - 1) as usize;
+            need(t, aat, n * n_mu, "ITCAI cosines")?;
+            AceThermalElastic::Mixed {
+                coh_energy: ce,
+                coh_cumulative: cc,
+                inc_energy: t.xss[iat + 1..iat + 1 + n]
+                    .iter()
+                    .map(|e| e * EV_PER_MEV)
+                    .collect(),
+                inc_xs: t.xss[iat + 1 + n..iat + 1 + 2 * n].to_vec(),
+                inc_cosines: t.xss[aat..aat + n * n_mu].to_vec(),
+                inc_n_mu: n_mu,
+            }
         }
         3 | 4 => {
             let itce = t.jxs[jxs::ITCE];
@@ -403,7 +464,7 @@ pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
         other => {
             return Err(NjoyError::EndfParse(format!(
                 "thermal ACE: IDPNC = {other} is not an elastic mode this reads \
-                 (0 none, 3 incoherent, 4 coherent; 5 mixed is refused above). Refusing rather than \
+                 (0 none, 3 incoherent, 4 coherent, 5 mixed). Refusing rather than \
                  dropping the elastic channel silently, which would remove real \
                  scattering from a lattice."
             )));

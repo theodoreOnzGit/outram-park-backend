@@ -1711,6 +1711,50 @@ impl Nuclide {
                 pairs,
             });
         }
+        // **Absorption levels without their lump** -- GitHub #365 audit. The
+        // pointwise tier counts (n,p)/(n,d)/(n,t)/(n,He-3)/(n,alpha) through
+        // the lumps MT=103..107 only. A table carrying the levels 600..849
+        // but not the lump (legal ACE; NJOY happens to write the lumps) used to
+        // lose that absorption into the elastic remainder. OpenMC builds the
+        // lump from its components in that case (`neutron.py:617-630`), so the
+        // lump is synthesised here as the sum of the levels present.
+        for (lump, lo, hi) in [
+            (103, 600, 649),
+            (104, 650, 699),
+            (105, 700, 749),
+            (106, 750, 799),
+            (107, 800, 849),
+        ] {
+            if ace.reactions.iter().any(|r| r.mt == lump) {
+                continue;
+            }
+            let levels: Vec<&njoy_outram_park_fork::acer::ce_decode::AceReaction> = ace
+                .reactions
+                .iter()
+                .filter(|r| (lo..=hi).contains(&r.mt))
+                .collect();
+            let Some(first) = levels.iter().map(|r| r.threshold_index).min() else {
+                continue;
+            };
+            let n = ace.energy.len();
+            let mut sum = vec![0.0; n];
+            for r in &levels {
+                for (k, x) in r.xs.iter().enumerate() {
+                    sum[r.threshold_index + k] += x;
+                }
+            }
+            sections.push(ReconrSection {
+                lr: 0,
+                mt: MtReaction::from_any(lump),
+                qi: levels[0].q_value,
+                pairs: ace.energy[first..n]
+                    .iter()
+                    .copied()
+                    .zip(sum[first..n].iter().copied())
+                    .collect(),
+            });
+        }
+
         // **Fission from the partials (GitHub #366).** U-234's ACE table has
         // MT=19/20/21/38 and no MT=18; the pointwise tier reads fission from
         // MT=18 only, so the nuclide could not fission at all on the ACE route

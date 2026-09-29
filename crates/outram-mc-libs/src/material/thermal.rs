@@ -303,6 +303,11 @@ pub enum ThermalElastic {
     /// **Incoherent elastic** — hydrogenous solids where the bound proton
     /// scatters incoherently off a rigid lattice: H in ZrH, polyethylene.
     Incoherent(IncoherentElasticTable),
+    /// **Mixed** coherent + incoherent elastic (ENDF LTHR = 3, ACE IDPNC = 5).
+    /// σ is the sum; a scatter picks the coherent part with probability
+    /// σ_coh/(σ_coh + σ_inc), as OpenMC's `MixedElasticAE::sample_dist`
+    /// (`src/secondary_thermal.cpp`). GitHub #365 audit.
+    Mixed(CoherentElasticTable, IncoherentElasticTable),
 }
 
 #[derive(Debug, Clone)]
@@ -461,6 +466,7 @@ impl ThermalElastic {
             Self::None => 0.0,
             Self::Coherent(t) => t.cross_section(e),
             Self::Incoherent(t) => t.cross_section(e),
+            Self::Mixed(c, i) => c.cross_section(e) + i.cross_section(e),
         }
     }
 
@@ -471,6 +477,14 @@ impl ThermalElastic {
             Self::None => None,
             Self::Coherent(t) => t.sample(e, seed),
             Self::Incoherent(t) => t.sample(e, seed),
+            Self::Mixed(c, i) => {
+                let (xc, xi) = (c.cross_section(e), i.cross_section(e));
+                if prn(seed) * (xc + xi) < xc {
+                    c.sample(e, seed)
+                } else {
+                    i.sample(e, seed)
+                }
+            }
         }
     }
 
@@ -481,6 +495,7 @@ impl ThermalElastic {
             Self::None => "none",
             Self::Coherent(_) => "coherent elastic",
             Self::Incoherent(_) => "incoherent elastic",
+            Self::Mixed(..) => "mixed coherent + incoherent elastic",
         }
     }
 }
@@ -730,6 +745,25 @@ impl ThermalScattering {
                 cosines,
                 n_mu,
             }),
+            AceThermalElastic::Mixed {
+                coh_energy,
+                coh_cumulative,
+                inc_energy,
+                inc_xs,
+                inc_cosines,
+                inc_n_mu,
+            } => ThermalElastic::Mixed(
+                CoherentElasticTable {
+                    edges_ev: coh_energy,
+                    s_cum: coh_cumulative,
+                },
+                IncoherentElasticTable {
+                    e_grid: inc_energy,
+                    sigma: inc_xs,
+                    cosines: inc_cosines,
+                    n_mu: inc_n_mu,
+                },
+            ),
         };
         Ok(Self {
             name: name.to_string(),
