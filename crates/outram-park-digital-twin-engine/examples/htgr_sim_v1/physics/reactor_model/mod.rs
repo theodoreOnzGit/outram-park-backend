@@ -364,6 +364,7 @@ mod tests {
         let path = crate::physics::decay_heat_removal::CoreToRccsPath::new_at_steady_state(
             one_node.temperature(),
             one_node.temperature(),
+            ThermodynamicTemperature::new::<kelvin>(523.15),
             flow,
         );
         let (mut p1, mut p2, mut p3) = (path, path, path);
