@@ -198,11 +198,7 @@ pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
             plume_clock_offset: Time::new::<second>(s.plume_clock_offset_s),
             weighting: s.map_field_weighting,
         },
-        scenario: if s.circulator_tripped {
-            crate::physics::Scenario::Lofc
-        } else {
-            crate::physics::Scenario::Normal
-        },
+        scenario: crate::physics::scenario_from(s.circulator_tripped, s.water_ingress_triggered),
         secondary: SecondaryCommands {
             feedwater: if s.feedwater_manual {
                 FeedwaterCommand::Manual {
@@ -617,6 +613,9 @@ impl HtgrSimApp {
         match action {
             map_tab::MapAction::None => {}
             map_tab::MapAction::ResetPlant => self.restart_simulation(),
+            map_tab::MapAction::StartWaterIngress => {
+                self.physics.update(|s| s.water_ingress_triggered = true)
+            }
         }
     }
 }

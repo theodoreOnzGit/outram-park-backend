@@ -231,7 +231,7 @@ fn design() -> Htr10DesignPoint {
 }
 
 /// Primary helium pressure \[Pa\]: 3.0 MPa (published, via [`design`]).
-fn loop_pressure_pa() -> f64 {
+pub fn loop_pressure_pa() -> f64 {
     design().primary_pressure.get::<pascal>()
 }
 

@@ -690,6 +690,16 @@ pub struct TrisoAtopsReleaseChannel {
     /// will suffice"). The bishan CV stays in the tree for when it is taken
     /// up again.
     building_credit: bool,
+    /// Atoms per tracked nuclide vented from the circulating pool by an
+    /// accident's relief valves since the last evaluation (gh:#401); they go
+    /// up the stack at the next evaluation as a mean rate over the interval.
+    vented_since_evaluation: Vec<f64>,
+    /// Activity released up the stack so far, per tracked nuclide \[Bq\],
+    /// counted at the moment of release (leak + vent; the uncredited path).
+    cumulative_stack_release_bq: Vec<f64>,
+    /// The stored-gas fraction of the exposed kernels' noble gas already
+    /// released by kernel hydrolysis (gh:#401), so a burst is applied once.
+    stored_gas_released: f64,
     /// Primary loop mass flow the plate-out rate is formed at. Set by the
     /// plant every step ([`Self::set_primary_flow`]); the rated 4.3 kg/s until
     /// then.
@@ -729,6 +739,9 @@ impl TrisoAtopsReleaseChannel {
             pools: None,
             building: None,
             building_credit: false,
+            vented_since_evaluation: Vec::new(),
+            cumulative_stack_release_bq: Vec::new(),
+            stored_gas_released: 0.0,
             primary_flow: super::pebble_bed::nominal_helium_flow(),
         }
     }
@@ -858,11 +871,27 @@ impl TrisoAtopsReleaseChannel {
                 })
                 .collect(),
         };
+        let n = releases.len();
+        self.vented_since_evaluation.resize(n, 0.0);
+        self.cumulative_stack_release_bq.resize(n, 0.0);
         for (i, (release, pool)) in releases.iter_mut().zip(pools.iter()).enumerate() {
             release.set_pools(*pool);
             match building.get(i) {
                 Some(b) => release.set_building(*b, building_parameters),
                 None => release.set_uncredited_stack(),
+            }
+            // What went up the stack over the interval: the leak (its exact
+            // integral, uncredited) plus any accident venting (gh:#401),
+            // counted at release; the venting also as a mean rate.
+            let lam = release.decay_constant.get::<hertz>();
+            let leaked = leaked_before.get(i).map_or(0.0, |b| pool.leaked - b);
+            let vented = std::mem::take(&mut self.vented_since_evaluation[i]);
+            let leak_to_stack = if self.building_credit { 0.0 } else { leaked };
+            self.cumulative_stack_release_bq[i] += (leak_to_stack + vented) * lam;
+            if let Some(a) = release.absolute.as_mut() {
+                if dt > 0.0 {
+                    a.stack_release_rate += vented * lam / dt;
+                }
             }
         }
         self.pools = Some(pools);
@@ -872,6 +901,83 @@ impl TrisoAtopsReleaseChannel {
         self.evaluated_at = Some(stack);
         self.last_evaluated_s = Some(sim_time_s);
         true
+    }
+
+    /// **Accident (gh:#401): liquid water washes the steam generator's share
+    /// of each element's plate-out back into the circulating pool**, once.
+    /// `share(z)` is that share (`None` = not published, nothing moved).
+    /// Returns whether anything was applied (false before the first
+    /// evaluation, when there are no pools yet).
+    pub fn wash_off_plate_out(&mut self, share: impl Fn(u32) -> Option<f64>) -> bool {
+        let Some(pools) = self.pools.as_mut() else {
+            return false;
+        };
+        for (pool, r) in pools.iter_mut().zip(self.latest.iter()) {
+            if let Some(f) = share(r.z) {
+                let moved = pool.plate_out * f.clamp(0.0, 1.0);
+                pool.plate_out -= moved;
+                pool.circulating += moved;
+            }
+        }
+        true
+    }
+
+    /// **Accident (gh:#401): vent `fraction` of the primary gas**, and with it
+    /// that fraction of every circulating pool, up the stack (building not
+    /// credited; gh:#409). Applied to the pools now; reported as stack rate
+    /// and cumulative release at the next evaluation.
+    pub fn vent_circulating(&mut self, fraction: f64) {
+        let Some(pools) = self.pools.as_mut() else {
+            return;
+        };
+        self.vented_since_evaluation.resize(pools.len(), 0.0);
+        for (pool, vented) in pools
+            .iter_mut()
+            .zip(self.vented_since_evaluation.iter_mut())
+        {
+            let moved = pool.circulating * fraction.clamp(0.0, 1.0);
+            pool.circulating -= moved;
+            *vented += moved;
+        }
+    }
+
+    /// **Accident (gh:#401): stored noble gas released by kernel hydrolysis.**
+    /// `cumulative_fraction` is TECDOC-978 Eq. 5-2's stored-gas fraction at
+    /// the current conditions; only its rise above what has already been
+    /// released is applied, to the Kr and Xe of the **exposed** kernels --
+    /// the free uranium plus the in-service failed particles at the kernel
+    /// temperature of the latest evaluation (`f_hm + f_inc`,
+    /// [`Htr10TrisoAtopsInputs::fractions_at`]) -- as atoms added to the
+    /// circulating pool. Returns the atoms added, summed.
+    pub fn release_stored_noble_gas(&mut self, cumulative_fraction: f64) -> f64 {
+        let (Some(pools), Some(stack)) = (self.pools.as_mut(), self.evaluated_at) else {
+            return 0.0;
+        };
+        let rise = (cumulative_fraction.clamp(0.0, 1.0) - self.stored_gas_released).max(0.0);
+        if rise == 0.0 {
+            return 0.0;
+        }
+        self.stored_gas_released += rise;
+        let f = Htr10TrisoAtopsInputs::fractions_at(stack.kernel, 0.0);
+        let exposed = f.heavy_metal + f.incremental;
+        let mut added = 0.0;
+        for (pool, r) in pools.iter_mut().zip(self.latest.iter()) {
+            let noble = matches!(r.z, 36 | 54);
+            if let (true, Some(inventory_bq)) = (noble, r.core_inventory_bq) {
+                let atoms = rise * exposed * inventory_bq / r.decay_constant.get::<hertz>();
+                pool.circulating += atoms;
+                added += atoms;
+            }
+        }
+        added
+    }
+
+    /// Activity released up the stack so far per tracked nuclide \[Bq\],
+    /// counted at release, in [`TRACKED_NUCLIDES`] order (empty before the
+    /// first evaluation). Includes the normal leak.
+    #[cfg(test)] // read by the water-ingress V&V
+    pub fn cumulative_stack_release_bq(&self) -> &[f64] {
+        &self.cumulative_stack_release_bq
     }
 
     /// The live pools \[atoms\], one per tracked nuclide, `None` before the
@@ -1807,6 +1913,56 @@ mod tests {
         );
         assert!(after.circulating_activity > before.circulating_activity);
         assert!(ch.pools().unwrap().iter().all(|p| p.leaked > 0.0));
+    }
+
+    /// **The accident pool operations move atoms, never make or lose them**
+    /// (gh:#401): wash-off moves the SG share of plate-out into the
+    /// circulating pool exactly (Cs 73 %, I 100 %, Ag untouched); venting
+    /// removes a fraction of circulating that then appears, as activity, in
+    /// the cumulative stack release at the next evaluation; the stored-gas
+    /// burst touches only Kr and Xe and is applied once.
+    #[test]
+    fn the_accident_pool_operations_conserve_atoms() {
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = TrisoAtopsReleaseChannel::kernel_and_graphite(k(1200.0), k(950.0));
+        let mut ch = channel();
+        ch.update(0.0, Some(stack));
+        let before: Vec<PrimaryPools> = ch.pools().unwrap().to_vec();
+        assert!(
+            ch.wash_off_plate_out(super::super::water_ingress::steam_generator_share_of_plate_out)
+        );
+        for ((b, a), r) in before.iter().zip(ch.pools().unwrap()).zip(ch.latest()) {
+            let moved = a.circulating - b.circulating;
+            assert!((moved - (b.plate_out - a.plate_out)).abs() <= 1e-9 * b.plate_out.max(1.0));
+            match r.name {
+                "Cs-137" => assert!((moved - 0.73 * b.plate_out).abs() <= 1e-9 * b.plate_out),
+                "I-131" => assert!(a.plate_out.abs() <= 1e-9 * b.plate_out),
+                _ => assert_eq!(moved, 0.0, "{}", r.name),
+            }
+        }
+        let circ: Vec<f64> = ch.pools().unwrap().iter().map(|p| p.circulating).collect();
+        let released_before = ch.cumulative_stack_release_bq().to_vec();
+        ch.vent_circulating(0.25);
+        for (p, c) in ch.pools().unwrap().iter().zip(&circ) {
+            assert!((p.circulating - 0.75 * c).abs() <= 1e-12 * c.max(1.0));
+        }
+        ch.update(1.0, Some(stack));
+        for (i, r) in ch.latest().iter().enumerate() {
+            let vented_bq = 0.25 * circ[i] * r.decay_constant.get::<hertz>();
+            let rise = ch.cumulative_stack_release_bq()[i] - released_before[i];
+            assert!(
+                rise >= vented_bq * (1.0 - 1e-12),
+                "{}: {rise:e} < {vented_bq:e}",
+                r.name
+            );
+        }
+        let added = ch.release_stored_noble_gas(0.5);
+        assert!(added > 0.0);
+        assert_eq!(
+            ch.release_stored_noble_gas(0.4),
+            0.0,
+            "applied once, never reversed"
+        );
     }
 
     /// **Building not credited by default (gh:#409):** the stack rate IS the

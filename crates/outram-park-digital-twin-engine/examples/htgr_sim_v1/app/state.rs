@@ -163,6 +163,19 @@ pub struct HtgrSnapshot {
     /// bounded by the circulator's 0.3 kg/s regulating floor, so it cannot
     /// express a stopped blower. See `physics::Scenario`.
     pub circulator_tripped: bool,
+    /// Operator has started the **water-ingress** accident (gh:#401) from the
+    /// Map tab. A control input; see `physics::Scenario::WaterIngress`.
+    pub water_ingress_triggered: bool,
+    /// Water-ingress readouts (gh:#401), `NAN` unless the accident runs:
+    /// primary pressure \[MPa\], steam in the primary \[kg\], graphite
+    /// gasified \[kg\], H2 and CO mole fractions \[%\], fraction of the
+    /// primary gas vented.
+    pub ingress_pressure_mpa: f64,
+    pub ingress_steam_kg: f64,
+    pub ingress_graphite_corroded_kg: f64,
+    pub ingress_h2_percent: f64,
+    pub ingress_co_percent: f64,
+    pub ingress_vented_fraction: f64,
     /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
     /// (`false`).
     ///
@@ -788,6 +801,13 @@ impl Default for HtgrSnapshot {
             control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
             // The blower runs at startup; the operator trips it deliberately.
             circulator_tripped: false,
+            water_ingress_triggered: false,
+            ingress_pressure_mpa: f64::NAN,
+            ingress_steam_kg: f64::NAN,
+            ingress_graphite_corroded_kg: f64::NAN,
+            ingress_h2_percent: f64::NAN,
+            ingress_co_percent: f64::NAN,
+            ingress_vented_fraction: f64::NAN,
             // ~~"Feedwater in AUTO at the published 440 degC ... the opening
             // state is exactly `physics::PlantCommands::default()`."~~
             // **CORRECTED 2026-09-22.** Two claims here were false. The

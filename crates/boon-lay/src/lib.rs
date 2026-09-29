@@ -70,6 +70,10 @@ pub mod triso_atops_fork;
 /// is deliberately left as an input.
 pub mod fuel_failure;
 
+/// Cited chemical-attack rate laws (graphite-steam oxidation, kernel
+/// hydrolysis) for the water-ingress source term (gh:#401).
+pub mod chemistry;
+
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. See the module docs.
 #[cfg(target_arch = "wasm32")]

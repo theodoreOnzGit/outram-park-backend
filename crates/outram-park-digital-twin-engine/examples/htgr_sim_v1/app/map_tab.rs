@@ -1749,6 +1749,8 @@ pub enum MapAction {
     /// operating point -- the same fresh start as the crash modal's restart
     /// (`HtgrSimApp::restart_simulation`), so there is one reset path.
     ResetPlant,
+    /// Start the water-ingress accident (gh:#401).
+    StartWaterIngress,
 }
 
 /// One accident-scenario button on the Map tab and whether it can be pressed
@@ -1760,6 +1762,8 @@ pub enum MapAction {
 struct AccidentButton {
     label: &'static str,
     enabled: bool,
+    /// What pressing it asks of the host.
+    action: MapAction,
     /// Why it is disabled, or what it does.
     hover: &'static str,
 }
@@ -1768,13 +1772,17 @@ struct AccidentButton {
 const ACCIDENT_BUTTONS: [AccidentButton; 2] = [
     AccidentButton {
         label: "Water ingress",
-        enabled: false,
-        hover: "Not yet modelled: steam-generator tube rupture with steam-graphite \
-                oxidation lands with source-term stage 3 (gh:#401).",
+        enabled: true,
+        action: MapAction::StartWaterIngress,
+        hover: "Two steam-generator tubes rupture and the secondary relief fails (Gao & Shi \
+                2002 s.5.4): 129.9 kg of water, steam moderation, graphite-steam corrosion, \
+                primary relief venting, SG wash-off and kernel hydrolysis (gh:#401). \
+                Building not credited (gh:#409). Research and education only.",
     },
     AccidentButton {
         label: "DLOFC + ATWS + air ingress",
         enabled: false,
+        action: MapAction::None,
         hover: "Not yet modelled: depressurised loss of forced cooling without scram, \
                 with air ingress, lands with source-term stage 4 (gh:#402).",
     },
@@ -1787,9 +1795,14 @@ fn draw_scenario_buttons(ui: &mut Ui) -> MapAction {
     ui.horizontal_wrapped(|ui| {
         ui.label("Scenarios:");
         for b in ACCIDENT_BUTTONS {
-            ui.add_enabled(b.enabled, egui::Button::new(b.label))
+            if ui
+                .add_enabled(b.enabled, egui::Button::new(b.label))
                 .on_hover_text(b.hover)
-                .on_disabled_hover_text(b.hover);
+                .on_disabled_hover_text(b.hover)
+                .clicked()
+            {
+                action = b.action;
+            }
         }
         if ui
             .button("Reset plant")
@@ -1826,6 +1839,22 @@ pub fn draw_map(
 ) -> MapAction {
     ui.heading("Atmospheric dispersion -- Gaussian puff");
     let action = draw_scenario_buttons(ui);
+    if s.water_ingress_triggered {
+        ui.colored_label(
+            Color32::from_rgb(200, 120, 20),
+            format!(
+                "WATER INGRESS running: primary {:.3} MPa, steam {:.1} kg, graphite gasified \
+                 {:.2} kg, H2 {:.2} %, CO {:.2} %, primary gas vented {:.3} %. Building not \
+                 credited (gh:#409). Research and education only.",
+                s.ingress_pressure_mpa,
+                s.ingress_steam_kg,
+                s.ingress_graphite_corroded_kg,
+                s.ingress_h2_percent,
+                s.ingress_co_percent,
+                100.0 * s.ingress_vented_fraction
+            ),
+        );
+    }
     // The one puff-model configuration every basis and table below uses
     // (maintainer direction 2026-09-29; `map_puff_model`, gh:#384).
     ui.label(crate::physics::map_puff_model::regime_label());
@@ -2361,14 +2390,16 @@ mod tests {
 
     /// The clock readout must be `h:mm:ss` and must not panic on the `NAN`
     /// the snapshot carries before the first field.
-    /// The accident buttons stay disabled until their stage lands (gh:#401,
-    /// gh:#402), and each says why. Flip `enabled` in the change that lands
-    /// the physics, and this test with it.
+    /// An accident button is enabled only once its stage lands: water
+    /// ingress (gh:#401) is live and starts its scenario; DLOFC (gh:#402)
+    /// still waits. Flip `enabled` in the change that lands the physics, and
+    /// this test with it.
     #[test]
     fn the_accident_buttons_wait_for_their_stages() {
         let labels: Vec<&str> = ACCIDENT_BUTTONS.iter().map(|b| b.label).collect();
         assert_eq!(labels, ["Water ingress", "DLOFC + ATWS + air ingress"]);
-        assert!(ACCIDENT_BUTTONS.iter().all(|b| !b.enabled));
+        assert!(ACCIDENT_BUTTONS[0].enabled && !ACCIDENT_BUTTONS[1].enabled);
+        assert_eq!(ACCIDENT_BUTTONS[0].action, MapAction::StartWaterIngress);
         assert!(ACCIDENT_BUTTONS[0].hover.contains("gh:#401"));
         assert!(ACCIDENT_BUTTONS[1].hover.contains("gh:#402"));
     }

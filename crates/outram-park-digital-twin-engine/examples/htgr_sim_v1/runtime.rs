@@ -64,6 +64,8 @@ pub struct PlantControls {
     pub helium_flow_setpoint_kg_per_s: f64,
     /// Operator has manually tripped the helium circulator (LOFC).
     pub circulator_tripped: bool,
+    /// Operator has started the water-ingress accident (gh:#401).
+    pub water_ingress: bool,
     pub feedwater_manual: bool,
     pub feedwater_manual_flow_kg_per_s: f64,
     pub feedwater_target_steam_temp_k: f64,
@@ -87,6 +89,7 @@ impl PlantControls {
             control_rod_insertion_fraction: s.control_rod_insertion_fraction,
             helium_flow_setpoint_kg_per_s: s.helium_flow_setpoint_kg_per_s,
             circulator_tripped: s.circulator_tripped,
+            water_ingress: s.water_ingress_triggered,
             feedwater_manual: s.feedwater_manual,
             feedwater_manual_flow_kg_per_s: s.feedwater_manual_flow_kg_per_s,
             feedwater_target_steam_temp_k: s.feedwater_target_steam_temp_k,
@@ -109,11 +112,7 @@ impl PlantControls {
             helium_flow_setpoint: MassRate::new::<kilogram_per_second>(
                 self.helium_flow_setpoint_kg_per_s,
             ),
-            scenario: if self.circulator_tripped {
-                crate::physics::Scenario::Lofc
-            } else {
-                crate::physics::Scenario::Normal
-            },
+            scenario: crate::physics::scenario_from(self.circulator_tripped, self.water_ingress),
             secondary: SecondaryCommands {
                 feedwater: if self.feedwater_manual {
                     FeedwaterCommand::Manual {
@@ -156,6 +155,7 @@ impl Default for PlantControls {
             control_rod_insertion_fraction: d.control_rod_insertion_fraction,
             helium_flow_setpoint_kg_per_s: d.helium_flow_setpoint.get::<kilogram_per_second>(),
             circulator_tripped: d.scenario == crate::physics::Scenario::Lofc,
+            water_ingress: d.scenario == crate::physics::Scenario::WaterIngress,
             feedwater_manual: manual,
             feedwater_manual_flow_kg_per_s: manual_flow,
             feedwater_target_steam_temp_k: target_t,

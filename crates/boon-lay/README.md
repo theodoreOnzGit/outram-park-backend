@@ -48,6 +48,22 @@ in-service failure fraction through
 `FailureFractions::with_fuel_failure_incremental`, which is meant for accident
 transients only (see the module docs for why not for normal operation).
 
+## Chemical attack (added 2026-09-29, GitHub #401)
+
+`chemistry` holds two cited closed-form rate laws for the water-ingress source
+term, each with its validity range and a flag when it is left:
+
+- `chemistry::graphite_steam`: IG-110 oxidation by steam, `C + H2O -> CO + H2`,
+  using the Boltzmann-enhanced Langmuir-Hinshelwood fit of Wang & Sun (2023),
+  Table 8. It is a kinetic-regime fit (850-1100 degC, 0.5-20 kPa steam). The
+  reaction enthalpy is +131.3 kJ/mol, from NIST formation enthalpies.
+- `chemistry::kernel_hydrolysis`: stored noble gas released when water vapour
+  reaches exposed UO2 kernels, from IAEA-TECDOC-978 Eq. (5-2). The fit covers
+  820-1040 degC and 2.8-1051 Pa and is clamped to the whole inventory.
+
+Both are transcriptions checked against an independent hand evaluation. They
+are not validated against any accident.
+
 ## Where it sits
 
 `boon-lay` supplies the release physics for the offsite chain. `sembawang`

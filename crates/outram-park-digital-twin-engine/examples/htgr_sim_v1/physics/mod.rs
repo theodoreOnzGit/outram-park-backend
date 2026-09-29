@@ -190,6 +190,7 @@ pub mod steam_generator;
 /// why they exist and why the default does nothing.
 pub mod temperature_cross;
 pub mod turbine_generator;
+pub mod water_ingress;
 
 /// The former `physics::pebble_bed` module, migrated 2026-08-16 into
 /// [`reactor_model::one_node`] -- now the geometry/correlation home for
@@ -532,6 +533,24 @@ pub enum Scenario {
     /// separate is the point -- folding a scram into the scenario would make
     /// the inherent-shutdown case unrepresentable.
     Lofc,
+    /// **Water ingress** (gh:#401): two steam-generator tubes rupture and the
+    /// secondary relief fails -- Gao & Shi (2002) s.5.4's case, with its
+    /// published protection sequence (scram 37.5 s, circulator 38.5 s,
+    /// secondary isolated 50 s) applied by the scenario. See
+    /// [`water_ingress`].
+    WaterIngress,
+}
+
+/// The scenario an operator's two accident switches select. Water ingress
+/// wins if both are set (it trips the circulator itself).
+pub fn scenario_from(circulator_tripped: bool, water_ingress: bool) -> Scenario {
+    if water_ingress {
+        Scenario::WaterIngress
+    } else if circulator_tripped {
+        Scenario::Lofc
+    } else {
+        Scenario::Normal
+    }
 }
 
 /// Delay from a circulator trip to the protection system isolating the
@@ -971,7 +990,11 @@ pub struct PlantEnergyLedger {
     pub to_rccs: f64,
     /// Circulator work delivered to the helium.
     pub circulator_work: f64,
-    /// `source + circulator_work - storage - to_steam_generator - to_rccs`.
+    /// Heat absorbed by the endothermic graphite-steam reaction in the bed
+    /// (water ingress, gh:#401; zero otherwise).
+    pub chemistry_absorbed: f64,
+    /// `source + circulator_work - storage - to_steam_generator - to_rccs
+    /// - chemistry_absorbed`.
     pub residual: f64,
 }
 
@@ -997,6 +1020,7 @@ impl PlantEnergyLedger {
         self.to_steam_generator += step.to_steam_generator;
         self.to_rccs += step.to_rccs;
         self.circulator_work += step.circulator_work;
+        self.chemistry_absorbed += step.chemistry_absorbed;
         self.residual += step.residual;
     }
 }
@@ -1084,6 +1108,9 @@ pub struct HtgrPlant {
     /// under [`Scenario::Normal`]. Drives the protection system's
     /// secondary-isolation delay.
     scenario_started_at: Option<Time>,
+    /// The water-ingress accident's state while [`Scenario::WaterIngress`]
+    /// runs (gh:#401).
+    water_ingress: Option<water_ingress::WaterIngress>,
     /// Heat rate crossing the pebble surface into the helium on the most recent
     /// step -- the core's *thermal* output, which lags the fission power by the
     /// graphite time constant.
@@ -1130,6 +1157,7 @@ impl HtgrPlant {
             release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
             dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
             scenario_started_at: None,
+            water_ingress: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
             passive_heat_loss: Power::new::<watt>(0.0),
             last_step_energy: PlantEnergyLedger::default(),
@@ -1290,19 +1318,63 @@ impl HtgrPlant {
                 Some(self.sim_time)
             }
             (Scenario::Lofc, Some(t0)) => Some(t0),
+            (Scenario::WaterIngress, None) => {
+                // The tubes rupture. The primary gas the steam mixes into is
+                // the published inventory at the published pressure.
+                self.water_ingress = Some(water_ingress::WaterIngress::start(
+                    primary_loop::loop_pressure_pa(),
+                    fission_product_release::htr10_primary_helium_inventory_kg(),
+                    self.primary_gas_volume_over_temperature(),
+                ));
+                // Liquid water at the break washes the SG share of the
+                // plate-out back into the coolant (Liu & Cao s.4.1.2).
+                self.release
+                    .wash_off_plate_out(water_ingress::steam_generator_share_of_plate_out);
+                Some(self.sim_time)
+            }
+            (Scenario::WaterIngress, Some(t0)) => Some(t0),
             (Scenario::Normal, _) => {
                 // Scenario cleared: put the plant back to normal operation.
                 self.primary.trip_circulator(false);
                 self.primary.isolate_secondary(false);
+                self.water_ingress = None;
                 None
             }
         };
         self.scenario_started_at = scenario_started_at;
 
+        // Water ingress (gh:#401): the accident's gas, chemistry and relief,
+        // advanced once per step on the start-of-step state (explicit; the
+        // chemistry heat is a source term of the bed, held over the
+        // correctors). Its published protection sequence acts here.
+        let ingress_step = match self.water_ingress.as_mut() {
+            Some(_) => {
+                let vt = self.primary_gas_volume_over_temperature();
+                let volume = self.primary_gas_volume().get::<uom::si::volume::cubic_meter>();
+                let bed = self.core.temperature();
+                let graphite = reactor_model::one_node::graphite_mass()
+                    .get::<uom::si::mass::kilogram>();
+                let w = self.water_ingress.as_mut().expect("matched Some");
+                let st = w.step(
+                    dt.get::<second>(),
+                    vt,
+                    volume,
+                    bed,
+                    graphite,
+                    protection::SCRAM_INSERTION_TIME_S,
+                );
+                self.primary.trip_circulator(st.circulator_tripped);
+                self.primary.isolate_secondary(st.secondary_isolated);
+                Some(st)
+            }
+            None => None,
+        };
+
         // The protection system isolates the secondary a fixed delay after the
         // trip. This is the PLANT acting, not the operator, which is why it
-        // lives here rather than in a scenario script.
-        if let Some(t0) = scenario_started_at {
+        // lives here rather than in a scenario script. (Water ingress carries
+        // its own published isolation time, above.)
+        if let (Some(t0), Scenario::Lofc) = (scenario_started_at, scenario) {
             let elapsed = (self.sim_time - t0).get::<second>();
             if elapsed >= SECONDARY_ISOLATION_DELAY_S {
                 self.primary.isolate_secondary(true);
@@ -1313,6 +1385,10 @@ impl HtgrPlant {
         let helium_flow_setpoint = match scenario {
             Scenario::Normal => helium_flow_setpoint,
             Scenario::Lofc => MassRate::new::<kilogram_per_second>(0.0),
+            Scenario::WaterIngress => match ingress_step {
+                Some(st) if st.circulator_tripped => MassRate::new::<kilogram_per_second>(0.0),
+                _ => helium_flow_setpoint,
+            },
         };
 
         self.sim_time += dt;
@@ -1331,14 +1407,26 @@ impl HtgrPlant {
         );
         let control_rod_insertion_fraction = self
             .protection
-            .effective_rod_insertion(control_rod_insertion_fraction);
+            .effective_rod_insertion(control_rod_insertion_fraction)
+            // The water-ingress scram (published 37.5 s) can only deepen it.
+            .max(ingress_step.map_or(0.0, |st| st.scram_insertion));
 
         // Rod position is converted to reactivity here rather than in the GUI
         // so the physics owns the conversion and an OPC-UA write of a rod
         // position gets the same treatment as a slider drag. It is constant
         // over the step, so it is computed once outside the loop.
-        let external_reactivity_dollars =
-            self.external_reactivity_dollars(control_rod_insertion_fraction);
+        let external_reactivity_dollars = self
+            .external_reactivity_dollars(control_rod_insertion_fraction)
+            // Steam moderation (water ingress, gh:#401), in the kinetics' beta.
+            + ingress_step.map_or(0.0, |st| {
+                st.reactivity_dk_k
+                    / self
+                        .kinetics
+                        .kinetics_delayed_neutron_fraction()
+                        .get::<uom::si::ratio::ratio>()
+            });
+        // Heat the graphite-steam reaction draws from the bed this step.
+        let chemistry_heat = Power::new::<watt>(ingress_step.map_or(0.0, |st| st.chemistry_heat_w));
 
         // Old-time snapshot of everything the corrector loop re-advances. All
         // of it is scalar, so this is cheap next to one exchanger substep.
@@ -1483,9 +1571,12 @@ impl HtgrPlant {
             //     `decay_heat_removal`). Under forced flow the path is a few
             //     hundred kW; under LOFC it is the ONLY path out of the core.
             //     It is rewound per corrector with the rest of the state.
+            // The endothermic graphite-steam reaction (water ingress) is a
+            // heat sink IN the bed graphite, so it enters the bed's own energy
+            // balance as a source term, not as a transfer to a neighbour.
             self.core_heat_to_helium = self.core.step(
                 dt,
-                heat_from_fuel,
+                heat_from_fuel - chemistry_heat,
                 heat_from_fuel,
                 core_inlet_enthalpy,
                 self.primary.mass_flow(),
@@ -1580,12 +1671,14 @@ impl HtgrPlant {
                 to_steam_generator: primary.to_steam_generator,
                 to_rccs: self.decay_heat_path.heat_to_rccs().get::<watt>() * dt_s,
                 circulator_work: primary.circulator_work,
+                chemistry_absorbed: chemistry_heat.get::<watt>() * dt_s,
                 residual: 0.0,
             };
             step.residual = step.source + step.circulator_work
                 - step.stored()
                 - step.to_steam_generator
-                - step.to_rccs;
+                - step.to_rccs
+                - step.chemistry_absorbed;
             self.last_step_energy = step;
             self.energy.accumulate(&step);
         }
@@ -1621,6 +1714,22 @@ impl HtgrPlant {
         self.release.set_primary_flow(self.primary.mass_flow());
         self.release
             .update(self.sim_time.get::<second>(), self.fuel_stack_temperatures());
+        // Water ingress (gh:#401): what the relief vented goes up the stack,
+        // and steam reaching exposed kernels releases their stored noble gas
+        // (TECDOC-978 Eq. 5-2, at the fuel node's temperature).
+        if let Some(st) = ingress_step {
+            if st.vented_fraction > 0.0 {
+                self.release.vent_circulating(st.vented_fraction);
+            }
+            let (f, _) = boon_lay::chemistry::kernel_hydrolysis::stored_gas_fraction(
+                self.kinetics.fuel_temperature(),
+                uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(
+                    st.steam_partial_pressure_pa,
+                ),
+            );
+            self.release
+                .release_stored_noble_gas(f.get::<uom::si::ratio::ratio>());
+        }
 
         // 7. Atmospheric dispersion, driven by the release channel's
         // circulating pool. Last, and outside the corrector loop, for the same
@@ -1671,6 +1780,38 @@ impl HtgrPlant {
         }
         self.dispersion
             .update(self.sim_time.get::<second>(), &self.release);
+    }
+
+    /// The primary gas's `sum V_i / T_i` \[m^3/K\] over its four volumes: the
+    /// bed void at the bed helium's outlet temperature, the hot-duct CV, the
+    /// steam generator's shell side at the mean of its two ends, and the
+    /// cold-return CV. The water-ingress pressure is the ideal-gas mixture
+    /// scaled by this (see `water_ingress`).
+    fn primary_gas_volume_over_temperature(&self) -> f64 {
+        use uom::si::volume::cubic_meter;
+        let k = |t: ThermodynamicTemperature| t.get::<kelvin>();
+        let hot = k(self.primary.hot_duct_temperature());
+        let cold = k(self.primary.core_inlet_temperature());
+        pebble_bed::bed_void_volume().get::<cubic_meter>() / k(self.primary.core_outlet_temperature())
+            + primary_loop::hot_duct_volume().get::<cubic_meter>() / hot
+            + primary_loop::steam_generator_shell_volume().get::<cubic_meter>()
+                / (0.5 * (hot + cold))
+            + primary_loop::cold_return_volume().get::<cubic_meter>() / cold
+    }
+
+    /// The primary gas volume \[m^3\]: bed void + hot duct + SG shell side +
+    /// cold return (the #403 sizing).
+    fn primary_gas_volume(&self) -> uom::si::f64::Volume {
+        pebble_bed::bed_void_volume()
+            + primary_loop::hot_duct_volume()
+            + primary_loop::steam_generator_shell_volume()
+            + primary_loop::cold_return_volume()
+    }
+
+    /// The water-ingress accident's state, `None` unless it is running.
+    #[cfg(test)] // read by the water-ingress tests
+    pub fn water_ingress(&self) -> Option<&water_ingress::WaterIngress> {
+        self.water_ingress.as_ref()
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -1808,6 +1949,14 @@ impl HtgrPlant {
             .steam_generator_duty_to_secondary()
             .get::<megawatt>();
         s.passive_heat_loss_mw = self.passive_heat_loss.get::<megawatt>();
+        // Water ingress (gh:#401); NAN when not running.
+        let w = self.water_ingress.as_ref();
+        s.ingress_pressure_mpa = w.map_or(f64::NAN, |w| w.pressure_pa / 1e6);
+        s.ingress_steam_kg = w.map_or(f64::NAN, |w| w.steam_mol * 18.015e-3);
+        s.ingress_graphite_corroded_kg = w.map_or(f64::NAN, |w| w.carbon_corroded_kg);
+        s.ingress_h2_percent = w.map_or(f64::NAN, |w| 100.0 * w.hydrogen_fraction());
+        s.ingress_co_percent = w.map_or(f64::NAN, |w| 100.0 * w.co_fraction());
+        s.ingress_vented_fraction = w.map_or(f64::NAN, |w| w.vented_fraction);
         s.riser_heat_mw = self.decay_heat_path.heat_to_risers().get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
@@ -5042,5 +5191,223 @@ mod tests {
         println!("  power {p:.4} MW   bed {bed:.4} K   fuel {fuel:.4} K");
         println!("  (seed the bed at {bed:.4} K)");
         assert!(p.is_finite() && bed.is_finite());
+    }
+
+    /// **Water ingress through the whole plant conserves energy, including
+    /// the reaction heat, and follows the published sequence** (gh:#401).
+    ///
+    /// # Methodology
+    ///
+    /// 30 s at the design commands, then [`Scenario::WaterIngress`] for 90 s
+    /// (0.1 s steps). Every step: the global ledger, now with the
+    /// graphite-steam heat as a sink (`chemistry_absorbed`), must close to
+    /// 1e-9 of the step's gross energy. At the end: 129.9 kg injected by 50 s;
+    /// the circulator stopped (published 38.5 s); the scram (37.5 s) has cut
+    /// the fission power below 10 % of its pre-accident value; the relief is
+    /// shut (the pressure is under 3.5 MPa this early). Correctness checks
+    /// only -- no published number is compared here (the maintainer's
+    /// no-validation rule; see `water_ingress_against_gao_shi_and_liu_cao`).
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Printed below; pass.
+    #[test]
+    fn water_ingress_conserves_energy_and_follows_the_published_sequence() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut worst = 0.0f64;
+        let mut p_before = 0.0;
+        for i in 0..1200 {
+            let mut commands = design_commands();
+            if i >= 300 {
+                commands.scenario = Scenario::WaterIngress;
+            } else {
+                p_before = plant.kinetics.total_power().get::<megawatt>();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_return_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let w = *plant.water_ingress().expect("running");
+        let p_after = plant.kinetics.total_power().get::<megawatt>();
+        let total = plant.energy_ledger();
+        println!(
+            "water ingress, 90 s: injected {:.2} kg, steam {:.1} mol, graphite gasified {:.4} kg, \
+             reaction heat {:.4e} J (ledger {:.4e} J), p {:.4} MPa (peak {:.4}), H2 {:.3} %, \
+             fission {p_before:.3} -> {p_after:.4} MW, flow {:.3} kg/s, worst step residual \
+             {worst:.3e}, rate extrapolated {}",
+            w.injected_kg,
+            w.steam_mol,
+            w.carbon_corroded_kg,
+            w.chemistry_heat_absorbed_j,
+            total.chemistry_absorbed,
+            w.pressure_pa / 1e6,
+            w.peak_pressure_pa / 1e6,
+            100.0 * w.hydrogen_fraction(),
+            plant.primary.mass_flow().get::<kilogram_per_second>(),
+            w.rate_extrapolated
+        );
+        assert!(worst < 1e-9, "{worst:e}");
+        assert!((w.injected_kg - water_ingress::TOTAL_INGRESS_KG).abs() < 1e-9);
+        assert!((total.chemistry_absorbed - w.chemistry_heat_absorbed_j).abs()
+            <= 1e-9 * w.chemistry_heat_absorbed_j.max(1.0));
+        assert!(p_after < 0.1 * p_before, "{p_before} -> {p_after}");
+        assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
+    }
+
+    /// **V&V, first measurement (gh:#401): water ingress, uncalibrated,
+    /// against Gao & Shi (2002) s.5.4 and Liu & Cao (2002) Table 8.**
+    ///
+    /// # Methodology
+    ///
+    /// Default plant (building not credited, gh:#409), 60 s normal, then
+    /// [`Scenario::WaterIngress`] for 4 h at the 0.1 s plant step. Nothing is
+    /// fitted: the inputs are the published ones tabulated in
+    /// [`water_ingress`], with the two labelled assumptions there (uniform
+    /// ingress over 50 s; steam reactivity linear in the steam held).
+    /// Compared, reported, not gated:
+    ///
+    /// - graphite gasified vs Gao & Shi's **< 4.88 kg**;
+    /// - peak primary pressure and when the relief first opens vs **3.5 MPa
+    ///   at ~3 h, closing below 2.9 MPa at 3.07 h**;
+    /// - H2 and CO in the primary vs **0.64 %** each;
+    /// - the activity released up the stack over the accident, per tracked
+    ///   nuclide, vs **Table 8's water-ingress column** (Kr-85 9.0e5,
+    ///   Xe-133 6.5e8, I-131 2.2e8, Cs-137 3.1e8, Ag-110m 4.9e4 Bq). The
+    ///   pre-accident leak over the same 4 h is subtracted, so the figure is
+    ///   the accident's own release.
+    ///
+    /// The known reasons to expect disagreement are in `water_ingress`'s
+    /// module doc (kinetic-regime rate on the whole bed at an
+    /// outlet-referenced temperature; no purification removal; one-bank
+    /// scram; no corroded-graphite activity).
+    ///
+    /// # Results (2026-09-29, first and only run under the no-validation rule)
+    ///
+    /// | Quantity | Model | Published | Ratio / note |
+    /// |---|---|---|---|
+    /// | graphite gasified (4 h) | **3.02 kg** | < 4.88 kg (G&S) | inside the bound, despite the kinetic-regime rate being extrapolated (flagged) |
+    /// | relief first opens | **357 s** at 3.5 MPa | ~3 h (G&S) | **30x early** |
+    /// | peak pressure | 3.500 MPa (relief holds it) | 3.5 MPa | -- |
+    /// | H2, CO | 0.435 % each | 0.64 % each | 0.68 |
+    /// | primary gas vented | 32.5 % | ~23 % of the helium (Liu & Cao s.4.1.2) | 1.4 |
+    /// | Kr-85 to stack | 1.39e9 Bq | 9.0e5 | **1.5e3** |
+    /// | Xe-133 | 3.24e11 Bq | 6.5e8 | **5.0e2** |
+    /// | I-131 | 1.74e8 Bq | 2.2e8 | 0.79 |
+    /// | Cs-137 | 1.71e7 Bq | 3.1e8 | 0.055 |
+    /// | Ag-110m | 1.65e6 Bq | 4.9e4 | 34 |
+    ///
+    /// Fission power is ~0 by the first print (the scram, 37.5 s); the bed
+    /// cools from 1095 K (1 h) to 825 K (4 h).
+    ///
+    /// # Interpretation (not tuned; the disagreements are the finding)
+    ///
+    /// - **The noble gases are 500-1500x high because the kernel-hydrolysis
+    ///   burst is applied far outside its fit.** TECDOC-978 Eq. 5-2 was fitted
+    ///   at 2.8-1051 Pa of water vapour; the steam partial pressure here is
+    ///   hundreds of kPa, so the fraction clamps to the whole stored
+    ///   inventory of every exposed kernel (`f_hm + f_inc`), which then vents.
+    ///   Liu & Cao do not count a hydrolysis burst at all (their three
+    ///   sources: primary helium, SG wash-off, corroded-graphite activity).
+    ///   The burst is physical, but its magnitude here is an extrapolation.
+    /// - **The relief opens 30x early** because the model removes no water
+    ///   (the purification system's accident line has no published rate) and
+    ///   holds the gas at the plant's own CV temperatures; Gao & Shi's primary
+    ///   takes ~3 h to reach 3.5 MPa. The early venting also sends more of
+    ///   the circulating activity out.
+    /// - **I-131 agrees within 21 %**, the one nuclide whose release is
+    ///   dominated by the path both models share (SG wash-off into the
+    ///   coolant, then venting).
+    /// - **Cs-137 is 18x low**: its SG share (73 %) is washed off, but the
+    ///   plate-out pool it comes from is itself low at the design stack
+    ///   (gh:#378 records Cs-137 at 7e-3 of Liu & Cao's circulating value),
+    ///   and the corroded-graphite source Liu & Cao include is not modelled.
+    /// - **Ag-110m is 34x high**: Liu & Cao's wash-off gives silver no SG
+    ///   share, and this model washes none off either, so the excess is the
+    ///   circulating silver plus the extra venting.
+    #[test]
+    #[ignore = "over the 1-minute headless budget: a 4 h whole-plant transient. First measurement for the water-ingress V&V doc; not re-run under the no-validation rule."]
+    fn water_ingress_against_gao_shi_and_liu_cao() {
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let hours = 4.0;
+        let steps = (hours * 3600.0 / PLANT_TIMESTEP_S) as usize;
+        let lead = 600;
+        let run = |ingress: bool| {
+            let mut plant = HtgrPlant::new();
+            let mut first_open = None;
+            for i in 0..(lead + steps) {
+                let mut commands = design_commands();
+                if ingress && i >= lead {
+                    commands.scenario = Scenario::WaterIngress;
+                }
+                plant.step(dt, commands);
+                if let (None, Some(w)) = (first_open, plant.water_ingress()) {
+                    if w.relief_chains_open > 0 {
+                        first_open = Some(w.elapsed_s);
+                    }
+                }
+                if i % 36000 == 0 {
+                    if let Some(w) = plant.water_ingress() {
+                        println!(
+                            "  t {:>6.0} s: p {:.4} MPa, steam {:.2} kg, C {:.3} kg, H2 {:.3} %, \
+                             vented {:.4}, fission {:.4} MW, bed {:.1} K",
+                            w.elapsed_s,
+                            w.pressure_pa / 1e6,
+                            w.steam_mol * 18.015e-3,
+                            w.carbon_corroded_kg,
+                            100.0 * w.hydrogen_fraction(),
+                            w.vented_fraction,
+                            plant.kinetics.total_power().get::<megawatt>(),
+                            plant.core.temperature().get::<kelvin>()
+                        );
+                    }
+                }
+            }
+            let released: Vec<f64> = plant.release.cumulative_stack_release_bq().to_vec();
+            (plant.water_ingress().copied(), released, first_open)
+        };
+        // The two runs are independent: one core each.
+        let ((w, with, first_open), (_, without, _)) =
+            std::thread::scope(|scope| {
+                let a = scope.spawn(|| run(true));
+                let b = scope.spawn(|| run(false));
+                (a.join().expect("ingress run"), b.join().expect("reference run"))
+            });
+        let w = w.expect("ran");
+        println!(
+            "graphite gasified {:.3} kg (Gao & Shi < 4.88); peak p {:.4} MPa, relief first open at \
+             {:?} s (G&S: 3.5 MPa at ~3 h); H2 {:.3} %, CO {:.3} % (G&S 0.64 % each); vented \
+             {:.4} of the primary gas; rate extrapolated {}",
+            w.carbon_corroded_kg,
+            w.peak_pressure_pa / 1e6,
+            first_open,
+            100.0 * w.hydrogen_fraction(),
+            100.0 * w.co_fraction(),
+            w.vented_fraction,
+            w.rate_extrapolated
+        );
+        let table8 = [9.0e5, 6.5e8, 2.2e8, 3.1e8, 4.9e4];
+        for (k, name) in fission_product_release::TRACKED_NUCLIDES.iter().enumerate() {
+            let accident = with[k] - without[k];
+            println!(
+                "  {name:>8}: released {accident:.3e} Bq (with leak {:.3e}), Table 8 {:.1e}, \
+                 ratio {:.3e}",
+                with[k],
+                table8[k],
+                accident / table8[k]
+            );
+        }
+        assert!(w.carbon_corroded_kg.is_finite() && w.peak_pressure_pa.is_finite());
     }
 }
