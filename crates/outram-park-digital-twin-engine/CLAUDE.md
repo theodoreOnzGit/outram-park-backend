@@ -391,8 +391,13 @@ shallow clone this was checked on cannot show which commit removed it. No test
 in `examples/htgr_sim_v1/physics` now asserts helium outlet <= bed. Under
 today's well-mixed bed node the steady state satisfies the invariant by
 construction (the recorded `two_node_balance_settles_...` result is bed
-1184.6 K, helium 1120.7 K), but nothing guards it through a transient.
-Restoring it is gh:#376. This is itself an instance of the lesson: an
+1184.6 K, helium 1120.7 K), but no test guards it. **It is a
+steady-state invariant, not an every-step one** (maintainer, 2026-09-29): in a
+transient that has not settled, for example an inlet above the bed or a scram,
+the helium can legitimately leave hotter than the bed while heating it. Only
+the sign of the exchanged heat must agree with the temperature difference at
+every step. The steady-state test is **long**: it runs the plant to settle, so
+it belongs behind `#[ignore]`. Restoring it is gh:#376. This is itself an instance of the lesson: an
 invariant test was lost, and the doc kept claiming it.
 
 **2. A control architecture chosen for the wrong reason.** The assistant built
