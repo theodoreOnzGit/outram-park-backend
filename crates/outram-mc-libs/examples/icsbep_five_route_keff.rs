@@ -583,6 +583,8 @@ fn main() {
                     "no-dbrc" => n.without_dbrc(),
                     "unit-n2n" => n.with_unit_n2n_multiplicity(),
                     "no-inelastic" => n.without_inelastic(),
+                    // Delayed neutrons born with the prompt chi (GitHub #365).
+                    "no-delayed-spectra" => n.without_delayed_spectra(),
                     other => panic!("unknown --ablate {other}"),
                 })
                 .collect();
