@@ -166,6 +166,39 @@ trigger fires for a specific model** — do not move any example physics into
 `src/` on your own initiative; the human-V&V half of the trigger cannot be
 satisfied by an AI assistant.
 
+## htgr_sim_v1 is NOT in validation yet: do not re-run validation checks (HARD RULE)
+
+**Maintainer direction, 2026-09-29: "no need to measure settled power
+baseline until we validate the htgr_sim_v1. don't waste time. ignore the test
+until i say we are doing validation work."**
+
+Until the maintainer says validation work on `htgr_sim_v1` has begun, **do
+not** spend time re-measuring or regenerating its validation-type numbers
+after a change:
+
+- the settled full-power state (power, bed/fuel temperatures);
+- the loss-of-forced-cooling ATWS results (#320, including
+  `lofc_atws_at_the_published_test_condition` and the other long `#[ignore]`d
+  transients);
+- the passive-chain comparison against Hu et al.'s 206 kW;
+- `reference/baseline_default_commands.csv` regeneration and its fixture test;
+- comparisons against published source-term tables (Liu & Cao Tables 2, 3
+  and 8) beyond what a new model's own V&V doc first needs.
+
+**Still required on every change:** the normal (non-ignored) release suite,
+the conservation tests (the energy ledger and activity ledgers), and the
+physical-invariant tests (second law, bounded temperatures). Those check that
+the code is correct. They are not validation, and this rule does not relax
+the physical-correctness rule above.
+
+**When a change makes a recorded validation number stale,** do not re-run it.
+Add a one-line note next to it:
+`not re-measured since <commit>; pending validation work`. That keeps the
+"never quietly repair a published number" rule without spending the time.
+
+**This is lifted only by the maintainer**, in so many words. It is not
+inferred from a change being "large", nor from a number looking wrong.
+
 ## ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED (HARD RULE)
 
 **Maintainer direction, 2026-09-21, stated in these words: "never hardcode —
