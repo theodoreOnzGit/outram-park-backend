@@ -263,35 +263,38 @@ impl AceEnergyLaw {
 /// histogram; tabulated is `intt = 2`), as stored in AND and in LAW=61.
 fn read_cosine_table(t: &RawAceTable, at: usize) -> Result<ContinuumAngularRow, NjoyError> {
     need(t, at, 2, "cosine table header")?;
-    // `intt` (1 histogram, 2 lin-lin) used to be discarded, and every sampler
-    // here inverts the cdf as lin-lin. GitHub #365 audit: a census of all 11
-    // held tables found `intt = 2` on every AND and law-61 cosine row (14 000+),
-    // and NJOY's ACER writes 2, so a histogram row has no producer here. It is
-    // refused by name rather than silently read as lin-lin; porting it means a
-    // histogram branch in `sample_tabular_mu` and in `ContinuumAngular`'s
-    // cosine sampler, as in OpenMC's `Tabular::sample`.
+    // `intt`: 1 histogram, 2 lin-lin (`angle_distribution.py:163-176`).
+    // ~~discarded~~ then refused when not 2; since the GitHub #365 audit it is
+    // carried and `ContinuumAngularRow::sample_mu` inverts each form as
+    // OpenMC's `Tabular::sample` does.
     let intt = t.xss[at] as i32;
-    if intt != 2 {
-        return Err(NjoyError::NotPorted(
-            "ACE tabulated cosine distribution with intt != 2 (histogram): the \
-             cosine samplers here are lin-lin only",
-        ));
+    if intt != 1 && intt != 2 {
+        return Err(NjoyError::EndfParse(format!(
+            "ACE tabulated cosine distribution with intt = {intt}: only 1 (histogram) and 2 \
+             (lin-lin) are defined"
+        )));
     }
     let n = t.xss[at + 1] as usize;
     need(t, at + 2, 3 * n, "cosine table body")?;
     let cosines = t.xss[at + 2..at + 2 + n].to_vec();
     let pdf = t.xss[at + 2 + n..at + 2 + 2 * n].to_vec();
     let cdf = t.xss[at + 2 + 2 * n..at + 2 + 3 * n].to_vec();
-    // `mubar` is the mean of the tabulated density; computing it here keeps the
-    // consumer from having to re-derive it on every sample.
+    // `mubar`, exact for the stated interpolation.
     let mut mubar = 0.0;
     for i in 1..n {
-        let dmu = cosines[i] - cosines[i - 1];
-        mubar += 0.5 * (cosines[i] * pdf[i] + cosines[i - 1] * pdf[i - 1]) * dmu;
+        let (m0, m1, p0, p1) = (cosines[i - 1], cosines[i], pdf[i - 1], pdf[i]);
+        let h = m1 - m0;
+        mubar += if intt == 1 {
+            p0 * h * 0.5 * (m0 + m1)
+        } else {
+            h * (m0 * (2.0 * p0 + p1) + m1 * (p0 + 2.0 * p1)) / 6.0
+        };
     }
     Ok(ContinuumAngularRow {
         cosines,
         cdf,
+        pdf,
+        histogram: intt == 1,
         mubar,
     })
 }
@@ -367,6 +370,7 @@ pub fn decode_angular_block(
                 cosines: Vec::new(),
                 pdf: Vec::new(),
                 cdf: Vec::new(),
+                histogram: false,
             });
             continue;
         }
@@ -384,30 +388,31 @@ pub fn decode_angular_block(
                 cosines: row.cosines,
                 pdf,
                 cdf: row.cdf,
+                histogram: row.histogram,
             });
         } else {
-            // 32 equiprobable bins: 33 boundaries, uniform within each.
+            // 32 equiprobable bins: 33 boundaries, uniform within each -- a
+            // **histogram**, as OpenMC reads it (`angle_distribution.py:176-185`:
+            // `pdf[j] = 1/(32 (b[j+1] - b[j]))`, last 0, `Tabular(..,
+            // 'histogram')`). ~~The endpoints take their neighbouring bin's
+            // density~~ and sampled lin-lin: CORRECTED 2026-09-29 (GitHub #365
+            // audit) -- that made the density piecewise linear across bin edges,
+            // which is not the law. No held table has these bins (census: every
+            // AND row is tabulated), so no recorded number moves.
             need(t, at, 33, "AND equiprobable bins")?;
             let b = t.xss[at..at + 33].to_vec();
-            let mut cosines = Vec::with_capacity(33);
-            let mut pdf = Vec::with_capacity(33);
-            let mut cdf = Vec::with_capacity(33);
-            for (j, &mu) in b.iter().enumerate() {
-                cosines.push(mu);
-                cdf.push(j as f64 / 32.0);
-            }
-            for j in 0..33 {
-                // Density of a bin is 1/32 divided by its width; the endpoints
-                // take their neighbouring bin's density.
-                let (lo, hi) = (j.max(1) - 1, (j + 1).min(32));
-                let w = (b[hi] - b[lo]).max(f64::MIN_POSITIVE);
-                pdf.push(((hi - lo) as f64 / 32.0) / w);
-            }
+            let cosines = b.clone();
+            let cdf: Vec<f64> = (0..33).map(|j| j as f64 / 32.0).collect();
+            let mut pdf: Vec<f64> = (0..32)
+                .map(|j| 1.0 / (32.0 * (b[j + 1] - b[j]).max(f64::MIN_POSITIVE)))
+                .collect();
+            pdf.push(0.0);
             energies.push(EnergyAngular {
                 e_mev: e_grid[k],
                 cosines,
                 pdf,
                 cdf,
+                histogram: true,
             });
         }
     }
@@ -675,6 +680,8 @@ fn read_tabulated_law(
                     v.push(ContinuumAngularRow {
                         cosines: vec![-1.0, 1.0],
                         cdf: vec![0.0, 1.0],
+                        pdf: vec![0.5, 0.5],
+                        histogram: false,
                         mubar: 0.0,
                     });
                 }
@@ -773,10 +780,14 @@ pub fn read_ace_tab1(
 /// applicability probability, a yield). The abscissae are always incident
 /// energies and always scale from MeV, so that is not a parameter.
 ///
-/// # Why the regions matter here and not in [`read_tab1`]
+/// # Why the regions matter
 ///
-/// [`read_tab1`] serves the NU block, whose consumer ([`NuBar::at`]) interpolates
-/// lin-lin regardless. The analytic laws' parameters go into a [`Tab1`] the
+/// ~~[`read_tab1`] serves the NU block, whose consumer ([`NuBar::at`])
+/// interpolates lin-lin regardless.~~ **CORRECTED 2026-09-29 (GitHub #365
+/// audit):** the NU, DNU, BDD and `|TY| > 100` yield tables all come through
+/// here now and carry their regions to transport, which evaluates them as
+/// OpenMC's `Tabulated1D` does. [`read_ace_tab1`] (regions dropped) is kept
+/// for callers that do not reach transport. The analytic laws' parameters go into a [`Tab1`] the
 /// transport crate evaluates with the full ENDF multi-region rule
 /// (`eval_tab1`), so dropping `(NBT, INT)` here would silently turn a histogram
 /// or log region into a linear one. ACE stores the regions in the same
@@ -808,7 +819,12 @@ pub(crate) fn read_tab1_full(
     }
     need(t, j + 1, 2 * n, &format!("{what} TAB1 body"))?;
     let pairs: Vec<(f64, f64)> = (0..n)
-        .map(|k| (t.xss[j + 1 + k] * EV_PER_MEV, t.xss[j + 1 + n + k] * y_scale))
+        .map(|k| {
+            (
+                t.xss[j + 1 + k] * EV_PER_MEV,
+                t.xss[j + 1 + n + k] * y_scale,
+            )
+        })
         .collect();
     let tab = Tab1 {
         head: Cont {
@@ -889,9 +905,23 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
                 "ACE DNU block with LNU != 2 beside a single (prompt) NU block",
             ));
         }
-        let (ed, nd, _) = read_ace_tab1(t, (dnu - 1) as usize + 1, "DNU delayed nu-bar")?;
-        // Both are lin-lin in E, so their sum is lin-lin on the union grid:
-        // evaluating each there is exact, not a resampling.
+        let (dtab, _) = read_tab1_full(t, (dnu - 1) as usize + 1, 1.0, "DNU delayed nu-bar")?;
+        // Both lin-lin in E: their sum is lin-lin on the union grid, and
+        // evaluating each there is exact, not a resampling. With any other
+        // region the sum of two tables is not a table on either's regions, so
+        // that one combination is refused by name (GitHub #365 audit). No
+        // producer is known: every nu table in ENDF/B-VIII.0 is lin-lin, and
+        // ACER writes a single NU block beside DNU only for a prompt-only
+        // evaluation.
+        if !crate::nuclear_data::secondary::is_lin_lin(&nubar.interp)
+            || !crate::nuclear_data::secondary::is_lin_lin(&dtab.interp)
+        {
+            return Err(NjoyError::NotPorted(
+                "ACE single (prompt) NU block plus DNU with a non-lin-lin interpolation \
+                 region: their sum is not one tabulated function",
+            ));
+        }
+        let (ed, nd): (Vec<f64>, Vec<f64>) = dtab.pairs.iter().copied().unzip();
         let mut grid: Vec<f64> = nubar.energy.iter().chain(ed.iter()).copied().collect();
         grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         grid.dedup();
@@ -917,6 +947,7 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
             energy: grid,
             nu_total,
             poly: None,
+            interp: Vec::new(),
         }));
     }
     Ok(Some(nubar))
@@ -964,6 +995,7 @@ fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> 
                 energy,
                 nu_total,
                 poly: Some(poly),
+                interp: Vec::new(),
             })
         }
         2 => {
@@ -980,21 +1012,17 @@ fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> 
             // decoding without error.
             // The arithmetic the comment above is about now lives in one
             // place, `read_tab1`, which starts at the record's NR word.
-            // `NuBar` interpolates lin-lin, so the record's regions are checked
-            // rather than dropped: a non-lin-lin region would be evaluated
-            // wrongly (GitHub #365 audit). Every held table's NU TAB1 is
-            // `NR = 0`, i.e. lin-lin (measured on NJOY2016's U-234/235/238).
+            // The record's regions are carried and `NuBar::at` honours them as
+            // OpenMC's `Tabulated1D` does (GitHub #365 audit; ~~a non-lin-lin
+            // region was refused~~ until 2026-09-29). Every held table's NU
+            // TAB1 is `NR = 0`, i.e. lin-lin (NJOY2016's U-234/235/238).
             let (tab, _) = read_tab1_full(t, at + 1, 1.0, "NU")?;
-            if tab.interp.iter().any(|&(_, int)| int != 2) {
-                return Err(NjoyError::NotPorted(
-                    "ACE NU TAB1 with a non-lin-lin interpolation region",
-                ));
-            }
             let (energy, nu_total) = tab.pairs.iter().copied().unzip();
             Ok(NuBar {
                 energy,
                 nu_total,
                 poly: None,
+                interp: tab.interp,
             })
         }
         other => Err(NjoyError::EndfParse(format!("ACE NU block LNU={other}"))),

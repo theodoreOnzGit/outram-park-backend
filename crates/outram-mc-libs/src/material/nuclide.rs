@@ -24,8 +24,8 @@ use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{
-    ChiEout, ChiTabular, ContinuumAngular, ContinuumBranch, ContinuumEmission, FissionSpectrum,
-    NuBar, UncorrelatedEmission,
+    AnglePick, ChiEout, ChiTabular, ContinuumAngular, ContinuumBranch, ContinuumEmission,
+    FissionSpectrum, NuBar, UncorrelatedEmission,
 };
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
@@ -419,7 +419,6 @@ fn elastic_0k_from_ace(
         .filter(|&(e, _)| e <= DBRC_GRID_MAX_EV)
         .collect()
 }
-
 
 /// Where a 0 K companion table for the broadened ACE file at `path` would be.
 ///
@@ -819,8 +818,9 @@ impl Nuclide {
 
     /// Average neutrons per fission ν̄ at incident energy `e` \[eV\].
     ///
-    /// The ENDF **MF=1/MT=452** total (prompt + delayed), lin-lin interpolated
-    /// and clamped at the table ends. This is the quantity multiplying the
+    /// The ENDF **MF=1/MT=452** total (prompt + delayed), on the table's own
+    /// interpolation regions (lin-lin in every held evaluation) and clamped at
+    /// the table ends. This is the quantity multiplying the
     /// fission cross section in [`MicroXS::nu_fission`], and therefore the
     /// numerator of every `k` this crate reports.
     ///
@@ -1857,7 +1857,9 @@ impl Nuclide {
         let mut other_raw: Vec<(i32, f64, OtherYield, OtherLaw)> = Vec::new();
 
         for i in 0..n_rx {
-            let Some(rx) = ace.reactions.get(i) else { break };
+            let Some(rx) = ace.reactions.get(i) else {
+                break;
+            };
             let lct = if rx.ty < 0 { 2 } else { 1 };
             if (51..=90).contains(&rx.mt) {
                 if let Some(ang) = decode_angular(table, i + 1, lct)? {
@@ -1882,15 +1884,12 @@ impl Nuclide {
                 let law = ace_other_law(&decoded, table, i, rx.ty, &ctx)?;
                 let n = rx.ty.unsigned_abs();
                 let yield_ = if n > 100 {
-                    match njoy_outram_park_fork::acer::ce_laws::decode_reaction_yield(table, rx.ty)? {
-                        Some(t) if t.interp.iter().all(|&(_, int)| int == 2) => {
-                            OtherYield::Tabulated(t.pairs)
-                        }
-                        Some(_) => {
-                            return Err(NjoyError::NotPorted(
-                                "ACE energy-dependent yield with a non-lin-lin region",
-                            ))
-                        }
+                    match njoy_outram_park_fork::acer::ce_laws::decode_reaction_yield(table, rx.ty)?
+                    {
+                        Some(t) => OtherYield::Tabulated {
+                            pairs: t.pairs,
+                            interp: t.interp,
+                        },
                         None => OtherYield::Fixed(1),
                     }
                 } else {
@@ -1961,6 +1960,7 @@ impl Nuclide {
                             branches: vec![ContinuumBranch {
                                 spectrum: chi_tab,
                                 yield_pairs: Vec::new(),
+                                yield_interp: Vec::new(),
                                 // A chain of length one: the law always applies.
                                 applicability: None,
                                 angular,
@@ -1990,6 +1990,7 @@ impl Nuclide {
                             branches: vec![ContinuumBranch {
                                 spectrum,
                                 yield_pairs: Vec::new(),
+                                yield_interp: Vec::new(),
                                 applicability: None,
                                 angular: ContinuumAngular::EvaluatedIsotropic,
                             }],
@@ -2112,16 +2113,12 @@ impl Nuclide {
                 if let Some(tab) =
                     njoy_outram_park_fork::acer::ce_laws::decode_reaction_yield(table, rx.ty)?
                 {
-                    // `yield_at` interpolates lin-lin; a region with any other
-                    // law would be evaluated wrongly, so refuse it by name.
-                    if tab.interp.iter().any(|&(_, int)| int != 2) {
-                        return Err(NjoyError::NotPorted(
-                            "ACE MT=5 energy-dependent yield with a non-lin-lin \
-                             interpolation region",
-                        ));
-                    }
+                    // The regions travel with the pairs and `yield_at` honours
+                    // them (~~a non-lin-lin region was refused~~ until
+                    // 2026-09-29, GitHub #365 audit).
                     for b in &mut law.branches {
                         b.yield_pairs = tab.pairs.clone();
+                        b.yield_interp = tab.interp.clone();
                     }
                 }
             }
@@ -2739,8 +2736,8 @@ impl Nuclide {
         }
         let n_emit = match &ch.yield_ {
             OtherYield::Fixed(n) => *n as usize,
-            OtherYield::Tabulated(pairs) => {
-                let y = interp_pairs(pairs, e).max(0.0);
+            OtherYield::Tabulated { pairs, interp } => {
+                let y = yield_table_at(pairs, interp, e).max(0.0);
                 let w = y.floor();
                 w as usize + usize::from(prn(seed) < y - w)
             }
@@ -2840,7 +2837,7 @@ impl Nuclide {
         let c = self.other_channels.iter().find(|c| c.mt == mt)?;
         Some(match &c.yield_ {
             OtherYield::Fixed(n) => *n as f64,
-            OtherYield::Tabulated(p) => interp_pairs(p, e),
+            OtherYield::Tabulated { pairs, interp } => yield_table_at(pairs, interp, e),
             OtherYield::FromLaw => match &c.law {
                 OtherLaw::Correlated(l) => l.total_yield_at(e),
                 _ => 1.0,
@@ -4118,11 +4115,11 @@ pub(crate) fn sample_continuous_tabular_indexed(
     chi: &ChiTabular,
     e_in: f64,
     seed: &mut u64,
-) -> (f64, usize, usize) {
+) -> (f64, usize, AnglePick) {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {
-        return (0.0, 0, 0);
+        return (0.0, 0, AnglePick::lower(0));
     }
     if n == 1 {
         let (e_out, k) = sample_ct_table_indexed(&chi.tables[0], prn(seed));
@@ -4150,7 +4147,7 @@ pub(crate) fn sample_continuous_tabular_indexed(
     let (e_out, k) = sample_ct_table_indexed(&chi.tables[l], prn(seed));
     // A discrete line is emitted at its own energy, unscaled (OpenMC:
     // `if (k < n_discrete) E_out = E_l_k;`, no envelope interpolation).
-    if k < chi.tables[l].n_discrete {
+    if k.row < chi.tables[l].n_discrete {
         return (e_out, l, k);
     }
 
@@ -4192,10 +4189,15 @@ pub(crate) fn sample_continuous_tabular_indexed(
 /// `E'` came from. Returning it from the same search that produced `E'` is what
 /// keeps the two consistent; locating the row again from the sampled energy
 /// would disagree at a bin edge.
-fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
+/// Invert one outgoing-energy table and report where the draw fell, as the
+/// correlated angular laws need it: [`AnglePick`] carries the bin's lower row,
+/// whether the draw is nearer its upper cdf edge (OpenMC's row choice for
+/// `CorrelatedAngleEnergy`, lin-lin tables only), and the fractional energy
+/// position (what `KalbachMann` interpolates `r`, `a` by). GitHub #365 audit.
+fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, AnglePick) {
     let n = t.e_out.len();
     if n == 1 {
-        return (t.e_out[0], 0);
+        return (t.e_out[0], AnglePick::lower(0));
     }
     let mut c_k = t.cdf[0];
     let mut k = 0usize;
@@ -4213,9 +4215,10 @@ fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
     // Continuous-portion CDF search, mirroring the C++ loop: leaves k as the
     // lower edge with c[k] ≤ r1 < c[k+1] (k clamped to n−2). With no lines
     // this is exactly the loop it always was (start 0, `end = n - 2`).
+    let mut c_k1 = f64::INFINITY;
     for j in t.n_discrete..end {
         k = j;
-        let c_k1 = t.cdf[k + 1];
+        c_k1 = t.cdf[k + 1];
         if r1 < c_k1 {
             break;
         }
@@ -4225,8 +4228,10 @@ fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
 
     // A line (the draw fell in the discrete portion): its own energy.
     if k < t.n_discrete {
-        return (t.e_out[k], k);
+        return (t.e_out[k], AnglePick::lower(k));
     }
+    // OpenMC: `r1 - c_k < c_k1 - r1 || histogram` takes row k, else k + 1.
+    let upper = t.linlin && !(r1 - c_k < c_k1 - r1);
 
     let e_l_k = t.e_out[k];
     let p_l_k = t.pdf[k];
@@ -4234,7 +4239,14 @@ fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
         let e_l_k1 = t.e_out[k + 1];
         let p_l_k1 = t.pdf[k + 1];
         if e_l_k == e_l_k1 {
-            return (e_l_k, k);
+            return (
+                e_l_k,
+                AnglePick {
+                    row: k,
+                    upper,
+                    frac: 0.0,
+                },
+            );
         }
         let frac = (p_l_k1 - p_l_k) / (e_l_k1 - e_l_k);
         if frac == 0.0 {
@@ -4254,7 +4266,19 @@ fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
             e_l_k
         }
     };
-    (e_out, k)
+    let frac = if t.linlin && k + 1 < n && t.e_out[k + 1] > t.e_out[k] {
+        (e_out - t.e_out[k]) / (t.e_out[k + 1] - t.e_out[k])
+    } else {
+        0.0
+    };
+    (
+        e_out,
+        AnglePick {
+            row: k,
+            upper,
+            frac,
+        },
+    )
 }
 
 /// Sample an energy \[eV\] from a static (energy-independent) tabulated χ pdf by
@@ -4472,11 +4496,28 @@ fn sample_mf4_mu_cm(dist: &ElasticAngular, e: f64, seed: &mut u64) -> Option<f64
     if chosen.cosines.is_empty() {
         return Some(2.0 * prn(seed) - 1.0);
     }
+    let xi = prn(seed);
+    if chosen.histogram {
+        // Histogram law (ACE AND `intt = 1`, and the 32 equiprobable bins):
+        // OpenMC `Tabular::sample` histogram branch. GitHub #365 audit.
+        let (c, p, x) = (&chosen.cdf, &chosen.pdf, &chosen.cosines);
+        let n = x.len();
+        let mut k = 0usize;
+        while k + 2 < n && c[k + 1] <= xi {
+            k += 1;
+        }
+        let mu = if p[k] > 0.0 {
+            x[k] + (xi - c[k]) / p[k]
+        } else {
+            x[k]
+        };
+        return Some(mu.clamp(-1.0, 1.0));
+    }
     Some(sample_tabular_mu(
         &chosen.cosines,
         &chosen.pdf,
         &chosen.cdf,
-        prn(seed),
+        xi,
     ))
 }
 
@@ -4564,7 +4605,6 @@ fn partial_fission_chi(
     FissionSpectrum::Mixture(parts)
 }
 
-
 /// The emission law of one "other" neutron-emitting reaction — see
 /// [`Nuclide::sample_other_emission`]. An enum per the workspace design rules.
 #[derive(Debug, Clone)]
@@ -4587,9 +4627,14 @@ enum OtherLaw {
 enum OtherYield {
     /// An integer number of neutrons (ACE `|TY| <= 100`; ENDF by MT).
     Fixed(u32),
-    /// An energy-dependent average `y(E)` as `(E [eV], y)` pairs, lin-lin
-    /// (ACE `|TY| > 100`), sampled as `floor(y) + [xi < frac]`.
-    Tabulated(Vec<(f64, f64)>),
+    /// An energy-dependent average `y(E)` as `(E [eV], y)` pairs on the
+    /// table's own `(NBT, INT)` regions (ACE `|TY| > 100`), sampled as
+    /// `floor(y) + [xi < frac]`. GitHub #365 audit: a non-lin-lin region used
+    /// to be refused; it is now evaluated as OpenMC's `Tabulated1D` does.
+    Tabulated {
+        pairs: Vec<(f64, f64)>,
+        interp: Vec<(u32, u32)>,
+    },
     /// The yield carried by the correlated law's own branches (ENDF MF=6).
     FromLaw,
 }
@@ -4680,6 +4725,7 @@ fn ace_other_law(
             branches: vec![ContinuumBranch {
                 spectrum,
                 yield_pairs: Vec::new(),
+                yield_interp: Vec::new(),
                 applicability: None,
                 angular,
             }],
@@ -4847,6 +4893,7 @@ fn ace_lnw_mixture(
         branches.push(ContinuumBranch {
             spectrum,
             yield_pairs: Vec::new(),
+            yield_interp: Vec::new(),
             applicability: Some(applicability.clone()),
             angular,
         });
@@ -4948,6 +4995,7 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
             energy: vec![1.0e-3, 2.0e7],
             nu_total: vec![0.0, 0.0],
             poly: None,
+            interp: Vec::new(),
         };
     }
     let nu = match name {
@@ -4963,6 +5011,7 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
         energy: vec![1.0e-3, 2.0e7],
         nu_total: vec![nu, nu],
         poly: None,
+        interp: Vec::new(),
     }
 }
 
@@ -5344,6 +5393,13 @@ pub struct DelayedData {
     /// which case [`Self::group_fraction`] falls back to an equal split and
     /// says so.
     pub group_fraction: Vec<Vec<(f64, f64)>>,
+    /// Interpolation regions `(NBT, INT)` of [`Self::nu_delayed`] and of each
+    /// [`Self::group_fraction`] table, as the evaluation states them; empty
+    /// means lin-lin. Honoured as OpenMC's `Tabulated1D` does (GitHub #365
+    /// audit: both routes used to drop them).
+    pub nu_delayed_interp: Vec<(u32, u32)>,
+    /// See [`Self::nu_delayed_interp`]; one per group, or empty.
+    pub group_fraction_interp: Vec<Vec<(u32, u32)>>,
     /// `true` when the tape used the energy-dependent decay-constant form
     /// (`LDG=1`) and [`Self::lambda`] holds only the lowest-energy set.
     /// Carried so a consumer can refuse rather than silently use a λ that is
@@ -5391,6 +5447,8 @@ impl DelayedData {
             energy: d.energy,
             nu_delayed: d.nu_delayed,
             group_fraction: d.group_fraction,
+            nu_delayed_interp: d.nu_delayed_interp,
+            group_fraction_interp: d.group_fraction_interp,
             lambda_is_lowest_energy_only: false,
             spectra,
         }))
@@ -5417,14 +5475,21 @@ impl DelayedData {
             }
             _ => Vec::new(),
         };
-        let group_fraction = chi
-            .map(|c| c.groups.into_iter().map(|g| g.fraction).collect())
+        let (group_fraction, group_fraction_interp): (Vec<_>, Vec<_>) = chi
+            .map(|c| {
+                c.groups
+                    .into_iter()
+                    .map(|g| (g.fraction, g.fraction_interp))
+                    .unzip()
+            })
             .unwrap_or_default();
         Ok(Some(Self {
             lambda: nu_d.lambda,
             energy: nu_d.energy,
             nu_delayed: nu_d.nu_delayed,
             group_fraction,
+            nu_delayed_interp: nu_d.interp,
+            group_fraction_interp,
             lambda_is_lowest_energy_only: nu_d.ldg1_energy_dependent,
             spectra,
         }))
@@ -5435,9 +5500,17 @@ impl DelayedData {
         self.lambda.len()
     }
 
-    /// Total delayed yield ν̄_d at incident energy `e` \[eV\], lin-lin
-    /// interpolated and clamped at the table ends.
+    /// Total delayed yield ν̄_d at incident energy `e` \[eV\], on the table's
+    /// own regions ([`Self::nu_delayed_interp`]), clamped at the table ends.
     pub fn nu_delayed_at(&self, e: f64) -> f64 {
+        if !njoy_outram_park_fork::nuclear_data::secondary::is_lin_lin(&self.nu_delayed_interp) {
+            return njoy_outram_park_fork::nuclear_data::secondary::tabulated1d_at_xy(
+                &self.nu_delayed_interp,
+                &self.energy,
+                &self.nu_delayed,
+                e,
+            );
+        }
         interp_table(&self.energy, &self.nu_delayed, e)
     }
 
@@ -5457,6 +5530,11 @@ impl DelayedData {
         if table.is_empty() {
             return 1.0 / self.n_groups() as f64;
         }
+        if let Some(r) = self.group_fraction_interp.get(k) {
+            if !njoy_outram_park_fork::nuclear_data::secondary::is_lin_lin(r) {
+                return njoy_outram_park_fork::nuclear_data::secondary::tabulated1d_at(r, table, e);
+            }
+        }
         let xs: Vec<f64> = table.iter().map(|&(x, _)| x).collect();
         let ys: Vec<f64> = table.iter().map(|&(_, y)| y).collect();
         interp_table(&xs, &ys, e)
@@ -5471,6 +5549,16 @@ impl DelayedData {
 }
 
 /// Lin-lin interpolation on an ascending grid, clamped at both ends.
+/// A yield table at `e`: the lin-lin path it always took when the table is
+/// lin-lin (bit-identical), OpenMC's `Tabulated1D` on its regions otherwise.
+fn yield_table_at(pairs: &[(f64, f64)], interp: &[(u32, u32)], e: f64) -> f64 {
+    if njoy_outram_park_fork::nuclear_data::secondary::is_lin_lin(interp) {
+        interp_pairs(pairs, e)
+    } else {
+        njoy_outram_park_fork::nuclear_data::secondary::tabulated1d_at(interp, pairs, e)
+    }
+}
+
 /// Lin-lin interpolation of `(x, y)` pairs, clamped at the ends.
 fn interp_pairs(p: &[(f64, f64)], x: f64) -> f64 {
     match p.len() {

@@ -748,22 +748,7 @@ pub fn continuum_inelastic_scatter_evaluated_with(
     };
 
     let branch = law.branch_for(e, prn(seed));
-    let (sampled, table, row) = sample_continuous_tabular_indexed(&branch.spectrum, e, seed);
-
-    // One variate, spent either on inverting the row's cosine CDF or on the flat
-    // map — so the ablation does not shift the RNG stream.
-    let xi = prn(seed);
-    let mu = match mode {
-        ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
-        // `sample_mu` dispatches over the representation — Legendre or
-        // Kalbach-Mann — and returns `None` only where no angular law exists,
-        // which is where isotropic is the right answer anyway. Every arm spends
-        // exactly this one variate.
-        ContinuumAngularMode::Evaluated => branch
-            .angular
-            .sample_mu(table, row, xi)
-            .unwrap_or(2.0 * xi - 1.0),
-    };
+    let (sampled, mu) = sample_continuum_branch(branch, e, mode, seed);
 
     if law.cm_frame {
         // The evaluation's grids already stop at the two-body bound, but the
@@ -782,6 +767,40 @@ pub fn continuum_inelastic_scatter_evaluated_with(
         // outgoing lab energy and `mu` is already a lab cosine.
         (sampled, rotate_direction(u, mu, seed))
     }
+}
+
+/// Sample one **correlated energy-angle** draw from a continuum branch at
+/// incident energy `e` \[eV\]: `(E', mu)` in the law's own frame, before any
+/// CM→lab transform. Public so the verification tests exercise exactly the
+/// transport path.
+///
+/// The energy is OpenMC's `ContinuousTabular` scheme (two variates); the
+/// cosine takes one more variate, from the row OpenMC's
+/// `CorrelatedAngleEnergy::sample_dist` picks — the **closer** bin edge for a
+/// lin-lin table — or, for Kalbach-Mann, from `r`/`a` interpolated to the
+/// sampled `E'` as `KalbachMann::sample_params` does (GitHub #365 audit;
+/// before it the lower row was always used and `r`/`a` were not
+/// interpolated). The ablation spends the same one variate on `2ξ − 1`.
+pub fn sample_continuum_branch(
+    branch: &njoy_outram_park_fork::nuclear_data::secondary::ContinuumBranch,
+    e: f64,
+    mode: ContinuumAngularMode,
+    seed: &mut u64,
+) -> (f64, f64) {
+    let (sampled, table, pick) = sample_continuous_tabular_indexed(&branch.spectrum, e, seed);
+    // One variate, spent either on inverting the row's cosine CDF or on the flat
+    // map — so the ablation does not shift the RNG stream.
+    let xi = prn(seed);
+    let mu = match mode {
+        ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
+        // `sample_mu_at` dispatches over the representation and returns `None`
+        // only where no angular law exists, where isotropic is right anyway.
+        ContinuumAngularMode::Evaluated => branch
+            .angular
+            .sample_mu_at(table, pick, xi)
+            .unwrap_or(2.0 * xi - 1.0),
+    };
+    (sampled, mu)
 }
 
 /// The continuum angular mode for this process, from

@@ -115,6 +115,35 @@
 //! One 2000-history draw; the 32-seed measurement of the change on Godiva's
 //! ENDF route is `+87 ± 37 pcm`.
 //!
+//! ## Re-recorded 2026-09-29 (later still): correlated angle laws as OpenMC (GitHub #365 audit)
+//!
+//! Three changes came in together:
+//! - the continuum cosine row is now the **nearer** cdf edge of the `E'` bin,
+//!   as OpenMC's `CorrelatedAngleEnergy` picks it;
+//! - the row's cosine inverse is now OpenMC's quadratic `Tabular::sample`;
+//! - Kalbach-Mann `r` and `a` are interpolated.
+//!
+//! This reaches the ENDF route through the linearised MF=6 Legendre rows of
+//! U-235 and U-238 MT=91/16. **No variate is added or removed**, so the first
+//! generation moves only in its ninth digit, as the cosines of its continuum
+//! collisions shift. The cause is proved, not inferred: with those three
+//! changes reverted in place (row `k` always, linear-cdf inverse, no `r`/`a`
+//! interpolation), the test reproduces the previous row below **bit for bit**,
+//! all four values. The same build carries the interpolation-region port,
+//! which is therefore bit-neutral here, as it must be on lin-lin tables.
+//!
+//! | quantity | delayed spectra (superseded) | correlated angles |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.80966055782988677e-1`~~ | `9.92702845023975877e-1` |
+//! | `k_std` | ~~`3.94301558460743561e-3`~~ | `5.09258853928865312e-3` |
+//! | first generation | ~~`8.90099543330054144e-1`~~ | `8.90099531919115061e-1` |
+//! | last generation | ~~`9.88192314096006386e-1`~~ | `9.89550193757308016e-1` |
+//!
+//! This is one 2000-history draw, so the 1174 pcm move is re-randomisation, not
+//! the worth of the change. The worth is measured by paired ensembles and
+//! recorded in
+//! `verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -149,10 +178,10 @@ const TEMP: f64 = 293.6;
 /// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.809_660_557_829_886_77e-1;
-const K_STD_PRE_258: f64 = 3.943_015_584_607_435_61e-3;
-const K_GEN_FIRST_PRE_258: f64 = 8.900_995_433_300_541_44e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.881_923_140_960_063_86e-1;
+const K_MEAN_PRE_258: f64 = 9.927_028_450_239_758_77e-1;
+const K_STD_PRE_258: f64 = 5.092_588_539_288_653_12e-3;
+const K_GEN_FIRST_PRE_258: f64 = 8.900_995_319_191_150_61e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.895_501_937_573_080_16e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

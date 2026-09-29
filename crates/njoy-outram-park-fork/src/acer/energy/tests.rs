@@ -96,6 +96,7 @@ fn mf6_mean_energy_exact_flat_pdf() {
     let m = Mf6Neutron {
         lct: 1,
         yield_pairs: vec![(0.0, 2.0)],
+        yield_interp: Vec::new(),
         law4: Law4 {
             e_in_interp: vec![],
             incident: vec![table],
@@ -127,6 +128,7 @@ fn mf6_mean_energy_interpolates_in_incident() {
     let m = Mf6Neutron {
         lct: 1,
         yield_pairs: vec![(0.0, 2.0)],
+        yield_interp: Vec::new(),
         law4: Law4 {
             e_in_interp: vec![],
             incident: vec![t(1.0, 2.0), t(3.0, 4.0)],

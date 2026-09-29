@@ -364,6 +364,7 @@ fn fission_heating_matches_energy_balance_formula() {
         energy: vec![1.0e5, 1.0e6],
         nu_total: vec![2.4, 2.6],
         poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::Watt {
         a: 0.988e6,
@@ -402,6 +403,7 @@ fn fission_heating_is_positive_and_order_200_mev() {
         energy: vec![1.0e5, 1.0e6],
         nu_total: vec![2.44, 2.44],
         poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::default(); // thermal-Watt stand-in
     let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi, &[]);
@@ -452,6 +454,7 @@ fn all_four_phases_sum_additively() {
         energy: vec![1.0e6],
         nu_total: vec![2.5],
         poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::Watt {
         a: 0.988e6,
@@ -664,6 +667,7 @@ fn h5_sums_additively_with_all_prior_phases() {
         energy: vec![e],
         nu_total: vec![2.6],
         poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::Watt {
         a: 0.988e6,

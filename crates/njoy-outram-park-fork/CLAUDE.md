@@ -367,6 +367,13 @@ sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
 way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
 gate would have buried the distinction rather than exposing it.
 
+**CORRECTED 2026-09-29 (GitHub #365 audit):** the row rule above no longer
+holds. The sampler now picks the row as OpenMC's `CorrelatedAngleEnergy`
+does, the nearer cdf edge (`k` or `k+1` on a lin-lin table), and inverts the
+row's cdf quadratically. The oracle follows the new rule and reads 0.78 sigma;
+the old oracle reads 6.36 sigma against the new sampler. Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
+
 Be-9 is in none of this workspace's criticality cases, so none of this moves a
 `k_eff`. What it closes is a silent fallback.
 

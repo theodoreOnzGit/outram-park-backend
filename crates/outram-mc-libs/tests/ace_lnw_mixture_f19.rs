@@ -139,6 +139,7 @@ fn flat_branch(p: Tab1) -> ContinuumBranch {
             incident_interp: Vec::new(),
         },
         yield_pairs: Vec::new(),
+        yield_interp: Vec::new(),
         applicability: Some(p),
         angular: ContinuumAngular::EvaluatedIsotropic,
     }
