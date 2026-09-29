@@ -14,7 +14,11 @@ now exist as crates; ~~both placeholders, no implementation~~ **CORRECTED
 It hosts **two independent ports**, each with its own upstream, licence,
 provenance files and verification harness (**CORRECTED 2026-09-28** — plus a
 third, non-ported module, `activity` (`src/activity/`), which consumes both ports
-and has no upstream and no code-to-code harness; see its module doc):
+and has no upstream and no code-to-code harness; see its module doc. **Since
+2026-09-29 (gh:#380)** its `chi_over_q` has an independent check against a
+hand-written age sum and buangkok's pyDOSEIA plume, in
+`crates/buangkok/tests/changi_puff_train_vs_plume.rs` — it lives in buangkok
+because buangkok depends on changi, not the reverse):
 
 | Module | Upstream | Licence | Harness |
 |---|---|---|---|
