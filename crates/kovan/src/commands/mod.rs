@@ -18,6 +18,7 @@
 pub mod affected;
 pub mod agent_docs_gen;
 pub mod api_docs;
+pub mod ci;
 pub mod cost;
 pub mod discover;
 pub mod gen;
