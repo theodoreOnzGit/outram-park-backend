@@ -127,6 +127,17 @@
 //! Table 3 basis). Rate constants: [`htr10_pool_rates`]. The leak
 //! ([`NodalActivitiesBq::leak_rate`]) is what leaves the circuit.
 //!
+//! # Building not credited (conservative); see gh:#409
+//!
+//! **Maintainer, 2026-09-29:** the reactor-building credit is deferred. By
+//! default the circuit leak goes **straight to the stack**
+//! ([`NodalActivitiesBq::stack_release_rate`] = `leak_rate`): no building
+//! hold-up, no deposition, no filtration. The `bishan` building CV added in
+//! gh:#400 stays in the tree, off the default path
+//! (`TrisoAtopsReleaseChannel::with_building_credit`, test-only until the
+//! work resumes). The accident stages release through this same uncredited
+//! path.
+//!
 //! # What else is an input rather than a derivation
 //!
 //! The geometry is published and read from `tampines` (see
@@ -210,14 +221,18 @@ pub struct NodalActivitiesBq {
     /// Clean-up / HPS activity \[Bq\].
     pub clean_up_activity: f64,
     /// Primary-circuit leak rate `k_leak C` \[Bq/s\] (gh:#399) -- what leaves
-    /// the circuit into the reactor building.
+    /// the circuit.
     pub leak_rate: f64,
-    /// Release rate **up the stack** \[Bq/s\] (gh:#400): what leaves the
-    /// reactor building (`bishan::building`, HTR-10 vented confinement) at the
-    /// end of the latest step. This, not the circuit leak, is the source the
-    /// atmospheric dispersion receives.
+    /// Release rate **up the stack** \[Bq/s\]: the source the atmospheric
+    /// dispersion receives. **Building not credited (conservative); see
+    /// gh:#409** -- by default this equals [`Self::leak_rate`], the circuit
+    /// leak going straight to the stack with no hold-up, deposition or
+    /// filtration (maintainer, 2026-09-29). ~~What leaves the reactor
+    /// building (`bishan::building`)~~ was the gh:#400 default; that CV is
+    /// kept, off the default path (`with_building_credit`, deferred).
     pub stack_release_rate: f64,
-    /// Activity airborne in the reactor building \[Bq\] (gh:#400).
+    /// Activity airborne in the reactor building \[Bq\]; zero unless the
+    /// deferred building credit is switched on (gh:#409).
     pub building_activity: f64,
 }
 
@@ -614,6 +629,15 @@ impl NuclideRelease {
         }
     }
 
+    /// Building not credited (conservative; gh:#409): the circuit leak goes
+    /// straight up the stack.
+    fn set_uncredited_stack(&mut self) {
+        if let Some(a) = self.absolute.as_mut() {
+            a.stack_release_rate = a.leak_rate;
+            a.building_activity = 0.0;
+        }
+    }
+
     /// Report `pools` (atoms) as this nuclide's circulating, plate-out and
     /// clean-up activities, on both bases, and the leak rate.
     fn set_pools(&mut self, pools: PrimaryPools) {
@@ -657,8 +681,15 @@ pub struct TrisoAtopsReleaseChannel {
     pools: Option<Vec<PrimaryPools>>,
     /// The **reactor building** inventory per tracked nuclide \[atoms\]
     /// (gh:#400), fed by the pools' leak. `None` until the first evaluation
-    /// opens it at the building's steady state for the opening leak.
+    /// opens it at the building's steady state for the opening leak, and
+    /// always `None` while [`Self::building_credit`] is off (the default).
     building: Option<Vec<bishan::building::BuildingInventory>>,
+    /// Whether the reactor building is credited between the circuit leak and
+    /// the stack. **Off by default: building not credited (conservative); see
+    /// gh:#409** (maintainer, 2026-09-29: deferred, "whatever is in ATOPS
+    /// will suffice"). The bishan CV stays in the tree for when it is taken
+    /// up again.
+    building_credit: bool,
     /// Primary loop mass flow the plate-out rate is formed at. Set by the
     /// plant every step ([`Self::set_primary_flow`]); the rated 4.3 kg/s until
     /// then.
@@ -697,8 +728,19 @@ impl TrisoAtopsReleaseChannel {
             last_evaluated_s: None,
             pools: None,
             building: None,
+            building_credit: false,
             primary_flow: super::pebble_bed::nominal_helium_flow(),
         }
+    }
+
+    /// **Deferred (gh:#409), off by default.** Credit the bishan reactor
+    /// building CV (gh:#400) between the circuit leak and the stack. Kept
+    /// test-only so the CV stays exercised on this path until the building
+    /// work is taken up; un-gate it then.
+    #[cfg(test)]
+    pub fn with_building_credit(mut self) -> Self {
+        self.building_credit = true;
+        self
     }
 
     /// Set the primary loop mass flow the live plate-out rate is formed at
@@ -776,6 +818,9 @@ impl TrisoAtopsReleaseChannel {
         // over exactly); opened at its own steady state for the opening leak.
         let building_parameters = bishan::building::BuildingParameters::htr10();
         let building = match self.building.take() {
+            // Building not credited (conservative; gh:#409): the leak goes
+            // straight to the stack.
+            _ if !self.building_credit => Vec::new(),
             None => pools
                 .iter()
                 .zip(releases.iter())
@@ -813,12 +858,15 @@ impl TrisoAtopsReleaseChannel {
                 })
                 .collect(),
         };
-        for ((release, pool), b) in releases.iter_mut().zip(pools.iter()).zip(building.iter()) {
+        for (i, (release, pool)) in releases.iter_mut().zip(pools.iter()).enumerate() {
             release.set_pools(*pool);
-            release.set_building(*b, building_parameters);
+            match building.get(i) {
+                Some(b) => release.set_building(*b, building_parameters),
+                None => release.set_uncredited_stack(),
+            }
         }
         self.pools = Some(pools);
-        self.building = Some(building);
+        self.building = self.building_credit.then_some(building);
         self.latest = releases;
         self.evaluated_at_kernel = Some(stack.kernel);
         self.evaluated_at = Some(stack);
@@ -1759,6 +1807,28 @@ mod tests {
         );
         assert!(after.circulating_activity > before.circulating_activity);
         assert!(ch.pools().unwrap().iter().all(|p| p.leaked > 0.0));
+    }
+
+    /// **Building not credited by default (gh:#409):** the stack rate IS the
+    /// circuit leak, bit for bit, with no building inventory; the deferred
+    /// opt-in still routes it through the bishan CV, which passes strictly
+    /// less (decay in the building) at its opening steady state.
+    #[test]
+    fn the_default_stack_rate_is_the_uncredited_circuit_leak() {
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = TrisoAtopsReleaseChannel::kernel_and_graphite(k(1200.0), k(950.0));
+        let mut plain = channel();
+        let mut credited = channel().with_building_credit();
+        for i in 0..=60 {
+            plain.update(i as f64, Some(stack));
+            credited.update(i as f64, Some(stack));
+        }
+        for (a, b) in plain.latest().iter().zip(credited.latest()) {
+            let (a, b) = (a.absolute.unwrap(), b.absolute.unwrap());
+            assert_eq!(a.stack_release_rate, a.leak_rate);
+            assert_eq!(a.building_activity, 0.0);
+            assert!(b.stack_release_rate < b.leak_rate && b.stack_release_rate > 0.0);
+        }
     }
 
     /// **The chemical-attack hook adds to the in-service failure** and to

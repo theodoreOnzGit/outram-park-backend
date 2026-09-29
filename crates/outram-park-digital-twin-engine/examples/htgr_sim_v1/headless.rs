@@ -387,6 +387,14 @@ mod tests {
     /// bed sideways; about a third of it returns to the core inlet through the
     /// cold return. Ledger residual at 300 s: -1.4e-4 J on 8.16e9 J.
     ///
+    /// ## Not regenerated since the gh:#403 inventory change, the SG merge
+    /// (gh:#319), the single beta (gh:#387) and the uncredited building
+    /// (gh:#409)
+    ///
+    /// The fixture is stale against all four; per the maintainer's
+    /// 2026-09-29 direction it is **not re-measured; pending validation
+    /// work**. Expect this ignored test to fail until then.
+    ///
     /// **This is not the loosening the note below warns against.** When
     /// parallel execution lands and reduction order legitimately changes,
     /// *that* still wants its own separate, deliberately-tolerant comparison;

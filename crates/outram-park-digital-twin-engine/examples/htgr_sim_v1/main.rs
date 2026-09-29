@@ -19,6 +19,18 @@
 //! gas duct cross-vessel between the two. See [`app::schematic`] for what that
 //! arrangement is and where it comes from.
 //!
+//! ## Read this first (2026-09-29)
+//!
+//! - One delayed-neutron fraction everywhere, `beta_eff = 7.26e-3` (gh:#387).
+//! - **The delayed-neutron precursors start EMPTY** and fill over the first
+//!   minutes (within 1 % of equilibrium after 245 s at 10 MW); from a cold
+//!   start at 0 $ the power first drops, so early-transient numbers are not
+//!   plant behaviour. See `physics::kinetics`' "Read this first".
+//! - Decay heat starts at equilibrium (conservative).
+//! - Rod worth vs feedback reference: demo-grade (gh:#408).
+//! - Reactor building not credited (conservative): leak straight to the stack
+//!   (gh:#409).
+//!
 //! ## What this is (and is not)
 //!
 //! ~~This is a **scaffold**: a working, compiling skeleton~~ **CHANGED

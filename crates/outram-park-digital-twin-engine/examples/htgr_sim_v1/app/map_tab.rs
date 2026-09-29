@@ -1601,8 +1601,8 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
     ui.label(
         "chi/Q is the quotable quantity: a dilution factor that does NOT depend on the source. \
          The activity columns DO: they are the five tracked nuclides only, leaked from the \
-         primary circuit at the published ~1 %/day (no building retention, filtration or \
-         stack model), with TRISO-ATOPS reference failure fractions -- NOT a source term and \
+         primary circuit at the published ~1 %/day straight to the stack -- building not \
+         credited (conservative; gh:#409): no retention, filtration or deposition -- with TRISO-ATOPS reference failure fractions -- NOT a source term and \
          not figures for any reactor. Research, education and V&V only. The dose-rate table \
          below is INDICATIVE (buangkok, US EPA coefficients) and is not a dose to anyone.",
     );
@@ -2133,7 +2133,9 @@ mod tests {
     /// # Results (2026-09-29, gh:#400)
     ///
     /// Pass: 3 distances x 8 bearings. Printed: peak LIVE `chi/Q` on the ring
-    /// 1.805e-5 s/m^3 (unchanged), absolute **stack** release rate 58.69 Bq/s,
+    /// 1.805e-5 s/m^3 (unchanged), absolute **stack** release rate 58.69 Bq/s
+    /// (with the gh:#400 building credit; not re-measured since the building
+    /// was taken off the default path, gh:#409; pending validation work),
     /// peak absolute LIVE air concentration **1.059e-3 Bq/m^3** -- about
     /// **4.3 decades below** the default "≈ banana" floor (19.92).
     /// ~~9.515 Bq/s and 1.717e-4 Bq/m^3, 5.1 decades below~~ (2026-09-28):
@@ -2465,7 +2467,9 @@ mod tests {
     ///
     /// # Results (2026-09-29, re-measured after gh:#400)
     ///
-    /// Pass. At the 1200 K default: absolute stack release 58.69 Bq/s, peak
+    /// Not re-measured since the building credit was removed from the default
+    /// path (gh:#409); pending validation work. Pass. At the 1200 K default:
+    /// absolute stack release 58.69 Bq/s, peak
     /// ring air dose rate 4.769e-8 µSv/h, peak field air 6.659e-8 µSv/h (7.1
     /// decades under the 0.8 floor), peak ring ground shine 2.399e-11 µSv/h;
     /// absolute peak field concentration 4.437e-3 Bq/m^3. Kernel sweep, peak

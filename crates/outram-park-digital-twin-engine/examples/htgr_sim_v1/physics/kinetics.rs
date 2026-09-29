@@ -16,6 +16,41 @@
 //!    the kinetics is **not prompt-only** -- deliberately avoiding
 //!    `fhr_sim_v2`'s prompt-only oscillation mistake by construction.
 //!
+//! ## Read this first: what the opening state is (gh:#387, maintainer 2026-09-29)
+//!
+//! - **One delayed-neutron fraction everywhere: `beta_eff = 7.26e-3`**
+//!   (Chen et al. 2009 Table 1, [`HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION`]).
+//!   The prompt layer, the delayed bank (the U-235 five-group relative
+//!   abundances rescaled to that total) and the rods-to-dollars conversion
+//!   all use it. ~~The delayed bank summed to bare U-235's 0.0065, the rods
+//!   were converted at 0.0065 (x1.117 too large) and steady state needed
+//!   `rho_net = +76 pcm`~~ -- fixed 2026-09-29; at 0 $ with the precursors at
+//!   equilibrium the power is now stationary
+//!   (`tests::zero_net_dollars_with_equilibrium_precursors_is_stationary`).
+//! - **The delayed-neutron precursors start EMPTY.** The bank is built with
+//!   no precursors and fills under power, on the groups' own time constants;
+//!   the longest group's ~56 s half-life sets the scale. Measured
+//!   (`tests::how_long_the_empty_precursor_bank_takes_to_fill`, 10 MW held):
+//!   the inventory reaches 1 % of equilibrium in **0.13 s** and comes within
+//!   1 % of equilibrium only after **245 s** (analytic 245.0 s). **Consequence:** from a cold
+//!   start at net 0 $ the power first DROPS, because the prompt layer sees
+//!   `rho - beta = -beta` with no delayed source yet (measured 2026-09-28,
+//!   with the old 0.0065 bank: 10 MW -> 0.255 MW in 20 s with the bed held;
+//!   not re-measured since the single-beta change; pending validation work).
+//!   **Early-transient numbers
+//!   -- the first few minutes after the simulator opens -- are the
+//!   precursors filling, not plant behaviour, and must not be read as
+//!   such.** `DelayedNeutronLayer::seed_at_equilibrium` exists for a caller
+//!   that wants a steady opening instead; the plant does not use it.
+//! - **Decay heat is seeded at equilibrium** (`DecayHeat::new_at_equilibrium`):
+//!   a conservative choice, since it means more decay heat early than a
+//!   fresh core would have.
+//! - **The rod worth and the feedback reference are demo-grade.** The bank
+//!   worth is cold-clean (20 degC, TECDOC-1382) while the feedback zero is an
+//!   illustrative 950 K seed, so the temperature defect between them is not
+//!   in the budget (gh:#387 section 1-2). Filed for future validation as
+//!   **gh:#408**; not changed here.
+//!
 //! ## Lie-split coupling (the important part)
 //!
 //! Each timestep the two layers are combined with an operator (Lie) split, per
@@ -705,7 +740,14 @@ impl HtgrKinetics {
         )
         .expect("published HTR-10 kinetics parameters must satisfy NordheimFuchs preconditions");
 
-        let delayed = DelayedNeutronLayer::u235_five_group(prompt_generation_time);
+        // ONE beta (gh:#387): the U-235 five-group shape, rescaled so the
+        // groups sum to the prompt layer's published beta_eff. Built EMPTY --
+        // see the module doc's "Read this first".
+        let delayed = DelayedNeutronLayer::u235_five_group_with_total_fraction(
+            prompt_generation_time,
+            Ratio::new::<ratio>(Self::HTR10_EFFECTIVE_DELAYED_FRACTION),
+        )
+        .expect("published HTR-10 beta_eff is in (0, 1) and Lambda > 0");
 
         Self {
             prompt,
@@ -966,10 +1008,10 @@ impl HtgrKinetics {
     }
 
     /// The delayed-neutron fraction the kinetics convert every dollar term
-    /// with (the Nordheim-Fuchs stepper's `beta`, 7.26e-3 published). **Not**
-    /// the delayed layer's `sum(beta_i)` that [`Self::delayed_neutron_fraction`]
-    /// reports and the rod-worth conversion uses (0.0065) -- that mismatch is
-    /// gh:#387, left as it is here and shown on the panel.
+    /// with (the Nordheim-Fuchs stepper's `beta`, 7.26e-3 published). Since
+    /// 2026-09-29 (gh:#387) it equals the delayed layer's `sum(beta_i)`
+    /// ([`Self::delayed_neutron_fraction`]) and the rod-worth conversion uses
+    /// it; ~~the layer summed to 0.0065 and the rods used that~~.
     pub fn kinetics_delayed_neutron_fraction(&self) -> Ratio {
         self.prompt.delayed_neutron_fraction
     }
@@ -1114,7 +1156,8 @@ impl HtgrKinetics {
     }
 
     /// Effective total delayed-neutron fraction `beta = sum(beta_i)` reported
-    /// by the delayed-neutron layer (dimensionless).
+    /// by the delayed-neutron layer (dimensionless): 7.26e-3, the same `beta`
+    /// as the prompt layer (gh:#387).
     pub fn delayed_neutron_fraction(&self) -> Ratio {
         self.delayed.total_delayed_neutron_fraction()
     }
@@ -1396,18 +1439,153 @@ mod tests {
     /// and was widened for that stated reason.
     ///
     /// **What this deliberately does NOT assert: that power holds at 0 $.**
-    /// It does not, and not because of this change: `teh_o_prke`'s
-    /// `DelayedNeutronLayer::u235_five_group` starts with **empty precursor
-    /// groups** (and its five-group `beta` sums to 6.5e-3 against the prompt
-    /// layer's 7.26e-3), so at zero inserted reactivity the prompt layer sees
-    /// `rho - beta = -beta` with no delayed source yet, and power falls
-    /// (measured 2026-09-28: 10 MW -> 0.255 MW in 20 s with the bed held).
+    /// It does not, and not because of this change: the delayed bank starts
+    /// with **empty precursor groups** (~~and its five-group `beta` sums to
+    /// 6.5e-3 against the prompt layer's 7.26e-3~~ -- one beta since
+    /// 2026-09-29, gh:#387), so at zero inserted reactivity the prompt layer
+    /// sees `rho - beta = -beta` with no delayed source yet, and power falls
+    /// (measured 2026-09-28: 10 MW -> 0.255 MW in 20 s with the bed held; not
+    /// re-measured since the single-beta change -- pending validation work).
+    /// With the precursors at equilibrium it holds:
+    /// `zero_net_dollars_with_equilibrium_precursors_is_stationary`.
     /// That is the pre-existing opening transient behind gh:#317/#318, recorded
     /// here so the next reader does not mistake it for a fuel-node defect.
     ///
     /// **Results (2026-09-28).** Fuel opens at 960.2501 K = 950 K + 10.2501 K
     /// (`R P` exactly); both channels 0 $; over one 1 ms substep the fuel moved
     /// -1.4e-4 K and the heat to the bed was 10.018 MW.
+    /// V&V (gh:#387): **one beta, and near 0 $ the plant is stationary; the
+    /// remaining offset is the kinetics' own Lie-split bias, not a beta
+    /// mismatch.**
+    ///
+    /// **Methodology.** Build the kinetics at 10 MW; check the prompt layer's
+    /// `beta` equals the delayed bank's `sum(beta_i)` (both 7.26e-3); seed the
+    /// precursors at their 10 MW equilibrium; step 600 s at the 0.1 s plant
+    /// step (1 ms kinetics substeps) with 0 $ external and the bed held at its
+    /// 950 K design temperature. The fuel feedback is then the only thing that
+    /// moves, so the net reactivity the plant settles at is the offset the
+    /// discrete scheme needs to hold power.
+    ///
+    /// **Instrument, derived before the run's criterion was set.** The Lie
+    /// split (prompt substep, then the delayed source from the prompt power)
+    /// loses `exp(-a)(1 + a) ~ 1 - a^2/2` per substep, `a = beta dt / Lambda`,
+    /// which a steady state must make up with `rho = beta^2 dt / (2 Lambda)`,
+    /// i.e. `beta dt / (2 Lambda)` dollars = **2.16e-3 $** (1.57 pcm) at
+    /// `dt = 1 ms`. Pass: settled net within 25 % of that (the `a^3` terms and
+    /// the backward-Euler precursor lag are the tolerance), power changing by
+    /// less than 1e-4 relative over the last 60 s, and the offset under 5 % of
+    /// the old beta-mismatch bias (+76 pcm = +0.1047 $ at 7.26e-3).
+    ///
+    /// ~~Pass: power within 1e-3 relative of 10 MW throughout~~ -- the first
+    /// criterion, written before the split bias was worked out; it failed
+    /// (0.55 % in 60 s), which is what exposed the bias. Recorded rather than
+    /// quietly replaced.
+    ///
+    /// **Results (2026-09-29):** net settles at **+2.37e-3 $** (1.72 pcm, +10 %
+    /// of the analytic split bias) with the power at 9.866 MW (-1.34 %, the
+    /// fuel cooling ~0.14 K to supply that reactivity); power changed 7e-5
+    /// relative over the last 60 s. Against the old bookkeeping, where the
+    /// same run needed +0.105 $, the offset is 44x smaller.
+    #[test]
+    fn zero_net_dollars_with_equilibrium_precursors_is_stationary() {
+        let mut k = HtgrKinetics::new_htr10_published(rated());
+        let beta_p = k.kinetics_delayed_neutron_fraction().get::<ratio>();
+        let beta_d = k.delayed_neutron_fraction().get::<ratio>();
+        assert!((beta_p - 7.26e-3).abs() < 1e-15 && (beta_d - beta_p).abs() < 1e-15);
+        k.delayed.seed_at_equilibrium(rated());
+        let bed = design_bed();
+        let mut p_540 = 0.0;
+        for i in 0..6000 {
+            k.step(Time::new::<second>(0.1), 0.0, bed, None);
+            if i == 5399 {
+                p_540 = k.total_power().get::<megawatt>();
+            }
+        }
+        let p_600 = k.total_power().get::<megawatt>();
+        let net = k.net_reactivity_dollars();
+        let split_bias = beta_p * super::super::KINETICS_SUBSTEP_S
+            / (2.0 * HtgrKinetics::HTR10_PROMPT_GENERATION_TIME_S);
+        let old_bias_dollars = (beta_p - 6.5e-3) / beta_p;
+        println!(
+            "0 $, equilibrium precursors, bed held 600 s: P {p_600:.6} MW, net {net:+.4e} $ \
+             (split bias {split_bias:.4e} $, old beta-mismatch bias {old_bias_dollars:.4e} $), \
+             last-60-s change {:.2e}",
+            (p_600 - p_540).abs() / p_600
+        );
+        assert!(
+            (net - split_bias).abs() < 0.25 * split_bias,
+            "{net:e} vs {split_bias:e}"
+        );
+        assert!((p_600 - p_540).abs() / p_600 < 1e-4);
+        assert!(net.abs() < 0.05 * old_bias_dollars);
+    }
+
+    /// **How long the EMPTY precursor bank takes to fill** (maintainer
+    /// direction 2026-09-29, gh:#387: state it upfront, measure it).
+    ///
+    /// **Methodology.** The plant's own bank (U-235 shape, `sum(beta_i) =
+    /// 7.26e-3`, `Lambda = 1.68e-3 s`), built empty, advanced at a held 10 MW
+    /// in 1 ms steps (the kinetics substep). Record when the summed inventory
+    /// first reaches 1 % of its equilibrium, and when it first comes within
+    /// 1 % of it. Cross-check the second against the analytic deficit
+    /// `sum_i w_i exp(-lambda_i t)`, `w_i = (beta_i/lambda_i) / sum_j
+    /// (beta_j/lambda_j)`, within 1 s.
+    ///
+    /// **Results (2026-09-29):** printed below, and quoted in the module doc.
+    #[test]
+    fn how_long_the_empty_precursor_bank_takes_to_fill() {
+        let k = HtgrKinetics::new_htr10_published(rated());
+        let mut layer = k.delayed.clone();
+        assert_eq!(layer.precursor_inventory(), 0.0);
+        let mut eq = layer.clone();
+        eq.seed_at_equilibrium(rated());
+        let target = eq.precursor_inventory();
+        let dt = Time::new::<second>(1e-3);
+        let (mut t, mut reach_1pct, mut within_1pct) = (0.0, None, None);
+        while within_1pct.is_none() && t < 2000.0 {
+            layer.advance(rated(), dt);
+            t += 1e-3;
+            let f = layer.precursor_inventory() / target;
+            if reach_1pct.is_none() && f >= 0.01 {
+                reach_1pct = Some(t);
+            }
+            if f >= 0.99 {
+                within_1pct = Some(t);
+            }
+        }
+        let (a, b) = (reach_1pct.unwrap(), within_1pct.unwrap());
+        let lam: Vec<f64> = layer
+            .decay_constants()
+            .iter()
+            .map(|l| l.get::<uom::si::frequency::hertz>())
+            .collect();
+        let bet: Vec<f64> = layer
+            .delayed_fractions()
+            .iter()
+            .map(|x| x.get::<ratio>())
+            .collect();
+        let norm: f64 = (0..5).map(|i| bet[i] / lam[i]).sum();
+        let deficit = |t: f64| -> f64 {
+            (0..5)
+                .map(|i| bet[i] / lam[i] / norm * (-lam[i] * t).exp())
+                .sum()
+        };
+        let (mut lo, mut hi) = (0.0, 2000.0);
+        for _ in 0..100 {
+            let mid = 0.5 * (lo + hi);
+            if deficit(mid) > 0.01 {
+                lo = mid
+            } else {
+                hi = mid
+            }
+        }
+        println!(
+            "empty bank at 10 MW: 1 % of equilibrium inventory at {a:.3} s; within 1 % of \
+             equilibrium at {b:.1} s (analytic {hi:.1} s)"
+        );
+        assert!((b - hi).abs() < 1.0, "{b} vs {hi}");
+    }
+
     #[test]
     fn the_design_point_is_neutral() {
         use uom::si::thermodynamic_temperature::kelvin as k_unit;

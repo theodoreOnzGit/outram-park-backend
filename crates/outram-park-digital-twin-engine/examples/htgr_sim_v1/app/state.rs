@@ -509,9 +509,9 @@ pub struct HtgrSnapshot {
     pub budget_xenon_dollars: f64,
     /// Net: the sum the kinetics integrate \[$\].
     pub budget_net_dollars: f64,
-    /// The `beta` the kinetics convert those dollars with (dimensionless) --
-    /// NOT [`Self::delayed_neutron_fraction_pcm`], which is the delayed
-    /// layer's `sum(beta_i)` the rod-worth conversion uses (gh:#387).
+    /// The `beta` the kinetics convert those dollars with (dimensionless);
+    /// since 2026-09-29 the same as [`Self::delayed_neutron_fraction_pcm`]
+    /// / 1e5 (one beta, gh:#387).
     pub kinetics_beta: f64,
     /// Effective total delayed-neutron fraction \[pcm\].
     pub delayed_neutron_fraction_pcm: f64,

@@ -367,7 +367,10 @@ use turbine_generator::TurbineGeneratorShaft;
 /// while the **prompt** layer uses HTR-10's published
 /// [`kinetics::HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION`] of 7.26e-3.
 /// One physical quantity, two values, 11.7 % apart. Every dollar figure above
-/// depends on which one is used; the pcm figures do not. Not fixed here.
+/// depends on which one is used; the pcm figures do not. ~~Not fixed here.~~
+/// **FIXED 2026-09-29 (gh:#387):** one `beta_eff = 7.26e-3` everywhere. The
+/// dollar figures in this doc were taken at 0.0065 and are not re-measured
+/// since that change; pending validation work. The pcm figures stand.
 ///
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 
@@ -1216,10 +1219,12 @@ impl HtgrPlant {
     /// [`control_rods`] for the published HTR-10 bank worth and cold clean
     /// excess this is derived from, and for what remains illustrative about it.
     pub fn external_reactivity_dollars(&self, control_rod_insertion_fraction: f64) -> f64 {
+        // The kinetics' one beta_eff (gh:#387): the same beta the prompt
+        // layer converts these dollars back with.
         control_rods::external_reactivity_dollars(
             control_rod_insertion_fraction,
             self.kinetics
-                .delayed_neutron_fraction()
+                .kinetics_delayed_neutron_fraction()
                 .get::<uom::si::ratio::ratio>(),
         )
     }
@@ -2022,8 +2027,11 @@ mod tests {
     ///   *for*, and the one worth gating.
     ///
     /// The `beta` ambiguity documented on [`GUI_INITIAL_ROD_INSERTION`] applies
-    /// to every dollar figure here and not to the pcm ones; this test reads the
-    /// **delayed** layer, `beta = 0.00650`.
+    /// to every dollar figure here and not to the pcm ones; ~~this test reads
+    /// the **delayed** layer, `beta = 0.00650`~~ -- since 2026-09-29 (gh:#387)
+    /// the delayed layer's `beta` is 7.26e-3, so the dollar figures below
+    /// (taken at 0.0065) are not re-measured since that change; pending
+    /// validation work.
     ///
     /// # Results (measured 2026-09-27, `beta = 0.00650`)
     ///

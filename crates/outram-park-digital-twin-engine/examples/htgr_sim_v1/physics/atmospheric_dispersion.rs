@@ -50,10 +50,10 @@
 //! **An input, and NOT quotable as an HTR-10 figure:**
 //!
 //! - ~~the **primary-circuit leak rate** (`Htr10SiteInputs::LEAK_FRACTION_PER_S`)~~
-//!   the **stack release rate** since 2026-09-29 (gh:#400): primary leak ->
-//!   reactor building (`bishan`) -> stack; see `fission_product_release`
-//!   — a circuit leak, not a release-to-environment fraction (no building
-//!   retention, filtration or stack model sits between the two);
+//!   the **stack release rate** since 2026-09-29: ~~primary leak -> reactor
+//!   building (`bishan`) -> stack (gh:#400)~~ primary leak -> stack directly,
+//!   **building not credited (conservative); see gh:#409** (no building retention,
+//!   filtration or deposition credited); see `fission_product_release`;
 //! - ~~the **core inventory**, which [`super::fission_product_release`] refuses
 //!   to derive, so everything downstream of it stays on that module's
 //!   per-curie-of-core-inventory basis;~~ **CORRECTED 2026-09-28** — the
@@ -434,10 +434,10 @@ impl Htr10SiteInputs {
     // This simulator still models none of that chain"~~ -- DELETED 2026-09-29
     // (gh:#400). The chain now exists: the primary leak (Liu & Cao 2002, 1 %
     // per day; `fission_product_release::HTR10_PRIMARY_LEAK_PER_S`, the one
-    // copy) feeds the live pools' leak sink, which feeds the reactor building
-    // (`bishan::building`, HTR-10 vented confinement), whose exhaust is the
-    // stack release this channel disperses
-    // (`NodalActivitiesBq::stack_release_rate`).
+    // copy) feeds the live pools' leak sink, which goes straight up the stack
+    // (`NodalActivitiesBq::stack_release_rate`): building not credited (conservative); see gh:#409.
+    // ~~The leak feeds the reactor building (`bishan::building`), whose
+    // exhaust is the stack release~~ was the gh:#400 default.
 
     /// Release height \[m\] — **the published HTR-10 stack height.**
     ///
@@ -2180,8 +2180,8 @@ fn per_ci_stack_rate(r: &super::fission_product_release::NuclideRelease) -> f64 
 /// Release rate to atmosphere on the **per-Ci** basis \[Bq/s per Ci\]: the
 /// sum over tracked nuclides of the **stack** release rate per curie of that
 /// nuclide's own core inventory. ~~circulating activity (Ci per Ci) x
-/// `LEAK_FRACTION_PER_S`~~ until 2026-09-29 (gh:#400): the building now sits
-/// between the circuit leak and the stack.
+/// `LEAK_FRACTION_PER_S`~~ until 2026-09-29 (gh:#400). Building not credited (conservative); see gh:#409:
+/// the stack rate is the circuit leak.
 ///
 /// This is the rate `AtmosphericDispersionChannel::source_term_per_ci`
 /// spreads uniformly over its window, so `rate * duration` is that source
@@ -2191,8 +2191,9 @@ pub fn per_ci_release_rate_bq_per_s(release: &TrisoAtopsReleaseChannel) -> f64 {
 }
 
 /// Release rate to atmosphere on the **absolute** basis \[Bq/s\]: the sum
-/// over tracked nuclides of the **stack** release rate out of the reactor
-/// building (gh:#400; ~~circulating activity x `LEAK_FRACTION_PER_S`~~).
+/// over tracked nuclides of the **stack** release rate (gh:#400;
+/// ~~circulating activity x `LEAK_FRACTION_PER_S`~~) -- building not credited (conservative); see gh:#409, so it
+/// is the circuit leak.
 /// `None` if any tracked nuclide lacks a published inventory, so a partial sum
 /// is never shown as a total.
 pub fn absolute_release_rate_bq_per_s(release: &TrisoAtopsReleaseChannel) -> Option<f64> {

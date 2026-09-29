@@ -1045,9 +1045,8 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
 /// [`crate::app::state::reactivity_pcm`], at the kinetics' own `beta`.
 ///
 /// The external term is what the kinetics were handed (after any scram
-/// demand), so it can differ from the "External reactivity" line above,
-/// which is the operator's rod command converted with the delayed layer's
-/// `beta` -- the gh:#387 mismatch, stated on the panel rather than hidden.
+/// demand), so it can differ from the "External reactivity" line above, the
+/// operator's rod command. Both use the one `beta` (gh:#387, 2026-09-29).
 fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
     use crate::app::state::reactivity_pcm;
     let beta = snapshot.kinetics_beta;
@@ -1073,12 +1072,17 @@ fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
         .color(egui::Color32::from_rgb(230, 170, 40)),
     );
     ui.small(format!(
-        "pcm at beta = {beta:.5} ({:.0} pcm), the kinetics' value. The rod-worth \
-         conversion to $ uses a different beta ({:.0} pcm, the delayed layer's sum) \
-         -- a known mismatch, gh:#387, not resolved here.",
-        beta * 1e5,
-        snapshot.delayed_neutron_fraction_pcm
+        "One beta everywhere: beta_eff = {beta:.5} ({:.0} pcm, Chen et al. 2009), for \
+         the rods, the prompt layer and the delayed-neutron bank.",
+        beta * 1e5
     ));
+    ui.small(
+        "Delayed-neutron precursors start EMPTY and fill over the first minutes (the \
+         longest group's ~56 s half-life sets the scale; within 1 % of equilibrium after \
+         245 s at 10 MW). Until then the power sags at 0 $: early-transient numbers are \
+         the precursors filling, not plant behaviour. Decay heat starts at equilibrium \
+         (conservative). Rod worth vs feedback reference is demo-grade (gh:#408).",
+    );
 }
 
 #[cfg(test)]

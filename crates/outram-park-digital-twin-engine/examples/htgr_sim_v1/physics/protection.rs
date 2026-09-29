@@ -1,7 +1,9 @@
 //! Reactor protection system: automatic scram on measurable trip signals.
 //!
 //! Without this, withdrawing the control-rod bank fully exposes the published
-//! cold clean excess of **+16.45 $** (see [`super::control_rods`]). Prompt
+//! cold clean excess of **10.69 %dk/k = +14.73 $** at the kinetics' single
+//! `beta_eff = 7.26e-3` (see [`super::control_rods`]; ~~+16.45 $~~ at the
+//! 0.0065 used until 2026-09-29, gh:#387). Prompt
 //! critical is 1 $, so that is a violent prompt excursion: power runs away,
 //! the fuel heats in milliseconds, and the plant model leaves the range where
 //! its property libraries are defined -- which surfaced as a panic and a
@@ -46,10 +48,14 @@
 //! over before the fuel is damaged, and demonstrating exactly that is the point
 //! of a modular HTGR.
 //!
-//! **This model does not reproduce that.** Its Doppler coefficient is an
-//! illustrative -4.0e-5 per K, not an HTR-10 evaluation, and against +16.45 $
-//! it would need a fuel temperature rise of order 2700 K to compensate -- far
-//! past any material limit. So the scram here is genuinely protecting the
+//! **This model does not reproduce that.** ~~Its Doppler coefficient is an
+//! illustrative -4.0e-5 per K ... against +16.45 $ it would need a fuel
+//! temperature rise of order 2700 K~~ **CORRECTED 2026-09-29 (gh:#387):** the
+//! feedback is Chen et al.'s published isothermal -1.4e-4 per K, split
+//! between the fuel and moderator channels; against the 10.69 %dk/k cold
+//! excess that is of order 760 K of uniform heating (arithmetic, not a run),
+//! and the cold-clean rod worth against the 950 K feedback zero is itself
+//! demo-grade (gh:#408). So the scram here is genuinely protecting the
 //! model, not demonstrating HTR-10's inherent safety. Adding a scram must not
 //! be mistaken for fixing that: the underlying gap is the feedback coefficient,
 //! tracked separately.
