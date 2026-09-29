@@ -157,6 +157,9 @@ def main():
     ap.add_argument("--no-ptables", action="store_true",
                     help="diagnostic (GitHub #407): URR probability tables off, "
                          "for the URR-worth comparison with outram-mc's --ablate no-urr")
+    ap.add_argument("--no-dbrc", action="store_true",
+                    help="diagnostic (GitHub #407): resonance scattering off, "
+                         "for the DBRC-worth comparison with outram-mc's --ablate no-dbrc")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()
 
@@ -188,7 +191,7 @@ def main():
         constraints={"fissionable": True})
     s.temperature = {"default": T, "method": "nearest", "tolerance": 10.0}
     s.ptables = not a.no_ptables
-    s.resonance_scattering = {"enable": True, "method": "dbrc",
+    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "dbrc",
                               "energy_min": 1.0e-5, "energy_max": 1000.0}
     s.output = {"tallies": False, "summary": False}
     model = openmc.Model(geometry=geo, materials=materials, settings=s)

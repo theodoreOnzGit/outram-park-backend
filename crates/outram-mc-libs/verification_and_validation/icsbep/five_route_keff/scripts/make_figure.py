@@ -161,8 +161,8 @@ def main():
                           label=lab.replace("\n", " + ")) for i, (_, lab) in enumerate(ROUTES)]
     fig.legend(handles=handles, loc="outside lower center", ncol=5, frameon=False, fontsize=8.5)
     fig.suptitle("Four ICSBEP cases by transport code and nuclear-data route — ENDF/B-VIII.0, 293.6 K\n"
-                 "INTERIM 2026-09-29: routes 3-5 measured at outram-mc code f1ac422b11 (binary 2d2a1787fa); "
-                 "later ACE-route fixes not yet re-measured. See the V&V record.",
+                 "FINAL 2026-09-29: routes 3-5 at outram-mc f78b5180d5, 32 seeds each; every cell within 2σ of "
+                 "route 1 except the lattice on route 3 (−36 ± 15 pcm, 2.5σ). See the V&V record.",
                  fontsize=10, x=0.01, ha="left", linespacing=1.5)
     (OUT / "figures").mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "figures" / "five_route_keff.png", dpi=200, metadata={"Software": None},
