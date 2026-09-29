@@ -1440,6 +1440,7 @@ pub struct EnergyAngular {
     pub cosines: Vec<f64>,
     pub pdf: Vec<f64>,
     pub cdf: Vec<f64>,
+    pub histogram: bool,
 }
 ```
 
@@ -1451,6 +1452,7 @@ pub struct EnergyAngular {
 | `cosines` | `Vec<f64>` | Tabulated cosine grid (ascending, −1 … +1). Empty ⇒ isotropic at this<br>energy (the AND block stores locator `0` and no data). |
 | `pdf` | `Vec<f64>` | Probability density `f(μ)` on `cosines`, non-negative, normalised so the<br>trapezoidal integral over `[−1, 1]` is 1. |
 | `cdf` | `Vec<f64>` | Cumulative distribution on `cosines`: `cdf[0] = 0`, `cdf[last] = 1`. |
+| `histogram` | `bool` | `true` when the law is a **histogram** in μ: ACE AND `intt = 1` and the<br>32 equiprobable bins, which OpenMC reads as a histogram `Tabular`<br>(`angle_distribution.py:176-185`). `false` (lin-lin) for everything<br>else, including every law built from ENDF MF=4. GitHub #365 audit. |
 
 ##### Implementations
 
@@ -2971,7 +2973,9 @@ pub struct AceDelayed {
     pub lambda: Vec<f64>,
     pub energy: Vec<f64>,
     pub nu_delayed: Vec<f64>,
+    pub nu_delayed_interp: Vec<(u32, u32)>,
     pub group_fraction: Vec<Vec<(f64, f64)>>,
+    pub group_fraction_interp: Vec<Vec<(u32, u32)>>,
     pub spectra: Vec<crate::nuclear_data::secondary::FissionSpectrum>,
 }
 ```
@@ -2983,7 +2987,9 @@ pub struct AceDelayed {
 | `lambda` | `Vec<f64>` | Precursor decay constants λ \[s⁻¹\], in the file's group order. |
 | `energy` | `Vec<f64>` | Incident-energy grid \[eV\] for delayed ν̄_d, ascending. |
 | `nu_delayed` | `Vec<f64>` | Total delayed ν̄_d aligned with [`Self::energy`]. |
+| `nu_delayed_interp` | `Vec<(u32, u32)>` | `nu_delayed`'s interpolation regions `(NBT, INT)`, as DNU states them;<br>empty means lin-lin (GitHub #365 audit: they used to be dropped). |
 | `group_fraction` | `Vec<Vec<(f64, f64)>>` | Per group, that group's share `p_k(E)` as `(E [eV], fraction)`,<br>**renormalised** so the shares sum to 1 — see the module docs. |
+| `group_fraction_interp` | `Vec<Vec<(u32, u32)>>` | Per group, the BDD probability TAB1's interpolation regions; empty<br>means lin-lin (GitHub #365 audit). |
 | `spectra` | `Vec<crate::nuclear_data::secondary::FissionSpectrum>` | Per group, that group's outgoing-energy law from DNED, as an MF=5-style<br>spectrum (NJOY writes LAW=4). Empty when the table has no DNEDL/DNED;<br>otherwise one per group. |
 
 ##### Implementations
@@ -4404,6 +4410,7 @@ assumption this port made until the coefficients were retained (bead
 pub struct Mf6Neutron {
     pub lct: i32,
     pub yield_pairs: Vec<(f64, f64)>,
+    pub yield_interp: Vec<(u32, u32)>,
     pub law4: super::core::Law4,
     pub lang: Mf6AngularLaw,
     pub angular: Vec<Mf6AngularTable>,
@@ -4417,6 +4424,7 @@ pub struct Mf6Neutron {
 |------|------|---------------|
 | `lct` | `i32` | Reference frame of the distribution: `1` = laboratory, `2` = centre-of-mass<br>(LCT from the MF=6 HEAD). Determines the sign of the ACE TYR entry. |
 | `yield_pairs` | `Vec<(f64, f64)>` | Neutron multiplicity (yield) vs incident energy `(E [eV], y)` — the<br>subsection's TAB1. A constant `y` (e.g. 2 for (n,2n)) gives `TYR = ±y`. |
+| `yield_interp` | `Vec<(u32, u32)>` | The yield TAB1's interpolation regions `(NBT, INT)`, kept so transport<br>can honour them (GitHub #365 audit). |
 | `law4` | `super::core::Law4` | The outgoing-energy distribution as an ACE Law 4. |
 | `lang` | `Mf6AngularLaw` | What the angular numbers on each row mean (ENDF `LANG`). |
 | `angular` | `Vec<Mf6AngularTable>` | The angular coefficients, one table per incident energy, in the **same<br>order and of the same length** as `law4.incident`. |
@@ -4564,6 +4572,7 @@ section), so it is left as `npsx`/`apsx` for the caller.
 pub struct Mf6PhaseSpace {
     pub lct: i32,
     pub yield_pairs: Vec<(f64, f64)>,
+    pub yield_interp: Vec<(u32, u32)>,
     pub npsx: i32,
     pub apsx: f64,
     pub x_frac: Vec<f64>,
@@ -4578,6 +4587,7 @@ pub struct Mf6PhaseSpace {
 |------|------|---------------|
 | `lct` | `i32` | Reference frame (`1` lab, `2` CM) from the MF=6 HEAD. |
 | `yield_pairs` | `Vec<(f64, f64)>` | Neutron multiplicity (yield) vs incident energy `(E [eV], y)`. |
+| `yield_interp` | `Vec<(u32, u32)>` | The yield TAB1's interpolation regions `(NBT, INT)`, kept so transport<br>can honour them (GitHub #365 audit). |
 | `npsx` | `i32` | Number of particles distributed via phase-space theory (ENDF `NPSX`). |
 | `apsx` | `f64` | Total mass of the particles sharing the phase space, in neutron masses<br>(ENDF `AP`). |
 | `x_frac` | `Vec<f64>` | `x = E'/E'_max` grid, ascending on `[0, 1]`. |
@@ -4961,6 +4971,7 @@ CM→lab transform needed, unlike LAW=1).
 pub struct Mf6LabAngleEnergy {
     pub lct: i32,
     pub yield_pairs: Vec<(f64, f64)>,
+    pub yield_interp: Vec<(u32, u32)>,
     pub e_in_interp: Vec<(u32, u32)>,
     pub incident: Vec<Law7Incident>,
 }
@@ -4972,6 +4983,7 @@ pub struct Mf6LabAngleEnergy {
 |------|------|---------------|
 | `lct` | `i32` | Reference frame (`1` lab, `2` CM) from the MF=6 HEAD. `LAW=7` data is<br>defined directly in the lab frame regardless of this flag. |
 | `yield_pairs` | `Vec<(f64, f64)>` | Neutron multiplicity (yield) vs incident energy `(E [eV], y)`. |
+| `yield_interp` | `Vec<(u32, u32)>` | The yield TAB1's interpolation regions `(NBT, INT)`, kept so transport<br>can honour them (GitHub #365 audit). |
 | `e_in_interp` | `Vec<(u32, u32)>` | Interpolation regions over the incident-energy grid (empty ⇒ single<br>lin-lin region). |
 | `incident` | `Vec<Law7Incident>` | Per-incident-energy angle/energy tables, ascending in `e_in_mev`. |
 
@@ -17255,6 +17267,7 @@ pub struct DelayedNuBar {
     pub energy: Vec<f64>,
     pub nu_delayed: Vec<f64>,
     pub ldg1_energy_dependent: bool,
+    pub interp: Vec<(u32, u32)>,
 }
 ```
 
@@ -17266,6 +17279,7 @@ pub struct DelayedNuBar {
 | `energy` | `Vec<f64>` | Incident-energy grid \[eV\] for delayed ν̄_d, ascending. |
 | `nu_delayed` | `Vec<f64>` | Total delayed ν̄_d aligned with [`Self::energy`]. |
 | `ldg1_energy_dependent` | `bool` | `true` if the tape used the energy-dependent decay-constant form<br>(`LDG=1`) and [`Self::lambda`] holds the lowest-energy set (see the<br>type-level note); `false` for the standard `LDG=0` form. |
+| `interp` | `Vec<(u32, u32)>` | `nu_delayed`'s interpolation regions `(NBT, INT)`; empty means lin-lin.<br>Honoured by [`Self::nu_delayed_at`] as OpenMC's `Tabulated1D` does<br>(GitHub #365 audit: they used to be dropped). |
 
 ##### Implementations
 
@@ -17294,7 +17308,7 @@ pub struct DelayedNuBar {
 - ```rust
   pub fn nu_delayed_at(self: &Self, e: f64) -> f64 { /* ... */ }
   ```
-  Interpolate total delayed ν̄_d at incident energy `e` \[eV\] (lin-lin,
+  Interpolate total delayed ν̄_d at incident energy `e` \[eV\] on the
 
 ###### Trait Implementations
 
@@ -17578,6 +17592,7 @@ the normalization rather than assume it.
 ```rust
 pub struct DelayedChiGroup {
     pub fraction: Vec<(f64, f64)>,
+    pub fraction_interp: Vec<(u32, u32)>,
     pub lf: i32,
     pub spectrum: Vec<(f64, f64)>,
     pub law: Option<crate::nuclear_data::secondary::FissionSpectrum>,
@@ -17589,6 +17604,7 @@ pub struct DelayedChiGroup {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `fraction` | `Vec<(f64, f64)>` | The group's probability fraction p_k(E) as `(E [eV], fraction)` — the<br>per-group share of the total delayed emission vs incident energy. |
+| `fraction_interp` | `Vec<(u32, u32)>` | `fraction`'s interpolation regions `(NBT, INT)`; empty means lin-lin.<br>GitHub #365 audit: they used to be dropped. |
 | `lf` | `i32` | ENDF `LF` law code for this group's outgoing spectrum (5 or 1 here). |
 | `spectrum` | `Vec<(f64, f64)>` | Outgoing-energy spectrum samples `(E' [eV], density [eV⁻¹])`, ascending<br>in E'. |
 | `law` | `Option<crate::nuclear_data::secondary::FissionSpectrum>` | The same spectrum as a **samplable law**, exact to the evaluation, or<br>`None` when this parser cannot represent it exactly — GitHub #365 audit<br>(delayed spectra reach transport).<br><br>- **LF=5** with `θ(E) ≡ 1` (checked, not assumed) and a single-region<br>  `g(x)` of INT 1 (histogram) or 2 (lin-lin): an energy-independent<br>  [`FissionSpectrum::ContinuousTabular`] whose one table is `g` itself,<br>  keeping `g`'s interpolation. ENDF/B-VIII.0 U-234/235/238's six groups<br>  are all this, with **histogram** `g` — which is why the plain `spectrum`<br>  pairs above, read as lin-lin, are not samplable as they stand.<br>- **LF=1**: every incident energy's table (not only the lowest), each<br>  single-region INT 1 or 2, as a `ContinuousTabular` over the TAB2 grid.<br>- Anything else (θ not identically 1, multi-region `g`, other `LF`):<br>  `None`, and the transport consumer then keeps the prompt χ for the<br>  whole nuclide rather than mixing exact and approximate groups.<br><br>The cumulative is built by exact integration of the stated<br>interpolation and normalised to 1, as OpenMC normalises a `Tabular`. |
@@ -17966,7 +17982,7 @@ pub mod secondary { /* ... */ }
 
 Average neutron yield per fission, ν̄(E).
 
-Stored as a lin-lin table in incident energy \[eV\]; `nu_total` is prompt +
+Stored as a table in incident energy \[eV\]; `nu_total` is prompt +
 delayed (delayed matters for delayed-critical benchmarks; a prompt bare-sphere
 Keff uses the total directly).
 
@@ -17975,6 +17991,7 @@ pub struct NuBar {
     pub energy: Vec<f64>,
     pub nu_total: Vec<f64>,
     pub poly: Option<Vec<f64>>,
+    pub interp: Vec<(u32, u32)>,
 }
 ```
 
@@ -17985,6 +18002,7 @@ pub struct NuBar {
 | `energy` | `Vec<f64>` | Incident-energy grid \[eV\], ascending. |
 | `nu_total` | `Vec<f64>` | Total ν̄ aligned with `energy`. |
 | `poly` | `Option<Vec<f64>>` | The evaluation's **polynomial** ν̄(E) = Σ c_k E^k, E in **eV**, when it<br>is given in that form (ENDF `LNU = 1`, ACE NU `LNU = 1`); `None` for a<br>tabulated ν̄. When present, [`Self::at`] evaluates it **exactly and<br>unclamped at every energy**, as OpenMC's `Polynomial` does<br>(`openmc/data/reaction.py:263-268`, coefficients scaled by<br>`EV_PER_MEV**-k`), and `energy`/`nu_total` are only a tabulation of it<br>for consumers that read the table. GitHub #365 audit: the polynomial<br>used to be tabulated on 1e-5 eV – 20 MeV and read lin-lin, which is an<br>approximation inside that range (a quadratic is not piecewise linear)<br>and a clamp above it. |
+| `interp` | `Vec<(u32, u32)>` | The table's **interpolation regions** `(NBT, INT)`, as the evaluation<br>states them; empty means lin-lin. [`Self::at`] honours them as OpenMC's<br>`Tabulated1D` does. GitHub #365 audit: ENDF MF=1 `LNU = 2` used to drop<br>them and the ACE NU reader refused any region that was not lin-lin.<br>Every ν̄ table in ENDF/B-VIII.0 is lin-lin (census 2026-09-29: 86 MT=452,<br>86 MT=456, 84 MT=455), so this changes no number in this workspace. |
 
 ##### Implementations
 
@@ -18665,6 +18683,7 @@ without the consumer having to know which it got.
 pub struct ContinuumBranch {
     pub spectrum: ChiTabular,
     pub yield_pairs: Vec<(f64, f64)>,
+    pub yield_interp: Vec<(u32, u32)>,
     pub applicability: Option<crate::endf::records::Tab1>,
     pub angular: ContinuumAngular,
 }
@@ -18676,6 +18695,7 @@ pub struct ContinuumBranch {
 |------|------|---------------|
 | `spectrum` | `ChiTabular` | This subsection's outgoing-energy law `f₀(E→E')`, incident and outgoing<br>grids in **eV**, pdf in eV⁻¹ — the same representation as the MF=5 LF=1<br>fission spectrum, so it samples through the identical code path. |
 | `yield_pairs` | `Vec<(f64, f64)>` | This subsection's neutron multiplicity `y(E)` as `(E \[eV\], y)` pairs.<br><br>ENDF MF=6 semantics: each subsection is a separately emitted particle and<br>this is how many of them there are. Empty on a branch built from ACE,<br>where the reaction's multiplicity is `TY` and is not split per law. |
+| `yield_interp` | `Vec<(u32, u32)>` | The yield table's interpolation regions `(NBT, INT)`; empty means<br>lin-lin. [`Self::yield_at`] honours them as OpenMC's `Tabulated1D` does.<br>GitHub #365 audit: they used to be dropped (ENDF) or refused (ACE MT=5).<br>The one non-lin-lin neutron yield in ENDF/B-VIII.0 is F-19's (histogram<br>on MT=16/22/28/91, census 2026-09-29, 4 of 4950 subsections). |
 | `applicability` | `Option<crate::endf::records::Tab1>` | The ACE **`LNW` applicability** `p(E)` of this branch, when the emission<br>is a *mixture of laws for one particle* rather than a list of particles.<br><br>`None` on every branch read from ENDF MF=6: there a branch is selected in<br>proportion to its [`yield_pairs`](Self::yield_pairs). `Some` on every<br>branch of an ACE `LNW` chain (GitHub #365): there a branch is selected<br>with probability `p_k(E)`, `sum_k p_k(E) = 1`, and the multiplicity is the<br>reaction's `TY`, which the branches do not carry. The two are **not** the<br>same quantity and are kept apart on purpose — ACER *derives* one from the<br>other (`acefc.f90` `acelf6`: `p_k = y_k / sum_j y_j`, on the ENDF yield's<br>own interpolation regions for a constant yield and on the combined<br>lin-lin grid for an energy-dependent one), so a sampler reading either<br>picks the same law, but a caller asking "how many neutrons" must not get<br>a probability back.<br><br>Evaluated as OpenMC's `Tabulated1D` does (`src/endf.cpp`): with the<br>record's own `(NBT, INT)` regions, and **clamped** to the end values<br>outside the tabulated range, not zeroed. |
 | `angular` | `ContinuumAngular` | The **angular** half of the law, correlated with the outgoing energy.<br><br>MF=6 LAW=1 is a correlated energy-angle law: the emission cosine depends<br>on which outgoing energy was drawn, so this is indexed by the same<br>`(incident table, outgoing row)` pair that `spectrum` was sampled at.<br>See [`ContinuumAngular`] for what each variant means — in particular, it<br>distinguishes "the evaluation says isotropic" from "this port cannot<br>sample this representation yet", which are the same number and very<br>different facts. |
 
@@ -18696,7 +18716,7 @@ pub struct ContinuumBranch {
 - ```rust
   pub fn yield_at(self: &Self, e_in: f64) -> f64 { /* ... */ }
   ```
-  Multiplicity `y` at incident energy `e_in` \[eV\], lin-lin interpolated
+  Multiplicity `y` at incident energy `e_in` \[eV\], on the table's own
 
 ###### Trait Implementations
 
@@ -18934,9 +18954,13 @@ back suspiciously small.
   The angular law for outgoing-energy row `row` of incident table
 
 - ```rust
-  pub fn sample_mu(self: &Self, table: usize, row: usize, xi: f64) -> Option<f64> { /* ... */ }
+  pub fn sample_mu_at(self: &Self, table: usize, pick: AnglePick, xi: f64) -> Option<f64> { /* ... */ }
   ```
   Sample the emission cosine for outgoing-energy row `row` of incident
+
+- ```rust
+  pub fn sample_mu(self: &Self, table: usize, row: usize, xi: f64) -> Option<f64> { /* ... */ }
+  ```
 
 - ```rust
   pub fn mubar(self: &Self, table: usize, row: usize) -> Option<f64> { /* ... */ }
@@ -19477,6 +19501,8 @@ transform to the laboratory frame along with the energy.
 pub struct ContinuumAngularRow {
     pub cosines: Vec<f64>,
     pub cdf: Vec<f64>,
+    pub pdf: Vec<f64>,
+    pub histogram: bool,
     pub mubar: f64,
 }
 ```
@@ -19487,6 +19513,8 @@ pub struct ContinuumAngularRow {
 |------|------|---------------|
 | `cosines` | `Vec<f64>` | Ascending cosine grid on `[−1, 1]`. Empty ⇒ this row is isotropic. |
 | `cdf` | `Vec<f64>` | Cumulative distribution on `cosines` (`cdf[0] = 0`, `cdf[last] = 1`). |
+| `pdf` | `Vec<f64>` | The density on `cosines`, when the row carries one (every row built<br>since the GitHub #365 audit). With it, [`Self::sample_mu`] inverts the<br>cdf exactly as OpenMC's `Tabular::sample` does — quadratic for lin-lin,<br>linear for histogram. Empty: the linear-cdf inverse this type used to<br>apply to every row. |
+| `histogram` | `bool` | `true` when the row is a **histogram** in μ (ACE `intt = 1`); `false`<br>for lin-lin. |
 | `mubar` | `f64` | The row's mean cosine `⟨μ⟩`, equal to the normalised `a₁ = f₁/f₀`.<br>Retained because it is the single number a transport-corrected model<br>needs, and because it is what an ablation control asserts is non-zero. |
 
 ##### Implementations
@@ -19581,6 +19609,150 @@ pub struct ContinuumAngularRow {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AnglePick`
+
+Where a sampled outgoing energy fell within its tabulated bin, as the
+correlated angular laws need it (GitHub #365 audit): the bin's lower row
+`row`, whether the draw was nearer its **upper** edge in cdf (the row OpenMC's
+`CorrelatedAngleEnergy` then uses), and the fractional position in energy
+(what `KalbachMann` interpolates `r` and `a` by).
+
+```rust
+pub struct AnglePick {
+    pub row: usize,
+    pub upper: bool,
+    pub frac: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `row` | `usize` | Lower row of the bin (a discrete line's own row). |
+| `upper` | `bool` | `true` when OpenMC takes row `row + 1`. |
+| `frac` | `f64` | `(E' - E_row) / (E_row+1 - E_row)`, 0 for histogram tables and lines. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn lower(row: usize) -> Self { /* ... */ }
+  ```
+  The plain lower-row pick, for a table with a single row or a line.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnglePick { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnglePick) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -19982,6 +20154,34 @@ pub struct UncorrelatedEmission {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `is_lin_lin`
+
+`true` when an `(NBT, INT)` region table is **lin-lin throughout**: empty
+(no regions stated, which ENDF and ACE both read as lin-lin) or every region
+`INT = 2`. The consumers below keep their original lin-lin arithmetic on
+such a table, so every table that was right before the GitHub #365 audit
+evaluates bit-identically after it.
+
+```rust
+pub fn is_lin_lin(interp: &[(u32, u32)]) -> bool { /* ... */ }
+```
+
+#### Function `tabulated1d_at`
+
+[`tabulated1d_core`] on `(x, y)` pairs.
+
+```rust
+pub fn tabulated1d_at(interp: &[(u32, u32)], pairs: &[(f64, f64)], x: f64) -> f64 { /* ... */ }
+```
+
+#### Function `tabulated1d_at_xy`
+
+[`tabulated1d_core`] on parallel `x` and `y` slices.
+
+```rust
+pub fn tabulated1d_at_xy(interp: &[(u32, u32)], xs: &[f64], ys: &[f64], x: f64) -> f64 { /* ... */ }
+```
 
 #### Function `phase_space_chi`
 
@@ -33719,6 +33919,11 @@ pub struct UrrProbabilityTables {
   pub fn covers(self: &Self, e: f64) -> bool { /* ... */ }
   ```
   Whether energy `e` \[eV\] lies inside the unresolved range these tables
+
+- ```rust
+  pub fn band_representatives(self: &Self, e: f64) -> Vec<f64> { /* ... */ }
+  ```
+  One representative `xi` for **every distinct band pair** [`Self::sample`]
 
 - ```rust
   pub fn sample(self: &Self, e: f64, xi: f64) -> Option<UrrSample> { /* ... */ }

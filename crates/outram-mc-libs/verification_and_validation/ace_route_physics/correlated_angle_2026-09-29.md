@@ -149,5 +149,15 @@ a fluctuation, and all three extensions were declared on #365 before they were
 run. The distributional test agrees: the old and new schemes sample the same
 continuum cosine at 0.6-2 MeV (KS `D <= 1.42e-3` against a critical `1.95e-3`).
 
-**LCT-008 lattice.** First look, seeds 1-32: −40 ± 18 pcm (2.2σ). An
-extension to 96 seeds per arm was declared and is running. LATTICE_PENDING
+**LCT-008 lattice** (campaign settings, 10000 × [250 + 400]):
+
+| seeds | paired Δk (new − old) | note |
+|---|---|---|
+| 1-32 | −40 ± 18 pcm (2.2σ) | first look |
+| 33-96 | +0.3 ± 10.6 pcm | declared extension |
+| **1-96** | **−13.1 ± 9.4 pcm (1.4σ)** | **the number to quote** |
+
+The prediction was < 5 pcm. The 96-seed result is 1.4σ from zero and
+cannot separate a few pcm from nothing, which is what a > 3 MeV cosine
+correction in a thermal lattice should give. The port does not move route 3
+away from OpenMC on either case once the declared extensions are in.

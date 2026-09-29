@@ -12909,6 +12909,21 @@ pub struct Material {
   Macroscopic total cross section Σ_t(E) \[cm⁻¹\] = Σ_i N_i·σ_t,i(E).
 
 - ```rust
+  pub fn macro_xs_total_urr(self: &Self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> f64 { /* ... */ }
+  ```
+  Σ_t(E) \[cm⁻¹\] as a neutron carrying the URR stream seed `urr_seed`
+
+- ```rust
+  pub fn macro_xs_total_upper_bound(self: &Self, e: f64, nuclides: &[Nuclide]) -> f64 { /* ... */ }
+  ```
+  An upper bound on Σ_t(E) \[cm⁻¹\] over every URR band, for
+
+- ```rust
+  pub fn sample_nuclide_urr(self: &Self, e: f64, seed: &mut u64, nuclides: &[Nuclide], urr_seed: u64) -> usize { /* ... */ }
+  ```
+  [`Self::sample_nuclide`] with each nuclide weighted by its **band**
+
+- ```rust
   pub fn sample_nuclide(self: &Self, e: f64, seed: &mut u64, nuclides: &[Nuclide]) -> usize { /* ... */ }
   ```
   Sample which nuclide the neutron collides with, weighted by each
@@ -13017,6 +13032,22 @@ pub struct Material {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Functions
+
+#### Function `urr_xi`
+
+The URR band variate of nuclide `nuclide_idx` (its index in the global
+nuclide array) for a neutron whose URR stream seed is `urr_seed`: OpenMC's
+`future_prn(index_, p.seeds(STREAM_URR_PTABLE))` (`src/nuclide.cpp`,
+`calculate_urr_xs`). The same neutron at the same energy therefore sees the
+same band of a nuclide in every material and at every event until its
+energy changes, when the kernel advances `urr_seed` by the number of
+nuclides (`physics.cpp`, `advance_prn_seed(data::nuclides.size(), ..)`).
+
+```rust
+pub fn urr_xi(nuclide_idx: usize, urr_seed: u64) -> f64 { /* ... */ }
+```
+
 ## Module `nuclide`
 
 ```rust
@@ -13377,6 +13408,16 @@ pub struct Nuclide {
   **LOW fidelity.** Resolve a nuclide from the embedded CORE nuclear-data
 
 - ```rust
+  pub fn with_legacy_thermal_sampling(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation (GitHub #407):** sample this nuclide's equiprobable
+
+- ```rust
+  pub fn uses_legacy_thermal_sampling(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether [`Self::with_legacy_thermal_sampling`] is in force. `false` by
+
+- ```rust
   pub fn with_thermal_scattering(self: Self, thermal: ThermalScattering) -> Self { /* ... */ }
   ```
   Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
@@ -13480,6 +13521,16 @@ pub struct Nuclide {
   pub fn needs_urr_draw(self: &Self, e: f64) -> bool { /* ... */ }
   ```
   Whether a collision on this nuclide at energy `e` \[eV\] requires a URR
+
+- ```rust
+  pub fn band_total(self: &Self, e: f64, temp_k: f64, xi: f64) -> f64 { /* ... */ }
+  ```
+  The total cross section \[b\] this nuclide presents to a neutron at
+
+- ```rust
+  pub fn total_upper_bound(self: &Self, e: f64, temp_k: f64) -> f64 { /* ... */ }
+  ```
+  An **upper bound** \[b\] on every total this nuclide can present at
 
 - ```rust
   pub fn with_dbrc(self: Self, e_max_ev: f64) -> Self { /* ... */ }
@@ -14047,6 +14098,8 @@ pub struct DelayedData {
     pub energy: Vec<f64>,
     pub nu_delayed: Vec<f64>,
     pub group_fraction: Vec<Vec<(f64, f64)>>,
+    pub nu_delayed_interp: Vec<(u32, u32)>,
+    pub group_fraction_interp: Vec<Vec<(u32, u32)>>,
     pub lambda_is_lowest_energy_only: bool,
     pub spectra: Vec<njoy_outram_park_fork::nuclear_data::secondary::FissionSpectrum>,
 }
@@ -14060,6 +14113,8 @@ pub struct DelayedData {
 | `energy` | `Vec<f64>` | Incident-energy grid \[eV\] for ν̄_d, ascending. |
 | `nu_delayed` | `Vec<f64>` | Total delayed yield ν̄_d aligned with [`Self::energy`]. |
 | `group_fraction` | `Vec<Vec<(f64, f64)>>` | Per-group share `p_k(E)` as `(E [eV], fraction)`, one table per group.<br>Empty when the evaluation carries MF=1/455 but no usable MF=5/455, in<br>which case [`Self::group_fraction`] falls back to an equal split and<br>says so. |
+| `nu_delayed_interp` | `Vec<(u32, u32)>` | Interpolation regions `(NBT, INT)` of [`Self::nu_delayed`] and of each<br>[`Self::group_fraction`] table, as the evaluation states them; empty<br>means lin-lin. Honoured as OpenMC's `Tabulated1D` does (GitHub #365<br>audit: both routes used to drop them). |
+| `group_fraction_interp` | `Vec<Vec<(u32, u32)>>` | See [`Self::nu_delayed_interp`]; one per group, or empty. |
 | `lambda_is_lowest_energy_only` | `bool` | `true` when the tape used the energy-dependent decay-constant form<br>(`LDG=1`) and [`Self::lambda`] holds only the lowest-energy set.<br>Carried so a consumer can refuse rather than silently use a λ that is<br>wrong at its energy. |
 | `spectra` | `Vec<njoy_outram_park_fork::nuclear_data::secondary::FissionSpectrum>` | Per precursor group, the **delayed-neutron energy spectrum**, one per<br>group in the same order as [`Self::lambda`] — GitHub #365 audit. Empty<br>when the data does not carry them exactly. Transport then births every<br>fission neutron with the prompt χ, which is what it did for all nuclides<br>before this field existed.<br><br>- ACE route: DNED, via `acer::delayed::decode_delayed`.<br>- ENDF route: MF=5/455, via `nuclear_data::delayed::DelayedChiGroup::law`.<br>  LF=5 with θ ≡ 1 and LF=1 are exact; anything else leaves this empty<br>  for the whole nuclide.<br><br>Sampled by [`Nuclide::sample_fission_energy`] as OpenMC's<br>`sample_fission_neutron` (`src/physics.cpp`) samples: delayed with<br>probability `nu_d(E)/nu_t(E)`, group by `p_k(E)`, energy from that<br>group's law. |
 
@@ -14084,7 +14139,7 @@ pub struct DelayedData {
 - ```rust
   pub fn nu_delayed_at(self: &Self, e: f64) -> f64 { /* ... */ }
   ```
-  Total delayed yield ν̄_d at incident energy `e` \[eV\], lin-lin
+  Total delayed yield ν̄_d at incident energy `e` \[eV\], on the table's
 
 - ```rust
   pub fn group_fraction(self: &Self, k: usize, e: f64) -> f64 { /* ... */ }
@@ -15492,6 +15547,16 @@ pub struct ThermalScattering {
   Upper energy \[eV\] of the S(α,β) treatment (the thermal cutoff). Above it
 
 - ```rust
+  pub fn with_legacy_equiprobable_sampling(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation (GitHub #407):** sample an equiprobable (ACE IFENG = 0) table
+
+- ```rust
+  pub fn uses_legacy_equiprobable_sampling(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the legacy equiprobable ablation is in force (`false` by
+
+- ```rust
   pub fn selected_temperature_k(self: &Self) -> f64 { /* ... */ }
   ```
   The temperature \[K\] the S(α,β) tables actually represent — a tabulated
@@ -15520,6 +15585,11 @@ pub struct ThermalScattering {
   pub fn sample(self: &Self, e: f64, seed: &mut u64) -> Option<(f64, f64)> { /* ... */ }
   ```
   Sample a thermal scatter at incident energy `e` \[eV\], returning
+
+- ```rust
+  pub fn sample_inelastic(self: &Self, e: f64, seed: &mut u64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  Sample the **incoherent-inelastic** channel alone at `e` \[eV\],
 
 ###### Trait Implementations
 
@@ -32640,7 +32710,7 @@ pub struct DbrcTable {
 - ```rust
   pub fn from_pairs(pairs: &[(f64, f64)], e_max_ev: f64) -> Option<Self> { /* ... */ }
   ```
-  Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid,
+  Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid, applied
 
 - ```rust
   pub fn e_max_ev(self: &Self) -> f64 { /* ... */ }
@@ -32670,7 +32740,7 @@ pub struct DbrcTable {
 - ```rust
   pub fn applies(self: &Self, e: f64) -> bool { /* ... */ }
   ```
-  Whether DBRC applies to a neutron of energy `e` \[eV\].
+  Whether DBRC (target motion with the 0 K rejection) applies to a
 
 ###### Trait Implementations
 
@@ -33048,8 +33118,11 @@ This is a port of OpenMC `elastic_scatter` + `sample_target_velocity`
 σ is taken as constant over the target velocity distribution, which is exactly
 consistent with using a Doppler-broadened σ for the collision *rate* — the rate
 already carries the target motion, and this supplies the matching kinematics.
-(OpenMC's DBRC refinement, which resamples σ at the relative energy inside a
-resonance, is a further correction and is not modelled here.)
+(~~OpenMC's DBRC refinement, which resamples σ at the relative energy inside a
+resonance, is a further correction and is not modelled here.~~ **CORRECTED
+2026-09-29 (GitHub #407):** DBRC is modelled, in
+[`free_gas_elastic_scatter_dbrc`], and is on by default for every nuclide
+that carries a 0 K elastic grid.)
 
 `kt_ev` is the material temperature as `k_B·T` \[eV\]; `mu_cm` is the
 centre-of-mass cosine from the nuclide's ENDF MF=4 law, sampled by the caller
@@ -33210,6 +33283,25 @@ asserted, not assumed: see
 
 ```rust
 pub fn continuum_inelastic_scatter_evaluated_with(e: f64, u: crate::geometry::position::Direction, awr: f64, q: f64, law: Option<&njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission>, mode: ContinuumAngularMode, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+```
+
+#### Function `sample_continuum_branch`
+
+Sample one **correlated energy-angle** draw from a continuum branch at
+incident energy `e` \[eV\]: `(E', mu)` in the law's own frame, before any
+CM→lab transform. Public so the verification tests exercise exactly the
+transport path.
+
+The energy is OpenMC's `ContinuousTabular` scheme (two variates); the
+cosine takes one more variate, from the row OpenMC's
+`CorrelatedAngleEnergy::sample_dist` picks — the **closer** bin edge for a
+lin-lin table — or, for Kalbach-Mann, from `r`/`a` interpolated to the
+sampled `E'` as `KalbachMann::sample_params` does (GitHub #365 audit;
+before it the lower row was always used and `r`/`a` were not
+interpolated). The ablation spends the same one variate on `2ξ − 1`.
+
+```rust
+pub fn sample_continuum_branch(branch: &njoy_outram_park_fork::nuclear_data::secondary::ContinuumBranch, e: f64, mode: ContinuumAngularMode, seed: &mut u64) -> (f64, f64) { /* ... */ }
 ```
 
 #### Function `continuum_angular_mode_from_env`
@@ -42712,6 +42804,26 @@ assumed.
 
 ```rust
 pub fn bounded_delta_flight<D, M>(start: crate::geometry::position::Position, direction: crate::geometry::position::Direction, energy: f64, majorant: &Majorant, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], max_virtual: u32, distance_to_exit: D, material_at: M, seed: &mut u64) -> DeltaStep
+where
+    D: Fn(crate::geometry::position::Position, crate::geometry::position::Direction) -> f64,
+    M: Fn(crate::geometry::position::Position) -> Option<usize> { /* ... */ }
+```
+
+#### Function `bounded_delta_flight_urr`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+[`bounded_delta_flight`] for a neutron carrying a URR stream seed: the real
+`Σ_t` at each tentative site is the **band** total
+([`Material::macro_xs_total_urr`]), the one the collision will use, as in
+OpenMC (GitHub #407). The majorant must then bound band totals, which every
+constructor here does ([`Material::macro_xs_total_upper_bound`]). With
+`urr_seed = None` it is `bounded_delta_flight` exactly.
+
+```rust
+pub fn bounded_delta_flight_urr<D, M>(start: crate::geometry::position::Position, direction: crate::geometry::position::Direction, energy: f64, majorant: &Majorant, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], max_virtual: u32, distance_to_exit: D, material_at: M, seed: &mut u64, urr_seed: Option<u64>) -> DeltaStep
 where
     D: Fn(crate::geometry::position::Position, crate::geometry::position::Direction) -> f64,
     M: Fn(crate::geometry::position::Position) -> Option<usize> { /* ... */ }
