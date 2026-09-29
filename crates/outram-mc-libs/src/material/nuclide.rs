@@ -316,6 +316,9 @@ pub struct Nuclide {
     /// cut to 1 — see [`Nuclide::with_unit_n2n_multiplicity`]. `false` (the
     /// default) is the physics.
     n2n_yield_one: bool,
+    /// `true` after [`Nuclide::without_delayed_spectra`]: fission neutrons are all
+    /// born with the prompt χ. `false` (spectra applied) by default.
+    delayed_spectra_ablated: bool,
     /// Unresolved-resonance probability tables, when the caller has asked for
     /// them with [`Nuclide::with_urr_probability_tables`]. `None` — the
     /// default — means the unresolved range is treated as infinitely dilute,
@@ -524,6 +527,7 @@ impl Nuclide {
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
+            delayed_spectra_ablated: false,
             urr: None,
             dbrc: None,
             // LOW tier has no pointwise reconstruction, so no 0 K grid for DBRC.
@@ -1575,8 +1579,8 @@ impl Nuclide {
     ///   `None`, so a kinetics consumer sees "this table does not say" rather
     ///   than a zero delayed fraction.~~ **CORRECTED 2026-09-29** — `DNU` and
     ///   `BDD` are decoded (`acer::delayed::decode_delayed`) and attached as
-    ///   `delayed` below; only the delayed *spectra* (`DNEDL`/`DNED`) are not
-    ///   read, so delayed neutrons are born with the prompt chi.
+    ///   `delayed` below, and since the #365 audit so are the delayed spectra
+    ///   (`DNEDL`/`DNED`), which [`Self::sample_fission_energy`] applies.
     /// - ~~**Unresolved-resonance probability tables** (`UNR`): `urr` is
     ///   `None`. On a nuclide whose evaluation HAS an unresolved range this is
     ///   a real physics omission that will shift `k` — the ACE analogue of the
@@ -2072,6 +2076,7 @@ impl Nuclide {
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
+            delayed_spectra_ablated: false,
             // **URR IS decoded now (GitHub #307).** It used to be `None` with a
             // comment saying the path did not read the block, which meant the
             // ACE route carried no unresolved-resonance self-shielding while
@@ -2394,6 +2399,7 @@ impl Nuclide {
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
+            delayed_spectra_ablated: false,
             urr: None,
             dbrc: None,
             elastic_0k,
@@ -3331,8 +3337,71 @@ impl Nuclide {
     /// falls back to the fixed thermal-Watt stand-in.
     ///
     /// This is the fission-source birth spectrum the k-eigenvalue driver banks with.
+    ///
+    /// # Delayed neutrons (GitHub #365 audit)
+    ///
+    /// When the nuclide carries delayed-neutron spectra
+    /// ([`DelayedData::spectra`]) and they have not been ablated
+    /// ([`Self::without_delayed_spectra`]), this is a port of OpenMC's
+    /// `sample_fission_neutron` (`src/physics.cpp`):
+    ///
+    /// 1. With probability `beta = nu_d(E)/nu_t(E)` the neutron is **delayed**.
+    /// 2. Its group `k` is drawn in proportion to `p_k(E)`.
+    /// 3. `E'` is drawn from group `k`'s spectrum.
+    ///
+    /// Otherwise `E'` comes from the prompt χ. The number of neutrons is still
+    /// `nu_t`, the total, as upstream. The extra variant costs one uniform per
+    /// fission on such nuclides.
+    ///
+    /// Before this, every neutron came from the prompt χ, on both routes.
     pub fn sample_fission_energy(&self, e_in: f64, seed: &mut u64) -> f64 {
-        sample_chi(&self.chi, self.chi_incident_energy(e_in), seed)
+        let e_chi = self.chi_incident_energy(e_in);
+        // Under the prompt-only ablation (#262) no delayed neutron is produced,
+        // so none is born with a delayed spectrum.
+        if !self.delayed_spectra_ablated && !self.prompt_only {
+            if let Some(d) = self.delayed.as_ref().filter(|d| !d.spectra.is_empty()) {
+                // beta = nu_d/nu_t is part of the BIRTH distribution, so it is
+                // evaluated where chi is (`e_chi`, which the chi-freeze hook
+                // moves) and from the raw nu table (so the nu-freeze hook, an
+                // ablation of production, does not move the birth spectrum).
+                // With no hook in force this is exactly OpenMC's
+                // nu_d(E)/nu_t(E).
+                let nu_t = self.nu.at(e_chi);
+                let nu_d = d.nu_delayed_at(e_chi);
+                if nu_t > 0.0 && prn(seed) < nu_d / nu_t {
+                    let n = d.spectra.len();
+                    let total: f64 = (0..n).map(|k| d.group_fraction(k, e_chi)).sum();
+                    let target = prn(seed) * total;
+                    let mut acc = 0.0;
+                    let mut group = n - 1;
+                    for k in 0..n {
+                        acc += d.group_fraction(k, e_chi);
+                        if target < acc {
+                            group = k;
+                            break;
+                        }
+                    }
+                    return sample_chi(&d.spectra[group], e_chi, seed);
+                }
+            }
+        }
+        sample_chi(&self.chi, e_chi, seed)
+    }
+
+    /// This nuclide with delayed-neutron spectra **switched off**: every fission
+    /// neutron, delayed included, is born with the prompt χ — the behaviour
+    /// before GitHub #365's audit. The ablation arm for pricing the delayed
+    /// spectra; the default applies them.
+    pub fn without_delayed_spectra(mut self) -> Self {
+        self.delayed_spectra_ablated = true;
+        self
+    }
+
+    /// Whether fission sampling applies delayed-neutron spectra: `true` when the
+    /// nuclide carries them and they have not been ablated.
+    pub fn applies_delayed_spectra(&self) -> bool {
+        !self.delayed_spectra_ablated
+            && self.delayed.as_ref().is_some_and(|d| !d.spectra.is_empty())
     }
 
     /// The native energy breakpoints \[eV\] this nuclide's cross-section data
@@ -4767,7 +4836,7 @@ mod tests {
 /// standard `k`-eigenvalue approximation — so this supports the *ratio* route
 /// to β_eff (`1 − k_p/k`), which is what #262 scope item 3 asks for. It does
 /// **not** by itself give a time-dependent solution.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct DelayedData {
     /// Precursor decay constants λ_k \[s⁻¹\], in ENDF tape order.
     pub lambda: Vec<f64>,
@@ -4785,6 +4854,22 @@ pub struct DelayedData {
     /// Carried so a consumer can refuse rather than silently use a λ that is
     /// wrong at its energy.
     pub lambda_is_lowest_energy_only: bool,
+    /// Per precursor group, the **delayed-neutron energy spectrum**, one per
+    /// group in the same order as [`Self::lambda`] — GitHub #365 audit. Empty
+    /// when the data does not carry them exactly. Transport then births every
+    /// fission neutron with the prompt χ, which is what it did for all nuclides
+    /// before this field existed.
+    ///
+    /// - ACE route: DNED, via `acer::delayed::decode_delayed`.
+    /// - ENDF route: MF=5/455, via `nuclear_data::delayed::DelayedChiGroup::law`.
+    ///   LF=5 with θ ≡ 1 and LF=1 are exact; anything else leaves this empty
+    ///   for the whole nuclide.
+    ///
+    /// Sampled by [`Nuclide::sample_fission_energy`] as OpenMC's
+    /// `sample_fission_neutron` (`src/physics.cpp`) samples: delayed with
+    /// probability `nu_d(E)/nu_t(E)`, group by `p_k(E)`, energy from that
+    /// group's law.
+    pub spectra: Vec<FissionSpectrum>,
 }
 
 impl DelayedData {
@@ -4805,12 +4890,14 @@ impl DelayedData {
         let Some(d) = njoy_outram_park_fork::acer::delayed::decode_delayed(table)? else {
             return Ok(None);
         };
+        let spectra = if d.spectra.len() == d.lambda.len() { d.spectra } else { Vec::new() };
         Ok(Some(Self {
             lambda: d.lambda,
             energy: d.energy,
             nu_delayed: d.nu_delayed,
             group_fraction: d.group_fraction,
             lambda_is_lowest_energy_only: false,
+            spectra,
         }))
     }
 
@@ -4823,6 +4910,18 @@ impl DelayedData {
             return Ok(None);
         };
         let chi = DelayedChi::from_endf(tape, mat)?;
+        // Spectra only when EVERY group has an exact law and the group count
+        // matches the decay constants; a partial set would mix exact and
+        // prompt-substituted groups.
+        let spectra: Vec<FissionSpectrum> = match chi.as_ref() {
+            Some(c)
+                if c.groups.len() == nu_d.lambda.len()
+                    && c.groups.iter().all(|g| g.law.is_some()) =>
+            {
+                c.groups.iter().filter_map(|g| g.law.clone()).collect()
+            }
+            _ => Vec::new(),
+        };
         let group_fraction = chi
             .map(|c| c.groups.into_iter().map(|g| g.fraction).collect())
             .unwrap_or_default();
@@ -4832,6 +4931,7 @@ impl DelayedData {
             nu_delayed: nu_d.nu_delayed,
             group_fraction,
             lambda_is_lowest_energy_only: nu_d.ldg1_energy_dependent,
+            spectra,
         }))
     }
 

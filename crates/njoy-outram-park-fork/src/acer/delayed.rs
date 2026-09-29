@@ -32,13 +32,19 @@
 //!   renormalises by their sum (`reaction.py:362-365`). Without it the delayed
 //!   fraction is wrong by however far off unity the file happens to be.
 //!
-//! # DNED is deliberately not read
+//! # ~~DNED is deliberately not read~~ **CORRECTED 2026-09-29 — it is (GitHub #365 audit)**
 //!
-//! `DelayedData` carries no outgoing spectrum on **either** route: the ENDF
+//! ~~`DelayedData` carries no outgoing spectrum on **either** route: the ENDF
 //! route's `DelayedData::from_tape` keeps `DelayedChi`'s `fraction` and drops
 //! its `spectrum`. Reading DNED here would produce data nothing consumes, so
 //! this decodes DNU and BDD and says why the other two are absent rather than
-//! leaving a reader to wonder.
+//! leaving a reader to wonder.~~ Delayed spectra now reach transport on both
+//! routes (`outram_mc_libs::material::nuclide::DelayedData::spectra`, sampled
+//! as OpenMC's `sample_fission_neutron` does). DNEDL gives one DNED-relative
+//! locator per group, and each group's law is read by the same
+//! [`crate::acer::ce_laws::decode_law_chain`] DLW uses
+//! (`openmc/data/reaction.py:355-357`: `AngleEnergy.from_ace(ace, ace.jxs[27],
+//! location_start)`).
 
 use crate::acer::ce_laws::read_ace_tab1;
 use crate::acer::read::RawAceTable;
@@ -49,7 +55,7 @@ use crate::error::NjoyError;
 pub const SECONDS_PER_SHAKE: f64 = 1.0e-8;
 
 /// The delayed-neutron data an ACE table carries.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct AceDelayed {
     /// Precursor decay constants λ \[s⁻¹\], in the file's group order.
     pub lambda: Vec<f64>,
@@ -60,6 +66,10 @@ pub struct AceDelayed {
     /// Per group, that group's share `p_k(E)` as `(E [eV], fraction)`,
     /// **renormalised** so the shares sum to 1 — see the module docs.
     pub group_fraction: Vec<Vec<(f64, f64)>>,
+    /// Per group, that group's outgoing-energy law from DNED, as an MF=5-style
+    /// spectrum (NJOY writes LAW=4). Empty when the table has no DNEDL/DNED;
+    /// otherwise one per group.
+    pub spectra: Vec<crate::nuclear_data::secondary::FissionSpectrum>,
 }
 
 /// Decode DNU + BDD, or `None` when the table carries no delayed data.
@@ -139,10 +149,33 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
         }
     }
 
+    // DNEDL/DNED: one law per group. A law that is not an MF=5-style spectrum
+    // (a correlated or two-body law) has no meaning for a delayed neutron and is
+    // refused rather than dropped.
+    let (dnedl, dned) = (t.jxs[jxs::DNEDL], t.jxs[jxs::DNED]);
+    let mut spectra = Vec::new();
+    if dnedl > 0 && dned > 0 {
+        for g in 0..n_group {
+            let at = (dnedl - 1) as usize + g;
+            if at >= t.xss.len() {
+                return Err(NjoyError::EndfParse(format!(
+                    "DNEDL block ends before group {g} of {n_group}"
+                )));
+            }
+            let loc = t.xss[at] as i64;
+            let law = crate::acer::ce_laws::decode_law_chain(t, (dned - 1) as usize, loc)?;
+            let spec = law.as_fission_spectrum().ok_or_else(|| {
+                NjoyError::NotPorted("ACE DNED law that is not an MF=5-style spectrum")
+            })?;
+            spectra.push(spec);
+        }
+    }
+
     Ok(Some(AceDelayed {
         lambda,
         energy,
         nu_delayed,
         group_fraction,
+        spectra,
     }))
 }

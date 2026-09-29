@@ -66,12 +66,12 @@ it would take.
 | NU TAB1 interpolation regions | NU | `function.py` | dropped | **fixed**: a non-lin-lin region is now refused by name (all held tables are lin-lin) |
 | NU polynomial above 20 MeV | NU | `Polynomial` | tabulated on 1e-5 to 2e7 eV, clamped above | **open**: nothing here transports above 20 MeV |
 | DNU, BDD | JXS(24,25) | `reaction.py:319-365` | read, wired | read, wired |
-| **DNEDL / DNED delayed spectra** | JXS(26,27) | `reaction.py:355-357`; `physics.cpp` `sample_fission_neutron` | not read: delayed neutrons born with the prompt χ | **open, next**: both routes lack delayed spectra (the ENDF route needs MF=5/455 LF=5); recorded on #365 |
+| **DNEDL / DNED delayed spectra** | JXS(26,27) | `reaction.py:355-357`; `physics.cpp` `sample_fission_neutron` | not read: delayed neutrons born with the prompt χ (both routes) | **fixed** (both routes; ENDF via MF=5/455 LF=5/LF=1): test `delayed_spectra_vs_openmc`; record `delayed_spectra_2026-09-29.md` (the predicted k sign was wrong; recorded) |
 | **UNR probability tables**: interpolation, total, bounds | JXS(23) | `nuclide.cpp` `calculate_urr_xs`, `urr.h` | nearest table energy; band total; inclusive bounds | **fixed** (both routes): test `urr_sampling_vs_openmc`, bit-equal to OpenMC on 186 rows; k effect consistent with zero (`urr_sampling_2026-09-29.md`) |
 | UNR heating column | JXS(23) | — | decoded, unused | **out of scope**: no heating tally |
 | Neutron-emitting reactions other than 5/16/17/91/51–90 (MT=22, 24, 28, 32–37, 41–45, …) | MTR + DLW | transported with yield and law | cross section stays in MT=1 and falls into the elastic remainder (**both routes**) | **open**: a transport-kernel change, not a reader one; thresholds are ≥ 7 MeV on the held light nuclides; recorded on #365 |
 | Absorption levels 600–849 without their lump | MTR | `neutron.py:617-630` | outside the disappearance sum | **open**: every held table carries the lump beside its levels |
-| `channel_mts` double count of 650–799 under 104–106 and 875–891 under 16 in `reconstructed_total` | MTR | — | double counts (diagnostic only) | **open**: transport is not affected |
+| `channel_mts` double count of 650–799 under 104–106 and 875–891 under 16 in `reconstructed_total` | MTR | `SUM_RULES` | double counted (diagnostic only) | **fixed**: test `ace_reconstructed_total_light_nuclides` (8 light tables ≤ 5.0e-9) |
 | GPD, YP, FIS | JXS(12,20,21) | not read by OpenMC | not read | **out of scope** |
 | Photon production (MTRP … DLWP) | JXS(13-19) | `_get_photon_products_ace` | decoded, verified | **out of scope**: neutron-only transport |
 | Charged-particle blocks | NXS(7), JXS(30+) | not read by OpenMC `IncidentNeutron` | not read | **out of scope** |

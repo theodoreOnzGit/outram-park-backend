@@ -2942,13 +2942,19 @@ Ported from `openmc/data/reaction.py:319-365` at OpenMC `afa7a14`, the
   renormalises by their sum (`reaction.py:362-365`). Without it the delayed
   fraction is wrong by however far off unity the file happens to be.
 
-# DNED is deliberately not read
+# ~~DNED is deliberately not read~~ **CORRECTED 2026-09-29 — it is (GitHub #365 audit)**
 
-`DelayedData` carries no outgoing spectrum on **either** route: the ENDF
+~~`DelayedData` carries no outgoing spectrum on **either** route: the ENDF
 route's `DelayedData::from_tape` keeps `DelayedChi`'s `fraction` and drops
 its `spectrum`. Reading DNED here would produce data nothing consumes, so
 this decodes DNU and BDD and says why the other two are absent rather than
-leaving a reader to wonder.
+leaving a reader to wonder.~~ Delayed spectra now reach transport on both
+routes (`outram_mc_libs::material::nuclide::DelayedData::spectra`, sampled
+as OpenMC's `sample_fission_neutron` does). DNEDL gives one DNED-relative
+locator per group, and each group's law is read by the same
+[`crate::acer::ce_laws::decode_law_chain`] DLW uses
+(`openmc/data/reaction.py:355-357`: `AngleEnergy.from_ace(ace, ace.jxs[27],
+location_start)`).
 
 ```rust
 pub mod delayed { /* ... */ }
@@ -2966,6 +2972,7 @@ pub struct AceDelayed {
     pub energy: Vec<f64>,
     pub nu_delayed: Vec<f64>,
     pub group_fraction: Vec<Vec<(f64, f64)>>,
+    pub spectra: Vec<crate::nuclear_data::secondary::FissionSpectrum>,
 }
 ```
 
@@ -2977,6 +2984,7 @@ pub struct AceDelayed {
 | `energy` | `Vec<f64>` | Incident-energy grid \[eV\] for delayed ν̄_d, ascending. |
 | `nu_delayed` | `Vec<f64>` | Total delayed ν̄_d aligned with [`Self::energy`]. |
 | `group_fraction` | `Vec<Vec<(f64, f64)>>` | Per group, that group's share `p_k(E)` as `(E [eV], fraction)`,<br>**renormalised** so the shares sum to 1 — see the module docs. |
+| `spectra` | `Vec<crate::nuclear_data::secondary::FissionSpectrum>` | Per group, that group's outgoing-energy law from DNED, as an MF=5-style<br>spectrum (NJOY writes LAW=4). Empty when the table has no DNEDL/DNED;<br>otherwise one per group. |
 
 ##### Implementations
 
@@ -3032,11 +3040,6 @@ pub struct AceDelayed {
     Calls `U::from(self)`.
 
 - **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &AceDelayed) -> bool { /* ... */ }
-    ```
-
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -3058,7 +3061,6 @@ pub struct AceDelayed {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
-- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -10523,11 +10525,14 @@ pub const DNEDL: usize = 25;
 
 JXS(27): **DNED** — the delayed neutrons' energy distributions.
 
-Not decoded, and not a gap in the delayed-neutron path: `DelayedData`
+~~Not decoded, and not a gap in the delayed-neutron path: `DelayedData`
 carries no outgoing spectrum on **either** route — the ENDF route's
 `DelayedData::from_tape` keeps `DelayedChi`'s `fraction` and drops its
 `spectrum` too. Whoever adds a delayed emission spectrum needs this
-block and MF=5/MT=455 together.
+block and MF=5/MT=455 together.~~ **CORRECTED 2026-09-29** — decoded by
+`acer::delayed::decode_delayed` (one law per group via DNEDL) and
+sampled for delayed neutrons, with MF=5/MT=455 on the ENDF route
+(GitHub #365 audit).
 
 ```rust
 pub const DNED: usize = 26;
@@ -17410,6 +17415,7 @@ pub struct DelayedChiGroup {
     pub fraction: Vec<(f64, f64)>,
     pub lf: i32,
     pub spectrum: Vec<(f64, f64)>,
+    pub law: Option<crate::nuclear_data::secondary::FissionSpectrum>,
 }
 ```
 
@@ -17420,6 +17426,7 @@ pub struct DelayedChiGroup {
 | `fraction` | `Vec<(f64, f64)>` | The group's probability fraction p_k(E) as `(E [eV], fraction)` — the<br>per-group share of the total delayed emission vs incident energy. |
 | `lf` | `i32` | ENDF `LF` law code for this group's outgoing spectrum (5 or 1 here). |
 | `spectrum` | `Vec<(f64, f64)>` | Outgoing-energy spectrum samples `(E' [eV], density [eV⁻¹])`, ascending<br>in E'. |
+| `law` | `Option<crate::nuclear_data::secondary::FissionSpectrum>` | The same spectrum as a **samplable law**, exact to the evaluation, or<br>`None` when this parser cannot represent it exactly — GitHub #365 audit<br>(delayed spectra reach transport).<br><br>- **LF=5** with `θ(E) ≡ 1` (checked, not assumed) and a single-region<br>  `g(x)` of INT 1 (histogram) or 2 (lin-lin): an energy-independent<br>  [`FissionSpectrum::ContinuousTabular`] whose one table is `g` itself,<br>  keeping `g`'s interpolation. ENDF/B-VIII.0 U-234/235/238's six groups<br>  are all this, with **histogram** `g` — which is why the plain `spectrum`<br>  pairs above, read as lin-lin, are not samplable as they stand.<br>- **LF=1**: every incident energy's table (not only the lowest), each<br>  single-region INT 1 or 2, as a `ContinuousTabular` over the TAB2 grid.<br>- Anything else (θ not identically 1, multi-region `g`, other `LF`):<br>  `None`, and the transport consumer then keeps the prompt χ for the<br>  whole nuclide rather than mixing exact and approximate groups.<br><br>The cumulative is built by exact integration of the stated<br>interpolation and normalised to 1, as OpenMC normalises a `Tabular`. |
 
 ##### Implementations
 

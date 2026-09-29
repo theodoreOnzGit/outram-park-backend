@@ -312,6 +312,14 @@ impl CeNeutronAce {
         let has_np_total = has(103);
         let has_na_total = has(107);
         let has_total_fission = has(18);
+        // GitHub #365 audit: the other lumps OpenMC's SUM_RULES names, which
+        // this used to pass through beside their components, double counting
+        // them in `reconstructed_total` -- (n,d)/(n,t)/(n,He-3) over their
+        // levels, and (n,2n) over MT=875..891.
+        let has_nd_total = has(104);
+        let has_nt_total = has(105);
+        let has_nh_total = has(106);
+        let has_n2n_total = has(16);
 
         self.reactions
             .iter()
@@ -329,6 +337,13 @@ impl CeNeutronAce {
                     return false;
                 }
                 if has_na_total && (800..=849).contains(&mt) {
+                    return false;
+                }
+                if (has_nd_total && (650..=699).contains(&mt))
+                    || (has_nt_total && (700..=749).contains(&mt))
+                    || (has_nh_total && (750..=799).contains(&mt))
+                    || (has_n2n_total && (875..=891).contains(&mt))
+                {
                     return false;
                 }
                 // Partial fission under MT=18.

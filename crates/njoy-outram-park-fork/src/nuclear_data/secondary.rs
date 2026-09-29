@@ -480,13 +480,18 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
             // have failed and the "will fail if one is added" was not true of
             // LF=5 either.
             //
-            // Nothing is silently degraded by the omission: the delayed
+            // ~~Nothing is silently degraded by the omission: the delayed
             // *spectrum* is dropped on both routes (`DelayedData` keeps
             // `fraction`, not `spectrum`), and NJOY's ACER linearises those
             // MT=455 LF=5 sections into ACE LAW=4 -- measured as `{LAW4: 6}` in
             // the DNED block of every U-234/235/238 table in
             // `reference-data/ace`. So LF=5 reaches neither route's sampler and
-            // porting it would gain nothing until delayed spectra are carried.
+            // porting it would gain nothing until delayed spectra are carried.~~
+            // **CORRECTED 2026-09-29 (GitHub #365 audit):** delayed spectra are
+            // now carried on both routes. MT=455's LF=5 (theta == 1, histogram
+            // g) is converted exactly by `nuclear_data::delayed`'s
+            // `DelayedChiGroup::law`, not here -- this parser serves MT=18 and
+            // the continuum MTs, none of which uses LF=5 on a held tape.
             // Verified by scanning all 79 tapes' MF=5 subsection headers, not by
             // re-reading the previous note.
             _ => None,

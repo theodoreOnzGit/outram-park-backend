@@ -94,6 +94,32 @@ fn from_endf_file_applies_urr_and_dbrc_by_default() {
         (1.0e4..3.0e4).contains(&lo) && (1.0e5..2.0e5).contains(&hi),
         "U-238 URR range [{lo:.3e}, {hi:.3e}] eV is not the expected ~20-149 keV"
     );
+
+    // Delayed-neutron spectra (GitHub #365 audit): ENDF/B-VIII.0 U-238 carries
+    // MF=5/455 LF=5 with theta == 1 for all six groups, so the ordinary
+    // constructor must apply them.
+    assert!(
+        n.applies_delayed_spectra(),
+        "U-238 built through from_endf_file births delayed neutrons with the prompt \
+         chi. Delayed spectra are correct physics and on by default; an off switch \
+         is `without_delayed_spectra`, never the default."
+    );
+}
+
+/// The ACE route applies delayed spectra (DNED) by default as well (GitHub
+/// #365 audit), on NJOY2016's U-235 from `reference-data/ace`.
+#[test]
+fn from_ace_applies_delayed_spectra_by_default() {
+    let Some(p) = njoy_outram_park_fork::reference_data::ace_reference_file_or_skip(
+        "reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz",
+        "delayed spectra default",
+    ) else {
+        return;
+    };
+    let raw = njoy_outram_park_fork::acer::read::read(&p).expect("read");
+    let n = Nuclide::from_ace(&raw, "U235").expect("from_ace");
+    assert!(n.applies_delayed_spectra(), "U-235 from ACE must apply its DNED spectra by default");
+    assert_eq!(n.delayed().expect("DNU").spectra.len(), 6);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

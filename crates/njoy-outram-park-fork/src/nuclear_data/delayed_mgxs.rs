@@ -291,11 +291,13 @@ mod tests {
                     fraction: vec![(1.0e-5, 0.3), (2.0e7, 0.3)],
                     lf: 5,
                     spectrum: g_spec.clone(),
+                    law: None,
                 },
                 DelayedChiGroup {
                     fraction: vec![(1.0e-5, 0.7), (2.0e7, 0.7)],
                     lf: 5,
                     spectrum: g_spec,
+                    law: None,
                 },
             ],
         };

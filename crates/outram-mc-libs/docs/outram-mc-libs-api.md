@@ -13694,6 +13694,16 @@ pub struct Nuclide {
   Sample a fission-neutron birth energy \[eV\] given the incident energy
 
 - ```rust
+  pub fn without_delayed_spectra(self: Self) -> Self { /* ... */ }
+  ```
+  This nuclide with delayed-neutron spectra **switched off**: every fission
+
+- ```rust
+  pub fn applies_delayed_spectra(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether fission sampling applies delayed-neutron spectra: `true` when the
+
+- ```rust
   pub fn native_energy_grid(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
   ```
   The native energy breakpoints \[eV\] this nuclide's cross-section data
@@ -13872,6 +13882,7 @@ pub struct DelayedData {
     pub nu_delayed: Vec<f64>,
     pub group_fraction: Vec<Vec<(f64, f64)>>,
     pub lambda_is_lowest_energy_only: bool,
+    pub spectra: Vec<njoy_outram_park_fork::nuclear_data::secondary::FissionSpectrum>,
 }
 ```
 
@@ -13884,6 +13895,7 @@ pub struct DelayedData {
 | `nu_delayed` | `Vec<f64>` | Total delayed yield ν̄_d aligned with [`Self::energy`]. |
 | `group_fraction` | `Vec<Vec<(f64, f64)>>` | Per-group share `p_k(E)` as `(E [eV], fraction)`, one table per group.<br>Empty when the evaluation carries MF=1/455 but no usable MF=5/455, in<br>which case [`Self::group_fraction`] falls back to an equal split and<br>says so. |
 | `lambda_is_lowest_energy_only` | `bool` | `true` when the tape used the energy-dependent decay-constant form<br>(`LDG=1`) and [`Self::lambda`] holds only the lowest-energy set.<br>Carried so a consumer can refuse rather than silently use a λ that is<br>wrong at its energy. |
+| `spectra` | `Vec<njoy_outram_park_fork::nuclear_data::secondary::FissionSpectrum>` | Per precursor group, the **delayed-neutron energy spectrum**, one per<br>group in the same order as [`Self::lambda`] — GitHub #365 audit. Empty<br>when the data does not carry them exactly. Transport then births every<br>fission neutron with the prompt χ, which is what it did for all nuclides<br>before this field existed.<br><br>- ACE route: DNED, via `acer::delayed::decode_delayed`.<br>- ENDF route: MF=5/455, via `nuclear_data::delayed::DelayedChiGroup::law`.<br>  LF=5 with θ ≡ 1 and LF=1 are exact; anything else leaves this empty<br>  for the whole nuclide.<br><br>Sampled by [`Nuclide::sample_fission_energy`] as OpenMC's<br>`sample_fission_neutron` (`src/physics.cpp`) samples: delayed with<br>probability `nu_d(E)/nu_t(E)`, group by `p_k(E)`, energy from that<br>group's law. |
 
 ##### Implementations
 
@@ -13970,11 +13982,6 @@ pub struct DelayedData {
     Calls `U::from(self)`.
 
 - **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &DelayedData) -> bool { /* ... */ }
-    ```
-
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -13996,7 +14003,6 @@ pub struct DelayedData {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
-- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust

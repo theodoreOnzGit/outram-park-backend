@@ -97,6 +97,24 @@
 //! re-randomisation (its `k_std` is 445 pcm and generations are correlated);
 //! the 32-seed measurement of the change is `+29 ± 33 pcm` on Godiva, route 4.
 //!
+//! ## Re-recorded 2026-09-29 (later): delayed-neutron spectra (GitHub #365 audit)
+//!
+//! Delayed neutrons are now born from their MF=5/455 spectra, which costs one
+//! extra uniform per fission, so the stream splits at the first fission and
+//! the **first generation moves too**. The cause is proved, not inferred: with
+//! the nuclides built through `without_delayed_spectra()` the test reproduces
+//! the previous row below **bit for bit**, all four values.
+//!
+//! | quantity | URR change (superseded) | delayed spectra |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.87846147443726119e-1`~~ | `9.80966055782988677e-1` |
+//! | `k_std` | ~~`4.45222639842739534e-3`~~ | `3.94301558460743561e-3` |
+//! | first generation | ~~`9.34800339898639976e-1`~~ | `8.90099543330054144e-1` |
+//! | last generation | ~~`1.01397122631396086e0`~~ | `9.88192314096006386e-1` |
+//!
+//! One 2000-history draw; the 32-seed measurement of the change on Godiva's
+//! ENDF route is `+87 ± 37 pcm`.
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -131,10 +149,10 @@ const TEMP: f64 = 293.6;
 /// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.878_461_474_437_261_19e-1;
-const K_STD_PRE_258: f64 = 4.452_226_398_427_395_34e-3;
-const K_GEN_FIRST_PRE_258: f64 = 9.348_003_398_986_399_76e-1;
-const K_GEN_LAST_PRE_258: f64 = 1.013_971_226_313_960_86e0;
+const K_MEAN_PRE_258: f64 = 9.809_660_557_829_886_77e-1;
+const K_STD_PRE_258: f64 = 3.943_015_584_607_435_61e-3;
+const K_GEN_FIRST_PRE_258: f64 = 8.900_995_433_300_541_44e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.881_923_140_960_063_86e-1;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =
