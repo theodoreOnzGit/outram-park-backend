@@ -25,10 +25,14 @@
 //!     (`ground_shine_dose`; upstream deposition velocities, weathering off,
 //!     1-year exposure, which is upstream's convention).
 //! - **Coefficients:** adult **effective** dose-rate coefficients from **EPA
-//!   FGR-15** (EPA 402-R-25-001, July 2025) Tables 4-6 and 4-1, extracted
-//!   through `kovan` into
-//!   `crates/kovan-literature/derived/epa-fgr15-adult-external-coefficients.csv`,
-//!   with provenance beside it. Half-lives for the ground build-up come from
+//!   FGR-15** (EPA 402-R-25-001, July 2025) Tables 4-6 and 4-1, read through
+//!   `buangkok::coefficients` from buangkok's own shipped tables
+//!   (`reference/fgr15_2025_*.csv`), the workspace's one source of FGR
+//!   coefficients. ~~Read from
+//!   `crates/kovan-literature/derived/epa-fgr15-adult-external-coefficients.csv`~~
+//!   until the 2026-09-29 merge into `develop`; the 18 nuclides buangkok did not
+//!   yet carry were appended from that extraction (identical values for the
+//!   six it did), whose record stays beside it in `kovan-literature/derived/`. Half-lives for the ground build-up come from
 //!   `boon-lay`'s TRISO-ATOPS nuclide table.
 //! - **Meteorology: NOT in the paper**, so it is swept. Stability classes A-F,
 //!   wind 1, 3 and 5 m/s, 40 m stack (published), wind measured at 10 m
@@ -37,9 +41,10 @@
 //!   - inhalation and ingestion: FGR-11's 1988 tables did not extract through
 //!     kovan (scanned image), and ingestion needs transfer factors;
 //!   - the **thyroid** column of Table 9, which is inhalation-dominated;
-//!   - progeny other than Cs-137 -> Ba-137m (added in equilibrium, with the
-//!     branching from boon-lay's ENDF/B-VIII.0 decay library; FGR-15 lists
-//!     daughters separately);
+//!   - progeny other than Cs-137 -> Ba-137m (added in secular equilibrium by
+//!     `buangkok::coefficients`' progeny correction at FGR-15's own 0.944,
+//!     ~~the ENDF/B-VIII.0 0.94699 via boon-lay~~ before 2026-09-29; the ENDF
+//!     value is kept as a cross-check test below);
 //!   - plume rise;
 //!   - building wake.
 //!
@@ -71,20 +76,22 @@ use uom::si::length::{kilometer, meter};
 use uom::si::radioactivity::becquerel;
 use uom::si::velocity::meter_per_second;
 
-/// The derived FGR-15 coefficients, read from their provenance-carrying home
-/// rather than copied here.
-const FGR15: &str =
-    include_str!("../../kovan-literature/derived/epa-fgr15-adult-external-coefficients.csv");
-
-/// `(air submersion Sv m^3/(Bq s), ground surface Sv m^2/(Bq s))` for a nuclide.
-fn fgr15(nuclide: &str) -> (f64, f64) {
-    for line in FGR15.lines().skip(1) {
-        let cols: Vec<&str> = line.split(',').collect();
-        if cols[0] == nuclide {
-            return (cols[1].parse().unwrap(), cols[2].parse().unwrap());
-        }
-    }
-    panic!("{nuclide} is not in the derived FGR-15 table");
+/// Adult `(air submersion Sv m^3/(Bq s), ground surface Sv m^2/(Bq s))` for a
+/// released nuclide, **with** its short-lived progeny (only Cs-137 -> Ba-137m
+/// among these), through buangkok's own coefficient tables and progeny
+/// correction -- the same path `htgr_sim_v1`'s dose-rate map uses.
+fn fgr15_with_progeny(nuclide: &str) -> (f64, f64) {
+    use buangkok::coefficients::{
+        external_coefficient, fgr15_air_submersion, fgr15_ground_surface,
+        fgr15_short_lived_progeny,
+    };
+    use buangkok::pydoseia::dcf::AgeBracket;
+    let chains = fgr15_short_lived_progeny();
+    let get = |t| {
+        external_coefficient(&t, &chains, nuclide, AgeBracket::Adult)
+            .unwrap_or_else(|| panic!("{nuclide}: no adult FGR-15 coefficient in buangkok"))
+    };
+    (get(fgr15_air_submersion()), get(fgr15_ground_surface()))
 }
 
 /// Element symbol from a label such as `"Xe-133m"`.
@@ -114,16 +121,9 @@ fn geometry() -> PlumeGeometry {
 }
 
 /// Cs-137 -> Ba-137m branching fraction, from boon-lay's ENDF/B-VIII.0 decay
-/// library (`openmc-endf-8-depletion-lib-b`), not typed here.
-///
-/// Loaded once: parsing the whole decay library costs minutes, and the dose
-/// loops call this for every (distance, class, speed) point.
+/// library (`openmc-endf-8-depletion-lib-b`), for the cross-check against
+/// FGR-15's 0.944 only (the dose itself uses buangkok's progeny correction).
 fn cs137_to_ba137m_branching() -> f64 {
-    static BRANCHING: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
-    *BRANCHING.get_or_init(load_cs137_to_ba137m_branching)
-}
-
-fn load_cs137_to_ba137m_branching() -> f64 {
     use boon_lay::prelude::decay_library::DecayLibrary;
     let data = DecayLibrary::new()
         .try_match_nuclides_to_decay_data(boon_lay::Nuclide::Cs137)
@@ -135,22 +135,6 @@ fn load_cs137_to_ba137m_branching() -> f64 {
         .sum()
 }
 
-/// The effective external coefficients for a released nuclide, with its
-/// short-lived gamma-emitting daughter in secular equilibrium where that
-/// matters. Only Cs-137 -> Ba-137m (t1/2 2.55 min) is added: FGR-15 lists it
-/// separately and Cs-137's own coefficient excludes it, so without it the
-/// Cs-137 ground shine is ~129x too low. Other daughters (e.g. Kr-88 -> Rb-88,
-/// 17.8 min, which grows in during transit) are NOT added.
-fn fgr15_with_progeny(nuclide: &str, cs_ba_branching: f64) -> (f64, f64) {
-    let (mut sub, mut gs) = fgr15(nuclide);
-    if nuclide == "Cs-137" {
-        let (bs, bg) = fgr15("Ba-137m");
-        sub += cs_ba_branching * bs;
-        gs += cs_ba_branching * bg;
-    }
-    (sub, gs)
-}
-
 /// External (submersion + ground-shine) dose \[mSv\] for one release list at
 /// one chi/Q, summed over nuclides. Returns (submersion, ground shine).
 fn external_dose(
@@ -160,9 +144,8 @@ fn external_dose(
 ) -> (f64, f64) {
     let mut sub = 0.0;
     let mut gs = 0.0;
-    let branching = cs137_to_ba137m_branching();
     for &(nuclide, bq) in releases {
-        let (dcf_sub, dcf_gs) = fgr15_with_progeny(nuclide, branching);
+        let (dcf_sub, dcf_gs) = fgr15_with_progeny(nuclide);
         let q = Radioactivity::new::<becquerel>(bq);
         let release = if instantaneous {
             Release::Instantaneous(q)
@@ -255,8 +238,9 @@ fn normal_operation_external_band_against_table_7() {
 /// **Accidents: Table 8 releases -> external dose, vs Table 9 whole-body.**
 ///
 /// **Results (2026-09-29).** Band = min..max over classes A-F x 1/3/5 m/s.
-/// Cs-137 includes Ba-137m in equilibrium (branching 0.94699 from ENDF/B-VIII.0
-/// via boon-lay). Without it the accident external dose was ~15x lower. Ground
+/// Cs-137 includes Ba-137m in equilibrium (FGR-15's 0.944 through
+/// `buangkok::coefficients`; ~~0.94699 from ENDF/B-VIII.0 via boon-lay~~ until
+/// the 2026-09-29 merge). Without it the accident external dose was ~15x lower. Ground
 /// shine is 97 % (depressurization) and 99.6 % (water ingress) of external at
 /// D, 3 m/s: **Cs-137/Ba-137m deposition dominates**, not the noble gases.
 ///
@@ -341,17 +325,29 @@ fn accident_external_band_against_table_9_whole_body() {
     }
 }
 
+/// Cross-check of the Cs-137 -> Ba-137m branching the dose uses (FGR-15's
+/// 0.944, buangkok's progeny table) against boon-lay's ENDF/B-VIII.0 decay
+/// library. Both must be a real branch (a missing one silently drops the gamma
+/// that dominates caesium ground shine); the difference is printed, not
+/// gated. Measured 2026-09-29: ENDF 0.94699 vs FGR-15 0.944 (+0.32 %).
+#[test]
+fn the_ba137m_branching_agrees_with_the_decay_library() {
+    let b = cs137_to_ba137m_branching();
+    let (with, _) = fgr15_with_progeny("Cs-137");
+    let (bare, _) = fgr15_with_progeny("Ba-137m");
+    let parent = 9.37e-17; // FGR-15 Table 4-6 Cs-137 Adult, as shipped
+    let fgr = (with - parent) / bare;
+    println!(
+        "Cs-137 -> Ba-137m branching: ENDF/B-VIII.0 via boon-lay {b}, FGR-15 (buangkok) {fgr:.4} \
+         ({:+.2} %)",
+        (b / fgr - 1.0) * 100.0
+    );
+    assert!(b > 0.9 && b < 1.0, "ENDF branching {b}");
+    assert!(fgr > 0.9 && fgr < 1.0, "FGR-15 branching {fgr}");
+}
+
 /// Doubling every release doubles the dose: the chain is linear in the source,
 /// as every term in it is. A wiring check, not physics.
-/// The Cs-137 -> Ba-137m branching comes out of the decay library at its
-/// ENDF/B-VIII.0 value (~0.944), not zero: a missing branch would silently
-/// drop the gamma that dominates caesium ground shine.
-#[test]
-fn the_ba137m_branching_is_read_from_the_decay_library() {
-    let b = cs137_to_ba137m_branching();
-    println!("Cs-137 -> Ba-137m branching (ENDF/B-VIII.0 via boon-lay) = {b}");
-    assert!(b > 0.9 && b < 1.0, "branching {b}");
-}
 
 #[test]
 fn the_external_dose_is_linear_in_the_release() {

@@ -1830,67 +1830,66 @@ mod tests {
     ///   it for physical reasons, not wiring faults, so the band was dropped
     ///   rather than widened a second time. The spread IS the finding.
     ///
-    /// # Results (2026-09-29, branch `claude/htgr-sim-v1-source-term-u7qwe0`)
+    /// # Results (re-measured 2026-09-29 on `develop` after the merge, i.e.
+    /// with source-term stage 1, gh:#399)
     ///
-    /// Run with `cargo test --release -p outram-park-digital-twin-engine
-    /// --example htgr_sim_v1 -- circulating_activity_against_liu_and_cao
-    /// --nocapture`. `adj.` is sim/T3 x (1 - exp(-lambda t_irr)) (#370, long-lived only).
+    /// Since gh:#399 `evaluate_stack` fills `circulating_activity` from the
+    /// **live pools' opening state** (a 20-full-power-year history at HTR-10's
+    /// purification, plate-out and leak constants), so it is now on Table 3's
+    /// own 20-year basis. `t_irr` is the 1080 FPD residence, not 1 y. The
+    /// `adj.` column's #370 factor uses this test's own `t1/2 >= t_irr` split;
+    /// the channel's short-lived branch is `t1/2 / t_irr < 0.2`, so for Ag-110m
+    /// the two disagree (not material: silver is ~0 either way).
     ///
-    /// **Design stack (bed 954.9 K matrix, 955.1 K SiC, 960.3 K kernel):**
+    /// **Design stack (matrix 954.9 K, SiC 955.1 K, kernel 960.3 K):**
     ///
     /// | Nuclide | sim \[Bq\] | Table 3 \[Bq\] | sim/T3 | adj. |
     /// |---|---|---|---|---|
-    /// | Kr-85 | 2.8227e4 | 3.0e6 | 9.409e-3 | 5.881e-4 |
-    /// | Xe-133 | 1.5625e7 | 2.2e9 | 7.102e-3 | (short) |
-    /// | I-131 | 5.8893e5 | 2.1e6 | 2.804e-1 | (short) |
-    /// | Cs-137 | 8.4268e-3 | 1.6e3 | 5.267e-6 | 1.200e-7 |
-    /// | Ag-110m | 0 | 26 | 0 | (short) |
+    /// | Kr-85 | 8.0276e4 | 3.0e6 | 2.676e-2 | 4.649e-3 |
+    /// | Xe-133 | 1.1320e8 | 2.2e9 | 5.146e-2 | (short) |
+    /// | I-131 | 1.3469e5 | 2.1e6 | 6.414e-2 | (short) |
+    /// | Cs-137 | 1.1410e1 | 1.6e3 | 7.132e-3 | 4.697e-4 |
+    /// | Ag-110m | 1.4e-13 | 26 | 5.4e-15 | (short) |
     ///
     /// **Sensitivity, sim/T3 at bed -100 K / seed / +100 K:**
     ///
     /// | Nuclide | -100 K | seed | +100 K |
     /// |---|---|---|---|
-    /// | Kr-85 | 3.333e-3 | 9.409e-3 | 2.184e-2 |
-    /// | Xe-133 | 2.765e-3 | 7.102e-3 | 1.527e-2 |
-    /// | I-131 | 1.092e-1 | 2.804e-1 | 6.029e-1 |
-    /// | Cs-137 | 2.776e-6 | 5.267e-6 | **2.708e1** |
-    /// | Ag-110m | 2.5e-18 | 0 | 4.4e-11 |
+    /// | Kr-85 | 9.480e-3 | 2.676e-2 | 6.210e-2 |
+    /// | Xe-133 | 2.003e-2 | 5.146e-2 | 1.106e-1 |
+    /// | I-131 | 2.497e-2 | 6.414e-2 | 1.379e-1 |
+    /// | Cs-137 | 4.224e-8 | 7.132e-3 | **3.559** |
+    /// | Ag-110m | 0 | 5.4e-15 | 0 |
+    ///
+    /// ~~Branch `claude/htgr-sim-v1-source-term-u7qwe0` figures, taken before
+    /// gh:#399 (TRISO-ATOPS NP-MHTGR clean-up constant, 1-y irradiation):
+    /// design stack Kr-85 9.409e-3, Xe-133 7.102e-3, I-131 2.804e-1, Cs-137
+    /// 5.267e-6, Ag-110m 0~~ -- superseded; kept so the movement is visible.
     ///
     /// # Interpretation
     ///
-    /// 1. **The simulator is LOW for every tracked nuclide at its design
-    ///    stack**, by 100-140x for the noble gases and 3.6x for I-131. #359's
-    ///    expectation, and #370's direction for the long-lived arm, was that
-    ///    the absolute arm might read high. Removing the #370 inflation makes
-    ///    Kr-85 and Cs-137 **lower still**, so that inflation is not what sets
-    ///    the gap.
-    /// 2. **For the noble gases, the helium-purification rate constant alone
-    ///    accounts for most of it.** Without plate-out, `C = R/(lambda +
-    ///    k_clean)`. For Xe-133, `(lambda + k_clean)/lambda` = (1.52e-6 +
-    ///    8.77e-5)/1.52e-6 ~ 59, and `k_clean` is TRISO-ATOPS's NP-MHTGR
-    ///    reference value, not HTR-10's (see
-    ///    [`Htr10TrisoAtopsInputs::TRISO_ATOPS_CLEAN_UP_PER_S`]). That is
-    ///    arithmetic on the model's own form, not a separate run. The remainder
-    ///    (~2x) sits in the failure fractions (TRISO-ATOPS reference, not
-    ///    HTR-10) and the noble-gas `R/B` at 960 K.
-    /// 3. **Cs-137 is dominated by graphite hold-up, and it is a cliff:** x5e6
-    ///    between the seed and +100 K. So the temperature the graphite term is
-    ///    evaluated at (#371) and the outlet-referenced bed (#372) are not
-    ///    second-order for caesium. They decide the answer.
-    /// 4. **Ag-110m is ~0**: TRISO-ATOPS releases silver only by breakthrough
-    ///    of *intact* SiC, and failed particles add none on that path. At
-    ///    955 K the SiC diffusion lag `a^2/6D` is of order 10^3 years. The
-    ///    nonzero values at 855 K and 1055 K are f64 round-off in an
-    ///    ill-conditioned series (see `boon-lay`'s code-to-code doc).
-    ///    Table 3's 26 Bq therefore needs a mechanism this model does not have.
-    /// 5. **Bases differ, stated rather than corrected:** Table 3 is the end of
-    ///    a 20-year life; the simulator uses a 1-year irradiation and the
-    ///    Table 1 equilibrium-core inventory.
+    /// 1. **The simulator is still LOW for every tracked nuclide at its design
+    ///    stack**: 19-37x for the noble gases, 16x for I-131, 140x for Cs-137.
+    ///    Against the branch's pre-#399 reading the noble gases rose 2.8x (Kr)
+    ///    and 7.2x (Xe), consistent with the branch's own finding that the
+    ///    NP-MHTGR clean-up constant dominated them; I-131 fell 4.4x. The #399
+    ///    change set (constants, failure fractions, 20-year pools) is not
+    ///    decomposed term by term here.
+    /// 2. The design stack is ~200 K below Liu & Cao's 864 degC bounding
+    ///    fuel temperature. At that temperature the same pools read Kr-85
+    ///    0.107, Xe-133 0.182, I-131 0.227, Cs-137 13.9 and Ag-110m 2.32 of
+    ///    Table 3 (`the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3`).
+    ///    The spread between the two instruments is the temperature
+    ///    sensitivity, not a second answer.
+    /// 3. **Cs-137 is a cliff** (x8e7 from -100 K to +100 K). The graphite
+    ///    hold-up temperature (#371) and the outlet-referenced bed (#372)
+    ///    decide the caesium answer.
+    /// 4. **Ag-110m ~0** at the design stack: only intact-SiC breakthrough
+    ///    releases silver on this path, and at 955 K its lag is of order 10^3 y.
+    ///    Nonzero values are f64 round-off in an ill-conditioned series.
     ///
-    /// Nothing here is a validation of anything. It is the first measured
-    /// comparison of this chain against published HTR-10 primary-circuit data,
-    /// and it says the placeholder circuit constants, not the release physics,
-    /// dominate the noble-gas and iodine answer.
+    /// Nothing here is a validation. It records the plant's opening
+    /// primary-helium activity against published HTR-10 data.
     #[test]
     fn circulating_activity_against_liu_and_cao_table_3() {
         use changi::activity::primary_helium::htr10_primary_helium_activity;

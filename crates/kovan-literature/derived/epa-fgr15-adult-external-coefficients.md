@@ -6,10 +6,15 @@ nuclides in Liu and Cao (2002) Tables 5 and 8 (HTR-10 airborne releases), plus
 are extracted from **Federal Guidance Report No. 15** so that `buangkok` can
 compute the submersion and ground-shine pathways (gh:#379).
 
-The data file is [`epa-fgr15-adult-external-coefficients.csv`](epa-fgr15-adult-external-coefficients.csv),
-beside this record. Its columns are `nuclide`,
-`air_submersion_sv_m3_per_bq_s` (Sv m^3 Bq^-1 s^-1, Table 4-6) and
-`ground_surface_sv_m2_per_bq_s` (Sv m^2 Bq^-1 s^-1, Table 4-1).
+~~The data file is `epa-fgr15-adult-external-coefficients.csv`, beside this
+record~~ **MOVED 2026-09-29** (merge into `develop`): the values live in
+**`buangkok`'s shipped FGR-15 tables**, the workspace's one source of FGR
+coefficients: `crates/buangkok/reference/fgr15_2025_air_submersion_dose_rate_coefficients.csv`
+(Table 4-6) and `..._ground_surface_dose_rate_coefficients.csv` (Table 4-1),
+read through `buangkok::coefficients`. The six nuclides already there (Kr-85,
+Xe-133, I-131, Cs-137, Ag-110m, Ba-137m; all ages, with page numbers) matched
+this extraction exactly; the other 18 were appended as Adult-only rows. This
+file stays as the extraction record for those 18.
 
 ---
 
@@ -53,8 +58,9 @@ beside this record. Its columns are `nuclide`,
   add the daughters. **This matters:** Ba-137m's ground coefficient
   (3.87e-16) is 129x Cs-137's own (3.01e-18), and for the Liu and Cao
   accident releases, adding it raised the external dose ~15x
-  (`crates/buangkok/tests/liu_cao_external_dose_cross_check.rs`, which adds
-  it with the ENDF/B-VIII.0 branching 0.94699 via boon-lay). Other daughters
+  (`crates/buangkok/tests/liu_cao_external_dose_cross_check.rs`, which ~~adds
+  it with the ENDF/B-VIII.0 branching 0.94699 via boon-lay~~ since 2026-09-29
+  takes it through `buangkok::coefficients` with FGR-15's own 0.944). Other daughters
   (e.g. Rb-88) are still omitted there.
 - **Adult, effective dose only.** No organ (thyroid) coefficients: FGR-15 is
   external exposure. Inhalation coefficients are in FGR-11, whose 1988 tables
