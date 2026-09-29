@@ -193,13 +193,19 @@ fn a_thermal_table_we_wrote_reads_back() {
     }
 }
 
-/// **IFENG = 2 is refused, not silently resampled.**
+/// ~~**IFENG = 2 is refused, not silently resampled.**~~ **CORRECTED
+/// 2026-09-29 (GitHub #365 audit):** IFENG = 2 is now decoded (and sampled
+/// with OpenMC's own scheme in outram-mc-libs), so this checks that a
+/// continuous table this crate wrote **reads back**: one law per incident
+/// energy, each starting at `E' = 0` with a cdf ending at 1 to the writer's
+/// precision, cosines sorted inside [-1, 1]. The comparison against OpenMC's
+/// reader on an NJOY2016 table is `outram-mc-libs/tests/thermal_ifeng2_vs_openmc.rs`.
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
     ignore = "builds a continuous-emission thermal table; runs by default"
 )]
-fn a_continuous_table_is_refused_with_its_form_named() {
+fn a_continuous_table_reads_back() {
     let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
         .join("tsl-013_Al_027-ENDF8.0.endf");
     let Ok(f) = File::open(p) else {
@@ -227,18 +233,39 @@ fn a_continuous_table_is_refused_with_its_form_named() {
     };
     let mut buf: Vec<u8> = Vec::new();
     built.write_to(&mut buf).expect("write Type-1");
-    let raw = njoy_outram_park_fork::acer::read::parse_type1(
-        &String::from_utf8(buf).expect("ASCII"),
-    )
-    .expect("parse");
+    let raw =
+        njoy_outram_park_fork::acer::read::parse_type1(&String::from_utf8(buf).expect("ASCII"))
+            .expect("parse");
 
-    let err = decode_thermal(&raw)
-        .expect_err("IFENG=2 must be refused -- the discrete representation has no form for it");
-    let m = format!("{err}");
-    println!("refused: {m}");
-    assert!(m.contains("IFENG = 2"), "the error must name the form: {m}");
-    assert!(
-        m.contains("resample"),
-        "and say what the harm would be, since a silent resample looks like data: {m}"
+    let t = decode_thermal(&raw).expect("IFENG = 2 decodes");
+    assert_eq!(t.ifeng, 2);
+    assert!(t.emission.is_empty());
+    assert_eq!(
+        t.continuous.len(),
+        grid.len(),
+        "one law per incident energy"
+    );
+    for (i, c) in t.continuous.iter().enumerate() {
+        assert_eq!(c.e_out[0], 0.0, "law {i} starts at E' = 0");
+        assert!(
+            c.e_out.windows(2).all(|w| w[1] >= w[0]),
+            "law {i}: E' ascending"
+        );
+        let last = *c.cdf.last().unwrap();
+        assert!((last - 1.0).abs() < 1.0e-3, "law {i}: cdf ends at {last}");
+        assert_eq!(c.cosines.len(), c.e_out.len() * c.n_mu);
+        for row in c.cosines.chunks(c.n_mu) {
+            assert!(row.windows(2).all(|w| w[1] >= w[0]), "cosines sorted");
+            assert!(
+                row.iter().all(|m| (-1.0..=1.0).contains(m)),
+                "cosines in [-1, 1]"
+            );
+        }
+    }
+    println!(
+        "IFENG=2: {} laws, {}..{} points",
+        t.continuous.len(),
+        t.continuous.iter().map(|c| c.e_out.len()).min().unwrap(),
+        t.continuous.iter().map(|c| c.e_out.len()).max().unwrap()
     );
 }

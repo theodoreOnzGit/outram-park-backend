@@ -486,6 +486,19 @@ struct EmissionTable {
     n_mu: usize,
 }
 
+/// One incident energy's **continuous** incoherent-inelastic law (ACE
+/// IFENG = 2): outgoing energies with their pdf and cdf, and per point `n_mu`
+/// sorted equiprobable cosines, row-major. Built from
+/// `njoy_outram_park_fork::acer::thermal_read::AceThermalContinuous`.
+#[derive(Debug, Clone)]
+struct ContinuousEmission {
+    e_out: Vec<f64>,
+    pdf: Vec<f64>,
+    cdf: Vec<f64>,
+    cosines: Vec<f64>,
+    n_mu: usize,
+}
+
 #[derive(Debug, Clone)]
 /// Bound-atom thermal scattering for one scatterer at one temperature — the
 /// transport-side data surface, carrying **both** the incoherent-inelastic
@@ -525,6 +538,10 @@ pub struct ThermalScattering {
     emit_e: Vec<f64>,
     /// One emission table per `emit_e` point (parallel arrays).
     emit_tables: Vec<EmissionTable>,
+    /// The **continuous** (ACE IFENG = 2) inelastic emission laws, one per
+    /// `emit_e` point, when the table carries that form; empty otherwise, and
+    /// then `emit_tables` is used. GitHub #365 audit.
+    continuous: Vec<ContinuousEmission>,
     /// The elastic channel — [`ThermalElastic::None`] for a scatterer with no
     /// thermal elastic law (light water).
     elastic: ThermalElastic,
@@ -653,9 +670,10 @@ impl ThermalScattering {
     /// # Errors
     ///
     /// Whatever [`njoy_outram_park_fork::acer::thermal_read::decode_thermal`]
-    /// refuses — notably `IFENG = 2` (continuous emission), which this
-    /// representation holds no form for. See that function's docs: it is a limit
-    /// of the transport-side discrete representation, not of the ACE port.
+    /// refuses. ~~— notably `IFENG = 2` (continuous emission), which this
+    /// representation holds no form for.~~ **CORRECTED 2026-09-29 (GitHub #365
+    /// audit):** `IFENG = 2` is read and sampled with OpenMC's own scheme (see
+    /// `sample_continuous`).
     /// Also `IFENG = 1` (skewed bins), refused here since 2026-09-29 because the
     /// representation carries no bin weights.
     pub fn from_ace(
@@ -721,6 +739,17 @@ impl ThermalScattering {
                     e_out: e.e_out,
                     cosines: e.cosines,
                     n_mu: e.n_mu,
+                })
+                .collect(),
+            continuous: t
+                .continuous
+                .into_iter()
+                .map(|c| ContinuousEmission {
+                    e_out: c.e_out,
+                    pdf: c.pdf,
+                    cdf: c.cdf,
+                    cosines: c.cosines,
+                    n_mu: c.n_mu,
                 })
                 .collect(),
             elastic,
@@ -819,6 +848,7 @@ impl ThermalScattering {
             xs_sigma,
             emit_e,
             emit_tables,
+            continuous: Vec::new(),
             elastic,
         })
     }
@@ -917,6 +947,9 @@ impl ThermalScattering {
                 // collision.
             }
         }
+        if !self.continuous.is_empty() {
+            return Some(self.sample_continuous(e, seed));
+        }
         if self.emit_tables.is_empty() {
             return None;
         }
@@ -940,6 +973,82 @@ impl ThermalScattering {
             table.cosines[base + j].clamp(-1.0, 1.0)
         };
         Some((e_out, mu))
+    }
+
+    /// Sample the **continuous** (ACE IFENG = 2) incoherent-inelastic law at
+    /// incident energy `e` \[eV\], returning `(E', mu_lab)` — a port of OpenMC's
+    /// `IncoherentInelasticAE::sample_params` + `sample`
+    /// (`src/secondary_thermal.cpp`), GitHub #365 audit:
+    ///
+    /// 1. `get_energy_index` (`src/math_functions.cpp`), then the **nearer**
+    ///    incident table `l` (`f0 > 0.5`), not statistical interpolation.
+    /// 2. Invert the lin-lin cdf of table `l` for `E'` with one uniform.
+    /// 3. Shift `E'` to the actual incident energy: `E' *= 2E/E_l - 1` below
+    ///    `E_l/2`, else `E' += E - E_l`.
+    /// 4. One equiprobable cosine index `k`; `mu` interpolated between points
+    ///    `j` and `j+1` by the cdf fraction, then smeared uniformly over half the
+    ///    distance to its neighbours (reflected at ±1 for the end cosines).
+    ///
+    /// This is OpenMC's own scheme for this form; the #188 continuous-in-bin
+    /// scheme applies only to the binned forms and is untouched.
+    fn sample_continuous(&self, e: f64, seed: &mut u64) -> (f64, f64) {
+        let grid = &self.emit_e;
+        let (mut i, mut f0) = (0usize, 0.0);
+        if e >= grid[0] {
+            i = grid.partition_point(|&v| v <= e).saturating_sub(1).min(grid.len() - 1);
+            if i + 1 < grid.len() {
+                f0 = (e - grid[i]) / (grid[i + 1] - grid[i]);
+            }
+        }
+        let l = if f0 > 0.5 { i + 1 } else { i };
+        let t = &self.continuous[l];
+        let n = t.e_out.len();
+        let r1 = prn(seed);
+        // Same search as upstream, including its fall-through at the top.
+        let mut c_j = t.cdf[0];
+        let mut c_j1 = c_j;
+        let mut j = 0usize;
+        while j < n - 1 {
+            c_j1 = t.cdf[j + 1];
+            if r1 < c_j1 {
+                break;
+            }
+            c_j = c_j1;
+            j += 1;
+        }
+        let j = j.min(n - 2);
+        let (e_j, p_j) = (t.e_out[j], t.pdf[j]);
+        let (e_j1, p_j1) = (t.e_out[j + 1], t.pdf[j + 1]);
+        let frac = (p_j1 - p_j) / (e_j1 - e_j);
+        let mut e_out = if frac == 0.0 {
+            if p_j > 0.0 { e_j + (r1 - c_j) / p_j } else { e_j }
+        } else {
+            e_j + ((p_j * p_j + 2.0 * frac * (r1 - c_j)).max(0.0).sqrt() - p_j) / frac
+        };
+        let e_l = grid[l];
+        if e_out < 0.5 * e_l {
+            e_out *= 2.0 * e / e_l - 1.0;
+        } else {
+            e_out += e - e_l;
+        }
+        let f = if c_j1 > c_j { (r1 - c_j) / (c_j1 - c_j) } else { 0.0 };
+
+        let n_mu = t.n_mu;
+        let k = ((prn(seed) * n_mu as f64) as usize).min(n_mu - 1);
+        let m = |row: usize, kk: usize| t.cosines[row * n_mu + kk];
+        let mu = m(j, k) + f * (m(j + 1, k) - m(j, k));
+        let mu_left = if k == 0 {
+            -1.0 - (mu + 1.0)
+        } else {
+            m(j, k - 1) + f * (m(j + 1, k - 1) - m(j, k - 1))
+        };
+        let mu_right = if k == n_mu - 1 {
+            1.0 + (1.0 - mu)
+        } else {
+            m(j, k + 1) + f * (m(j + 1, k + 1) - m(j, k + 1))
+        };
+        let mu = mu + (mu - mu_left).min(mu_right - mu) * (prn(seed) - 0.5);
+        (e_out, mu)
     }
 
     /// Pick the emission table to sample from for incident energy `e` \[eV\] by

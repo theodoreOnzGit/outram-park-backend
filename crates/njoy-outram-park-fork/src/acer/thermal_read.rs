@@ -27,7 +27,15 @@
 //! see the IDPNC match below), and
 //! `NXS(7) = IFENG` the inelastic form.
 //!
-//! # IFENG=2 is REFUSED, not approximated
+//! # ~~IFENG=2 is REFUSED, not approximated~~ **CORRECTED 2026-09-29 — read (GitHub #365 audit)**
+//!
+//! ~~`IFENG = 2` is **continuous** ... refused with a message saying which form
+//! the file carries.~~ `IFENG = 2` (continuous: per outgoing energy a pdf, cdf
+//! and cosines, with the point count varying by incident energy) is now decoded
+//! into [`AceThermalContinuous`], and
+//! `outram_mc_libs::material::thermal::ThermalScattering` samples it with a port
+//! of OpenMC's `IncoherentInelasticAE::sample` rather than squeezing it into the
+//! binned form. This is the form OpenMC's own libraries use.
 //!
 //! `IFENG = 0` (equiprobable) and `1` (skewed) both store, per incident energy,
 //! a fixed `NIEB` outgoing energies each with `nang` cosines. ~~— which is
@@ -35,14 +43,7 @@
 //! 2026-09-29**: the layout is the same, but skewed bins are not equiprobable
 //! and the transport side's form has no bin weights, so
 //! `outram_mc_libs::material::thermal::ThermalScattering::from_ace` refuses
-//! IFENG = 1. This decoder still reads it faithfully (`ifeng` is carried). `IFENG = 2` is **continuous**:
-//! per outgoing energy it stores a pdf and cdf and the bin count varies with
-//! incident energy. Squeezing that into the discrete representation would
-//! silently resample somebody's carefully tabulated distribution, so it is
-//! refused with a message saying which form the file carries.
-//!
-//! The writer supports IFENG=2 (that was its own task), so this is a limit of
-//! the **transport-side representation**, not of the ACE port.
+//! IFENG = 1. This decoder still reads it faithfully (`ifeng` is carried).
 
 use crate::acer::read::RawAceTable;
 use crate::acer::thermal::{jxs, nxs};
@@ -59,6 +60,23 @@ pub struct AceThermalEmission {
     /// Cosines per outgoing-energy bin, row-major (`bin * n_mu + j`).
     pub cosines: Vec<f64>,
     /// Cosines per bin.
+    pub n_mu: usize,
+}
+
+/// One incident energy's **continuous** (IFENG = 2) emission law: per outgoing
+/// point `E'` \[eV\], its pdf \[eV⁻¹\] and cdf, and `n_mu` equiprobable cosines
+/// (sorted), row-major (`point * n_mu + k`). See `decode_continuous_emission`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AceThermalContinuous {
+    /// Outgoing energies \[eV\], ascending, starting at 0.
+    pub e_out: Vec<f64>,
+    /// pdf \[eV⁻¹\] at each `e_out`.
+    pub pdf: Vec<f64>,
+    /// cdf at each `e_out`.
+    pub cdf: Vec<f64>,
+    /// Cosines, row-major.
+    pub cosines: Vec<f64>,
+    /// Cosines per point.
     pub n_mu: usize,
 }
 
@@ -97,8 +115,12 @@ pub struct AceThermal {
     pub inel_energy: Vec<f64>,
     /// σ_inel \[barn\] per principal atom at each `inel_energy`.
     pub inel_xs: Vec<f64>,
-    /// One emission table per `inel_energy` point.
+    /// One emission table per `inel_energy` point, for the binned forms
+    /// (IFENG = 0, 1). Empty for IFENG = 2.
     pub emission: Vec<AceThermalEmission>,
+    /// One continuous emission law per `inel_energy` point, for IFENG = 2
+    /// (GitHub #365 audit). Empty for the binned forms.
+    pub continuous: Vec<AceThermalContinuous>,
     /// The elastic channel.
     pub elastic: AceThermalElastic,
     /// `IFENG` as stored, for provenance.
@@ -116,6 +138,127 @@ fn need(t: &RawAceTable, at: usize, n: usize, what: &str) -> Result<(), NjoyErro
     Ok(())
 }
 
+/// The IFENG = 0/1 (binned) ITXE block; see [`decode_thermal`].
+fn decode_discrete_emission(
+    t: &RawAceTable,
+    n_energy: usize,
+) -> Result<Vec<AceThermalEmission>, NjoyError> {
+    let n_mu = (t.nxs[nxs::NIL] + 1) as usize;
+    let n_eout = t.nxs[nxs::NIEB] as usize;
+    if n_mu == 0 || n_eout == 0 {
+        return Err(NjoyError::EndfParse(format!(
+            "thermal ACE: NIL+1 = {n_mu} cosines and NIEB = {n_eout} outgoing \
+             energies; neither can be zero for a discrete emission table"
+        )));
+    }
+    let itxe = t.jxs[jxs::ITXE];
+    if itxe <= 0 {
+        return Err(NjoyError::EndfParse(
+            "thermal ACE: JXS(3) (ITXE) is zero, so there are cross sections but no \
+             emission distributions -- a scatterer that removes neutrons and emits \
+             nothing"
+                .into(),
+        ));
+    }
+    let stride = 1 + n_mu;
+    let ebase = (itxe - 1) as usize;
+    need(t, ebase, n_energy * n_eout * stride, "ITXE tables")?;
+    let mut emission = Vec::with_capacity(n_energy);
+    for i in 0..n_energy {
+        let mut e_out = Vec::with_capacity(n_eout);
+        let mut cosines = Vec::with_capacity(n_eout * n_mu);
+        for b in 0..n_eout {
+            let o = ebase + (i * n_eout + b) * stride;
+            e_out.push(t.xss[o] * EV_PER_MEV);
+            cosines.extend_from_slice(&t.xss[o + 1..o + 1 + n_mu]);
+        }
+        emission.push(AceThermalEmission {
+            e_out,
+            cosines,
+            n_mu,
+        });
+    }
+    Ok(emission)
+}
+
+/// Decode the **IFENG = 2 continuous** incoherent-inelastic emission block —
+/// GitHub #365 audit. A port of OpenMC's reader
+/// (`openmc/data/thermal.py:809-887`):
+///
+/// - `NIL = NXS(3) = nang + 1`, so each point carries `nang = NIL - 1` cosines;
+/// - at `JXS(3)`: `NEI` locators, then `NEI` point counts. A locator is the
+///   **absolute** position such that the first `E'` is `XSS(loc + 1)`, i.e.
+///   0-based `xss[loc]` (measured on an NJOY2016 `iwt = 2` H-in-H2O table:
+///   `JXS(3) = 214`, first locator `425 = 214 + 2·106 - 1`);
+/// - per point: `E'` \[MeV\], pdf \[MeV⁻¹\], cdf, then `nang` cosines;
+/// - the cosines of each point are **sorted** (they are equiprobable, and
+///   NJOY's are not always in order; OpenMC sorts them because the smearing in
+///   its sampler assumes neighbours are neighbours);
+/// - when a table's cdf does not start at 0 (NJOY's never does), a point at
+///   `E' = 0` with pdf = cdf = 0 and isotropic midpoint cosines is prepended,
+///   exactly as OpenMC does, so no draw can extrapolate to a negative energy.
+fn decode_continuous_emission(
+    t: &RawAceTable,
+    n_energy: usize,
+) -> Result<Vec<AceThermalContinuous>, NjoyError> {
+    let nil = t.nxs[nxs::NIL];
+    if nil < 2 {
+        return Err(NjoyError::EndfParse(format!(
+            "thermal ACE IFENG = 2: NIL = {nil}, but the continuous form needs NIL = nang + 1 >= 2"
+        )));
+    }
+    let n_mu = (nil - 1) as usize;
+    let itxe = t.jxs[jxs::ITXE];
+    if itxe <= 0 {
+        return Err(NjoyError::EndfParse(
+            "thermal ACE IFENG = 2: JXS(3) (ITXE) is zero".into(),
+        ));
+    }
+    let base = (itxe - 1) as usize;
+    need(t, base, 2 * n_energy, "IFENG=2 locators and counts")?;
+    let stride = n_mu + 3;
+    let mut out = Vec::with_capacity(n_energy);
+    for i in 0..n_energy {
+        let loc = t.xss[base + i] as usize;
+        let n = t.xss[base + n_energy + i] as usize;
+        if n < 2 {
+            return Err(NjoyError::EndfParse(format!(
+                "thermal ACE IFENG = 2: incident energy {i} has {n} outgoing points"
+            )));
+        }
+        need(t, loc, n * stride, "IFENG=2 points")?;
+        let mut e_out = Vec::with_capacity(n + 1);
+        let mut pdf = Vec::with_capacity(n + 1);
+        let mut cdf = Vec::with_capacity(n + 1);
+        let mut cosines = Vec::with_capacity((n + 1) * n_mu);
+        for j in 0..n {
+            let o = loc + j * stride;
+            e_out.push(t.xss[o] * EV_PER_MEV);
+            pdf.push(t.xss[o + 1] / EV_PER_MEV);
+            cdf.push(t.xss[o + 2]);
+            let mut mu = t.xss[o + 3..o + 3 + n_mu].to_vec();
+            mu.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            cosines.extend_from_slice(&mu);
+        }
+        if cdf[0] > 0.0 {
+            e_out.insert(0, 0.0);
+            pdf.insert(0, 0.0);
+            cdf.insert(0, 0.0);
+            let dmu = 2.0 / n_mu as f64;
+            let iso: Vec<f64> = (0..n_mu).map(|k| -1.0 + (k as f64 + 0.5) * dmu).collect();
+            cosines.splice(0..0, iso);
+        }
+        out.push(AceThermalContinuous {
+            e_out,
+            pdf,
+            cdf,
+            cosines,
+            n_mu,
+        });
+    }
+    Ok(out)
+}
+
 /// Decode a thermal S(α,β) ACE table.
 ///
 /// # Errors
@@ -127,22 +270,10 @@ fn need(t: &RawAceTable, at: usize, n: usize, what: &str) -> Result<(), NjoyErro
 /// right shifts `k` on exactly the lattices it is there to get right.
 pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
     let ifeng = t.nxs[nxs::IFENG];
-    if ifeng == 2 {
-        return Err(NjoyError::EndfParse(
-            "this thermal table is IFENG = 2 (CONTINUOUS inelastic emission): per \
-             outgoing energy it carries a pdf and cdf, and the bin count varies \
-             with incident energy. The transport side holds the DISCRETE form \
-             (a fixed number of equiprobable bins, each with its own cosines), so \
-             mapping IFENG=2 onto it would resample the evaluation's own \
-             distribution silently. Refused. This is a limit of the transport \
-             representation, not of the ACE port -- the writer emits IFENG=2."
-                .into(),
-        ));
-    }
-    if !(0..=1).contains(&ifeng) {
+    if !(0..=2).contains(&ifeng) {
         return Err(NjoyError::EndfParse(format!(
             "thermal ACE: IFENG = {ifeng} is not a form this reads (0 equiprobable, \
-             1 skewed). Refusing rather than guessing at the block layout."
+             1 skewed, 2 continuous). Refusing rather than guessing at the block layout."
         )));
     }
 
@@ -193,41 +324,11 @@ pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
     // Per incident energy, NIEB bins of [E', mu(1..nang)]. NIL is nang - 1, so
     // the stride is 1 + nang = NIL + 2 -- the same `n_mu + 2` upstream uses
     // (`openmc/data/thermal.py::from_ace`).
-    let n_mu = (t.nxs[nxs::NIL] + 1) as usize;
-    let n_eout = t.nxs[nxs::NIEB] as usize;
-    if n_mu == 0 || n_eout == 0 {
-        return Err(NjoyError::EndfParse(format!(
-            "thermal ACE: NIL+1 = {n_mu} cosines and NIEB = {n_eout} outgoing \
-             energies; neither can be zero for a discrete emission table"
-        )));
-    }
-    let itxe = t.jxs[jxs::ITXE];
-    if itxe <= 0 {
-        return Err(NjoyError::EndfParse(
-            "thermal ACE: JXS(3) (ITXE) is zero, so there are cross sections but no \
-             emission distributions -- a scatterer that removes neutrons and emits \
-             nothing"
-                .into(),
-        ));
-    }
-    let stride = 1 + n_mu;
-    let ebase = (itxe - 1) as usize;
-    need(t, ebase, n_energy * n_eout * stride, "ITXE tables")?;
-    let mut emission = Vec::with_capacity(n_energy);
-    for i in 0..n_energy {
-        let mut e_out = Vec::with_capacity(n_eout);
-        let mut cosines = Vec::with_capacity(n_eout * n_mu);
-        for b in 0..n_eout {
-            let o = ebase + (i * n_eout + b) * stride;
-            e_out.push(t.xss[o] * EV_PER_MEV);
-            cosines.extend_from_slice(&t.xss[o + 1..o + 1 + n_mu]);
-        }
-        emission.push(AceThermalEmission {
-            e_out,
-            cosines,
-            n_mu,
-        });
-    }
+    let (emission, continuous) = if ifeng == 2 {
+        (Vec::new(), decode_continuous_emission(t, n_energy)?)
+    } else {
+        (decode_discrete_emission(t, n_energy)?, Vec::new())
+    };
 
     // ── ITCE / ITCX / ITCA: the elastic channel ────────────────────────────
     let idpnc = t.nxs[nxs::IDPNC];
@@ -314,6 +415,7 @@ pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
         inel_energy,
         inel_xs,
         emission,
+        continuous,
         elastic,
         ifeng,
     })
