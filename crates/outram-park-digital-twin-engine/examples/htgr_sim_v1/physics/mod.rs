@@ -3074,6 +3074,11 @@ mod tests {
     /// | stage (a), 2026-09-29 | -4.6e-4 J = **9.2e-14** of 4.95e9 J | 2.4e-11 / 1.2e-10 | 0 |
     /// | stage (b), 2026-09-29 (passive path in the bed's solve) | +1.5e-5 J = **3.1e-15** | 1.1e-11 / 9.0e-11 | 0 |
     /// | stage (c), 2026-09-29 (riser leg: reflector -> cold return) | +5.1e-4 J = **1.0e-13** | 1.2e-11 / 4.4e-11 | 0 |
+    /// | loop inventory at Yao's 210 kg, 2026-09-29 (gh:#403) | -4.0e-4 J = **8.0e-14** | 1.1e-11 / 4.7e-11 | 0 |
+    ///
+    /// gh:#403: cold-return storage 1.856e7 J (it was ~2e6 J with the invented
+    /// 6 m^3 allowance); the trip's cold-return residence reaches 19630.6 s at
+    /// the 0.01 kg/s floor (~~1010.6 s~~ before).
     ///
     /// Stage (b) totals: source 4.9475e9 J, circulator work 3.155e6 J;
     /// storage fuel 1.078e8, bed graphite 3.876e9, bed helium 5.27e6, hot duct
@@ -4674,6 +4679,12 @@ mod tests {
     /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | 16.1364 MW | **NOT REACHED** | -- | 1341.9 K | 1.8741 MW / 1319.0 K / 1316.4 K |
     /// | **passive path in the bed's solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | 16.1468 MW | **NOT REACHED** | -- | 1343.7 K | 1.6827 MW / 1320.7 K / 1318.3 K |
     /// | **riser leg (2026-09-29, gh:#397)** | 16.1377 MW | **NOT REACHED** | -- | 1343.5 K | 1.6886 MW / 1320.8 K / 1318.4 K |
+    /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | 16.1277 MW | **NOT REACHED** | -- | 1344.2 K | 1.8491 MW / 1320.9 K / 1318.3 K |
+    ///
+    /// **gh:#403:** fission at 600 s rose 9.5 % (1.6886 -> 1.8491 MW). The
+    /// cold-return CV now holds ~194 kg of helium, 20x more, so after the trip
+    /// the core inlet follows the steam generator ~20x more slowly. The outcome
+    /// is unchanged: not shut down.
     ///
     /// **Stage (b), 2026-09-29:** fission at 600 s fell 10 % (1.8741 ->
     /// 1.6827 MW), but the outcome does not change. The reflector capacity is
@@ -4990,6 +5001,7 @@ mod tests {
     /// | **helium CVs on enthalpy, circulator work (2026-09-29, gh:#388)** | **16.0742 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
     /// | **passive path in the bed's implicit solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | **16.0693 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
     /// | **riser leg (2026-09-29, gh:#397)** | **15.8803 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
+    /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | **15.8813 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
     ///
     /// **Riser leg:** -1.18 % in power. The side reflector now hands about
     /// 0.33 MW to the helium rising through its channels, which re-enters the

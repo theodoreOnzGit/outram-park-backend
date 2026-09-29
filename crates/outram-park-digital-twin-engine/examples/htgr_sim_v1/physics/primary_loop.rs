@@ -210,6 +210,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::volume::cubic_meter;
 
+use super::fission_product_release::htr10_primary_helium_inventory_kg;
 use super::pebble_bed;
 use super::steam_generator::{
     NodalisedCounterFlowSteamGenerator, PimpleCorrectors, SteamGeneratorConfig,
@@ -325,12 +326,12 @@ fn core_flow_fraction() -> f64 {
 // figures is tracked as bead `op-szmi.6`.
 // ---------------------------------------------------------------------------
 
-/// Helium-filled volume of the circuit **outside** the pebble bed \[m^3\]
-/// (**invented**): the upper and lower plenums, the hot gas duct, the
-/// steam-generator shell side and the circulator casing, lumped into one
-/// number. The bed's own void volume is derived from the published core
-/// geometry and added to this -- see [`Self::helium_inventory`].
-const LOOP_GAS_VOLUME_OUTSIDE_BED_M3: f64 = 6.0;
+// ~~`LOOP_GAS_VOLUME_OUTSIDE_BED_M3 = 6.0` (**invented**): the plenums, hot
+// gas duct, steam-generator shell side and circulator casing lumped into one
+// number~~ -- REMOVED 2026-09-29 (gh:#403). With the bed void it held about
+// 20 kg of helium, a tenth of the ~210 kg Yao et al. (2002) imply. The
+// cold-return CV is now sized from that published inventory; see
+// [`cold_return_volume`].
 
 /// Circulator isentropic/mechanical efficiency (**invented**), 0.80.
 const CIRCULATOR_EFFICIENCY: f64 = 0.80;
@@ -574,20 +575,52 @@ pub fn steam_generator_shell_volume() -> Volume {
     g.shell_flow_area * g.shell_flow_length
 }
 
-/// Helium volume of the **cold-return CV** \[m^3\]: the invented
-/// [`LOOP_GAS_VOLUME_OUTSIDE_BED_M3`] less the hot-duct CV and less the steam
-/// generator's shell side. 3.7172 m^3, of which 0.5077 m^3 is the published
-/// riser-borehole volume ([`RISER_BOREHOLE_VOLUME_M3`]); the rest is invented.
+/// Helium volume of the **cold-return CV** \[m^3\], **sized so the whole
+/// primary circuit holds the published helium inventory** (gh:#403):
 ///
-/// **Why the shell side is subtracted.** The 6 m^3 allowance was defined to
-/// include "the steam-generator shell side", but that helium is now resolved
-/// by the exchanger's own helium array, which carries its own inertia. Leaving
-/// it in this CV as well would count it twice -- the same defect class as the
-/// deleted core-outlet lag.
+/// ```text
+/// V_c = (M_Yao - rho_hot V_hot - rho_mean (V_bed,void + V_SG,shell)) / rho_cold
+/// ```
+///
+/// - `M_Yao` = 210 kg: [`htr10_primary_helium_inventory_kg`], derived from
+///   Yao et al. (2002) (10.5 kg/h purification = 5 % of the inventory per
+///   hour). The release channel's plate-out cycle time reads the same function,
+///   so the thermal-hydraulic loop and the source term hold one inventory.
+/// - Densities: CoolProp helium at the published 3.0 MPa and the published
+///   250 degC inlet (cold), 700 degC outlet (hot) and their mean (bed void and
+///   steam-generator shell side, the bulk-mean density
+///   [`PrimaryLoop::helium_inventory`] counts those two at).
+///
+/// About 73 m^3 -- the helium filling the RPV's cold annuli and top plenum,
+/// the SG vessel and the connecting ducts, which the invented 6 m^3 allowance
+/// it replaces (~~3.7172 m^3~~ before gh:#403) left out. **The inventory is
+/// published; how it divides between the hot-duct and cold-return CVs is
+/// not.** Everything not in the hot duct, the bed or the SG shell side is put
+/// in the cold return because the vessel free volume the published layout
+/// describes is at cold-leg temperature ([S2] section 5, `docs/
+/// reactor-scoping/htr10-plant-data.md` section 4.4), but the split is a
+/// labelled placeholder, like the hot-gas plenum volume. 0.5077 m^3 of it is
+/// the published riser-borehole volume ([`RISER_BOREHOLE_VOLUME_M3`]).
+///
+/// **Why the shell side is subtracted.** That helium is resolved by the
+/// exchanger's own helium array, which carries its own inertia; counting it
+/// here as well would count it twice.
 pub fn cold_return_volume() -> Volume {
-    Volume::new::<cubic_meter>(LOOP_GAS_VOLUME_OUTSIDE_BED_M3)
-        - hot_duct_volume()
-        - steam_generator_shell_volume()
+    static V: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    Volume::new::<cubic_meter>(*V.get_or_init(|| {
+        let p = loop_pressure_pa();
+        let rho = |t: f64| {
+            state_pt(Fluid::Helium, t, p)
+                .expect("helium at the published design point")
+                .density
+        };
+        let (t_c, t_h) = (published_core_inlet_k(), published_core_outlet_k());
+        let held_elsewhere = rho(t_h) * hot_duct_volume().get::<cubic_meter>()
+            + rho(0.5 * (t_c + t_h))
+                * (pebble_bed::bed_void_volume() + steam_generator_shell_volume())
+                    .get::<cubic_meter>();
+        (htr10_primary_helium_inventory_kg() - held_elsewhere) / rho(t_c)
+    }))
 }
 
 /// Floor on the commanded helium flow \[kg/s\] (**invented**), keeping the
@@ -1313,7 +1346,10 @@ impl HeliumPrimaryLoop {
     /// the cold-return CV -- the total is unchanged).
     #[cfg(test)] // read by the CV and conservation tests
     pub fn gas_volume(&self) -> Volume {
-        pebble_bed::bed_void_volume() + Volume::new::<cubic_meter>(LOOP_GAS_VOLUME_OUTSIDE_BED_M3)
+        pebble_bed::bed_void_volume()
+            + hot_duct_volume()
+            + steam_generator_shell_volume()
+            + cold_return_volume()
     }
 
     /// Helium inventory held in the circuit \[kg\]: the two CVs' own masses,
@@ -2418,21 +2454,30 @@ mod tests {
     /// 1.8 s expected at rated flow), and the computed circulator power was
     /// never added to the gas (`h_c = h_sg`).
     ///
-    /// # Results (2026-09-29)
+    /// # Results (2026-09-29, re-measured after gh:#403)
+    ///
+    /// Cold return sized from Yao's 210 kg (73.84 m^3):
     ///
     /// | flow | traced 63.2 % time | analytic two-lag | `tau_h`, `tau_c` | `h_c - h_h` vs `W/m_dot` |
     /// |---|---|---|---|---|
-    /// | 4.3 kg/s | **3.10 s** | 2.994 s (+3.5 %) | 0.634 s, 2.272 s | 12487.3638 = 12487.3638 J/kg |
-    /// | 0.43 kg/s | **30.70 s** | 30.041 s (+2.2 %) | 6.340 s, 22.821 s | 125.1432 = 125.1432 J/kg |
+    /// | 4.3 kg/s | **47.10 s** | 45.773 s (+2.9 %) | 0.634 s, 45.134 s | 12487.3638 = 12487.3638 J/kg |
+    /// | 0.43 kg/s | **470.60 s** | 459.689 s (+2.4 %) | 6.340 s, 453.304 s | 125.1432 = 125.1432 J/kg |
     ///
-    /// The ratio 30.70/3.10 = 9.9: the lag scales as `1/m_dot`, where the
-    /// deleted 8 s lag gave a ratio of 1. The +2-4 % is the backward-Euler
-    /// lag at `dt = 0.1 s` against `tau_h = 0.63 s`.
+    /// Before gh:#403 (invented 6 m^3 allowance, cold return 3.7172 m^3):
+    /// ~~4.3 kg/s 3.10 s vs 2.994 s (+3.5 %), `tau_c` 2.272 s; 0.43 kg/s
+    /// 30.70 s vs 30.041 s (+2.2 %), `tau_c` 22.821 s~~. The cold-return
+    /// residence time grew 19.9x (2.27 -> 45.1 s at rated flow); the hot duct
+    /// is unchanged. The ratio 470.6/47.1 = 10.0: the lag scales as
+    /// `1/m_dot`, where the deleted 8 s lag gave a ratio of 1. The +2-3 % is
+    /// the backward-Euler lag at `dt = 0.1 s` and the ~4 % mass change over
+    /// the step.
     #[test]
     fn the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work() {
         let mut t63 = Vec::new();
         for flow in [4.3, 0.43] {
-            let tau_guess = 14.0 / flow; // ~ (M_h + M_c) / m_dot, for the run lengths only
+            // ~ (M_h + M_c) / m_dot, for the run lengths only. ~~14 kg~~ before
+            // gh:#403 sized the cold return from Yao's 210 kg.
+            let tau_guess = htr10_primary_helium_inventory_kg() / flow;
             let (trace, loop_) =
                 isolated_step_response(flow, 523.15, 543.15, 12.0 * tau_guess, 30.0 * tau_guess);
             let t = time_to_63_percent(&trace);
@@ -2547,18 +2592,41 @@ mod tests {
         assert!(worst_duty < 1e-12);
     }
 
-    /// The two CV volumes are what their definitions say: the hot duct holds
-    /// the published in-reflector duct volume and the published 300 mm bore,
-    /// the cold return holds at least the published riser boreholes, and the
-    /// split plus the steam generator's shell side is the whole 6 m^3
-    /// allowance.
+    /// **The circuit holds Yao's inventory at the published design point**
+    /// (gh:#403), and the CV volumes are what their definitions say.
+    ///
+    /// Methodology: re-add the four helium masses at the densities the sizing
+    /// uses (CoolProp, 3.0 MPa; hot duct at 700 degC, cold return at 250 degC,
+    /// bed void and SG shell side at their mean) and compare with
+    /// `htr10_primary_helium_inventory_kg()` (210 kg), to 1e-12 relative --
+    /// an identity check that the sizing and the shared constant agree. The
+    /// hot duct must hold the published in-reflector duct volume and the cold
+    /// return the published riser boreholes.
+    ///
+    /// Results (2026-09-29): printed below; hot duct 1.0328 m^3, cold return
+    /// ~73 m^3 (~~3.7172 m^3~~ under the invented 6 m^3 allowance), SG shell
+    /// 1.25 m^3.
     #[test]
-    fn the_cv_volumes_split_the_allowance_without_double_counting_the_shell() {
+    fn the_cv_volumes_hold_the_published_inventory_without_double_counting_the_shell() {
         let hot = hot_duct_volume().get::<cubic_meter>();
         let cold = cold_return_volume().get::<cubic_meter>();
         let shell = steam_generator_shell_volume().get::<cubic_meter>();
-        println!("hot duct {hot:.4} m^3, cold return {cold:.4} m^3, SG shell {shell:.4} m^3");
-        assert!((hot + cold + shell - LOOP_GAS_VOLUME_OUTSIDE_BED_M3).abs() < 1e-12);
+        let bed = pebble_bed::bed_void_volume().get::<cubic_meter>();
+        let p = loop_pressure_pa();
+        let rho = |t: f64| state_pt(Fluid::Helium, t, p).unwrap().density;
+        let (t_c, t_h) = (published_core_inlet_k(), published_core_outlet_k());
+        let (rc, rh, rm) = (rho(t_c), rho(t_h), rho(0.5 * (t_c + t_h)));
+        let m = rh * hot + rc * cold + rm * (bed + shell);
+        let yao = htr10_primary_helium_inventory_kg();
+        println!(
+            "hot duct {hot:.4} m^3 ({:.2} kg), cold return {cold:.4} m^3 ({:.2} kg), SG shell \
+             {shell:.4} m^3 + bed void {bed:.4} m^3 ({:.2} kg); total {m:.6} kg vs Yao {yao} kg; \
+             rho cold/hot/mean {rc:.4}/{rh:.4}/{rm:.4} kg/m^3",
+            rh * hot,
+            rc * cold,
+            rm * (bed + shell)
+        );
+        assert!(((m - yao) / yao).abs() < 1e-12);
         assert!(hot > HOT_GAS_DUCT_IN_REFLECTOR_VOLUME_M3);
         assert!(cold > RISER_BOREHOLE_VOLUME_M3);
     }
@@ -2574,9 +2642,10 @@ mod tests {
         let total = loop_.gas_volume().get::<cubic_meter>();
         let bed = pebble_bed::bed_void_volume().get::<cubic_meter>();
         assert!(bed > 1.9 && bed < 2.0, "bed void volume {bed} m^3 is off");
+        let outside = hot_duct_volume() + steam_generator_shell_volume() + cold_return_volume();
         assert!(
-            (total - bed - LOOP_GAS_VOLUME_OUTSIDE_BED_M3).abs() < 1e-9,
-            "the circuit gas volume must be the bed void plus the illustrative allowance"
+            (total - bed - outside.get::<cubic_meter>()).abs() < 1e-9,
+            "the circuit gas volume must be the bed void plus the three volumes outside it"
         );
     }
 

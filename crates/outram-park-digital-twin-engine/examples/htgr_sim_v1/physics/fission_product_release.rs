@@ -245,9 +245,12 @@ pub const HTR10_PURIFICATION_FLOW_KG_PER_H: f64 = 10.5;
 /// HTR-10 primary helium inventory \[kg\], **derived** from Yao's two figures:
 /// `10.5 kg/h / (0.05 /h)` = **210 kg**. Sets the loop's cycle time
 /// `M / m_dot`, which turns Liu & Cao's per-cycle deposition into a rate
-/// constant. (It is about ten times the stage (a) primary-loop model's own
-/// inventory, which rests on an invented 6 m^3 allowance -- a finding recorded
-/// on gh:#388; this module uses the published figure.)
+/// constant, **and** sizes the primary loop's cold-return CV
+/// (`primary_loop::cold_return_volume`, gh:#403), so the thermal-hydraulic
+/// loop and the source term hold one inventory. ~~(It is about ten times the
+/// stage (a) primary-loop model's own inventory, which rests on an invented
+/// 6 m^3 allowance.)~~ Corrected 2026-09-29 (gh:#403): the loop is sized from
+/// this figure now.
 pub fn htr10_primary_helium_inventory_kg() -> f64 {
     HTR10_PURIFICATION_FLOW_KG_PER_H / HTR10_PURIFICATION_INVENTORY_FRACTION_PER_H
 }
