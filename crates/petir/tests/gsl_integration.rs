@@ -8,7 +8,7 @@
 //! Verifies PETIR's quadrature against integrands with known closed forms,
 //! including several from GSL's own QUADPACK test set.
 
-use petir::integration::{kronrod, qag, QkRule};
+use petir::integration::{kronrod, qag, qags, QkRule};
 use petir::PetirError;
 
 const ALL_RULES: [QkRule; 6] = [
@@ -229,4 +229,139 @@ fn rule_point_counts_are_what_they_claim() {
     assert_eq!(QkRule::Qk41.points(), 41);
     assert_eq!(QkRule::Qk51.points(), 51);
     assert_eq!(QkRule::Qk61.points(), 61);
+}
+
+fn rel(got: f64, want: f64) -> f64 {
+    ((got - want) / want).abs()
+}
+
+/// GSL's own QAGS assertions, `integration/test.c` lines 1016-1085 (`f1`,
+/// alpha = 2.6, over `[0, 1]`, `epsabs = 0`, `epsrel = 1e-10`) and
+/// lines 1087-1183 (`f11`, alpha = 2, over `[1, 1000]`, `epsabs = 1e-7`,
+/// `epsrel = 0`), each forward and with the limits reversed.
+///
+/// # Methodology
+///
+/// Upstream's expected values were produced by the original QUADPACK in
+/// double precision. Upstream checks the result to 1e-15 relative, the error
+/// estimate to 1e-6 (`f1`) and 1e-3 (`f11`) relative, and the evaluation count,
+/// the number of sub-intervals and the status exactly. The same criteria are
+/// applied here; the evaluation count is taken with a `Cell` counter, as
+/// upstream's `make_counter` does.
+///
+/// # Results (2026-09-28)
+///
+/// Passes: `f1` gives 189 evaluations over 5 sub-intervals, `f11` 357 over 9,
+/// both with status `Ok`, matching upstream exactly, and the results and error
+/// estimates are inside upstream's tolerances in both directions.
+#[test]
+fn qags_reproduces_gsls_own_assertions() {
+    use std::cell::Cell;
+
+    struct Case {
+        name: &'static str,
+        f: fn(f64) -> f64,
+        a: f64,
+        b: f64,
+        epsabs: f64,
+        epsrel: f64,
+        result: f64,
+        abserr: f64,
+        abserr_tol: f64,
+        neval: usize,
+        last: usize,
+    }
+    let cases = [
+        Case {
+            name: "f1",
+            f: |x| x.powf(2.6) * (1.0 / x).ln(),
+            a: 0.0,
+            b: 1.0,
+            epsabs: 0.0,
+            epsrel: 1e-10,
+            result: 7.716049382715789440E-02,
+            abserr: 2.216394961010438404E-12,
+            abserr_tol: 1e-6,
+            neval: 189,
+            last: 5,
+        },
+        Case {
+            name: "f11",
+            f: |x| (1.0 / x).ln().powf(2.0 - 1.0),
+            a: 1.0,
+            b: 1000.0,
+            epsabs: 1e-7,
+            epsrel: 0.0,
+            result: -5.908755278982136588E+03,
+            abserr: 1.299646281053874554E-10,
+            abserr_tol: 1e-3,
+            neval: 357,
+            last: 9,
+        },
+    ];
+    for c in &cases {
+        for (dir, a, b, sign) in [("forward", c.a, c.b, 1.0), ("reverse", c.b, c.a, -1.0)] {
+            let n = Cell::new(0usize);
+            let r = qags(
+                |x| {
+                    n.set(n.get() + 1);
+                    (c.f)(x)
+                },
+                a,
+                b,
+                c.epsabs,
+                c.epsrel,
+                1000,
+            )
+            .unwrap_or_else(|e| panic!("{} {dir}: {e}", c.name));
+            assert!(
+                rel(r.value, sign * c.result) <= 1e-15,
+                "{} {dir} result {:e}, want {:e}",
+                c.name,
+                r.value,
+                sign * c.result
+            );
+            assert!(
+                rel(r.abserr, c.abserr) <= c.abserr_tol,
+                "{} {dir} abserr {:e}, want {:e}",
+                c.name,
+                r.abserr,
+                c.abserr
+            );
+            assert_eq!(n.get(), c.neval, "{} {dir} neval", c.name);
+            assert_eq!(r.subintervals, c.last, "{} {dir} last", c.name);
+        }
+    }
+}
+
+/// The case `qag` cannot do (see
+/// `an_endpoint_singularity_is_reported_not_silently_wrong`) is the one QAGS
+/// exists for: `1/sqrt(x)` on `[0, 1]`, whose integral is 2.
+///
+/// # Results (2026-09-28)
+///
+/// Converges with status `Ok`; the true error is below both the requested
+/// 1e-10 relative and the reported error estimate.
+#[test]
+fn qags_handles_the_endpoint_singularity_qag_cannot() {
+    let r = qags(|x: f64| 1.0 / x.sqrt(), 0.0, 1.0, 0.0, 1e-10, 200).unwrap();
+    let err = (r.value - 2.0).abs();
+    assert!(err <= 2e-10, "value {} err {err:e}", r.value);
+    assert!(
+        err <= r.abserr,
+        "estimate {:e} below true error {err:e}",
+        r.abserr
+    );
+}
+
+/// QAGS refuses the same malformed input as `qag`.
+#[test]
+fn qags_malformed_input_is_reported() {
+    let f = |x: f64| x;
+    assert_eq!(
+        qags(f, 0.0, f64::INFINITY, 0.0, 1e-8, 50),
+        Err(PetirError::Domain)
+    );
+    assert_eq!(qags(f, 0.0, 1.0, 0.0, 0.0, 50), Err(PetirError::Tolerance));
+    assert_eq!(qags(f, 0.0, 1.0, 1e-6, 0.0, 0), Err(PetirError::Invalid));
 }

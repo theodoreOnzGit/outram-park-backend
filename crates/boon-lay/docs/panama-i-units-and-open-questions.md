@@ -191,26 +191,132 @@ somewhat more at 2000 °C. Recorded here because the page layout makes the
 mis-reading easy, and an earlier draft of this work made it.
 
 
-### The log y-axis of Figs. 6, 7 and 8 is calibrated over SEVEN decades where SIX are plotted
+### ~~The log y-axis of Figs. 6, 7 and 8 is calibrated over SEVEN decades where SIX are plotted~~ — CORRECTED 2026-09-28: Figs. 7 and 8 PLOT seven decades; the error was a ×10 offset
+
+> **CORRECTED 2026-09-28. The `7/6` diagnosis below is refuted for Figs. 7
+> and 8.**
+>
+> **What the page shows** (page -501-, rendered at 250 dpi and measured). Fig.
+> 7's frame runs from `10⁰` at the top edge to `10⁻⁷` at the bottom edge,
+> **seven** decades. The ticks `10⁻¹ … 10⁻⁶` are labelled at 92.1 px/decade,
+> and the unlabelled bottom edge sits one decade below `10⁻⁶`. Fig. 8's frame
+> is the same (page-verified 2026-09-28). The digitisations' `10` on the top
+> edge therefore made every ordinate **one decade high**. That is a pure ×10
+> offset, not a `7/6` stretch.
+>
+> **Fig. 7 has been re-digitised** from a fresh box (maintainer,
+> `digitised_at = 2026-09-28T04:51:44Z`, `px 374.02 = 1e-6` on the labelled
+> tick, `px 40.02 = 1` on the top edge). Checked against the page: both
+> curves agree to within 0.05 decade at 32 sampled points, and the eight
+> measured dots agree to within 0.05 decade. At the same times, the
+> superseded digitisation's curves are ≈ 10.0× the new ones throughout.
+>
+> **Why the `7/6` reading looked confirmed.** The two-curve identity cannot
+> tell a stretch from an offset. For small `φ`, a ×10 offset multiplies each
+> `σ_with/σ_without` by `10^(1/m − 1/m_gb)` < 1, so it closes the identity
+> much as a deflation does:
+>
+> | two-curve identity | as digitised | at `k = 6/7` | offset −1 decade |
+> |---|---|---|---|
+> | Fig. 7, 2026-09-24 data (reconstructed method, 300–900 h) | 1.631 | 1.005 | **0.990** |
+> | Fig. 7, **2026-09-28 re-digitised** | **0.973** | 0.661 | — |
+> | Fig. 8, 2026-09-24 data (test's eight pairs) | 1.505 | 1.014 | **1.005** |
+> | Fig. 8, **2026-09-28 re-digitised** (same eight times) | **1.024** | 0.758 | — |
+>
+> On the re-digitised Fig. 7 the identity holds **with no correction**, and
+> `6/7` breaks it. Fig. 6: a −1 decade offset on its eight 210 h values gives
+> 3.9 % relative s.d. (10.6 % as digitised, all eight, no floor filter),
+> against 1.4 % at `6/7`. The fit does not choose the reading. The page does.
+>
+> **What survives.** Eqs (10b)/(10c) connect Fig. 7's two curves (0.973),
+> which is now a check on the true scale. **What is withdrawn**: the `7/6`
+> factor, "~17 % too wide in the log", and every `6/7`-corrected number
+> quoted for Fig. 7.
+>
+> **Fig. 8 (flagged 2026-09-28):** its frame is likewise seven decades
+> (page-verified). Every `6/7`-based Fig. 8 result in this file (1.014,
+> 14.3 %, 1.91, 10.3, 3.63×, +0.20/0.37) is ~~**invalid pending
+> re-digitisation**~~ **invalid**. The tests that assert them are left
+> unchanged and marked superseded.
+>
+> **Fig. 8 has been re-digitised** from a fresh box (maintainer,
+> `digitised_at = 2026-09-28T06:05:34Z`, `px 354.31 = 1e-6` on the labelled
+> tick, `px 32.25 = 1` on the top edge). Checked by an agent against a
+> 250 dpi render of page -501- through an affine map fitted to all 34 time
+> ticks and 15 decade ticks (residuals ≤ 2 h and ≤ 0.02 decade; ~90.3
+> px/decade; the scan is skewed, ~0.8° on the horizontal and ~1.4° on the
+> vertical, and the affine map carries it):
+>
+> | series | points (2026-09-24 → 2026-09-28) | agreement with the page |
+> |---|---|---|
+> | `without` corrosion | 74 → 75 | within **0.045** decade at 19 times, 50–950 h (mean +0.015); +0.08 at 14.6 h on the steep start |
+> | `with` corrosion | 85 → 87 | within **0.13** decade vertically, **≤ 0.08** perpendicular. It traces the **upper edge** of its stroke: +0.03 … +0.06 over 100–700 h, +0.10 … +0.14 at 30–100 h where it is steep |
+> | 70/26, 8.2 % FIMA (circles) | 4 → 4 | 19.7 / 50.9 / 100.3 / 294.0 h, all within **0.03** decade of the marker cores |
+> | 70/7, 7.3 % FIMA (diamonds) | 3 → 3 | 88.7 / 157.2 / 200.2 h, within **0.03** (the 88.7 h diamond is half-hidden behind a circle; centre read from its vertices) |
+> | 70/15, 7.1 % FIMA (triangles) | 2 → 2 | 31.4 / 138.8 h, within **0.04**; both new placements, not copies of the old pixels |
+>
+> The ~295 h 70/26 dot and the ~196 h 70/7 dot, which an interim save
+> dropped, are back. The page legend gives 70/7 at **7.3 %** FIMA, not the
+> 7.2 % the superseded labels carried. At common times the superseded curves
+> sit 0.84 … 1.04 decades above the new ones (mean 0.99 `without`, 0.98
+> `with`): a ×10 offset, with the old early section a little low.
+>
+> Re-run with unchanged method and thresholds, predictions written first
+> (`history::tests::figure_8_redigitised_*`):
+>
+> | check | 2026-09-28 re-digitised | 2026-09-24 superseded | band | |
+> |---|---|---|---|---|
+> | drift, nine times 14.6–954 h | **2.17**, monotone | 2.35 (re-run today) | 2.0–2.8 | held |
+> | 0–302 h relative s.d. | **15.6 %** | 16.8 % (re-run today) | > 10 % | held |
+> | whole-run relative s.d. (max/min) | **14.7 %** (2.04), 71 points in 14.6–967 h; 16.8 % (2.45), all 75 | 19.0 % (2.37), 74 points | none | prediction (18–19 %) **failed** |
+> | two-curve identity, as digitised | **1.024** | 1.505 (1.005 offset −1 decade) | within 0.05 | held |
+> | two-curve identity at `k = 6/7` | 0.758 | 1.014 | > 0.25 from 1 | **missed by 0.008** |
+> | `σ_t` growth demanded, 14.6 → 967 h | **4.15×** | 4.50× | 4.3–4.7 | **missed by 0.15** |
+> | `UO₂` ceiling below the demand | 3.14× < 4.15× | 3.14× < 4.50× | — | held: still excluded |
+> | code-to-data, 70/26 `without` | **+0.221** | +0.24 | +0.15 … +0.35 | held |
+> | code-to-data, all nine `without` | **+0.437** | +0.45 | +0.35 … +0.55 | held |
+> | code-to-data, all nine `with` | **−1.538** | −1.52 | −1.65 … −1.40 | held |
+>
+> **Both misses have the same cause, and neither band was moved.** The
+> re-digitisation's residual placement error is as large as the margins.
+> The `6/7` break is 0.242 against 0.25 because the `with` curve rides the
+> top of its stroke and lifts the as-digitised identity to 1.024. The growth
+> demand is 4.15 against 4.3 because the `without` curve sits +0.08 decade
+> above the page at 14.6 h, on the steep start. Read off the page render
+> instead, as a diagnostic and **not adopted**, the identity is 0.989 (0.734
+> at `6/7`) and the demand 4.31×. The tests pin the measured values and name
+> the missed criteria. Neither conclusion depends on the margin: `6/7` still
+> moves the identity ten times further from 1 than the digitised value, and
+> every reading of the demand clears the 3.14× `UO₂` ceiling.
+>
+> **Fig. 6 (flagged 2026-09-28): frame extent UNVERIFIED.** Its data has
+> points down to ~1.6·10⁻⁷, below the labelled `10⁻⁶`, which suggests seven
+> decades too. Its `6/7` results (1.4 %, ±2 %) stand as recorded but are
+> **not verified** until the frame is checked on the page.
 
 **Found 2026-09-24, and it resolves one of the two open disagreements.**
+(~~resolves~~: see the correction above.)
 
-All three figures label `10⁰` at their top gridline and `10⁻⁶` at the bottom,
-six decades. All three digitisations carry an upper calibration point entered
-as **`10`**:
+~~All three figures label `10⁰` at their top gridline and `10⁻⁶` at the bottom,
+six decades.~~ **CORRECTED 2026-09-28:** Figs. 7 and 8 have `10⁰` at the top
+edge and `10⁻⁷` at the bottom edge, seven decades, with `10⁻⁶` labelled one
+decade above the bottom. Fig. 6 is unverified. All three digitisations carry
+an upper calibration point entered as **`10`**:
 
 | figure | `y_axis` calibration as recorded |
 |---|---|
 | Fig. 6 | `px 410.10 = 0.000001 , px 88.03 = 10` |
-| Fig. 7 | `px 418.65 = 0.000001 , px 35.40 = 10` |
-| Fig. 8 | `px 393.20 = 0.000001 , px 15.04 = 10` |
+| Fig. 7 | `px 418.65 = 0.000001 , px 35.40 = 10` (superseded; re-digitised 2026-09-28 as `px 374.02 = 0.000001 , px 40.02 = 1`) |
+| Fig. 8 | `px 393.20 = 0.000001 , px 15.04 = 10` (superseded; re-digitised 2026-09-28 as `px 354.31 = 0.000001 , px 32.25 = 1`) |
 
 If the upper point sits on the `10⁰` gridline, every digitised ordinate is
 stretched in the log by **7/6**, and the true value is recovered by
 `log₁₀φ_true = −6 + (6/7)·(log₁₀φ_reported + 6)`.
 
-**Three independent tests pick out exactly that factor**, two of which use no
-model at all:
+~~**Three independent tests pick out exactly that factor**, two of which use no
+model at all:~~ **CORRECTED 2026-09-28:** the table below does not pick out
+`7/6` over a ×10 offset. Both close it (see the correction at the top of this
+entry). It is kept as the record of what was measured:
 
 | test | as digitised | at `k = 6/7` |
 |---|---|---|
@@ -227,15 +333,22 @@ Free-fitting the factor rather than assuming it gives **0.855** (Fig. 8) and
    report's own two curves on both Fig. 7 and Fig. 8 once the axis is read
    correctly. This group was recorded above as having no external check at
    all; it now has one. ~~Not verified against any output of the report.~~
-   **CORRECTED 2026-09-24.**
-2. **Every residual quoted against Figs. 6, 7 and 8 as digitised is an upper
-   bound**, roughly 17 % too wide in the log.
+   **CORRECTED 2026-09-24.** **CORRECTED again 2026-09-28:** it still holds
+   for Fig. 7, on the re-digitised true scale, at **0.973** with no
+   correction. ~~Fig. 8 awaits re-digitisation.~~ Fig. 8, re-digitised
+   2026-09-28, gives **1.024** with no correction.
+2. ~~**Every residual quoted against Figs. 6, 7 and 8 as digitised is an upper
+   bound**, roughly 17 % too wide in the log.~~ **CORRECTED 2026-09-28:**
+   withdrawn for Figs. 7 and 8. A ×10 offset shifts both curves and data by
+   the same amount, so the log residuals between them are unaffected.
 
 **Nothing has been corrected in the data, and nothing should be.** Deflating
 the digitised points would erase the evidence that diagnosed this. The fix is
 to **re-digitise** with the axis calibrated on the plotted decades (kovan's
 parallelogram calibration and reference grid). Until then both readings are
-reported side by side, and the tests assert both.
+reported side by side, and the tests assert both. (**2026-09-28:** Fig. 7
+re-digitised. The old data is kept beside the new in the tests and labelled
+superseded.)
 
 A related slip, same shape, already recorded above: Fig. 1's upper calibration
 point is entered as `500` where the gridline is `f = 1` (the fitted scale came
@@ -243,8 +356,15 @@ out 501.29). The pattern is an upper calibration point placed on the top
 gridline and given the *next* round value.
 
 **What it does NOT explain.** The Fig. 7/8 late-time drift survives:
-Fig. 7's factor falls from 1.96 to 1.70, Fig. 8's whole-run relative s.d. from
-19.0 % to 14.3 %. See the entry below.
+~~Fig. 7's factor falls from 1.96 to 1.70~~ **CORRECTED 2026-09-28:** on the
+re-digitised Fig. 7 the factor is **1.93** (all-point basis; 1.87 on the
+seven-point test), essentially the as-digitised 1.96, because an offset does
+not change the curve's shape. Fig. 8's whole-run relative s.d. ~~falls from
+19.0 % to 14.3 %~~ is 19.0 % as digitised; the 14.3 % is ~~invalid pending
+re-digitisation~~ invalid. **Re-digitised 2026-09-28:** 14.7 % over the same
+14.6–967 h span (drift 2.17, rising from the first point). It is lower than
+19.0 % because the new early curve sits higher, not because of the axis. See
+the entry below.
 
 
 ### Table 2 (-504-) is a second closed-form check, at a different fluence and `T_B` — 6/6
@@ -391,7 +511,9 @@ plotted 10⁻⁶ floor and are excluded):
 Reproducing the order and the 4.8-decade spread from one stress to ±0.4
 decades is a real success for Eq (1) with Eqs (8a)/(9a). ~~But the residual is
 **monotone in `m_oo`**, not random~~ — **RESOLVED 2026-09-24: the `m`-trend is
-a digitisation artefact, not physics.** Under the `6/7` log-axis reading
+a digitisation artefact, not physics.** (**2026-09-28: pending.** The `6/7`
+reading is refuted for Figs. 7 and 8, and Fig. 6's frame extent is
+UNVERIFIED; see the correction in the Settled section.) Under the `6/7` log-axis reading
 established in the Settled section above, the eight varieties collapse onto one
 `σ_t` at **1.4 % relative s.d.** with residuals of ±2 %, and the trend
 disappears. Eq (1) with Eqs (8a)/(9a) at the report's stated `Γ = 1·10²⁵` and
@@ -419,8 +541,11 @@ Three hypotheses were tested. The third is the answer:
 - **The plotted floor.** Restricting to points inside the figure's own axis
   leaves the trend intact. Not it either.
 - **The log-axis calibration.** `k = 6/7` removes the trend entirely
-  (10.0 % → 1.4 %). This is it, and two other figures confirm the same factor
-  by a model-free identity.
+  (10.0 % → 1.4 %). This is it, ~~and two other figures confirm the same factor
+  by a model-free identity~~ (**CORRECTED 2026-09-28:** they do not. Figs. 7
+  and 8 plot seven decades, and their identity closes equally under a ×10
+  offset. A −1 decade offset on Fig. 6 gives 3.9 %. Fig. 6's frame is
+  unverified.)
 
 Worth recording as a process point: the first hypothesis would have "fixed"
 the residual by setting `Γ = 0`, which the report's own text excludes, and it
@@ -442,20 +567,41 @@ comparison is on `σ_t` recovered from the report's own `Without Grain Boundary
 Corrosion` curve against this chain's `σ_t`, with **one** free scale (the
 geometry aggregate `r/(2·d_o·(V_f/V_k))`). No physics constant was adjusted.
 
-| window | relative s.d. of `σ_t^PANAMA / σ_t^chain` | max/min |
-|---|---|---|
-| **0–300 h, all three stages** | **4.9 %** | 1.20 |
-| 300–1000 h | 15.4 % | 1.77 |
-| whole run | 21.9 % | 2.17 |
+**Re-run 2026-09-28 on the re-digitised Fig. 7** (true seven-decade scale; 75
+points on the `without` curve), method and thresholds unchanged. **Prediction,
+written before measuring:** the old data was a uniform ×10 offset, which
+rescales every `σ_t^PANAMA` by `10^(−1/m)` = 0.680 (`m = 5.957`) and is
+absorbed by the free scale. So the ratio statistics and the drift should
+repeat, near 1.9 and not the 1.70 that the `7/6` reading gave, and the
+implied stress at 977 h should fall to 282 × 0.680 ≈ 192 MPa. **All three
+predictions held.**
 
-Per stage the ratio is 0.1561 (1400 °C), 0.1473 (1500 °C), 0.1608 (1600 °C,
-first 100 h) — within ±4.5 %. **The staging is reproduced**: `OPF(T)` through
+| window | 2026-09-28, rel. s.d. (max/min) | 2026-09-24 superseded, rel. s.d. (max/min) |
+|---|---|---|
+| **0–300 h, all three stages** | **4.7 %** (1.19), 18 points | 4.9 % (1.20), 16 points |
+| 300–1000 h | 15.7 % (1.79) | 15.4 % (1.77) |
+| whole run | 21.9 % (2.12) | 21.9 % (2.17) |
+
+Seven-point test (`figure_7_redigitised_reproduces_the_staged_history_then_drifts`):
+0–300 h **3.5 %**, drift **1.87**, `σ_t^PANAMA(976.8 h) = 192.0 MPa`.
+
+Per stage the ratio is 0.1848 / 0.1754 / 0.1866 (±3 %) on the re-digitised
+data. The superseded values are kept for the record: 0.1561 (1400 °C), 0.1473 (1500 °C), 0.1608 (1600 °C,
+first 100 h), within ±4.5 %. (The absolute level is set by the representative geometry and is not a
+result. Re-run today on the superseded data, the same code gives
+0.2650 / 0.2501 / 0.2731: the same ±4.5 % shape at a level 1.70× higher than
+the 0.156 recorded. The cause of that level change was **not traced**.) **The staging is reproduced**: `OPF(T)` through
 Eq (5c), `D_S(T)`, `v̇(T)` and Eq (3)'s explicit `T` all land together across
 two step changes.
 
-**Then it drifts.** At 977 h PANAMA's curve implies `σ_t = 282 MPa`; with the
-scale fixed over 0–300 h the chain gives **148 MPa**, a factor **1.90**.
-PANAMA's curve follows `φ ∝ t^3.21` at late times, i.e. `σ_t ∝ t^0.54`,
+**Then it drifts.** ~~At 977 h PANAMA's curve implies `σ_t = 282 MPa`; with the
+scale fixed over 0–300 h the chain gives **148 MPa**, a factor **1.90**.~~
+**CORRECTED 2026-09-28** (true scale): at 976.8 h PANAMA's curve implies
+`σ_t = 192.0 MPa`, and with the scale fixed over 0–300 h the chain gives
+102.9 MPa, a factor **1.87**. On the all-point 0–300 h scale the factor is
+1.93 (superseded data: 1.90 / 1.96).
+PANAMA's curve follows `φ ∝ t^3.16` (3.21 on the superseded data) at late
+times, i.e. `σ_t ∝ t^0.53`,
 whereas in the chain `F_d` has saturated (0.980 at 296 h → 0.9999 at 977 h)
 and `OPF` is constant at fixed temperature, leaving only `FKOR` — worth
 **4 %** over the last 700 h. Something in PANAMA keeps the pressure climbing
@@ -474,12 +620,25 @@ against 5.7 % for `(Th,U)O₂` at `N = 10`, 6.1 % at `N = 5`, 7.7 % for
 
 ### Fig. 7 code-to-data: the measurement lies between PANAMA's two curves
 
-The nine measured ⁸⁵Kr points against the report's own curves, in `log₁₀`:
+The measured ⁸⁵Kr points against the report's own curves, in `log₁₀`.
+**Re-run 2026-09-28 on the re-digitised Fig. 7.** Prediction, written before
+measuring: a ×10 offset cancels in a log residual, so the result should
+repeat. One caveat applies: the re-digitisation has **8** measured points.
+The dot at ≈ 100 h (5.2·10⁻⁶ on the page, 1400 °C stage) and the "level of
+heavy metal contamination" band were not re-digitised. On the eight common
+times the superseded data gives +0.51 / −1.63.
 
-| comparator | mean | mean abs | worst |
-|---|---|---|---|
-| `Without Grain Boundary Corrosion` (`η̇ ≡ 0`, the caption's case) | **+0.51** | 0.52 | +1.14 (339 h) |
-| `With Grain Boundary Corrosion` | −1.49 | 1.49 | −1.85 (223 h) |
+| comparator | 2026-09-28, 8 points: mean, mean abs, worst | 2026-09-24 superseded, 9 points |
+|---|---|---|
+| `Without Grain Boundary Corrosion` (`η̇ ≡ 0`, the caption's case) | **+0.50**, 0.50, +1.14 (337.5 h) | +0.51, 0.52, +1.14 (339 h) |
+| `With Grain Boundary Corrosion` | **−1.61**, 1.61, −1.85 (227.6 h) | −1.49, 1.49, −1.85 (223 h) |
+
+The prediction held to 0.03 decade on matched points. **The `with` mean
+misses the 2026-09-24 test's band (−1.60 … −1.35) by 0.007 decade.** The
+cause is the missing 100 h point (old residual −0.34), not the scale. The
+band was not moved. The new test pins the matched-point value instead
+(`figure_7_redigitised_brackets_the_measurement`). Re-digitising the 100 h
+dot would restore the like-for-like comparison.
 
 So at 1400–1600 °C PANAMA **under**-predicts FRJ2-K11/03 by half a decade
 with grain-boundary corrosion off, and over-predicts by 1.5 decades with it
@@ -496,7 +655,10 @@ here, not derived. It is the first suspect for any constant offset.
 **A digitisation label slip:** the measured series is labelled `90% FIMA`
 where the caption reads `9.0 % FIMA` and `F_B = 0.09`. 0.09 is used.
 
-Fig. 7 digitised by the maintainer, 2026-09-24.
+Fig. 7 digitised by the maintainer, 2026-09-24 (superseded: one decade
+high). Re-digitised by the maintainer, 2026-09-28 (`digitised_at =
+2026-09-28T04:51:44Z`). The 2026-09-28 page check was done by an agent against
+a 250 dpi render of page -501-.
 
 ### Fig. 8 (AVR GO 2): the late-time drift REAPPEARS isothermally — the driver's staging is exonerated
 
@@ -509,9 +671,34 @@ changes.
 **It reappears, and worse.** Over 74 digitised points the ratio
 `σ_t^PANAMA/σ_t^chain` rises **monotonically from the very first point** —
 0.189 at 14.6 h to 0.447 at 967 h, relative s.d. **19.0 %**, max/min 2.37.
-There is no flat window at all, where Fig. 7 held to 4.9 % for 300 h. Under
-the `6/7` axis reading it falls to 14.3 % and max/min 1.91 — reduced, not
-removed.
+There is no flat window at all, where Fig. 7 held to 4.9 % for 300 h (4.7 %
+re-digitised). ~~Under the `6/7` axis reading it falls to 14.3 % and max/min
+1.91 — reduced, not removed.~~ **CORRECTED 2026-09-28:** the `6/7` reading is
+refuted (Fig. 8's frame is seven decades, page-verified), so these two numbers
+are ~~invalid pending re-digitisation~~ invalid.
+
+**Re-run 2026-09-28 on the re-digitised Fig. 8** (true scale), unchanged
+method and thresholds. Prediction, written before measuring: the offset only
+rescales `σ_t^PANAMA` by `10^(−1/m)` (`m = 5.573`), so the monotone rise and
+the early scatter repeat, drift ~2.2–2.4, whole-run s.d. 18–19 %.
+
+| | 2026-09-28 re-digitised | 2026-09-24 superseded |
+|---|---|---|
+| nine-time drift, 14.6 → 954 h | **2.17**, monotone (0.255 → 0.553) | 2.35, monotone (re-run today; 0.364 → 0.853) |
+| 0–302 h relative s.d. | **15.6 %** | 16.8 % (re-run today) |
+| whole run, 14.6–967 h | **14.7 %**, max/min 2.04, 71 points | 19.0 %, max/min 2.37, 74 points |
+| whole run, all points | 16.8 %, max/min 2.45, 75 points (2.6–987 h) | — |
+
+The rise from the first point, the missing flat window and the band held. The
+drift came in just under the predicted range, and **the whole-run prediction
+failed** (14.7 %, not 18–19 %). The new early curve sits ~0.1 decade higher
+than the old one offset by a decade, which lifts the early ratios and flattens
+the run. The page lies between the two at 14.6 h (new +0.08, old −0.06). **The
+isothermal drift survives the corrected axis**, at a factor of ~2 over
+950 h. The ratio *level* re-run today on the superseded data (0.364 at
+14.6 h) is 1.9× the 0.189 recorded on 2026-09-24. This is the same untraced
+level change as Fig. 7's. The level is set by the representative geometry and
+is not a result.
 
 So Fig. 7's flat first 300 h now looks like the rising temperature masking the
 same shortfall, rather than agreement. Both curves run as `σ_t ∝ t^0.52`
@@ -523,8 +710,8 @@ independent support and each contradicts a figure that does):
 
 | free parameter | best value | printed / figure value | residual |
 |---|---|---|---|
-| Weibull modulus `m` | 12.0 (10.3 under `6/7`) | **5.57** from Eq (9a) | 0.9 % over 74 points |
-| corrosion pre-factor | ≈ 1.1·10⁻⁶ | **5.87·10⁻⁸** (Fig. 4, 483 points) | 4.5 % |
+| Weibull modulus `m` | 12.0 (~~10.3 under `6/7`~~, invalid 2026-09-28; **not re-run** on the re-digitised data) | **5.57** from Eq (9a) | 0.9 % over 74 points |
+| corrosion pre-factor | ≈ 1.1·10⁻⁶ (**not re-run** on the re-digitised data) | **5.87·10⁻⁸** (Fig. 4, 483 points) | 4.5 % |
 
 Both are just two ways of saying the same thing: `σ_t` must grow about twice
 as much as the printed chain allows. `D_S` is **not** among them — see the
@@ -539,8 +726,18 @@ At fixed temperature `σ_t ∝ (F_d·F_f + OPF)·FKOR` and `F_d ∈ [0,1]`, so t
 
 | `OPF` source at 1600 °C | `OPF` | ceiling | Fig. 8 requires | |
 |---|---|---|---|---|
-| Eq (5c), `UO₂`, `T_B = 950 °C`, `t_B = 500 FPD` | 0.157 | **3.14×** | 4.50× (3.63× under `6/7`) | **excluded** |
-| Eq (5a), `(Th,U)O₂`, `N = 5` | 0.036 | 10.2× | 4.50× | ok |
+| Eq (5c), `UO₂`, `T_B = 950 °C`, `t_B = 500 FPD` | 0.157 | **3.14×** | 4.50× (~~3.63× under `6/7`~~, invalid 2026-09-28); **4.15×** re-digitised 2026-09-28 | **excluded** |
+| Eq (5a), `(Th,U)O₂`, `N = 5` | 0.036 | 10.2× | 4.50×; 4.15× re-digitised | ok |
+
+**Re-run 2026-09-28 on the re-digitised Fig. 8.** The prediction was a demand
+of ~4.2–4.5× with the exclusion intact, and a named risk of falling below the
+superseded test's 4.3–4.7 band. The exclusion held. **The band was missed:
+4.153×.** The band is not moved. The cause is the curve's two ends. The page
+render reads −6.608 at 14.6 h and −3.072 at 967 h. The re-digitisation has
+−6.532 and −3.086. The superseded data, less a decade, has −6.671 and −3.035.
+The page values give 4.31× (diagnostic, not adopted). The band edge is
+therefore at the digitisation's own resolution. The exclusion is not: every
+reading is above 3.14×.
 
 `N = 5` is the report's own AVR value (Eq 5a's symbol note), and GO 2 is an
 AVR fuel element, so this is a **positive identification from the figure's own
@@ -555,18 +752,38 @@ output** rather than a preference. Contrast Fig. 7, where `UO₂` is only a weak
 | `without` corrosion, all three burnups | 9 | **+0.45** | 0.53 | +1.15 |
 | `with` corrosion, all three burnups | 9 | −1.52 | 1.52 | −2.74 |
 
-(`log₁₀` of measured over curve; under the `6/7` reading the 70/26 mean is
-+0.20 and mean abs 0.37.)
+(`log₁₀` of measured over curve; ~~under the `6/7` reading the 70/26 mean is
++0.20 and mean abs 0.37~~. **CORRECTED 2026-09-28:** that reading is refuted.
+A ×10 offset cancels in these residuals.)
+
+**Re-run 2026-09-28 on the re-digitised Fig. 8**, all nine dots re-placed.
+Prediction, written before measuring: the offset cancels, so 70/26 ~+0.2 …
++0.3, all nine ~+0.40 … +0.50, and `with` ~−1.55 … −1.65 (more negative,
+because the new `with` curve is placed higher).
+
+| comparator | n | mean | mean abs | worst | band |
+|---|---|---|---|---|---|
+| `without`, 70/26 at 8.2 % FIMA | 4 | **+0.221** | 0.409 | +0.460 (19.7 h) | +0.15 … +0.35 |
+| `without`, all three burnups | 9 | **+0.437** | 0.520 | +1.222 (70/15, 138.8 h) | +0.35 … +0.55 |
+| `with`, all three burnups | 9 | **−1.538** | 1.538 | −2.736 (294 h) | −1.65 … −1.40 |
+
+Every band held. The `with` prediction moved the right way but by less
+(−1.54, not ≤ −1.55). The 70/26 residual still changes sign: +0.46 at 19.7 h,
+−0.38 at 294 h.
 
 This matters more than Fig. 7's equivalent. Page -479- claims good agreement
 **1600–2500 °C** and concedes over-conservatism below it, so Fig. 7's 1400 and
 1500 °C stages had an excuse. Fig. 8 is isothermal at 1600 °C and has none:
 the `η̇ ≡ 0` case sits **below** the data on the caption's own burnup, and the
 70/26 residual changes sign by 302 h — the model crosses the data rather than
-tracking it. The 70/7 and 70/15 series at 7.1–7.2 % FIMA are reported as
+tracking it. The 70/7 and 70/15 series at 7.1–~~7.2~~ **7.3** % FIMA
+(**CORRECTED 2026-09-28**, as the page legend reads) are reported as
 spread, not as comparators; the PANAMA curve is drawn for 0.082.
 
-Fig. 8 digitised by the maintainer, 2026-09-24.
+Fig. 8 digitised by the maintainer, 2026-09-24 (superseded: one decade
+high). Re-digitised by the maintainer, 2026-09-28 (`digitised_at =
+2026-09-28T06:05:34Z`). The 2026-09-28 page check was done by an agent against
+a 250 dpi render of page -501-.
 
 
 ### `φ₂` has no figure to verify it, and Fig. 6 constrains it only negatively
@@ -692,14 +909,15 @@ would make it one.**
 | (6a)/(6b)/(6c) `V_m` | yes | each equation's own printed quotient | 3/3 to < 1·10⁻⁵ |
 | (11)/(12) `ζ`, `k` | yes | — | internal only; **no figure or table** |
 | (13)/(14a)/(14b) `φ₂` | yes | **Fig. 6, negatively** | (14a) excluded; (14b) unverified |
-| (10b)/(10c) grain boundary | yes, **off by default** | **Figs. 7 and 8, two-curve identity** | `σ_with/σ_without` = 1.014 (Fig. 8), 1.000 (Fig. 7) under the `6/7` axis reading |
+| (10b)/(10c) grain boundary | yes, **off by default** | **Fig. 7 (re-digitised), two-curve identity** | `σ_with/σ_without` = **0.973** on the true scale, no correction (2026-09-28). ~~1.014 (Fig. 8), 1.000 (Fig. 7) under the `6/7` axis reading~~: refuted. **Fig. 8 (re-digitised): 1.024**, no correction; `6/7` gives 0.758, missing the `> 0.25` break criterion by 0.008 (recorded) |
 | driver, §3.1 | yes | report's own step-independence claim (-482-) | 2·10⁻¹² over 1→3000 steps |
-| driver vs **Fig. 6** | — | **Fig. 6** | order 8/8; **1.4 % on one `σ_t`** under the `6/7` axis reading (10.0 % as digitised) |
-| driver vs **Fig. 7** (code-to-code) | — | **Fig. 7** | 4.9 % over 0–300 h incl. staging; **drifts to 1.90× by 977 h** |
-| PANAMA vs **Fig. 7** (code-to-data) | — | **Fig. 7**, 9 measured points | **+0.51 decades** (`η̇ ≡ 0`); −1.49 with corrosion |
-| driver vs **Fig. 8** (code-to-code) | — | **Fig. 8**, isothermal | **19.0 % rel s.d., drifts from the first point** — staging exonerated |
-| PANAMA vs **Fig. 8** (code-to-data) | — | **Fig. 8**, 9 measured points | **+0.24 decades** on the caption's burnup; −1.52 with corrosion |
-| log y-axis of Figs. 6/7/8 | — | three model-free identities | **calibrated over 7 decades where 6 are plotted** |
+| driver vs **Fig. 6** | — | **Fig. 6** | order 8/8; **1.4 % on one `σ_t`** under the `6/7` axis reading (10.0 % as digitised); **frame extent UNVERIFIED (2026-09-28)**, so the `6/7` result is pending |
+| driver vs **Fig. 7** (code-to-code) | — | **Fig. 7, re-digitised 2026-09-28** | **4.7 %** over 0–300 h incl. staging; **drifts to 1.87× by 977 h** (superseded: 4.9 %, 1.90×) |
+| PANAMA vs **Fig. 7** (code-to-data) | — | **Fig. 7, re-digitised**, 8 measured points | **+0.50 decades** (`η̇ ≡ 0`); −1.61 with corrosion (superseded, 9 points: +0.51 / −1.49) |
+| driver vs **Fig. 8** (code-to-code) | — | **Fig. 8, re-digitised 2026-09-28**, isothermal | **14.7 % rel s.d. (71 points), drift 2.17, rises from the first point** — staging exonerated (superseded: 19.0 %) |
+| PANAMA vs **Fig. 8** (code-to-data) | — | **Fig. 8, re-digitised**, 9 measured points | **+0.22 decades** on the caption's burnup, +0.44 all nine; −1.54 with corrosion (superseded: +0.24 / +0.45 / −1.52) |
+| `UO₂` OPF excluded by **Fig. 8** | — | **Fig. 8, re-digitised** | demand **4.15×** against a 3.14× ceiling: excluded (superseded 4.50×; the 4.3–4.7 band is missed, recorded) |
+| log y-axis of Figs. 6/7/8 | — | ~~three model-free identities~~ page render, 250 dpi | ~~**calibrated over 7 decades where 6 are plotted**~~ **CORRECTED 2026-09-28:** Figs. 7/8 plot 7 decades; old digitisations ×10 high (offset). Figs. 7 and 8 re-digitised; Fig. 6 unverified |
 | HTR-10 application | yes, [`htr10`] | — | **extrapolation**; no HTR-10 failure data exists locally to check it |
 
 Nothing here has been calibrated. Per the workspace rule, the reconstruction

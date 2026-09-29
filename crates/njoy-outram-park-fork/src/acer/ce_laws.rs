@@ -263,29 +263,49 @@ impl AceEnergyLaw {
 /// histogram; tabulated is `intt = 2`), as stored in AND and in LAW=61.
 fn read_cosine_table(t: &RawAceTable, at: usize) -> Result<ContinuumAngularRow, NjoyError> {
     need(t, at, 2, "cosine table header")?;
-    let _intt = t.xss[at] as i32;
+    // `intt`: 1 histogram, 2 lin-lin (`angle_distribution.py:163-176`).
+    // ~~discarded~~ then refused when not 2; since the GitHub #365 audit it is
+    // carried and `ContinuumAngularRow::sample_mu` inverts each form as
+    // OpenMC's `Tabular::sample` does.
+    let intt = t.xss[at] as i32;
+    if intt != 1 && intt != 2 {
+        return Err(NjoyError::EndfParse(format!(
+            "ACE tabulated cosine distribution with intt = {intt}: only 1 (histogram) and 2 \
+             (lin-lin) are defined"
+        )));
+    }
     let n = t.xss[at + 1] as usize;
     need(t, at + 2, 3 * n, "cosine table body")?;
     let cosines = t.xss[at + 2..at + 2 + n].to_vec();
     let pdf = t.xss[at + 2 + n..at + 2 + 2 * n].to_vec();
     let cdf = t.xss[at + 2 + 2 * n..at + 2 + 3 * n].to_vec();
-    // `mubar` is the mean of the tabulated density; computing it here keeps the
-    // consumer from having to re-derive it on every sample.
+    // `mubar`, exact for the stated interpolation.
     let mut mubar = 0.0;
     for i in 1..n {
-        let dmu = cosines[i] - cosines[i - 1];
-        mubar += 0.5 * (cosines[i] * pdf[i] + cosines[i - 1] * pdf[i - 1]) * dmu;
+        let (m0, m1, p0, p1) = (cosines[i - 1], cosines[i], pdf[i - 1], pdf[i]);
+        let h = m1 - m0;
+        mubar += if intt == 1 {
+            p0 * h * 0.5 * (m0 + m1)
+        } else {
+            h * (m0 * (2.0 * p0 + p1) + m1 * (p0 + 2.0 * p1)) / 6.0
+        };
     }
     Ok(ContinuumAngularRow {
         cosines,
         cdf,
+        pdf,
+        histogram: intt == 1,
         mubar,
     })
 }
 
 /// Decode the **AND** block for one reaction index, returning `None` when the
-/// distribution is isotropic (`LAND = 0`) and an error when it is stored in
-/// DLW (`LAND = -1`, only legal for a correlated law).
+/// distribution is isotropic (`LAND = 0`) ~~and an error when it is stored in
+/// DLW (`LAND = -1`, only legal for a correlated law)~~ **CORRECTED
+/// 2026-09-29** — and `None` too when it is stored in DLW (`LAND = -1`, only
+/// legal for a correlated law): the code has always returned `Ok(None)` for a
+/// negative locator (see the `loc < 0` branch below), which is what OpenMC's
+/// reader does as well (`reaction.py:1123-1126`, `angle_dist = None`).
 ///
 /// `i` is 0 for elastic and `1..=NR` for the reactions with secondary neutrons,
 /// matching the LAND block's own ordering.
@@ -350,6 +370,7 @@ pub fn decode_angular_block(
                 cosines: Vec::new(),
                 pdf: Vec::new(),
                 cdf: Vec::new(),
+                histogram: false,
             });
             continue;
         }
@@ -367,34 +388,64 @@ pub fn decode_angular_block(
                 cosines: row.cosines,
                 pdf,
                 cdf: row.cdf,
+                histogram: row.histogram,
             });
         } else {
-            // 32 equiprobable bins: 33 boundaries, uniform within each.
+            // 32 equiprobable bins: 33 boundaries, uniform within each -- a
+            // **histogram**, as OpenMC reads it (`angle_distribution.py:176-185`:
+            // `pdf[j] = 1/(32 (b[j+1] - b[j]))`, last 0, `Tabular(..,
+            // 'histogram')`). ~~The endpoints take their neighbouring bin's
+            // density~~ and sampled lin-lin: CORRECTED 2026-09-29 (GitHub #365
+            // audit) -- that made the density piecewise linear across bin edges,
+            // which is not the law. No held table has these bins (census: every
+            // AND row is tabulated), so no recorded number moves.
             need(t, at, 33, "AND equiprobable bins")?;
             let b = t.xss[at..at + 33].to_vec();
-            let mut cosines = Vec::with_capacity(33);
-            let mut pdf = Vec::with_capacity(33);
-            let mut cdf = Vec::with_capacity(33);
-            for (j, &mu) in b.iter().enumerate() {
-                cosines.push(mu);
-                cdf.push(j as f64 / 32.0);
-            }
-            for j in 0..33 {
-                // Density of a bin is 1/32 divided by its width; the endpoints
-                // take their neighbouring bin's density.
-                let (lo, hi) = (j.max(1) - 1, (j + 1).min(32));
-                let w = (b[hi] - b[lo]).max(f64::MIN_POSITIVE);
-                pdf.push(((hi - lo) as f64 / 32.0) / w);
-            }
+            let cosines = b.clone();
+            let cdf: Vec<f64> = (0..33).map(|j| j as f64 / 32.0).collect();
+            let mut pdf: Vec<f64> = (0..32)
+                .map(|j| 1.0 / (32.0 * (b[j + 1] - b[j]).max(f64::MIN_POSITIVE)))
+                .collect();
+            pdf.push(0.0);
             energies.push(EnergyAngular {
                 e_mev: e_grid[k],
                 cosines,
                 pdf,
                 cdf,
+                histogram: true,
             });
         }
     }
     Ok(Some(ElasticAngular { energies, lct }))
+}
+
+/// The **energy-dependent neutron yield** of a reaction whose `TY` has
+/// `|TY| > 100`, or `Ok(None)` when `|TY| <= 100` (the yield is then the
+/// integer `|TY|` itself).
+///
+/// ACE stores such a yield as a TAB1 at DLW-relative word `|TY| - 100`, i.e.
+/// 0-based `JXS(11) - 1 + |TY| - 101` — the location upstream reads it from
+/// (`openmc/data/reaction.py:1059-1062`, `idx = ace.jxs[11] + abs(ty) - 101`),
+/// and the one NJOY's ACER writes it to (`acefc.f90` `acelf6`: `ntyr =
+/// 100 + next - dlw + 1`). The ordinate is a multiplicity, so it is not scaled;
+/// the abscissae come back in eV. The interpolation regions are kept.
+///
+/// MT=5 is the reaction this matters for on the tables here: every held table
+/// that carries MT=5 writes `TY = -101` (an average multiplicity from MF=6),
+/// and before this was read the ACE route took that multiplicity as 1.
+pub fn decode_reaction_yield(t: &RawAceTable, ty: i32) -> Result<Option<Tab1>, NjoyError> {
+    let n = ty.unsigned_abs() as usize;
+    if n <= 100 {
+        return Ok(None);
+    }
+    let dlw = t.jxs[jxs::DLW];
+    if dlw <= 0 {
+        return Err(NjoyError::EndfParse(
+            "ACE TY > 100 points into an absent DLW block".into(),
+        ));
+    }
+    let (tab, _) = read_tab1_full(t, (dlw - 1) as usize + n - 101, 1.0, "TY energy-dependent yield")?;
+    Ok(Some(tab))
 }
 
 /// Decode the **DLW** entry for reaction index `i` (0-based over the `NR`
@@ -605,11 +656,10 @@ fn read_tabulated_law(
         // spectrum that integrates to 1e6.
         let pdf: Vec<f64> = col(1).iter().map(|p| p / EV_PER_MEV).collect();
         let cdf = col(2);
-        if n_discrete > 0 {
-            return Err(NjoyError::NotPorted(
-                "ACE tabulated law with discrete lines (INTTp >= 10)",
-            ));
-        }
+        // Discrete lines (INTTp >= 10): ~~refused~~ read since the GitHub #365
+        // audit, as `energy_distribution.py:1239-1262` reads them -- the first
+        // `n_discrete` points are lines, carried in `ChiEout::n_discrete` and
+        // sampled as OpenMC's `ContinuousTabular::sample`.
         let kalbach = (law == 44).then(|| {
             let r = col(3);
             let a = col(4);
@@ -630,6 +680,8 @@ fn read_tabulated_law(
                     v.push(ContinuumAngularRow {
                         cosines: vec![-1.0, 1.0],
                         cdf: vec![0.0, 1.0],
+                        pdf: vec![0.5, 0.5],
+                        histogram: false,
                         mubar: 0.0,
                     });
                 }
@@ -645,6 +697,7 @@ fn read_tabulated_law(
                 pdf,
                 cdf,
                 linlin: intt == 2,
+                n_discrete,
             },
             kalbach,
             cosines,
@@ -680,9 +733,13 @@ pub fn to_chi_and_angular(
                 })
                 .collect(),
         ),
-        // LAW=4 defers its cosine to the AND block, which for these reactions
-        // is isotropic in the evaluation itself -- not "unported", which is a
-        // different claim and one this must not make silently.
+        // LAW=4 defers its cosine to the AND block. ~~which for these reactions
+        // is isotropic in the evaluation itself~~ CORRECTED 2026-09-29: nothing
+        // here checks that, so `EvaluatedIsotropic` is right only when AND is
+        // isotropic. `Nuclide::from_ace` now places a LAW=4 continuum on
+        // MT=91/16/17 as an uncorrelated law with AND's cosine instead, refuses
+        // an anisotropic AND on MT=5, and uses this only where the cosine is
+        // not needed (fission, and a LAW=4 link whose AND it has checked).
         _ => ContinuumAngular::EvaluatedIsotropic,
     };
     (chi, ang)
@@ -723,10 +780,14 @@ pub fn read_ace_tab1(
 /// applicability probability, a yield). The abscissae are always incident
 /// energies and always scale from MeV, so that is not a parameter.
 ///
-/// # Why the regions matter here and not in [`read_tab1`]
+/// # Why the regions matter
 ///
-/// [`read_tab1`] serves the NU block, whose consumer ([`NuBar::at`]) interpolates
-/// lin-lin regardless. The analytic laws' parameters go into a [`Tab1`] the
+/// ~~[`read_tab1`] serves the NU block, whose consumer ([`NuBar::at`])
+/// interpolates lin-lin regardless.~~ **CORRECTED 2026-09-29 (GitHub #365
+/// audit):** the NU, DNU, BDD and `|TY| > 100` yield tables all come through
+/// here now and carry their regions to transport, which evaluates them as
+/// OpenMC's `Tabulated1D` does. [`read_ace_tab1`] (regions dropped) is kept
+/// for callers that do not reach transport. The analytic laws' parameters go into a [`Tab1`] the
 /// transport crate evaluates with the full ENDF multi-region rule
 /// (`eval_tab1`), so dropping `(NBT, INT)` here would silently turn a histogram
 /// or log region into a linear one. ACE stores the regions in the same
@@ -758,7 +819,12 @@ pub(crate) fn read_tab1_full(
     }
     need(t, j + 1, 2 * n, &format!("{what} TAB1 body"))?;
     let pairs: Vec<(f64, f64)> = (0..n)
-        .map(|k| (t.xss[j + 1 + k] * EV_PER_MEV, t.xss[j + 1 + n + k] * y_scale))
+        .map(|k| {
+            (
+                t.xss[j + 1 + k] * EV_PER_MEV,
+                t.xss[j + 1 + n + k] * y_scale,
+            )
+        })
         .collect();
     let tab = Tab1 {
         head: Cont {
@@ -814,14 +880,92 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
     }
     let mut at = (nu - 1) as usize;
     need(t, at, 1, "NU header")?;
-    if t.xss[at] < 0.0 {
+    let single_block = t.xss[at] > 0.0;
+    let nubar = decode_nu_block(t, &mut at)?;
+    // **One block plus DNU is PROMPT, not total** — GitHub #365 audit. OpenMC
+    // (`openmc/data/reaction.py:257-258`): `whichnu = 'prompt' if
+    // ace.jxs[24] > 0 else 'total'`, and the total is then prompt + delayed.
+    // This used to be returned as total, which loses the delayed neutrons
+    // (about 1 % of nu on U-235, so ~beta in k). No held table has this form
+    // (NJOY writes both blocks whenever it writes DNU), so it changes none of
+    // them; a table from another processor can have it.
+    let dnu = t.jxs[jxs::DNU];
+    if single_block && dnu > 0 && nubar.poly.is_some() {
+        // A polynomial prompt nu beside DNU would need a "polynomial plus
+        // table" total, which `NuBar` does not hold; NJOY writes both blocks
+        // whenever it writes DNU, so no table here has this. Refused by name.
+        return Err(NjoyError::NotPorted(
+            "ACE single polynomial NU block beside DNU (prompt polynomial + delayed table)",
+        ));
+    }
+    if single_block && dnu > 0 {
+        need(t, (dnu - 1) as usize, 1, "DNU LNU")?;
+        if t.xss[(dnu - 1) as usize] as i32 != 2 {
+            return Err(NjoyError::NotPorted(
+                "ACE DNU block with LNU != 2 beside a single (prompt) NU block",
+            ));
+        }
+        let (dtab, _) = read_tab1_full(t, (dnu - 1) as usize + 1, 1.0, "DNU delayed nu-bar")?;
+        // Both lin-lin in E: their sum is lin-lin on the union grid, and
+        // evaluating each there is exact, not a resampling. With any other
+        // region the sum of two tables is not a table on either's regions, so
+        // that one combination is refused by name (GitHub #365 audit). No
+        // producer is known: every nu table in ENDF/B-VIII.0 is lin-lin, and
+        // ACER writes a single NU block beside DNU only for a prompt-only
+        // evaluation.
+        if !crate::nuclear_data::secondary::is_lin_lin(&nubar.interp)
+            || !crate::nuclear_data::secondary::is_lin_lin(&dtab.interp)
+        {
+            return Err(NjoyError::NotPorted(
+                "ACE single (prompt) NU block plus DNU with a non-lin-lin interpolation \
+                 region: their sum is not one tabulated function",
+            ));
+        }
+        let (ed, nd): (Vec<f64>, Vec<f64>) = dtab.pairs.iter().copied().unzip();
+        let mut grid: Vec<f64> = nubar.energy.iter().chain(ed.iter()).copied().collect();
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.dedup();
+        let lin = |x: &[f64], y: &[f64], e: f64| -> f64 {
+            if x.is_empty() {
+                return 0.0;
+            }
+            if e <= x[0] {
+                return y[0];
+            }
+            if e >= x[x.len() - 1] {
+                return y[y.len() - 1];
+            }
+            let k = x.partition_point(|&v| v <= e);
+            let (x0, x1, y0, y1) = (x[k - 1], x[k], y[k - 1], y[k]);
+            if x1 > x0 { y0 + (y1 - y0) * (e - x0) / (x1 - x0) } else { y1 }
+        };
+        let nu_total = grid
+            .iter()
+            .map(|&e| lin(&nubar.energy, &nubar.nu_total, e) + lin(&ed, &nd, e))
+            .collect();
+        return Ok(Some(NuBar {
+            energy: grid,
+            nu_total,
+            poly: None,
+            interp: Vec::new(),
+        }));
+    }
+    Ok(Some(nubar))
+}
+
+/// Decode the NU block at `*at`: when it holds prompt **and** total (negative
+/// first word), the total one; otherwise the single one. `*at` is left at that
+/// block's `LNU` word.
+fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> {
+    if t.xss[*at] < 0.0 {
         // Both prompt and total present: the total block starts after the
         // prompt one, whose length is |first word|. Prefer TOTAL nu-bar --
         // using prompt as though it were total loses the delayed neutrons and
         // biases k low by roughly beta.
-        let len = (-t.xss[at]) as usize;
-        at += 1 + len;
+        let len = (-t.xss[*at]) as usize;
+        *at += 1 + len;
     }
+    let at = *at;
     need(t, at, 2, "NU LNU")?;
     let lnu = t.xss[at] as i32;
     match lnu {
@@ -841,7 +985,18 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
                 nu_total.push(v);
                 e *= 1.2;
             }
-            Ok(Some(NuBar { energy, nu_total }))
+            // Exact polynomial in eV: c_k (MeV^-k) * 1e-6^k, as OpenMC scales it.
+            let poly: Vec<f64> = c
+                .iter()
+                .enumerate()
+                .map(|(k, &ci)| ci * EV_PER_MEV.powi(-(k as i32)))
+                .collect();
+            Ok(NuBar {
+                energy,
+                nu_total,
+                poly: Some(poly),
+                interp: Vec::new(),
+            })
         }
         2 => {
             // The TAB1 begins immediately after LNU, so its NR is at `at + 1`
@@ -857,8 +1012,18 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
             // decoding without error.
             // The arithmetic the comment above is about now lives in one
             // place, `read_tab1`, which starts at the record's NR word.
-            let (energy, nu_total, _) = read_ace_tab1(t, at + 1, "NU")?;
-            Ok(Some(NuBar { energy, nu_total }))
+            // The record's regions are carried and `NuBar::at` honours them as
+            // OpenMC's `Tabulated1D` does (GitHub #365 audit; ~~a non-lin-lin
+            // region was refused~~ until 2026-09-29). Every held table's NU
+            // TAB1 is `NR = 0`, i.e. lin-lin (NJOY2016's U-234/235/238).
+            let (tab, _) = read_tab1_full(t, at + 1, 1.0, "NU")?;
+            let (energy, nu_total) = tab.pairs.iter().copied().unzip();
+            Ok(NuBar {
+                energy,
+                nu_total,
+                poly: None,
+                interp: tab.interp,
+            })
         }
         other => Err(NjoyError::EndfParse(format!("ACE NU block LNU={other}"))),
     }

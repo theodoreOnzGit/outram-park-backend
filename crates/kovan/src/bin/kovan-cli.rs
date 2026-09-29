@@ -78,6 +78,7 @@ use clap::{Parser, Subcommand};
 
 use kovan::commands;
 use commands::gen::GenCommand;
+use commands::ci::CiCommand;
 use commands::lit::LitCommand;
 use commands::project::ProjectCommand;
 use commands::tokens::TokensCommand;
@@ -232,6 +233,10 @@ enum Command {
         #[arg(long)]
         no_figure: bool,
     },
+    /// The push CI's compile gate and test selection: `top-crates`, `smoke`,
+    /// `known-failures` (GitHub #414, #416).
+    #[command(subcommand)]
+    Ci(CiCommand),
     /// Literature pipeline: PDF import, BibTeX, Markdown outline
     /// (`kovan-literature`).
     #[command(subcommand)]
@@ -470,6 +475,7 @@ fn run(command: Command) -> Result<(), String> {
             commands::methods::run();
             Ok(())
         }
+        Command::Ci(cmd) => commands::ci::run(cmd),
         Command::Lit(cmd) => commands::lit::run(cmd),
         Command::Project(cmd) => commands::project::run(cmd),
         Command::Symbols {

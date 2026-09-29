@@ -65,12 +65,14 @@ for a young tool and awkward for something every session depends on.
 - **The upstream issue queue stays live.** `docs/kopitiam-issues/` remains the
   fallback channel for kopitiam/kopi-beans defects when `gh` is unavailable,
   and resolved issues still move to `resolved/` with their closing evidence.
-- **The existing beads store is not deleted.** `refs/heads/beads/store`, the
+- ~~**The existing beads store is not deleted.** `refs/heads/beads/store`, the
   `refs/beads/backup/*` refs, and the pre-migration snapshot
   `refs/beads/premigration-v1-20260807` all stay where they are. Several
   hundred `op-*` identifiers are cited throughout `CLAUDE.md`, the crate docs
   and the V&V write-ups; keeping the store is what keeps those citations
-  resolvable.
+  resolvable.~~ **CORRECTED 2026-09-28** — maintainer direction: the
+  preservation rule is withdrawn. The store refs are no longer protected, and
+  keeping or deleting them is an ordinary maintainer decision.
 - **`op-*` ids are historical references from now on.** Do not mint new ones,
   and do not expect one to exist in GitHub issues.
 - **`.claude/settings.json` was left untouched** by this change. It still

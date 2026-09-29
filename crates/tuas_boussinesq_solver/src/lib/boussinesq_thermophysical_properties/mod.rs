@@ -106,6 +106,26 @@ pub enum SolidMaterial {
     /// `solid_database::nuclear_graphite` for the correlations, including
     /// fluence-degraded conductivity variants not reachable from this enum.
     NuclearGraphiteIG110,
+    /// A3-grade nuclear matrix graphite, **high-temperature property set**,
+    /// coded window 300 K to 3000 K. Added 2026-09-28 (gh:#350, gh:#351) so a
+    /// pebble-bed transient past 2000 K keeps a property set; the base
+    /// [`SolidMaterial::NuclearGraphiteMatrixA3`] is unchanged and other
+    /// consumers keep it.
+    ///
+    /// - **cp**: Butland & Maddison (1973/74) polynomial 3, which its authors
+    ///   state may be used with confidence over 250-3000 K (the base variant's
+    ///   VTB table is the same polynomial stopped at 2000 K). Backed to 3000 K.
+    /// - **Thermal conductivity**: the base variant's A3 correlation (zero
+    ///   fluence), unchanged at or below 2000 K. **The correlation's measured
+    ///   range (Gontard & Nabielek 1990) is not yet confirmed; above 2000 K
+    ///   this is extrapolated.** The fitted form has a minimum at 2029.9 K and
+    ///   rises above it (+14.9 % from 2000 to 3000 K), which is the shape of
+    ///   the fit, not data. Not validated above 2000 K.
+    /// - **Density**: 1730 kg/m^3, as the base variant.
+    ///
+    /// See `solid_database::nuclear_graphite` (the high-temperature section)
+    /// for the functions and the measured values.
+    NuclearGraphiteMatrixA3HighTemp,
     /// Custom solid, for the user to decide the correlations himself
     /// or herself
     CustomSolid(
@@ -143,6 +163,7 @@ impl PartialEq for SolidMaterial {
             (Self::PyrogelHPS, Self::PyrogelHPS) => true,
             (Self::NuclearGraphiteMatrixA3, Self::NuclearGraphiteMatrixA3) => true,
             (Self::NuclearGraphiteIG110, Self::NuclearGraphiteIG110) => true,
+            (Self::NuclearGraphiteMatrixA3HighTemp, Self::NuclearGraphiteMatrixA3HighTemp) => true,
             (
                 Self::CustomSolid(bounds_a, cp_a, k_a, rho_a, roughness_a),
                 Self::CustomSolid(bounds_b, cp_b, k_b, rho_b, roughness_b),

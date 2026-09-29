@@ -1,0 +1,80 @@
+BUANGKOK — third-party notices
+==============================
+
+src/pydoseia/ is a Rust port of parts of pyDOSEIA
+(https://github.com/BiswajitSadhu/pyDOSEIA), commit
+dca4cdc3bb0bef7f7e692c8991cf536c91e7a4ce, retrieved 2026-09-28. pyDOSEIA is
+distributed under the MIT licence reproduced verbatim below. The ported files
+carry this notice by reference and must keep it; the port as a whole is
+distributed under GPL-3.0 (see the workspace LICENSE), which the MIT licence
+permits.
+
+No pyDOSEIA data file (library/, met_data/) is included in this crate.
+
+src/pydoseia/quadpack.rs is a Rust port of SciPy's C translation of QUADPACK
+(scipy/integrate/__quadpack.c, functions dqagse, dqk21, dqelg, dqpsrt; SciPy
+tag v1.18.1, read 2026-09-28), because pyDOSEIA's plume-shine integral runs on
+scipy.integrate.tplquad. That file is distributed under the BSD 3-clause
+licence reproduced verbatim below. QUADPACK itself (R. Piessens,
+E. de Doncker-Kapenga, C. Ueberhuber, D. Kahaner, 1983;
+https://www.netlib.org/quadpack/) is in the public domain.
+
+Associated paper (cited, not reproduced; (c) 2025 Health Physics Society):
+B. Sadhu, T. Sarkar, S. Anand, K. D. Singh, D. K. Aswal, "pyDOSEIA: A Python
+Package for Radiological Impact Assessment during Long-term or Accidental
+Atmospheric Releases", Health Physics 130(1) (2026) 94-110,
+doi:10.1097/HP.0000000000002014, PMID 40622262.
+
+---------------------------------------------------------------------------
+pyDOSEIA LICENSE (verbatim)
+---------------------------------------------------------------------------
+MIT License
+
+Copyright (c) 2024 Dr. Biswajit Sadhu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------------------------
+SciPy scipy/integrate/__quadpack.c LICENSE (verbatim from the file header)
+---------------------------------------------------------------------------
+Copyright (C) 2024 SciPy developers
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+a. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+b. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+c. Names of the SciPy Developers may not be used to endorse or promote
+   products derived from this software without specific prior written
+   permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.

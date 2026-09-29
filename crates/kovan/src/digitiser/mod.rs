@@ -22,9 +22,7 @@
 //!   scanned at an angle — GUI-interactive only, see [`auto`]'s doc for why
 //!   the automatic pipeline stays axis-aligned-only).
 //! - [`detect`] — automatic detection of the plot frame (axis box) from dark
-//!   line runs. Deterministic; no ML, no OCR (unlike [`table_ocr`] below,
-//!   whose OCR use is a deliberate, separately-decided exception — see its
-//!   own module doc). Used by [`auto`], i.e. by the CLI and TUI; the GUI
+//!   line runs. Deterministic; no ML, no OCR. Used by [`auto`], i.e. by the CLI and TUI; the GUI
 //!   reads only its [`detect::PixelRect`] type.
 //! - [`trace`] — automatic curve tracing by column scan, with enum-dispatched
 //!   strategies ([`trace::TraceStrategy`]) and colour selectors
@@ -49,13 +47,15 @@
 //!   `clap` is already a hard dependency of this crate's own `kovan-cli`, so
 //!   — unlike when this module lived in `kovan-literature`, where `clap` was
 //!   optional — there is nothing left to gate.
-//! - [`table_ocr`] — table digitisation (op-hnhp): OCR text recognition
-//!   over a cropped table region via `kopitiam_ocr` (op-9bvi's engine
-//!   decision), split into cells by a whitespace-run heuristic, with the
-//!   same [`dataset::ReviewStatus`] human-review gate the plot digitiser
-//!   uses. Compiled unconditionally — like `frontend`, it needs no GUI, so
-//!   `kovan-cli`/`kovan-tui` could drive it too even though only the GUI
-//!   does today.
+//! - ~~`table_ocr` — table digitisation (op-hnhp): OCR text recognition
+//!   over a cropped table region via `kopitiam_ocr`.~~ **REMOVED
+//!   2026-09-28** (GH #357): the engine never loaded a model (#288). Tables
+//!   are now digitised by hand in a spreadsheet grid beside the PDF, from
+//!   its text layer.
+//! - [`table_grid`] — that grid's model (GH #354): cells, cursor, LibreOffice
+//!   Calc-style tab-separated paste and copy, CSV via the `csv` crate, undo.
+//!   No `egui`, so it compiles on Android; the GUI is
+//!   `crate::app::table_digitiser`.
 //! - [`gui`] *(behind this crate's `gui` feature, default except on
 //!   Android)* — the egui app powering the `kovan` binary, exposed as a
 //!   library function (`gui::run`), which opens `crate::app::DigitiseApp` —
@@ -120,7 +120,7 @@ pub mod frontend;
 pub mod gui;
 pub mod raster;
 pub mod synthetic;
-pub mod table_ocr;
+pub mod table_grid;
 pub mod trace;
 
 /// Errors produced by the graph digitiser.
@@ -141,9 +141,6 @@ pub enum DigitiserError {
     Trace(String),
     /// A dataset file could not be read, written, or parsed.
     Io(String),
-    /// Table OCR (`table_ocr` — op-hnhp) failed: the `.traineddata` model
-    /// could not be loaded, or line recognition itself failed.
-    Ocr(String),
 }
 
 impl std::fmt::Display for DigitiserError {
@@ -154,7 +151,6 @@ impl std::fmt::Display for DigitiserError {
             DigitiserError::Detection(m) => write!(f, "axis detection error: {m}"),
             DigitiserError::Trace(m) => write!(f, "trace error: {m}"),
             DigitiserError::Io(m) => write!(f, "dataset io error: {m}"),
-            DigitiserError::Ocr(m) => write!(f, "OCR error: {m}"),
         }
     }
 }

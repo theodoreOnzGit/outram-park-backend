@@ -25,7 +25,11 @@
 //! code, docs, commit messages or chat — as supporting emergency planning,
 //! emergency response, dose assessment for real populations, or Level 3 PSA.**
 //!
-//! This module computes **no dose quantity of any kind** and none is planned.
+//! This module computes **no dose quantity of any kind** ~~and none is
+//! planned~~. **CHANGED 2026-09-29:** it still computes none, but its output
+//! now feeds [`super::dose_rate`], which computes the Map tab's INDICATIVE
+//! dose rate through `buangkok` (research/education only, never a dose to any
+//! real person, not for emergency or regulatory use).
 //! `RESPONSIBLE_USE.md` already forbids this simulator being used for
 //! safety-critical decisions, emergency response or safeguards analysis; a
 //! dispersion calculation is exactly the kind of output that invites being
@@ -45,18 +49,49 @@
 //!
 //! **An input, and NOT quotable as an HTR-10 figure:**
 //!
-//! - the **primary-circuit leak rate** ([`Htr10SiteInputs::LEAK_FRACTION_PER_S`])
-//!   — a containment performance figure this simulator does not model;
-//! - the **core inventory**, which [`super::fission_product_release`] refuses
+//! - ~~the **primary-circuit leak rate** (`Htr10SiteInputs::LEAK_FRACTION_PER_S`)~~
+//!   the **stack release rate** since 2026-09-29: ~~primary leak -> reactor
+//!   building (`bishan`) -> stack (gh:#400)~~ primary leak -> stack directly,
+//!   **building not credited (conservative); see gh:#409** (no building retention,
+//!   filtration or deposition credited); see `fission_product_release`;
+//! - ~~the **core inventory**, which [`super::fission_product_release`] refuses
 //!   to derive, so everything downstream of it stays on that module's
-//!   per-curie-of-core-inventory basis;
-//! - the **release height** and the **deposition velocities**, both
-//!   order-of-magnitude placeholders that `changi` itself labels as such.
+//!   per-curie-of-core-inventory basis;~~ **CORRECTED 2026-09-28** — the
+//!   release channel has carried an absolute arm since 2026-09-23 (Liu & Cao
+//!   2002 Table 1 inventory via `changi::activity::inventory`), and this
+//!   module now drives it through as well; see "Two bases" below;
+//! - the **failure fractions** behind the absolute arm, which are
+//!   TRISO-ATOPS reference values, not HTR-10 fuel data;
+//! - the **deposition velocities**, order-of-magnitude placeholders that
+//!   `changi` itself labels as such. (~~the release height~~ — **CORRECTED**:
+//!   the 40 m stack is published, see [`Htr10SiteInputs::RELEASE_HEIGHT_M`].)
 //!
-//! Air concentration and ground deposition are therefore reported **per curie
-//! of core inventory, per unit leak fraction** — a transfer function, not a
-//! consequence. They are not curies per cubic metre at HTR-10 and must never
-//! be read as such.
+//! ~~Air concentration and ground deposition are therefore reported **per curie
+//! of core inventory, per unit leak fraction**~~ **CORRECTED 2026-09-28** — the
+//! leak fraction is multiplied IN (see [`AtmosphericDispersionChannel`]'s
+//! `source_term_per_ci`), it was never divided out, so "per unit leak
+//! fraction" was wrong.
+//!
+//! # Two bases, both reported (maintainer direction, 2026-09-28)
+//!
+//! - **Per curie of core inventory** \[Bq·s/m^3 per Ci, Bq/m^2 per Ci\] —
+//!   [`ReceptorResult::air_bq_s_per_m3`] / [`ReceptorResult::ground_bq_per_m2`].
+//!   Unchanged: the transfer function, summed over the five tracked nuclides,
+//!   each per curie of *its own* core inventory.
+//! - **Absolute** \[Bq·s/m^3, Bq/m^2\] —
+//!   [`ReceptorResult::air_bq_s_per_m3_absolute`] /
+//!   [`ReceptorResult::ground_bq_per_m2_absolute`], from the release channel's
+//!   `NuclideRelease::absolute` arm. The map field is drawn on this basis by
+//!   default, as an instantaneous air concentration \[Bq/m^3\] =
+//!   instantaneous `chi/Q` × [`DispersionResult::source_rate_absolute_bq_per_s`].
+//!
+//! The absolute numbers are **the five tracked nuclides only** (not the total
+//! release), driven by one reactor's inventory through another reactor's fuel
+//! quality and a circuit leak rather than an environmental release. They are
+//! an order of magnitude with a unit on it — not a source term, not
+//! concentrations at HTR-10, and ~~never a dose input~~ (**CHANGED
+//! 2026-09-29**: the per-nuclide rates and deposits are the inputs of the
+//! indicative dose rate in [`super::dose_rate`], with the same caveats).
 //!
 //! # NOT VALIDATED
 //!
@@ -84,11 +119,11 @@ use changi::puff::wind::{wind_vector_convert, WindComponents};
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Length, Radioactivity, Time, Velocity};
 use uom::si::length::meter;
-use uom::si::radioactivity::curie;
+use uom::si::radioactivity::{becquerel, curie};
 use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
-use super::fission_product_release::TrisoAtopsReleaseChannel;
+use super::fission_product_release::{TrisoAtopsReleaseChannel, TRACKED_NUCLIDES};
 
 /// Compass sectors the receptor ring is laid out on.
 ///
@@ -150,7 +185,9 @@ pub const MIN_GRID_CELLS: usize = 64;
 /// **GPU**.
 ///
 /// 512 x 512 = 262 144 cells. At the instantaneous puff population this model
-/// carries ([`field_states_at`](AtmosphericDispersionChannel::field_states_at)
+/// carries (~~`field_states_at`~~
+/// [`field_states`](AtmosphericDispersionChannel::field_states), link CORRECTED
+/// 2026-09-28,
 /// -- **120** contributing puffs, `puff_duration / puff_dt`; the just-emitted
 /// one has not travelled and has no sigma) that is **31.5 M kernel
 /// evaluations per field**.
@@ -292,6 +329,9 @@ pub struct MapFieldRequest {
     /// Maintainer direction, 2026-09-25: the fast-forward button drives the
     /// plume clock only, for exactly this reason.
     pub plume_clock_offset: Time,
+    /// The basis the map shows, so the field is summed in it with each puff at
+    /// its emission's rate (gh:#400). See [`FieldWeighting`].
+    pub weighting: FieldWeighting,
 }
 
 impl Default for MapFieldRequest {
@@ -299,6 +339,7 @@ impl Default for MapFieldRequest {
         Self {
             cells: DEFAULT_GRID_CELLS,
             plume_clock_offset: Time::new::<second>(0.0),
+            weighting: FieldWeighting::ChiOverQ,
         }
     }
 }
@@ -338,8 +379,14 @@ impl Default for MapFieldRequest {
 /// paints. A reader must not compare a cell against a table row.
 #[derive(Debug, Clone)]
 pub struct DispersionGrid {
-    /// Instantaneous `chi/Q` \[s/m^3\] per cell, row-major, north-up.
-    pub chi_over_q: Vec<f64>,
+    /// The instantaneous field per cell, row-major, north-up, **in the basis
+    /// [`Self::weighting`] names** -- `chi/Q` \[s/m^3\] for
+    /// [`FieldWeighting::ChiOverQ`], and a concentration or dose rate summed
+    /// with each puff at its emission's rate otherwise (gh:#400; ~~`chi_over_q`,
+    /// always `chi/Q`~~ until 2026-09-29).
+    pub values: Vec<f64>,
+    /// The basis `values` is in.
+    pub weighting: FieldWeighting,
     /// Half-width of the covered square \[m\].
     pub half_width_m: f64,
     /// Cells per side.
@@ -350,17 +397,21 @@ pub struct DispersionGrid {
 }
 
 impl DispersionGrid {
-    /// The largest `chi/Q` in the field, for scaling a colour ramp.
+    #[cfg(test)]
+    /// The largest value in the field. A test instrument: the map takes its
+    /// peak from the snapshot's copy of the grid.
     pub fn peak(&self) -> f64 {
-        self.chi_over_q.iter().copied().fold(0.0_f64, f64::max)
+        self.values.iter().copied().fold(0.0_f64, f64::max)
     }
 
-    /// `chi/Q` at `(column, row)`, or `None` outside the grid.
+    #[cfg(test)]
+    /// The sample at `(column, row)` (in [`Self::weighting`]'s unit), or
+    /// `None` outside the grid.
     pub fn at(&self, column: usize, row: usize) -> Option<f64> {
         if column >= self.cells || row >= self.cells {
             return None;
         }
-        self.chi_over_q.get(row * self.cells + column).copied()
+        self.values.get(row * self.cells + column).copied()
     }
 }
 
@@ -378,42 +429,15 @@ pub struct Htr10SiteInputs {
 }
 
 impl Htr10SiteInputs {
-    /// Fraction of the **circulating** primary-circuit activity that reaches
-    /// the atmosphere per second \[1/s\].
-    ///
-    /// # This is the single largest uncertainty in the chain, and it is an input
-    ///
-    /// Going from activity circulating in the primary helium to activity in the
-    /// atmosphere requires a containment and leakage model: circuit leak rate,
-    /// building retention, filtration, stack release. **This simulator still
-    /// models none of that chain** — what it now has is the first term of it.
-    ///
-    /// ~~HTR-10 has a published design leak rate; it is not in this workspace,
-    /// and inventing one and calling it HTR-10's would be putting an
-    /// unverified number under a reactor's name. `1e-7 /s` is a round
-    /// order-of-magnitude placeholder — roughly 0.9 % of the circulating
-    /// inventory per day.~~
-    ///
-    /// **CORRECTED 2026-09-24 — the published figure is now in the
-    /// workspace.** Liu and Cao (2002), p. 4: leakage from the primary
-    /// circuit is **about 1 % per day**, which is
-    /// `0.01 / 86400 = 1.1574e-7 /s`. The placeholder was 1e-7, so the
-    /// correction is 16 % and the previous order of magnitude was right —
-    /// which is luck, not vindication: it was a round number chosen to look
-    /// like one.
-    ///
-    /// **What this does NOT become.** A primary-circuit leak rate is not a
-    /// release-to-environment fraction. Between the two sit building
-    /// retention, filtration and the stack, and this simulator models none of
-    /// them — so treating the product of this and an inventory as an
-    /// environmental source term still over-states it by whatever those
-    /// remove. The same paper's Table 5 reports the airborne activity that
-    /// actually reaches the environment; it is **not digitised here**, and
-    /// until it is, this remains a circuit leak and nothing more.
-    ///
-    /// **`chi/Q` does not depend on this at all** (see the module doc), which
-    /// is why `chi/Q` is the quotable output and the concentrations are not.
-    pub const LEAK_FRACTION_PER_S: f64 = 1.157_4e-7;
+    // ~~`LEAK_FRACTION_PER_S = 1.1574e-7` -- "fraction of the circulating
+    // primary-circuit activity that reaches the atmosphere per second ...
+    // This simulator still models none of that chain"~~ -- DELETED 2026-09-29
+    // (gh:#400). The chain now exists: the primary leak (Liu & Cao 2002, 1 %
+    // per day; `fission_product_release::HTR10_PRIMARY_LEAK_PER_S`, the one
+    // copy) feeds the live pools' leak sink, which goes straight up the stack
+    // (`NodalActivitiesBq::stack_release_rate`): building not credited (conservative); see gh:#409.
+    // ~~The leak feeds the reactor building (`bishan::building`), whose
+    // exhaust is the stack release~~ was the gh:#400 default.
 
     /// Release height \[m\] — **the published HTR-10 stack height.**
     ///
@@ -455,8 +479,9 @@ impl Htr10SiteInputs {
 
     /// Receptor height \[m\]. 1.5 m is the conventional breathing height and is
     /// used here purely as the height at which the air concentration is
-    /// evaluated; **no dose quantity is computed from it** (see the scope
-    /// limit).
+    /// evaluated; ~~**no dose quantity is computed from it**~~ (**CHANGED
+    /// 2026-09-29**: the indicative dose rate in [`super::dose_rate`] uses the
+    /// concentration evaluated here; see the scope limit).
     pub const RECEPTOR_HEIGHT_M: f64 = 1.5;
 
     /// The placeholder site inputs.
@@ -489,13 +514,21 @@ pub struct Meteorology {
 }
 
 impl Default for Meteorology {
-    /// A light, neutral default: 3 m/s from the north at midday.
+    /// A light ~~, neutral~~ default: 3 m/s from the north at midday.
     ///
-    /// 3 m/s sits in the middle of the Pasquill table rather than at an
+    /// ~~3 m/s sits in the middle of the Pasquill table rather than at an
     /// endpoint, so the default condition is not one of the ambiguous
     /// two-class regimes; midday is unambiguously day. Both are chosen so the
     /// opening screen shows one well-defined stability class instead of a
-    /// regime whose behaviour depends on the emission policy.
+    /// regime whose behaviour depends on the emission policy.~~
+    /// **CORRECTED 2026-09-28** — midday is unambiguously day
+    /// (`changi::puff::stability::is_day` is `7..=18`), but 3 m/s by day **is**
+    /// one of the ambiguous two-class regimes: `stability_class`
+    /// (`crates/changi/src/puff/stability.rs:233-236`) returns
+    /// `StabilitySet::Two(B, C)` for `3 <= u < 5` m/s by day. This channel
+    /// resolves it with `.primary()` (`Self::stability_for_field` and the
+    /// reported `DispersionResult::stability`), so the field is drawn in class
+    /// **B (moderately unstable)**, not neutral (D), and class C is discarded.
     fn default() -> Self {
         Self {
             speed: Velocity::new::<meter_per_second>(3.0),
@@ -526,6 +559,12 @@ pub struct ReceptorResult {
     /// different quantity from [`Self::chi_over_q`] above, which is
     /// time-integrated; this is the one that agrees with the map field.
     pub instantaneous_chi_over_q: f64,
+    /// **Instantaneous** air concentration per tracked nuclide \[Bq/m^3\],
+    /// each puff at its emission's stack rate (gh:#400) -- see
+    /// [`AtmosphericDispersionChannel::instantaneous_air_by_nuclide_at_ring`].
+    /// The live absolute column and the dose-rate air row read this, so they
+    /// carry the release history exactly as the map does.
+    pub instantaneous_air_bq_per_m3_by_nuclide: [f64; TRACKED_NUCLIDES.len()],
     /// Time-integrated air concentration summed over the tracked nuclides,
     /// **per curie of core inventory** \[Bq·s/m^3 per Ci\]. Not a
     /// concentration at HTR-10.
@@ -534,6 +573,24 @@ pub struct ReceptorResult {
     /// \[Bq/m^2 per Ci\]. Uses `changi`'s order-of-magnitude placeholder
     /// deposition velocities.
     pub ground_bq_per_m2: f64,
+    /// Time-integrated air concentration on the **absolute** basis
+    /// \[Bq·s/m^3\], summed over the five tracked nuclides — the same survey as
+    /// [`Self::air_bq_s_per_m3`] driven by the release channel's absolute arm.
+    /// `None` when any tracked nuclide lacks a published inventory (never, for
+    /// the shipped five; see `fission_product_release`). Not a source term.
+    pub air_bq_s_per_m3_absolute: Option<f64>,
+    /// Dry ground deposition on the absolute basis \[Bq/m^2\]. Same caveats
+    /// as [`Self::air_bq_s_per_m3_absolute`] plus the placeholder deposition
+    /// velocities.
+    pub ground_bq_per_m2_absolute: Option<f64>,
+    /// Dry ground deposition on the absolute basis \[Bq/m^2\], **per tracked
+    /// nuclide**, in [`TRACKED_NUCLIDES`] order; all `NAN` when the absolute
+    /// arm is unavailable. Added 2026-09-29 for the map's dose-rate basis,
+    /// which needs each nuclide's deposit against its own ground-shine
+    /// coefficient (a summed Bq/m^2 cannot be turned into a dose). Same
+    /// caveats as [`Self::ground_bq_per_m2_absolute`]: dry only, placeholder
+    /// deposition velocities, the deposit left after one 1200 s puff run.
+    pub ground_bq_per_m2_absolute_by_nuclide: [f64; TRACKED_NUCLIDES.len()],
 }
 
 /// The most recent dispersion evaluation.
@@ -550,9 +607,40 @@ pub struct DispersionResult {
     /// The evaluated `chi/Q` field the Map tab paints, one value per cell.
     ///
     /// Every cell is a real evaluation of the same puff model at that cell's
-    /// coordinates -- see [`GRID_CELLS`] on why that is not the contour plot
+    /// coordinates -- see ~~[`GRID_CELLS`]~~ [`DEFAULT_GRID_CELLS`] (renamed; link
+    /// CORRECTED 2026-09-28) on why that is not the contour plot
     /// the rose's docs reject.
     pub grid: DispersionGrid,
+    /// Release rate to atmosphere on the **per-Ci** basis \[Bq/s per Ci of
+    /// core inventory\], summed over the tracked nuclides: ~~circulating
+    /// activity × `LEAK_FRACTION_PER_S`~~ the **stack** release rate per curie
+    /// of that nuclide's core inventory (gh:#400). The same rate the per-Ci
+    /// source term spreads over its window, **at the latest evaluation**: the
+    /// map's field and live ring carry each puff's rate at its own emission
+    /// (see [`FieldWeighting`]).
+    pub source_rate_per_ci_bq_per_s: f64,
+    /// Release rate to atmosphere on the **absolute** basis \[Bq/s\], summed
+    /// over the tracked nuclides, or `None` if any lacks a published
+    /// inventory. ~~Instantaneous `chi/Q` \[s/m^3\] × this = instantaneous air
+    /// concentration \[Bq/m^3\], which is what the Map tab paints by
+    /// default.~~ **CORRECTED 2026-09-29 (gh:#400, #346):** that product
+    /// rescaled the whole plume by today's rate. The map now paints a field
+    /// whose every puff carries the rate at its emission
+    /// ([`FieldWeighting::AbsoluteBqPerM3`]); this is the current stack rate,
+    /// for display.
+    ///
+    /// **Decay in transit is neglected in that product** (the field is the
+    /// non-decaying `chi/Q`). Bounded, not assumed:
+    /// `tests::decay_in_transit_is_negligible_over_one_puff_lifetime` checks
+    /// `lambda * puff_lifetime` for every tracked nuclide.
+    pub source_rate_absolute_bq_per_s: Option<f64>,
+    /// The absolute release rate **per tracked nuclide** \[Bq/s\], in
+    /// [`TRACKED_NUCLIDES`] order; `None` for a nuclide without a published
+    /// inventory. Its sum is [`Self::source_rate_absolute_bq_per_s`]. Added
+    /// 2026-09-29 for the map's dose-rate basis: instantaneous `chi/Q` times
+    /// one entry is that nuclide's live air concentration \[Bq/m^3\] (decay
+    /// in transit neglected, as for the summed field).
+    pub source_rate_absolute_by_nuclide_bq_per_s: [Option<f64>; TRACKED_NUCLIDES.len()],
 }
 
 impl DispersionResult {
@@ -652,8 +740,9 @@ impl DispersionResult {
 /// | as a share of a 60 fps frame | **161 % — does not fit** |
 ///
 /// So the two halves of "the dispersion" differ by a factor of **37**: the map
-/// field is 0.731 ms on the GPU and now runs at 60 fps
-/// ([`FIELD_REFRESH_INTERVAL_S`]), while the receptor ring's time-integrated
+/// field is 0.731 ms on the GPU and ~~now runs at 60 fps~~ runs at **10 Hz**
+/// (**CORRECTED 2026-09-28**: [`FIELD_REFRESH_INTERVAL_S`] is `0.1`, set back
+/// from 60 fps on 2026-09-27 -- see that constant), while the receptor ring's time-integrated
 /// `chi/Q` plus the activity survey is 26.8 ms and would cost real-time ratio
 /// directly at any interactive rate. Lumping them under one word is what made the
 /// original claim above look plausible for as long as it did.
@@ -716,7 +805,8 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
 //
 // **If the speed is wanted back**, in increasing order of effort:
 //
-//  1. Note the ring's *live* column already updates at 60 fps independently of
+//  1. Note the ring's *live* column already updates at ~~60 fps~~ 10 Hz
+//     (CORRECTED 2026-09-28: `FIELD_REFRESH_INTERVAL_S` = 0.1) independently of
 //     this throttle ([`ReceptorResult::instantaneous_chi_over_q`]), so the
 //     question is only how stale the TIME-INTEGRATED column and the activity
 //     columns may be. An interval of 1 s costs 2.7 % of plant-time compute
@@ -746,7 +836,8 @@ pub const DISPERSION_EVALUATION_INTERVAL_S: f64 = 2.0;
 /// So the field is rate-limited on **wall-clock** time, not plant time: a
 /// paused or fast-forwarded simulation must not change how responsive the map
 /// feels to a hand on the slider. ~~`0.1 s` is the 10 Hz the Map tab
-/// targets.~~ **CHANGED 2026-09-27 to 60 fps** — see the section below.
+/// targets.~~ **CHANGED 2026-09-27 to 60 fps**, then **back to 0.1 s (10 Hz)
+/// the same day** — see the section below; the value is `0.1`.
 ///
 /// # ~~This is purely a rate limit, not a schedule~~ -- CORRECTED 2026-09-25
 ///
@@ -879,6 +970,77 @@ pub const FIELD_REFRESH_INTERVAL_S: f64 = 0.1;
 /// why the two must not be tied together.
 const FIELD_MARCH_DT_S: f64 = crate::physics::PLANT_TIMESTEP_S;
 
+/// What each puff of the map field carries, so the field is summed **in the
+/// basis the map shows** with every puff at the source rate of its own
+/// **emission** (gh:#400, fixing #346's whole-plume rescale).
+///
+/// ~~The map painted `chi/Q x (today's rate)`~~, which rescaled every puff --
+/// including ones emitted twenty minutes earlier at a different rate -- the
+/// moment the release rate moved. A puff's contribution is `rate(t_emit) x
+/// puff_dt x kernel`; summing that needs the rate inside the sum, which is
+/// what this selects. `ChiOverQ` is the unit-rate case and is unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FieldWeighting {
+    /// Unit release rate: the sum is `chi/Q` \[s/m^3\].
+    #[default]
+    ChiOverQ,
+    /// Each puff at its emission's absolute stack rate summed over the tracked
+    /// nuclides: the sum is an air concentration \[Bq/m^3\].
+    AbsoluteBqPerM3,
+    /// Each puff at its emission's per-Ci stack rate \[Bq/m^3 per Ci\].
+    PerCiBqPerM3,
+    /// Each puff at its emission's air-pathway dose rate per unit `chi/Q`
+    /// (`dose_rate::air_dose_rate_per_unit_chi_over_q` of its per-nuclide
+    /// rates, which is linear in them): the sum is the indicative air dose
+    /// rate \[µSv/h\].
+    DoseRateUsvPerH,
+}
+
+/// The stack release rates a puff was emitted at (gh:#400). Zero before the
+/// release channel has produced a rate: nothing has been released yet, so a
+/// puff emitted then carries nothing -- which is true, not a placeholder.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct EmissionRates {
+    /// Absolute stack rate per tracked nuclide \[Bq/s\] (`NaN` where a
+    /// nuclide has no published inventory).
+    pub absolute_by_nuclide: [f64; TRACKED_NUCLIDES.len()],
+    /// Summed per-Ci stack rate \[Bq/s per Ci\].
+    pub per_ci: f64,
+}
+
+impl Default for EmissionRates {
+    fn default() -> Self {
+        Self {
+            absolute_by_nuclide: [0.0; TRACKED_NUCLIDES.len()],
+            per_ci: 0.0,
+        }
+    }
+}
+
+impl EmissionRates {
+    /// The rates the release channel reports now.
+    fn from_release(release: &TrisoAtopsReleaseChannel) -> Self {
+        Self {
+            absolute_by_nuclide: absolute_release_rate_by_nuclide_bq_per_s(release)
+                .map(|r| r.unwrap_or(f64::NAN)),
+            per_ci: per_ci_release_rate_bq_per_s(release),
+        }
+    }
+
+    /// This puff's rate factor on `weighting`.
+    fn factor(&self, weighting: FieldWeighting) -> f64 {
+        match weighting {
+            FieldWeighting::ChiOverQ => 1.0,
+            FieldWeighting::AbsoluteBqPerM3 => self.absolute_by_nuclide.iter().sum(),
+            FieldWeighting::PerCiBqPerM3 => self.per_ci,
+            FieldWeighting::DoseRateUsvPerH => super::dose_rate::air_dose_rate_per_unit_chi_over_q(
+                &self.absolute_by_nuclide,
+                super::dose_rate::coefficients(),
+            ),
+        }
+    }
+}
+
 /// ~~Everything a cached field depends on.~~ **What has MOVED since the field
 /// was last drawn** -- CORRECTED 2026-09-27.
 ///
@@ -914,6 +1076,8 @@ struct FieldKey {
     /// The clock the **marched population** stands at \[s\]; see
     /// [`AtmosphericDispersionChannel::population_clock_s`].
     plume_time_s: f64,
+    /// The basis the field is summed in (gh:#400).
+    weighting: FieldWeighting,
 }
 
 /// One live puff of the map field's **Lagrangian** population.
@@ -994,9 +1158,14 @@ struct FieldPuff {
     /// difference scaled once, so retirement lands on the step it should at any
     /// march step and for any run length.
     emitted_step: u64,
+    /// The stack release rates at this puff's emission (gh:#400) -- what
+    /// makes the field a sum over the release HISTORY rather than today's rate
+    /// times a dilution factor.
+    rates: EmissionRates,
 }
 
 impl FieldPuff {
+    #[cfg(test)]
     /// Age \[s\] at a given march-step count -- an exact integer difference
     /// scaled once, rather than a value accumulated per step. See
     /// [`FieldPuff::emitted_step`].
@@ -1045,6 +1214,9 @@ pub struct AtmosphericDispersionChannel {
     /// is an exact multiply onto the decimal grid rather than 72 000 additions
     /// that miss it.
     population_steps: u64,
+    /// The stack rates a puff emitted now would carry: the release channel's
+    /// latest, set by [`Self::update`] (gh:#400).
+    emission_rates: EmissionRates,
 }
 
 impl AtmosphericDispersionChannel {
@@ -1063,6 +1235,7 @@ impl AtmosphericDispersionChannel {
             puffs: Vec::new(),
             population_clock_s: 0.0,
             population_steps: 0,
+            emission_rates: EmissionRates::default(),
         }
     }
 
@@ -1077,6 +1250,41 @@ impl AtmosphericDispersionChannel {
     pub fn set_meteorology(&mut self, meteorology: Meteorology) {
         self.meteorology = meteorology;
         self.last_evaluated_s = None;
+    }
+
+    /// **Rotate the marched puff population** about the stack so it is the
+    /// plume a steady wind from `direction_from` would have built, then leave
+    /// the meteorology for [`Self::set_meteorology`] to apply.
+    ///
+    /// The Map tab's policy (maintainer direction 2026-09-29, see
+    /// [`super::map_puff_model`]): turning the direction control must only
+    /// rotate the plume. [`Self::set_meteorology`] alone is Lagrangian -- the
+    /// old puffs keep their old heading and the plume kinks -- which is right
+    /// for a real wind shift and stays the channel's behaviour; this is the
+    /// explicit, separate act the map takes instead.
+    ///
+    /// Each displacement `(dx east, dy north)` at bearing `b` moves to bearing
+    /// `b + delta`, `delta = new_from - old_from` (both clockwise):
+    ///
+    /// ```text
+    /// dx' = dx cos(delta) + dy sin(delta)
+    /// dy' = dy cos(delta) - dx sin(delta)
+    /// ```
+    ///
+    /// Path length, emission step and the clock are unchanged: a rotation
+    /// moves no puff further from the stack.
+    pub fn rotate_population_to(&mut self, direction_from: Angle) {
+        let delta =
+            (direction_from - self.meteorology.direction_from).get::<uom::si::angle::radian>();
+        if delta == 0.0 {
+            return;
+        }
+        let (s, c) = delta.sin_cos();
+        for p in self.puffs.iter_mut() {
+            let (dx, dy) = (p.dx_m, p.dy_m);
+            p.dx_m = dx * c + dy * s;
+            p.dy_m = dy * c - dx * s;
+        }
     }
 
     /// The most recent result, `None` before the first evaluation.
@@ -1105,6 +1313,9 @@ impl AtmosphericDispersionChannel {
         // it. `evaluate` is `&self` and deliberately stays so -- it renders the
         // population, it does not advance it.
         let config = self.run_config();
+        // Puffs emitted from here on carry the release channel's latest stack
+        // rates (gh:#400).
+        self.emission_rates = EmissionRates::from_release(release);
         self.advance_population(&config, self.plume_time_s(sim_time_s));
         let result = self.evaluate(sim_time_s, release);
         // Remember the field and everything it belongs to, so the next tick
@@ -1114,6 +1325,7 @@ impl AtmosphericDispersionChannel {
             meteorology: self.meteorology,
             cells: result.grid.cells,
             plume_time_s: result.grid.plume_time_s,
+            weighting: result.grid.weighting,
         });
         self.latest = Some(result);
         self.last_evaluated_s = Some(sim_time_s);
@@ -1194,6 +1406,7 @@ impl AtmosphericDispersionChannel {
             meteorology: self.meteorology,
             cells: self.field_cells(),
             plume_time_s: self.population_clock_s,
+            weighting: self.request.weighting,
         };
         if self.grid_is_current_for(&key) {
             return false;
@@ -1242,10 +1455,17 @@ impl AtmosphericDispersionChannel {
         // Sampled BEFORE taking the `&mut` on `latest`: it reads `self`
         // immutably, and the borrow checker will not allow both at once.
         let live = self.instantaneous_chi_over_q_at_ring(&config);
+        let live_air = self.instantaneous_air_by_nuclide_at_ring(&config);
         if let Some(latest) = &mut self.latest {
             latest.grid = grid;
-            for (slot, value) in latest.receptors.iter_mut().zip(live.iter()) {
+            for ((slot, value), air) in latest
+                .receptors
+                .iter_mut()
+                .zip(live.iter())
+                .zip(live_air.iter())
+            {
                 slot.instantaneous_chi_over_q = *value;
+                slot.instantaneous_air_bq_per_m3_by_nuclide = *air;
             }
         }
         true
@@ -1274,41 +1494,7 @@ impl AtmosphericDispersionChannel {
         release: &TrisoAtopsReleaseChannel,
     ) -> DispersionResult {
         let config = self.run_config();
-        let wind = self.wind_series(&config);
-        let receptors = self.receptor_ring();
-        let sources = [Source {
-            x: Length::new::<meter>(0.0),
-            y: Length::new::<meter>(0.0),
-            height: self.site.release_height,
-        }];
-
-        // ONE release window spanning the run: the release rate is held at
-        // whatever the kernel temperature currently implies, which is the
-        // quasi-steady reading this channel makes (see the module doc on the
-        // throttle). Resolving the release into several windows would imply
-        // this model tracks a release *history*, which it does not.
-        let boundaries = [Time::new::<second>(0.0), config.duration];
-
-        let air = dilution_factors(
-            &sources,
-            &boundaries,
-            &wind,
-            &receptors,
-            &config,
-            self.meteorology.stability,
-        );
-        // Ground-level factors: the same run, evaluated at z = 0, which is what
-        // deposition sees. Two separate factor sets is `changi::survey`'s own
-        // interface, not a duplication introduced here.
-        let ground_receptors = self.receptor_ring_at(Length::new::<meter>(0.0));
-        let ground = dilution_factors(
-            &sources,
-            &boundaries,
-            &wind,
-            &ground_receptors,
-            &config,
-            self.meteorology.stability,
-        );
+        let (air, ground) = self.dilution_pair(&config);
 
         // The map's field: the INSTANTANEOUS plume at the current plume clock,
         // on a square grid at ground level (see `DispersionGrid` on why that
@@ -1320,23 +1506,32 @@ impl AtmosphericDispersionChannel {
             meteorology: self.meteorology,
             cells: self.field_cells(),
             plume_time_s: self.population_clock_s,
+            weighting: self.request.weighting,
         };
         let grid = match (&self.grid_cache, self.grid_is_current_for(&key)) {
             (Some(cached), true) => cached.clone(),
             _ => self.compute_field(&config, &key),
         };
 
-        let source_term = self.source_term(release, config.duration);
-        let site = survey(
-            &source_term,
-            &air,
-            &ground,
-            &DepositionVelocities::order_of_magnitude_placeholder(),
-        );
+        let deposition = DepositionVelocities::order_of_magnitude_placeholder();
+        let source_term = self.source_term_per_ci(release, config.duration);
+        let site = survey(&source_term, &air, &ground, &deposition);
+        // The ABSOLUTE arm (maintainer direction 2026-09-28): the same survey,
+        // driven by the release channel's Bq arm. A second survey rather than
+        // a rescale of the first, because the per-Ci columns are a sum over
+        // nuclides each on its OWN inventory basis -- no single factor maps
+        // one sum onto the other.
+        let site_absolute = Self::source_term_absolute(release, config.duration)
+            .map(|term| survey(&term, &air, &ground, &deposition));
 
         DispersionResult {
             grid,
-            receptors: self.collect(&air, &site),
+            receptors: self.collect(&air, &site, site_absolute.as_ref()),
+            source_rate_per_ci_bq_per_s: per_ci_release_rate_bq_per_s(release),
+            source_rate_absolute_bq_per_s: absolute_release_rate_bq_per_s(release),
+            source_rate_absolute_by_nuclide_bq_per_s: absolute_release_rate_by_nuclide_bq_per_s(
+                release,
+            ),
             stability: match self.meteorology.stability {
                 StabilitySource::Fixed(c) => Some(c),
                 StabilitySource::FromWind => {
@@ -1356,6 +1551,49 @@ impl AtmosphericDispersionChannel {
         }
     }
 
+    /// The two dilution-factor sets the survey needs: air at receptor
+    /// (breathing) height and ground at `z = 0`. Split out of
+    /// [`Self::evaluate`] (2026-09-28) so a test can drive the per-Ci and
+    /// absolute surveys through the SAME factors and compare per nuclide.
+    fn dilution_pair(&self, config: &RunConfig) -> (DilutionFactors, DilutionFactors) {
+        let wind = self.wind_series(config);
+        let receptors = self.receptor_ring();
+        let sources = [Source {
+            x: Length::new::<meter>(0.0),
+            y: Length::new::<meter>(0.0),
+            height: self.site.release_height,
+        }];
+
+        // ONE release window spanning the run: the release rate is held at
+        // whatever the kernel temperature currently implies, which is the
+        // quasi-steady reading this channel makes (see the module doc on the
+        // throttle). Resolving the release into several windows would imply
+        // this model tracks a release *history*, which it does not.
+        let boundaries = [Time::new::<second>(0.0), config.duration];
+
+        let air = dilution_factors(
+            &sources,
+            &boundaries,
+            &wind,
+            &receptors,
+            config,
+            self.meteorology.stability,
+        );
+        // Ground-level factors: the same run, evaluated at z = 0, which is what
+        // deposition sees. Two separate factor sets is `changi::survey`'s own
+        // interface, not a duplication introduced here.
+        let ground_receptors = self.receptor_ring_at(Length::new::<meter>(0.0));
+        let ground = dilution_factors(
+            &sources,
+            &boundaries,
+            &wind,
+            &ground_receptors,
+            config,
+            self.meteorology.stability,
+        );
+        (air, ground)
+    }
+
     /// The puff run configuration.
     ///
     /// `sim_dt` 10 s, `puff_dt` 10 s, over a 1200 s run with a 1200 s puff
@@ -1370,7 +1608,7 @@ impl AtmosphericDispersionChannel {
     /// 3.6 km in that time, which carries it past the outermost 1 km ring with
     /// margin, so no receptor is truncated by a puff being dropped mid-flight.
     /// [`tests::the_run_outlasts_the_outermost_receptor`] pins that.
-    fn run_config(&self) -> RunConfig {
+    pub(crate) fn run_config(&self) -> RunConfig {
         RunConfig {
             // Maintainer note, 2026-09-27: *"I'm trying to change sim_dt and
             // puff_dt to 0.1s each... but it may hang things"*, to get a smooth
@@ -1525,6 +1763,7 @@ impl AtmosphericDispersionChannel {
                 dy_m: 0.0,
                 path_m: 0.0,
                 emitted_step: 0,
+                rates: self.emission_rates,
             });
         }
 
@@ -1556,6 +1795,10 @@ impl AtmosphericDispersionChannel {
                     dy_m: 0.0,
                     path_m: 0.0,
                     emitted_step: self.population_steps,
+                    // The rate at emission, held for the puff's lifetime --
+                    // a caught-up interval emits at the latest rate known,
+                    // which is the rate the release channel last reported.
+                    rates: self.emission_rates,
                 });
             }
             // `<=`, not `<`: the puff at age exactly `puff_duration` is kept,
@@ -1606,7 +1849,15 @@ impl AtmosphericDispersionChannel {
     /// mass, so at unit `Q` the weight is `puff_dt` \[s\] and the sum is
     /// `chi/Q` in s/m^3 -- independent of the source, exactly as the receptor
     /// ring's `chi/Q` is.
-    fn field_states(&self, config: &RunConfig) -> Vec<changi::puff::wgsl::PuffState> {
+    ///
+    /// **CHANGED 2026-09-29 (gh:#400):** the weight is `puff_dt x` the puff's
+    /// **emission** rate on `weighting` ([`FieldWeighting`]); `ChiOverQ` is
+    /// the unit rate and reproduces the old sum exactly.
+    pub(crate) fn field_states(
+        &self,
+        config: &RunConfig,
+        weighting: FieldWeighting,
+    ) -> Vec<changi::puff::wgsl::PuffState> {
         use changi::puff::wgsl::PuffState;
 
         let puff_dt = config.puff_dt.get::<second>();
@@ -1624,9 +1875,9 @@ impl AtmosphericDispersionChannel {
                 y: p.dy_m as f32,
                 sigma_y: sig.sigma_y.get::<meter>() as f32,
                 sigma_z: sig.sigma_z.get::<meter>() as f32,
-                // Mass per unit release RATE in one puff, so the sum is
-                // `chi/Q` in s/m^3.
-                weight: puff_dt as f32,
+                // Mass in one puff: `puff_dt` x its emission rate on this
+                // basis (unit rate for `ChiOverQ`, so the sum is chi/Q).
+                weight: (puff_dt * p.rates.factor(weighting)) as f32,
             });
         }
         states
@@ -1676,7 +1927,50 @@ impl AtmosphericDispersionChannel {
     /// scale, so it is computed on the CPU rather than dispatched to the GPU —
     /// a buffer upload for 24 points would cost more than the arithmetic.
     pub fn instantaneous_chi_over_q_at_ring(&self, config: &RunConfig) -> Vec<f64> {
-        let states = self.field_states(config);
+        self.instantaneous_at_ring(&self.field_states(config, FieldWeighting::ChiOverQ))
+    }
+
+    /// **Instantaneous air concentration per tracked nuclide at the receptor
+    /// ring** \[Bq/m^3\], each puff at its emission's stack rate for that
+    /// nuclide (gh:#400) -- the live counterpart of the map's absolute field,
+    /// one lane per nuclide, so a dose split can pair each with its own
+    /// coefficient. `[receptor][nuclide]`; `NaN` where a nuclide has no
+    /// published inventory.
+    pub fn instantaneous_air_by_nuclide_at_ring(
+        &self,
+        config: &RunConfig,
+    ) -> Vec<[f64; TRACKED_NUCLIDES.len()]> {
+        let unit = self.field_states(config, FieldWeighting::ChiOverQ);
+        let lanes: Vec<Vec<f64>> = (0..TRACKED_NUCLIDES.len())
+            .map(|k| {
+                // The same states, weighted by nuclide k's emission rate.
+                let weighted: Vec<changi::puff::wgsl::PuffState> = unit
+                    .iter()
+                    .zip(self.live_puffs_with_sigma(config))
+                    .map(|(st, p)| changi::puff::wgsl::PuffState {
+                        weight: (f64::from(st.weight) * p.rates.absolute_by_nuclide[k]) as f32,
+                        ..*st
+                    })
+                    .collect();
+                self.instantaneous_at_ring(&weighted)
+            })
+            .collect();
+        (0..RECEPTOR_COUNT)
+            .map(|i| core::array::from_fn(|k| lanes[k].get(i).copied().unwrap_or(0.0)))
+            .collect()
+    }
+
+    /// The puffs [`Self::field_states`] keeps (those with a sigma), in the
+    /// same order, so a lane can be weighted state by state.
+    fn live_puffs_with_sigma(&self, _config: &RunConfig) -> impl Iterator<Item = &FieldPuff> + '_ {
+        let class = self.stability_for_field();
+        self.puffs.iter().filter(move |p| {
+            pasquill_gifford_sigmas(class, Length::new::<meter>(p.path_m)).is_some()
+        })
+    }
+
+    /// Sum `states` at each receptor of the ring, CPU kernel.
+    fn instantaneous_at_ring(&self, states: &[changi::puff::wgsl::PuffState]) -> Vec<f64> {
         let height = self.site.release_height.get::<meter>() as f32;
         self.receptor_ring()
             .iter()
@@ -1708,7 +2002,8 @@ impl AtmosphericDispersionChannel {
 
     /// Evaluate the map field at one instant of the plume clock.
     ///
-    /// Sums [`Self::field_states_at`] over the grid through
+    /// Sums ~~`Self::field_states_at`~~ [`Self::field_states`] (link CORRECTED
+    /// 2026-09-28) over the grid through
     /// `changi::puff::wgsl::field_auto`, which dispatches the WGSL kernel on
     /// the GPU when one is there and falls back to changi's own CPU thread
     /// pool when it is not. Both paths exist because
@@ -1734,17 +2029,18 @@ impl AtmosphericDispersionChannel {
     fn compute_field(&self, config: &RunConfig, key: &FieldKey) -> DispersionGrid {
         use changi::puff::wgsl::{field_auto, FieldGrid};
 
-        let states = self.field_states(config);
+        let states = self.field_states(config, key.weighting);
         let grid = FieldGrid {
             cells: key.cells,
             half_width_m: GRID_HALF_WIDTH_M as f32,
             source_height_m: self.site.release_height.get::<meter>() as f32,
         };
         DispersionGrid {
-            chi_over_q: field_auto(&states, &grid)
+            values: field_auto(&states, &grid)
                 .into_iter()
                 .map(f64::from)
                 .collect(),
+            weighting: key.weighting,
             half_width_m: GRID_HALF_WIDTH_M,
             cells: key.cells,
             plume_time_s: key.plume_time_s,
@@ -1752,51 +2048,77 @@ impl AtmosphericDispersionChannel {
     }
 
     /// Build the released source term from the release channel's circulating
-    /// pool.
+    /// pool, on the **per-Ci** basis.
     ///
-    /// `released = circulating_activity * LEAK_FRACTION_PER_S * duration`, per
-    /// nuclide, on the release channel's per-curie-of-core-inventory basis. The
-    /// leak fraction is the input the module doc warns about.
-    fn source_term(&self, release: &TrisoAtopsReleaseChannel, duration: Time) -> SourceTerm {
-        let window = ReleaseWindow::new(Time::new::<second>(0.0), duration);
-        let seconds = duration.get::<second>();
+    /// `released = stack release rate per Ci x duration`, per nuclide, on the
+    /// release channel's per-curie-of-core-inventory basis (gh:#400; ~~the
+    /// circulating activity x `LEAK_FRACTION_PER_S`~~). **At the latest
+    /// evaluation's rate, held over the window**: this ring survey is "a
+    /// steady release at today's stack rate", not the release history (the
+    /// map's field and live ring carry the history; see [`FieldWeighting`]).
+    fn source_term_per_ci(&self, release: &TrisoAtopsReleaseChannel, duration: Time) -> SourceTerm {
+        Self::build_source_term(release, duration, |r| {
+            let rate = per_ci_stack_rate(r);
+            rate.is_finite()
+                .then(|| Radioactivity::new::<becquerel>(rate * duration.get::<second>()))
+        })
+        .expect("the per-Ci arm is defined for every tracked nuclide")
+    }
 
-        let nuclides: Vec<NuclideRelease> = release
-            .latest()
-            .iter()
-            .map(|r| {
-                // Ci -> Bq through `uom`'s own curie unit rather than a
-                // local 3.7e10, which is the convention `changi::activity`'s
-                // units module sets ("3.7e10 never has to be written down").
-                let released = Radioactivity::new::<curie>(
-                    r.activities.circulating_activity
-                        * Htr10SiteInputs::LEAK_FRACTION_PER_S
-                        * seconds,
-                );
-                NuclideRelease {
-                    label: r.name.to_string(),
-                    decay_constant: r.decay_constant,
-                    // From the atomic number, so a nuclide added to the release
-                    // channel is grouped by its element rather than by a table
-                    // that has to be kept in step. Note this is a DEPOSITION
-                    // grouping and is deliberately not `boon-lay`'s transport
-                    // grouping -- they differ for Se and Te, and `changi`'s
-                    // `DepositionGroup` doc says why.
-                    deposition_group: DepositionGroup::from_atomic_number(r.z),
-                    released: vec![released],
-                }
+    /// The same source term on the **absolute** basis \[Bq\], from
+    /// `NuclideRelease::absolute` (Liu & Cao 2002 Table 1 inventory driven
+    /// through the release model). `None` if any tracked nuclide has no
+    /// published inventory: a partial sum would read as a total.
+    fn source_term_absolute(
+        release: &TrisoAtopsReleaseChannel,
+        duration: Time,
+    ) -> Option<SourceTerm> {
+        Self::build_source_term(release, duration, |r| {
+            r.absolute.map(|a| {
+                Radioactivity::new::<becquerel>(a.stack_release_rate * duration.get::<second>())
             })
-            .collect();
+        })
+    }
 
-        SourceTerm::new(vec![window], nuclides)
+    /// One release window spanning the run, one [`NuclideRelease`] per
+    /// tracked nuclide, with the released activity supplied by `released`.
+    /// `None` if `released` is `None` for any nuclide.
+    fn build_source_term(
+        release: &TrisoAtopsReleaseChannel,
+        duration: Time,
+        released: impl Fn(&super::fission_product_release::NuclideRelease) -> Option<Radioactivity>,
+    ) -> Option<SourceTerm> {
+        let window = ReleaseWindow::new(Time::new::<second>(0.0), duration);
+        let mut nuclides = Vec::with_capacity(release.latest().len());
+        for r in release.latest() {
+            nuclides.push(NuclideRelease {
+                label: r.name.to_string(),
+                decay_constant: r.decay_constant,
+                // From the atomic number, so a nuclide added to the release
+                // channel is grouped by its element rather than by a table
+                // that has to be kept in step. Note this is a DEPOSITION
+                // grouping and is deliberately not `boon-lay`'s transport
+                // grouping -- they differ for Se and Te, and `changi`'s
+                // `DepositionGroup` doc says why.
+                deposition_group: DepositionGroup::from_atomic_number(r.z),
+                released: vec![released(r)?],
+            });
+        }
+        Some(SourceTerm::new(vec![window], nuclides))
     }
 
     /// Project the dilution factors and the survey onto one row per receptor.
-    fn collect(&self, air: &DilutionFactors, site: &SiteSurvey) -> Vec<ReceptorResult> {
+    fn collect(
+        &self,
+        air: &DilutionFactors,
+        site: &SiteSurvey,
+        site_absolute: Option<&SiteSurvey>,
+    ) -> Vec<ReceptorResult> {
         // The LIVE column, sampled from the marched population at the same
         // points. Computed once for the whole ring rather than per row -- it
         // walks `field_states` and there is no reason to rebuild that 24 times.
         let instantaneous = self.instantaneous_chi_over_q_at_ring(&self.run_config());
+        let instantaneous_air = self.instantaneous_air_by_nuclide_at_ring(&self.run_config());
         let mut out = Vec::with_capacity(RECEPTOR_COUNT);
         let mut index = 0;
         for distance in RECEPTOR_DISTANCES_M {
@@ -1815,8 +2137,21 @@ impl AtmosphericDispersionChannel {
                     distance_m: distance,
                     chi_over_q,
                     instantaneous_chi_over_q: instantaneous.get(index).copied().unwrap_or(0.0),
+                    instantaneous_air_bq_per_m3_by_nuclide: instantaneous_air
+                        .get(index)
+                        .copied()
+                        .unwrap_or([0.0; TRACKED_NUCLIDES.len()]),
                     air_bq_s_per_m3: site.total_air(index).becquerel_seconds_per_cubic_meter(),
                     ground_bq_per_m2: site.total_ground(index).becquerel_per_square_meter(),
+                    air_bq_s_per_m3_absolute: site_absolute
+                        .map(|a| a.total_air(index).becquerel_seconds_per_cubic_meter()),
+                    ground_bq_per_m2_absolute: site_absolute
+                        .map(|a| a.total_ground(index).becquerel_per_square_meter()),
+                    ground_bq_per_m2_absolute_by_nuclide: core::array::from_fn(|k| {
+                        site_absolute
+                            .and_then(|a| a.at(index).get(k))
+                            .map_or(f64::NAN, |n| n.ground.becquerel_per_square_meter())
+                    }),
                 });
                 index += 1;
             }
@@ -1829,6 +2164,63 @@ impl Default for AtmosphericDispersionChannel {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// One nuclide's **stack** release rate per curie of its own core inventory
+/// \[Bq/s per Ci\], or `NaN` without a published inventory.
+fn per_ci_stack_rate(r: &super::fission_product_release::NuclideRelease) -> f64 {
+    match (r.absolute, r.core_inventory_bq) {
+        (Some(a), Some(inventory)) if inventory > 0.0 => {
+            a.stack_release_rate / Radioactivity::new::<becquerel>(inventory).get::<curie>()
+        }
+        _ => f64::NAN,
+    }
+}
+
+/// Release rate to atmosphere on the **per-Ci** basis \[Bq/s per Ci\]: the
+/// sum over tracked nuclides of the **stack** release rate per curie of that
+/// nuclide's own core inventory. ~~circulating activity (Ci per Ci) x
+/// `LEAK_FRACTION_PER_S`~~ until 2026-09-29 (gh:#400). Building not credited (conservative); see gh:#409:
+/// the stack rate is the circuit leak.
+///
+/// This is the rate `AtmosphericDispersionChannel::source_term_per_ci`
+/// spreads uniformly over its window, so `rate * duration` is that source
+/// term's total.
+pub fn per_ci_release_rate_bq_per_s(release: &TrisoAtopsReleaseChannel) -> f64 {
+    release.latest().iter().map(per_ci_stack_rate).sum()
+}
+
+/// Release rate to atmosphere on the **absolute** basis \[Bq/s\]: the sum
+/// over tracked nuclides of the **stack** release rate (gh:#400;
+/// ~~circulating activity x `LEAK_FRACTION_PER_S`~~) -- building not credited (conservative); see gh:#409, so it
+/// is the circuit leak.
+/// `None` if any tracked nuclide lacks a published inventory, so a partial sum
+/// is never shown as a total.
+pub fn absolute_release_rate_bq_per_s(release: &TrisoAtopsReleaseChannel) -> Option<f64> {
+    release
+        .latest()
+        .iter()
+        .map(|r| r.absolute.map(|a| a.stack_release_rate))
+        .sum()
+}
+
+/// The absolute **stack** release rate per tracked nuclide \[Bq/s\], in
+/// [`TRACKED_NUCLIDES`] order, `None` where a nuclide has no published
+/// inventory. The same terms [`absolute_release_rate_bq_per_s`] sums.
+///
+/// # Panics
+/// If the release channel does not publish exactly the tracked nuclides in
+/// [`TRACKED_NUCLIDES`] order -- a per-nuclide array silently shifted by one
+/// would pair a nuclide with another's dose coefficient.
+pub fn absolute_release_rate_by_nuclide_bq_per_s(
+    release: &TrisoAtopsReleaseChannel,
+) -> [Option<f64>; TRACKED_NUCLIDES.len()] {
+    let latest = release.latest();
+    core::array::from_fn(|k| {
+        let r = latest.get(k)?;
+        assert_eq!(r.name, TRACKED_NUCLIDES[k], "release channel nuclide order");
+        r.absolute.map(|a| a.stack_release_rate)
+    })
 }
 
 /// Convert a compass bearing (degrees clockwise from north) and a distance
@@ -1857,10 +2249,10 @@ mod tests {
         let mut channel = TrisoAtopsReleaseChannel::new_htr10();
         channel.update(
             0.0,
-            Some(uom::si::f64::ThermodynamicTemperature::new::<kelvin>(
-                kernel_k,
+            Some(TrisoAtopsReleaseChannel::kernel_and_graphite(
+                uom::si::f64::ThermodynamicTemperature::new::<kelvin>(kernel_k),
+                uom::si::f64::ThermodynamicTemperature::new::<kelvin>(950.0),
             )),
-            uom::si::f64::ThermodynamicTemperature::new::<kelvin>(950.0),
         );
         channel
     }
@@ -2316,6 +2708,7 @@ mod tests {
             },
             cells: channel.field_cells(),
             plume_time_s: 300.0,
+            weighting: FieldWeighting::ChiOverQ,
         });
         channel.last_field_refresh = Some(std::time::Instant::now());
         assert!(
@@ -2422,7 +2815,7 @@ mod tests {
             // clocks below ascend, so each is a forward march from the last and
             // no reset is triggered.
             channel.advance_population(&config, clock);
-            let states = channel.field_states(&config);
+            let states = channel.field_states(&config, FieldWeighting::ChiOverQ);
             let reach = states
                 .iter()
                 .map(|s| ((s.x * s.x + s.y * s.y).sqrt()) as f64)
@@ -2510,8 +2903,8 @@ mod tests {
         assert!((jumped.plume_time_s(plant_t) - 7500.0).abs() < 1e-9);
         jumped.advance_population(&config, jumped.plume_time_s(plant_t));
         ran.advance_population(&config, 7500.0);
-        let a = jumped.field_states(&config);
-        let b = ran.field_states(&config);
+        let a = jumped.field_states(&config, FieldWeighting::ChiOverQ);
+        let b = ran.field_states(&config, FieldWeighting::ChiOverQ);
         assert_eq!(a.len(), b.len(), "the populations must be the same size");
         for (x, y) in a.iter().zip(b.iter()) {
             assert_eq!(x, y, "a jumped clock must be bit-identical to a run one");
@@ -2592,7 +2985,10 @@ mod tests {
         println!(
             "after leg 1 (wind FROM north, 600 s): oldest puff dx = {:.1} m, dy = {:.1} m, \\
              path = {:.1} m, age = {:.0} s",
-            after_leg_1.dx_m, after_leg_1.dy_m, after_leg_1.path_m, after_leg_1.age_s(steps_after_leg_1)
+            after_leg_1.dx_m,
+            after_leg_1.dy_m,
+            after_leg_1.path_m,
+            after_leg_1.age_s(steps_after_leg_1)
         );
         assert!(
             after_leg_1.dy_m < -1.0 && after_leg_1.dx_m.abs() < 1e-9,
@@ -2728,6 +3124,7 @@ mod tests {
             meteorology: channel.meteorology(),
             cells: channel.field_cells(),
             plume_time_s: 600.0,
+            weighting: FieldWeighting::ChiOverQ,
         };
         let grid = channel.compute_field(&config, &key);
 
@@ -2759,10 +3156,7 @@ mod tests {
         let up = 0; // distance index 0, sector 0 -> bearing 0, due north
         let down = RECEPTOR_SECTORS / 2; // sector at bearing 180, due south
 
-        let (dx, dy) = (
-            ring[down].x.get::<meter>(),
-            ring[down].y.get::<meter>(),
-        );
+        let (dx, dy) = (ring[down].x.get::<meter>(), ring[down].y.get::<meter>());
         let cell = cell_at(dx, dy);
         println!(
             "LIVE RING SAMPLE vs FIELD CELL (wind from north 3 m/s, class B, t = 600 s)\n  \
@@ -2776,7 +3170,11 @@ mod tests {
             cell,
             grid.cells,
             2.0 * grid.half_width_m / grid.cells as f64,
-            if cell > 0.0 { live[down] / cell } else { f64::INFINITY },
+            if cell > 0.0 {
+                live[down] / cell
+            } else {
+                f64::INFINITY
+            },
             live[up],
         );
 
@@ -2945,6 +3343,7 @@ mod tests {
             meteorology: channel.meteorology(),
             cells: channel.field_cells(),
             plume_time_s: 600.0,
+            weighting: FieldWeighting::ChiOverQ,
         };
         channel.advance_population(&config, 600.0);
         // Warm-up: the GPU adapter probe and the first allocation.
@@ -3117,12 +3516,16 @@ mod tests {
             cells: wanted,
             ..MapFieldRequest::default()
         });
-        assert_eq!(channel.field_cells(), wanted, "a request inside the range must pass through");
+        assert_eq!(
+            channel.field_cells(),
+            wanted,
+            "a request inside the range must pass through"
+        );
 
         channel.refresh_field(600.0);
         let grid = channel.grid_cache.as_ref().expect("a field was computed");
         assert_eq!(grid.cells, wanted);
-        assert_eq!(grid.chi_over_q.len(), wanted * wanted);
+        assert_eq!(grid.values.len(), wanted * wanted);
     }
 
     /// **The instantaneous field puts the plume downwind and dilutes it with
@@ -3164,7 +3567,7 @@ mod tests {
         );
 
         let (peak_index, peak) = grid
-            .chi_over_q
+            .values
             .iter()
             .enumerate()
             .max_by(|a, b| a.1.total_cmp(b.1))
@@ -3175,5 +3578,614 @@ mod tests {
             peak_row > centre,
             "the peak must lie south of the release point, not at row {peak_row}"
         );
+    }
+
+    /// **The absolute arm equals the per-Ci arm times the inventory, at every
+    /// receptor and for every nuclide** (maintainer direction 2026-09-28).
+    ///
+    /// # Methodology
+    ///
+    /// Release channel at a 1200 K kernel / 950 K graphite. Both source terms
+    /// ([`AtmosphericDispersionChannel::source_term_per_ci`] and
+    /// [`AtmosphericDispersionChannel::source_term_absolute`]) are surveyed
+    /// through the SAME dilution factors ([`AtmosphericDispersionChannel::dilution_pair`]).
+    /// For each receptor and nuclide, `absolute == per_Ci x inventory[Ci]`,
+    /// with the inventory from `htr10_core_inventory_bq` (Liu & Cao 2002
+    /// Table 1 via `changi`). Also checked at the source (released Bq) and on
+    /// the summed release rate. Pass: relative error < 1e-9 (the release
+    /// channel's own linearity gate, `the_absolute_arm_is_linear_in_inventory`).
+    ///
+    /// # Results (2026-09-28)
+    ///
+    /// Passes. Printed: absolute rate 9.515402 Bq/s, per-Ci rate 2.604345e-5
+    /// Bq/s per Ci, worst relative error **5.7e-16** (round-off). **Interpretation:** the absolute columns are the per-Ci
+    /// transfer function scaled by the published inventory and nothing else
+    /// -- so they inherit every caveat of both, and add no physics.
+    #[test]
+    fn absolute_arm_is_per_ci_times_inventory_at_every_receptor() {
+        use super::super::fission_product_release::htr10_core_inventory_bq;
+        let release = release_at(1200.0);
+        let channel = AtmosphericDispersionChannel::new();
+        let config = channel.run_config();
+        let (air, ground) = channel.dilution_pair(&config);
+        let deposition = DepositionVelocities::order_of_magnitude_placeholder();
+        let per_ci_term = channel.source_term_per_ci(&release, config.duration);
+        let abs_term =
+            AtmosphericDispersionChannel::source_term_absolute(&release, config.duration)
+                .expect("all five tracked nuclides have a published inventory");
+        let per_ci = survey(&per_ci_term, &air, &ground, &deposition);
+        let absolute = survey(&abs_term, &air, &ground, &deposition);
+
+        let inventory_ci: Vec<f64> = release
+            .latest()
+            .iter()
+            .map(|r| htr10_core_inventory_bq(r.name).expect("published") / 3.7e10)
+            .collect();
+        let rel = |got: f64, want: f64| {
+            if want == 0.0 {
+                got.abs()
+            } else {
+                (got - want).abs() / want.abs()
+            }
+        };
+
+        let mut worst = 0.0_f64;
+        for (i, n) in abs_term.nuclides.iter().enumerate() {
+            let want =
+                per_ci_term.nuclides[i].total_released().get::<becquerel>() * inventory_ci[i];
+            worst = worst.max(rel(n.total_released().get::<becquerel>(), want));
+        }
+        for receptor in 0..RECEPTOR_COUNT {
+            for (i, (a, p)) in absolute
+                .at(receptor)
+                .iter()
+                .zip(per_ci.at(receptor))
+                .enumerate()
+            {
+                assert_eq!(a.label, p.label);
+                worst = worst.max(rel(
+                    a.air.becquerel_seconds_per_cubic_meter(),
+                    p.air.becquerel_seconds_per_cubic_meter() * inventory_ci[i],
+                ));
+                worst = worst.max(rel(
+                    a.ground.becquerel_per_square_meter(),
+                    p.ground.becquerel_per_square_meter() * inventory_ci[i],
+                ));
+            }
+        }
+        // The summed rate: sum_i perCi_rate_i * inventory_i.
+        let want_rate: f64 = release
+            .latest()
+            .iter()
+            .zip(&inventory_ci)
+            .map(|(r, ci)| per_ci_stack_rate(r) * ci)
+            .sum();
+        let got_rate = absolute_release_rate_bq_per_s(&release).expect("available");
+        worst = worst.max(rel(got_rate, want_rate));
+        println!(
+            "absolute rate {got_rate:.6e} Bq/s, per-Ci rate {:.6e} Bq/s per Ci; \
+             worst relative error absolute vs per-Ci x inventory: {worst:.3e}",
+            per_ci_release_rate_bq_per_s(&release)
+        );
+        assert!(got_rate > 0.0, "a 1200 K kernel must release something");
+        assert!(
+            worst < 1e-9,
+            "absolute != per-Ci x inventory: worst rel {worst:e}"
+        );
+    }
+
+    /// **The per-Ci columns are unchanged by the absolute arm.**
+    ///
+    /// Methodology: the per-Ci columns `evaluate` reports are compared,
+    /// bit-for-bit, with a survey of the per-Ci source term alone through the
+    /// same dilution factors -- the computation `evaluate` did before the
+    /// absolute arm existed. Result (2026-09-28): identical. A leak of the
+    /// absolute arm into the per-Ci columns would fail this exactly.
+    #[test]
+    fn the_per_ci_columns_are_unchanged_by_the_absolute_arm() {
+        let release = release_at(1200.0);
+        let channel = AtmosphericDispersionChannel::new();
+        let result = channel.evaluate(0.0, &release);
+        let config = channel.run_config();
+        let (air, ground) = channel.dilution_pair(&config);
+        let alone = survey(
+            &channel.source_term_per_ci(&release, config.duration),
+            &air,
+            &ground,
+            &DepositionVelocities::order_of_magnitude_placeholder(),
+        );
+        for (i, r) in result.receptors.iter().enumerate() {
+            assert_eq!(
+                r.air_bq_s_per_m3,
+                alone.total_air(i).becquerel_seconds_per_cubic_meter()
+            );
+            assert_eq!(
+                r.ground_bq_per_m2,
+                alone.total_ground(i).becquerel_per_square_meter()
+            );
+            assert!(r.air_bq_s_per_m3_absolute.is_some() && r.ground_bq_per_m2_absolute.is_some());
+        }
+        assert_eq!(
+            result.source_rate_per_ci_bq_per_s,
+            per_ci_release_rate_bq_per_s(&release)
+        );
+        assert!(result.source_rate_absolute_bq_per_s.is_some());
+    }
+
+    /// **Decay in transit is negligible over one puff lifetime**, which is the
+    /// approximation the map's `chi/Q x release rate` product makes (the field
+    /// is the non-decaying `chi/Q`; the survey columns do apply decay).
+    ///
+    /// Methodology: for every tracked nuclide, `1 - exp(-lambda * T)` with
+    /// `lambda` from the release channel (TRISO-ATOPS's own half-lives, not
+    /// typed here) and `T` the run's `puff_duration`. Pass: < 0.2 % -- the
+    /// figure the Map tab's absolute table quotes.
+    ///
+    /// Results (2026-09-28): the worst is Xe-133, **0.1833 %** lost over
+    /// 1200 s; every other tracked nuclide less.
+    #[test]
+    fn decay_in_transit_is_negligible_over_one_puff_lifetime() {
+        let release = release_at(1200.0);
+        let lifetime = AtmosphericDispersionChannel::new()
+            .run_config()
+            .puff_duration
+            .get::<second>();
+        let mut worst = (0.0_f64, "");
+        for r in release.latest() {
+            let lambda = r.decay_constant.get::<uom::si::frequency::hertz>();
+            let lost = 1.0 - (-lambda * lifetime).exp();
+            if lost > worst.0 {
+                worst = (lost, r.name);
+            }
+        }
+        println!(
+            "worst decay over {lifetime} s: {} lost {:.4} %",
+            worst.1,
+            worst.0 * 100.0
+        );
+        assert!(
+            worst.0 < 2.0e-3,
+            "{} loses {:.3e} over one puff life",
+            worst.1,
+            worst.0
+        );
+    }
+
+    // ----- Map puff model, dose-rate field (2026-09-29) -----------------
+
+    /// The air-pathway dose-rate factor [µSv/h per s/m^3] for a result's
+    /// per-nuclide release, through `physics::dose_rate` (buangkok).
+    fn dose_factor(result: &DispersionResult) -> f64 {
+        let rates = result
+            .source_rate_absolute_by_nuclide_bq_per_s
+            .map(|r| r.unwrap_or(f64::NAN));
+        crate::physics::dose_rate::air_dose_rate_per_unit_chi_over_q(
+            &rates,
+            crate::physics::dose_rate::coefficients(),
+        )
+    }
+
+    /// Peak instantaneous ring chi/Q and its bearing/distance.
+    fn ring_peak(result: &DispersionResult) -> (f64, f64, f64) {
+        result
+            .receptors
+            .iter()
+            .map(|r| (r.instantaneous_chi_over_q, r.bearing_deg, r.distance_m))
+            .fold(
+                (0.0, f64::NAN, f64::NAN),
+                |a, b| if b.0 > a.0 { b } else { a },
+            )
+    }
+
+    /// A channel on `meteorology`, marched one full puff lifetime (1200 s) so
+    /// the population has settled, then evaluated.
+    fn settled(
+        meteorology: Meteorology,
+        release: &TrisoAtopsReleaseChannel,
+    ) -> (AtmosphericDispersionChannel, DispersionResult) {
+        let mut channel = AtmosphericDispersionChannel::new();
+        channel.set_meteorology(meteorology);
+        // `update` stamps the emission rates the puffs then carry (gh:#400).
+        assert!(channel.update(0.0, release));
+        channel.refresh_field(1200.0);
+        let result = channel.evaluate(1200.0, release);
+        (channel, result)
+    }
+
+    /// **Rotating the direction only rotates the plume** (the map's policy,
+    /// maintainer direction 2026-09-29; `map_puff_model`).
+    ///
+    /// # Methodology
+    ///
+    /// Settle a plume on the map configuration (inter-monsoon, class B fixed,
+    /// 1 m/s) from 0 deg, then do what `HtgrPlant` does on a direction command:
+    /// `rotate_population_to(new)` then `set_meteorology(new)`, for 90, 180
+    /// and 270 deg, and re-evaluate at the same clock. Those three angles map
+    /// the 8-sector receptor ring AND the square field grid onto themselves,
+    /// so the only difference permitted is floating point:
+    ///
+    /// - peak ring LIVE chi/Q and peak air dose rate unchanged within
+    ///   **1e-5 relative**: the ring sample is an f32 sum of ~120 puff
+    ///   contributions (`changi::puff::wgsl::contribution`), whose rounding is
+    ///   bounded by ~120 x eps_f32 = 1.4e-5 in the worst case and is far
+    ///   smaller in practice; the rotated positions themselves differ from the
+    ///   exact ones by cos(pi/2) = 6e-17 relative;
+    /// - the peak moves by exactly the rotation angle;
+    /// - the field's peak cell value unchanged within the same 1e-5.
+    ///
+    /// For an angle that is NOT a grid symmetry (37 deg), orientation-only is
+    /// checked on the population itself: every puff's distance from the stack
+    /// and path length are unchanged (1e-9 m), since the ring and grid would
+    /// otherwise differ by sampling alone.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Pass. Worst relative change of ring peak, peak dose rate and field peak
+    /// over the three rotations: **0** (bit-identical). Interpretation: on the
+    /// map, turning the direction is now a pure rotation of the plume.
+    #[test]
+    fn rotating_the_direction_only_rotates_the_plume() {
+        use crate::physics::map_puff_model::map_meteorology;
+        let release = release_at(1200.0);
+        let (base_channel, base) = settled(map_meteorology(1.0, 0.0), &release);
+        let (base_chi, base_bearing, base_dist) = ring_peak(&base);
+        let base_field = base.grid.peak();
+        let k = dose_factor(&base);
+        assert!(k.is_finite() && k > 0.0);
+        let mut worst = 0.0_f64;
+        for turn in [90.0, 180.0, 270.0] {
+            let mut ch = base_channel.clone();
+            let m = map_meteorology(1.0, turn);
+            ch.rotate_population_to(m.direction_from);
+            ch.set_meteorology(m);
+            let r = ch.evaluate(1200.0, &release);
+            let (chi, bearing, dist) = ring_peak(&r);
+            let rel = ((chi - base_chi) / base_chi).abs();
+            let rel_dose = ((chi * dose_factor(&r) - base_chi * k) / (base_chi * k)).abs();
+            let rel_field = ((r.grid.peak() - base_field) / base_field).abs();
+            worst = worst.max(rel).max(rel_dose).max(rel_field);
+            assert!(
+                rel <= 1e-5 && rel_dose <= 1e-5,
+                "turn {turn}: ring peak {chi:e} vs {base_chi:e}"
+            );
+            assert!(
+                rel_field <= 1e-5,
+                "turn {turn}: field peak {} vs {base_field}",
+                r.grid.peak()
+            );
+            assert_eq!(dist, base_dist);
+            let off = (bearing - (base_bearing + turn)).rem_euclid(360.0);
+            assert!(
+                off.min(360.0 - off) < 1e-9,
+                "turn {turn}: peak at {bearing}, expected {}",
+                base_bearing + turn
+            );
+        }
+        // A non-symmetry angle: distances and paths are untouched.
+        let mut ch = base_channel.clone();
+        let before: Vec<(f64, f64)> = ch
+            .puffs
+            .iter()
+            .map(|p| (p.dx_m.hypot(p.dy_m), p.path_m))
+            .collect();
+        ch.rotate_population_to(map_meteorology(1.0, 37.0).direction_from);
+        for (p, (d, path)) in ch.puffs.iter().zip(before) {
+            assert!((p.dx_m.hypot(p.dy_m) - d).abs() < 1e-9 && p.path_m == path);
+        }
+        println!("rotation: worst relative change of ring peak / dose / field peak = {worst:e}");
+    }
+
+    /// **Every map basis and table reads one puff-model configuration.**
+    ///
+    /// The GUI builds the plant command through `plant_commands_from` ->
+    /// `map_puff_model::map_meteorology` and nowhere else; the channel runs one
+    /// result per evaluation, and every basis (Absolute, Per Ci, chi/Q, Dose
+    /// rate) and every table is a function of that one result. Checked here:
+    /// the command the GUI builds from a default snapshot is exactly
+    /// `map_meteorology(default speed, default direction)`, it carries the
+    /// fixed class, and the channel reports that class as the one that ran --
+    /// at every slider speed.
+    #[test]
+    fn every_map_basis_reads_the_one_map_puff_model() {
+        use crate::physics::map_puff_model::{map_meteorology, map_stability_class, MAX_SPEED_M_PER_S};
+        let mut s = crate::app::state::HtgrSnapshot::default();
+        let cmd = crate::app::plant_commands_from(&s).meteorology;
+        assert_eq!(cmd, map_meteorology(1.0, 0.0));
+        assert_eq!(cmd.stability, StabilitySource::Fixed(map_stability_class()));
+        let release = release_at(1200.0);
+        for u in [0.5, 1.9, 2.5, 3.5, 4.99, MAX_SPEED_M_PER_S, 9.0] {
+            s.wind_speed_m_per_s = u;
+            let cmd = crate::app::plant_commands_from(&s).meteorology;
+            let mut ch = AtmosphericDispersionChannel::new();
+            ch.set_meteorology(cmd);
+            let r = ch.evaluate(0.0, &release);
+            assert_eq!(r.stability, Some(map_stability_class()), "u = {u}");
+            assert!(cmd.speed.get::<meter_per_second>() <= MAX_SPEED_M_PER_S);
+        }
+    }
+
+    /// **Peak ring dose rate by regime -- is inter-monsoon the highest
+    /// reading?** Evidence for the maintainer's regime choice (2026-09-29).
+    ///
+    /// # Methodology
+    ///
+    /// For every `changi::puff::climatology::SingaporeWind` regime at its
+    /// representative speed (changi's API, unchanged), at midday (12) and
+    /// midnight (0), and for EACH class changi's lookup gives at that speed
+    /// and hour (both, where the pair is ambiguous), held fixed: settle one
+    /// puff lifetime (1200 s) from 0 deg, evaluate, and take the peak
+    /// instantaneous air dose rate on the 24-receptor ring (peak LIVE chi/Q x
+    /// the buangkok air factor), the peak over the whole field grid, and the
+    /// peak ground-shine rate on the ring. Release: 1200 K kernel, the same
+    /// case as the other tests. The air factor is common to every row (same
+    /// nuclide mix), so the ranking does not depend on the release magnitude.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Pass. Full 13-row table in `reference/References.md` ("Map puff
+    /// model"). Peak ring air dose rate [µSv/h]: inter-monsoon day B
+    /// **1.625e-7** (maximum; field 2.269e-7), inter-monsoon day A 9.587e-8,
+    /// inter-monsoon night E 1.559e-7, SW monsoon day B 8.125e-8, NE monsoon
+    /// day C 8.280e-8, NE surge D **1.997e-8** (minimum). Interpretation: the
+    /// maintainer's inter-monsoon choice IS the highest reading, with class B;
+    /// the high-speed surge would have been the least conservative. The final
+    /// assertion ties the map's fixed configuration to this maximum.
+    #[test]
+    fn peak_ring_dose_rate_by_regime() {
+        use changi::puff::climatology::SingaporeWind;
+        let release = release_at(1200.0);
+        let mut rows = Vec::new();
+        for regime in SingaporeWind::ALL {
+            for hour in [12_u32, 0] {
+                let set = regime.stability(hour);
+                for class in [Some(set.primary()), set.secondary()].into_iter().flatten() {
+                    let m = Meteorology {
+                        speed: regime.speed(),
+                        direction_from: Angle::new::<degree>(0.0),
+                        hour,
+                        stability: StabilitySource::Fixed(class),
+                    };
+                    let (_, r) = settled(m, &release);
+                    let k = dose_factor(&r);
+                    let (chi, bearing, dist) = ring_peak(&r);
+                    let ground_peak = r
+                        .receptors
+                        .iter()
+                        .map(|rc| {
+                            let split = crate::physics::dose_rate::receptor_split(
+                                rc.instantaneous_chi_over_q,
+                                &r.source_rate_absolute_by_nuclide_bq_per_s
+                                    .map(|x| x.unwrap_or(f64::NAN)),
+                                &rc.ground_bq_per_m2_absolute_by_nuclide,
+                                crate::physics::dose_rate::coefficients(),
+                            );
+                            crate::physics::dose_rate::pathway_total(
+                                &split,
+                                crate::physics::dose_rate::Pathway::GroundShine,
+                            )
+                            .0
+                        })
+                        .fold(0.0, f64::max);
+                    rows.push((
+                        regime,
+                        hour,
+                        class,
+                        chi * k,
+                        r.grid.peak() * k,
+                        ground_peak,
+                        bearing,
+                        dist,
+                    ));
+                }
+            }
+        }
+        println!("| regime | speed | hour | class | peak ring air dose rate [uSv/h] | at | peak field air [uSv/h] | peak ring ground shine [uSv/h] |");
+        for (regime, hour, class, ring, field, ground, b, d) in &rows {
+            println!(
+                "| {} | {} m/s | {hour} | {} | {ring:.3e} | {b:.0} deg {d:.0} m | {field:.3e} | {ground:.3e} |",
+                regime.label(),
+                regime.speed().get::<meter_per_second>(),
+                class.letter()
+            );
+        }
+        let best = rows.iter().max_by(|a, b| a.3.total_cmp(&b.3)).unwrap();
+        println!(
+            "highest peak ring air dose rate: {} hour {} class {}",
+            best.0.label(),
+            best.1,
+            best.2.letter()
+        );
+        assert!(rows.iter().all(|r| r.3.is_finite() && r.3 > 0.0));
+        // The map's fixed configuration is the maximum. If this fails the
+        // regime/class choice in `map_puff_model` needs revisiting with the
+        // maintainer -- it must not be silently re-pointed.
+        use crate::physics::map_puff_model::{MAP_CLASS, MAP_HOUR, MAP_REGIME};
+        assert_eq!((best.0, best.1, best.2), (MAP_REGIME, MAP_HOUR, MAP_CLASS));
+    }
+
+    /// **GPU and CPU dose-rate fields agree, and what each costs** (maintainer
+    /// direction 2026-09-29: "petir shaders are used to reduce the calc time
+    /// for the dose rate maps").
+    ///
+    /// # Methodology
+    ///
+    /// Settle the map configuration, take the channel's own puff states
+    /// (`field_states`), and evaluate the chi/Q field at **512 x 512** (the
+    /// map's GPU resolution) three ways: `changi::puff::wgsl::field_gpu`
+    /// (petir's WGSL runner), `field_serial` (the reference) and
+    /// `field_pooled` (the no-adapter fallback `field_auto` takes). ~~The dose
+    /// field is each x the buangkok air factor, in f64 -- exactly what the map
+    /// texture does per pixel.~~ **CORRECTED 2026-09-29 (gh:#400)**: the puff
+    /// states carry the dose weighting themselves (`field_states` with
+    /// `FieldWeighting::DoseRateUsvPerH`, each puff at its emission's rate), so
+    /// the three runners sum the dose-rate field directly, as the map does.
+    ///
+    /// Tolerance: **1e-4 relative + eps_f32 x field peak absolute.** The
+    /// relative part is changi's own GPU-vs-serial budget for the chi/Q field
+    /// (`field_gpu_agrees_with_the_serial_reference`): a 120-term f32 sum
+    /// (~120 eps_f32 = 1.4e-5) plus the GPU's `exp` error (WGSL allows 3 + 2|x|
+    /// ULP). The absolute part, one f32 ulp of the peak, covers the deep tail
+    /// where a GPU flushes denormals to zero. Timing: median of
+    /// 5 after a warm-up, printed. Skips the GPU half cleanly with no adapter.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Re-run after gh:#400 (dose weighting in the puff states): pass, 120
+    /// puffs, GPU 1.44 ms, pool 249 ms, serial 378 ms, worst relative 8.7e-7,
+    /// worst absolute 3.0e-7 of the peak (7.155e-8 µSv/h). Earlier run:
+    ///
+    /// Pass, 120 puffs at 512 x 512, on this host (16 logical cores, one
+    /// adapter; run at `-j2` beside other builds): GPU (petir WGSL) **1.5-2.8
+    /// ms**, changi pool (the fallback) 174-181 ms, serial 282-345 ms, the
+    /// factor pass alone 0.06 ms. Worst GPU-vs-serial relative difference
+    /// within three decades of the peak **7.6e-7**; worst absolute 2.7e-7 of
+    /// the peak. Interpretation: the dose-rate map rides the existing petir
+    /// GPU field at ~100x the CPU fallback's speed, and the two agree well
+    /// inside the f32 budget.
+    #[test]
+    fn the_dose_rate_field_agrees_gpu_vs_cpu() {
+        use changi::puff::wgsl::{field_gpu, field_pooled, field_serial, FieldGrid};
+        use crate::physics::map_puff_model::map_meteorology;
+        let release = release_at(1200.0);
+        let (ch, _) = settled(map_meteorology(1.0, 0.0), &release);
+        let states = ch.field_states(&ch.run_config(), FieldWeighting::DoseRateUsvPerH);
+        let grid = FieldGrid {
+            cells: 512,
+            half_width_m: GRID_HALF_WIDTH_M as f32,
+            source_height_m: Htr10SiteInputs::RELEASE_HEIGHT_M as f32,
+        };
+        let median = |f: &dyn Fn() -> Vec<f64>| -> (Vec<f64>, f64) {
+            let out = f();
+            let mut t: Vec<f64> = (0..5)
+                .map(|_| {
+                    let start = std::time::Instant::now();
+                    std::hint::black_box(f());
+                    start.elapsed().as_secs_f64() * 1e3
+                })
+                .collect();
+            t.sort_by(f64::total_cmp);
+            (out, t[2])
+        };
+        let (serial, t_serial) = median(&|| {
+            field_serial(&states, &grid)
+                .into_iter()
+                .map(|v| v as f64)
+                .collect()
+        });
+        let (_pooled, t_pooled) = median(&|| {
+            field_pooled(&states, &grid)
+                .into_iter()
+                .map(|v| v as f64)
+                .collect()
+        });
+        let peak = serial.iter().copied().fold(0.0, f64::max);
+        println!(
+            "{} puffs, 512x512 dose-rate field: serial {t_serial:.2} ms, pooled {t_pooled:.2} ms; \
+             peak {peak:.3e} uSv/h",
+            states.len()
+        );
+        if field_gpu(&states, &grid).is_none() {
+            eprintln!("SKIP GPU half of the_dose_rate_field_agrees_gpu_vs_cpu: no GPU adapter");
+            return;
+        }
+        let (gpu, t_gpu) = median(&|| {
+            field_gpu(&states, &grid)
+                .unwrap()
+                .into_iter()
+                .map(|v| v as f64)
+                .collect()
+        });
+        let (mut worst_rel, mut worst_abs) = (0.0_f64, 0.0_f64);
+        for (a, b) in gpu.iter().zip(serial.iter()) {
+            let tol = b.abs() * 1e-4 + f32::EPSILON as f64 * peak;
+            assert!((a - b).abs() <= tol, "GPU {a:e} vs CPU {b:e}");
+            worst_abs = worst_abs.max((a - b).abs());
+            // Relative error where it is meaningful: cells within three
+            // decades of the peak (the colour ramp spans ~3.1 decades).
+            if b.abs() > 1e-3 * peak {
+                worst_rel = worst_rel.max((a - b).abs() / b.abs());
+            }
+        }
+        println!(
+            "GPU (petir WGSL) {t_gpu:.2} ms; worst relative difference vs serial within 3 decades \
+             of the peak {worst_rel:e}; worst absolute {:e} of the peak",
+            worst_abs / peak
+        );
+    }
+
+    /// **A release-rate change reaches only the puffs emitted after it**
+    /// (gh:#400, the fix for #346's whole-plume rescale).
+    ///
+    /// # Methodology
+    ///
+    /// Map puff model (inter-monsoon, class B, 1 m/s from 0 deg). Emit for
+    /// 1200 s at the 1200 K kernel release, then switch the release channel to
+    /// the 1600 K kernel release through `update` (the path the plant takes)
+    /// and sum the Absolute-weighted field (`field_serial`, CPU, deterministic)
+    /// at 64 x 64:
+    ///
+    /// 1. **at the moment of the switch**, before any puff has been emitted at
+    ///    the new rate, the field must be bit-identical to the field just
+    ///    before it. The pre-#400 map multiplied the whole instantaneous `chi/Q`
+    ///    field by today's rate, so it would have jumped by the rate ratio;
+    /// 2. **after 2400 s** (two puff lifetimes, so every puff was emitted at the
+    ///    new rate), the Absolute field over the `chi/Q` field at the peak cell
+    ///    equals the new absolute rate within one f32 epsilon (1.19e-7)
+    ///    relative, the f32 storage of the weighted puff weight.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Printed by the test: rate ratio new/old, and the step-2 relative error.
+    #[test]
+    fn a_rate_change_reaches_only_puffs_emitted_after_it() {
+        use changi::puff::wgsl::{field_serial, FieldGrid};
+        use crate::physics::map_puff_model::map_meteorology;
+        let low = release_at(1200.0);
+        let high = release_at(1600.0);
+        let rate_low = absolute_release_rate_bq_per_s(&low).expect("available");
+        let rate_high = absolute_release_rate_bq_per_s(&high).expect("available");
+        assert!(rate_high > 1.5 * rate_low, "{rate_high} vs {rate_low}");
+
+        let mut ch = AtmosphericDispersionChannel::new();
+        ch.set_meteorology(map_meteorology(1.0, 0.0));
+        assert!(ch.update(0.0, &low));
+        let config = ch.run_config();
+        ch.advance_population(&config, 1200.0);
+        let grid = FieldGrid {
+            cells: 64,
+            half_width_m: GRID_HALF_WIDTH_M as f32,
+            source_height_m: Htr10SiteInputs::RELEASE_HEIGHT_M as f32,
+        };
+        let field = |ch: &AtmosphericDispersionChannel, w: FieldWeighting| {
+            field_serial(&ch.field_states(&ch.run_config(), w), &grid)
+        };
+        let before = field(&ch, FieldWeighting::AbsoluteBqPerM3);
+        assert!(
+            ch.update(1200.0, &high),
+            "the evaluation throttle must allow this update"
+        );
+        let at_switch = field(&ch, FieldWeighting::AbsoluteBqPerM3);
+        assert_eq!(
+            before, at_switch,
+            "no puff has been emitted at the new rate yet"
+        );
+        assert!(before.iter().any(|v| *v > 0.0));
+
+        ch.advance_population(&config, 3600.0);
+        let absolute = field(&ch, FieldWeighting::AbsoluteBqPerM3);
+        let chi = field(&ch, FieldWeighting::ChiOverQ);
+        let (peak, _) = chi
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .expect("populated");
+        let ratio = absolute[peak] as f64 / chi[peak] as f64;
+        let rel = (ratio - rate_high).abs() / rate_high;
+        println!(
+            "rate ratio new/old {:.4}; after turnover Absolute/chiQ at the peak {ratio:.6e} vs \
+             rate {rate_high:.6e} Bq/s (rel {rel:.2e})",
+            rate_high / rate_low
+        );
+        assert!(rel <= f32::EPSILON as f64, "{rel:e}");
     }
 }

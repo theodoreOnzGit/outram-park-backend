@@ -23,10 +23,16 @@
 //!
 //! # What is ILLUSTRATIVE here
 //!
-//! - **`beta = 0.0065`** is the kinetics layer's illustrative delayed-neutron
-//!   fraction, not an HTR-10 evaluation. Every dollar figure below inherits
-//!   that. The underlying `%dk/k` values are the published ones; the conversion
-//!   to dollars is only as good as `beta`.
+//! - ~~**`beta = 0.0065`** is the kinetics layer's illustrative delayed-neutron
+//!   fraction~~ **CORRECTED 2026-09-29 (gh:#387):** dollars are converted at
+//!   the kinetics' single `beta_eff = 7.26e-3` (Chen et al. 2009 Table 1), the
+//!   same `beta` the prompt layer and the delayed bank use. Dollar figures in
+//!   this module's docs that were computed at 0.0065 are marked where they
+//!   appear; the underlying `%dk/k` values are the published ones.
+//! - **The rod worth and the feedback reference are demo-grade.** The worth
+//!   is cold-clean (20 degC) while the kinetics' feedback zero is an
+//!   illustrative 950 K seed (gh:#387 sections 1-2). Filed for future
+//!   validation as **gh:#408**; not changed.
 //! - **One bank, not ten rods.** The ten rods move together here. HTR-10's rods
 //!   are individually drivable and the benchmark reports a single rod at
 //!   1.413 %dk/k (B32, MCNP) -- roughly a tenth of the bank, so bank worth is
@@ -149,9 +155,11 @@ pub fn inserted_worth_fraction(insertion_fraction: f64) -> f64 {
 ///
 /// `rho_ext($) = [rho_excess - W * S(x)] / beta`
 ///
-/// `beta` is passed in rather than hardcoded so this stays consistent with
-/// whatever the kinetics layer is actually using -- see the module docs on why
-/// every dollar figure here is only as good as that `beta`.
+/// `beta` is passed in rather than hardcoded; the plant passes the kinetics'
+/// own `beta_eff` (7.26e-3), the one `beta` every other dollar term uses
+/// (gh:#387). ~~"stays consistent with whatever the kinetics layer is
+/// actually using"~~ was not true until 2026-09-29: the plant passed the
+/// delayed bank's 0.0065 while the prompt layer used 7.26e-3.
 pub fn external_reactivity_dollars(insertion_fraction: f64, beta: f64) -> f64 {
     let net_dk_k =
         cold_clean_excess_dk_k() - bank_worth_dk_k() * inserted_worth_fraction(insertion_fraction);

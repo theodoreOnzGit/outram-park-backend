@@ -353,6 +353,7 @@ pub fn draw_controls(
         "Reactivity margin: {:+.3} $",
         snapshot.reactivity_margin_dollars
     ));
+    draw_reactivity_budget(ui, snapshot);
     // Reference marker: where the published bank worth and cold clean excess
     // imply criticality. Indicative only -- it carries no burnup, xenon or
     // temperature defect, so it is not where HTR-10's rods actually sit. The
@@ -604,9 +605,15 @@ fn draw_secondary_controls(
     // puff model cannot represent at all (nothing advects, so the puffs pile
     // up at the source and the model's own travel-distance sigmas are
     // undefined). Stated rather than silently clamped.
+    //
+    // ~~0.5..=15.0~~ CHANGED 2026-09-29, maintainer: "limit the upper limit of
+    // the slider to 5 m/s so we don't change regime". The map's regime and
+    // Pasquill class are fixed (`map_puff_model`); speed only scales dilution
+    // and advection.
+    use crate::physics::map_puff_model::{MAX_SPEED_M_PER_S, MIN_SPEED_M_PER_S};
     let speed_changed = ui
         .add(
-            egui::Slider::new(&mut wind_speed, 0.5..=15.0)
+            egui::Slider::new(&mut wind_speed, MIN_SPEED_M_PER_S..=MAX_SPEED_M_PER_S)
                 .text("wind speed (m/s)")
                 .drag_value_speed(0.01),
         )
@@ -633,6 +640,7 @@ fn draw_secondary_controls(
         ));
     });
 
+    ui.small(crate::physics::map_puff_model::regime_label());
     ui.small(
         "Meteorological convention: the direction the wind blows FROM. A wind \
          from 0 deg (north) carries the plume SOUTH. Below 0.5 m/s a Gaussian \
@@ -1028,6 +1036,53 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             temperature_row(ui, "Cooling-water outlet", s.cooling_water_outlet_temp_k);
         });
+}
+
+/// **Reactivity budget**: each term the kinetics integrate, in dollars and in
+/// pcm, and their net (highlighted). Every value is read off
+/// [`HtgrSnapshot`], which the physics fills from `HtgrKinetics`' own terms;
+/// nothing is re-derived here except the display conversion
+/// [`crate::app::state::reactivity_pcm`], at the kinetics' own `beta`.
+///
+/// The external term is what the kinetics were handed (after any scram
+/// demand), so it can differ from the "External reactivity" line above, the
+/// operator's rod command. Both use the one `beta` (gh:#387, 2026-09-29).
+fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
+    use crate::app::state::reactivity_pcm;
+    let beta = snapshot.kinetics_beta;
+    ui.add_space(4.0);
+    ui.label(egui::RichText::new("Reactivity budget (kinetics' own terms)").strong());
+    let row = |ui: &mut egui::Ui, name: &str, dollars: f64| {
+        ui.label(format!(
+            "  {name}: {dollars:+.4} $  =  {:+.1} pcm",
+            reactivity_pcm(dollars, beta)
+        ));
+    };
+    row(ui, "External (rods)", snapshot.budget_external_dollars);
+    row(ui, "Fuel / Doppler feedback", snapshot.budget_fuel_dollars);
+    row(ui, "Moderator feedback", snapshot.budget_moderator_dollars);
+    row(ui, "Xenon", snapshot.budget_xenon_dollars);
+    ui.label(
+        egui::RichText::new(format!(
+            "  NET: {:+.4} $  =  {:+.1} pcm",
+            snapshot.budget_net_dollars,
+            reactivity_pcm(snapshot.budget_net_dollars, beta)
+        ))
+        .strong()
+        .color(egui::Color32::from_rgb(230, 170, 40)),
+    );
+    ui.small(format!(
+        "One beta everywhere: beta_eff = {beta:.5} ({:.0} pcm, Chen et al. 2009), for \
+         the rods, the prompt layer and the delayed-neutron bank.",
+        beta * 1e5
+    ));
+    ui.small(
+        "Delayed-neutron precursors start EMPTY and fill over the first minutes (the \
+         longest group's ~56 s half-life sets the scale; within 1 % of equilibrium after \
+         245 s at 10 MW). Until then the power sags at 0 $: early-transient numbers are \
+         the precursors filling, not plant behaviour. Decay heat starts at equilibrium \
+         (conservative). Rod worth vs feedback reference is demo-grade (gh:#408).",
+    );
 }
 
 #[cfg(test)]

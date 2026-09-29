@@ -124,6 +124,19 @@ members = [
     # EXISTING outram-park-fork-pflotran rather than write a new solver, but
     # that edge is deliberately not declared until something calls into it.
     "crates/redhill",
+    # bishan — BISHAN (Building Internal Source-term and Hazard Analysis
+    # Network): Level 2 PSA — in-plant severe-accident progression, containment
+    # and building response, in-building aerosol transport and pool scrubbing,
+    # release categories. PLACEHOLDER (2026-09-28): name from the roadmap
+    # slides made visible in the workspace; no code, no deps. Boundary with
+    # SEMBAWANG's severe-accident scope is an open maintainer decision.
+    "crates/bishan",
+    # buangkok — BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear
+    # Guidance, Keeping Operational Knowledge): radiation dose and bioeffects
+    # for research-grade safety analysis. PLACEHOLDER (2026-09-28): no code, no
+    # deps. The home the maintainer chose for dose, so the dispersion and
+    # source-term crates keep their "no dose" boundary.
+    "crates/buangkok",
     # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
     # The low-fidelity counterpart of dhoby-ghaut (maintainer, 2026-09-25).
     # EMPTY SKELETON: details undecided, no code, no deps.
@@ -418,6 +431,8 @@ outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        v
 raffles                      = { path = "crates/raffles",                      version = "0.0.0" }
 petir                        = { path = "crates/petir",                        version = "0.0.0" }
 changi                       = { path = "crates/changi",                       version = "0.0.0" }
+bishan                       = { path = "crates/bishan",                       version = "0.0.1" }
+buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }
@@ -493,6 +508,9 @@ opt-level = 2
 #
 #     RUSTFLAGS="-C force-frame-pointers=yes" \
 #       cargo flamegraph --profile profiling --example htgr_sim_v1 -- --headless 12000 600
+#
+# `scripts/profile-icsbep.sh` (perf + callgrind on the four ICSBEP examples)
+# builds with this profile too, into `target/profiling/`.
 #
 # `debug = 2` rather than `true` (== 2) only to be explicit about full DWARF;
 # `debug = 1` gives line tables without variables and is enough for a

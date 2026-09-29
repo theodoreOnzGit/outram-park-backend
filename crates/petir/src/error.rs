@@ -128,6 +128,16 @@ pub enum PetirError {
     /// Used where a ported routine deliberately covers a subset of upstream's
     /// generality; the calling routine's doc comment states what the subset is.
     Unimplemented,
+    /// `GSL_ESING` as the quadrature routines raise it — "bad integrand
+    /// behavior found in the integration interval" (`integration/qags.c`).
+    ///
+    /// Distinct from [`PetirError::Singular`], which is the linear-algebra
+    /// meaning of the same GSL code (a vanishing pivot) and carries a column.
+    BadIntegrand,
+    /// `GSL_EFAILED` — a generic failure; for QAGS, "could not integrate
+    /// function" (the extrapolated and the summed estimates disagree by more
+    /// than a factor of 100, or the error exceeds the integral).
+    Failed,
 }
 
 impl PetirError {
@@ -157,6 +167,8 @@ impl PetirError {
             PetirError::Diverged => "GSL_EDIVERGE",
             PetirError::NoProgress => "GSL_ENOPROG",
             PetirError::Unimplemented => "GSL_EUNIMPL",
+            PetirError::BadIntegrand => "GSL_ESING",
+            PetirError::Failed => "GSL_EFAILED",
         }
     }
 }
@@ -204,6 +216,11 @@ impl fmt::Display for PetirError {
                 write!(f, "iteration is no longer making progress (GSL_ENOPROG)")
             }
             PetirError::Unimplemented => write!(f, "not implemented in PETIR (GSL_EUNIMPL)"),
+            PetirError::BadIntegrand => write!(
+                f,
+                "bad integrand behaviour in the integration interval (GSL_ESING)"
+            ),
+            PetirError::Failed => write!(f, "could not integrate function (GSL_EFAILED)"),
         }
     }
 }

@@ -32,15 +32,20 @@
 //!   renormalises by their sum (`reaction.py:362-365`). Without it the delayed
 //!   fraction is wrong by however far off unity the file happens to be.
 //!
-//! # DNED is deliberately not read
+//! # ~~DNED is deliberately not read~~ **CORRECTED 2026-09-29 — it is (GitHub #365 audit)**
 //!
-//! `DelayedData` carries no outgoing spectrum on **either** route: the ENDF
+//! ~~`DelayedData` carries no outgoing spectrum on **either** route: the ENDF
 //! route's `DelayedData::from_tape` keeps `DelayedChi`'s `fraction` and drops
 //! its `spectrum`. Reading DNED here would produce data nothing consumes, so
 //! this decodes DNU and BDD and says why the other two are absent rather than
-//! leaving a reader to wonder.
+//! leaving a reader to wonder.~~ Delayed spectra now reach transport on both
+//! routes (`outram_mc_libs::material::nuclide::DelayedData::spectra`, sampled
+//! as OpenMC's `sample_fission_neutron` does). DNEDL gives one DNED-relative
+//! locator per group, and each group's law is read by the same
+//! [`crate::acer::ce_laws::decode_law_chain`] DLW uses
+//! (`openmc/data/reaction.py:355-357`: `AngleEnergy.from_ace(ace, ace.jxs[27],
+//! location_start)`).
 
-use crate::acer::ce_laws::read_ace_tab1;
 use crate::acer::read::RawAceTable;
 use crate::acer::{jxs, nxs};
 use crate::error::NjoyError;
@@ -49,7 +54,7 @@ use crate::error::NjoyError;
 pub const SECONDS_PER_SHAKE: f64 = 1.0e-8;
 
 /// The delayed-neutron data an ACE table carries.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct AceDelayed {
     /// Precursor decay constants λ \[s⁻¹\], in the file's group order.
     pub lambda: Vec<f64>,
@@ -57,9 +62,19 @@ pub struct AceDelayed {
     pub energy: Vec<f64>,
     /// Total delayed ν̄_d aligned with [`Self::energy`].
     pub nu_delayed: Vec<f64>,
+    /// `nu_delayed`'s interpolation regions `(NBT, INT)`, as DNU states them;
+    /// empty means lin-lin (GitHub #365 audit: they used to be dropped).
+    pub nu_delayed_interp: Vec<(u32, u32)>,
     /// Per group, that group's share `p_k(E)` as `(E [eV], fraction)`,
     /// **renormalised** so the shares sum to 1 — see the module docs.
     pub group_fraction: Vec<Vec<(f64, f64)>>,
+    /// Per group, the BDD probability TAB1's interpolation regions; empty
+    /// means lin-lin (GitHub #365 audit).
+    pub group_fraction_interp: Vec<Vec<(u32, u32)>>,
+    /// Per group, that group's outgoing-energy law from DNED, as an MF=5-style
+    /// spectrum (NJOY writes LAW=4). Empty when the table has no DNEDL/DNED;
+    /// otherwise one per group.
+    pub spectra: Vec<crate::nuclear_data::secondary::FissionSpectrum>,
 }
 
 /// Decode DNU + BDD, or `None` when the table carries no delayed data.
@@ -93,7 +108,10 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
     // DNU: `LNU` at the locator, the TAB1 immediately after it. Only LNU=2
     // (tabular) occurs for delayed nu-bar; upstream reads it unconditionally as
     // a TAB1, and a polynomial delayed yield is not a form ACER emits.
-    let (energy, nu_delayed, _) = read_ace_tab1(t, (dnu - 1) as usize + 1, "DNU delayed nu-bar")?;
+    let (dtab, _) =
+        crate::acer::ce_laws::read_tab1_full(t, (dnu - 1) as usize + 1, 1.0, "DNU delayed nu-bar")?;
+    let (energy, nu_delayed): (Vec<f64>, Vec<f64>) = dtab.pairs.iter().copied().unzip();
+    let nu_delayed_interp = dtab.interp;
 
     // BDD: per group, the decay constant then the probability TAB1.
     let bdd = t.jxs[jxs::BDD];
@@ -107,6 +125,7 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
     let mut at = (bdd - 1) as usize;
     let mut lambda = Vec::with_capacity(n_group);
     let mut group_fraction = Vec::with_capacity(n_group);
+    let mut group_fraction_interp = Vec::with_capacity(n_group);
     for g in 0..n_group {
         if at >= t.xss.len() {
             return Err(NjoyError::EndfParse(format!(
@@ -117,8 +136,14 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
         // **Inverse shakes -> inverse seconds.** See the module docs: omitting
         // this is eight orders of magnitude and looks like a number.
         lambda.push(t.xss[at] / SECONDS_PER_SHAKE);
-        let (e, p, next) = read_ace_tab1(t, at + 1, &format!("BDD group {g} probability"))?;
-        group_fraction.push(e.into_iter().zip(p).collect::<Vec<(f64, f64)>>());
+        let (ptab, next) = crate::acer::ce_laws::read_tab1_full(
+            t,
+            at + 1,
+            1.0,
+            &format!("BDD group {g} probability"),
+        )?;
+        group_fraction.push(ptab.pairs);
+        group_fraction_interp.push(ptab.interp);
         at = next;
     }
 
@@ -139,10 +164,35 @@ pub fn decode_delayed(t: &RawAceTable) -> Result<Option<AceDelayed>, NjoyError> 
         }
     }
 
+    // DNEDL/DNED: one law per group. A law that is not an MF=5-style spectrum
+    // (a correlated or two-body law) has no meaning for a delayed neutron and is
+    // refused rather than dropped.
+    let (dnedl, dned) = (t.jxs[jxs::DNEDL], t.jxs[jxs::DNED]);
+    let mut spectra = Vec::new();
+    if dnedl > 0 && dned > 0 {
+        for g in 0..n_group {
+            let at = (dnedl - 1) as usize + g;
+            if at >= t.xss.len() {
+                return Err(NjoyError::EndfParse(format!(
+                    "DNEDL block ends before group {g} of {n_group}"
+                )));
+            }
+            let loc = t.xss[at] as i64;
+            let law = crate::acer::ce_laws::decode_law_chain(t, (dned - 1) as usize, loc)?;
+            let spec = law.as_fission_spectrum().ok_or_else(|| {
+                NjoyError::NotPorted("ACE DNED law that is not an MF=5-style spectrum")
+            })?;
+            spectra.push(spec);
+        }
+    }
+
     Ok(Some(AceDelayed {
         lambda,
         energy,
         nu_delayed,
+        nu_delayed_interp,
         group_fraction,
+        group_fraction_interp,
+        spectra,
     }))
 }

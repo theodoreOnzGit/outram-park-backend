@@ -19,6 +19,15 @@ categories.workspace = true
 # Android-portability claim and GUI deps are not confined to examples/.
 tampines.workspace = true
 nee_soon.workspace = true
+
+# REAL (non-dev) dependencies on the Monte Carlo stack, by maintainer direction
+# (2026-09-29: "digital twin engine can use outram-mc-libs/nee-soon as a
+# dependency ... so no dev there"). Both are already compiled beneath `nee_soon`,
+# so this adds no build work. First consumer: the HIGH-tier Godiva case in
+# `tests/ci_smoke/` (GitHub #415). `njoy-outram-park-fork` is named directly only
+# for `reference_data::reference_endf`, which `outram-mc-libs` does not re-export.
+outram-mc-libs.workspace = true
+njoy-outram-park-fork.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
 # REAL (non-dev) dependency: `components::TurbineVisual` renders
@@ -110,6 +119,9 @@ egui_extras.workspace = true
 # balance solve now uses outram-foam-basic-lib's pure-Rust dense LU `SquareMatrix`
 # (an OpenFOAM port) instead of a BLAS/LAPACK linear solver.
 [dev-dependencies]
+# `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
+# already compiled beneath `tampines`, so this adds no build work.
+outram-foam-multiphase.workspace = true
 teh-o-prke.workspace = true
 # tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
 # its generator model from the library, and libraries cannot see dev-deps); it
@@ -148,6 +160,16 @@ outram-park-fork-coolprop.workspace = true
 # one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
 # fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
 boon-lay.workspace = true
+# The reactor-building CV between the primary leak and the stack (gh:#400).
+bishan.workspace = true
+
+# htgr_sim_v1's fuel node (gh:#360, 2026-09-28) needs the heat capacity of the
+# TRISO kernel and SiC coating: `outram-park-fork-offbeat`'s MATPRO UO2 and
+# Snead SiC correlations, reused rather than re-entered. DEV-dependency for the
+# same reason as `boon-lay`: example-only, and this crate's CLAUDE.md forbids
+# new physics in the library. Pure Rust (uom, thiserror, outram-foam-basic-lib,
+# which this crate already uses), so Android and wasm stay clean.
+outram-park-fork-offbeat.workspace = true
 
 # htgr_sim_v1's atmospheric dispersion channel
 # (`physics::atmospheric_dispersion`) takes the TRISO release channel's
@@ -158,8 +180,9 @@ boon-lay.workspace = true
 #
 # SCOPE (RESPONSIBLE_USE.md, and `changi::activity`'s own binding scope limit):
 # research, education and V&V only. Never for emergency planning, emergency
-# response, dose assessment for real populations, or Level 3 PSA. No dose
-# quantity of any kind is computed.
+# response, dose assessment for real populations, or Level 3 PSA. ~~No dose
+# quantity of any kind is computed.~~ CHANGED 2026-09-29: changi computes
+# none; the map's INDICATIVE dose rate is buangkok's (see below).
 #
 # `gpu`: dispatches `changi::puff::wgsl::field_auto`'s WGSL kernel through
 # PETIR's headless runner. htgr_sim_v1's Map tab evaluates the dispersion
@@ -179,6 +202,19 @@ boon-lay.workspace = true
 # Android/wasm are unaffected: `petir/wgpu`'s `wgpu` dependency is itself
 # target-gated off both, so enabling this feature there activates nothing.
 changi = { workspace = true, features = ["gpu"] }
+
+# htgr_sim_v1's map "Dose rate" basis (maintainer direction 2026-09-29):
+# `physics::dose_rate` turns the live air concentration and the dry deposit
+# into an INDICATIVE effective dose rate through buangkok's pathway functions
+# (`submersion_dose_rate_msv_per_s`, `ground_shine_dose_rate_msv_per_s`,
+# `inhalation_committed_dose_rate_msv_per_s`) and buangkok's shipped EPA
+# coefficients (FGR-15 2025, FGR-11). DEV-dependency, example-only, for the
+# same reasons as changi above. Direction: buangkok -> changi, petir, uom;
+# nothing depends on this crate, so no cycle. buangkok is pure Rust (petir is
+# no_std), so Android and wasm stay clean.
+# SCOPE: research/education only -- never a dose to any real person, never for
+# emergency or regulatory use (RESPONSIBLE_USE.md, buangkok's CLAUDE.md).
+buangkok = { workspace = true }
 
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)

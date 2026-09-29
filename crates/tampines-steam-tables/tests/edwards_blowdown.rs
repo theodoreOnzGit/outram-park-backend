@@ -1,5 +1,15 @@
 //! # V&V: Edwards–O'Brien pipe blowdown on `TampinesSteamArray`
 //!
+//! **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
+//! The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+//! under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
+//! `Gauss linear`), which the array no longer uses by default. Under the bounded
+//! default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
+//! run panics; under upwind the hybrid-ringing check fails. The linear scheme
+//! likely **masks** the break-cell over-drain rather than resolving it. The pin is
+//! kept deliberately, as a save point. Future work: gh:#406. See
+//! `apply_he_scheme_knob` for the measured table.
+//!
 //! ## Methodology
 //!
 //! This is a verification & validation tutorial case that drives OUR current
@@ -127,7 +137,56 @@
 //! break/GS-1 trace to stderr). Smaller `EDW_DT_US` (e.g. 10) reduces the
 //! acoustic-CFL overshoot at the initial rarefaction.
 
-use tampines_steam_tables::{KnpFaceClosure, PsiRefresh, SolverMode, TampinesSteamArray, ThermoClosure};
+use tampines_steam_tables::{
+    EnergyConvectionScheme, KnpFaceClosure, PsiRefresh, SolverMode, TampinesSteamArray,
+    ThermoClosure,
+};
+
+/// The energy-convection scheme this V&V case runs with: **pinned to
+/// [`EnergyConvectionScheme::Linear`], the pre-2026-09-29 operator, bit for
+/// bit** -- an explicit, visible choice, not the array's default.
+///
+/// **KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
+/// The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+/// under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
+/// `Gauss linear`), which the array no longer uses by default. Under the bounded
+/// default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
+/// run panics; under upwind the hybrid-ringing check fails. The linear scheme
+/// likely **masks** the break-cell over-drain rather than resolving it. The pin is
+/// kept deliberately, as a save point. Future work: gh:#406.
+///
+/// **Why it is pinned (2026-09-29, gh:#319).** `TampinesSteamArray`'s energy
+/// convection moved from the unbounded linear `fvc::div` to a bounded van Leer
+/// default after the linear scheme was shown to walk a heated steam-generator
+/// tube to the IF97 floor. Every number recorded in this file was measured
+/// under the linear scheme, and re-running under the bounded ones gave
+/// (measured 2026-09-29, 24 cells, 30 us, `--test-threads=2`):
+///
+/// | `EDW_HE_SCHEME` | 600 ms PIMPLE run | Hybrid-vs-PIMPLE run |
+/// |---|---|---|
+/// | `linear` (pinned) | passes: plateau 359.0 psia, GS-1 RMSE 42.8 psia | passes |
+/// | `upwind` | passes: plateau 380.9 psia, GS-1 RMSE 37.7 psia | **fails** its ringing assertion |
+/// | `vanleer` | **panics**: `(p,h)` below 273.15 K after cell 22 (the break end) over-drains | **panics**, same |
+///
+/// So under a bounded scheme this case exposes a defect the linear scheme had
+/// been masking in the draining break cell. That is a finding about the break
+/// treatment (the drained-cell hold and the pressure bounding already warn
+/// there, `bn:op-bgg0`), not a reason to keep an unbounded scheme everywhere;
+/// it is tracked as gh:#406. Until it is resolved this case keeps its
+/// validated configuration rather than silently changing.
+///
+/// `EDW_HE_SCHEME=linear|upwind|minmod|vanleer` overrides the pin, which is
+/// how the table above was produced.
+fn apply_he_scheme_knob(array: &mut TampinesSteamArray) {
+    let scheme = match std::env::var("EDW_HE_SCHEME").as_deref() {
+        Ok("linear") | Err(_) => EnergyConvectionScheme::Linear,
+        Ok("upwind") => EnergyConvectionScheme::Upwind,
+        Ok("minmod") => EnergyConvectionScheme::Minmod,
+        Ok("vanleer") => EnergyConvectionScheme::VanLeer,
+        Ok(other) => panic!("unknown EDW_HE_SCHEME {other:?}"),
+    };
+    array.set_he_convection_scheme(scheme);
+}
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, x_ph_flash,
@@ -338,6 +397,7 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         dt,
     )
     .expect("valid Edwards pipe geometry");
+    apply_he_scheme_knob(&mut array);
 
     // Fast transient: use a genuine PISO configuration (no under-relaxation) so
     // each corrector takes its full step in real time. Four outer correctors,
@@ -777,6 +837,7 @@ fn run_gauge_pressures(mode: SolverMode, t_end_s: f64, dt_us: f64) -> (Vec<f64>,
         dt,
     )
     .expect("valid Edwards pipe geometry");
+    apply_he_scheme_knob(&mut array);
     array.set_pimple_algorithm(
         4,
         4,

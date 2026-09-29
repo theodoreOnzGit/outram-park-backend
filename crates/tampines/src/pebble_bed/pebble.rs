@@ -82,11 +82,14 @@ use uom::si::ratio::ratio;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 
-use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::{
+    nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent,
+    nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent,
+};
 
 use super::triso::{
-    solid_sphere_centre_temperature_rise, spherical_shell_temperature_rise, FastNeutronFluence,
-    TrisoParticle, TrisoTemperatureProfile, MAX_TEMPERATURE_KELVIN, MIN_TEMPERATURE_KELVIN,
+    solid_sphere_centre_temperature_rise, spherical_shell_temperature_rise, CorrelationWindow,
+    FastNeutronFluence, TrisoParticle, TrisoTemperatureProfile,
 };
 use crate::TampinesError;
 
@@ -250,6 +253,11 @@ pub struct Pebble {
     pub particles_per_pebble: f64,
     /// Which dispersion rule mixes the particle conductivity into the matrix.
     pub dispersion_model: DispersionModel,
+    /// Coded temperature window of the matrix-graphite and particle-layer
+    /// correlations. [`CorrelationWindow::Standard`] from every constructor;
+    /// widen it with [`Pebble::with_correlation_window`] (which widens the
+    /// particle's to match, so the two scales cannot disagree).
+    pub correlation_window: CorrelationWindow,
 }
 
 impl Pebble {
@@ -292,9 +300,10 @@ impl Pebble {
         let candidate = Self {
             outer_radius,
             fuelled_zone_radius,
-            particle,
+            particle: particle.with_correlation_window(CorrelationWindow::Standard),
             particles_per_pebble,
             dispersion_model,
+            correlation_window: CorrelationWindow::Standard,
         };
 
         let volume_fraction = candidate.triso_volume_fraction().get::<ratio>();
@@ -324,6 +333,28 @@ impl Pebble {
             DispersionModel::ChiewGlandt,
         )
         .expect("the published HTR-10 pebble geometry is internally consistent")
+    }
+
+    /// The HTR-10 fuel element of [`Self::htr10`] with the whole stack —
+    /// matrix graphite and every TRISO layer — evaluated in the
+    /// [`CorrelationWindow::HighTemperature`] window (300-3000 K), matrix
+    /// graphite from `tuas_boussinesq_solver`'s
+    /// `NuclearGraphiteMatrixA3HighTemp`.
+    ///
+    /// Identical to [`Self::htr10`] at or below 2000 K, bit for bit (see
+    /// `tests::the_high_temperature_window_is_identical_below_2000_k_and_resolves_above`).
+    /// **Above 2000 K every conductivity is extrapolated** — see
+    /// [`CorrelationWindow::HighTemperature`].
+    pub fn htr10_high_temperature() -> Self {
+        Self::htr10().with_correlation_window(CorrelationWindow::HighTemperature)
+    }
+
+    /// The same pebble with its matrix graphite and its particle both
+    /// evaluated in `window`.
+    pub fn with_correlation_window(mut self, window: CorrelationWindow) -> Self {
+        self.correlation_window = window;
+        self.particle = self.particle.with_correlation_window(window);
+        self
     }
 
     /// Volume of the fuelled zone, m^3. HTR-10: 65.45 cm^3.
@@ -359,22 +390,38 @@ impl Pebble {
     /// matrix and the unfuelled shell are the same 1.73 g/cm^3 A3 graphite in
     /// the HTR-10 design, so one correlation serves both.
     ///
-    /// Valid range: 300 K to 2000 K, fluence `gam` in `[0, 15]`; outside
-    /// either, returns [`TampinesError::InvalidInput`].
+    /// Valid range: 300 K to 2000 K ([`CorrelationWindow::Standard`]) or to
+    /// 3000 K ([`CorrelationWindow::HighTemperature`], **extrapolated above
+    /// 2000 K**, `NuclearGraphiteMatrixA3HighTemp`), fluence `gam` in
+    /// `[0, 15]`; outside either, returns [`TampinesError::InvalidInput`].
     pub fn matrix_conductivity(
         &self,
         temperature: ThermodynamicTemperature,
         fluence: FastNeutronFluence,
     ) -> Result<ThermalConductivity, TampinesError> {
-        nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(temperature, fluence)
-            .map_err(|error| {
-                TampinesError::InvalidInput(format!(
-                    "TUAS A3 matrix graphite conductivity rejected temperature \
-                     {} K / fluence {}: {error:?}",
-                    temperature.get::<kelvin>(),
-                    fluence.get::<ratio>()
-                ))
-            })
+        let result = match self.correlation_window {
+            CorrelationWindow::Standard => {
+                nuclear_graphite_matrix_a3_thermal_conductivity_fluence_dependent(
+                    temperature,
+                    fluence,
+                )
+            }
+            CorrelationWindow::HighTemperature => {
+                nuclear_graphite_matrix_a3_thermal_conductivity_high_temp_fluence_dependent(
+                    temperature,
+                    fluence,
+                )
+            }
+        };
+        result.map_err(|error| {
+            TampinesError::InvalidInput(format!(
+                "TUAS A3 matrix graphite conductivity ({:?} window) rejected temperature \
+                 {} K / fluence {}: {error:?}",
+                self.correlation_window,
+                temperature.get::<kelvin>(),
+                fluence.get::<ratio>()
+            ))
+        })
     }
 
     /// Effective thermal conductivity of the **fuelled zone**, W/(m K), at the
@@ -453,11 +500,14 @@ impl Pebble {
             )));
         }
         let surface_kelvin = surface_temperature.get::<kelvin>();
-        if !(MIN_TEMPERATURE_KELVIN..=MAX_TEMPERATURE_KELVIN).contains(&surface_kelvin) {
+        let (low, high) = (
+            self.correlation_window.min_kelvin(),
+            self.correlation_window.max_kelvin(),
+        );
+        if !(low..=high).contains(&surface_kelvin) {
             return Err(TampinesError::InvalidInput(format!(
                 "pebble surface temperature {surface_kelvin} K is outside the \
-                 coded correlation range {MIN_TEMPERATURE_KELVIN} K to \
-                 {MAX_TEMPERATURE_KELVIN} K"
+                 coded correlation range {low} K to {high} K"
             )));
         }
 
@@ -607,8 +657,7 @@ impl Pebble {
         let mean_shell = if shell_volume <= 0.0 {
             0.0
         } else {
-            let numerator =
-                (r_out * r_out - a * a) / 2.0 - shell_volume / (3.0 * r_out);
+            let numerator = (r_out * r_out - a * a) / 2.0 - shell_volume / (3.0 * r_out);
             let denominator = (1.0 / a - 1.0 / r_out) * shell_volume / 3.0;
             rise_boundary * (numerator / denominator)
         };
@@ -756,6 +805,16 @@ pub fn htr10_heavy_metal_per_pebble() -> Mass {
 /// (IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-17, Open tier).
 pub fn htr10_uranium_dioxide_density() -> MassDensity {
     MassDensity::new::<gram_per_cubic_centimeter>(10.4)
+}
+
+/// The HTR-10 coated particle's published SiC coating density, 3.18 g/cm^3
+/// (IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-17, Open tier — the same row
+/// [`TrisoParticle::htr10`] transcribes its geometry and carbon densities
+/// from). Not stored on [`TrisoParticle`] because the SiC conductivity
+/// correlation does not use it; a heat-capacity (thermal-mass) calculation
+/// does. Added 2026-09-28 for `htgr_sim_v1`'s fuel node.
+pub fn htr10_silicon_carbide_density() -> MassDensity {
+    MassDensity::new::<gram_per_cubic_centimeter>(3.18)
 }
 
 /// The HTR-10 fresh fuel's published U-235 enrichment, 17% by weight
@@ -1197,6 +1256,61 @@ mod tests {
         assert_eq!(profile.matrix_rise().value, 0.0);
     }
 
+    /// V&V test: the [`CorrelationWindow::HighTemperature`] HTR-10 pebble
+    /// (added 2026-09-28, gh:#350/#351).
+    ///
+    /// **Methodology:** at the core-average HTR-10 pebble power (370.37 W)
+    /// and zero fluence, solve [`Pebble::htr10`] and
+    /// [`Pebble::htr10_high_temperature`] at surface temperatures 900, 1500
+    /// and 1900 K and require **bit-identical** profiles (the wider window
+    /// must not move any number inside the old one). Then require the
+    /// high-temperature pebble to resolve at 2000, 2400 and 2589 K surfaces —
+    /// the last is the bed temperature gh:#350 recorded the silent `None` at —
+    /// while the standard pebble still refuses at 2400 K; and require both to
+    /// refuse at 3000 K surface (the kernel would sit above the 3000 K window).
+    ///
+    /// **Results (2026-09-28):** all pass; peak kernel centres 2047.8 K
+    /// (2000 K surface), 2447.3 K (2400 K) and 2635.4 K (2589 K). These are
+    /// **extrapolated** values (every conductivity in the stack is
+    /// outside its coded standard window there), recorded for regression, not
+    /// as validated fuel temperatures.
+    #[test]
+    fn the_high_temperature_window_is_identical_below_2000_k_and_resolves_above() {
+        let standard = Pebble::htr10();
+        let high = Pebble::htr10_high_temperature();
+        let power = Power::new::<watt>(10.0e6 / 27_000.0);
+        let fresh = Ratio::new::<ratio>(0.0);
+        let t = |k: f64| ThermodynamicTemperature::new::<kelvin>(k);
+
+        for surface in [900.0, 1500.0, 1900.0] {
+            let a = standard
+                .steady_state_temperatures(power, t(surface), fresh)
+                .unwrap();
+            let b = high
+                .steady_state_temperatures(power, t(surface), fresh)
+                .unwrap();
+            assert_eq!(a, b, "surface {surface} K");
+        }
+        for surface in [2000.0, 2400.0, 2589.0] {
+            let profile = high
+                .steady_state_temperatures(power, t(surface), fresh)
+                .unwrap_or_else(|e| panic!("high-temperature pebble refused {surface} K: {e:?}"));
+            println!(
+                "high-temperature window, surface {surface} K: centre {:.3} K, peak kernel \
+                 {:.3} K (EXTRAPOLATED)",
+                profile.centre.get::<kelvin>(),
+                profile.peak_kernel_centre.get::<kelvin>()
+            );
+            assert!(profile.peak_kernel_centre > profile.centre);
+        }
+        assert!(standard
+            .steady_state_temperatures(power, t(2400.0), fresh)
+            .is_err());
+        assert!(high
+            .steady_state_temperatures(power, t(3000.0), fresh)
+            .is_err());
+    }
+
     /// V&V test: the HTR-10 pebble's steady temperature rise at core-average
     /// power, with the nested levels resolved separately.
     ///
@@ -1315,7 +1429,10 @@ mod tests {
             .unwrap();
 
         let average = pebble.volume_average_temperature(&profile);
-        assert!(average.get::<kelvin>().is_finite(), "degenerate shell produced a NaN");
+        assert!(
+            average.get::<kelvin>().is_finite(),
+            "degenerate shell produced a NaN"
+        );
 
         let centre_rise = profile.centre.get::<kelvin>() - profile.surface.get::<kelvin>();
         let average_rise = average.get::<kelvin>() - profile.surface.get::<kelvin>();
@@ -1374,8 +1491,7 @@ mod tests {
         let average = pebble.volume_average_temperature(&profile);
         let average_rise = average.get::<kelvin>() - surface.get::<kelvin>();
         let centre_rise = profile.centre.get::<kelvin>() - surface.get::<kelvin>();
-        let boundary_rise =
-            profile.fuelled_zone_boundary.get::<kelvin>() - surface.get::<kelvin>();
+        let boundary_rise = profile.fuelled_zone_boundary.get::<kelvin>() - surface.get::<kelvin>();
 
         // The uniform-ball assumption a lumped `10 k / d` makes, evaluated at
         // the same conductivity the fuelled zone converged to, for contrast.

@@ -15,6 +15,8 @@ use super::solid_database::fiberglass::max_temp_fiberglass_zou_zweibaum_spline;
 use super::solid_database::fiberglass::min_temp_fiberglass_zou_zweibaum_spline;
 use super::solid_database::nuclear_graphite::max_temp_nuclear_graphite;
 use super::solid_database::nuclear_graphite::min_temp_nuclear_graphite;
+use super::solid_database::nuclear_graphite::max_temp_nuclear_graphite_high_temp;
+use super::solid_database::nuclear_graphite::min_temp_nuclear_graphite_high_temp;
 use super::solid_database::pyrogel_hps::max_temp_pyrogel_hps;
 use super::solid_database::pyrogel_hps::min_temp_pyrogel_hps;
 use super::solid_database::ss_304_l::max_temp_ss_304l_zou_zweibaum_spline;
@@ -85,6 +87,7 @@ impl SolidMaterial {
             SolidMaterial::PyrogelHPS => max_temp_pyrogel_hps(),
             SolidMaterial::NuclearGraphiteMatrixA3 => max_temp_nuclear_graphite(),
             SolidMaterial::NuclearGraphiteIG110 => max_temp_nuclear_graphite(),
+            SolidMaterial::NuclearGraphiteMatrixA3HighTemp => max_temp_nuclear_graphite_high_temp(),
             SolidMaterial::CustomSolid((_lower_bound, upper_bound), _, _, _, _) => *upper_bound,
         }
     }
@@ -99,6 +102,7 @@ impl SolidMaterial {
             SolidMaterial::PyrogelHPS => min_temp_pyrogel_hps(),
             SolidMaterial::NuclearGraphiteMatrixA3 => min_temp_nuclear_graphite(),
             SolidMaterial::NuclearGraphiteIG110 => min_temp_nuclear_graphite(),
+            SolidMaterial::NuclearGraphiteMatrixA3HighTemp => min_temp_nuclear_graphite_high_temp(),
             SolidMaterial::CustomSolid((lower_bound, _upper_bound), _, _, _, _) => *lower_bound,
         }
     }

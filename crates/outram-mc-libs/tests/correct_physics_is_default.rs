@@ -94,6 +94,32 @@ fn from_endf_file_applies_urr_and_dbrc_by_default() {
         (1.0e4..3.0e4).contains(&lo) && (1.0e5..2.0e5).contains(&hi),
         "U-238 URR range [{lo:.3e}, {hi:.3e}] eV is not the expected ~20-149 keV"
     );
+
+    // Delayed-neutron spectra (GitHub #365 audit): ENDF/B-VIII.0 U-238 carries
+    // MF=5/455 LF=5 with theta == 1 for all six groups, so the ordinary
+    // constructor must apply them.
+    assert!(
+        n.applies_delayed_spectra(),
+        "U-238 built through from_endf_file births delayed neutrons with the prompt \
+         chi. Delayed spectra are correct physics and on by default; an off switch \
+         is `without_delayed_spectra`, never the default."
+    );
+}
+
+/// The ACE route applies delayed spectra (DNED) by default as well (GitHub
+/// #365 audit), on NJOY2016's U-235 from `reference-data/ace`.
+#[test]
+fn from_ace_applies_delayed_spectra_by_default() {
+    let Some(p) = njoy_outram_park_fork::reference_data::ace_reference_file_or_skip(
+        "reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz",
+        "delayed spectra default",
+    ) else {
+        return;
+    };
+    let raw = njoy_outram_park_fork::acer::read::read(&p).expect("read");
+    let n = Nuclide::from_ace(&raw, "U235").expect("from_ace");
+    assert!(n.applies_delayed_spectra(), "U-235 from ACE must apply its DNED spectra by default");
+    assert_eq!(n.delayed().expect("DNU").spectra.len(), 6);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -156,4 +182,64 @@ fn mg_scattering_anisotropy_is_applied_by_default_when_the_set_carries_it() {
     // A set with no moments is isotropic because it has nothing to apply —
     // that is a property of the data, not a default that hides physics.
     assert_eq!(two_group_set().scatter_angle, ScatterAngle::Isotropic);
+}
+
+/// The other neutron-emitting reactions (MT=22, 28, ...) are transported by
+/// default on both routes (GitHub #365 audit): O-16 from `reference-data/endf`
+/// carries seven of them.
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reconstructs O-16 from ENDF; runs by default"
+)]
+fn other_neutron_channels_are_applied_by_default() {
+    let Some(p) = reference_endf("n-008_O_016-ENDF8.0.endf") else {
+        eprintln!("SKIP: reference tape not present");
+        return;
+    };
+    let n = Nuclide::from_endf_file(&p, "O16", 293.6, 1.0e-3).expect("O-16");
+    assert!(
+        n.applies_other_neutron_channels(),
+        "O-16's (n,n alpha), (n,np), ... must be transported by default; the off \
+         switch is `without_other_neutron_channels`"
+    );
+    assert!(!n.clone().without_other_neutron_channels().applies_other_neutron_channels());
+    assert!(n.xs_at_energy(1.8e7, 293.6).other > 0.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S(α,β) equiprobable sampling (GitHub #407)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An equiprobable (IFENG = 0) S(α,β) table is sampled with OpenMC's
+/// `IncoherentInelasticAEDiscrete` by default, on both routes. The legacy #188
+/// scheme is an explicit ablation (`with_legacy_equiprobable_sampling`), never
+/// the default. Pinned on the ENDF route with ENDF/B-VIII.0 `tsl-HinH2O`, and on
+/// the ACE route with the five-route NJOY2016 H in H2O table when it is present.
+#[test]
+fn thermal_equiprobable_sampling_is_openmc_by_default() {
+    use outram_mc_libs::material::thermal::ThermalScattering;
+    if let Some(p) = njoy_outram_park_fork::reference_data::reference_endf("tsl-HinH2O.endf") {
+        let th = ThermalScattering::from_endf_file(p.to_str().unwrap(), 1, 293.6, "H in H2O")
+            .expect("tsl-HinH2O loads");
+        assert!(
+            !th.uses_legacy_equiprobable_sampling(),
+            "the ENDF route must sample S(a,b) with OpenMC's scheme by default"
+        );
+        assert!(th.clone().with_legacy_equiprobable_sampling().uses_legacy_equiprobable_sampling());
+    } else {
+        println!("tsl-HinH2O.endf absent: ENDF half skipped");
+    }
+    let ace = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/five_route_keff/njoy/293.6K/HinH2O.ace");
+    if ace.is_file() {
+        let raw = njoy_outram_park_fork::acer::read::read(&ace).expect("read");
+        let th = ThermalScattering::from_ace(&raw, "H in H2O").expect("loads");
+        assert!(
+            !th.uses_legacy_equiprobable_sampling(),
+            "the ACE route must sample S(a,b) with OpenMC's scheme by default"
+        );
+    } else {
+        println!("{} absent: ACE half skipped", ace.display());
+    }
 }

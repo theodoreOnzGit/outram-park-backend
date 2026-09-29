@@ -82,6 +82,10 @@ pub struct DelayedNuBar {
     /// (`LDG=1`) and [`Self::lambda`] holds the lowest-energy set (see the
     /// type-level note); `false` for the standard `LDG=0` form.
     pub ldg1_energy_dependent: bool,
+    /// `nu_delayed`'s interpolation regions `(NBT, INT)`; empty means lin-lin.
+    /// Honoured by [`Self::nu_delayed_at`] as OpenMC's `Tabulated1D` does
+    /// (GitHub #365 audit: they used to be dropped).
+    pub interp: Vec<(u32, u32)>,
 }
 
 impl DelayedNuBar {
@@ -126,14 +130,16 @@ impl DelayedNuBar {
         };
 
         // Delayed ν̄_d(E): TAB1 for LNU=2, polynomial LIST for LNU=1.
-        let (energy, nu_delayed) = match lnu {
+        let (energy, nu_delayed, interp) = match lnu {
             2 => {
                 let tab1 = cur.read_tab1()?;
-                tab1.pairs.iter().copied().unzip()
+                let (e, v): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
+                (e, v, tab1.interp)
             }
             1 => {
                 let list = cur.read_list()?;
-                Self::sample_polynomial(&list.data)
+                let (e, v) = Self::sample_polynomial(&list.data);
+                (e, v, Vec::new())
             }
             other => {
                 return Err(NjoyError::EndfParse(format!(
@@ -147,6 +153,7 @@ impl DelayedNuBar {
             energy,
             nu_delayed,
             ldg1_energy_dependent: ldg1,
+            interp,
         })
     }
 
@@ -183,9 +190,18 @@ impl DelayedNuBar {
         self.lambda.get(g).map(|&l| Frequency::new::<hertz>(l))
     }
 
-    /// Interpolate total delayed ν̄_d at incident energy `e` \[eV\] (lin-lin,
-    /// clamped at the ends). Returns `0.0` if no ν̄_d table was parsed.
+    /// Interpolate total delayed ν̄_d at incident energy `e` \[eV\] on the
+    /// table's own regions ([`Self::interp`]), clamped at the ends. Returns
+    /// `0.0` if no ν̄_d table was parsed.
     pub fn nu_delayed_at(&self, e: f64) -> f64 {
+        if !crate::nuclear_data::secondary::is_lin_lin(&self.interp) {
+            return crate::nuclear_data::secondary::tabulated1d_at_xy(
+                &self.interp,
+                &self.energy,
+                &self.nu_delayed,
+                e,
+            );
+        }
         interp_clamped(&self.energy, &self.nu_delayed, e)
     }
 }
@@ -230,11 +246,67 @@ pub struct DelayedChiGroup {
     /// The group's probability fraction p_k(E) as `(E [eV], fraction)` — the
     /// per-group share of the total delayed emission vs incident energy.
     pub fraction: Vec<(f64, f64)>,
+    /// `fraction`'s interpolation regions `(NBT, INT)`; empty means lin-lin.
+    /// GitHub #365 audit: they used to be dropped.
+    pub fraction_interp: Vec<(u32, u32)>,
     /// ENDF `LF` law code for this group's outgoing spectrum (5 or 1 here).
     pub lf: i32,
     /// Outgoing-energy spectrum samples `(E' [eV], density [eV⁻¹])`, ascending
     /// in E'.
     pub spectrum: Vec<(f64, f64)>,
+    /// The same spectrum as a **samplable law**, exact to the evaluation, or
+    /// `None` when this parser cannot represent it exactly — GitHub #365 audit
+    /// (delayed spectra reach transport).
+    ///
+    /// - **LF=5** with `θ(E) ≡ 1` (checked, not assumed) and a single-region
+    ///   `g(x)` of INT 1 (histogram) or 2 (lin-lin): an energy-independent
+    ///   [`FissionSpectrum::ContinuousTabular`] whose one table is `g` itself,
+    ///   keeping `g`'s interpolation. ENDF/B-VIII.0 U-234/235/238's six groups
+    ///   are all this, with **histogram** `g` — which is why the plain `spectrum`
+    ///   pairs above, read as lin-lin, are not samplable as they stand.
+    /// - **LF=1**: every incident energy's table (not only the lowest), each
+    ///   single-region INT 1 or 2, as a `ContinuousTabular` over the TAB2 grid.
+    /// - Anything else (θ not identically 1, multi-region `g`, other `LF`):
+    ///   `None`, and the transport consumer then keeps the prompt χ for the
+    ///   whole nuclide rather than mixing exact and approximate groups.
+    ///
+    /// The cumulative is built by exact integration of the stated
+    /// interpolation and normalised to 1, as OpenMC normalises a `Tabular`.
+    pub law: Option<crate::nuclear_data::secondary::FissionSpectrum>,
+}
+
+/// One MF=5 `g(E')` TAB1 as a [`ChiEout`](crate::nuclear_data::secondary::ChiEout)
+/// with its cumulative, when it is a single region of INT 1 or 2.
+fn chi_eout_from_tab1(
+    g: &crate::endf::records::Tab1,
+) -> Option<crate::nuclear_data::secondary::ChiEout> {
+    let int = match g.interp.as_slice() {
+        [] => 2,
+        [(_, i)] => *i,
+        _ => return None,
+    };
+    if !(int == 1 || int == 2) || g.pairs.len() < 2 {
+        return None;
+    }
+    let e_out: Vec<f64> = g.pairs.iter().map(|p| p.0).collect();
+    let pdf: Vec<f64> = g.pairs.iter().map(|p| p.1).collect();
+    let mut cdf = vec![0.0; e_out.len()];
+    for k in 1..e_out.len() {
+        let w = e_out[k] - e_out[k - 1];
+        cdf[k] = cdf[k - 1]
+            + if int == 1 { pdf[k - 1] * w } else { 0.5 * (pdf[k - 1] + pdf[k]) * w };
+    }
+    let total = *cdf.last()?;
+    if !(total > 0.0) {
+        return None;
+    }
+    Some(crate::nuclear_data::secondary::ChiEout {
+        e_out,
+        pdf: pdf.iter().map(|p| p / total).collect(),
+        cdf: cdf.iter().map(|c| c / total).collect(),
+        linlin: int == 2,
+        n_discrete: 0,
+    })
 }
 
 impl DelayedChiGroup {
@@ -302,27 +374,57 @@ impl DelayedChi {
             let p_tab = cur.read_tab1()?;
             let lf = p_tab.head.l2;
             let fraction = p_tab.pairs.clone();
+            let fraction_interp = p_tab.interp.clone();
 
-            let spectrum = match lf {
+            use crate::nuclear_data::secondary::{ChiTabular, FissionSpectrum};
+            let (spectrum, law) = match lf {
                 5 => {
                     // General evaporation: θ(E) TAB1, then g(x) TAB1.
-                    let _theta = cur.read_tab1()?;
+                    let theta = cur.read_tab1()?;
                     let g = cur.read_tab1()?;
-                    g.pairs
+                    // Exact only when θ ≡ 1: then E' = x and g is the spectrum.
+                    let law = if theta.pairs.iter().all(|&(_, t)| t == 1.0) {
+                        chi_eout_from_tab1(&g).map(|t| {
+                            FissionSpectrum::ContinuousTabular(ChiTabular {
+                                incident: vec![1.0e-5, 1.0e9],
+                                tables: vec![t.clone(), t],
+                                incident_interp: Vec::new(),
+                            })
+                        })
+                    } else {
+                        None
+                    };
+                    (g.pairs, law)
                 }
                 1 => {
                     // Arbitrary tabulated: TAB2 over NE incident energies, each
-                    // an inner TAB1 g(E→E'). Store the first (lowest incident E).
+                    // an inner TAB1 g(E→E'). `spectrum` keeps the first (lowest
+                    // incident E); `law` keeps them all.
                     let tab2 = cur.read_tab2()?;
                     let ne = tab2.head.n2.max(0) as usize;
                     let mut first = Vec::new();
+                    let mut incident = Vec::with_capacity(ne);
+                    let mut tables = Vec::with_capacity(ne);
+                    let mut exact = true;
                     for i in 0..ne {
                         let g = cur.read_tab1()?;
+                        incident.push(g.head.c2);
+                        match chi_eout_from_tab1(&g) {
+                            Some(t) => tables.push(t),
+                            None => exact = false,
+                        }
                         if i == 0 {
                             first = g.pairs;
                         }
                     }
-                    first
+                    let law = (exact && tables.len() >= 2).then(|| {
+                        FissionSpectrum::ContinuousTabular(ChiTabular {
+                            incident,
+                            tables,
+                            incident_interp: tab2.interp.clone(),
+                        })
+                    });
+                    (first, law)
                 }
                 // LF=7/9/11 (parametric) and LF=12 (Madland-Nix) are not stored
                 // as a directly-tabulated χ; unsupported here (do not fabricate).
@@ -331,8 +433,10 @@ impl DelayedChi {
 
             groups.push(DelayedChiGroup {
                 fraction,
+                fraction_interp,
                 lf,
                 spectrum,
+                law,
             });
         }
 

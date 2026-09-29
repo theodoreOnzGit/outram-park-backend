@@ -148,11 +148,47 @@ impl UrrProbabilityTables {
 
     /// Whether energy `e` \[eV\] lies inside the unresolved range these tables
     /// cover.
+    ///
+    /// **Strict at both ends**, as OpenMC's `UrrData::energy_in_bounds`
+    /// (`include/openmc/urr.h`: `energy_.front() < E && E < energy_.back()`).
+    /// ~~Inclusive~~ **CORRECTED 2026-09-29**: the inclusive test sampled the
+    /// tables at exactly the end energies, where OpenMC uses the smooth cross
+    /// section. A measure-zero set in transport, but not in a comparison that
+    /// probes the table points.
     pub fn covers(&self, e: f64) -> bool {
-        e >= self.e_low && e <= self.e_high
+        e > self.e_low && e < self.e_high
     }
 
-    /// Sample one band at energy `e` \[eV\] with the uniform `xi` in `[0, 1)`.
+    /// One representative `xi` for **every distinct band pair** [`Self::sample`]
+    /// can select at `e` \[eV\]: the midpoints between the sorted union of the
+    /// two bracketing tables' cumulative probabilities (and `0`). `sample` is
+    /// piecewise constant in `xi` between those breakpoints, so evaluating it at
+    /// these points visits every value it can return at `e`, exactly. Empty
+    /// outside the unresolved range.
+    ///
+    /// Used to bound the band total from above, for delta-tracking majorants,
+    /// now that transport uses the band total for flight too (GitHub #407; OpenMC
+    /// `Nuclide::calculate_xs` feeds the URR total into the macroscopic total).
+    pub fn band_representatives(&self, e: f64) -> Vec<f64> {
+        if !self.covers(e) || self.energy.is_empty() {
+            return Vec::new();
+        }
+        let n = self.energy.len();
+        let mut cuts: Vec<f64> = vec![0.0, 1.0];
+        let i = self.energy.partition_point(|&x| x <= e).saturating_sub(1).min(n.saturating_sub(2));
+        for p in self.points.iter().skip(i).take(2) {
+            cuts.extend(p.cum.iter().copied().filter(|c| (0.0..=1.0).contains(c)));
+        }
+        cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        cuts.dedup();
+        let mut reps: Vec<f64> = cuts.windows(2).map(|w| 0.5 * (w[0] + w[1])).collect();
+        // `sample` picks the first band whose cumulative probability EXCEEDS
+        // xi, so a breakpoint itself selects the band above it: include them.
+        reps.extend(cuts.iter().copied().filter(|&c| c < 1.0));
+        reps
+    }
+
+    /// Sample the tables at energy `e` \[eV\] with the uniform `xi` in `[0, 1)`.
     ///
     /// Returns `None` when `e` is outside the unresolved range, so a caller can
     /// use the result to decide whether to consume a random number at all —
@@ -160,34 +196,74 @@ impl UrrProbabilityTables {
     /// would shift every RNG stream in the code whether or not a nuclide has
     /// tables.
     ///
-    /// The energy grid is searched for the bracketing point and the **nearer**
-    /// one is used, matching how a band table is a discrete sampling of
-    /// `P(sigma | E)` at tabulated energies rather than a continuous function
+    /// # Interpolation — a port of OpenMC's `Nuclide::calculate_urr_xs`
+    ///
+    /// ~~The energy grid is searched for the bracketing point and the
+    /// **nearer** one is used, matching how a band table is a discrete sampling
+    /// of `P(sigma | E)` at tabulated energies rather than a continuous function
     /// to interpolate. (OpenMC interpolates between adjacent tables; this port
-    /// does not yet — recorded as a known difference rather than hidden.)
+    /// does not yet — recorded as a known difference rather than hidden.)~~
+    /// **CORRECTED 2026-09-29 (GitHub #365 audit).** The ACE UNR block states
+    /// how to interpolate between its energies (`INT`, [`Self::interpolation`]),
+    /// and OpenMC does exactly that (`src/nuclide.cpp`, `calculate_urr_xs`):
+    ///
+    /// 1. `i` is the table with `E_i <= e < E_{i+1}` (`lower_bound_index`).
+    /// 2. The **same** `xi` selects a band in table `i` and a band in table
+    ///    `i+1` — the first band whose cumulative probability exceeds `xi`
+    ///    (`upper_bound_index + 1`).
+    /// 3. Each column is interpolated between those two bands: lin-lin for
+    ///    `INT = 2`, log-log for `INT = 5` (a column that is not positive at
+    ///    both ends gives 0, as upstream).
+    ///
+    /// Nearest-point selection makes the band values a step function of energy
+    /// between table points; with NJOY's coarse unresolved grids (U-238: 83
+    /// points over 20-149 keV) that is a real, not a round-off, difference. At
+    /// a tabulated energy the two rules coincide exactly.
+    ///
+    /// The `total` column is interpolated like the others for completeness, but
+    /// a transport consumer should follow OpenMC and rebuild the total from the
+    /// partials — see `outram_mc_libs::material::nuclide::Nuclide::xs_at_energy_urr`.
     pub fn sample(&self, e: f64, xi: f64) -> Option<UrrSample> {
         if !self.covers(e) || self.energy.is_empty() {
             return None;
         }
-        let i = match self
-            .energy
-            .binary_search_by(|p| p.partial_cmp(&e).unwrap_or(std::cmp::Ordering::Less))
-        {
-            Ok(i) => i,
-            Err(0) => 0,
-            Err(k) if k >= self.energy.len() => self.energy.len() - 1,
-            Err(k) => {
-                if (e - self.energy[k - 1]).abs() <= (self.energy[k] - e).abs() {
-                    k - 1
+        let n = self.energy.len();
+        let xi = xi.clamp(0.0, 1.0);
+        let band = |p: &UrrPoint| {
+            // First band whose cumulative probability exceeds xi.
+            let b = p.cum.partition_point(|&c| c <= xi).min(p.value.len() - 1);
+            p.value[b]
+        };
+        let v = if n == 1 {
+            band(&self.points[0])
+        } else {
+            // lower_bound_index: E_i <= e < E_{i+1}, clamped to [0, n-2].
+            let i = self.energy.partition_point(|&x| x <= e).saturating_sub(1).min(n - 2);
+            let (e0, e1) = (self.energy[i], self.energy[i + 1]);
+            let (lo, hi) = (band(&self.points[i]), band(&self.points[i + 1]));
+            let mut out = [0.0; 4];
+            if self.interpolation == 5 {
+                let f = if e > 0.0 && e0 > 0.0 && e1 > e0 {
+                    (e / e0).ln() / (e1 / e0).ln()
                 } else {
-                    k
+                    0.0
+                };
+                for k in 0..4 {
+                    out[k] = if lo[k] > 0.0 && hi[k] > 0.0 {
+                        ((1.0 - f) * lo[k].ln() + f * hi[k].ln()).exp()
+                    } else {
+                        0.0
+                    };
+                }
+            } else {
+                // INT = 2, and ACER always writes 2 (see `interpolation`).
+                let f = if e1 > e0 { (e - e0) / (e1 - e0) } else { 0.0 };
+                for k in 0..4 {
+                    out[k] = (1.0 - f) * lo[k] + f * hi[k];
                 }
             }
+            out
         };
-        let p = &self.points[i];
-        let xi = xi.clamp(0.0, 1.0);
-        let b = p.cum.partition_point(|&c| c < xi).min(p.value.len() - 1);
-        let v = p.value[b];
         Some(if self.lssf == 1 {
             UrrSample::SelfShieldingFactors(v)
         } else {

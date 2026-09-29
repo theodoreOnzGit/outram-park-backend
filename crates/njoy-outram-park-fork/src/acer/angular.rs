@@ -56,6 +56,11 @@ pub struct EnergyAngular {
     pub pdf: Vec<f64>,
     /// Cumulative distribution on `cosines`: `cdf[0] = 0`, `cdf[last] = 1`.
     pub cdf: Vec<f64>,
+    /// `true` when the law is a **histogram** in μ: ACE AND `intt = 1` and the
+    /// 32 equiprobable bins, which OpenMC reads as a histogram `Tabular`
+    /// (`angle_distribution.py:176-185`). `false` (lin-lin) for everything
+    /// else, including every law built from ENDF MF=4. GitHub #365 audit.
+    pub histogram: bool,
 }
 
 impl EnergyAngular {
@@ -112,6 +117,11 @@ impl EnergyAngular {
         for i in 0..self.cosines.len() - 1 {
             let (a, b) = (self.cosines[i], self.cosines[i + 1]);
             let (fa, fb) = (self.pdf[i], self.pdf[i + 1]);
+            if self.histogram {
+                // Histogram: f = fa on [a, b) (GitHub #365 audit).
+                acc += fa * (b - a) * 0.5 * (a + b);
+                continue;
+            }
             // Exact for f linear on [a, b]; see the note above on why the
             // trapezoid rule is not.
             acc += (b - a) * (a * (2.0 * fa + fb) + b * (fa + 2.0 * fb)) / 6.0;
@@ -364,6 +374,7 @@ fn isotropic(e_ev: f64) -> EnergyAngular {
         cosines: Vec::new(),
         pdf: Vec::new(),
         cdf: Vec::new(),
+        histogram: false,
     }
 }
 
@@ -400,6 +411,7 @@ fn finalize(e_ev: f64, grid: Vec<(f64, f64)>) -> EnergyAngular {
         cosines,
         pdf,
         cdf,
+        histogram: false,
     }
 }
 

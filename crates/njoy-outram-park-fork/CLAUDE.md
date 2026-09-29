@@ -367,6 +367,13 @@ sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
 way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
 gate would have buried the distinction rather than exposing it.
 
+**CORRECTED 2026-09-29 (GitHub #365 audit):** the row rule above no longer
+holds. The sampler now picks the row as OpenMC's `CorrelatedAngleEnergy`
+does, the nearer cdf edge (`k` or `k+1` on a lin-lin table), and inverts the
+row's cdf quadratically. The oracle follows the new rule and reads 0.78 sigma;
+the old oracle reads 6.36 sigma against the new sampler. Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
+
 Be-9 is in none of this workspace's criticality cases, so none of this moves a
 `k_eff`. What it closes is a silent fallback.
 
@@ -815,6 +822,15 @@ and Na-23 MT=91 is a two-law chain whose applicabilities switch at 12 MeV. So
 `Nuclide::from_ace` could not build three of the commonest light nuclides here,
 and nothing failed because the actinides worked. The census in
 `acer::ce_laws`'s module doc now names its tapes.
+
+**The same lesson one layer up (GitHub #365, 2026-09-29).** Reading every chain
+was not the same as *transporting* every chain: `outram-mc-libs`'
+`Nuclide::from_ace` still refused any chain with a correlated link, and F-19's
+MT=16 (two law-61 links, `p = 0.5` each) refused the whole nuclide. Such a chain
+is now carried as one `ContinuumBranch` per link, selected by the new
+`ContinuumBranch::applicability` (kept distinct from `yield_pairs`: ACER derives
+`p_k = y_k / sum y`, but only one of them is a multiplicity). Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/f19_lnw_mixture_2026-09-29.md`.
 
 **Refusals now cite upstream rather than implying the gap is ours.** ACE LAW=5 is
 dispatched by OpenMC and then raises `NotImplementedError` in

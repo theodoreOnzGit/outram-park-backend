@@ -242,6 +242,7 @@ fn acensd_entry(e_ev: f64, mu: &[f64], p: &[f64]) -> EnergyAngular {
         cosines,
         pdf,
         cdf,
+        histogram: false,
     }
 }
 

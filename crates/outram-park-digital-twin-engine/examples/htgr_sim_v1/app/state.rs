@@ -51,12 +51,16 @@ pub const TRACKED_RELEASE_NUCLIDES: usize = 5;
 
 /// One receptor's atmospheric dispersion result, projected onto the snapshot.
 ///
-/// **`chi_over_q` is the quotable number**; the two activity fields are on the
-/// release channel's per-curie-of-core-inventory basis *and* per unit of a
-/// placeholder leak fraction, so they are a transfer function rather than a
-/// consequence. See [`crate::physics::atmospheric_dispersion`], whose binding
-/// scope limit applies: research, education and V&V only, and **no dose
-/// quantity of any kind**.
+/// **`chi_over_q` is the quotable number**; the per-Ci activity fields are on
+/// the release channel's per-curie-of-core-inventory basis ~~*and* per unit of a
+/// placeholder leak fraction~~ (**CORRECTED 2026-09-28**: the published ~1 %/day
+/// circuit leak is multiplied in, not divided out), so they are a transfer
+/// function rather than a consequence. The `_absolute` fields carry the same
+/// survey on the absolute (Bq) basis — still not a source term. See [`crate::physics::atmospheric_dispersion`], whose binding
+/// scope limit applies: research, education and V&V only, and ~~**no dose
+/// quantity of any kind**~~ (**CHANGED 2026-09-29**: the per-nuclide fields
+/// feed the Map tab's INDICATIVE dose rate, computed by `buangkok` in
+/// `crate::physics::dose_rate` -- never a dose to any real person).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ReceptorSnapshot {
     /// Compass bearing from the release point, degrees clockwise from north.
@@ -72,8 +76,9 @@ pub struct ReceptorSnapshot {
     ///
     /// [`Self::chi_over_q`] above is the **time-integrated** dilution factor from
     /// `changi::activity::dilution_factors`. It is what the activity columns are
-    /// built on, and it refreshes on the dispersion channel's 60 s throttle
-    /// because it costs `O(steps x puffs x receptors)` twice over.
+    /// built on, and it refreshes on the dispersion channel's ~~60 s~~ 2 s
+    /// throttle (**CORRECTED 2026-09-28**: `DISPERSION_EVALUATION_INTERVAL_S`
+    /// is 2.0 since 2026-09-27) because it costs `O(steps x puffs x receptors)` twice over.
     ///
     /// This one is the instantaneous field sampled at the same point, refreshing
     /// with the map at 10 Hz (maintainer direction 2026-09-27: *"sampling
@@ -91,6 +96,10 @@ pub struct ReceptorSnapshot {
     /// cell must not be compared to a table row applies to `chi_over_q`, not to
     /// this.
     pub instantaneous_chi_over_q: f64,
+    /// Instantaneous air concentration per tracked nuclide \[Bq/m^3\], each
+    /// puff at its emission's stack rate (gh:#400). All zero before the first
+    /// evaluation.
+    pub instantaneous_air_bq_per_m3_by_nuclide: [f64; TRACKED_RELEASE_NUCLIDES],
     /// Time-integrated air concentration, Bq.s/m^3 per Ci of core inventory.
     /// Not a concentration at any reactor.
     pub air_bq_s_per_m3: f64,
@@ -98,11 +107,34 @@ pub struct ReceptorSnapshot {
     /// `changi` does not port wet scavenging, so this is **not** an upper
     /// bound; rain would raise it.
     pub ground_bq_per_m2: f64,
+    /// Time-integrated air concentration on the **absolute** basis \[Bq·s/m^3\],
+    /// summed over the five tracked nuclides; `NAN` when the absolute arm is
+    /// unavailable. Not a concentration at any reactor ~~and never a dose
+    /// input~~ (**CHANGED 2026-09-29**: the per-nuclide deposit below is the
+    /// ground-shine input of the indicative dose rate; this sum is not).
+    pub air_bq_s_per_m3_absolute: f64,
+    /// Dry ground deposition on the **absolute** basis \[Bq/m^2\]; `NAN` when
+    /// unavailable. Same caveats.
+    pub ground_bq_per_m2_absolute: f64,
+    /// Dry ground deposition on the absolute basis \[Bq/m^2\] **per tracked
+    /// nuclide**, in `TRACKED_NUCLIDES` order; `NAN` when unavailable. Added
+    /// 2026-09-29: the map's dose-rate basis turns each nuclide's deposit into
+    /// an indicative ground-shine dose rate with that nuclide's own FGR-15
+    /// coefficient (see `crate::physics::dose_rate`).
+    pub ground_bq_per_m2_absolute_by_nuclide: [f64; TRACKED_RELEASE_NUCLIDES],
 }
 
 /// How many receptors the dispersion channel publishes. Matches
 /// [`crate::physics::atmospheric_dispersion::RECEPTOR_COUNT`].
 pub const DISPERSION_RECEPTORS: usize = 24;
+
+/// Reactivity in pcm from dollars at `beta`: `rho [pcm] = $ x beta x 1e5`.
+/// The one conversion the reactivity budget uses, so the panel and its test
+/// cannot disagree about it. Pass the KINETICS' beta
+/// ([`HtgrSnapshot::kinetics_beta`]) for the budget's terms.
+pub fn reactivity_pcm(dollars: f64, beta: f64) -> f64 {
+    dollars * beta * 1.0e5
+}
 
 /// Scalar snapshot of the HTGR plant, shared between the physics thread (which
 /// writes the output fields) and the GUI thread (which writes the control-input
@@ -131,6 +163,30 @@ pub struct HtgrSnapshot {
     /// bounded by the circulator's 0.3 kg/s regulating floor, so it cannot
     /// express a stopped blower. See `physics::Scenario`.
     pub circulator_tripped: bool,
+    /// Operator has started the **water-ingress** accident (gh:#401) from the
+    /// Map tab. A control input; see `physics::Scenario::WaterIngress`.
+    pub water_ingress_triggered: bool,
+    /// Operator has started the DLOFC + ATWS accident (gh:#402) from the Map
+    /// tab. A control input; see `physics::Scenario::DlofcAtws`.
+    pub dlofc_triggered: bool,
+    /// DLOFC readouts (gh:#402), `NAN` unless it runs: helium discharged
+    /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\].
+    pub dlofc_discharged_kg: f64,
+    pub dlofc_vented_fraction: f64,
+    pub dlofc_graphite_oxidised_kg: f64,
+    /// Water-ingress readouts (gh:#401), `NAN` unless the accident runs:
+    /// primary pressure \[MPa\], steam in the primary \[kg\], graphite
+    /// gasified \[kg\], H2 and CO mole fractions \[%\], fraction of the
+    /// primary gas vented.
+    pub ingress_pressure_mpa: f64,
+    pub ingress_steam_kg: f64,
+    pub ingress_graphite_corroded_kg: f64,
+    pub ingress_h2_percent: f64,
+    pub ingress_co_percent: f64,
+    pub ingress_vented_fraction: f64,
+    /// Whether the kernel-hydrolysis burst has been evaluated outside its
+    /// TECDOC-978 fit (gh:#418); shown on the Map tab.
+    pub ingress_hydrolysis_out_of_range: bool,
     /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
     /// (`false`).
     ///
@@ -197,7 +253,13 @@ pub struct HtgrSnapshot {
     /// violation in the underlying two-phase balance, which stayed correctly
     /// ordered throughout (see
     /// `physics::tests::reproduce_issue_22_scram_cooldown_energy_balance`).
-    /// Both the missing source term and the display wiring are now fixed:
+    /// ~~Both the missing source term and the display wiring are now fixed:~~
+    /// **CORRECTED 2026-09-28 (gh:#360)** -- true only after a scram. AT POWER
+    /// this node does *not* track the bed: it is heated by the full fission
+    /// power plus decay heat (the decay-energy share counted twice) and is
+    /// never charged the passive RCCS loss, and was measured **234.9 K above
+    /// the bed at t = 1500 s** under default commands, growing ~0.12 K/s. The
+    /// scram-only statement that follows is the original:
     /// this node tracks the bed within about +0.04 K through the same scram
     /// (see `physics::tests::kinetics_fuel_node_tracks_the_bed_node_after_a_scram`),
     /// but [`Self::bed_temperature_k`] remains the field to read for a
@@ -222,17 +284,29 @@ pub struct HtgrSnapshot {
     /// Peak fuel-**kernel** temperature \[K\], or `f64::NAN` when the
     /// selected fidelity tier does not resolve one.
     ///
-    /// The centre of the hottest UO2 kernel in a core-average pebble -- the
-    /// temperature the Doppler channel
-    /// ([`crate::physics::kinetics::KernelDopplerChannel`]) and the TRISO
-    /// release channel ([`crate::physics::fission_product_release`]) are both
-    /// driven from as of 2026-09-22, and the one a fuel-temperature limit
-    /// applies to.
+    /// The centre of the hottest UO2 kernel in a core-average pebble -- ~~the
+    /// temperature the TRISO release channel
+    /// ([`crate::physics::fission_product_release`]) is driven from~~ (since
+    /// 2026-09-28 the release channel uses the inventory-averaged kernel, the
+    /// SiC layer and the fuelled-zone matrix instead) -- and the one a
+    /// fuel-temperature limit applies to. ~~"...the Doppler channel ...
+    /// and the TRISO release channel are both driven from"~~ **CORRECTED
+    /// 2026-09-28 (gh:#360)**: the Doppler channel
+    /// (~~`KernelDopplerChannel`~~, removed 2026-09-28) shared only the
+    /// offset above the node; its absolute kernel is
+    /// [`Self::fuel_temperature_k`] + offset, which is not displayed and was
+    /// measured 236 K above this field at t = 1500 s.
     ///
-    /// **`NAN`, not a fallback to the bed.** The two placeholder fidelity
-    /// tiers have no kernel, and substituting the bed temperature would put a
-    /// number under a "peak fuel" label that is systematically tens of kelvin
-    /// low. A `NAN` renders as "--" and cannot be misread.
+    /// **CHANGED 2026-09-28 (gh:#360, later the same day).** This field is
+    /// now the peak kernel placed on the fuel-bed line by the fuel-to-bed
+    /// coupling -- `T_bed + f_peak (T_fuel - T_bed)`, with `T_fuel` the
+    /// kinetics fuel node (the inventory-averaged kernel, which is also what
+    /// the release channel and the Doppler term now use; ~~the 236 K gap~~
+    /// above is gone). It exists on **every** tier (the placeholders are one
+    /// node underneath) and during a prompt burst, so ~~"`NAN`, not a fallback
+    /// to the bed. The two placeholder fidelity tiers have no kernel"~~ no
+    /// longer applies; `NAN` now appears only if the bed has never had a
+    /// coupling, which the design-point seed rules out.
     ///
     /// Still the peak kernel of a **core-average** pebble: no power peaking,
     /// no axial or radial shape, no burnup. A real HTR-10 peak-power pebble
@@ -243,12 +317,16 @@ pub struct HtgrSnapshot {
     /// the Doppler channel's reactivity is proportional to, and it is far more
     /// legible on a trend plot than two nearly-equal absolute temperatures.
     pub kernel_offset_k: f64,
-    /// Reactivity worth of the kernel Doppler channel \[$\].
+    /// Reactivity worth of the **fuel (kernel) channel** \[$\],
+    /// `alpha_fuel (T_f - T_f,ref) / beta` on the fuel node.
     ///
-    /// Zero at the design point by construction, negative above it. This is
-    /// the *additional* feedback the 2026-09-22 rewiring supplies; the
-    /// graphite share stays inside the closed-form prompt layer and is not
-    /// separately reportable. See [`crate::physics::kinetics::KernelDopplerChannel`].
+    /// ~~"This is the *additional* feedback the 2026-09-22 rewiring supplies;
+    /// the graphite share stays inside the closed-form prompt layer and is not
+    /// separately reportable."~~ **CHANGED 2026-09-28 (gh:#360)** -- the fuel
+    /// node is the kernel now, so this is the whole fuel share of the
+    /// isothermal coefficient (inside the closed form), and the graphite share
+    /// is the separate moderator channel on the bed. Zero at the rated design
+    /// point by construction. See [`crate::physics::kinetics::FeedbackSplit`].
     pub kernel_doppler_dollars: f64,
     /// Summed circulating activity across the tracked nuclides, **per curie of
     /// core inventory** \[Ci/Ci\].
@@ -309,12 +387,16 @@ pub struct HtgrSnapshot {
     /// One entry per receptor, ordered distance-major then compass sector.
     /// All-zero before the first dispersion evaluation.
     pub receptors: [ReceptorSnapshot; DISPERSION_RECEPTORS],
-    /// The evaluated `chi/Q` field the Map tab paints, `s/m^3` per cell,
-    /// row-major and **north-up** so it can be drawn straight down the screen.
+    /// The evaluated field the Map tab paints, per cell, row-major and
+    /// **north-up** so it can be drawn straight down the screen, **in the
+    /// basis [`Self::dispersion_grid_weighting`] names** (gh:#400; ~~always
+    /// `chi/Q` s/m^3~~ until 2026-09-29).
     ///
     /// `f32`, not `f64`: this exists to drive a colour ramp, and the snapshot
     /// is cloned every frame. Empty until the first dispersion run.
     pub dispersion_grid: Vec<f32>,
+    /// The basis [`Self::dispersion_grid`] was summed in.
+    pub dispersion_grid_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// Cells per side of [`Self::dispersion_grid`].
     pub dispersion_grid_cells: usize,
     /// Half-width of the square the grid covers \[m\].
@@ -346,6 +428,9 @@ pub struct HtgrSnapshot {
     /// [`crate::physics::atmospheric_dispersion::max_grid_cells`] -- so an
     /// oversized request costs a coarser map, never a missed tick.
     pub map_field_cells_requested: usize,
+    /// The basis the Map tab shows, so the physics sums the field in it with
+    /// each puff at its emission's rate (gh:#400). A control input.
+    pub map_field_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// How far ahead of the plant clock the operator has run the **plume**
     /// clock \[s\] -- the Map tab's fast-forward.
     ///
@@ -383,6 +468,21 @@ pub struct HtgrSnapshot {
     /// Plant time of the most recent dispersion evaluation, seconds; `NAN`
     /// before the first.
     pub dispersion_evaluated_at_s: f64,
+    /// Release rate to atmosphere, **per-Ci** basis \[Bq/s per Ci of core
+    /// inventory\], summed over the tracked nuclides. Instantaneous `chi/Q`
+    /// × this is the map's per-Ci concentration. `NAN` before the first run.
+    pub dispersion_source_rate_per_ci_bq_per_s: f64,
+    /// Release rate to atmosphere, **absolute** basis \[Bq/s\], summed over
+    /// the tracked nuclides; `NAN` before the first run or when the absolute
+    /// arm is unavailable. Instantaneous `chi/Q` × this is the map's default
+    /// field, an instantaneous air concentration \[Bq/m^3\].
+    pub dispersion_source_rate_absolute_bq_per_s: f64,
+    /// The absolute release rate to atmosphere **per tracked nuclide**
+    /// \[Bq/s\], in `TRACKED_NUCLIDES` order; `NAN` before the first run or
+    /// for a nuclide without a published inventory. Added 2026-09-29 for the
+    /// map's dose-rate basis (`crate::physics::dose_rate`): instantaneous
+    /// `chi/Q` × one entry is that nuclide's live air concentration.
+    pub dispersion_source_rate_absolute_by_nuclide_bq_per_s: [f64; TRACKED_RELEASE_NUCLIDES],
     /// Whether the reactor protection system is armed.
     ///
     /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
@@ -421,20 +521,48 @@ pub struct HtgrSnapshot {
     pub external_reactivity_dollars: f64,
     /// Reactivity margin \[dollars\].
     pub reactivity_margin_dollars: f64,
+    /// **Reactivity budget** (2026-09-29), every term in the KINETICS' own
+    /// dollars, read straight off `HtgrKinetics` -- the panel re-derives
+    /// nothing. External (rods, after any scram demand) \[$\].
+    pub budget_external_dollars: f64,
+    /// Fuel (Doppler) feedback \[$\].
+    pub budget_fuel_dollars: f64,
+    /// Moderator (bed graphite) feedback \[$\].
+    pub budget_moderator_dollars: f64,
+    /// Xenon \[$\] (zero while the xenon channel is off).
+    pub budget_xenon_dollars: f64,
+    /// Net: the sum the kinetics integrate \[$\].
+    pub budget_net_dollars: f64,
+    /// The `beta` the kinetics convert those dollars with (dimensionless);
+    /// since 2026-09-29 the same as [`Self::delayed_neutron_fraction_pcm`]
+    /// / 1e5 (one beta, gh:#387).
+    pub kinetics_beta: f64,
     /// Effective total delayed-neutron fraction \[pcm\].
     pub delayed_neutron_fraction_pcm: f64,
 
     // --- Primary helium loop outputs ---
     /// Core inlet helium temperature \[K\].
     pub core_inlet_temp_k: f64,
-    /// Core outlet helium temperature \[K\].
+    /// Core outlet helium temperature \[K\] -- the helium leaving the bed
+    /// (its fluid node). Since 2026-09-29 (gh:#391) no longer a lagged value.
     pub core_outlet_temp_k: f64,
+    /// Hot-duct CV helium temperature \[K\] -- the hot-gas plenum and hot gas
+    /// duct, i.e. the steam generator's helium inlet (gh:#391, 2026-09-29).
+    pub hot_duct_temp_k: f64,
     /// Helium mass flow \[kg/s\].
     pub helium_mass_flow_kg_per_s: f64,
-    /// IHX duty transferred to the secondary loop \[MW\].
+    /// Steam-generator duty **leaving the helium** \[MW\], `m_dot (h_in -
+    /// h_out)` on the helium side. ~~"IHX duty transferred to the secondary
+    /// loop"~~ **CORRECTED 2026-09-29**: `write_snapshot` fills this from the
+    /// helium side; what the water absorbs is [`Self::sg_secondary_duty_mw`].
     pub ihx_duty_mw: f64,
-    /// Helium-side IHX outlet temperature \[K\] -- what the core inlet
-    /// relaxes toward once the return transport lag has played out.
+    /// Steam-generator duty **entering the water/steam** \[MW\]. Differs from
+    /// [`Self::ihx_duty_mw`] by the tube metal's stored-energy rate.
+    pub sg_secondary_duty_mw: f64,
+    /// Helium-side IHX outlet temperature \[K\] -- ~~what the core inlet
+    /// relaxes toward once the return transport lag has played out~~
+    /// **CORRECTED 2026-09-29**: the inflow to the cold-return CV, whose own
+    /// state is the core inlet (the 8 s lag was deleted, gh:#392).
     pub ihx_outlet_temp_k: f64,
     /// Helium loop residence time \[s\] (`m/m_dot`), driving the primary
     /// flow tracers in the schematic.
@@ -448,8 +576,34 @@ pub struct HtgrSnapshot {
     /// in this model that is a real correlation result rather than a carried
     /// published figure.
     pub bed_pressure_drop_kpa: f64,
-    /// Circulator hydraulic power \[MW\].
+    /// Circulator shaft power \[MW\] -- delivered to the helium in the
+    /// cold-return CV since 2026-09-29 (gh:#392).
     pub circulator_power_mw: f64,
+    /// Passive decay-heat loss from the bed to the reflector \[MW\].
+    pub passive_heat_loss_mw: f64,
+    /// Heat the side reflector gives the helium rising through its channels
+    /// \[MW\] (gh:#397) -- enters the cold-return CV.
+    pub riser_heat_mw: f64,
+    /// Lumped side-reflector temperature \[K\] (passive path node).
+    pub reflector_temp_k: f64,
+    /// Lumped reactor-pressure-vessel temperature \[K\] (passive path node).
+    pub rpv_temp_k: f64,
+    /// **Plant energy ledger, cumulative since construction \[J\]** (gh:#394):
+    /// fission (prompt) + decay heat deposited in the fuel.
+    pub energy_source_j: f64,
+    /// Cumulative change in energy stored in every lumped CV \[J\]: fuel
+    /// node, bed graphite, bed void helium, hot-duct and cold-return CVs,
+    /// reflector and RPV. (The steam generator's arrays are outside it; the
+    /// ledger's boundary on that side is the helium stream.)
+    pub energy_stored_j: f64,
+    /// Cumulative enthalpy handed from the helium to the steam generator \[J\].
+    pub energy_to_steam_generator_j: f64,
+    /// Cumulative heat to the RCCS \[J\].
+    pub energy_to_rccs_j: f64,
+    /// Cumulative circulator work delivered to the helium \[J\].
+    pub energy_circulator_work_j: f64,
+    /// Cumulative residual `source + work - stored - to SG - to RCCS` \[J\].
+    pub energy_residual_j: f64,
     /// Helium isobaric specific heat \[J/(kg K)\] at the current bulk mean
     /// temperature, from the real EOS -- shown so the operator can see the
     /// property is evaluated live rather than frozen.
@@ -658,6 +812,18 @@ impl Default for HtgrSnapshot {
             control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
             // The blower runs at startup; the operator trips it deliberately.
             circulator_tripped: false,
+            water_ingress_triggered: false,
+            dlofc_triggered: false,
+            dlofc_discharged_kg: f64::NAN,
+            dlofc_vented_fraction: f64::NAN,
+            dlofc_graphite_oxidised_kg: f64::NAN,
+            ingress_pressure_mpa: f64::NAN,
+            ingress_steam_kg: f64::NAN,
+            ingress_graphite_corroded_kg: f64::NAN,
+            ingress_h2_percent: f64::NAN,
+            ingress_co_percent: f64::NAN,
+            ingress_vented_fraction: f64::NAN,
+            ingress_hydrolysis_out_of_range: false,
             // ~~"Feedwater in AUTO at the published 440 degC ... the opening
             // state is exactly `physics::PlantCommands::default()`."~~
             // **CORRECTED 2026-09-22.** Two claims here were false. The
@@ -710,27 +876,52 @@ impl Default for HtgrSnapshot {
             particle_sic_k: f64::NAN,
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
             dispersion_grid: Vec::new(),
+            dispersion_grid_weighting: Default::default(),
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,
             dispersion_grid_time_s: f64::NAN,
-            map_field_cells_requested:
-                crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
+            map_field_cells_requested: crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
+            map_field_weighting: Default::default(),
             plume_clock_offset_s: 0.0,
-            wind_speed_m_per_s: 3.0,
+            // The map regime's representative speed (inter-monsoon, 1 m/s;
+            // `map_puff_model`, maintainer 2026-09-29).
+            wind_speed_m_per_s: crate::physics::map_puff_model::default_speed_m_per_s(),
             wind_from_deg: 0.0,
             stability_class: "",
             dispersion_evaluated_at_s: f64::NAN,
+            dispersion_source_rate_per_ci_bq_per_s: f64::NAN,
+            dispersion_source_rate_absolute_bq_per_s: f64::NAN,
+            dispersion_source_rate_absolute_by_nuclide_bq_per_s: [f64::NAN;
+                TRACKED_RELEASE_NUCLIDES],
             reactivity_margin_dollars: 0.0,
+            budget_external_dollars: 0.0,
+            budget_fuel_dollars: 0.0,
+            budget_moderator_dollars: 0.0,
+            budget_xenon_dollars: 0.0,
+            budget_net_dollars: 0.0,
+            kinetics_beta: 7.26e-3,
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,
             core_outlet_temp_k: 600.15,
+            hot_duct_temp_k: 600.15,
             helium_mass_flow_kg_per_s: 4.3,
             ihx_duty_mw: 0.0,
+            sg_secondary_duty_mw: 0.0,
             ihx_outlet_temp_k: 439.15,
             helium_residence_time_s: 0.0,
             primary_pressure_drop_kpa: 0.0,
             bed_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
+            passive_heat_loss_mw: 0.0,
+            riser_heat_mw: 0.0,
+            reflector_temp_k: f64::NAN,
+            rpv_temp_k: f64::NAN,
+            energy_source_j: 0.0,
+            energy_stored_j: 0.0,
+            energy_to_steam_generator_j: 0.0,
+            energy_to_rccs_j: 0.0,
+            energy_circulator_work_j: 0.0,
+            energy_residual_j: 0.0,
             helium_cp_j_per_kg_k: 5193.0,
             steam_pressure_mpa: 4.0,
             sg_steam_outlet_temp_k: 509.15,

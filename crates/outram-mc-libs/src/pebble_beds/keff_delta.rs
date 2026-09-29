@@ -517,6 +517,7 @@ fn delta_flight<Q>(
     max_virtual: u32,
     material_at: &Q,
     seed: &mut u64,
+    urr_seed: u64,
 ) -> Option<(Position, usize, Direction)>
 where
     Q: MaterialQuery,
@@ -533,7 +534,9 @@ where
         r = r_next;
         u = u_next;
         let m = material_at.material_at(r)?;
-        let sigma_t = materials[m].macro_xs_total(energy, nuclides);
+        // The band total the collision will use (GitHub #407); the majorant
+        // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
+        let sigma_t = materials[m].macro_xs_total_urr(energy, nuclides, urr_seed);
         match classify_collision(sigma_t, maj, seed) {
             DeltaEvent::Real => return Some((r, m, u)),
             DeltaEvent::Virtual => continue,
@@ -961,17 +964,25 @@ where
     const MAX_VIRTUAL: u32 = 100_000;
     let mut production = 0.0;
     let mut stack: Vec<Site> = vec![site];
+    // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`; see
+    // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
+    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
         let mut events = 0u32;
+        let mut urr_e_last = e;
 
         'history: loop {
             events += 1;
             if events > MAX_EVENTS {
                 break 'history; // give up on a stuck history (leak it)
+            }
+            if e != urr_e_last {
+                urr_seed = future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
             }
 
             let Some((r_col, m, u_arr)) = delta_flight(
@@ -985,6 +996,7 @@ where
                 MAX_VIRTUAL,
                 material_at,
                 seed,
+                urr_seed,
             ) else {
                 break 'history; // leaked / virtual budget exhausted
             };
@@ -992,15 +1004,13 @@ where
             u = u_arr;
 
             let material = &materials[m];
-            let ci = material.sample_nuclide(e, seed, nuclides);
-            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+            let nuc_idx = material.components[ci].nuclide_idx;
+            let nuc = &nuclides[nuc_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
-                nuc.xs_at_energy_urr(e, temp, prn(seed))
+                // The same band the flight and the nuclide choice used
+                // (GitHub #407; OpenMC `calculate_urr_xs`).
+                nuc.xs_at_energy_urr(e, temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
             } else {
                 nuc.xs_at_energy(e, temp)
             };
@@ -1109,6 +1119,36 @@ where
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- GitHub #365 audit: this delta-tracking
+                // kernel had no MT=5 arm, so those collisions fell through to
+                // ELASTIC here while every other kernel in the crate has handled
+                // them since 2026-09-17. Same arm as `physics::keff`'s.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                if n_emit == 0 {
+                    break 'history;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // The other neutron-emitting reactions (GitHub #365 audit).
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break 'history;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Scattering. Below its cutoff a moderator nuclide carrying an
                 // S(alpha, beta) table thermalizes via the bound-atom law

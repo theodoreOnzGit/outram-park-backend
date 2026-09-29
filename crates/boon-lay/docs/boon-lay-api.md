@@ -2,7 +2,7 @@
 
 **Version:** 0.1.3
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `boon_lay`
 
@@ -535,7 +535,7 @@ reference.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -709,7 +709,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -940,7 +940,7 @@ pub struct DecayLibrary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1121,7 +1121,7 @@ pub struct NuclideReactionAndDecayData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1255,7 +1255,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1385,7 +1385,7 @@ pub struct DecayData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1570,7 +1570,7 @@ pub enum DecayType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1723,7 +1723,7 @@ pub struct DecayChainIntoIter {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1811,11 +1811,6 @@ pub struct DecayChainIter<''a> {
     fn size_hint(self: &Self) -> (usize, Option<usize>) { /* ... */ }
     ```
 
-- **ParallelBridge**
-  - ```rust
-    fn par_bridge(self: Self) -> IterBridge<T> { /* ... */ }
-    ```
-
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1840,7 +1835,7 @@ pub struct DecayChainIter<''a> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1928,11 +1923,6 @@ pub struct DecayChainIterMut<''a> {
     fn size_hint(self: &Self) -> (usize, Option<usize>) { /* ... */ }
     ```
 
-- **ParallelBridge**
-  - ```rust
-    fn par_bridge(self: Self) -> IterBridge<T> { /* ... */ }
-    ```
-
 - **Pointable**
   - ```rust
     unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
@@ -1957,7 +1947,7 @@ pub struct DecayChainIterMut<''a> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2116,7 +2106,7 @@ pub struct StochasticDecayChain {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2360,7 +2350,7 @@ pub struct SingleNuclideSimulatorMC {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2555,7 +2545,7 @@ pub struct OoRng64(pub u64);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2787,7 +2777,7 @@ pub struct Vec3 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3119,7 +3109,7 @@ buffer layer
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3410,7 +3400,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3574,7 +3564,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3762,7 +3752,7 @@ pub struct TrisoCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3908,7 +3898,7 @@ pub enum TrisoRegion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4120,7 +4110,7 @@ pub struct DiffusionRandomCache {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4426,7 +4416,7 @@ pub struct SingleParticleDiffusionSimulatorMC {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4687,7 +4677,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4853,7 +4843,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5023,7 +5013,7 @@ pub struct EnsembleConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5329,7 +5319,7 @@ pub struct Snapshot {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5474,7 +5464,7 @@ pub struct LiveEnsemble {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5812,7 +5802,7 @@ continues from the reinserted position on the next step.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5954,7 +5944,7 @@ pub struct WalkParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6156,7 +6146,7 @@ pub struct WoSWalker {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6462,7 +6452,7 @@ pub struct GpuContext {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6598,7 +6588,7 @@ The map callback never fired.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7074,7 +7064,7 @@ pub struct TrisoAtopsNuclide {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7258,7 +7248,7 @@ Any other fission metal not in the groups above. Assigned a fixed nominal
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7474,7 +7464,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7657,7 +7647,7 @@ inconsistency — see [`upstream_table_parent_decay`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7794,7 +7784,7 @@ pub struct SelectedNuclide {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8141,7 +8131,7 @@ pub struct KernelGraphiteDiffusion {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8289,7 +8279,7 @@ Matrix graphite.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8975,7 +8965,7 @@ Release from the matrix graphite.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9374,6 +9364,496 @@ The clean-up pool `HPS` at time `t` (effective `f64`, atom count).
 pub fn clean_up(k_plate: uom::si::f64::Frequency, source_rate: f64, decay_constant: crate::triso_atops_fork::DecayConstant, time: uom::si::f64::Time, circulating: f64, k_clean: uom::si::f64::Frequency, clean_up_parent: f64) -> f64 { /* ... */ }
 ```
 
+## Module `live_pools`
+
+# Live primary-circuit activity pools
+
+The ported closed forms in [`super::coolant_activity`] answer "what is in
+each pool after running for time `t` from empty with a constant source".
+A simulator needs the pools *carried*: the source changes as the fuel
+temperature changes, and a transient must start from whatever the plant has
+accumulated. This module steps the same balances from an arbitrary state,
+**exactly** for a source held constant over the step:
+
+```text
+dC/dt = S - beta C,          beta = lambda + k_plate + k_clean + k_leak
+dP/dt = k_plate C - lambda P
+dH/dt = k_clean C - lambda H
+dL/dt = k_leak  C                 (atoms that left the circuit, cumulative)
+```
+
+`C`, `P`, `H` are atom counts, as in [`super::coolant_activity`] (activity
+is `lambda x atoms`, converted once downstream); `S` is atoms/s. `L` counts
+atoms **at the moment they leak**, undecayed -- the release to whatever is
+downstream of the circuit.
+
+**Exact integration.** With `S` constant over `dt` and `e_b = exp(-beta dt)`,
+`e_l = exp(-lambda dt)`:
+
+```text
+C1 = C0 e_b + (S/beta)(1 - e_b)
+int_0^dt C = (S/beta) dt + (C0 - S/beta)(1 - e_b)/beta
+int_0^dt C(s) e^{-lambda (dt - s)} ds
+     = (S/beta)(1 - e_l)/lambda + (C0 - S/beta)(e_b - e_l)/(lambda - beta)
+P1 = P0 e_l + k_plate x (that integral),   H1 likewise with k_clean
+L1 = L0 + k_leak int C
+```
+
+**Consistency with the ported closed forms**, checked in the tests: from
+`C0 = P0 = H0 = 0`, with `k_leak = 0` and no parent, one step of length `t`
+reproduces [`super::coolant_activity::circulating`],
+[`super::coolant_activity::plate_out`] and
+[`super::coolant_activity::clean_up`] to rounding.
+
+**Atom conservation**, also checked: over any step, `S dt = (C1 - C0) +
+(P1 - P0) + (H1 - H0) + (L1 - L0) + decayed`, with `decayed = lambda int (C
++ P + H)`, evaluated here in closed form.
+
+No parent in-growth: a daughter's pools are driven by its own source only
+(the ported forms' `C_parent`/`P_parent` are passed as zero by every caller
+in this workspace).
+
+```rust
+pub mod live_pools { /* ... */ }
+```
+
+### Types
+
+#### Struct `PrimaryPools`
+
+The three primary-circuit pools and the cumulative leak, in **atoms**.
+
+```rust
+pub struct PrimaryPools {
+    pub circulating: f64,
+    pub plate_out: f64,
+    pub clean_up: f64,
+    pub leaked: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `circulating` | `f64` | Circulating in the coolant. |
+| `plate_out` | `f64` | Plated out on circuit surfaces. |
+| `clean_up` | `f64` | Held in the helium-purification system (clean-up). |
+| `leaked` | `f64` | Cumulative atoms that left the circuit by leakage (undecayed count at<br>the moment of leaking). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PrimaryPools { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PrimaryPools { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PrimaryPools) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PoolRates`
+
+The rate constants a step needs \[1/s\], all non-negative.
+
+```rust
+pub struct PoolRates {
+    pub decay: f64,
+    pub plate_out: f64,
+    pub clean_up: f64,
+    pub leak: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `decay` | `f64` | Decay constant `lambda`. |
+| `plate_out` | `f64` | Plate-out `k_plate`. |
+| `clean_up` | `f64` | Clean-up (HPS) `k_clean`. |
+| `leak` | `f64` | Primary-circuit leakage `k_leak`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PoolRates { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PoolRates) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PoolStepFlows`
+
+What one step moved \[atoms\], for conservation checks and for the
+downstream consumer of the leak.
+
+```rust
+pub struct PoolStepFlows {
+    pub entered: f64,
+    pub decayed: f64,
+    pub leaked: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `entered` | `f64` | `S dt`: atoms that entered the coolant from the fuel. |
+| `decayed` | `f64` | Atoms that decayed in the three pools during the step. |
+| `leaked` | `f64` | Atoms that leaked out of the circuit during the step. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PoolStepFlows { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PoolStepFlows { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PoolStepFlows) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `step`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Step the pools by `dt` \[s\] with the source `source_atoms_per_s` held
+constant, **exactly** (see the module doc). Returns the new pools and what
+moved.
+
+# Panics
+
+If `dt` is negative or a rate is negative or non-finite -- a caller error,
+not a physical state.
+
+```rust
+pub fn step(pools: PrimaryPools, source_atoms_per_s: f64, rates: PoolRates, dt: f64) -> (PrimaryPools, PoolStepFlows) { /* ... */ }
+```
+
 ## Module `source_terms`
 
 # Source terms — release rate and graphite hold-up
@@ -9535,7 +10015,7 @@ pub struct FailureFractions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9666,7 +10146,7 @@ pub struct SourceAndGraphite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10163,7 +10643,7 @@ pub struct PlantConstants {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10291,7 +10771,7 @@ pub struct NodeState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10435,7 +10915,7 @@ pub struct ParentPools {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10590,7 +11070,7 @@ pub struct NodalActivities {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10732,7 +11212,7 @@ pub struct NodalActivitiesCurie {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10979,7 +11459,7 @@ pub struct AccidentFractions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11135,7 +11615,7 @@ pub struct NormalOperationNode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11279,7 +11759,7 @@ Release out of the matrix graphite.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11807,7 +12287,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11979,7 +12459,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12182,7 +12662,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12347,7 +12827,7 @@ pub struct RunConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12496,8 +12976,11 @@ table in the report to check them against, and Eq (4) has none either
 (only the exact identity `F_d(τ_i, 0) = f(τ_i)`). Against Fig. 6 the chain
 reproduces the eight-variety ordering 8/8 but carries a residual of
 −0.37 … +0.39 decades that runs systematically with `m`; against Fig. 7 it
-holds to 4.9 % through all three temperature stages for 300 h and then
-drifts to a factor 1.90 by 977 h. Both are recorded with numbers in
+holds to ~~4.9 %~~ **4.7 %** through all three temperature stages for 300 h and then
+drifts to a factor ~~1.90~~ **1.87** by 977 h (**CORRECTED 2026-09-28**
+on the re-digitised Fig. 7, whose true seven-decade scale put the old
+data one decade high; the ratios barely moved because an offset only
+rescales the implied stress). Both are recorded with numbers in
 `docs/panama-i-units-and-open-questions.md` and pinned by tests in
 [`history`].
 
@@ -13120,7 +13603,7 @@ for irradiated and unirradiated elements.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13425,7 +13908,7 @@ pub enum KernelKind {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13617,7 +14100,7 @@ pub struct SicLayer {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13688,11 +14171,24 @@ to the printed form for an isothermal hold — pinned by
 
 # Verification status
 
-**Not verified against any output of the report.** Figs. 7 and 8 plot the
-"with grain boundary corrosion" curve, but their captions state neither the
-particle geometry, the kernel volume nor the buffer void volume, so the
-absolute release fraction cannot be reproduced without inventing three
-inputs. What can be said is checked and no more: the qualitative direction
+~~**Not verified against any output of the report.**~~ **CORRECTED
+2026-09-28:** checked against the report's own Fig. 7 by a geometry-free
+identity. The `with` and `without` curves are one calculation with and
+without Eq (10b), so inverting Eq (1) on each (with this module's `m`)
+must return one `σ_t`. On the re-digitised Fig. 7 (true seven-decade
+scale) the mean ratio over 300–900 h is **0.973**, with `∫η̇ dt`
+accumulated over the staged history
+(`history::tests::figure_7_redigitised_two_curves_connect_at_the_true_scale`).
+~~Fig. 8 gives 1.005 under the same one-decade correction but has not been
+re-digitised, so it is not counted.~~ **UPDATED 2026-09-28:** Fig. 8,
+re-digitised on its true seven-decade scale, gives **1.024** over 30–900 h
+with no correction
+(`history::tests::figure_8_redigitised_two_curves_connect_at_the_true_scale`),
+so it now counts as a second check. That identity checks the (10b)/(10c)
+pair against the report's output. It does not check the absolute release
+fraction: the captions state neither the particle geometry, the kernel
+volume nor the buffer void volume, so that cannot be reproduced without
+inventing three inputs. Also checked: the qualitative direction
 (corrosion raises the failure fraction), the floor at `0.44·m_o`, and the
 `0.565`/`187400` Arrhenius as transcribed.
 
@@ -13836,7 +14332,7 @@ Eqs (10b)/(10c): `m` decays toward `0.44·m_o`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14067,42 +14563,75 @@ made on `σ_t` recovered from the `Without Grain Boundary Corrosion` curve
 **one** free scale — the geometry aggregate `r/(2·d_o·(V_f/V_k))`. No
 physics constant is adjusted.
 
-**Results, 2026-09-24** (71 digitised points):
+**Fig. 7 was re-digitised on 2026-09-28.** Its frame plots **seven**
+decades, `10⁰` (top edge) to `10⁻⁷` (bottom edge); the 2026-09-24
+digitisation put `10` on the top edge, so every ordinate was one decade
+high — a ×10 **offset**, not the `7/6` stretch once diagnosed. The
+re-digitised figure (`px 374.02 = 1e-6`, `px 40.02 = 1`) agrees with the
+page to within 0.05 decade on both curves and on the eight measured dots.
+
+**Results, 2026-09-28** (re-digitised, 75 points on the `without` curve):
 
 | window | relative s.d. of `σ_t^PANAMA / σ_t^chain` | max/min |
 |---|---|---|
-| **0–300 h, all three stages** | **4.9 %** | 1.20 |
-| 300–1000 h | 15.4 % | 1.77 |
-| whole run | 21.9 % | 2.17 |
+| **0–300 h, all three stages** | **4.7 %** (18 points) | 1.19 |
+| 300–1000 h | 15.7 % | 1.79 |
+| whole run | 21.9 % | 2.12 |
 
-Per stage the ratio is 0.1561 (1400 °C), 0.1473 (1500 °C), 0.1608
-(1600 °C, first 100 h) — within ±4.5 % of each other. **The staging is
+Per stage 0.1848 / 0.1754 / 0.1866 (±3 %). As predicted before measuring,
+the offset only rescales `σ_t^PANAMA` by `10^(−1/m)` = 0.680, which the
+free scale absorbs: every ratio statistic repeats, and only the absolute
+implied stress moves (282 → **192 MPa** at 977 h).
+
+Superseded, 2026-09-24 digitisation (71 points, one decade high): 4.9 % /
+15.4 % / 21.9 %, max/min 1.20 / 1.77 / 2.17; per stage the ratio was
+0.1561 (1400 °C), 0.1473 (1500 °C), 0.1608
+(1600 °C, first 100 h) — within ±4.5 % of each other (re-run 2026-09-28
+on that data: 0.2650 / 0.2501 / 0.2731, the same shape at a different
+geometry-set level, cause not traced). **The staging is
 reproduced**: the temperature dependence entering through Eq (5c)'s `OPF`,
 `D_S(T)`, `v̇(T)` and Eq (3)'s explicit `T` all land together across two
 step changes.
 
-**Then it drifts, and that is the finding.** By 977 h PANAMA's implied
+**Then it drifts, and that is the finding.** ~~By 977 h PANAMA's implied
 `σ_t` is 282 MPa; with the single scale fixed over 0–300 h the chain
-predicts 148 MPa — a factor **1.90**.
-Diagnosis: PANAMA's curve follows `φ ∝ t^3.21` at late times, i.e.
-`σ_t ∝ t^0.54`, whereas in the chain `F_d` has saturated (0.980 at 296 h,
+predicts 148 MPa — a factor **1.90**.~~ **CORRECTED 2026-09-28** (true
+scale): by 976.8 h PANAMA's implied `σ_t` is **192.0 MPa** against a
+chain-predicted 102.9 MPa — a factor **1.87** on the seven-point test
+(1.93 with the all-point 0–300 h scale; the superseded data gave 1.90 and
+1.96 on the same two bases). ~~Under the `7/6` reading the factor fell to
+1.70~~ — that reading is refuted for Fig. 7, and the drift is not reduced
+by the axis correction at all.
+Diagnosis: PANAMA's curve follows `φ ∝ t^3.16` at late times (3.21 on the
+superseded data), i.e.
+`σ_t ∝ t^0.53`, whereas in the chain `F_d` has saturated (0.980 at 296 h,
 0.9999 at 977 h) and `OPF` is constant at fixed temperature, leaving only
 `FKOR` — which rises **4 %** over the last 700 h. Something in PANAMA
 keeps the pressure climbing as `√t` after the Booth release is over, and
 the printed equations do not say what. Recorded as an open item with these
 numbers in `docs/panama-i-units-and-open-questions.md`;
-[`tests::figure_7_reproduces_the_staged_history_then_drifts`] pins both
-halves so neither can be lost.
+[`tests::figure_7_redigitised_reproduces_the_staged_history_then_drifts`]
+pins both halves so neither can be lost;
+[`tests::figure_7_reproduces_the_staged_history_then_drifts`] keeps the
+superseded digitisation's record.
 
 ### Code-to-data: does PANAMA reproduce the experiment?
 
-This part needs no geometry — it compares the nine measured points against
-the report's own two curves.
+This part needs no geometry — it compares the measured points against
+the report's own two curves. A ×10 offset cancels in a log residual, so
+the re-digitisation was predicted to repeat the old result.
 
-| comparator | mean residual, `log₁₀` | mean \|·\| | worst |
-|---|---|---|---|
-| `Without Grain Boundary Corrosion` (`η̇ ≡ 0`, the caption's case) | **+0.51** | 0.52 | +1.14 |
-| `With Grain Boundary Corrosion` | −1.49 | 1.49 | −1.85 |
+| comparator | 2026-09-28, 8 points | 2026-09-24 (superseded), 9 points |
+|---|---|---|
+| `Without Grain Boundary Corrosion` (`η̇ ≡ 0`, the caption's case) | **+0.50** (\|·\| 0.50, worst +1.14) | +0.51 (0.52, +1.14) |
+| `With Grain Boundary Corrosion` | **−1.61** (1.61, −1.85) | −1.49 (1.49, −1.85) |
+
+The re-digitisation omits the measured dot at ≈ 100 h (5.2·10⁻⁶ on the
+page) and the heavy-metal-contamination band. On the eight common
+measurement times the old data gives +0.51 / −1.63, so the prediction
+held to 0.03 decade; the `with` mean's shift from −1.49 is the missing
+100 h point. It misses the 2026-09-24 test's band (−1.60 … −1.35) by
+0.007 decade for that reason, and the band was not moved.
 
 So at 1400–1600 °C PANAMA **under**-predicts FRJ2-K11/03 by half a decade
 with grain-boundary corrosion off, and over-predicts by 1.5 decades with
@@ -14110,7 +14639,18 @@ it on; the measurement lies between the two, nearer the "without" curve.
 That reproduces page -499-'s own reading — that the with-corrosion model
 "covers the measured values in a conservative approximation" — and it is a
 statement about **PANAMA**, not about this implementation.
-[`tests::figure_7_brackets_the_measurement`] records it.
+[`tests::figure_7_redigitised_brackets_the_measurement`] records it
+(the superseded record is [`tests::figure_7_brackets_the_measurement`]).
+
+### Two-curve identity: Eqs (10b)/(10c) connect Fig. 7's curves at the true scale
+
+Inverting Eq (1) on the `with` curve (with Eq (10b)'s `m`) and on the
+`without` curve must return one `σ_t`. On the re-digitised Fig. 7 the mean
+ratio over 300–900 h is **0.973 with no correction**, and applying the
+old `6/7` deflation breaks it (0.661). On the superseded data a −1 decade
+offset (0.990) and `6/7` (1.005) close it equally, so the identity never
+could discriminate the two readings; the page's seven-decade frame does.
+[`tests::figure_7_redigitised_two_curves_connect_at_the_true_scale`].
 
 One digitisation label reads `90% FIMA` where the caption says
 `9.0 % FIMA` and `F_B = 0.09`; 0.09 is used, and the slip is noted.
@@ -14286,7 +14826,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14445,7 +14985,7 @@ pub struct ParticleState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14576,7 +15116,7 @@ pub struct AccidentStep {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14735,7 +15275,7 @@ pub struct FailureProgress {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14907,7 +15447,7 @@ pub struct AccidentHistory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15159,6 +15699,12 @@ linearly, so `σ_t ∝ F_b` and Eq (1) gives `φ₁ ∝ F_b^m`. Going 11 % → 1
 FIMA should therefore raise `φ₁` by `(14/11)^m`, and the 4–9 % spherical
 band should sit well below the 11 % compact.
 
+*That last clause was this module's expectation, not the source's
+(checked 2026-09-29, GitHub #404).* The source groups the 11 % compacts
+**with** the 4–9 % spheres: Figure 21 labels them together as "up to 11 %
+FIMA", and the text puts the failure threshold between 11 % and 14 %. See
+the test `the_burnup_ordering_at_1600c_matches_and_the_level_does_not`.
+
 **Measured, 2026-09-24**, 300 h at 1600 °C, `T_B = 776 °C`, everything else
 as [`super::particle_with`] builds it:
 
@@ -15361,7 +15907,7 @@ pub struct BurnLeachRow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15882,7 +16428,7 @@ pub enum KernelCompound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16096,7 +16642,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**

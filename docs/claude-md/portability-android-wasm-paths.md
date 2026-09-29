@@ -49,7 +49,7 @@ change. Tracking: the **`op-zfr` "Android support" epic**.
 ## WebAssembly (`wasm32-unknown-unknown`) — supported target, with a hard caveat
 
 **Every in-scope crate's library must compile for `wasm32-unknown-unknown`, and
-a gate enforces it.** Added 2026-09-04. **38 of the 44 members are in scope; 6 are deliberately
+a gate enforces it.** Added 2026-09-04. ~~**38 of the 44 members are in scope**~~ ~~**39 of the 45 members are in scope**~~ **40 of the 46 members are in scope** (**updated 2026-09-28**, `bishan` and `buangkok` added; the script picks them up unedited); **6 are deliberately
 excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics`,
 `bedok` and `outram-blender`, each with its reason in the script.
 **CORRECTED 2026-09-21** — this file had said "34 of 40", stale on both

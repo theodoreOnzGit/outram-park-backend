@@ -12,13 +12,21 @@
 mod advanced_git_view;
 mod bibliography;
 mod csv_preview;
+mod gfm_preview;
 mod home;
 mod kvim_editor;
+mod kvim_tab;
 mod literature_list;
 mod nav;
 mod page_canvas;
 mod pdf_reader;
 mod plot_setup;
+mod saved_digitisation;
+#[cfg(test)]
+mod edit_digitisation_tests;
+#[cfg(test)]
+mod axes_lock_tests;
+mod series_select;
 mod setup;
 mod table_digitiser;
 mod theme;
@@ -49,7 +57,7 @@ use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
 use kvim_editor::KvimEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
-use table_digitiser::{PickerRequest as TablePickerRequest, TableDigitiserState};
+use table_digitiser::{TableDigitiserState, TableOutcome};
 use theme::GuiTheme;
 use wiki::{WikiAction, WikiState};
 
@@ -117,11 +125,6 @@ enum FileDialogTarget {
     JsonExport,
     /// Picked path becomes the dataset CSV export path (op-jtna).
     CsvExport,
-    /// Picked path becomes the table digitiser's JSON export path (op-jfc3
-    /// — the table digitiser had no file picker for this at all before).
-    TableJsonExport,
-    /// Picked path becomes the table digitiser's CSV export path (op-jfc3).
-    TableCsvExport,
     /// Picked directory is opened (or discovered from) as a Kovan root
     /// (op-9vo6.3, §2's "Open Kovan Folder…").
     KovanRootOpen,
@@ -155,7 +158,7 @@ impl FileDialogTarget {
     fn is_save(self) -> bool {
         matches!(
             self,
-            Self::JsonExport | Self::CsvExport | Self::TableJsonExport | Self::TableCsvExport
+            Self::JsonExport | Self::CsvExport
         )
     }
 
@@ -168,8 +171,8 @@ impl FileDialogTarget {
         match self {
             Self::Image => Some("Images"),
             Self::Pdf | Self::PdfIngest => Some("PDF"),
-            Self::JsonExport | Self::TableJsonExport => Some("JSON"),
-            Self::CsvExport | Self::TableCsvExport => Some("CSV"),
+            Self::JsonExport => Some("JSON"),
+            Self::CsvExport => Some("CSV"),
             Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder | Self::KvimFile => {
                 None
             }
@@ -349,6 +352,9 @@ pub struct DigitiseApp {
     home: HomeState,
     wiki: Option<WikiState>,
     kvim_editor: KvimEditorState,
+    /// The Kvim Editor tab's edit lock, pane layout and GFM preview
+    /// (2026-09-28). The buffer itself stays the shared `kvim_editor`.
+    kvim_tab: kvim_tab::KvimTab,
     mindmap: MindmapState,
     advanced_git: AdvancedGitState,
     /// The paper currently in focus, if any — GitHub issue #35's
@@ -377,6 +383,10 @@ pub struct DigitiseApp {
     bibliography: BibliographyState,
     // table digitiser (op-hnhp)
     table_digitiser: TableDigitiserState,
+    /// Whether the PDF reader is currently in the table digitiser's
+    /// character-selection mode, so the switch happens once on entering or
+    /// leaving that view and the user can still change tools inside it.
+    reader_in_table_mode: bool,
     /// Modification fingerprint of the repo files a save writes (the active
     /// paper's Markdown + the `.bib`), watched once per frame so the Save
     /// Repository tab's git status auto-refreshes after any Save Document /
@@ -406,6 +416,15 @@ pub struct DigitiseApp {
     /// corner. Takes priority over `ref_dragging` when a drag starts on a
     /// corner (see `image_panel`'s hit test).
     ref_dragging_corner: Option<(usize, usize)>,
+    /// Whether the axes are locked (GH issue #421). Unlocked, only the
+    /// calibration can be changed: the reference lines/corners drag, and
+    /// tracing, adding, editing and erasing points are all disabled. Locked,
+    /// it is the other way round — the lines cannot be grabbed, so editing a
+    /// point near an axis can no longer drag the axis with it (maintainer,
+    /// 2026-09-29: "otherwise i accidentally drag them around when
+    /// digitising plots ... don't allow me to start drawing traces until i
+    /// fix the axes"). See [`Self::lock_axes`] / [`Self::unlock_axes`].
+    axes_locked: bool,
     /// Which calibration shape is active (op-vyb9) — see [`CalibrationShape`].
     calibration_shape: CalibrationShape,
     /// Parallelogram corner pixel positions, order `[top_left, top_right,
@@ -458,11 +477,26 @@ pub struct DigitiseApp {
     /// existing edit path (add/move/delete a point, review, undo) acts on
     /// "the dataset being worked on", and that stays exactly one.
     completed_series: Vec<DigitisedDataset>,
+    /// Where the live `dataset` sits in the saved order of this figure's
+    /// series: before `completed_series[k]`, or `None` for after all of them.
+    /// Set when a banked series is selected for editing, so hopping between
+    /// curves never reorders what is saved -- see [`series_select`].
+    live_position: Option<usize>,
+    /// The banked series whose picker button is hovered, drawn prominently
+    /// on the figure. Reset every frame by the picker.
+    hovered_series: Option<usize>,
     /// Name for the series currently being traced, e.g. `"235U thermal"`.
     series_name: String,
     /// The three-stage setup form, live only while `view == View::PlotSetup`.
     /// Held across frames because it is a form; taken when it finishes.
     plot_setup: plot_setup::PlotSetup,
+    /// A saved digitisation being re-opened ("Edit digitisation"): read when
+    /// the crop arrives, applied when the wizard finishes (its curves need
+    /// the calibration the wizard ends with). For a parallelogram record it
+    /// stays here after the wizard, until the operator has dragged the
+    /// corners and pressed "Restore saved points" -- see
+    /// [`saved_digitisation`] on why pixels are never guessed.
+    pending_restore: Option<saved_digitisation::SavedDigitisation>,
     // result
     dataset: Option<DigitisedDataset>,
     selected: Option<usize>,
@@ -508,6 +542,41 @@ pub struct DigitiseApp {
 /// tooltip alone wasn't enough for it to read as self-explanatory; renaming
 /// it to plain English and reducing the friction of typing it every session
 /// are the actual fix, not a better tooltip on the same unclear label.
+impl DigitiseApp {
+    /// Send a crop from the reader's box menu to the digitiser it asked for
+    /// and switch to that view (op-p17q/op-hnhp). Shared by the Reader view
+    /// and the table digitiser's split view, whose right half is the same
+    /// reader.
+    fn route_crop(&mut self, crop: pdf_reader::CropResult) {
+        match crop {
+            pdf_reader::CropResult::Plot(raster, provenance) => {
+                // Load the raster first: `load_image_from_raster` seeds
+                // figure/page/document identity from the crop and the active
+                // paper, and the form starts from whatever it managed to work
+                // out rather than asking again for what is already known.
+                self.load_image_from_raster(raster, Some(provenance));
+                let page = self.page.trim().parse::<u32>().ok();
+                let figure = (!self.figure.trim().is_empty()).then(|| self.figure.clone());
+                let title =
+                    (!self.document_title.trim().is_empty()).then(|| self.document_title.clone());
+                // "Edit digitisation" (maintainer, 2026-09-28): a re-crop of
+                // a saved artifact starts the wizard from what was saved, and
+                // brings the saved curves along for when it finishes.
+                self.pending_restore = self.saved_digitisation_for_crop(page, title.clone());
+                self.plot_setup = match &self.pending_restore {
+                    Some(saved) => saved.setup.clone(),
+                    None => plot_setup::PlotSetup::begin(figure, page, title),
+                };
+                self.view = View::PlotSetup;
+            }
+            pdf_reader::CropResult::Table(raster, provenance) => {
+                self.table_digitiser.load_crop(raster, Some(provenance));
+                self.view = View::TableDigitiser;
+            }
+        }
+    }
+}
+
 pub(crate) fn default_operator_name() -> String {
     std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
@@ -535,6 +604,7 @@ impl Default for DigitiseApp {
             home: HomeState::default(),
             wiki: None,
             kvim_editor: KvimEditorState::default(),
+            kvim_tab: kvim_tab::KvimTab::default(),
             mindmap: MindmapState::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
@@ -544,6 +614,7 @@ impl Default for DigitiseApp {
             pdf_reader: PdfReaderState::new(),
             bibliography: BibliographyState::default(),
             table_digitiser: TableDigitiserState::default(),
+            reader_in_table_mode: false,
             repo_save_fingerprint: None,
             image_path: String::new(),
             raster: None,
@@ -554,6 +625,7 @@ impl Default for DigitiseApp {
             ref_val: Default::default(),
             ref_dragging: None,
             ref_dragging_corner: None,
+            axes_locked: false,
             calibration_shape: CalibrationShape::default(),
             para_corners: [None; 4],
             para_dragging: None,
@@ -572,8 +644,11 @@ impl Default for DigitiseApp {
             raster_original: None,
             applied_transform: (crate::digitiser::raster::Quarter::None, 0.0),
             completed_series: Vec::new(),
+            live_position: None,
+            hovered_series: None,
             series_name: String::new(),
             plot_setup: plot_setup::PlotSetup::default(),
+            pending_restore: None,
             dataset: None,
             selected: None,
             dragging: None,
@@ -656,6 +731,7 @@ impl DigitiseApp {
             self.reader_path = Some(pdf.clone());
         }
         self.kvim_editor.load_text(session.markdown());
+        self.kvim_tab.document_opened();
 
         self.active_paper = Some(ActivePaper {
             session,
@@ -1039,6 +1115,284 @@ impl DigitiseApp {
         self.y_label = setup.y_label.trim().to_string();
     }
 
+    /// When the crop being routed re-opens a saved artifact
+    /// (`source_artifact_id` set), read that artifact back out of the active
+    /// paper's notes into a prefilled wizard and restorable curves. `None` for
+    /// a fresh crop, or when the artifact is not in the open paper (then the
+    /// wizard starts blank, as before, and the status says why).
+    fn saved_digitisation_for_crop(
+        &mut self,
+        page: Option<u32>,
+        document_title: Option<String>,
+    ) -> Option<saved_digitisation::SavedDigitisation> {
+        let id = self
+            .crop_provenance
+            .as_ref()
+            .and_then(|p| p.source_artifact_id.clone())?;
+        let found = self.active_paper.as_ref().and_then(|active| {
+            crate::research_record::ResearchRecordIndex::from_session(&active.session)
+                .get(&id)
+                .map(|a| {
+                    saved_digitisation::SavedDigitisation::from_artifact(a, page, document_title)
+                })
+        });
+        if found.is_none() {
+            self.set_error(format!(
+                "saved digitisation {id} is not in the open paper's notes \u{2014} \
+                 the wizard starts blank"
+            ));
+        }
+        found
+    }
+
+    /// The wizard's "Start digitising": copy its answers into the digitiser,
+    /// then -- when a saved digitisation is being re-opened -- put its curves
+    /// back, and open the digitiser.
+    fn finish_plot_setup(&mut self) {
+        // A changed range would rewrite every restored value from its pixel:
+        // only on the operator's explicit confirmation (maintainer,
+        // 2026-09-28; the wizard's own button is disabled until then).
+        if self.pending_restore.is_some() && !self.plot_setup.recalibration_confirmed {
+            if let Some(warning) = self.plot_setup.recalibration_warning() {
+                self.set_error(warning);
+                return;
+            }
+        }
+        self.apply_plot_setup();
+        if let Some(saved) = self.pending_restore.take() {
+            if saved.is_parallelogram() || saved.saved_calibration().is_none() {
+                // No saved pixels to place the points by: keep them until the
+                // operator has put the calibration back (side-panel button).
+                self.calibration_shape = if saved.is_parallelogram() {
+                    CalibrationShape::Parallelogram
+                } else {
+                    CalibrationShape::AxisAligned
+                };
+                let n: usize = saved.series.iter().map(|s| s.points.len()).sum();
+                self.set_status(format!(
+                    "{n} saved point(s) held: the saved record has no pixel calibration \
+                     to place them by. Put the calibration on the axes, then press \
+                     \"Restore saved points\"."
+                ));
+                self.pending_restore = Some(saved);
+            } else if !self.restore_saved_series(&saved) {
+                // Its error is already shown; keep the points for the
+                // "Restore saved points" button rather than losing them.
+                self.pending_restore = Some(saved);
+            }
+        }
+        self.view = View::Digitiser;
+    }
+
+    /// Put a saved digitisation's curves back into the digitiser: every curve
+    /// but the last banked (named), the last one live, so tracing carries on
+    /// where it stopped and a re-save writes the same set of series.
+    ///
+    /// **Where the points go.** With a rectangle record the reference lines
+    /// go back to their saved pixels and each point to
+    /// `saved_calibration.pixel_at(x, y)` -- where it was on the figure. If
+    /// the wizard's ranges were left as saved, the data values are kept
+    /// **exactly** (no pixel round trip, so an untouched re-save writes the
+    /// same CSV); if the operator corrected a range -- which the wizard only
+    /// lets through after its explicit "recompute the saved points"
+    /// confirmation -- each value is re-read from its saved pixel through the
+    /// corrected calibration, which is what correcting a calibration means. With no saved pixels (a parallelogram)
+    /// this is called only after the operator has placed the calibration, and
+    /// the points are placed through it with their values kept exactly.
+    fn restore_saved_series(&mut self, saved: &saved_digitisation::SavedDigitisation) -> bool {
+        let saved_cal = saved.saved_calibration();
+        if let (Some(px), CalibrationShape::AxisAligned) =
+            (saved.reference_pixels(), self.calibration_shape)
+        {
+            self.ref_px = px.map(Some);
+        }
+        let cal = match self.calibration() {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_error(format!("cannot restore the saved points yet: {e}"));
+                return false;
+            }
+        };
+        let Some(raster) = self.raster.as_ref() else {
+            self.set_error("cannot restore the saved points: no image loaded");
+            return false;
+        };
+        let (w, h) = (raster.width() as f64, raster.height() as f64);
+        let source = match self.source(raster) {
+            Ok(s) => s,
+            Err(e) => {
+                self.set_error(e);
+                return false;
+            }
+        };
+        let place_by = saved_cal.unwrap_or(cal);
+        let keep_values = saved_cal.is_none_or(|s| s == cal);
+        let by = saved
+            .digitised_by
+            .clone()
+            .unwrap_or_else(|| self.operator_name());
+        let (mut unplaced, mut outside) = (0usize, 0usize);
+        let mut restored: Vec<DigitisedDataset> = Vec::new();
+        for (i, series) in saved.series.iter().enumerate() {
+            let mut points = Vec::with_capacity(series.points.len());
+            for &(x, y) in &series.points {
+                let px = place_by.pixel_at(x, y);
+                let (vx, vy) = match (px, keep_values) {
+                    (Some((c, r)), false) => cal.point_at(c, r),
+                    _ => (x, y),
+                };
+                let ((x_minus, x_plus), (y_minus, y_plus)) = match px {
+                    Some((c, r)) => {
+                        if !(0.0..=w).contains(&c) || !(0.0..=h).contains(&r) {
+                            outside += 1;
+                        }
+                        xy_uncertainty_interval(&cal, c, r, 0.5, 0.5)
+                    }
+                    None => {
+                        unplaced += 1;
+                        ((0.0, 0.0), (0.0, 0.0))
+                    }
+                };
+                points.push(DigitisedPoint {
+                    x: vx,
+                    y: vy,
+                    x_minus,
+                    x_plus,
+                    y_minus,
+                    y_plus,
+                    x_px: px.map(|p| p.0),
+                    y_px: px.map(|p| p.1),
+                    origin: PointOrigin::HandPlaced { by: by.clone() },
+                });
+            }
+            let name = series.name.clone().filter(|n| !n.trim().is_empty());
+            let name = match (name, saved.series.len()) {
+                (Some(n), _) => Some(n),
+                (None, 1) => None,
+                (None, _) => Some(format!("series-{}", i + 1)),
+            };
+            restored.push(DigitisedDataset {
+                schema_version: DATASET_SCHEMA_VERSION,
+                source: source.clone(),
+                calibration: cal,
+                x_label: self.x_label.clone(),
+                y_label: self.y_label.clone(),
+                digitised_by: by.clone(),
+                digitised_at: utc_now_iso8601(),
+                trace: None,
+                review: ReviewStatus::Unreviewed,
+                series: name,
+                points,
+            });
+        }
+        let n_series = restored.len();
+        let n_points: usize = restored.iter().map(|d| d.points.len()).sum();
+        let live = restored.pop();
+        self.series_name = live
+            .as_ref()
+            .and_then(|d| d.series.clone())
+            .unwrap_or_default();
+        self.completed_series = restored;
+        self.live_position = None;
+        self.dataset = live;
+        self.selected = None;
+        let mut msg = format!(
+            "restored {n_points} point(s) in {n_series} series from saved digitisation {}",
+            saved.artifact_id
+        );
+        if !keep_values {
+            msg.push_str(
+                "; the ranges differ from the saved ones, so every value was re-read \
+                 from its saved pixel through the new calibration",
+            );
+        }
+        if unplaced > 0 {
+            msg.push_str(&format!(
+                "; {unplaced} could not be placed on the image (kept by value only)"
+            ));
+        }
+        if outside > 0 {
+            msg.push_str(&format!(
+                "; {outside} fall outside this crop -- was the figure turned or \
+                 deskewed the first time? Go back and apply the same"
+            ));
+            self.set_error(msg);
+        } else {
+            self.set_status(msg);
+        }
+        // The points were placed through this calibration: it is the
+        // figure's, so the axes come back locked (#421).
+        self.axes_locked = true;
+        true
+    }
+
+    /// Lock the axes (GH issue #421): the reference lines stop responding
+    /// to drags, and tracing and point editing become available.
+    ///
+    /// Refused, with the reason shown, while the calibration is incomplete —
+    /// locking unusable axes would only move the error to the first point.
+    /// If points already exist under a different calibration (the axes were
+    /// unlocked and moved), each point with a pixel position is re-read
+    /// through the new calibration, in every series on the figure: moving
+    /// the axes means exactly that, and leaving the old values would let the
+    /// lines on screen disagree with the numbers saved.
+    fn lock_axes(&mut self) {
+        let cal = match self.calibration() {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_error(format!("cannot lock the axes yet: {e}"));
+                return;
+            }
+        };
+        let mut reread = 0usize;
+        for d in self.dataset.iter_mut().chain(self.completed_series.iter_mut()) {
+            if d.calibration == cal {
+                continue;
+            }
+            d.calibration = cal;
+            for p in &mut d.points {
+                let (Some(px), Some(py)) = (p.x_px, p.y_px) else {
+                    continue;
+                };
+                (p.x, p.y) = cal.point_at(px, py);
+                let ((x_minus, x_plus), (y_minus, y_plus)) =
+                    xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
+                (p.x_minus, p.x_plus) = (x_minus, x_plus);
+                (p.y_minus, p.y_plus) = (y_minus, y_plus);
+                reread += 1;
+            }
+        }
+        self.axes_locked = true;
+        self.ref_dragging = None;
+        self.ref_dragging_corner = None;
+        self.para_dragging = None;
+        self.set_status(if reread > 0 {
+            format!(
+                "axes locked — the calibration changed, so {reread} existing point(s) were \
+                 re-read from their pixels through the new axes"
+            )
+        } else {
+            "axes locked — draw the trace or place points".to_string()
+        });
+    }
+
+    /// Unlock the axes to re-calibrate (GH issue #421). Tracing and point
+    /// editing pause until they are locked again; if points exist, the
+    /// message says that locking again re-reads them through the new axes.
+    fn unlock_axes(&mut self) {
+        self.axes_locked = false;
+        self.stroke.clear();
+        self.dragging = None;
+        let has_points = self.dataset.as_ref().is_some_and(|d| !d.points.is_empty())
+            || !self.completed_series.is_empty();
+        self.set_status(if has_points {
+            "axes unlocked — tracing and editing are paused. Moving the axes changes the \
+             value of every existing point: they are re-read when you lock again"
+        } else {
+            "axes unlocked — drag the lines onto the axes, then lock them"
+        });
+    }
+
     pub fn load_image_from_raster(
         &mut self,
         raster: PlotRaster,
@@ -1105,10 +1459,14 @@ impl DigitiseApp {
         // A new image is a new figure; its predecessors' series belong to the
         // old one and must not follow it across.
         self.completed_series.clear();
+        self.live_position = None;
+        self.hovered_series = None;
         self.series_name.clear();
         self.selected = None;
         self.ref_dragging = None;
         self.ref_dragging_corner = None;
+        // A new figure has its own axes, not yet placed (#421).
+        self.axes_locked = false;
         self.crop_provenance = None;
         self.set_status(status);
     }
@@ -1348,7 +1706,11 @@ impl DigitiseApp {
 
         let mut banked = current.clone();
         banked.series = Some(name);
-        self.completed_series.push(banked);
+        // Back into its own place in the saved order (it may have been
+        // picked out of the middle to edit); the next curve goes last.
+        let at = self.live_index();
+        self.completed_series.insert(at, banked);
+        self.live_position = None;
 
         // The next series: same figure, same axes, no points.
         let mut next = current;
@@ -1367,8 +1729,9 @@ impl DigitiseApp {
         ));
     }
 
-    /// Every series on this figure: the finished ones, then the one in
-    /// progress if it has any points.
+    /// Every series on this figure in saved order: the finished ones, with
+    /// the one in progress at its place (`live_position`, last by default)
+    /// if it has any points.
     ///
     /// This is what the exporters and the canvas both read, so "what is on
     /// this figure" is answered in one place rather than each caller
@@ -1377,7 +1740,7 @@ impl DigitiseApp {
         let mut out: Vec<&DigitisedDataset> = self.completed_series.iter().collect();
         if let Some(d) = &self.dataset {
             if !d.points.is_empty() {
-                out.push(d);
+                out.insert(self.live_index(), d);
             }
         }
         out
@@ -1441,6 +1804,22 @@ impl DigitiseApp {
         self.set_point_pixels(idx, px, py, true);
         self.selected = Some(idx);
         self.mark_edited();
+    }
+
+    /// Remove the point nearest `(px, py)` in image pixels, if one lies
+    /// within `max_px`. Shared by the Eraser mode and right-drag in Draw
+    /// trace, and it goes through [`Self::delete_selected`] like the
+    /// right-click does, so every way of erasing has one set of provenance
+    /// and review-status side effects. Returns whether a point went.
+    fn erase_near(&mut self, px: f64, py: f64, max_px: f64) -> bool {
+        match self.nearest_point(px, py, max_px) {
+            Some(i) => {
+                self.selected = Some(i);
+                self.delete_selected();
+                true
+            }
+            None => false,
+        }
     }
 
     fn delete_selected(&mut self) {
@@ -1539,10 +1918,13 @@ impl DigitiseApp {
     /// document's markdown, keeping the JSON/CSV export path available
     /// unchanged alongside it (op-x9qn's "CSV auto-saves into markdown, but
     /// retain csv export capability").
-    fn save_into_project(&mut self) {
+    ///
+    /// Returns whether the artifact was written (the caller's cue to leave
+    /// the digitiser — see [`Self::save_into_project_then_read`]).
+    fn save_into_project(&mut self) -> bool {
         let Some(d) = &self.dataset else {
             self.set_error("nothing to save");
-            return;
+            return false;
         };
         let title = self.figure.trim();
         let title = if title.is_empty() {
@@ -1573,17 +1955,17 @@ impl DigitiseApp {
                     &series[0].to_csv_data_only(),
                 )),
                 _ => {
-                    let blocks: Vec<crate::artifact::SeriesBlock> = series
-                        .iter()
-                        .enumerate()
-                        .map(|(i, d)| crate::artifact::SeriesBlock {
-                            name: d
-                                .series
-                                .clone()
-                                .filter(|n| !n.trim().is_empty())
-                                .unwrap_or_else(|| format!("series-{}", i + 1)),
-                            csv: d.to_csv_data_only(),
-                        })
+                    // The curve being traced is named in the name box, not
+                    // in its `series` field (that is only set when a curve is
+                    // banked), so saving without banking it first used to
+                    // write it as `series-N` and drop the typed name --
+                    // found by the edit-digitisation round trip, 2026-09-28.
+                    // The name box wins for the live curve, so a rename of a
+                    // restored or re-selected series is what gets saved.
+                    let blocks: Vec<crate::artifact::SeriesBlock> = self
+                        .named_series_csv()
+                        .into_iter()
+                        .map(|(name, csv)| crate::artifact::SeriesBlock { name, csv })
                         .collect();
                     Some(crate::artifact::render_multi_series_body(&blocks))
                 }
@@ -1594,7 +1976,7 @@ impl DigitiseApp {
         // data, which is a very different claim from "not traced yet".
         let Some(csv_body) = csv_body else {
             self.set_error("no points traced yet — nothing to save");
-            return;
+            return false;
         };
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
@@ -1626,14 +2008,32 @@ impl DigitiseApp {
                     .map(|()| format!("saved into {citekey}'s notes"))
                     .map_err(|e| e.to_string())
             });
-            match result {
-                Ok(m) => self.set_status(m),
-                Err(e) => self.set_error(e),
-            }
-            return;
+            return match result {
+                Ok(m) => {
+                    self.set_status(m);
+                    true
+                }
+                Err(e) => {
+                    self.set_error(e);
+                    false
+                }
+            };
         }
 
         self.set_error("no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes");
+        false
+    }
+
+    /// The "Save CSV into project markdown" button: save, and on success go
+    /// back to the PDF reader -- the figure is finished, exactly as the table
+    /// digitiser's Save returns there (maintainer, 2026-09-28: "save csv into
+    /// project markdown should also move us into the pdf reader"). A failed
+    /// save (no points, no paper open, a write error) stays in the digitiser
+    /// with its error showing, since that is where it gets fixed.
+    fn save_into_project_then_read(&mut self) {
+        if self.save_into_project() {
+            self.view = View::PdfReader;
+        }
     }
 
     /// Nearest point (index) to image-pixel position, within `max_px`.
@@ -1685,17 +2085,24 @@ impl DigitiseApp {
         ui.separator();
 
         ui.label("1. Calibration shape (op-vyb9):");
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::AxisAligned,
-                "Rectangle",
-            );
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::Parallelogram,
-                "Parallelogram",
-            );
+        // #421: the calibration is edited only while unlocked; locked, it is
+        // shown but greyed out, so neither a drag nor a stray keystroke in a
+        // value field can move the axes under existing points.
+        ui.scope(|ui| {
+            if self.axes_locked {
+                ui.disable();
+            }
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::AxisAligned,
+                    "Rectangle",
+                );
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::Parallelogram,
+                    "Parallelogram",
+                );
         });
         match self.calibration_shape {
             CalibrationShape::AxisAligned => {
@@ -1740,38 +2147,72 @@ impl DigitiseApp {
         }
         ui.checkbox(&mut self.x_log, "x axis logarithmic");
         ui.checkbox(&mut self.y_log, "y axis logarithmic");
+        });
+        ui.horizontal(|ui| {
+            if self.axes_locked {
+                if ui
+                    .button("\u{1F513} Unlock axes")
+                    .on_hover_text("move the axes again; tracing and editing pause until you re-lock")
+                    .clicked()
+                {
+                    self.unlock_axes();
+                }
+                ui.colored_label(Color32::from_rgb(90, 200, 90), "\u{1F512} axes locked");
+            } else {
+                if ui
+                    .button("\u{1F512} Lock axes")
+                    .on_hover_text(
+                        "fix the calibration so the lines cannot be dragged by accident; \
+                         tracing and point editing unlock once the axes are locked",
+                    )
+                    .clicked()
+                {
+                    self.lock_axes();
+                }
+                ui.colored_label(
+                    Color32::from_rgb(230, 160, 60),
+                    "lock the axes before tracing",
+                );
+            }
+        });
         ui.separator();
 
-        // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
-        // strategy/step controls are gone from this panel (maintainer,
-        // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
-        // `auto.rs` remain for `kovan-cli digitise`, which is a different
-        // surface and was not part of that decision.
-        ui.label("2. Trace the curve:");
-        ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
-        ui.add(
-            egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
-                .text("point spacing (px)")
-                .step_by(1.0),
-        )
-        .on_hover_text("distance between points along the stroke you draw");
-        ui.horizontal(|ui| {
-            if ui
-                .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
-                .on_hover_text(
-                    "hold the left button and draw along the curve; let go and the \
-                     stroke snaps onto it",
-                )
-                .clicked()
-            {
-                self.mode = ClickMode::DrawTrace;
-                if self.dataset.is_none() {
+        // #421: steps 2 and 3 are unavailable until the axes are locked.
+        ui.scope(|ui| {
+            if !self.axes_locked {
+                ui.disable();
+            }
+
+            // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
+            // strategy/step controls are gone from this panel (maintainer,
+            // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
+            // `auto.rs` remain for `kovan-cli digitise`, which is a different
+            // surface and was not part of that decision.
+            ui.label("2. Trace the curve:");
+            ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
+            ui.add(
+                egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
+                    .text("point spacing (px)")
+                    .step_by(1.0),
+            )
+            .on_hover_text("distance between points along the stroke you draw");
+            ui.horizontal(|ui| {
+                if ui
+                    .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
+                    .on_hover_text(
+                        "hold the left button and draw along the curve; let go and the \
+                         stroke snaps onto it. Hold the right button and drag to erase",
+                    )
+                    .clicked()
+                {
+                    self.mode = ClickMode::DrawTrace;
+                    if self.dataset.is_none() {
+                        self.start_empty();
+                    }
+                }
+                if ui.button("Start empty (hand-place)").clicked() {
                     self.start_empty();
                 }
-            }
-            if ui.button("Start empty (hand-place)").clicked() {
-                self.start_empty();
-            }
         });
         ui.separator();
 
@@ -1795,6 +2236,7 @@ impl DigitiseApp {
         ui.small(
             "double-click adds a marker (Add points mode) · right-click removes the nearest one",
         );
+        });
         ui.separator();
 
         // A figure routinely carries several curves against one pair of axes
@@ -1811,27 +2253,36 @@ impl DigitiseApp {
             );
             if ui
                 .button("\u{2795} Bank & start next")
-                .on_hover_text(
-                    "store this curve under its name and begin another on the same axes",
-                )
+                .on_hover_text("store this curve under its name and begin another on the same axes")
                 .clicked()
             {
                 self.finish_series();
             }
         });
+        // A re-opened saved digitisation whose record has no pixels to place
+        // its points by (a parallelogram): they wait for the operator's
+        // calibration rather than for a guess.
+        if let Some(saved) = self.pending_restore.clone() {
+            let n: usize = saved.series.iter().map(|s| s.points.len()).sum();
+            if ui
+                .button(format!("\u{21BA} Restore saved points ({n})"))
+                .on_hover_text(
+                    "place the saved digitisation's points through the calibration \
+                     as it is now -- drag it onto the axes first; the values are kept \
+                     exactly as saved",
+                )
+                .clicked()
+                && self.restore_saved_series(&saved)
+            {
+                self.pending_restore = None;
+            }
+        }
+        // Maintainer, 2026-09-28: pick any banked series to view/edit it.
+        self.series_picker_ui(ui);
         if !self.completed_series.is_empty() {
-            let names: Vec<&str> = self
-                .completed_series
-                .iter()
-                .map(|d| d.series.as_deref().unwrap_or("(unnamed)"))
-                .collect();
-            ui.horizontal_wrapped(|ui| {
-                ui.weak(format!("banked ({}):", names.len()));
-                ui.weak(names.join(", "));
-            });
             if ui
                 .button("\u{21A9} Drop last banked series")
-                .on_hover_text("remove the most recently banked curve from this figure")
+                .on_hover_text("remove the last banked curve (in saved order) from this figure")
                 .clicked()
             {
                 if let Some(d) = self.completed_series.pop() {
@@ -1937,7 +2388,7 @@ impl DigitiseApp {
             ui.small("(no PDF-reader crop provenance for this image)");
         }
         if ui.button("Save CSV into project markdown").clicked() {
-            self.save_into_project();
+            self.save_into_project_then_read();
         }
 
         ui.separator();
@@ -2092,7 +2543,10 @@ impl DigitiseApp {
             // cursor regardless of mode (graphReader precedent), checked
             // before the mode-dispatched left-click handling below so a
             // stray left click from the same gesture can't also fire.
-            if response.secondary_clicked() {
+            // #421: every point gesture below needs locked axes; the
+            // reference-line drags need them unlocked. One flag, read once.
+            let points_live = self.axes_locked;
+            if points_live && response.secondary_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
@@ -2106,32 +2560,44 @@ impl DigitiseApp {
             // `dragged()` rather than `drag_started()` so holding the button
             // down and moving keeps erasing, which is the whole reason the
             // mode is worth having over the per-point right-click.
-            if self.mode == ClickMode::Erase {
+            if points_live && self.mode == ClickMode::Erase {
                 // The pointer says which mode is live: an eraser that looks
                 // like the point tool costs someone their trace.
                 response.clone().on_hover_cursor(egui::CursorIcon::NoDrop);
             }
-            if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
+            if points_live
+                && self.mode == ClickMode::Erase
+                && (response.clicked() || response.dragged())
+            {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
-                        self.selected = Some(i);
-                        // The same deletion the right-click uses, so the two
-                        // cannot drift: one path, one set of provenance and
-                        // review-status side effects.
-                        self.delete_selected();
-                    }
+                    self.erase_near(px, py, 12.0 / zoom as f64);
                 }
             }
             // #290: draw along the curve, let go, and the stroke snaps onto
             // the ink. `dragged()` rather than `drag_started()` so every
             // frame of the gesture contributes a vertex — the stroke is the
             // path the pointer took, not its two ends.
-            if self.mode == ClickMode::DrawTrace {
-                response
-                    .clone()
-                    .on_hover_cursor(egui::CursorIcon::Crosshair);
-                if response.dragged() {
+            if points_live && self.mode == ClickMode::DrawTrace {
+                // Right-drag erases while drawing (maintainer, 2026-09-28:
+                // "right click and drag should be eraser behaviour ... when
+                // in draw trace mode"), so a bad stretch of trace can be
+                // swept away without leaving the mode. Only the LEFT button
+                // draws: `dragged()` alone is true for any button, which
+                // would have turned a right-drag into a stroke.
+                let erasing = response.dragged_by(egui::PointerButton::Secondary);
+                response.clone().on_hover_cursor(if erasing {
+                    egui::CursorIcon::NoDrop
+                } else {
+                    egui::CursorIcon::Crosshair
+                });
+                if erasing {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let (px, py) = to_image(pos);
+                        self.erase_near(px, py, 12.0 / zoom as f64);
+                    }
+                }
+                if response.dragged_by(egui::PointerButton::Primary) {
                     if let Some(pos) = response.interact_pointer_pos() {
                         let (px, py) = to_image(pos);
                         // Skip a repeat of the same pixel: a slow hand emits
@@ -2142,20 +2608,20 @@ impl DigitiseApp {
                         }
                     }
                 }
-                if response.drag_stopped() {
+                if response.drag_stopped_by(egui::PointerButton::Primary) {
                     self.snap_drawn_stroke();
                 }
             }
             // Adding a point is a double left-click (graphReader precedent) —
             // a single click in AddPoint mode is reserved for future
             // click-drag box-select, so it deliberately does not add here.
-            if self.mode == ClickMode::AddPoint && response.double_clicked() {
+            if points_live && self.mode == ClickMode::AddPoint && response.double_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     self.add_point(px, py);
                 }
             }
-            if self.mode == ClickMode::EditPoints {
+            if points_live && self.mode == ClickMode::EditPoints {
                 if let Some(pos) = response
                     .clicked()
                     .then(|| response.interact_pointer_pos())
@@ -2195,7 +2661,9 @@ impl DigitiseApp {
             if response.drag_started_by(PointerButton::Primary) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    let claimed = match self.calibration_shape {
+                    // #421: locked axes are never grabbed — this is the
+                    // accidental drag the lock exists to prevent.
+                    let claimed = !points_live && match self.calibration_shape {
                         CalibrationShape::AxisAligned => {
                             self.ref_dragging_corner =
                                 hit_ref_corner(&self.ref_px, corner_tol, px, py);
@@ -2212,7 +2680,7 @@ impl DigitiseApp {
                             self.para_dragging.is_some()
                         }
                     };
-                    if !claimed && self.mode == ClickMode::EditPoints {
+                    if !claimed && points_live && self.mode == ClickMode::EditPoints {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
@@ -2239,7 +2707,8 @@ impl DigitiseApp {
                     self.para_corners[i] = Some((px, py));
                 }
             }
-            if self.mode == ClickMode::EditPoints
+            if points_live
+                && self.mode == ClickMode::EditPoints
                 && self.ref_dragging.is_none()
                 && self.ref_dragging_corner.is_none()
                 && self.para_dragging.is_none()
@@ -2258,14 +2727,22 @@ impl DigitiseApp {
                 self.para_dragging = None;
                 self.dragging = None;
             }
-            if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
+            if points_live
+                && ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace))
+            {
                 self.delete_selected();
             }
 
             // --- overlays: reference lines/quad, then points ---
             match self.calibration_shape {
                 CalibrationShape::AxisAligned => {
-                    let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
+                    // #421: locked lines are drawn grey and without handles,
+                    // so it is plain that they will not move.
+                    let ref_stroke = if self.axes_locked {
+                        Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(150, 150, 150, 170))
+                    } else {
+                        Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255))
+                    };
                     let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
                     let stroke_for = |i: usize| {
                         if self.ref_dragging == Some(i) {
@@ -2292,6 +2769,9 @@ impl DigitiseApp {
                     // at once) is discoverable rather than a hidden
                     // hit-test-only gesture.
                     for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
+                        if self.axes_locked {
+                            break;
+                        }
                         let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
                             continue;
                         };
@@ -2328,11 +2808,21 @@ impl DigitiseApp {
                         {
                             painter.line_segment(
                                 [a, b],
-                                Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255)),
+                                if self.axes_locked {
+                                    Stroke::new(
+                                        1.5_f32,
+                                        Color32::from_rgba_unmultiplied(150, 150, 150, 170),
+                                    )
+                                } else {
+                                    Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255))
+                                },
                             );
                         }
                     }
                     for (i, sc) in screen_corners.iter().enumerate() {
+                        if self.axes_locked {
+                            break;
+                        }
                         let Some(pos) = sc else { continue };
                         let active = self.para_dragging == Some(i);
                         painter.circle_filled(
@@ -2352,6 +2842,9 @@ impl DigitiseApp {
                     }
                 }
             }
+            // The other curves on this figure, faint (the hovered one bold),
+            // under the live one.
+            self.paint_banked_series(&painter, to_screen);
             if let Some(d) = &self.dataset {
                 for (i, p) in d.points.iter().enumerate() {
                     let (Some(x), Some(y)) = (p.x_px, p.y_px) else {
@@ -2474,8 +2967,6 @@ impl DigitiseApp {
                 }
             }
             FileDialogTarget::CsvExport => self.csv_out = path,
-            FileDialogTarget::TableJsonExport => self.table_digitiser.set_json_out(path),
-            FileDialogTarget::TableCsvExport => self.table_digitiser.set_csv_out(path),
             FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
             FileDialogTarget::KovanRootCreate => {
                 self.home.begin_create(std::path::Path::new(&path))
@@ -2489,7 +2980,10 @@ impl DigitiseApp {
                 }
             }
             FileDialogTarget::KvimFile => match std::fs::read_to_string(&path) {
-                Ok(text) => self.kvim_editor.load_text(&text),
+                Ok(text) => {
+                    self.kvim_editor.load_text(&text);
+                    self.kvim_tab.document_opened();
+                }
                 Err(e) => self.set_error(format!("{path}: {e}")),
             },
         }
@@ -2757,6 +3251,18 @@ impl eframe::App for DigitiseApp {
             }
         }
 
+        // #355: the reader selects characters and copies on select only
+        // while it sits beside the table grid.
+        let want_table_mode = self.view == View::TableDigitiser;
+        if want_table_mode != self.reader_in_table_mode {
+            if want_table_mode {
+                self.pdf_reader.enter_table_mode();
+            } else {
+                self.pdf_reader.leave_table_mode();
+            }
+            self.reader_in_table_mode = want_table_mode;
+        }
+
         match self.view {
             View::Home => {
                 egui::CentralPanel::default().show(ui, |ui| {
@@ -3012,27 +3518,8 @@ impl eframe::App for DigitiseApp {
                 // tab? ... after I'm done, I close" — this window's
                 // existing view switch already fills that role, so no
                 // separate popup/tab was added.
-                match crop_result {
-                    Some(pdf_reader::CropResult::Plot(raster, provenance)) => {
-                        // Load the raster first: `load_image_from_raster`
-                        // seeds figure/page/document identity from the crop
-                        // and the active paper, and the form starts from
-                        // whatever it managed to work out rather than asking
-                        // again for what is already known.
-                        self.load_image_from_raster(raster, Some(provenance));
-                        let page = self.page.trim().parse::<u32>().ok();
-                        let figure = (!self.figure.trim().is_empty())
-                            .then(|| self.figure.clone());
-                        let title = (!self.document_title.trim().is_empty())
-                            .then(|| self.document_title.clone());
-                        self.plot_setup = plot_setup::PlotSetup::begin(figure, page, title);
-                        self.view = View::PlotSetup;
-                    }
-                    Some(pdf_reader::CropResult::Table(raster, provenance)) => {
-                        self.table_digitiser.load_crop(raster, Some(provenance));
-                        self.view = View::TableDigitiser;
-                    }
-                    None => {}
+                if let Some(crop) = crop_result {
+                    self.route_crop(crop);
                 }
             }
             View::KvimEditor => {
@@ -3065,6 +3552,8 @@ impl eframe::App for DigitiseApp {
                         if ui.button("Open external file…").clicked() {
                             open_clicked = true;
                         }
+                        // 2026-09-28: Edit/Done editing + Source|Preview.
+                        self.kvim_tab.toolbar_ui(ui);
                     });
                     // op-dkll: shared index, not a fresh per-frame rebuild.
                     let completion = match (&root, self.workspace.as_ref()) {
@@ -3074,7 +3563,9 @@ impl eframe::App for DigitiseApp {
                         }),
                         _ => None,
                     };
-                    self.kvim_editor.ui(ui, completion);
+                    // Source left, live GFM preview right; read-only until
+                    // Edit is confirmed (`kvim_tab`'s module docs).
+                    self.kvim_tab.ui(ui, &mut self.kvim_editor, completion);
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::KvimFile);
@@ -3124,19 +3615,49 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::TableDigitiser => {
-                let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
-                let mut request = None;
+                // #356: LibreOffice-Calc-style grid on the left, the real PDF
+                // reader on the right (maintainer, 2026-09-28).
+                let outcome = {
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    egui::Panel::left("table_grid_panel")
+                        .resizable(true)
+                        .default_size(520.0)
+                        .min_size(280.0)
+                        .show(ui, |ui| self.table_digitiser.ui(ui, active_session))
+                        .inner
+                };
+                // A saved table is finished, and a cancelled setup box or
+                // Cancel digitisation means the region was not wanted:
+                // either way, back to reading (maintainer, 2026-09-28).
+                if outcome != TableOutcome::Continue {
+                    self.view = View::PdfReader;
+                }
+                let root = self.home.root().cloned();
+                let mut open_clicked = false;
+                let mut crop_result = None;
                 egui::CentralPanel::default().show(ui, |ui| {
-                    request = self.table_digitiser.ui(ui, active_session);
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    let completion = match (&root, self.workspace.as_ref()) {
+                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource {
+                            root,
+                            index: &workspace.index,
+                        }),
+                        _ => None,
+                    };
+                    crop_result = self.pdf_reader.ui(
+                        ui,
+                        || open_clicked = true,
+                        |_citekey| {},
+                        active_session,
+                        &mut self.kvim_editor,
+                        completion,
+                    );
                 });
-                match request {
-                    Some(TablePickerRequest::Json) => {
-                        self.open_picker(FileDialogTarget::TableJsonExport)
-                    }
-                    Some(TablePickerRequest::Csv) => {
-                        self.open_picker(FileDialogTarget::TableCsvExport)
-                    }
-                    None => {}
+                if open_clicked {
+                    self.open_picker(FileDialogTarget::Pdf);
+                }
+                if let Some(crop) = crop_result {
+                    self.route_crop(crop);
                 }
             }
             View::PlotSetup => {
@@ -3185,10 +3706,7 @@ impl eframe::App for DigitiseApp {
                     self.applied_transform = want;
                 }
                 match outcome {
-                    plot_setup::Outcome::Finish => {
-                        self.apply_plot_setup();
-                        self.view = View::Digitiser;
-                    }
+                    plot_setup::Outcome::Finish => self.finish_plot_setup(),
                     // Backing out of stage 1 returns to the reader. The
                     // raster stays loaded rather than being thrown away --
                     // re-cropping the same figure to correct a typo in the
@@ -3675,6 +4193,7 @@ mod tests {
 
         let mut app = DigitiseApp::default();
         app.home.open_dir(root.path());
+
         app.refresh_knowledge(&root);
 
         let workspace = app.workspace.as_ref().unwrap();
@@ -3769,6 +4288,25 @@ mod tests {
         assert!(app.document_title.is_empty());
     }
 
+    /// Right-drag in Draw trace erases through the same path as the Eraser
+    /// mode: the point under the pointer goes, one far away does not.
+    #[test]
+    fn erase_near_removes_only_the_point_under_the_pointer() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(minimal_dataset());
+        let before = app.dataset.as_ref().unwrap().points.len();
+        assert!(before > 0, "the fixture has points");
+        let p = app.dataset.as_ref().unwrap().points[0].clone();
+        let (px, py) = (
+            p.x_px.expect("fixture point has a pixel x"),
+            p.y_px.expect("fixture point has a pixel y"),
+        );
+        assert!(!app.erase_near(px + 1e6, py + 1e6, 12.0), "nothing that far away");
+        assert_eq!(app.dataset.as_ref().unwrap().points.len(), before);
+        assert!(app.erase_near(px + 1.0, py, 12.0));
+        assert_eq!(app.dataset.as_ref().unwrap().points.len(), before - 1);
+    }
+
     fn minimal_dataset() -> DigitisedDataset {
         use crate::digitiser::detect::PixelRect;
         use crate::digitiser::trace::PixelTracePoint;
@@ -3823,6 +4361,7 @@ mod tests {
                 thickness_px: 3.0,
             }],
         )
+
     }
 
     /// `op-bd8p`: the graph digitiser's "Save into project markdown" writes
@@ -3874,11 +4413,15 @@ mod tests {
             skew_degrees: 0.0,
             show_grid: false,
             grid_spacing: 40.0,
+            prefill_note: None,
+            saved_ranges: None,
+            recalibration_confirmed: false,
             figure: "  Fig. 7 ".into(),
             document_title: "Verfondern 1990".into(),
             page: "12".into(),
             notes: "upper curve".into(),
             x_min: "0".into(),
+
             x_max: "100".into(),
             y_min: "1".into(),
             y_max: "1000".into(),
@@ -3932,9 +4475,8 @@ mod tests {
         assert_eq!(app.figure, "Fig. 2", "the required field still applies");
     }
 
-
     /// A minimal dataset with points, for the series tests.
-    fn sample_dataset_for_series() -> DigitisedDataset {
+    pub(super) fn sample_dataset_for_series() -> DigitisedDataset {
         use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale};
         let axis = |v0: f64, v1: f64| {
             AxisCalibration::new(
@@ -3950,6 +4492,7 @@ mod tests {
             calibration: PlotCalibration::AxisAligned {
                 x: axis(0.0, 10.0),
                 y: axis(0.0, 20.0),
+
             },
             x_label: "time (s)".into(),
             y_label: "power (%)".into(),
@@ -4081,7 +4624,6 @@ mod tests {
         assert!(app.series_name.is_empty());
     }
 
-
     /// **A banked series must still reach the CSV.**
     ///
     /// Banking moves the points out of `dataset` and leaves it empty, so the
@@ -4138,7 +4680,6 @@ mod tests {
             app.message
         );
     }
-
 
     /// Rotating in the wizard turns the **raster**, not just the preview,
     /// and drops the texture so it is re-uploaded. Calibrating against an
@@ -4210,7 +4751,6 @@ mod tests {
         assert!(!app2.notes.contains("rotated"), "{:?}", app2.notes);
     }
 
-
     /// **Transforms re-derive from the untouched original, never stack.**
     ///
     /// The deskew resamples, so applying it on top of its own output would
@@ -4277,4 +4817,230 @@ mod tests {
         );
     }
 
+    /// Digitise two curves on a 500 x 400 crop through the ordinary app path
+    /// (wizard answers -> reference lines -> placed points -> bank -> save),
+    /// into a real paper session. Returns the app and the saved artifact id.
+    pub(super) fn app_with_a_saved_two_series_graph(
+    ) -> (tempfile::TempDir, KovanRoot, DigitiseApp, String) {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Edit Digitisation Test", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+        app.set_raster(
+            PlotRaster::from_rgb_fn(500, 400, |_, _| [255, 255, 255]),
+            String::new(),
+        );
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 7".into(),
+            x_min: "0".into(),
+            x_max: "1200".into(),
+            y_min: "0.001".into(),
+            y_max: "1000".into(),
+            y_log: true,
+            x_label: "Time (h)".into(),
+            y_label: "Release, Bq".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        app.ref_px = [Some(40.5), Some(460.25), Some(380.0), Some(20.0)];
+        app.start_empty();
+        app.add_point(100.0, 300.0);
+        app.add_point(200.0, 250.0);
+        app.series_name = "1600 degC".into();
+        app.finish_series();
+        app.add_point(150.0, 100.0);
+        app.series_name = "1700 degC".into();
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        let id = {
+            let session = &app.active_paper.as_ref().unwrap().session;
+            let index = crate::research_record::ResearchRecordIndex::from_session(session);
+            let graphs: Vec<_> = index
+                .artifacts()
+                .iter()
+                .filter(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedGraph)
+                .collect();
+            assert_eq!(graphs.len(), 1);
+            graphs[0].id().to_string()
+        };
+        (dir, root, app, id)
+    }
+
+    pub(super) fn graph_bodies(app: &DigitiseApp) -> Vec<(String, String)> {
+        let session = &app.active_paper.as_ref().unwrap().session;
+        crate::research_record::ResearchRecordIndex::from_session(session)
+            .artifacts()
+            .iter()
+            .filter(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedGraph)
+            .map(|a| (a.id().to_string(), a.body.clone()))
+            .collect()
+    }
+
+    /// Maintainer, 2026-09-28: "Edit digitisation" must prefill the wizard
+    /// with what was saved and bring the curves back. Re-open the artifact the
+    /// way the reader does (a `CropResult::Plot` carrying its id), finish the
+    /// wizard untouched, and the digitiser holds the same two named series
+    /// with the same values, the reference lines back on their saved pixels,
+    /// and a re-save REPLACES the artifact with a byte-identical body.
+    #[test]
+    fn editing_a_saved_graph_prefills_the_wizard_and_restores_its_series() {
+        let (_dir, _root, mut app, id) = app_with_a_saved_two_series_graph();
+        let before: Vec<Vec<(f64, f64)>> = app
+            .all_series()
+            .iter()
+            .map(|d| d.points.iter().map(|p| (p.x, p.y)).collect())
+            .collect();
+        let body_before = graph_bodies(&app);
+
+        let provenance = CropProvenance {
+            page_index: 0,
+            min: Pos2::ZERO,
+            max: Pos2::new(500.0, 400.0),
+            page_px: [0.0, 0.0],
+            created_at: "2026-09-28T00:00:00Z".to_string(),
+            author: "tester".to_string(),
+            figure: "Fig. 7".to_string(),
+            source_artifact_id: Some(id.clone()),
+        };
+        app.route_crop(pdf_reader::CropResult::Plot(
+            PlotRaster::from_rgb_fn(500, 400, |_, _| [255, 255, 255]),
+            provenance,
+        ));
+        assert_eq!(app.view, View::PlotSetup, "the wizard is still shown");
+        let s = &app.plot_setup;
+        assert_eq!(s.figure, "Fig. 7");
+        assert_eq!((s.x_min.as_str(), s.x_max.as_str()), ("0", "1200"));
+        assert_eq!((s.y_min.as_str(), s.y_max.as_str()), ("0.001", "1000"));
+        assert!(!s.x_log && s.y_log);
+        assert_eq!(s.x_label, "Time (h)");
+        assert_eq!(s.y_label, "Release, Bq");
+        assert!(s.prefill_note.is_some());
+        assert!(
+            app.all_series().is_empty(),
+            "nothing restored before Finish"
+        );
+
+        app.finish_plot_setup();
+        assert_eq!(app.view, View::Digitiser);
+        assert!(!app.message_is_error, "{}", app.message);
+        assert_eq!(
+            app.ref_px,
+            [Some(40.5), Some(460.25), Some(380.0), Some(20.0)],
+            "reference lines back on their saved pixels"
+        );
+        let names: Vec<_> = app
+            .completed_series
+            .iter()
+            .map(|d| d.series.clone())
+            .collect();
+        assert_eq!(names, vec![Some("1600 degC".to_string())]);
+        assert_eq!(
+            app.series_name, "1700 degC",
+            "the last curve is live, named"
+        );
+        let after: Vec<Vec<(f64, f64)>> = app
+            .all_series()
+            .iter()
+            .map(|d| d.points.iter().map(|p| (p.x, p.y)).collect())
+            .collect();
+        assert_eq!(after, before, "values restored exactly");
+        let p0 = &app.completed_series[0].points[0];
+        assert!(
+            (p0.x_px.unwrap() - 100.0).abs() < 1e-6 && (p0.y_px.unwrap() - 300.0).abs() < 1e-6,
+            "points back where they were on the figure: {:?}",
+            (p0.x_px, p0.y_px)
+        );
+
+        // Re-save: same artifact, replaced in place, identical data.
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        assert_eq!(
+            graph_bodies(&app),
+            body_before,
+            "replaced, not appended; same CSV"
+        );
+    }
+
+    /// Correcting a saved range in the wizard re-reads every value from its
+    /// saved pixel through the corrected calibration -- the point stays where
+    /// it is on the figure, its value moves.
+    #[test]
+    fn a_corrected_range_rereads_restored_values_from_their_pixels() {
+        let (_dir, _root, mut app, id) = app_with_a_saved_two_series_graph();
+        let provenance = CropProvenance {
+            page_index: 0,
+            min: Pos2::ZERO,
+            max: Pos2::new(500.0, 400.0),
+            page_px: [0.0, 0.0],
+            created_at: "2026-09-28T00:00:00Z".to_string(),
+            author: "tester".to_string(),
+            figure: "Fig. 7".to_string(),
+            source_artifact_id: Some(id),
+        };
+        app.route_crop(pdf_reader::CropResult::Plot(
+            PlotRaster::from_rgb_fn(500, 400, |_, _| [255, 255, 255]),
+            provenance,
+        ));
+        app.plot_setup.x_max = "2400".into();
+        // Recomputing the saved values is an explicit act (2026-09-28).
+        app.plot_setup.recalibration_confirmed = true;
+        app.finish_plot_setup();
+        let p0 = &app.completed_series[0].points[0];
+        // pixel 100 on 40.5..460.25 -> 0..2400
+        let expect = (100.0 - 40.5) / (460.25 - 40.5) * 2400.0;
+        assert!((p0.x - expect).abs() < 1e-9, "{} vs {expect}", p0.x);
+        assert!(app.message.contains("re-read"), "{}", app.message);
+
+        // And the re-save writes the CORRECTED calibration into the
+        // artifact's `[extraction]`, not the stale one (maintainer,
+        // 2026-09-28: PANAMA Figs. 6/7 kept `px 88.03 = 10` after an edit).
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        let session = &app.active_paper.as_ref().unwrap().session;
+        let index = crate::research_record::ResearchRecordIndex::from_session(session);
+        let graphs: Vec<_> = index
+            .artifacts()
+            .iter()
+            .filter(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedGraph)
+            .collect();
+        assert_eq!(graphs.len(), 1, "replaced, not appended");
+        let x_axis = graphs[0].toml.extraction.as_ref().unwrap().x_axis.clone();
+        assert_eq!(
+            x_axis.as_deref(),
+            Some("linear scale, px 40.5 = 0 , px 460.25 = 2400"),
+            "the new x range is recorded"
+        );
+    }
+
+    /// Maintainer, 2026-09-28: "save csv into project markdown should also
+    /// move us into the pdf reader" -- on success only.
+    #[test]
+    fn a_successful_save_returns_to_the_reader_and_a_failed_one_stays() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Save Then Read Test", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+        app.view = View::Digitiser;
+        app.dataset = Some(minimal_dataset());
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        assert_eq!(app.view, View::PdfReader);
+
+        // No paper open: an error, and the digitiser stays up.
+        let mut app = DigitiseApp::default();
+        app.view = View::Digitiser;
+        app.dataset = Some(minimal_dataset());
+        app.save_into_project_then_read();
+        assert!(app.message_is_error);
+        assert_eq!(app.view, View::Digitiser);
+
+        // Nothing traced: likewise.
+        let mut app = DigitiseApp::default();
+        app.view = View::Digitiser;
+        app.save_into_project_then_read();
+        assert!(app.message_is_error);
+        assert_eq!(app.view, View::Digitiser);
+    }
 }

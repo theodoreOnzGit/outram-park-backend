@@ -78,9 +78,14 @@
 //!
 //! ## Consumers
 //!
-//! [`pebble_bed_helium_volume`] has a real consumer:
+//! ~~[`pebble_bed_helium_volume`] has a real consumer:
 //! [`super::one_node::PebbleBedPorousMediaNode`] carries it as a field, set
-//! once at construction. Everything else here -- the zone list
+//! once at construction.~~ **CORRECTED 2026-09-29 (gh:#393):** it no longer
+//! does -- the node's fluid row now takes [`super::one_node::bed_void_volume`],
+//! the 197 cm operational bed its graphite comes from, so the one control
+//! volume describes one core loading. [`pebble_bed_helium_volume`] (the
+//! 123.06 cm critical loading) is read only by the test pinning that change.
+//! Everything else here -- the zone list
 //! itself, [`top_cavity_helium_volume`] and the four
 //! `dummy_pebble_helium_volume_*` functions -- has no consumer yet; it lands
 //! ahead of a schematic cross-section or mesh-generation use, not after one.

@@ -71,6 +71,49 @@ pub fn save(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
     repository::save_repository(root)
 }
 
+/// [`save`] with the user's own commit `note` appended to every commit the
+/// save makes (subjects unchanged) — see
+/// [`crate::repository::save_repository_with_message`]. A blank note is
+/// exactly [`save`].
+pub fn save_with_message(
+    root: &KovanRoot,
+    note: &str,
+) -> Result<Option<SaveSummary>, RepositoryError> {
+    repository::save_repository_with_message(root, note)
+}
+
+/// Save Repository and then, when `push` is set, push the corpora and the
+/// Kovan repository ([`crate::save_push::push_after_save`], whose doc has the
+/// order and the safety rules). The push runs after any successful save,
+/// including one with nothing new to commit (earlier saves may be
+/// unpushed), and never after a failed one. `push` is normally
+/// [`push_after_save_setting`]; the GUI passes its checkbox.
+///
+/// Returns the save's own result unchanged (so the commit-note handling is
+/// exactly as before) and the push report, `None` when nothing was pushed
+/// because pushing is off or the save failed.
+pub fn save_and_push(
+    root: &KovanRoot,
+    note: &str,
+    push: bool,
+) -> (
+    Result<Option<SaveSummary>, RepositoryError>,
+    Option<crate::save_push::PushReport>,
+) {
+    let saved = repository::save_repository_with_message(root, note);
+    let pushed = (push && saved.is_ok()).then(|| crate::save_push::push_after_save(root));
+    (saved, pushed)
+}
+
+/// Whether this library pushes after a save (`[save] push_after_save` in
+/// `kovan_root.toml`, default ON), read from the file on disk rather than
+/// `root`'s in-memory copy, which may predate a change of the checkbox.
+pub fn push_after_save_setting(root: &KovanRoot) -> bool {
+    KovanRoot::open(root.path())
+        .map(|r| r.config().save.push_after_save)
+        .unwrap_or(root.config().save.push_after_save)
+}
+
 /// Up to `max` commits of history, newest first — reuses
 /// `kovan_discovery::git::GitProvider`, already this workspace's tested
 /// git-history reader, rather than a second implementation.
@@ -326,7 +369,8 @@ fn is_conflict(output: &str) -> bool {
 ///
 /// Concretely — abort whatever merge or rebase the failed pull left behind
 /// ([`abort_in_progress_in`]), `git fetch <remote> <branch>`,
-/// `git reset --hard FETCH_HEAD`, then `git clean -fd`.
+/// `git reset --hard FETCH_HEAD`, `git checkout -B <branch>` (so a detached
+/// corpus ends up on its branch), then `git clean -fd`.
 ///
 /// # This throws work away
 ///
@@ -351,6 +395,11 @@ pub fn force_pull_in(
     // so this works even where no remote-tracking ref exists (a folder set
     // up by `corpus_repos::clone`'s detached checkout, e.g.).
     run_git_in(dir, &["reset", "--hard", "FETCH_HEAD"])?;
+    // Leave the folder on `branch`, not detached: a corpus submodule is
+    // usually detached, and a save on a detached HEAD is refused by
+    // push-after-save when it cannot fast-forward (#422). The commit is the
+    // one just checked out, so no file changes.
+    run_git_in(dir, &["checkout", "-q", "-B", branch])?;
     run_git_in(dir, &["clean", "-fd"])?;
     Ok(format!(
         "{dir} now matches {remote}/{branch} exactly",

@@ -144,7 +144,8 @@ fn the_collision_partition_closes_and_matches_what_is_sampled() {
         );
         for &e in &energies {
             let x = nuc.xs_at_energy(e, TEMP_K);
-            let parts = x.elastic + x.inelastic + x.n2n + x.n3n + x.mt5 + x.absorption;
+            // `x.other` (MT=22, 28, 37, ...) since GitHub #365's audit.
+            let parts = x.elastic + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other + x.absorption;
             let shortfall = x.total - parts;
             let rel = shortfall.abs() / x.total.max(1.0e-30);
             // Below 6 MeV the kernel's partition is claimed complete, and that

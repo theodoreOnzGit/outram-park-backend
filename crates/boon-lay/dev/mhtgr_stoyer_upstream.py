@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+"""Run the UPSTREAM INL TRISO-ATOPS Python (MIT, de374c8) on Stoyer et al.'s
+MHTGR cases (gh:#413) and write its normal-operation activities and initial
+depressurisation release to CSV.
+
+Inputs are the cited tables in `verification_and_validation/mhtgr_stoyer/`
+(no value is typed here). Output: `.../mhtgr_stoyer/upstream_case_{a,b}.csv`.
+The Rust test `tests/mhtgr_stoyer_workflow.rs` runs the port on the same inputs
+and compares port-vs-upstream (should be ~machine precision) and both against
+the paper (a code or version drift, if any).
+
+Same precedent as `dev/gen_triso_atops_reference.py`: it executes the
+third-party upstream reference implementation to produce V&V data; the
+workspace "no Python for docs/accounting" rule does not cover it.
+
+Conversions stated, not hidden:
+- Table 7 is in K; upstream's diffusion coefficients take degC (`T + 273.15`),
+  so the profile is passed as `T_K - 273.15`. Case B adds 250 degC (s.III.B.1).
+- Graphite temperature = fuel temperature (the paper's assumption, s.III.A.2).
+- Table 6/11 inventories are per radial section; upstream spreads each evenly
+  over the 14 axial nodes (`inventory_processing`), as the paper says.
+- Output is written UNROUNDED: upstream's 3-significant-figure display
+  rounding (`vectorized_format`) is bypassed (identity) for this driver.
+- Initial release = circulating + x_liftoff x plate-out (upstream
+  `accident_case`'s t = 0 term).
+- FINAL release: each Fig. 5 curve (the maintainer's digitisation,
+  `fig05_accident_temperature_c.csv`; negative-time noise points clamped to
+  t = 0) applied uniformly to all 14 x 3 nodes, one upstream `accident_case`
+  run per curve, the last value of each run combined by Eq. (29), then the
+  paper's x10 building reduction applied to the part after the initial puff
+  (s.III.A.5). `*_accident.csv` carries every intermediate.
+
+A DIAGNOSTIC second run per case uses k_plate = 7.5e-4 1/s -- upstream's own
+GUI default (`trisoatops_gui.py:300`) and its manual's (p. 374 of the text
+layer) -- against Table 3's printed 7.50E-05. It is written to a separate
+`*_diagnostic_kplate_7p5e-4.csv` and is a hypothesis test about which value
+the paper's run used, not a replacement input.
+
+Usage: python3 dev/mhtgr_stoyer_upstream.py   (needs numpy)
+"""
+import csv, sys, types, logging
+from pathlib import Path
+import numpy as np
+
+CRATE = Path(__file__).resolve().parent.parent
+DATA = CRATE / "verification_and_validation" / "mhtgr_stoyer"
+PKG = CRATE / "upstream_source" / "TRISO-ATOPS" / "trisoatops"
+
+def rows(name):
+    with open(DATA / name) as f:
+        return list(csv.DictReader(l for l in f if not l.startswith("#")))
+
+def main():
+    sys.modules.setdefault("pandas", types.ModuleType("pandas"))  # imported, unused
+    sys.path.insert(0, str(PKG))
+    import trisoatops as tri  # noqa: E402
+    from utility_functions.run_functions import convert_time  # noqa: E402
+    # Upstream rounds its OUTPUT to three significant figures
+    # (`calc.vectorized_format`) -- a display step. For a code-to-code
+    # comparison the unrounded sums are needed, so it is replaced by the
+    # identity here; nothing inside the calculation is touched.
+    tri.calc.vectorized_format = lambda x: x
+    log = logging.getLogger("mhtgr")
+    consts = {r["key"]: r for r in rows("constants.csv")}
+    temps_k = np.array([[float(r[f"ring{i}_k"]) for i in (1, 2, 3)] for r in rows("table07_core_temperature_k.csv")])
+    runs = [(case, inv, dT, kp) for case, inv, dT in (("a", "table06_case_a_inventory_ci.csv", 0.0),
+                                                        ("b", "table11_case_b_inventory_ci.csv", 250.0))
+            for kp in (None, 7.5e-4)]
+    for case, inv_file, dT, kp_override in runs:
+        c = lambda k: (kp_override if (k == "k_plate" and kp_override is not None)
+                       else float(consts[k][f"case_{case}"]))
+        suffix = "" if kp_override is None else "_diagnostic_kplate_7p5e-4"
+        yr = convert_time("yr")
+        constants = np.array([c("f_hm"), c("f_sic"), c("f_inc"), c("f_inc_sic"), c("a_graph"),
+                              c("a_grain"), c("k_plate"), c("run_time") * yr,
+                              c("irradiation_time") * yr, c("k_clean"), c("r_kernel"), c("a_SiC"),
+                              c("f_inc_acc"), c("f_inc_sic_acc"), c("x_liftoff")])
+        inv_rows = rows(inv_file)
+        names = np.vstack([r["nuclide"] for r in inv_rows])
+        inventories = np.array([[float(r[f"ring{i}_ci"]) for i in (1, 2, 3)] for r in inv_rows])
+        core_c = temps_k - 273.15 + dT
+        output, nodal, fmt = tri.normal_operation(constants, True, names, inventories, core_c, core_c, log)
+        cols = fmt[0]
+        out = DATA / f"upstream_case_{case}{suffix}.csv"
+        with open(out, "w", newline="") as f:
+            f.write(f"# Upstream TRISO-ATOPS de374c8, Stoyer MHTGR Case {case.upper()}, k_plate = {c('k_plate')} 1/s, generated by dev/mhtgr_stoyer_upstream.py\n")
+            w = csv.writer(f)
+            w.writerow(["nuclide", "release_rate_ci_s", "source_rate_ci_s", "graphite_ci", "circulating_ci",
+                        "plateout_ci", "hps_ci", "initial_release_ci"])
+            for name, row in zip(fmt[1], output):
+                vals = [float(v) for v in row]
+                initial = vals[3] + c("x_liftoff") * vals[4]
+                w.writerow([name] + [repr(v) for v in vals] + [repr(initial)])
+        print(f"case {case}: {len(fmt[1])} nuclides -> {out.relative_to(CRATE)}; columns {cols}")
+
+        # ---- accident: the four Fig. 5 curves, each applied to the WHOLE core
+        # (s.III.A.3: "four transient cases representing different core
+        # sections"), combined by Eq. (29). Upstream accident_case per curve.
+        curves = {}
+        for r in rows("fig05_accident_temperature_c.csv"):
+            curves.setdefault(r["core_fraction_percent"], []).append(
+                (max(0.0, float(r["time_h"])), float(r["temperature_c"])))  # clamp noise t < 0 to 0
+        weights = {"5": 0.05, "20": 0.2, "25": 0.25, "50": 0.5}  # Eq. (29)
+        per_curve = {}
+        for pct, pts in curves.items():
+            times = np.array([t for t, _ in pts]) * 3600.0
+            temp = np.array([T for _, T in pts])
+            acc = np.broadcast_to(temp[None, :, None], (3, temp.size, 14)).copy()
+            totals, _ = tri.accident_case(constants, names, nodal, acc, times, log, True)
+            per_curve[pct] = {n: float(np.asarray(v)[-1]) for n, v in totals.items()}
+        nuclides = sorted(set().union(*[set(v) for v in per_curve.values()]),
+                          key=lambda n: [r["nuclide"] for r in inv_rows].index(n))
+        out = DATA / f"upstream_case_{case}{suffix}_accident.csv"
+        with open(out, "w", newline="") as f:
+            f.write(f"# Upstream TRISO-ATOPS de374c8 accident_case, Stoyer Case {case.upper()}, k_plate = {c('k_plate')} 1/s.\n"
+                    "# total_<p> = accident_case's last value for the Fig. 5 curve <p>% applied to the whole core; eq29 = sum w_p total_p;\n"
+                    "# initial = circulating + x_liftoff x plate-out (t = 0 term, curve-independent);\n"
+                    "# final_as_paper = initial + (eq29 - initial)/10  (s.III.A.5: the x10 building reduction applies to releases AFTER the initial puff);\n"
+                    "# final_div10_all = eq29/10 (the alternative reading, reported for comparison only). Empty = nuclide not selected for that curve.\n")
+            w = csv.writer(f)
+            w.writerow(["nuclide", "total_5", "total_20", "total_25", "total_50", "eq29", "initial",
+                        "final_as_paper", "final_div10_all"])
+            for n in nuclides:
+                tot = [per_curve[p].get(n) for p in ("5", "20", "25", "50")]
+                if any(v is None for v in tot):
+                    w.writerow([n] + ["" if v is None else repr(v) for v in tot] + ["", "", "", ""])
+                    continue
+                eq29 = sum(weights[p] * per_curve[p][n] for p in ("5", "20", "25", "50"))
+                k = [r["nuclide"] for r in inv_rows].index(n)
+                initial = float(output[k][3]) + c("x_liftoff") * float(output[k][4])
+                w.writerow([n] + [repr(v) for v in tot] + [repr(eq29), repr(initial),
+                            repr(initial + (eq29 - initial) / 10.0), repr(eq29 / 10.0)])
+        print(f"case {case}{suffix}: accident -> {out.relative_to(CRATE)}")
+
+if __name__ == "__main__":
+    main()

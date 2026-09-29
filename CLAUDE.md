@@ -324,7 +324,7 @@ as much as to writing it. A brief that names an approach without first
 checking what exists is the same defect one level up: the agent follows it
 competently and produces a duplicate.
 
-**Why it needs to be a rule.** This workspace is 44 crates, many of them ports
+**Why it needs to be a rule.** This workspace is 46 crates, many of them ports
 of mature codes. The prior is **"this probably exists already"**, not "this
 needs writing". On 2026-08-12 alone, five separate pieces of work were
 specified before checking, and **every one turned out to be already present** —
@@ -370,7 +370,7 @@ problem; it is a false statement that the next reader — human or agent — wil
 act on.
 
 **Why this is a hard rule and not a courtesy.** This workspace's docs are the
-primary interface to 44 crates that no one can hold in their head, and the
+primary interface to 46 crates that no one can hold in their head, and the
 search-before-building rule above *depends on them being true*. A stale
 "missing" claim is the worst kind, because it causes exactly the duplication
 this file exists to prevent: an agent reads "no model exists", believes it,
@@ -537,8 +537,7 @@ gh issue comment <number> --body "..."           # progress
 - **If `gh` is unavailable**, fall back to the harness task tools and say so
   in the hand-off.
 - **`op-*` ids are historical** references into the old beads store; do not
-  look them up in `gh` and do not mint new ones. The store refs
-  (`refs/heads/beads/store`, `refs/beads/*`) are preserved — do not delete them.
+  look them up in `gh` and do not mint new ones.
 - The tracker holds *work to do*; the per-project `memory/` files hold
   *durable facts and preferences*. Both stay in use.
 
@@ -603,7 +602,11 @@ receipt.
   `cargo test --workspace --lib --tests --release`, and say which one you ran.
 - TUAS natural-circulation tests are very long: run them in parallel, never
   `--test-threads=1`, and a timeout is not a failure.
-- CI runs quick on `develop` and full on `main`.
+- ~~CI runs quick on `develop` and full on `main`.~~ **CORRECTED
+  2026-09-29**: the `main` tier has never run. CI on `develop` is a compile
+  gate over the top crates plus a four-case smoke set
+  (`ci/smoke-tests.toml`: Godiva HIGH tier, Edwards, cavity, Sod). The full
+  suite runs only on demand (`manual-tests.yml`).
 
 Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md).
 
@@ -643,13 +646,34 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-**44 member crates**, all GPL-3.0 except `kovan` (AGPL-3.0-only). The roster,
+**46 member crates**, all GPL-3.0 except `kovan` (AGPL-3.0-only). The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).
 Two things to know without opening it: **all nuclear-data code belongs in
 `njoy-outram-park-fork`** (transport crates are data-free), and **a crate's own
 `CLAUDE.md` is the authority for its status**, never a roster row.
+
+### Adding a member crate: a README is mandatory (HARD RULE)
+
+**Maintainer direction, 2026-09-28.** A new member crate, placeholder or not,
+lands with a `README.md` in the **same change**, and never without one. The
+README states:
+
+- the crate's **name and its backronym**, spelled out letter by letter, under
+  the MRT-station naming convention (`docs/ecosystem-naming.md`);
+- its **scope**, and the one question it answers;
+- its **status**, stated plainly (a placeholder says "nothing is implemented");
+- the **research, education and V&V only** banner from `RESPONSIBLE_USE.md`;
+- the **Bookkeeping status** table (both axes unchecked).
+
+The same change also adds the crate's own `CLAUDE.md`, the member line in the
+root `Cargo.toml`, its row in
+[`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md),
+its row in `docs/ecosystem-naming.md` when it is a named domain, and updates
+every member **count** in this file. `crates/bishan/` is the placeholder
+pattern: `Cargo.toml`, `src/lib.rs` with a `SCOPE` constant and one test,
+`README.md` and `CLAUDE.md`.
 
 ## Literature and the Kovan corpus (brief)
 

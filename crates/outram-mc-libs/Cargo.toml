@@ -226,6 +226,18 @@ required-features = ["endf-pebble-cases"]
 name = "godiva_keff_endf_local"
 required-features = ["endf-pebble-cases"]
 
+# The four ICSBEP cases by nuclear-data route (ENDF direct, NJOY2016 ACE,
+# Rust-NJOY ACE): the outram-mc half of the five-route study in
+# verification_and_validation/icsbep/five_route_keff/.
+[[example]]
+name = "icsbep_five_route_keff"
+required-features = ["endf-pebble-cases"]
+
+# Localiser for the ACE-vs-ENDF route gap found by the five-route study.
+[[example]]
+name = "ace_vs_endf_nuclide_probe"
+required-features = ["endf-pebble-cases"]
+
 # Oracle: our graphite S(a,b) OUTGOING-ENERGY distribution vs NJOY2016's THERMR
 # scattering matrix -- the kernel, not the cross section (op-mzvp.2.12).
 [[example]]

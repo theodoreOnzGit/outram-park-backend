@@ -53,7 +53,9 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 ## What this is
 
 The reusable **visualization framework** for OUTRAM PARK digital twins, plus
-the offline example simulators (`htgr_sim_v1`, `fhr_sim_v2`) built on it. It
+the offline example simulators built on it (`htgr_sim_v1`, `fhr_sim_v2`,
+`distillation_sim_v1`, plus the `widget_studio` example and the
+`ciet_educational_simulator_v2` / `ciet_v2_opcua_client` binaries). It
 turns physics state into on-screen process objects: cell count drives displayed
 cells, temperature drives cell colour, mass flow drives tracer direction,
 residence time drives tracer travel time.
@@ -64,12 +66,34 @@ residence time drives tracer travel time.
 | Reactor-vessel / instrumentation | `nee_soon` | neutronics/kinetics state to visualize |
 | Process control | `chem-eng-real-time-process-control-simulator` | controller state to visualize |
 
+`htgr_sim_v1`'s source-term chain additionally pulls in **dev-dependencies**,
+example-only (re-checked against `Cargo.toml` 2026-09-29, after the merge into
+`develop`): `boon-lay` (TRISO-ATOPS release), `bishan` (reactor-building CV,
+gh:#400), `changi` (Gaussian puff + activity layer, `gpu` feature),
+`buangkok` (the Map tab's INDICATIVE dose rate, `physics::dose_rate`),
+`teh-o-prke` (kinetics, decay heat) and `outram-park-fork-offbeat` (UO2 and SiC
+`c_p`). ~~`buangkok` (dose) is **not** a dependency: nothing in this crate
+converts a release to a dose (gh:#375).~~ **CORRECTED 2026-09-29**: the
+dose-rate map (b03e5cc33b) added it; the dose rate is research-grade and
+indicative only.
+
 ## The one rule that matters most here
 
 **No new physics in this crate's library.** If a visualization needs a physical
 quantity `tampines`/`nee_soon` do not yet expose, add it *there*, not here.
-`src/` is presentation only: visual wrappers, colour maps, tracer kinematics,
-and the app scaffold.
+~~`src/` is presentation only: visual wrappers, colour maps, tracer kinematics,
+and the app scaffold.~~ **CORRECTED 2026-09-29** — checked against `src/`:
+`src/` is presentation plus **infrastructure**, with one physics-data module:
+
+- **`htr10/`** holds *cited* HTR-10 design constants and packed-bed closures
+  (KTA pressure drop, ZBS bed conductivity, IAEA benchmark eigenvalues), each
+  with a test that reproduces its published value (bead `op-jyyp`). It is the
+  sanctioned exception, and its rule is its own module doc's: nothing uncited
+  goes in, and no solver loop or transient model goes in.
+- `headless/`, `ascii/` and the OPC-UA layers (`opcua_core`, `ciet_opcua`,
+  `htgr_opcua`) are infrastructure, not physics.
+
+The rule itself stands: no *model* physics in `src/`.
 
 The examples are the exception — `examples/htgr_sim_v1/physics/` is that
 simulator's *own* lumped plant model, which is allowed to own its correlations.
@@ -141,6 +165,39 @@ HTGR. **This rule stays "no new physics in the library" until that promotion
 trigger fires for a specific model** — do not move any example physics into
 `src/` on your own initiative; the human-V&V half of the trigger cannot be
 satisfied by an AI assistant.
+
+## htgr_sim_v1 is NOT in validation yet: do not re-run validation checks (HARD RULE)
+
+**Maintainer direction, 2026-09-29: "no need to measure settled power
+baseline until we validate the htgr_sim_v1. don't waste time. ignore the test
+until i say we are doing validation work."**
+
+Until the maintainer says validation work on `htgr_sim_v1` has begun, **do
+not** spend time re-measuring or regenerating its validation-type numbers
+after a change:
+
+- the settled full-power state (power, bed/fuel temperatures);
+- the loss-of-forced-cooling ATWS results (#320, including
+  `lofc_atws_at_the_published_test_condition` and the other long `#[ignore]`d
+  transients);
+- the passive-chain comparison against Hu et al.'s 206 kW;
+- `reference/baseline_default_commands.csv` regeneration and its fixture test;
+- comparisons against published source-term tables (Liu & Cao Tables 2, 3
+  and 8) beyond what a new model's own V&V doc first needs.
+
+**Still required on every change:** the normal (non-ignored) release suite,
+the conservation tests (the energy ledger and activity ledgers), and the
+physical-invariant tests (second law, bounded temperatures). Those check that
+the code is correct. They are not validation, and this rule does not relax
+the physical-correctness rule above.
+
+**When a change makes a recorded validation number stale,** do not re-run it.
+Add a one-line note next to it:
+`not re-measured since <commit>; pending validation work`. That keeps the
+"never quietly repair a published number" rule without spending the time.
+
+**This is lifted only by the maintainer**, in so many words. It is not
+inferred from a change being "large", nor from a number looking wrong.
 
 ## ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED (HARD RULE)
 
@@ -296,6 +353,14 @@ fall under it too.
 | `color_maps/` | Ported hot/cold + steam-quality colour functions. Real, already-validated code — do not "improve" the maps; call sites depend on the exact values. |
 | `components/` | One file per visual process object, each composing its physics counterpart plus visual-only fields and an `egui::Widget` impl. |
 | `app_scaffold/` | `SharedState`, monitored physics threads, panel dispatch, crash modal. |
+| `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. GUI-free and not target-gated. Not validated. |
+| `headless/` | Drives a simulator with no GUI, window or thread (the headless rule below, gh #150). |
+| `ascii/` | Renders 2-D schematic geometry to a character grid, so a diagram can be checked by a test or an agent. |
+| `opcua_core/`, `ciet_opcua/`, `htgr_opcua/` | OPC-UA (IEC 62541) server layers for offline demonstration only. Gated off `wasm32`. |
+| `bin/` | `ciet_educational_simulator_v2`, `ciet_v2_opcua_client`. |
+
+~~(table listed four modules)~~ **CORRECTED 2026-09-29**: the last five rows
+were missing. They were added after checking `src/lib.rs`.
 
 ## Crate-specific conventions
 
@@ -353,11 +418,29 @@ deriving the same outlet with different `c_p`, and an invented 5 s gas lag.
 None of the three would have been found by making the existing tests stricter,
 because none of them was testing the invariant at all.
 
+**Follow-up, 2026-09-29 (gh:#391).** Cause (3) was "fixed" on 2026-08-14 by
+deriving the lag from the gas holdup and adding a hard second-law clamp on the
+remainder. Both were deleted on 2026-09-29: once the bed had its own helium
+node (2026-08-17) the lag counted that helium's inertia twice, and the clamp
+was a guard standing in for a formulation. The invariant test now passes on
+the formulation alone, and the helium circuit outside the bed is two
+enthalpy-balance CVs inside a global energy ledger
+(`the_whole_plant_conserves_energy_from_fission_to_the_steam_generator`).
+
 *Lesson:* a passing suite is evidence about the properties someone thought to
 assert. Physical invariants -- second law, mass conservation, bounded
 temperatures -- must be asserted **explicitly**, and noticing a violation is
 not the same as fixing it. `the_helium_never_leaves_the_core_hotter_than_the_bed`
-now asserts it at every step.
+(`examples/htgr_sim_v1/physics/mod.rs`) asserts it at every step of its run
+(re-checked 2026-09-29, gh:#376 audit: present and passing; worst `T_out -
+T_bed` -28.9479 K with no guard anywhere between the bed and the steam
+generator). **Scope of the invariant** (maintainer, 2026-09-29): helium
+outlet <= bed is a **steady-state** invariant. In a transient that has not
+settled, for example an inlet above the bed or a scram, the helium can
+legitimately leave hotter than the bed while heating it. Only the sign of the
+exchanged heat must agree with the temperature difference at every step. The
+test's run starts from the settled seeds and heats nothing from the inlet, so
+it holds at every step there.
 
 **2. A control architecture chosen for the wrong reason.** The assistant built
 feedforward-plus-PI because that is the common industrial arrangement and reads
@@ -403,6 +486,27 @@ interpretation) in its `///` doc comment. The existing examples to follow:
   grep across `examples/htgr_sim_v1/physics/` that the pinch-repair
   methodology+results example now lives in `bedok_enthalpy_march.rs`.)
 - `htgr_sim_v1::physics::secondary_loop::tests::saturation_temperature_matches_if97_reference`
+
+**Open verification gaps in `htgr_sim_v1`'s source-term chain** (audit
+2026-09-29, `develop` `25270acb`). The ported libraries it drives (TRISO-ATOPS
+in `boon-lay`, `changi::puff`, `buangkok::pydoseia`) are verified code-to-code
+against their upstreams. The **plant-level coupling** has only
+internal-consistency tests. ~~The one comparison against published HTR-10 data is
+the passive decay-heat duty (254.0 kW vs Hu's 206 kW, +23.3 %).~~ **Updated
+2026-09-29 (merge into `develop`):** published-data comparisons now exist for
+the passive decay-heat duty (Hu's 206 kW), Liu & Cao Tables 2 and 3
+(`fission_product_release` tests
+`the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3` and
+`circulating_activity_against_liu_and_cao_table_3`, gh:#378/#399), Tables
+5/8 → 7/9 through `buangkok` (`crates/buangkok/tests/
+liu_cao_external_dose_cross_check.rs`, gh:#379) and TRISO-ATOPS Booth vs CRP-6
+Case 1 (gh:#382). All record numbers; none is a validation.
+Published data still unused, each with an issue: Liu & Cao Table 5 in the
+plant (gh:#377); puff vs plume (gh:#380); `tampines` pebble vs the
+GeN-Foam pebble port (gh:#381);
+Kugeler 2017 `f_hm` band and the Hu 2006 LOFC curves (gh:#383). Defects that
+bias any such comparison, and should be fixed or stated first: gh:#369 (its
+`t1/2/t_irr < 0.2` criterion is in the code since gh:#399), #370, #371, #372. **Read these before describing any chain output as verified.**
 
 ## Build & test
 

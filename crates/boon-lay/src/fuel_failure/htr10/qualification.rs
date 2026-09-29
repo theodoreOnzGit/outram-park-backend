@@ -118,6 +118,12 @@
 //! FIMA should therefore raise `φ₁` by `(14/11)^m`, and the 4–9 % spherical
 //! band should sit well below the 11 % compact.
 //!
+//! *That last clause was this module's expectation, not the source's
+//! (checked 2026-09-29, GitHub #404).* The source groups the 11 % compacts
+//! **with** the 4–9 % spheres: Figure 21 labels them together as "up to 11 %
+//! FIMA", and the text puts the failure threshold between 11 % and 14 %. See
+//! the test `the_burnup_ordering_at_1600c_matches_and_the_level_does_not`.
+//!
 //! **Measured, 2026-09-24**, 300 h at 1600 °C, `T_B = 776 °C`, everything else
 //! as [`super::particle_with`] builds it:
 //!
@@ -453,17 +459,96 @@ mod tests {
     /// was fixed before the run: the predicted ratio from `φ₁ ∝ F_b^m`,
     /// `(14/11)^8 ≈ 6.8`, and a monotone rise.
     ///
-    /// Results, 2026-09-24 — `φ₁` at 300 h: **9.55·10⁻¹⁰** (4 %),
+    /// ~~Results, 2026-09-24 — `φ₁` at 300 h: **9.55·10⁻¹⁰** (4 %),
     /// **5.48·10⁻⁵** (8.51 %, HTR-10), **1.02·10⁻⁴** (9 %), **1.39·10⁻³**
     /// (11 %), **1.54·10⁻²** (14 %). The 14 %/11 % ratio is **11.1×** against
     /// 6.8 predicted — the excess is the `F_b` dependence of `D_S` (page -487-),
-    /// which the `F_b^m` argument omitted.
+    /// which the `F_b^m` argument omitted.~~ **CORRECTED 2026-09-29 (GitHub
+    /// #301, #404)** — those are an earlier run's numbers, which the committed
+    /// code has never produced, and the `D_S` attribution is refuted below.
+    ///
+    /// Results, 2026-09-29, `cargo test --release`, printed by this test.
+    /// **Bit-identical** (every printed digit) at `51b37182c3`, where the test
+    /// was introduced, at `6a5941882b`, and at `develop` `c798909638`, which
+    /// includes `ebcfef8a0d`. That commit changed only `history.rs`'s `tests`
+    /// module and a `grain_boundary.rs` doc comment, so it cannot move `φ₁`:
+    ///
+    /// | `F_b` | stale doc above | **`φ₁` at 300 h** | [`super`]'s §4 table |
+    /// |---|---|---|---|
+    /// | 4 % FIMA (sphere) | 9.55·10⁻¹⁰ | **2.347·10⁻⁷** | 2.35·10⁻⁷ |
+    /// | 8.51 % (HTR-10) | 5.48·10⁻⁵ | **4.397·10⁻⁵** | 4.40·10⁻⁵ |
+    /// | 9 % FIMA (sphere) | 1.02·10⁻⁴ | **6.482·10⁻⁵** | 6.48·10⁻⁵ |
+    /// | 11 % FIMA (compact) | 1.39·10⁻³ | **2.605·10⁻⁴** | 2.60·10⁻⁴ |
+    /// | 14 % FIMA (compact) | 1.54·10⁻² | **1.385·10⁻³** | 1.39·10⁻³ |
+    /// | 14 %/11 % | 11.1× | **5.32×** | 5.32× |
+    /// | 11 %/9 % | 13.6× | **4.02×** | — |
+    ///
+    /// **`φ₁` is a pure power law `∝ F_b^m`** at the irradiated modulus
+    /// `m = 6.932` that Eq (9a) gives at `T_B = 776 °C` (module §4). `m` comes
+    /// from Eq (9a), not from these ratios, so this is a check and not a fit:
+    ///
+    /// | burnup step | `(F_b2/F_b1)^6.932` | measured | error |
+    /// |---|---|---|---|
+    /// | 4 % → 8.51 % | 187.410 | 187.361 | 0.026 % |
+    /// | 9 % → 11 % | 4.01906 | 4.01842 | 0.016 % |
+    /// | 11 % → 14 % | 5.32139 | 5.31797 | 0.064 % |
+    ///
+    /// `D_S` adds nothing detectable. That follows from PANAMA-I itself: the
+    /// burnup-dependent `D_S` relation, `3.24/(1 + 0.11/F_b)`, is the
+    /// **(Th,U)O₂** one; the UO₂ relation, `log D_S = −2.30 − 0.8116·10⁴/T`,
+    /// has no `F_b` in it (see `diffusion.rs`). So the model is transcribed
+    /// faithfully here, and nothing in the `F_b` chain is a defect.
+    ///
+    /// # Assertion 3, rewritten 2026-09-29 (GitHub #404)
+    ///
+    /// ~~3. The spherical band sits well below the 11 % compact:
+    /// `φ₁(11 %)/φ₁(9 %) > 10`, "4–9 % FIMA spheres should sit at least a
+    /// decade below the 11 % compact".~~ **Withdrawn. The source does not
+    /// make this claim.** It was this module's own expectation ("should sit
+    /// well below", the §4 prediction), and its decade threshold came from
+    /// the stale numbers above: on them the ratio is 13.6× and passes, while
+    /// on what the code produces it is 4.02× and fails. It had failed on every
+    /// commit since the test was added, deliberately left red in `51b37182c3`.
+    ///
+    /// **What the source says**, checked against the PDF (Kugeler, Nabielek &
+    /// Buckthorpe 2017, EUR 28712 EN, §4.2.4 and Figure 21, report p. 46):
+    /// the 4–9 % spheres show "not a single particle failure"; the 11 %
+    /// compacts show "no particle failure"; the 14 % compacts "show particle
+    /// failure during the first 300 hours". Figure 21 **puts the 11 % compacts
+    /// in the same band as the spheres** and labels that band "up to 11 %
+    /// FIMA". The break it shows is between 11 % and 14 %, not between 9 % and
+    /// 11 %. So the source contradicts a decade gap between the spheres and the
+    /// 11 % compact rather than supporting it.
+    ///
+    /// Read by eye and **not digitised**: at 300 h the 11 % compacts' ⁸⁵Kr
+    /// release is about `5–8·10⁻⁷`, within a factor of about 2 to 3 of the
+    /// sphere curves, and the 14 % compacts are at `5·10⁻⁵` to `1·10⁻³`.
+    /// ⁸⁵Kr release is not `φ₁`, so this is not turned into an assertion.
+    ///
+    /// **New assertion 3**, which the source does support: the step into the
+    /// failure class (11 % → 14 %) is larger than the step from the top of the
+    /// sphere band to the 11 % compact (9 % → 11 %). Prediction written before
+    /// the run: it holds, 5.32× > 4.02×. **This is a weak check, and should be
+    /// read as one.** For a pure power law it holds for any `m > 0`, because
+    /// 14/11 > 11/9. It fails only if a change makes `φ₁`'s burnup dependence
+    /// flatten toward high burnup, such as a saturating `F_b` term. It does
+    /// not test the level; assertion 4 does.
+    ///
+    /// **What the model does not reproduce, and what no assertion hides:** the
+    /// source's *threshold*. A power law has no step, so the model spreads the
+    /// separation evenly in `log F_b` and puts the 11 % compact 4× above the
+    /// 9 % sphere. That is the same over-prediction at 11 % that assertion 4
+    /// pins, seen from the other side.
     ///
     /// Interpretation: boon-lay fuel failure reproduces the *ordering* the
-    /// experiment reports, and over-predicts its *level* by one to two decades at 11 %
-    /// FIMA, where the experiment saw no failure at all in a population of
-    /// order 10⁴–10⁵ particles. See this module's docs for the three
-    /// candidates and why none was adopted. **Nothing was tuned.**
+    /// experiment reports, and over-predicts its *level* at 11 % FIMA, where
+    /// the experiment saw no failure at all in a population of order
+    /// 10⁴–10⁵ particles. ~~by one to two decades~~ **CORRECTED 2026-09-29:**
+    /// against the inferred `10⁻⁵`–`10⁻⁴` bound that is **2.6× to 26×**, half
+    /// a decade to 1.4 decades, as [`super`]'s §4 says. See this module's docs
+    /// for the three candidates and why none was adopted. **Nothing was
+    /// tuned, and no threshold was moved**; assertion 3 was replaced because
+    /// its claim was not in the source.
     #[test]
     fn the_burnup_ordering_at_1600c_matches_and_the_level_does_not() {
         let hold = Time::new::<hour>(300.0);
@@ -500,10 +585,17 @@ mod tests {
             "14 %/11 % FIMA ratio is {jump:.2}x; the F_b^m argument predicts ~6.8x"
         );
 
-        // 3. The spherical band sits well below the 11 % compact, as predicted.
+        // 3. ~~The spherical band sits a decade below the 11 % compact~~
+        //    WITHDRAWN 2026-09-29 (#404): the source never claimed it. Kugeler
+        //    2017 Fig. 21 groups the 11 % compacts WITH the 4-9 % spheres
+        //    ("up to 11 % FIMA") and puts the failure break at 11 -> 14 %.
+        //    What it supports: the step into the failure class is the larger
+        //    one. Weak for a power law (holds for any m > 0); see the doc.
+        let sphere_to_compact = compact_clean / sphere_hi;
         assert!(
-            compact_clean / sphere_hi > 10.0,
-            "4-9 % FIMA spheres should sit at least a decade below the 11 % compact"
+            jump > sphere_to_compact,
+            "the 11 %->14 % FIMA step ({jump:.2}x) should exceed the 9 %->11 % step \
+             ({sphere_to_compact:.2}x): the source puts the failure break between 11 % and 14 %"
         );
 
         // 4. THE DISAGREEMENT, pinned so it cannot be quietly closed. The

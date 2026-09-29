@@ -46,6 +46,29 @@
 //! making — they were wrong by 3.9–5.3 % purely from the missing collision-rate
 //! weighting, which is the same size as the effect being hunted.
 //!
+//! # Re-recorded 2026-09-29: OpenMC's S(α,β) sampler is the default (GitHub #407)
+//!
+//! The equiprobable tables are now sampled with OpenMC's
+//! `IncoherentInelasticAEDiscrete`: the bracketing tables are interpolated and
+//! `E'` is one of the discrete bin energies. The scheme described below (#188,
+//! `E'` continuous in the bin, statistical table choice) was never a
+//! maintainer decision (**CORRECTED 2026-09-29: never a maintainer decision;
+//! replaced by OpenMC's scheme per the maintainer**). It is now the ablation
+//! `with_legacy_equiprobable_sampling`. With that ablation applied to both
+//! laws, this test reproduces the rows below **exactly** (293.38 K / 1.6766,
+//! 600.84 K / 1.6648). So the move is the sampler and nothing else.
+//!
+//! ```text
+//!   law            T_eff [K]  vs nominal  <E^2>/<E>^2  vs 5/3   (committed statistics)
+//!   c_H_in_H2O     292.96     -0.22 %     1.6660       -0.04 %
+//!   c_Graphite     604.17     +0.70 %     1.6456       -1.26 %
+//! ```
+//!
+//! Water sits closer to a Maxwellian than it did. Graphite is broader in
+//! temperature and narrower in shape, which is the discrete-`E'` cost this file
+//! records below for 16-point tables. OpenMC pays the same cost on the same
+//! form. The rows that follow describe the legacy scheme and stay true of it.
+//!
 //! # Results measured here — BOTH BOUND LAWS FAIL THE FIXED-POINT TEST
 //!
 //! 2026-09-12, 4000 independent chains, 400 burn-in + 6400 tallied collisions
@@ -447,9 +470,9 @@ fn graphite_thermalises_onto_its_own_temperature() {
         "c_Graphite",
         TEMP_K,
         Recorded {
-            t_eff_k: 600.84,
+            t_eff_k: 604.17,
             t_tol_k: 2.0,
-            shape: 1.6648,
+            shape: 1.6456,
             shape_tol: 0.005,
         },
         hot,
@@ -517,9 +540,9 @@ fn light_water_thermalises_onto_its_own_temperature() {
         "c_H_in_H2O",
         TEMP_K,
         Recorded {
-            t_eff_k: 293.38,
+            t_eff_k: 292.96,
             t_tol_k: 1.0,
-            shape: 1.6766,
+            shape: 1.6660,
             shape_tol: 0.005,
         },
         hot,

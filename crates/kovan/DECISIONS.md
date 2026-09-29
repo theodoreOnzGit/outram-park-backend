@@ -1456,3 +1456,394 @@ dropped samples, deduplication, the gridline behaviour and the thickness cap.
 rendering has been seen — no display here. The gesture handling
 (`dragged`/`drag_stopped` into `snap_drawn_stroke`) is covered only by the
 library function underneath it.
+
+## Tables are digitised by hand in a Calc-style grid; OCR removed (2026-09-28, GH #353–#357)
+
+**Maintainer, 2026-09-28:** "i want to do table digitisation without OCR...
+the tesseract thing can be quite annoying"; "i want libreoffice like
+interface... libreoffice calc cells on the left panel, pdf viewer of table on
+right hand side, and i slowly use the select text to copy/paste into the
+libreoffice calc cells... then once done, i want to save the cells to csv".
+
+**Why OCR went.** `kopitiam-ocr` 0.1.0 rejected every installed tesseract
+model (#288), so the entry above ("reads on arrival, and finds its own model")
+never produced a single cell. Born-digital PDFs already carry exact text, so
+recognition was the wrong tool for them in the first place.
+
+**What replaced it.**
+
+- `digitiser::table_grid` — the grid model, no `egui`: cursor and Shift
+  selection, LibreOffice Calc's tab-separated paste and copy, grow-on-edge,
+  insert/delete row and column, bounded undo, CSV through the `csv` crate
+  (RFC 4180 quoting, no `#` lines — provenance lives in `[extraction]`).
+- The reader's `SelectGranularity::Char` (`select_chars_in_rect`): in the
+  table view a drag selects characters, rebuilds rows from glyph baselines,
+  turns gaps wider than 1 em into tabs, and copies at once. So dragging across
+  a table row and pressing Ctrl+V fills a row of cells.
+- The table view is the grid on the left and the same reader on the right.
+  Saving writes a `digitised_table` artifact with
+  `[extraction] method = "pdf_native"`, `digitised_by` and `digitised_at`,
+  with the body in the digitised graph's series schema
+  (`### start of data series` / `### Series: <table name>` / fenced CSV /
+  `### end of series`). ~~Export writes a plain `.csv`.~~ **CHANGED same
+  day**: there is no CSV export ("i don't want to export to csv, i want to
+  save artifact"); **Save artifact** sits at the top of the grid panel, and
+  Ctrl+S does the same.
+- Selections are highlighted as the theme's text-selection colour over
+  exactly the text that is copied: one block per selected line, or per cell
+  (run of text between column gaps) for a character selection, updated live
+  while dragging.
+- **No "mark reviewed" step** (maintainer: "the workflow is fully human").
+  Every value is typed or pasted by a person from the PDF, so there is no
+  machine output to gate; `digitised_by` records "every value entered by
+  hand" instead. Re-opening a saved table loads
+  its CSV back into the grid instead of re-cropping.
+
+**LibreOffice is not vendored** — it is C++ and would break the pure-Rust and
+Android build. Only its conventions are copied (keys, paste, CSV quoting).
+
+**Removed:** `digitiser/table_ocr.rs`, `DigitiserError::Ocr`, the
+`kopitiam-ocr` dependency, the JSON table export. Scanned pages, which have no
+text layer, are typed into the grid while reading the page.
+
+## The kvim tab is source + live GFM preview, read-only until Edit is confirmed (2026-09-28)
+
+**Ask (maintainer, 2026-09-28).** "make kvim editor tab a kvim editor +
+markdown renderer. kvim editor is read-only by default. User has to click
+edit, where a popup box warns you could break the schema ... markdown is gh
+flavoured", layout "similar to vscode", and "you can vendor and translate
+this code: https://github.com/jbt/markdown-editor.git".
+
+**What was built.**
+
+- `app::kvim_tab` — the tab: kvim source on the left, preview on the right in
+  a resizable split, with `Source | Preview`, `Source` and `Preview` layouts.
+  `EditLock` (`Locked -> ConfirmPending -> Unlocked`, `lock()` from anywhere)
+  gates the editor; while locked the buffer is drawn by
+  `KvimEditorState::ui_locked`, the read-only path that forwards no key,
+  clipboard or mouse edit. **Edit** opens an `egui::Modal` that lists, from
+  `artifact.rs`'s schema, what a hand edit can break (the `[kovan]` TOML
+  fence under a `#` heading, unique ids, `connections`/`[[relation]]`
+  two-way references, `csv` payload fences, the paper header); only
+  "I understand the risks — edit" unlocks. **Done editing** re-locks.
+- **The confirmation is per document open**: activating a paper or opening
+  an external file calls `KvimTab::document_opened`, which re-locks. Saving,
+  and the background resync from other flows, do not.
+- `app::gfm_preview` — `pulldown-cmark` 0.12 (already a dependency) with
+  tables, strikethrough, task lists, footnotes and GitHub alerts, into a block
+  model that keeps each block's source lines; GFM bare-URL autolinks are added
+  on plain text because `pulldown-cmark` does not do them. The source lines
+  drive the VS Code-style scroll sync: the editor's top visible line picks the
+  preview offset.
+- Save is untouched: the same Save button, locked or not.
+
+**Why not `egui_commonmark`.** Checked first: 0.25.0 targets egui 0.36 and is
+MIT OR Apache-2.0, with the GFM extensions. But it cannot report where each
+source line was painted, so scroll sync could only be proportional, and it
+brings `pulldown-cmark` 0.13 beside the workspace's 0.12. The maintainer then
+directed a translation of jbt/markdown-editor.
+
+**What was translated from jbt/markdown-editor** (ISC, commit `58aa8bf`,
+full record in `NOTICE`): `setOutput`'s scroll-to-first-changed-element (kept,
+but only when that block is off screen), `update`'s title-from-first-h1,
+`render_tasklist`'s disabled checkboxes, and the `#in`/`#out` split plus
+`toggleReadMode`. Its parser (`markdown-it`, MIT) was **not** ported —
+`pulldown-cmark` replaces it.
+
+**Not done.** Preview-to-editor scroll sync (only editor -> preview), table
+column alignment, images (shown as links — no image loaders are installed).
+
+### Same day, after the maintainer tried it
+
+- **Save artifact closes the table view** and returns to the PDF reader
+  ("save artifact for table should close the table digitiser and return to
+  pdf viewer"). A failed save stays put, with the error shown.
+- **Selected cells contrast with their neighbours**: the theme's selection
+  colour at high opacity, the block outlined as one shape, the active cell
+  in a heavy border of the strongest text colour, and the selected columns'
+  letters and rows' numbers lit up, as in Calc. Dragging across cells selects
+  a block.
+- **Pages can be turned 90° and saved** ("there should be a way to rotate and
+  save individual pages of pdf in case they are in the 90 degree
+  orientation"). `crate::page_rotation` sets the page's `/Rotate` (honouring
+  an inherited value) through `kopitiam_pdf`'s incremental update, so the
+  original bytes survive as a prefix of the saved file. The reader toolbar
+  has ⟲/⟳ 90° and, once turned, **Save rotation**; the turn shows at once and
+  is written only on Save. Because `/Rotate` is applied in the page
+  transform for both rendering and structured text, selection still finds
+  the right glyphs on a turned page. That was tested rather than assumed
+  (`the_renderer_and_the_text_layer_both_follow_the_turn`). The table view
+  gets this for free, since its right half is the same reader. Plain images
+  turn for viewing only. Boxes already saved on a turned page were drawn in
+  the old orientation and will not line up until it is turned back.
+- **A setup box first, like the graph wizard** ("the first popup box asks you
+  what table is this. Then it brings you straight to the digitiser"). A new
+  "Read table" region opens a modal, "Which table is this?", showing the page
+  and paper, with a required "Table, as printed" field. Enter or Start goes
+  to the grid; Cancel, Esc or clicking outside returns to the PDF. The graph
+  wizard's axis-range and label stages have no table counterpart, so it is
+  one question. A re-opened saved table skips it: it already has a name.
+- **Cancel digitisation** ("table digitiser should also have a cancel
+  digitisation option, which brings us back to pdf reader"). A plain button
+  left of the Save artifact button in the grid's header returns to the PDF
+  reader without saving. If the grid holds cells that differ from what was
+  last saved or loaded (an edit in progress counts), a "Discard this table?"
+  box asks first, with "Discard and go back" / "Keep editing"; Esc or
+  clicking outside keeps editing. An empty or unchanged grid leaves at once.
+  Leaving resets the grid, name, region and status, so re-entering the tab
+  does not show a stale half-done table. The decision is
+  `request_cancel`/`answer_discard`, unit-tested without a window.
+- **Format to standard form (E)** in the grid toolbar (after Undo/Redo):
+  "User selects cells, and clicks a format to standard form button, which
+  then puts in e notation for highlighted cells". It calls
+  `TableGrid::reformat_standard_form` on the selection: whole-cell standard
+  form (`2.1×10^6`, `8.2×107`) becomes E notation (`2.1e6`) in one undo
+  step, and the status line reports how many cells changed. Cells with
+  units (`1.0X10^5 m^2`) are left alone. It asks first ("The wizard then
+  asks in a popup box, are you sure? then displays the superscripted text
+  before, and e form text after"): a "Reformat N cell(s) to E notation?"
+  box lists each cell (B3, ...) with its text before, superscripts drawn
+  raised, and its E form after; Reformat applies, Cancel/Esc/click outside
+  changes nothing. With nothing convertible highlighted there is no box,
+  only a status line. The grid's own cells now draw `^` superscripts raised
+  too; the stored text keeps the `^`.
+- **Resizable column widths and row heights** ("pls allow me to change
+  widths and heights of the cells too"), Calc's way: drag the right edge of
+  a column letter or the bottom edge of a row number (resize cursor over a
+  ±4 px grab zone); double-click a column edge for Calc's optimal width
+  (widest cell text as drawn, superscripts included, plus padding) and a
+  row edge to fit its tallest cell. Widths clamp to 24–1200 px, heights to
+  one text line–400 px. Sizes are GUI state in `TableDigitiserState`
+  (`col_widths`/`row_heights`), never saved into the CSV or artifact; the
+  toolbar's +/− row/col insert/delete the matching size so a resized line
+  moves with its cells, paste growth pads with defaults, and a new region
+  (`load_crop`) or `reset_table` returns to defaults. Tall rows centre their
+  text vertically; wide text still clips; the cell editor takes the cell's
+  size. The arithmetic (`clamp_size`, `fit_size`, `fit_len`, `sync_sizes`,
+  `edge_hit`) is egui-free and unit-tested.
+- **2026-09-28 — The view follows the keyboard cursor everywhere in kovan.**
+  Maintainer: "for anything in kovan, when the cursor moves beyond the scroll
+  area, like for the kvim text editor, or the csv, the scrollbar shld
+  follow". Rule: scroll only on a frame where the cursor/selection **changed**
+  (so the mouse wheel is never fought), by the minimum distance
+  (`scroll_to_rect(rect, None)`, no recentring). The table digitiser grid now
+  does this for the active cell (`follow_moved` over `(cursor, selection)`,
+  so a paste that selects a block also follows); pinned by a headless test
+  that arrows 60 rows down a 291-pt viewport and checks the whole cell is in
+  view at the bottom edge, with a no-move control that does not scroll. kvim
+  already followed its caret (2026-09-24, `last_cursor`); it gained an
+  end-to-end `G`/`gg` test on the real `ScrollArea` offset. Checked and left:
+  the Ctrl+P literature finder (already `scroll_to_me` on Up/Down); the
+  literature list, wiki, bibliography, mindmap, plot setup, CSV preview, git
+  view and GFM preview (no keyboard cursor; the preview syncs to kvim's top
+  line); the TUI (ratatui `List` + `ListState` scrolls to the selection
+  itself; its `Paragraph` panes have no cursor). `pdf_reader.rs` not audited
+  (another session's).
+- **2026-09-28 — Save Repository takes an optional user commit note; the
+  generated subject never changes.** Maintainer: "is there a way i can put in
+  a commit message into kovan, so that it appends to the save kovan
+  repository?" The Save Repository tab now has a multiline "what did you do?
+  (optional)" box. Its text becomes the **first body paragraph** of every
+  commit the save makes — the Kovan repository's, the private submodule's
+  (both `gix`) and the open corpus's (system `git`, single `-m` argument,
+  `--cleanup=verbatim`, no shell) — under the **unchanged** subject
+  (`Save Kovan repository` / `Save Kovan repository: open corpus`), with the
+  generated Added/Edited/Removed list after it. Subject kept rather than
+  `Save Kovan repository: <first line>` so history stays uniformly greppable,
+  the open-corpus subject cannot collide, and no note can make an over-long
+  or multi-line subject; the cost is that the one-line History list does not
+  show the note. Trailing whitespace per line and surrounding blank lines
+  are trimmed; `#` lines and interior blank lines are kept (with `-m`, Git
+  keeps `#` lines anyway; verbatim also stops it collapsing blank lines, so
+  both code paths store the same body). A blank note is byte-for-byte the
+  old message (tested). The box is cleared only after a save that
+  committed; kept on failure and on nothing-to-save. Logic:
+  `repository::compose_commit_message`, `save_repository_with_message`,
+  `advanced_git::save_with_message`. Neither `kovan-cli` (code tooling, no
+  save command) nor the TUI has a save/commit command, so no `-m` flag was
+  added.
+- **2026-09-28 — Save Repository pushes by default: the proprietary and open
+  corpora to their own remotes, then the Kovan repository.** Maintainer:
+  "kovan should be able to push pdfs to the proprietary repos by default",
+  then "and open source". ~~Saving never pushes~~ (never written down as a
+  decision; it was simply how `save_repository` behaved since `op-9vo6.19`)
+  **CHANGED 2026-09-28**: after any successful save (including one with
+  nothing new, so earlier unpushed saves go up), `save_push::push_after_save`
+  pushes, in order, the proprietary corpus, the open corpus, then the Kovan
+  repository — the parent only if neither corpus push failed or was refused,
+  so it never publishes a gitlink to a corpus commit its remote lacks (a
+  corpus merely *skipped*, e.g. not downloaded or with no remote configured,
+  does not block it). The standard corpus is never pushed. **Default ON;
+  opt-out** is the "Push after save" checkbox under the note box, persisted
+  as `[save] push_after_save = false` in the library's `kovan_root.toml`
+  (per library, so it travels with it; the table is omitted while at the
+  default; written by `KovanRoot::set_push_after_save`, which re-reads the
+  file first so a stale in-memory root cannot revert other settings).
+  **Safety rules**, each pinned by a test in `src/save_push/tests.rs`
+  (temp repos, local bare remotes): never forced (refspec
+  `refs/heads/B:refs/heads/B`, no `+`, no `--force`), so a remote that moved
+  on fails as "pull first" with the local commit kept; never from a detached
+  HEAD — the commit is put on the tracked branch (`.gitmodules` `branch =`,
+  else `refs/remotes/origin/HEAD`, else `ls-remote --symref`) only if that
+  branch's local and remote-tracking tips are ancestors (a fast-forward),
+  otherwise refused with nothing moved; every push URL (`remote get-url
+  --push --all`, so a separate `pushurl` is checked too) of the proprietary
+  corpus must be the private remote (`[private_submodule] remote` and
+  `[corpora] proprietary_remote`, which must agree) and must not be the open
+  or standard-corpus remote, and the open corpus's must be `open_remote` and
+  must not be a proprietary one — URL spellings (`https://`, `ssh://`,
+  `git@host:`) are normalised before comparing; nothing is ever pushed to an
+  `outram-park-backend` URL. Network via system `git` with
+  `GIT_TERMINAL_PROMPT=0` (credential helpers still run; a missing
+  credential fails fast with Git's own words). Each repository's result
+  (pushed / nothing to push / not pushed and why / refused / failed) is
+  listed under the Save button, red if any failed or was refused; the note
+  box is still cleared only by a save that committed, whatever the push did.
+  API: `advanced_git::save_and_push(root, note, push)`,
+  `advanced_git::push_after_save_setting`, `save_push::{push_after_save,
+  PushReport, PushOutcome}`.
+- **2026-09-28 — A Save now writes the index; it had been leaving staged
+  deletions behind.** Found diagnosing the maintainer's real proprietary
+  submodule, which showed four saved PDFs as `D ` (staged deletion) plus
+  `??` and `yuanzhong2002fission.pdf` as `MM`. Cause: Save commits with
+  `gix` from a tree built off the worktree and never wrote `.git/index`, so
+  the index stayed at whatever it last was (there: exactly commit `ddcd155`,
+  2026-09-24) while five further saves moved `HEAD`; one plain `git commit`
+  would have deleted the PDFs. Reproduced in a temp repo (the regression
+  test showed `MM papers/c.pdf`, `D  papers/d.pdf`, `?? papers/d.pdf`) and
+  fixed in `repository::sync_index`: after each commit the index is rebuilt
+  from the committed tree, keeping stat data for unchanged entries. Pinned by
+  `after_a_save_git_status_is_clean_in_every_repository_it_committed`. The
+  same submodule's **detached HEAD** was not made by Save itself: it came
+  from `git submodule update --init` in setup on 2026-09-22 15:58, ten
+  minutes before `corpus_repos::attach_to_branch` existed (16:08), and Save
+  then committed onto it; the push above now puts such commits on their
+  branch.
+- **2026-09-28 — "Edit digitisation" prefills the wizard and restores the
+  saved curves; a successful graph save returns to the PDF reader.**
+  Maintainer: "next time we have an edit digitisation, please pre-fill the
+  values in the wizard with existing values." Re-opening a saved
+  `digitised_graph` used to show the three-stage wizard empty and the
+  digitiser with no points. Now (`src/app/saved_digitisation.rs`, the exact
+  inverse of `DigitisedDataset::extraction` + `save_into_project`): the
+  figure (artifact heading), page, document title, both axis ranges and log
+  flags (parsed back from `[extraction].x_axis`/`y_axis`), and both labels
+  (extraction, else the CSV header unless it is the blank-label `x`/`y`
+  fallback) are prefilled; any field that does not parse is left blank and
+  named in a note shown above every wizard stage. On "Start digitising" the
+  curves come back from the CSV (`### Series:` blocks or the single fence):
+  earlier ones banked by name, the last one live. **Rectangle records carry
+  their reference pixels** (`px 107.2 = …`), so the reference lines go back
+  on them and each point to `saved_cal.pixel_at(x, y)`; values are kept
+  exactly (an untouched re-save writes a byte-identical body, pinned by a
+  test), and if a range was corrected in the wizard each value is re-read
+  from its saved pixel through the new calibration. **Limitations, stated in
+  the wizard note:** notes, rotation and deskew are not in the artifact, so
+  a figure that was turned must be turned again (points landing outside the
+  crop raise an error saying so); a **parallelogram record has no corners**,
+  so its points are held until the operator drags the corners back and
+  presses "Restore saved points" — pixels are never invented; per-point
+  origin/uncertainty are not in the CSV, so restored points are hand-placed
+  by the saved `digitised_by` with ±0.5 px uncertainty re-derived. Re-saving
+  still replaces the same artifact (`replace_id`). Tables already behaved
+  this way (Edit table skips the setup box and reloads the CSV into the grid,
+  `table_digitiser.rs::load_crop`/`resolve_reload`) — confirmed, unchanged.
+  Found by the round-trip test and fixed: saving without banking the last
+  curve dropped the name typed in the series box (it was written as
+  `series-N`). Also (maintainer, same day: "save csv into project markdown
+  should also move us into the pdf reader"): `save_into_project` now returns
+  whether it wrote, and the button's `save_into_project_then_read` switches
+  to the PDF reader on success only — failures stay in the digitiser with
+  the error, as the table digitiser's Save does.
+- **2026-09-28 — A re-digitise re-save rewrites `[extraction]`, not just the
+  body.** Maintainer, in real use: PANAMA Figs. 6 and 7, re-digitised via Edit
+  digitisation with the y top corrected to 10^0, still read `px 88.03 = 10` /
+  `px 35.40 = 10` and `digitised_at = 2026-09-24`. That happened because both replace
+  branches of `classify::save_digitised_csv` (`replace_id`, and the
+  same-heading overwrite) went through `replace_artifact_body`, which clones
+  the old TOML and only bumps `modified`, so the new `Extraction` the caller
+  passed was thrown away. Now both go through the new
+  `classify::replace_digitisation(session, id, body, Option<Extraction>)`:
+  a supplied extraction replaces `[extraction]` wholesale with
+  `digitised_at` = the re-save time. `[kovan]` id/kind/created, `[source]`,
+  classification, relation and connections are kept and `modified` is
+  bumped. **`[kovan].reviewed` is cleared when the body changed** (the
+  review vouched for numbers that no longer exist) and kept when it did not.
+  This applies to graphs and tables alike: the table save already passed an
+  extraction, and `table_digitiser.rs` is unchanged. `replace_artifact_body`
+  still keeps metadata verbatim for the inline prose editor. `[source]` is
+  still not updated by the same-heading overwrite of a fresh crop
+  (unchanged, out of scope). **Existing artifacts are not repaired
+  retroactively, and a plain re-save will NOT repair Figs. 6/7.** Edit
+  digitisation prefills from the saved (stale) `y_axis` and places the
+  restored points through it. Keeping the stale range just writes it again.
+  Correcting it in the wizard re-reads every value from pixels worked out
+  through the stale calibration, which would corrupt the correct data. The
+  calibration those CSVs were actually made with is recorded nowhere. Repair:
+  first hand-edit each artifact's `y_axis` in the paper's Markdown to the
+  calibration actually used (e.g. `px 88.03 = 1` if only the value was
+  corrected and the line was not moved). Then Edit digitisation → Start
+  digitising (ranges untouched) → Save CSV into project markdown, which
+  keeps the values exactly and stamps a fresh `digitised_at`. If the
+  reference line was also moved, the true pixel is unknown and the figure
+  should be re-digitised from scratch.
+- **2026-09-28 — Select a banked series to edit it (graph digitiser).**
+  Maintainer: "I want to be able to select data in previous banks, like
+  through a dropdown menu, or as clickable buttons." Before this a banked
+  curve could only be dropped (last one), never re-opened. Now the series
+  panel shows one button per series in saved order, `name (points)`, with
+  the live one highlighted (a ComboBox once there are more than 6). Clicking
+  a banked series **swaps** it with the live one (`src/app/series_select.rs`,
+  `select_banked_series`): the live curve is banked under the name-box name
+  if it has points (refused if it is unnamed or its name is taken, as "Bank &
+  start next" refuses), an empty live curve is discarded rather than banked
+  as an empty series, and the chosen curve becomes live with its name in the
+  box, so every existing edit path (add, drag, erase, right-drag erase)
+  applies to it unchanged. **Order:** a new `live_position` keeps the live
+  curve's place in the saved order, so `all_series()` and the saved artifact
+  never reorder when the operator hops, and banking a curve picked from the
+  middle puts it back there. **Names:** the name box now wins over the live
+  dataset's own `series` field on save (`named_series_csv`), so renaming a
+  restored or re-selected curve is what gets saved (previously a restored
+  live curve kept its old name on save despite a rename). Banked series are
+  drawn faintly on the figure under the live one; hovering a series button
+  draws that curve bold. No per-series delete was added. Tests in
+  `series_select.rs`, including a save round trip through a paper session.
+- **2026-09-28 — Edit digitisation: the saved values are the data; a range
+  change that would recompute them needs explicit confirmation.** Maintainer
+  report ("kovan edits to current digitisation may be buggy"): PANAMA-I
+  Fig. 7, header hand-edited `px 35.40 = 10` → `= 1`, then Edit digitisation
+  → Start digitising → Save, and every value changed. **Investigated, not a
+  re-read by the edit path.** Hypotheses and results: (a1) a hand-edited
+  header makes an *untouched* wizard re-read values — refuted: the prefill and
+  the restore parse the same header, so `saved_calibration == calibration()`
+  and values are kept byte-for-byte (pinned:
+  `an_untouched_edit_after_a_hand_edited_header_keeps_every_value`, which
+  passed before any change); (a2) a changed wizard range re-read the restored
+  points — refuted for Fig. 7, because that keeps every x value (the x axis
+  was unchanged) and **no** 488f28f x value equals a 59f1b92 x value; (b) the
+  edit path drops series/points — refuted: nothing filters by name, count or
+  position (pinned: `four_series_and_a_lone_early_point_survive_...`); the
+  "Level of Heavy Metal Contamination" series and the 99.8 h point were
+  already absent from 59f1b92, a full re-trace made before restore existed.
+  **What the data show:** the 488f28f curves are new placements, on the same
+  pixel grid as the original 162939f trace, read through the hand-edited
+  header: against 162939f compressed by 6/7 in log about 1e-6, the mean
+  residual is 0.000 decade (max 0.02–0.07 over 7–83 points per series).
+  Against 59f1b92, as saved or compressed, it is 0.4–0.9 decade. The
+  restored 59f1b92 markers would have been drawn where the header puts them,
+  which is off the curves, because 59f1b92 was measured through a different
+  calibration (`px 365.69 = 1e-6, px 34.05 = 1`, stale-header bug). The
+  "hand-edit the header, then re-save" repair in the bullet above assumes the
+  lines were not moved, and they were, so it did not apply to Fig. 7.
+  **Changed:** (1) the prefilled wizard records the saved ranges
+  (`PlotSetup::saved_ranges`). A range or log flag that differs *numerically*
+  (`1e-3` for `0.001` is no change) shows a red warning naming how many saved
+  points will be recomputed. The warning offers "Revert to saved ranges" and
+  blocks Next / Start digitising until "recompute the saved points (N)" is
+  ticked. `finish_plot_setup` refuses too. (2) A failed restore no longer
+  throws the saved points away (`finish_plot_setup` took `pending_restore`
+  and ignored the `false`); they stay pending behind "Restore saved points".
+  (3) The prefill note says values are kept while ranges are untouched and
+  that markers off the curves mean the header does not describe the values.
+  Tests: `src/app/edit_digitisation_tests.rs` (5).

@@ -56,7 +56,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 |---|---|---|
 | `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
+| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, the `qag` adaptive driver and the extrapolating `qags` (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
 | `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
@@ -70,8 +70,8 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
 **Deliberate subsets rather than gaps**, each named where it matters and
-tracked as a bead: QAGS and the infinite-range and weighted quadrature
-variants; implicit and stiff ODE methods; Akima, Steffen and periodic splines;
+tracked as a bead: ~~QAGS and~~ the infinite-range and weighted quadrature
+variants (QAGS **ported 2026-09-28**); implicit and stiff ODE methods; Akima, Steffen and periodic splines;
 general-degree complex polynomial roots; and rank-deficient least squares (the
 QR is unpivoted, so a dependent design matrix is *reported*, not solved —
 `op-4m4b`). An empty module that looks like an API is worse than an absent one.

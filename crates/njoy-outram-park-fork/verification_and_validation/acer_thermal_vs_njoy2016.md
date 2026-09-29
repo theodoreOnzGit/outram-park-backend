@@ -9,6 +9,20 @@
 no experiment is compared against, and no human V&V has been done.
 AI-assisted draft.
 
+
+> **UPDATE 2026-09-29 — ITIX is now `calcem`'s `xsi`, so the "inelastic σ" column
+> below describes the writer as it WAS.** Until this date the writer filled ITIX
+> from `IncoherentInelastic::cross_section`, an analytic integral, where NJOY
+> writes THERMR's `xsi` via `terp` (`thermr.f90:2166-2173`, `:2459`;
+> `aceth.f90:131`). Measured after the change against NJOY2016's H(H2O) table at
+> 293.6 K (OpenMC `make_ace_thermal` deck, `tol = 0.001`, `iwt = 1`, 64 bins x
+> 16 cosines), the port built with the same `tol` (new
+> `thermal_from_mf7_with_tolerance`) gives **σ_inel worst 1.55e-4, median
+> 3.0e-5; E′ worst 1.92e-4; cosine worst 0.010** (before: 6.6e-2, 8.2e-2 and
+> 0.144, the last two because the port had used `tol = 0.05`). The per-tape
+> numbers in the tables below were **not** re-measured and remain the pre-change
+> values. Record: `outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md`.
+
 ## Why this record exists
 
 `acer_ce_vs_njoy2016_multi_nuclide.md` covers the incident-neutron

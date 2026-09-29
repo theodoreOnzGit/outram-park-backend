@@ -121,7 +121,13 @@ fn fission_spectrum_shape_matches_openmc_band_by_band() {
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
+    let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs")
+        // The oracle is OpenMC's PROMPT chi table, so the prompt sampler is what
+        // is compared: since 2026-09-29 (GitHub #365 audit) delayed neutrons are
+        // born from their own spectra, which moves the all-neutron mean by
+        // -beta(<E>_p - <E>_d), about -0.45 % on U-235. That mixture is checked
+        // against OpenMC in `tests/delayed_spectra_vs_openmc.rs`.
+        .without_delayed_spectra();
 
     let mut worst_z = 0.0f64;
     let mut worst_label = String::new();

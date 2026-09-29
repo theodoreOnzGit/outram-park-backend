@@ -448,7 +448,7 @@ pub struct SteamGeneratorConfig {
     /// | Array timestep | `Co_hot` | Settled `Q_hot` | Outcome |
     /// |---|---|---|---|
     /// | 0.1 s | 1.776 | -- | **fails** (also at 8 and 32 outer correctors) |
-    /// | 0.05 s | 0.888 | -- | **fails** (also at 4, 8, 16 outer correctors); enthalpy goes odd-even and clamps |
+    /// | ~~0.05 s~~ | ~~0.888~~ | ~~--~~ | ~~**fails** (also at 4, 8, 16 outer correctors); enthalpy goes odd-even and clamps~~ **CORRECTED 2026-09-29** -- stale since 2026-08-13 (helium side made implicit 15 min after this row); 0.05 s, which this plant ships, completes. See `tampines::components::helical_coil_steam_generator::SteamGeneratorConfig::substep` for the re-measured sweep (0.05 s completes, 0.075 s and 0.1 s panic under the bounded cold-side convection, gh:#319). |
     /// | 0.025 s | 0.444 | 9.8244 MW | stable, but **+1.44%** off converged |
     /// | **0.0125 s** | **0.222** | **9.6854 MW** | **stable, +0.003% off converged** |
     /// | 0.00625 s | 0.111 | 9.6851 MW | reference |
@@ -527,7 +527,10 @@ pub struct SteamGeneratorConfig {
 ///
 /// - `n_outer` -- outer (PIMPLE/SIMPLE-like) correctors per array timestep.
 ///   Each one re-solves momentum, pressure and energy from the same old-time
-///   state with the latest iterate. Because both arrays carry their enthalpy
+///   state with the latest iterate. Because ~~both arrays carry~~ the cold
+///   array carries (**CORRECTED 2026-09-29**, gh:#319: the hot array is
+///   `EnergyBalanceMode::Implicit`, and the cold array used an unlimited linear
+///   `fvc::div` until that date) its enthalpy
 ///   convection as an **explicit** `fvc::div_limited` source inside this loop,
 ///   the loop is a Picard iteration whose contraction factor is the cell
 ///   Courant number `Co`: residual reduction over the step is roughly
@@ -685,6 +688,16 @@ pub struct SteamGeneratorState {
     pub cold_side_duty: Power,
     /// Hot-fluid outlet temperature.
     pub hot_outlet_temperature: ThermodynamicTemperature,
+    /// Hot-fluid outlet specific enthalpy -- the `h_out` in
+    /// [`Self::hot_side_duty`]. Added 2026-09-29 (gh:#388) so a downstream
+    /// control volume receives exactly the enthalpy the duty was computed
+    /// against, rather than re-deriving it from
+    /// [`Self::hot_outlet_temperature`] through a second flash.
+    pub hot_outlet_enthalpy: AvailableEnergy,
+    /// Hot-fluid inlet specific enthalpy this state's duty was computed
+    /// against (the `h_in` in [`Self::hot_side_duty`]). Added 2026-09-29
+    /// (gh:#388) for the same reason.
+    pub hot_inlet_enthalpy: AvailableEnergy,
     /// Water/steam outlet temperature -- the live steam temperature.
     pub cold_outlet_temperature: ThermodynamicTemperature,
     /// Water/steam outlet specific enthalpy.
@@ -924,6 +937,16 @@ impl NodalisedCounterFlowSteamGenerator {
             hot_side_duty: Power::new::<watt>(0.0),
             cold_side_duty: Power::new::<watt>(0.0),
             hot_outlet_temperature: config.initial_cold_end_temperature,
+            hot_outlet_enthalpy: hot_fluid_enthalpy(
+                config.hot_fluid,
+                config.initial_cold_end_temperature,
+                config.hot_pressure,
+            ),
+            hot_inlet_enthalpy: hot_fluid_enthalpy(
+                config.hot_fluid,
+                config.initial_hot_end_temperature,
+                config.hot_pressure,
+            ),
             cold_outlet_temperature: config.initial_cold_outlet_temperature,
             cold_outlet_enthalpy: AvailableEnergy::new::<joule_per_kilogram>(0.0),
             hot_node_temperatures: hot_seed,
@@ -1006,7 +1029,12 @@ impl NodalisedCounterFlowSteamGenerator {
     ///
     /// # Why this matters here
     ///
-    /// Both arrays carry the enthalpy convection term **explicitly** -- their
+    /// ~~Both arrays carry~~ **CORRECTED 2026-09-29 (gh:#319)** -- only the cold
+    /// array does: the hot array is `EnergyBalanceMode::Implicit` (constructor),
+    /// and the cold array's source was an unlimited linear `fvc::div`, not
+    /// `fvc::div_limited`, until 2026-09-29. See
+    /// `tampines::components::helical_coil_steam_generator` for the full note.
+    /// The enthalpy convection term is carried **explicitly** -- the
     /// energy equation adds `fvc::div_limited(phi, he, limiter)` as a source
     /// rather than an `fvm::div` matrix contribution -- inside the PIMPLE outer
     /// corrector loop. That makes the outer loop a Picard iteration on an
@@ -1091,10 +1119,47 @@ impl NodalisedCounterFlowSteamGenerator {
     /// # Errors
     ///
     /// [`SteamGeneratorError::Array`] if any composed array refuses.
+    ///
+    /// **Test-only since 2026-09-29**: the plant hands the exchanger an
+    /// enthalpy ([`Self::advance_timestep_from_hot_inlet_enthalpy`]); this
+    /// temperature entry point is kept for the exchanger's own V&V tests,
+    /// which drive it from prescribed temperatures.
+    #[cfg(test)]
     pub fn advance_timestep(
         &mut self,
         dt: Time,
         hot_inlet_temperature: ThermodynamicTemperature,
+        hot_mass_flow: MassRate,
+        cold_inlet_enthalpy: AvailableEnergy,
+        cold_mass_flow: MassRate,
+    ) -> Result<SteamGeneratorState, SteamGeneratorError> {
+        let hot_inlet_enthalpy = hot_fluid_enthalpy(
+            self.config.hot_fluid,
+            hot_inlet_temperature,
+            self.config.hot_pressure,
+        );
+        self.advance_timestep_from_hot_inlet_enthalpy(
+            dt,
+            hot_inlet_enthalpy,
+            hot_mass_flow,
+            cold_inlet_enthalpy,
+            cold_mass_flow,
+        )
+    }
+
+    /// [`Self::advance_timestep`] with the hot stream's inlet given as a
+    /// **specific enthalpy** rather than a temperature.
+    ///
+    /// Added 2026-09-29 (gh:#388) for a caller whose upstream control volume
+    /// integrates enthalpy: handing over the enthalpy itself means the duty
+    /// `m_dot (h_in - h_out)` is computed against exactly the enthalpy that
+    /// left the upstream CV, with no `h -> T -> h` round trip in between. The
+    /// temperature entry point converts and delegates here, so the two cannot
+    /// drift apart.
+    pub fn advance_timestep_from_hot_inlet_enthalpy(
+        &mut self,
+        dt: Time,
+        hot_inlet_enthalpy: AvailableEnergy,
         hot_mass_flow: MassRate,
         cold_inlet_enthalpy: AvailableEnergy,
         cold_mass_flow: MassRate,
@@ -1113,12 +1178,6 @@ impl NodalisedCounterFlowSteamGenerator {
             return Ok(self.last_state.clone());
         }
         self.pending -= dt_sub * (substeps as f64);
-
-        let hot_inlet_enthalpy = hot_fluid_enthalpy(
-            self.config.hot_fluid,
-            hot_inlet_temperature,
-            self.config.hot_pressure,
-        );
 
         for _ in 0..substeps {
             // 1. Boundary conditions. Mass-flow inlets, not velocity inlets: the
@@ -1209,6 +1268,8 @@ impl NodalisedCounterFlowSteamGenerator {
             hot_side_duty,
             cold_side_duty,
             hot_outlet_temperature: self.hot.get_outlet_temperature(),
+            hot_outlet_enthalpy: hot_out_h,
+            hot_inlet_enthalpy,
             cold_outlet_temperature: self.cold.get_outlet_temperature(),
             cold_outlet_enthalpy: cold_out_h,
             hot_node_temperatures,
@@ -1378,7 +1439,10 @@ mod tests {
     /// faster is a larger substep, and the standing question is whether more
     /// PIMPLE outer correctors buy one -- which is what an outer corrector does
     /// for an implicitly-discretised convection term. Here it does not, and the
-    /// reason is structural: both arrays add their enthalpy convection as an
+    /// reason is structural: ~~both arrays add~~ the cold array adds
+    /// (**CORRECTED 2026-09-29**, gh:#319 -- the hot array is implicit, and the
+    /// cold array's source was an unlimited linear `fvc::div` until that date)
+    /// its enthalpy convection as an
     /// **explicit** `fvc::div_limited` source *inside* the outer loop, so the
     /// loop is a Picard iteration on that source whose contraction factor is
     /// the cell Courant number. Below `Co = 1` correctors converge it (and the

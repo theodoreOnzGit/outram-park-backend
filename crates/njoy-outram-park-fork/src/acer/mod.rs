@@ -333,11 +333,14 @@ pub mod jxs {
 
     /// JXS(27): **DNED** — the delayed neutrons' energy distributions.
     ///
-    /// Not decoded, and not a gap in the delayed-neutron path: `DelayedData`
+    /// ~~Not decoded, and not a gap in the delayed-neutron path: `DelayedData`
     /// carries no outgoing spectrum on **either** route — the ENDF route's
     /// `DelayedData::from_tape` keeps `DelayedChi`'s `fraction` and drops its
     /// `spectrum` too. Whoever adds a delayed emission spectrum needs this
-    /// block and MF=5/MT=455 together.
+    /// block and MF=5/MT=455 together.~~ **CORRECTED 2026-09-29** — decoded by
+    /// `acer::delayed::decode_delayed` (one law per group via DNEDL) and
+    /// sampled for delayed neutrons, with MF=5/MT=455 on the ENDF route
+    /// (GitHub #365 audit).
     pub const DNED: usize = 26;
 }
 

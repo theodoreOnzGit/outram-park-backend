@@ -19,7 +19,10 @@
 //!   selection, or the PDF reader's "Save page annotations" flow.
 //! - [`save_digitised_csv`] — from either digitiser tab's "save into notes".
 //! - [`replace_artifact_body`] — the page-context panel's inline block
-//!   editor, and a re-digitise replacing its source block in place.
+//!   editor (body only, metadata kept verbatim).
+//! - [`replace_digitisation`] — a re-digitise replacing its block in place,
+//!   body **and** `[extraction]` (CORRECTED 2026-09-28: this used to go
+//!   through [`replace_artifact_body`] and kept the stale extraction).
 //!
 //! The interactive triggers live in `crate::app` (the PDF reader's
 //! annotate/crop canvas and the digitiser tabs); this module is UI-free.
@@ -432,6 +435,61 @@ pub fn replace_artifact_body(
     Ok(refreshed.get(id).expect("just replaced").clone())
 }
 
+/// Re-save a **digitisation** over the artifact with stable id `id`: swap its
+/// body AND, when one is supplied, its `[extraction]` provenance.
+///
+/// [`replace_artifact_body`] keeps the old metadata verbatim, which is right
+/// for a prose edit and wrong for a re-digitisation: the calibration strings,
+/// labels, `digitised_by` and `digitised_at` describe how the data were
+/// produced, so keeping the old ones after the data changed makes the
+/// artifact's provenance contradict its CSV (maintainer, 2026-09-28: PANAMA
+/// Figs. 6 and 7 re-digitised with the y top corrected to 10^0 still read
+/// `px 88.03 = 10` and `digitised_at = 2026-09-24`).
+///
+/// - `extraction` `Some`: replaces `[extraction]` wholesale, with
+///   `digitised_at` stamped to **now** (the re-save time). `None` keeps the
+///   old `[extraction]`, as before.
+/// - `[kovan]` `id`/`kind`/`created`, `[source]`, classification, relation
+///   and connections are kept; `modified` is bumped.
+/// - `[kovan].reviewed` is **cleared when the body changed**: a human review
+///   vouched for data that no longer exist, and leaving the stamp would claim
+///   the new numbers were checked. An unchanged body keeps it.
+///
+/// # Errors
+///
+/// As [`replace_artifact_body`].
+pub fn replace_digitisation(
+    session: &mut PaperSession,
+    id: &str,
+    new_body: &str,
+    extraction: Option<Extraction>,
+) -> Result<Artifact, ClassifyError> {
+    let md = session.markdown().to_string();
+    let parsed = parse_document(&md);
+    let artifact = parsed
+        .get(id)
+        .ok_or_else(|| ClassifyError::UnknownId(id.to_string()))?;
+
+    let now = utc_now_iso8601();
+    let mut toml = artifact.toml.clone();
+    toml.kovan.modified = now.clone();
+    if artifact.body.trim() != new_body.trim() {
+        toml.kovan.reviewed = None;
+    }
+    if let Some(mut ex) = extraction {
+        ex.digitised_at = Some(now);
+        toml.extraction = Some(ex);
+    }
+    let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, new_body)
+        .map_err(ClassifyError::Render)?;
+
+    let span = block_span(&md, artifact);
+    session.set_markdown(splice_lines(&md, span, &rendered));
+
+    let refreshed = ResearchRecordIndex::from_session(session);
+    Ok(refreshed.get(id).expect("just replaced").clone())
+}
+
 /// What should happen to one classification path or relation endpoint when a
 /// concept is renamed, moved or deleted.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -559,9 +617,12 @@ where
 /// real fenced-TOML artifacts so the page-context panel can re-open them).
 ///
 /// When `replace_id` names an existing artifact — a *re-digitise* of a
-/// block the panel double-click re-cropped — only its body is swapped
-/// ([`replace_artifact_body`]), keeping the original `[source]`/`[extraction]`
-/// and not appending a duplicate. Otherwise a new artifact is inserted with
+/// block the panel double-click re-cropped — ~~only its body is swapped
+/// ([`replace_artifact_body`]), keeping the original `[source]`/`[extraction]`~~
+/// **CORRECTED 2026-09-28**: its body and `[extraction]` are swapped
+/// ([`replace_digitisation`]; the old extraction is kept only when
+/// `extraction` is `None`), `[source]` is kept, and nothing is appended.
+/// The same-heading overwrite below goes through the same function. Otherwise a new artifact is inserted with
 /// `kind`, `anchor`, and an `[extraction]` block
 /// (`method = "manual_digitisation"`).
 ///
@@ -577,7 +638,7 @@ pub fn save_digitised_csv(
 ) -> Result<Artifact, ClassifyError> {
     if let Some(id) = replace_id {
         if parse_document(session.markdown()).get(id).is_some() {
-            return replace_artifact_body(session, id, csv_body);
+            return replace_digitisation(session, id, csv_body, extraction);
         }
     }
 
@@ -631,7 +692,7 @@ pub fn save_digitised_csv(
                 }
                 session.set_markdown(&md);
             }
-            return replace_artifact_body(session, &base, csv_body);
+            return replace_digitisation(session, &base, csv_body, extraction);
         }
     }
 
@@ -1333,6 +1394,188 @@ x,y
             a.toml.source.as_ref().unwrap().page,
             Some(4),
             "[source] survives a re-digitise"
+        );
+    }
+
+    /// An extraction as a digitiser writes one, with a given y calibration.
+    fn graph_extraction(y_axis: &str, at: &str) -> Extraction {
+        let mut ex = Extraction::new("manual_digitisation", None);
+        ex.figure = Some("Fig. 6".into());
+        ex.x_label = Some("Time (h)".into());
+        ex.y_label = Some("Fraction".into());
+        ex.x_axis = Some("linear scale, px 10 = 0 , px 400 = 100".into());
+        ex.y_axis = Some(y_axis.into());
+        ex.digitised_by = Some("tester via kovan (gui, hand-placed)".into());
+        ex.digitised_at = Some(at.into());
+        ex
+    }
+
+    /// Stamp `[kovan].reviewed` onto artifact `id` the way a human review
+    /// would, by editing the Markdown.
+    fn mark_reviewed(session: &mut PaperSession, id: &str) {
+        let md = session.markdown().to_string();
+        let a = parse_document(&md).get(id).unwrap().clone();
+        let mut toml = a.toml.clone();
+        toml.kovan.reviewed = Some("2026-09-25T00:00:00Z".into());
+        let rendered = render_artifact_block(a.level, &a.heading, &toml, &a.body).unwrap();
+        session.set_markdown(&splice_lines(&md, block_span(&md, &a), &rendered));
+    }
+
+    /// Maintainer, 2026-09-28: a re-digitised figure kept its OLD
+    /// `[extraction]` (PANAMA Figs. 6/7 still read `px 88.03 = 10` after the
+    /// y top was corrected to 10^0). A re-save with `replace_id` must write
+    /// the new calibration and a fresh `digitised_at`, keep identity and
+    /// `[source]`, and drop a review that vouched for the old numbers.
+    #[test]
+    fn a_re_digitise_rewrites_the_extraction_and_keeps_identity_and_source() {
+        let (_dir, mut session) = open_session();
+        let anchor = SourceAnchor {
+            page: Some(9),
+            pages: None,
+            region: Some(crate::artifact::Region::from([0.1, 0.2, 0.6, 0.7])),
+        };
+        let old_at = "2026-09-24T00:00:00Z";
+        let first = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 6",
+            Some(anchor.clone()),
+            Some(graph_extraction("log scale, px 300 = 0.001 , px 88.03 = 10", old_at)),
+            None,
+            "```csv\nt,f\n1,0.1\n```\n",
+        )
+        .unwrap();
+        mark_reviewed(&mut session, first.id());
+
+        let again = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 6",
+            Some(anchor.clone()),
+            Some(graph_extraction("log scale, px 300 = 0.001 , px 88.03 = 1", old_at)),
+            Some(first.id()),
+            "```csv\nt,f\n1,0.01\n```\n",
+        )
+        .unwrap();
+        assert_eq!(again.id(), first.id());
+        assert_eq!(again.toml.kovan.created, first.toml.kovan.created);
+        assert_eq!(again.toml.kovan.kind, ArtifactKind::DigitisedGraph);
+        assert_eq!(again.toml.source.as_ref(), Some(&anchor), "[source] kept");
+        let ex = again.toml.extraction.as_ref().unwrap();
+        assert_eq!(
+            ex.y_axis.as_deref(),
+            Some("log scale, px 300 = 0.001 , px 88.03 = 1"),
+            "the new calibration is written"
+        );
+        assert_ne!(ex.digitised_at.as_deref(), Some(old_at), "re-save time");
+        assert!(again.body.contains("1,0.01"));
+        assert!(
+            again.toml.kovan.reviewed.is_none(),
+            "a review of numbers that no longer exist is dropped"
+        );
+        assert_eq!(
+            ResearchRecordIndex::from_session(&session).artifacts().len(),
+            2,
+            "header + the one graph: replaced, not appended"
+        );
+    }
+
+    /// An untouched re-save changes nothing but `digitised_at` (and
+    /// `modified`): same body, same extraction otherwise, review kept.
+    #[test]
+    fn an_untouched_re_save_differs_only_in_digitised_at() {
+        let (_dir, mut session) = open_session();
+        let body = "```csv\nt,f\n1,0.1\n```\n";
+        let ex = graph_extraction(
+            "log scale, px 300 = 0.001 , px 88.03 = 10",
+            "2026-09-24T00:00:00Z",
+        );
+        let first = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 7",
+            None,
+            Some(ex.clone()),
+            None,
+            body,
+        )
+        .unwrap();
+        mark_reviewed(&mut session, first.id());
+        let before = ResearchRecordIndex::from_session(&session)
+            .get(first.id())
+            .unwrap()
+            .clone();
+
+        let again = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 7",
+            None,
+            Some(ex.clone()),
+            Some(first.id()),
+            body,
+        )
+        .unwrap();
+        assert_eq!(again.body, before.body, "identical body");
+        let mut new_ex = again.toml.extraction.clone().unwrap();
+        assert_ne!(new_ex.digitised_at, ex.digitised_at);
+        new_ex.digitised_at = ex.digitised_at.clone();
+        assert_eq!(new_ex, ex, "only digitised_at differs");
+        assert_eq!(again.toml.kovan.reviewed, before.toml.kovan.reviewed, "review kept");
+    }
+
+    /// The table digitiser's save passes an extraction too; a table re-save
+    /// (and the same-heading overwrite, the other replace branch) must write
+    /// it.
+    #[test]
+    fn a_table_re_save_and_a_same_heading_overwrite_update_the_extraction() {
+        let (_dir, mut session) = open_session();
+        let table_ex = |by: &str| {
+            let mut ex = Extraction::new("pdf_native", None);
+            ex.figure = Some("Table 5".into());
+            ex.digitised_by = Some(by.into());
+            ex.digitised_at = Some("2026-09-24T00:00:00Z".into());
+            ex
+        };
+        let first = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedTable,
+            "Table 5",
+            None,
+            Some(table_ex("alice via kovan")),
+            None,
+            "```csv\na,b\n1,2\n```\n",
+        )
+        .unwrap();
+        let again = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedTable,
+            "Table 5",
+            None,
+            Some(table_ex("bob via kovan")),
+            Some(first.id()),
+            "```csv\na,b\n1,3\n```\n",
+        )
+        .unwrap();
+        let ex = again.toml.extraction.as_ref().unwrap();
+        assert_eq!(ex.digitised_by.as_deref(), Some("bob via kovan"));
+        assert_ne!(ex.digitised_at.as_deref(), Some("2026-09-24T00:00:00Z"));
+
+        // Same heading, no replace_id: the overwrite branch.
+        let third = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedTable,
+            "Table 5",
+            None,
+            Some(table_ex("carol via kovan")),
+            None,
+            "```csv\na,b\n1,4\n```\n",
+        )
+        .unwrap();
+        assert_eq!(third.id(), first.id());
+        assert_eq!(
+            third.toml.extraction.as_ref().unwrap().digitised_by.as_deref(),
+            Some("carol via kovan")
         );
     }
 

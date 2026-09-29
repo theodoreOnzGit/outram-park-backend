@@ -19,6 +19,35 @@
 //! `crate::advanced_git`/`crate::repository`'s own behaviour changed here —
 //! this file is presentation only.
 //!
+//! # Push after save (2026-09-28)
+//!
+//! A "Push after save" checkbox, **ticked by default**, sits under the note
+//! box. Ticked, Save Repository also pushes the proprietary corpus, the open
+//! corpus and the Kovan repository ([`crate::save_push`] has the order and
+//! the safety rules), and each repository's result — pushed, nothing to
+//! push, not pushed and why, refused, failed with Git's words — is listed
+//! under the button. Unticking it is persisted as
+//! `[save] push_after_save = false` in the library's `kovan_root.toml`
+//! (so it travels with the library), via
+//! [`crate::root::KovanRoot::set_push_after_save`].
+//!
+//! # Pulling the Kovan folder pulls its corpora (GH issue #422)
+//!
+//! A successful Pull of the Kovan folder (ordinary, or forced through the
+//! prompt below) runs [`crate::save_push::pull_corpora`]: each corpus that
+//! is merely behind is fast-forwarded onto its branch, one line per corpus
+//! is listed under the pull, and each corpus whose local work would be
+//! destroyed gets the same "sure anot?" prompt, queued one at a time.
+//!
+//! # Git runs off the GUI thread (maintainer, 2026-09-29)
+//!
+//! Save Repository (with its push), Fetch, Pull, Push and the forced pull
+//! run on a background thread ([`AdvancedGitState::spawn`]); the tab shows
+//! a spinner and disables those buttons until [`AdvancedGitState::poll_job`]
+//! sees it finish and records the result, so a slow network never freezes
+//! the window. One job at a time, and no "sure anot?" prompt is shown while
+//! one runs.
+//!
 //! # One exception to "presentation only": the conflicted-pull prompt
 //!
 //! Since GH issue #279 this file also owns a decision, not just a
@@ -92,9 +121,63 @@ pub struct AdvancedGitState {
     repos: Vec<RepoPanel>,
     message: String,
     message_is_error: bool,
+    /// The user's own commit note, typed into the "what did you do?" box
+    /// (maintainer request, 2026-09-28). Appended to the body of every
+    /// commit the next Save Repository makes, under the unchanged generated
+    /// subject ([`crate::repository::compose_commit_message`]). Cleared only
+    /// after a save that actually committed; kept on failure and on a
+    /// nothing-to-save, so what the user typed is never lost.
+    commit_note: String,
+    /// The "Push after save" checkbox: loaded from the library's
+    /// `kovan_root.toml` on every refresh (default ON) and written back when
+    /// the user changes it. See the module doc.
+    push_after_save: bool,
     /// A pull Git stopped on a conflict, waiting for the user's answer to
     /// the "sure anot?" prompt (GH issue #279). `None` the rest of the time.
     pending_force_pull: Option<ForcePullPrompt>,
+    /// Further prompts waiting their turn behind [`Self::pending_force_pull`]
+    /// — raised when pulling the Kovan folder finds more than one corpus
+    /// whose local work a pull would destroy (#422). Asked one at a time.
+    queued_force_pulls: std::collections::VecDeque<ForcePullPrompt>,
+    /// The save, fetch, pull or push running on a background thread, if
+    /// any — network Git can take seconds to minutes, and the window must
+    /// not freeze meanwhile (maintainer, 2026-09-29). One at a time: the
+    /// buttons are disabled until it lands in [`Self::poll_job`].
+    job: Option<GitJob>,
+}
+
+/// A Git operation running off the GUI thread, and what to say meanwhile.
+struct GitJob {
+    /// e.g. "pulling Kovan folder…".
+    what: String,
+    handle: std::thread::JoinHandle<GitJobDone>,
+}
+
+/// What a finished [`GitJob`] hands back to the GUI thread to record.
+enum GitJobDone {
+    /// A panel's fetch/pull/push; `corpora` is set when the Kovan folder
+    /// was pulled and its corpora followed it (#422).
+    Remote {
+        label: &'static str,
+        dir: PathBuf,
+        remote: String,
+        branch: String,
+        op: RemoteOp,
+        result: Result<String, advanced_git::RemoteError>,
+        kovan_folder: bool,
+        corpora: Option<Vec<crate::save_push::CorpusPull>>,
+    },
+    /// Save Repository, with push-after-save when it is on.
+    Save {
+        result: Result<Option<SaveSummary>, crate::repository::RepositoryError>,
+        pushed: Option<crate::save_push::PushReport>,
+    },
+    /// The "yes, can" forced pull.
+    ForcePull {
+        prompt: ForcePullPrompt,
+        result: Result<String, advanced_git::RemoteError>,
+        corpora: Option<Vec<crate::save_push::CorpusPull>>,
+    },
 }
 
 /// The pull that just hit a conflict, held while [`AdvancedGitState::force_pull_prompt_ui`]
@@ -113,12 +196,16 @@ struct ForcePullPrompt {
     /// Git's own account of the conflict, shown on request rather than by
     /// default — it is the evidence, not the question.
     git_says: String,
+    /// Whether a forced pull here is of the Kovan folder itself, whose
+    /// corpora then follow it ([`crate::save_push::pull_corpora`], #422).
+    follow_corpora: bool,
 }
 
 impl AdvancedGitState {
     fn refresh(&mut self, root: &KovanRoot) {
         self.loaded_once = true;
         self.stale = false;
+        self.push_after_save = advanced_git::push_after_save_setting(root);
         match advanced_git::status(root) {
             Ok(s) => self.status = Some(s),
             Err(e) => self.set_error(e.to_string()),
@@ -162,6 +249,13 @@ impl AdvancedGitState {
             self.stale = false;
             self.refresh(root);
         }
+        self.poll_job(root);
+        let busy = self.job.is_some();
+        if busy {
+            // Nothing else repaints an idle window; keep checking the job.
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(100));
+        }
 
         ui.heading("Save Repository");
         ui.small("Version history is kept using a Git backend.");
@@ -189,30 +283,65 @@ impl AdvancedGitState {
         }
         ui.add_space(4.0);
 
+        ui.add(
+            egui::TextEdit::multiline(&mut self.commit_note)
+                .hint_text("what did you do? (optional)")
+                .desired_rows(3)
+                .desired_width(f32::INFINITY),
+        );
+        ui.small("Added to the commit message under \"Save Kovan repository\".");
+        ui.add_space(4.0);
+
+        if ui
+            .checkbox(&mut self.push_after_save, "Push after save")
+            .on_hover_text(
+                "Also push the proprietary corpus, the open corpus and this Kovan folder. \
+                 Each corpus goes only to its own remote in kovan_root.toml; never forced.",
+            )
+            .changed()
+        {
+            self.persist_push_setting(root);
+        }
+        ui.add_space(4.0);
+
+        let mut save_result = None;
         ui.horizontal(|ui| {
             // op-nswf, GH issue #35 2026-09-01 05:42: "Under the git tab, i
             // expect to see save to repository. I don't see any button" —
             // the backend (`crate::repository::save_repository`) already
             // existed and was tested; it just had no button wired to it.
-            if ui.button("Save Repository").clicked() {
-                match advanced_git::save(root) {
-                    Ok(Some(summary)) => {
-                        self.set_status(format!(
-                            "saved: {} added, {} changed, {} removed",
-                            summary.added.len(),
-                            summary.changed.len(),
-                            summary.removed.len()
-                        ));
-                        self.refresh(root);
-                    }
-                    Ok(None) => self.set_status("nothing to save — already up to date"),
-                    Err(e) => self.set_error(e.to_string()),
-                }
+            if ui
+                .add_enabled(!busy, egui::Button::new("Save Repository"))
+                .clicked()
+            {
+                save_result = Some(());
             }
-            if ui.button("Refresh").clicked() {
+            if ui
+                .add_enabled(!busy, egui::Button::new("Refresh"))
+                .clicked()
+            {
                 self.refresh(root);
             }
+            if let Some(job) = &self.job {
+                ui.spinner();
+                ui.weak(&job.what);
+            }
         });
+        if save_result.is_some() {
+            let (root, note, push) = (root.clone(), self.commit_note.clone(), self.push_after_save);
+            self.spawn(
+                if push {
+                    "saving and pushing…"
+                } else {
+                    "saving…"
+                }
+                .into(),
+                move || {
+                    let (result, pushed) = advanced_git::save_and_push(&root, &note, push);
+                    GitJobDone::Save { result, pushed }
+                },
+            );
+        }
         if !self.message.is_empty() {
             let color = if self.message_is_error {
                 Color32::from_rgb(220, 90, 90)
@@ -250,14 +379,10 @@ impl AdvancedGitState {
                         (Some(remote), Some(branch)) => {
                             ui.label(format!("{} ({}), branch {branch}", remote.url, remote.name));
                             ui.horizontal(|ui| {
-                                if ui.button("Fetch").clicked() {
-                                    action = Some((i, RemoteOp::Fetch));
-                                }
-                                if ui.button("Pull").clicked() {
-                                    action = Some((i, RemoteOp::Pull));
-                                }
-                                if ui.button("Push").clicked() {
-                                    action = Some((i, RemoteOp::Push));
+                                for op in [RemoteOp::Fetch, RemoteOp::Pull, RemoteOp::Push] {
+                                    if ui.add_enabled(!busy, egui::Button::new(op.button())).clicked() {
+                                        action = Some((i, op));
+                                    }
                                 }
                             });
                         }
@@ -271,7 +396,7 @@ impl AdvancedGitState {
                     }
                 }
                 if let Some((i, op)) = action {
-                    self.run(i, op);
+                    self.run(root, i, op);
                 }
             });
         });
@@ -284,8 +409,83 @@ impl AdvancedGitState {
         self.force_pull_prompt_ui(&ctx, root);
     }
 
+    /// Write the checkbox to `kovan_root.toml`; on failure, say so and put
+    /// the checkbox back to what the file still says.
+    fn persist_push_setting(&mut self, root: &KovanRoot) {
+        let wanted = self.push_after_save;
+        let written = KovanRoot::open(root.path())
+            .map_err(|e| e.to_string())
+            .and_then(|mut fresh| fresh.set_push_after_save(wanted));
+        match written {
+            Ok(()) => self.set_status(if wanted {
+                "push after save: on"
+            } else {
+                "push after save: off — saves stay on this computer until you push"
+            }),
+            Err(e) => {
+                self.push_after_save = advanced_git::push_after_save_setting(root);
+                self.set_error(format!("could not save the push setting: {e}"));
+            }
+        }
+    }
+
+    /// File what a Save Repository returned, and decide the commit note's
+    /// fate: cleared only when something was committed, kept otherwise (a
+    /// failure, or nothing to save) so the user never loses what they typed.
+    /// Returns whether a commit was made (the caller then re-scans). Split
+    /// out from [`Self::ui`] so it is testable without a repository.
+    ///
+    /// `pushed` is the push-after-save report, if a push ran: one line per
+    /// repository is appended to the message, which turns red when any push
+    /// failed or was refused. The note's fate does not depend on the push —
+    /// the commit it went into exists either way.
+    fn record_save(
+        &mut self,
+        result: Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError>,
+        pushed: Option<crate::save_push::PushReport>,
+    ) -> bool {
+        let committed = self.record_commit(result);
+        if let Some(report) = pushed {
+            for line in report.lines() {
+                self.message.push('\n');
+                self.message.push_str(&line);
+            }
+            if report.has_problem() {
+                self.message_is_error = true;
+            }
+        }
+        committed
+    }
+
+    /// The commit half of [`Self::record_save`].
+    fn record_commit(
+        &mut self,
+        result: Result<Option<crate::repository::SaveSummary>, crate::repository::RepositoryError>,
+    ) -> bool {
+        match result {
+            Ok(Some(summary)) => {
+                self.set_status(format!(
+                    "saved: {} added, {} changed, {} removed",
+                    summary.added.len(),
+                    summary.changed.len(),
+                    summary.removed.len()
+                ));
+                self.commit_note.clear();
+                true
+            }
+            Ok(None) => {
+                self.set_status("nothing to save — already up to date");
+                false
+            }
+            Err(e) => {
+                self.set_error(e.to_string());
+                false
+            }
+        }
+    }
+
     /// Fetch, pull or push repository `i` against its own remote and branch.
-    fn run(&mut self, i: usize, op: RemoteOp) {
+    fn run(&mut self, root: &KovanRoot, i: usize, op: RemoteOp) {
         let Some(repo) = self.repos.get(i) else {
             return;
         };
@@ -298,12 +498,152 @@ impl AdvancedGitState {
             repo.label,
             repo.dir.clone(),
         );
-        let result = match op {
-            RemoteOp::Fetch => advanced_git::fetch_in(&dir, &remote),
-            RemoteOp::Pull => advanced_git::pull_in(&dir, &remote, &branch),
-            RemoteOp::Push => advanced_git::push_in(&dir, &remote, &branch),
-        };
-        self.record(label, dir, remote, branch, op, result);
+        let kovan_folder = dir == root.path();
+        let root = root.clone();
+        self.spawn(format!("{}ing {label}…", op.verb()), move || {
+            let result = match op {
+                RemoteOp::Fetch => advanced_git::fetch_in(&dir, &remote),
+                RemoteOp::Pull => advanced_git::pull_in(&dir, &remote, &branch),
+                RemoteOp::Push => advanced_git::push_in(&dir, &remote, &branch),
+            };
+            // #422: pulling the Kovan folder pulls its corpora too.
+            let corpora = (kovan_folder && matches!(op, RemoteOp::Pull) && result.is_ok())
+                .then(|| crate::save_push::pull_corpora(&root));
+            GitJobDone::Remote {
+                label,
+                dir,
+                remote,
+                branch,
+                op,
+                result,
+                kovan_folder,
+                corpora,
+            }
+        });
+    }
+
+    /// Run `work` on a background thread; [`Self::poll_job`] records it.
+    fn spawn(&mut self, what: String, work: impl FnOnce() -> GitJobDone + Send + 'static) {
+        self.job = Some(GitJob {
+            what,
+            handle: std::thread::spawn(work),
+        });
+    }
+
+    /// Record the background job once it has finished; a no-op while it
+    /// runs. Also raises the next queued corpus prompt (#422), which waits
+    /// for the job so two Git operations never run at once.
+    fn poll_job(&mut self, root: &KovanRoot) {
+        if self.job.as_ref().is_some_and(|j| j.handle.is_finished()) {
+            if let Some(job) = self.job.take() {
+                match job.handle.join() {
+                    Ok(done) => self.record_job(done, root),
+                    Err(_) => self.set_error(format!("{} failed unexpectedly", job.what)),
+                }
+            }
+        }
+        if self.job.is_none() && self.pending_force_pull.is_none() {
+            self.pending_force_pull = self.queued_force_pulls.pop_front();
+        }
+    }
+
+    /// Record what a finished background job returned.
+    fn record_job(&mut self, done: GitJobDone, root: &KovanRoot) {
+        match done {
+            GitJobDone::Remote {
+                label,
+                dir,
+                remote,
+                branch,
+                op,
+                result,
+                kovan_folder,
+                corpora,
+            } => {
+                self.record(label, dir, remote, branch, op, result);
+                if let Some(prompt) = self.pending_force_pull.as_mut() {
+                    prompt.follow_corpora = kovan_folder;
+                }
+                if let Some(corpora) = corpora {
+                    self.follow_corpora(corpora);
+                }
+                if matches!(op, RemoteOp::Pull) {
+                    self.refresh(root);
+                }
+            }
+            GitJobDone::Save { result, pushed } => {
+                if self.record_save(result, pushed) {
+                    self.refresh(root);
+                }
+            }
+            GitJobDone::ForcePull {
+                prompt,
+                result,
+                corpora,
+            } => {
+                match result {
+                    // The files on disk were replaced underneath the rest
+                    // of the app, whose index and any open paper were read
+                    // before the pull. Refreshing this tab does not reload
+                    // those, so say so rather than letting a stale Wiki look
+                    // like the pull did not work. (True of an ordinary
+                    // successful pull too — this is the loudest case, not a
+                    // new one.)
+                    Ok(_) => self.set_status(format!(
+                        "{}: pulled by force — the folder now matches {}/{}. Reopen the folder \
+                         from Home so the rest of Kovan reads the new files.",
+                        prompt.label, prompt.remote, prompt.branch
+                    )),
+                    Err(e) => {
+                        self.set_error(format!("{}: could not force the pull: {e}", prompt.label))
+                    }
+                }
+                // #422: the Kovan folder was replaced; its corpora follow.
+                if let Some(corpora) = corpora {
+                    self.follow_corpora(corpora);
+                }
+                // The working tree and the history both moved; everything on
+                // this tab is now stale.
+                self.refresh(root);
+            }
+        }
+    }
+
+    /// File what [`crate::save_push::pull_corpora`] did after the Kovan
+    /// folder was pulled (#422): one line per corpus under the pull's
+    /// message, and — for each corpus whose local work a pull would destroy
+    /// — the "sure anot?" prompt, queued, so overriding it is still the
+    /// user's answer and never automatic. Split out so it is testable
+    /// without a repository.
+    fn follow_corpora(&mut self, pulled: Vec<crate::save_push::CorpusPull>) {
+        use crate::save_push::CorpusPullOutcome;
+        for p in pulled {
+            self.message.push('\n');
+            self.message.push_str(&p.line());
+            match p.outcome {
+                CorpusPullOutcome::Failed { .. } => self.message_is_error = true,
+                CorpusPullOutcome::NeedsConfirmation {
+                    remote,
+                    branch,
+                    reason,
+                } => {
+                    let prompt = ForcePullPrompt {
+                        label: p.corpus.label(),
+                        dir: p.dir,
+                        remote,
+                        branch,
+                        git_says: format!("Not pulled, because {reason}."),
+                        follow_corpora: false,
+                    };
+                    if self.pending_force_pull.is_none() {
+                        self.pending_force_pull = Some(prompt);
+                    } else {
+                        self.queued_force_pulls.push_back(prompt);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     /// File what a remote operation returned: a message, or — for the one
@@ -333,6 +673,7 @@ impl AdvancedGitState {
                     remote,
                     branch,
                     git_says: output,
+                    follow_corpora: false,
                 });
             }
             Err(e) => self.set_error(format!("{label}: {e}")),
@@ -353,6 +694,9 @@ impl AdvancedGitState {
     ///   conflicted merge would be left half-applied in a folder whose
     ///   owner was never meant to need Git vocabulary (op-wqaw).
     fn force_pull_prompt_ui(&mut self, ctx: &egui::Context, root: &KovanRoot) {
+        if self.job.is_some() {
+            return;
+        }
         let Some(prompt) = self.pending_force_pull.take() else {
             return;
         };
@@ -398,26 +742,18 @@ impl AdvancedGitState {
 
         match force {
             Some(true) => {
-                match advanced_git::force_pull_in(&prompt.dir, &prompt.remote, &prompt.branch) {
-                    // The files on disk were replaced underneath the rest
-                    // of the app, whose index and any open paper were read
-                    // before the pull. Refreshing this tab does not reload
-                    // those, so say so rather than letting a stale Wiki look
-                    // like the pull did not work. (True of an ordinary
-                    // successful pull too — this is the loudest case, not a
-                    // new one.)
-                    Ok(_) => self.set_status(format!(
-                        "{}: pulled by force — the folder now matches {}/{}. Reopen the folder \
-                         from Home so the rest of Kovan reads the new files.",
-                        prompt.label, prompt.remote, prompt.branch
-                    )),
-                    Err(e) => {
-                        self.set_error(format!("{}: could not force the pull: {e}", prompt.label))
+                let root = root.clone();
+                self.spawn(format!("pulling {} by force…", prompt.label), move || {
+                    let result =
+                        advanced_git::force_pull_in(&prompt.dir, &prompt.remote, &prompt.branch);
+                    let corpora = (prompt.follow_corpora && result.is_ok())
+                        .then(|| crate::save_push::pull_corpora(&root));
+                    GitJobDone::ForcePull {
+                        prompt,
+                        result,
+                        corpora,
                     }
-                }
-                // The working tree and the history both moved; everything on
-                // this tab is now stale.
-                self.refresh(root);
+                });
             }
             Some(false) => match advanced_git::abort_in_progress_in(&prompt.dir) {
                 Ok(_) => self.set_status(format!(
@@ -432,11 +768,13 @@ impl AdvancedGitState {
             // Neither button pressed yet — keep asking.
             None => self.pending_force_pull = Some(prompt),
         }
+        // Answered: the next queued corpus prompt (#422), if any, is raised
+        // by `poll_job` once no job is running.
     }
 }
 
 /// A remote operation a repository panel can run.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RemoteOp {
     Fetch,
     Pull,
@@ -444,6 +782,15 @@ enum RemoteOp {
 }
 
 impl RemoteOp {
+    /// The button's caption.
+    fn button(self) -> &'static str {
+        match self {
+            Self::Fetch => "Fetch",
+            Self::Pull => "Pull",
+            Self::Push => "Push",
+        }
+    }
+
     fn verb(self) -> &'static str {
         match self {
             Self::Fetch => "fetch",
@@ -554,6 +901,100 @@ mod tests {
         assert!(state.message.is_empty(), "something ran: {}", state.message);
     }
 
+    /// Pulling the Kovan folder lists each corpus's result, and every corpus
+    /// whose local work a pull would destroy gets its own prompt, asked one
+    /// at a time — overriding a corpus is never automatic (#422).
+    #[test]
+    fn corpora_that_need_overriding_are_asked_about_one_at_a_time() {
+        use crate::save_push::{CorpusKind, CorpusPull, CorpusPullOutcome};
+        let confirm = |corpus, dir: &str| CorpusPull {
+            corpus,
+            dir: PathBuf::from(dir),
+            outcome: CorpusPullOutcome::NeedsConfirmation {
+                remote: "origin".into(),
+                branch: "main".into(),
+                reason: "it has saves the remote does not have".into(),
+            },
+        };
+        let mut state = state_after(Ok(String::new()));
+        state.follow_corpora(vec![
+            confirm(CorpusKind::Proprietary, "/k/prop"),
+            confirm(CorpusKind::Open, "/k/open"),
+            CorpusPull {
+                corpus: CorpusKind::Standard,
+                dir: PathBuf::from("/k/std"),
+                outcome: CorpusPullOutcome::UpToDate {
+                    branch: "main".into(),
+                },
+            },
+        ]);
+        assert_eq!(state.message.lines().count(), 4, "{}", state.message);
+        assert!(state.message.contains("Standard corpus: up to date"));
+        let first = state.pending_force_pull.as_ref().expect("no prompt");
+        assert_eq!(first.dir, PathBuf::from("/k/prop"));
+        assert!(!first.follow_corpora);
+        assert_eq!(state.queued_force_pulls.len(), 1);
+        assert_eq!(state.queued_force_pulls[0].dir, PathBuf::from("/k/open"));
+    }
+
+    /// A job runs off the GUI thread and is recorded only once it has
+    /// finished; while it runs, nothing is recorded and no prompt is shown.
+    #[test]
+    fn a_background_job_is_recorded_when_it_finishes_and_not_before() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        let gate = std::sync::Arc::new(std::sync::RwLock::new(false));
+        let mut state = AdvancedGitState::default();
+        state.queued_force_pulls.push_back(ForcePullPrompt {
+            label: "Open corpus",
+            dir: PathBuf::from("/k/open"),
+            remote: "origin".into(),
+            branch: "main".into(),
+            git_says: String::new(),
+            follow_corpora: false,
+        });
+        let release = gate.clone();
+        state.spawn("pushing Kovan folder…".into(), move || {
+            while !*release.read().unwrap() {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            GitJobDone::Remote {
+                label: "Kovan folder",
+                dir: PathBuf::from("/k"),
+                remote: "origin".into(),
+                branch: "main".into(),
+                op: RemoteOp::Push,
+                result: Ok(String::new()),
+                kovan_folder: true,
+                corpora: None,
+            }
+        });
+        state.poll_job(&root);
+        assert!(state.job.is_some(), "recorded before it finished");
+        assert!(state.message.is_empty());
+        assert!(state.pending_force_pull.is_none(), "prompt raised mid-job");
+
+        *gate.write().unwrap() = true;
+        for _ in 0..400 {
+            state.poll_job(&root);
+            if state.job.is_none() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(state.job.is_none(), "the job never finished");
+        assert!(
+            state.message.contains("Kovan folder: push done"),
+            "{}",
+            state.message
+        );
+        assert_eq!(
+            state.pending_force_pull.map(|p| p.dir),
+            Some(PathBuf::from("/k/open"))
+        );
+    }
+
     /// The panel pushes to `origin`, or to the only remote there is; with
     /// several and no `origin` it does not guess.
     #[test]
@@ -565,5 +1006,125 @@ mod tests {
         assert_eq!(panel(&["github"]).remote().unwrap().name, "github");
         assert!(panel(&["a", "b"]).remote().is_none());
         assert!(panel(&[]).remote().is_none());
+    }
+
+    /// The commit note is cleared only by a save that committed; a failure
+    /// or a nothing-to-save keeps what the user typed (2026-09-28).
+    #[test]
+    fn the_commit_note_survives_everything_but_a_successful_save() {
+        let typed = "read chapter 3";
+        let mut state = AdvancedGitState {
+            commit_note: typed.into(),
+            ..Default::default()
+        };
+        let err = crate::repository::RepositoryError::Git("boom".into());
+        assert!(!state.record_save(Err(err), None));
+        assert_eq!(state.commit_note, typed);
+        assert!(state.message_is_error);
+
+        assert!(!state.record_save(Ok(None), None));
+        assert_eq!(state.commit_note, typed);
+
+        let summary = crate::repository::SaveSummary {
+            added: vec!["notes.md".into()],
+            ..Default::default()
+        };
+        assert!(state.record_save(Ok(Some(summary)), None));
+        assert!(state.commit_note.is_empty());
+        assert!(!state.message_is_error);
+    }
+
+    /// Each repository's push result is shown under the save line; a
+    /// refused or failed push turns the message red but still clears the
+    /// note, because the commit it went into was made (2026-09-28).
+    #[test]
+    fn push_results_are_listed_per_repository_and_a_problem_is_red() {
+        use crate::save_push::{PushOutcome, PushRepo, PushReport, RepoPush};
+        let summary = crate::repository::SaveSummary {
+            added: vec!["a.pdf".into()],
+            ..Default::default()
+        };
+        let report = PushReport {
+            repos: vec![
+                RepoPush {
+                    repo: PushRepo::ProprietaryCorpus,
+                    dir: PathBuf::new(),
+                    outcome: PushOutcome::Pushed {
+                        remote_url: "https://example.com/private.git".into(),
+                        branch: "main".into(),
+                        attached: true,
+                    },
+                },
+                RepoPush {
+                    repo: PushRepo::OpenCorpus,
+                    dir: PathBuf::new(),
+                    outcome: PushOutcome::Failed {
+                        message: "the remote has commits this folder does not have — pull first"
+                            .into(),
+                    },
+                },
+                RepoPush {
+                    repo: PushRepo::KovanRepository,
+                    dir: PathBuf::new(),
+                    outcome: PushOutcome::Skipped {
+                        reason: "a corpus above was not pushed".into(),
+                    },
+                },
+            ],
+        };
+        let mut state = AdvancedGitState {
+            commit_note: "note".into(),
+            ..Default::default()
+        };
+        assert!(state.record_save(Ok(Some(summary.clone())), Some(report)));
+        assert!(state.commit_note.is_empty());
+        assert!(state.message_is_error);
+        let lines: Vec<&str> = state.message.lines().collect();
+        assert!(lines[0].starts_with("saved: 1 added"), "{lines:?}");
+        assert!(lines[1]
+            .starts_with("Proprietary corpus: pushed main to https://example.com/private.git"));
+        assert!(
+            lines[2].starts_with("Open corpus: push FAILED") && lines[2].contains("pull first")
+        );
+        assert!(lines[3].starts_with("Kovan repository: not pushed"));
+
+        let ok = PushReport {
+            repos: vec![RepoPush {
+                repo: PushRepo::KovanRepository,
+                dir: PathBuf::new(),
+                outcome: PushOutcome::UpToDate {
+                    branch: "main".into(),
+                },
+            }],
+        };
+        let mut state = AdvancedGitState::default();
+        state.record_save(Ok(Some(summary)), Some(ok));
+        assert!(!state.message_is_error);
+        assert!(state.message.contains("nothing to push"));
+    }
+
+    /// Drawn headless, the checkbox shows the library's persisted setting:
+    /// ticked by default, unticked once the library opted out.
+    #[test]
+    fn the_push_checkbox_reflects_the_library_setting() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut root =
+            KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+                .unwrap();
+        let ctx = egui::Context::default();
+        let mut state = AdvancedGitState::default();
+        let _ = ctx.run_ui(Default::default(), |ui| state.ui(ui, &root));
+        assert!(state.push_after_save, "default must be ticked");
+
+        root.set_push_after_save(false).unwrap();
+        let mut state = AdvancedGitState::default();
+        let _ = ctx.run_ui(Default::default(), |ui| state.ui(ui, &root));
+        assert!(!state.push_after_save);
+
+        // Changing it writes the file.
+        state.push_after_save = true;
+        state.persist_push_setting(&root);
+        assert!(crate::advanced_git::push_after_save_setting(&root));
+        assert!(!state.message_is_error, "{}", state.message);
     }
 }

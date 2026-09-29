@@ -66,19 +66,28 @@ pub struct InventoryEntry {
 /// depletion output.
 #[must_use]
 pub fn htr10_equilibrium_core() -> Vec<InventoryEntry> {
-    HTR10_EQUILIBRIUM_CORE_CSV
-        .lines()
+    parse_nuclide_bq_csv(HTR10_EQUILIBRIUM_CORE_CSV)
+        .into_iter()
+        .map(|(nuclide, activity)| InventoryEntry { nuclide, activity })
+        .collect()
+}
+
+/// Parse a compiled-in two-column `nuclide,<quantity>_bq` table.
+///
+/// Shared by this module, [`super::airborne_release`] and
+/// [`super::primary_helium`] so the published tables are read by one parser
+/// and cannot drift apart. The header row is
+/// skipped; a row whose value does not parse is dropped, which the callers'
+/// row-count tests would catch.
+pub(crate) fn parse_nuclide_bq_csv(csv: &'static str) -> Vec<(&'static str, Radioactivity)> {
+    csv.lines()
         .skip(1)
         .filter_map(|line| line.split_once(','))
         .filter_map(|(name, bq)| {
             // `&'static str` from the compiled-in table, so an entry borrows
             // the CSV rather than allocating.
-            let nuclide = name.trim();
             let activity = bq.trim().parse::<f64>().ok()?;
-            Some(InventoryEntry {
-                nuclide,
-                activity: Radioactivity::new::<becquerel>(activity),
-            })
+            Some((name.trim(), Radioactivity::new::<becquerel>(activity)))
         })
         .collect()
 }

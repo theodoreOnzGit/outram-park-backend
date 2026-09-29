@@ -12,7 +12,9 @@ now exist as crates; ~~both placeholders, no implementation~~ **CORRECTED
 `changi::activity`; `redhill` is still a placeholder).
 
 It hosts **two independent ports**, each with its own upstream, licence,
-provenance files and verification harness:
+provenance files and verification harness (**CORRECTED 2026-09-28** — plus a
+third, non-ported module, `activity` (`src/activity/`), which consumes both ports
+and has no upstream and no code-to-code harness; see its module doc):
 
 | Module | Upstream | Licence | Harness |
 |---|---|---|---|
@@ -74,8 +76,53 @@ its own test suite, and the two were measured to agree bit-for-bit. Before
 porting any further FLEXPART numerical utility, check `petir` first, then
 `outram-foam-basic-lib`.
 
-**Half-lives come from `boon-lay`.** The decay module holds no nuclide data of
-its own, deliberately, so the two cannot drift. Do not add a nuclide table here.
+**Half-lives come from `boon-lay`; published nuclide tables live here.**
+The decay module holds no half-life or decay-constant data of its own,
+deliberately, so it cannot drift from `boon-lay`. ~~Do not add a nuclide table
+here.~~ **CHANGED 2026-09-28** (maintainer: "update changi to include nuclide
+tables"): changi **is** the home for published nuclide tables of activities
+and releases, since the dispersion chain is their consumer. Each one sits in
+`reference/` as a CSV, is compiled in by its own loader under
+`src/activity/` (the two-column ones sharing `inventory::parse_nuclide_bq_csv`;
+Table 8's two-case CSV has its own three-column parser), and has a full
+provenance section in `docs/References.md`. The rule that still stands: **no
+half-life or decay-constant tables** here. Those come from `boon-lay`.
+
+Tables held today, all from Liu and Cao (2002), NED 218, 81–90:
+
+| Table | What | CSV | Loader |
+|---|---|---|---|
+| 1 | Equilibrium-core inventory, 22 nuclides (Bq) | `htr10_equilibrium_core_inventory.csv` | `activity/inventory.rs` |
+| 3 | Primary-helium activity at end of a 20-year life, 20 nuclides (Bq) | `htr10_primary_helium_activity_end_of_life.csv` | `activity/primary_helium.rs` |
+| 5 | Annual normal-operation airborne release, 22 nuclides (Bq/a) | `htr10_normal_operation_annual_airborne_release.csv` | `activity/airborne_release.rs` |
+| ~~7~~ | ~~Individual effective dose vs distance, normal operation (mSv/a)~~ — **MOVED to `buangkok::published` 2026-09-28** | — | — |
+| 8 | Airborne release for two design-basis accidents (depressurization, water ingress), 18 nuclides (Bq per accident); the paper's "C-4" stored as C-14. Added 2026-09-28 | `htr10_accident_airborne_release.csv` | `activity/accident_airborne_release.rs` |
+| ~~9~~ | ~~Individual thyroid and whole-body dose vs distance, two design-basis accidents (mSv)~~ — **MOVED to `buangkok::published` 2026-09-28** | — | — |
+
+~~Nothing in the workspace consumes these tables yet.~~ **CORRECTED
+2026-09-29** (checked by grep): Table 1 is consumed by `htgr_sim_v1`'s
+`physics::fission_product_release` (`changi::activity::inventory`), which
+drives the absolute arm of its dispersion map and, since 2026-09-29, its
+indicative dose rate; Table 8 is referenced by `buangkok::published`
+(`AccidentCase`). Tables 3 and 5 still have no consumer.
+
+~~**The Table 7 and Table 9 dose tables are parked
+here, not settled here** (**CORRECTED 2026-09-28**: Table 9, the accident
+doses, a published STOERNEU result, was added on the same terms). Each is stored,
+cited data (Table 7 a published AIRDOS-EPA result). Neither is computed, and changi
+still computes no dose. The maintainer (2026-09-28) may move dose data to
+another crate: dose is a biological quantity, and keeping it apart from the
+dispersion physics avoids it being mistaken for a health-assessment
+capability. This workspace uses it for safety analysis in the research
+sense only (see `RESPONSIBLE_USE.md`). The maintainer named **`buangkok`** as the home for dose (placeholder crate,
+2026-09-28), but has not asked for ~~this table~~ either table to move. **Leave them where they are
+until the maintainer decides.** Do not build on them, move them, or add dose computation
+around them unasked.~~ **SETTLED 2026-09-28** (maintainer: "move table 7 and 9
+to buangkok"): both dose tables moved to the dose crate (`buangkok::published`,
+provenance in `crates/buangkok/docs/References.md`). changi holds **no dose
+data** and computes no dose. The accident releases (Table 8) stay here, and
+`AccidentCase` is defined in `activity::accident_airborne_release` (buangkok
+re-exports it).
 
 **`puff`'s unit conversion is methane-specific and must not be generalised by
 assumption.** Upstream is an oil-and-gas leak-detection package; its

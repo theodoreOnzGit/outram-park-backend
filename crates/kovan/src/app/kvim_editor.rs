@@ -231,6 +231,13 @@ pub struct KvimEditorState {
     /// it. A one-shot flag, not a mode: after that frame the ordinary focus
     /// rules apply (GH issue #282).
     pending_focus: bool,
+    /// The row height [`Self::text_area`] last painted with, so a scroll
+    /// offset can be turned back into a line number.
+    line_height: f32,
+    /// The 0-based buffer line at the top of the viewport as last painted —
+    /// what the kvim tab's Markdown preview follows (VS Code-style scroll
+    /// sync, 2026-09-28). See [`Self::top_visible_line`].
+    top_line: usize,
 }
 
 impl Default for KvimEditorState {
@@ -249,6 +256,8 @@ impl Default for KvimEditorState {
             preview_press_line: None,
             pending_focus: false,
             text_area_id: None,
+            line_height: CHAR_SIZE * LINE_SPACING,
+            top_line: 0,
         }
     }
 }
@@ -347,17 +356,52 @@ impl KvimEditorState {
         });
         ui.separator();
 
-        egui::ScrollArea::both()
+        let out = egui::ScrollArea::both()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 self.text_area(ui, false);
             });
+        self.record_top_line(out.state.offset.y);
 
         if let Some(source) = completion {
             self.completion_popup_ui(ui, source);
         }
         self.command_line_ui(ui);
         self.signal.take()
+    }
+
+    /// Draw the buffer **locked**: the same text, cursor and scroll as
+    /// [`Self::ui`], but no key, clipboard or mouse edit reaches the engine
+    /// (it is [`Self::text_area`]'s read-only path, the one the page-context
+    /// preview already uses). The kvim tab shows this until the operator has
+    /// clicked Edit and accepted the schema warning (maintainer, 2026-09-28:
+    /// "kvim editor is read-only by default").
+    pub fn ui_locked(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.strong("READ-ONLY");
+            let pos = self.editor.cursor();
+            ui.weak(format!("{}:{}", pos.line + 1, pos.col + 1));
+            if self.is_modified() {
+                ui.weak("[+]");
+            }
+        });
+        ui.separator();
+        let out = egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                let _ = self.text_area(ui, true);
+            });
+        self.record_top_line(out.state.offset.y);
+    }
+
+    fn record_top_line(&mut self, offset_y: f32) {
+        self.top_line = (offset_y.max(0.0) / self.line_height.max(1.0)) as usize;
+    }
+
+    /// The 0-based buffer line at the top of the editor's viewport, as of
+    /// the last [`Self::ui`]/[`Self::ui_locked`] paint.
+    pub fn top_visible_line(&self) -> usize {
+        self.top_line
     }
 
     /// The command line, along the bottom, as vim puts it.
@@ -718,6 +762,7 @@ impl KvimEditorState {
         let font = FontId::monospace(CHAR_SIZE);
         let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
         let line_height = ui.ctx().fonts_mut(|f| f.row_height(&font)) * LINE_SPACING;
+        self.line_height = line_height;
 
         let line_count = self.editor.buffer().line_count().max(1);
         let width = ui.available_width().max(400.0);
@@ -1717,6 +1762,47 @@ mod tests {
             state.last_cursor, first,
             "idle frames leave the caret alone, so nothing asks to scroll"
         );
+    }
+
+    /// End to end, not just the recorded caret: `G` on a long buffer must
+    /// actually move the `ScrollArea` so the caret's line is on screen, and
+    /// `gg` must bring it back (maintainer, 2026-09-28: "when the cursor
+    /// moves beyond the scroll area ... the scrollbar shld follow"). The
+    /// idle frames after each jump let egui's scroll animation (0.1-0.3 s)
+    /// finish; `drive` spaces frames 0.1 s apart.
+    #[test]
+    fn jumping_past_the_viewport_scrolls_it_to_the_caret() {
+        let text: String = (1..=300).map(|n| format!("line {n}\n")).collect();
+        let mut state = KvimEditorState::default();
+        state.load_text(&text);
+        state.begin_insert();
+        let idle = || vec![Vec::new(); 5];
+        let mut frames = vec![Vec::new(), Vec::new(), vec![key(egui::Key::Escape)]];
+        frames.push(vec![egui::Event::Text("G".into())]);
+        frames.extend(idle());
+        drive(&mut state, frames.clone());
+        let caret = state.editor.cursor().line;
+        let top = state.top_visible_line();
+        let page = (600.0 / state.line_height) as usize;
+        assert!(caret >= 299, "G reached the end (line {caret})");
+        assert!(top > 0, "the view scrolled down (top line {top})");
+        assert!(
+            top <= caret && caret < top + page,
+            "the caret's line {caret} is inside the view starting at {top} ({page} lines max)"
+        );
+
+        // `gg` back up, in ONE `drive` from a fresh state: focus does not
+        // survive across `drive` calls. The frames above already put the
+        // view at the bottom, as just asserted.
+        let mut again = KvimEditorState::default();
+        again.load_text(&text);
+        again.begin_insert();
+        frames.push(vec![egui::Event::Text("g".into())]);
+        frames.push(vec![egui::Event::Text("g".into())]);
+        frames.extend(idle());
+        drive(&mut again, frames);
+        assert_eq!(again.editor.cursor().line, 0, "gg reached the top");
+        assert_eq!(again.top_visible_line(), 0, "and the view followed it up");
     }
 
     // ------------------------------------------------------------------

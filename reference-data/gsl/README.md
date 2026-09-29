@@ -54,6 +54,37 @@ are documented in the replaying test and in the crate source.
 
 Replayed by `crates/petir/tests/gsl_numerics_code_to_code.rs`.
 
+## `qags-gsl-2.8-reference.txt` — `gsl_integration_qags`
+
+- **Built:** 2026-09-28, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, from
+  the vendored tree's `integration/{qags,qk21,qk15,qk,workspace}.c` and
+  `err/{error,stream}.c` against GSL's own headers (recipe in the driver
+  header).
+- **Driver:** `qags_reference_driver.c` in this directory.
+- **Why:** `petir::integration::qags` was ported on 2026-09-28 so that
+  `buangkok`'s plume shine could run on petir instead of a second QUADPACK
+  port; this is its compiled reference.
+
+21 cases chosen to reach every exit of `qags`: the first-rule return, plain
+convergence, convergence by extrapolation (endpoint singularities), the
+iteration limit, `GSL_EDIVERGE`, `GSL_EROUND`, `GSL_ESING` (a pole: result
+`inf`, error `NaN`) and `GSL_EBADTOL` (`GSL_EFAILED` was not reached by any
+integrand probed), plus a plume-shine-like point kernel. Each row: status,
+result, error estimate, sub-intervals, evaluations.
+
+### What the comparison found (2026-09-28)
+
+Statuses, sub-interval counts and evaluation counts identical in 21/21;
+results 21/21 bit-identical; error estimates 19/21 bit-identical, the other
+two (one integrand, two limits) 1.43e-6 relative. Cause, tested: the final
+error is QUADPACK's cancelling running sum `errsum + error12 - e_i`, and
+petir's `rescale_error` evaluates `pow` with the `libm` crate where GSL uses
+glibc. Rebuilding GSL with a one-ulp `nextafter` on that `pow` moves GSL's
+own error estimates by 4e-10 to 5.9e-4 (1.4e-6 on the same case) while every
+result stays put. GSL's `integration/test.c` itself checks QAGS error
+estimates only to 1e-6 and 1e-3. Replayed by
+`crates/petir/tests/gsl_qags_code_to_code.rs`.
+
 ## `cheb-mode-gsl-2.8-reference.txt` — `gsl_cheb_eval_mode`
 
 - **Built:** 2026-09-15, same static GSL as the QR reference below.

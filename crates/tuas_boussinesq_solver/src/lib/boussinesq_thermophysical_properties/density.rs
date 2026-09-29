@@ -93,6 +93,7 @@ fn solid_density(
         Material::Solid(Copper) => Copper,
         Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
         Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
+        Material::Solid(NuclearGraphiteMatrixA3HighTemp) => NuclearGraphiteMatrixA3HighTemp,
         Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
             CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
         }
@@ -112,6 +113,7 @@ fn solid_density(
         Copper => copper_density()?,
         NuclearGraphiteMatrixA3 => nuclear_graphite_matrix_a3_density()?,
         NuclearGraphiteIG110 => nuclear_graphite_ig_110_density()?,
+        NuclearGraphiteMatrixA3HighTemp => nuclear_graphite_matrix_a3_density()?,
         CustomSolid((low_bound_temp, high_bound_temp), _cp, _k, rho_fn, _roughness) => {
             custom_solid_material::get_custom_solid_density(
                 solid_temp,

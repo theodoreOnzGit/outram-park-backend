@@ -25,6 +25,14 @@
 //! **It computes no dose quantity of any kind**, and none is planned here. See
 //! the scope limit below, which is binding.
 //!
+//! ~~One published dose table is~~ ~~two published dose tables are *stored*
+//! here as cited reference data~~ **MOVED 2026-09-28** (maintainer: "move
+//! table 7 and 9 to buangkok"): the published HTR-10 dose tables (Liu and Cao
+//! 2002, Tables 7 and 9) now live in the dose crate, `buangkok::published`.
+//! This module holds no dose data. The accident releases (Table 8) stay here
+//! as a nuclide table, and `AccidentCase` is defined in
+//! [`accident_airborne_release`].
+//!
 //! ## Relationship to the two ports — a consumer, not a shared abstraction
 //!
 //! The crate rule is to keep `puff` and `flexpart` separate, because merging
@@ -68,11 +76,25 @@
 //! an item out of the crate's *future* scope list; that is a maintainer
 //! decision taken in `RESPONSIBLE_USE.md`.
 
+/// Published HTR-10 annual airborne release to the environment under normal
+/// operation (Liu and Cao 2002, Table 5). Reference data only; nothing in this
+/// crate consumes it.
+pub mod airborne_release;
+/// Published HTR-10 airborne release for two design-basis accidents
+/// (depressurization, water ingress; Liu and Cao 2002, Table 8), in Bq per
+/// accident. Reference data only; nothing in this crate consumes it.
+/// Added 2026-09-28.
+pub mod accident_airborne_release;
+pub mod decay_transfer;
 /// A published HTR-10 core inventory, so a source term can be built from
 /// measured magnitudes rather than round illustrative numbers. An inventory
 /// is NOT a source term -- see the module docs.
-pub mod decay_transfer;
+pub mod fuel_release;
 pub mod inventory;
+/// Published HTR-10 primary-helium activity at the end of a 20-year full-power
+/// life (Liu and Cao 2002, Table 3). Reference data only; nothing in this
+/// crate consumes it.
+pub mod primary_helium;
 pub mod chi_over_q;
 pub mod deposition;
 pub mod source;

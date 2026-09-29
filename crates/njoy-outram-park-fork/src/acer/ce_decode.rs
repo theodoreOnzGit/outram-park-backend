@@ -312,6 +312,14 @@ impl CeNeutronAce {
         let has_np_total = has(103);
         let has_na_total = has(107);
         let has_total_fission = has(18);
+        // GitHub #365 audit: the other lumps OpenMC's SUM_RULES names, which
+        // this used to pass through beside their components, double counting
+        // them in `reconstructed_total` -- (n,d)/(n,t)/(n,He-3) over their
+        // levels, and (n,2n) over MT=875..891.
+        let has_nd_total = has(104);
+        let has_nt_total = has(105);
+        let has_nh_total = has(106);
+        let has_n2n_total = has(16);
 
         self.reactions
             .iter()
@@ -331,8 +339,88 @@ impl CeNeutronAce {
                 if has_na_total && (800..=849).contains(&mt) {
                     return false;
                 }
+                if (has_nd_total && (650..=699).contains(&mt))
+                    || (has_nt_total && (700..=749).contains(&mt))
+                    || (has_nh_total && (750..=799).contains(&mt))
+                    || (has_n2n_total && (875..=891).contains(&mt))
+                {
+                    return false;
+                }
                 // Partial fission under MT=18.
                 if has_total_fission && PARTIAL_FISSION_MTS.contains(&mt) {
+                    return false;
+                }
+                true
+            })
+            .collect()
+    }
+
+    /// The MTs a **transport** code samples as distinct channels — which is
+    /// **not** the set [`Self::channel_mts`] returns, although both avoid
+    /// double counting. GitHub #366.
+    ///
+    /// # Why a second rule
+    ///
+    /// For reconstructing `total`, a lump and its components are
+    /// interchangeable, and [`Self::channel_mts`] prefers the lump. For
+    /// *transport* they are not: MT=4 on an ACE table carries `Q = 0` and no
+    /// angular or energy law of its own (NJOY2016's U-235 lists it with
+    /// `LQR = 0`), while MT=51..90 each carry the level's `Q` and AND cosine and
+    /// MT=91 the continuum law. Sampling the lump means inelastic scattering
+    /// that loses no energy. `Nuclide::from_ace` used to reuse
+    /// [`Self::channel_mts`] and did exactly that — measured by the five-route
+    /// ICSBEP campaign as **+1853 pcm on Godiva** against OpenMC on the same
+    /// tables.
+    ///
+    /// # The rule: OpenMC's redundancy rule
+    ///
+    /// `openmc/data/neutron.py:634-640` marks a reaction **redundant** whenever
+    /// any of its components (the `SUM_RULES` of the `endf` package, applied
+    /// recursively) is present, and never samples a redundant reaction. Applied
+    /// to the families that carry secondary-neutron physics:
+    ///
+    /// | lump | components | transport samples |
+    /// |---|---|---|
+    /// | MT=4 | MT=50..91 | the levels when any is present, else MT=4 |
+    /// | MT=18 | MT=19/20/21/38 | the partials when any is present, else MT=18 |
+    ///
+    /// For the **absorption** families (MT=103 over 600..649, MT=107 over
+    /// 800..849) this keeps [`Self::channel_mts`]'s lump preference, and like it
+    /// applies no rule to MT=104..106 or to MT=16 over MT=875..891 (both are
+    /// passed through). That is a deliberate difference from OpenMC, and a
+    /// harmless one for transport: none of those components emits a neutron
+    /// whose state differs from the lump's (the absorption levels emit none),
+    /// and outram-mc reads those channels only through the lump MTs (the
+    /// disappearance sum and MT=16's own law), so a passed-through component is
+    /// never summed with its lump.
+    ///
+    /// Always-redundant MTs ([`ALWAYS_REDUNDANT_MTS`]) are dropped as before.
+    pub fn transport_channel_mts(&self) -> Vec<i32> {
+        let has = |mt: i32| self.reactions.iter().any(|r| r.mt == mt);
+        let has_levels = self.reactions.iter().any(|r| (50..=91).contains(&r.mt));
+        let has_partials = PARTIAL_FISSION_MTS.iter().any(|&mt| has(mt));
+        let has_np_total = has(103);
+        let has_na_total = has(107);
+
+        self.reactions
+            .iter()
+            .map(|r| r.mt)
+            .filter(|&mt| {
+                if ALWAYS_REDUNDANT_MTS.contains(&mt) {
+                    return false;
+                }
+                // OpenMC: MT=4 is redundant when any component is present.
+                if mt == 4 && has_levels {
+                    return false;
+                }
+                // OpenMC: MT=18 is redundant when any partial is present.
+                if mt == 18 && has_partials {
+                    return false;
+                }
+                if has_np_total && (600..=649).contains(&mt) {
+                    return false;
+                }
+                if has_na_total && (800..=849).contains(&mt) {
                     return false;
                 }
                 true

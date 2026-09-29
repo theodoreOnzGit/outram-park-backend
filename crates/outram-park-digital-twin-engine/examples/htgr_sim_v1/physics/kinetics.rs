@@ -1,4 +1,6 @@
-//! Reactor-kinetics slot for the HTGR scaffold.
+//! Reactor-kinetics slot for the HTGR ~~scaffold~~ demo (**CHANGED 2026-09-28**,
+//! maintainer: "no longer a scaffold, but a demo" -- an offline, unvalidated
+//! demonstration; see `main.rs`).
 //!
 //! Composes two **real** workspace pieces, matching the recommended OUTRAM PARK
 //! kinetics architecture (see `teh_o_prke::nordheim_fuchs`'s module doc):
@@ -13,6 +15,41 @@
 //!    This supplies the precursor inertia that a prompt-only model omits, so
 //!    the kinetics is **not prompt-only** -- deliberately avoiding
 //!    `fhr_sim_v2`'s prompt-only oscillation mistake by construction.
+//!
+//! ## Read this first: what the opening state is (gh:#387, maintainer 2026-09-29)
+//!
+//! - **One delayed-neutron fraction everywhere: `beta_eff = 7.26e-3`**
+//!   (Chen et al. 2009 Table 1, [`HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION`]).
+//!   The prompt layer, the delayed bank (the U-235 five-group relative
+//!   abundances rescaled to that total) and the rods-to-dollars conversion
+//!   all use it. ~~The delayed bank summed to bare U-235's 0.0065, the rods
+//!   were converted at 0.0065 (x1.117 too large) and steady state needed
+//!   `rho_net = +76 pcm`~~ -- fixed 2026-09-29; at 0 $ with the precursors at
+//!   equilibrium the power is now stationary
+//!   (`tests::zero_net_dollars_with_equilibrium_precursors_is_stationary`).
+//! - **The delayed-neutron precursors start EMPTY.** The bank is built with
+//!   no precursors and fills under power, on the groups' own time constants;
+//!   the longest group's ~56 s half-life sets the scale. Measured
+//!   (`tests::how_long_the_empty_precursor_bank_takes_to_fill`, 10 MW held):
+//!   the inventory reaches 1 % of equilibrium in **0.13 s** and comes within
+//!   1 % of equilibrium only after **245 s** (analytic 245.0 s). **Consequence:** from a cold
+//!   start at net 0 $ the power first DROPS, because the prompt layer sees
+//!   `rho - beta = -beta` with no delayed source yet (measured 2026-09-28,
+//!   with the old 0.0065 bank: 10 MW -> 0.255 MW in 20 s with the bed held;
+//!   not re-measured since the single-beta change; pending validation work).
+//!   **Early-transient numbers
+//!   -- the first few minutes after the simulator opens -- are the
+//!   precursors filling, not plant behaviour, and must not be read as
+//!   such.** `DelayedNeutronLayer::seed_at_equilibrium` exists for a caller
+//!   that wants a steady opening instead; the plant does not use it.
+//! - **Decay heat is seeded at equilibrium** (`DecayHeat::new_at_equilibrium`):
+//!   a conservative choice, since it means more decay heat early than a
+//!   fresh core would have.
+//! - **The rod worth and the feedback reference are demo-grade.** The bank
+//!   worth is cold-clean (20 degC, TECDOC-1382) while the feedback zero is an
+//!   illustrative 950 K seed, so the temperature defect between them is not
+//!   in the budget (gh:#387 section 1-2). Filed for future validation as
+//!   **gh:#408**; not changed here.
 //!
 //! ## Lie-split coupling (the important part)
 //!
@@ -65,7 +102,11 @@
 //! refinement is a coarse axial nodal-diffusion solve, which is a different
 //! crate's job (`bedok`), not this simulator's.
 //!
-//! ## The fuel-temperature feedback got a heat sink (2026-08-14)
+//! ## The fuel-temperature feedback got a heat sink (2026-08-14) -- SUPERSEDED 2026-09-28
+//!
+//! **Superseded by "The fuel node IS the kernel now" below (gh:#360):** the
+//! coolant sink described here was sized for the bed, not for this node, and
+//! is gone. Kept as the record of why the node needed a sink at all.
 //!
 //! Until 2026-08-14 the prompt layer's fuel temperature was **adiabatic**: it
 //! integrated `dT_f/dt = P/C_f` and never cooled, whatever the helium was
@@ -95,7 +136,12 @@
 //! *inside* the plant's outer-corrector loop (see [`super::HtgrPlant::step`]).
 //! [`HtgrKinetics`] is `Clone` precisely so the corrector can rewind it.
 //!
-//! ## The Doppler feedback moved onto the fuel kernel (2026-09-22)
+//! ## The Doppler feedback moved onto the fuel kernel (2026-09-22) -- SUPERSEDED 2026-09-28
+//!
+//! **Superseded (gh:#360):** `KernelDopplerChannel` is removed; the fuel
+//! node is the kernel, so the fuel share rides the closed form directly. The
+//! record below is kept for its reasoning about the split fraction, which
+//! still applies.
 //!
 //! ~~"A real Doppler feedback wants the fuel kernel temperature, which needs
 //! the intra-pebble split described in [`super::pebble_bed`]."~~
@@ -103,7 +149,7 @@
 //! not use it.** The feedback here still reads the bed node. That is a
 //! deliberate hold ... It wants its own change, with its own before/after."~~
 //! **CORRECTED 2026-09-22 -- that change is this one, and the hold is
-//! discharged.** [`KernelDopplerChannel`] carries the **fuel share** of the
+//! discharged.** `KernelDopplerChannel` (removed 2026-09-28, gh:#360) carries the **fuel share** of the
 //! published isothermal coefficient on the peak UO2 kernel temperature, which
 //! [`super::pebble_bed::PebbleBedPorousMediaNode`] resolves from a two-zone
 //! pebble; the graphite and reflector share stays on the bed node. The two
@@ -115,7 +161,7 @@
 //!
 //! 1. **The closed form is untouched.** The split is algebraically one extra
 //!    external reactivity term (the derivation is on
-//!    [`KernelDopplerChannel`]), so Nordheim-Fuchs keeps ownership of the
+//!    `KernelDopplerChannel` (removed 2026-09-28, gh:#360)), so Nordheim-Fuchs keeps ownership of the
 //!    stiff feedback exactly as the section above insists it must, and every
 //!    previously recorded `alpha_iso` number stays valid.
 //! 2. **The design point is neutral by construction**, so the steady state is
@@ -124,7 +170,7 @@
 //!    from Hu *et al.*, not a fitted value; `f = 0` reproduces the
 //!    pre-2026-09-22 model exactly and `f = 1` puts the whole coefficient on
 //!    the kernel. Both bounds are measured -- see
-//!    [`KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL`] and
+//!    `KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL` (removed 2026-09-28, gh:#360) and
 //!    [`tests::the_kernel_doppler_split_is_ablated_across_its_full_range`].
 //!
 //! **What this buys that the bed node could not:** a *prompt* feedback
@@ -138,8 +184,69 @@
 //! no axial or radial shape and no burnup, so a real HTR-10 peak-power pebble
 //! runs hotter than this one.
 //!
+//! ## The fuel node IS the kernel now, and the energy balance is a chain (2026-09-28, gh:#360)
+//!
+//! **Maintainer direction 2026-09-28** (gh:#360 comment and the refinement
+//! that followed): the kinetics fuel node was a *shadow copy of the bed* —
+//! same 9 MJ/K capacity, heated by the full fission power *and* the decay
+//! heat, cooled by the bed's heat-to-helium — and it drifted **234.9 K above
+//! the bed** at t = 1500 s (two defects: the `(1 - f_prompt) P` share counted
+//! twice, and the passive RCCS loss never charged to it), giving ~-4.5 $ of
+//! spurious feedback. The sections above that describe the fuel node as
+//! "tracking the bed" through a coolant sink are **superseded** by this one.
+//!
+//! The model is now a proper chain:
+//!
+//! ```text
+//!  f_prompt P + P_decay
+//!         |
+//!         v
+//!  [FUEL NODE T_f]  --(T_f - T_bed)/R_fb-->  [BED T_bed] --hA--> [helium] --> loop
+//!  TRISO kernels+coatings                     graphite    \--(ZBS conduction + radiation)--> [reflector] --> RPV --> RCCS
+//!  C_fuel ~0.27 MJ/K (Nordheim-Fuchs node)   ~8.9 MJ/K
+//! ```
+//!
+//! - **The Nordheim-Fuchs node is the fuel node**, with the TRISO particles'
+//!   own heat capacity ([`super::pebble_bed::fuel_node_heat_capacity`]),
+//!   not the bed's. Its temperature is the **inventory-averaged kernel
+//!   temperature**.
+//! - **Sources are deposited in the fuel, once.** The closed form carries
+//!   capacity `C_fuel / f_prompt`, so its adiabatic heating is exactly
+//!   `f_prompt P / C_fuel` — the promptly released share — and the decay heat
+//!   is added separately. No `(1 - f_prompt) P` double count.
+//! - **The fuel loses heat only to the bed**, by conduction through the
+//!   resolved-pebble resistance `R_fb`
+//!   ([`super::pebble_bed::FuelBedCoupling`]), driven by `T_f - T_bed`. Never
+//!   directly to helium, never to the RCCS. The sink is applied as the exact
+//!   exponential relaxation toward the bed over each 1 ms substep, and the
+//!   energy it moves is handed to the bed as its source
+//!   ([`HtgrKinetics::heat_to_bed`]) — so what leaves the fuel is exactly what
+//!   the bed receives.
+//! - **The bed** loses to the helium (convection) and, in parallel, to the
+//!   reflector (the ZBS leg of `decay_heat_removal`, which carries both
+//!   solid conduction and pebble-to-pebble radiation). The RCCS loss is
+//!   charged at the reflector -> RPV -> RCCS end of that chain.
+//! - **Reactivity** is `alpha_fuel (T_f - T_f,ref) + alpha_mod (T_bed - T_bed,ref)`
+//!   with `alpha_fuel + alpha_mod = alpha_iso` (the published isothermal
+//!   coefficient) split by the Hu *et al.* ratio. The fuel term lives in the
+//!   Nordheim-Fuchs closed form (prompt, stiff — where it belongs); the
+//!   moderator term is an external reactivity evaluated at the bed
+//!   temperature once per plant step (the bed moves on ~180 s). At steady
+//!   state `T_f - T_bed = R_fb (f_prompt P + P_decay)` by construction: there
+//!   is no second lumped node left to drift. ~~`KernelDopplerChannel`~~
+//!   (the 2026-09-22 add-on that put `alpha_D (dT - dT_ref)` on top of the
+//!   old shadow node) is **removed** — its job is what the fuel node now does
+//!   natively.
+//!
+//! What this still does not buy: one bed node, so the fuel node is the
+//! average kernel of a **core-average** pebble — no peaking factor, no axial
+//! shape, no burnup. And the matrix graphite's heat capacity is all in the
+//! bed, so after a power step the kernel reaches its new steady offset on
+//! `R_fb C_fuel` (~0.1-0.3 s) rather than on the pebble's ~60 s conduction
+//! time: the fuel temperature leads a fully resolved pebble somewhat.
+//!
 //! This slot is wired to the real `teh-o-prke` API (bead `op-wqk.9.2`). What
-//! remains scaffold-level is only the *plant-scale illustrative parameters*
+//! remains ~~scaffold-level~~ illustrative is only the *plant-scale illustrative parameters*
 //! below, not the kinetics wiring.
 
 use nee_soon::NordheimFuchsExactTimestepper;
@@ -147,10 +254,11 @@ use teh_o_prke::decay_heat::{DecayHeat, FissioningNuclide};
 use teh_o_prke::delayed_neutron_layer::DelayedNeutronLayer;
 
 use uom::si::f64::{
-    Power, Ratio, TemperatureCoefficient, TemperatureInterval, ThermalResistance,
+    HeatCapacity, Power, Ratio, TemperatureCoefficient, TemperatureInterval, ThermalResistance,
     ThermodynamicTemperature, Time,
 };
 use uom::si::heat_capacity::joule_per_kelvin;
+use uom::si::thermal_resistance::kelvin_per_watt;
 use uom::si::temperature_interval;
 use uom::si::power::{megawatt, watt};
 use uom::si::ratio::ratio;
@@ -179,146 +287,83 @@ pub struct HtgrKinetics {
     total_power: Power,
     /// Xe-135 poisoning channel, `None` when disabled. See [`XenonChannel`].
     xenon: Option<XenonChannel>,
-    /// The fuel share of the temperature feedback, carried on the UO2 kernel
-    /// instead of the bed node. Always present (this is physics the model has,
-    /// not an opt-in); ablated by constructing it with a zero fuel share. See
-    /// [`KernelDopplerChannel`].
-    kernel_doppler: KernelDopplerChannel,
+    /// How the published isothermal coefficient is split between the fuel
+    /// node (inside the closed form) and the bed (external). Always present;
+    /// the split is ablated with [`HtgrKinetics::set_fuel_share`]. See
+    /// [`FeedbackSplit`].
+    feedback_split: FeedbackSplit,
+    /// The fuel node's **real** heat capacity `C_fuel` \[J/K\], refreshed at
+    /// the fuel temperature once per plant step. The closed form carries
+    /// `C_fuel / f_prompt` (see the module doc); the decay heat and the sink to
+    /// the bed use this.
+    fuel_heat_capacity: HeatCapacity,
+    /// Core-level fuel-to-bed conduction resistance \[K/W\] used on the most
+    /// recent step, from the bed's resolved pebble
+    /// ([`super::pebble_bed::FuelBedCoupling::resistance`]).
+    fuel_to_bed_resistance: ThermalResistance,
+    /// The bed temperature the most recent step ran against — the sink's
+    /// target and the moderator channel's temperature.
+    bed_temperature: ThermodynamicTemperature,
+    /// Heat conducted from the fuel to the bed, averaged over the most recent
+    /// step \[W\]. This is the bed's source term.
+    heat_to_bed: Power,
+    /// Cumulative energy ledger of the fuel node, for the conservation tests.
+    ledger: FuelNodeLedger,
+    /// The external (rod) reactivity the most recent [`Self::step`] was
+    /// handed, in the kinetics' dollars \[$\] -- recorded so the reactivity
+    /// budget shows what the kinetics actually integrated (after the
+    /// protection system's scram demand), not the operator's command.
+    last_external_reactivity_dollars: f64,
 }
 
-/// The **kernel Doppler channel** — the fuel share of HTR-10's published
-/// isothermal coefficient, applied to the UO2 kernel rather than to the bed.
-///
-/// # The algebra that makes this one extra term instead of a rewrite
-///
-/// Splitting the feedback into a fuel channel on the kernel and a
-/// graphite/reflector channel on the bed reads as a change to both. It is not.
-/// Write `T_kernel = T_f + dT(P)`, with `dT` the kernel-above-node rise from
-/// the resolved pebble and `T_f` the Nordheim-Fuchs node (which tracks the
-/// bed — see [`HtgrKinetics::apply_coolant_heat_removal`]):
-///
-/// ```text
-/// rho = alpha_D (T_kernel - T_kernel,ref)  +  alpha_m (T_f - T_ref)
-///     = alpha_D (T_f + dT - T_ref - dT_ref) + alpha_m (T_f - T_ref)
-///     = (alpha_D + alpha_m)(T_f - T_ref)   +  alpha_D (dT - dT_ref)
-///     =  alpha_iso        (T_f - T_ref)    +  alpha_D (dT - dT_ref)
-///             ^ unchanged, still inside the closed form     ^ THIS CHANNEL
-/// ```
-///
-/// Because the split is constrained to **sum to the published isothermal
-/// coefficient**, the first term is exactly what the Nordheim-Fuchs timestepper
-/// already applies. So the closed form is not touched at all — its exactness,
-/// which is the reason this module refuses to overwrite its node (see
-/// [`HtgrKinetics::apply_coolant_heat_removal`]), is preserved — and the whole
-/// rewiring is **one external reactivity term**, added alongside the xenon
-/// channel. Two consequences worth stating:
-///
-/// - **Every reactivity number recorded for the `alpha_iso` term stays valid.**
-///   The change is additive and attributable, which is what the hold noted in
-///   this module's doc comment was waiting for.
-/// - ~~"**The design point is neutral by construction.** `dT_ref` is the
-///   offset at the bed's own design point and rated power, so this term is
-///   *zero* there and the steady state is unchanged. Everything it moves is
-///   transient."~~
-///   **CORRECTED 2026-09-22 — true at RATED power, and misleading about this
-///   simulator.** The term is indeed identically zero at the reference state
-///   (950 K bed, 10 MWth), and
-///   [`tests::the_design_point_is_neutral`] still measures that. But **this
-///   simulator does not open at rated power** — it settles near 3.4 MWth, and
-///   at part load the kernel runs permanently cooler than its rated
-///   reference, so the channel contributes a near-constant **+0.31 $** rather
-///   than a small perturbation. The steady state is therefore *not*
-///   unchanged: ablating the channel moves the settled power from 3.3652 MW
-///   to 0.0896 MW, a factor of 37.
-///
-///   The magnitude is bounded — the term saturates at
-///   `-alpha_D * dT_ref / beta` = **+0.32 $** as power goes to zero — but
-///   bounded is not negligible here, and it is enough to stop the LOFC ATWS
-///   transient terminating. See
-///   [`super::tests::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient`],
-///   which measures all of it, and which is why
-///   [`super::tests::lofc_atws_reactor_shuts_itself_down`] is currently
-///   failing rather than silenced.
-///
-/// ## One bookkeeping detail, stated because it looks like a bug
-///
-/// `T_f` above is the Nordheim-Fuchs node, while `dT` is the kernel's rise
-/// above the **bed** node, and those two are not the same number -- they track
-/// each other but diverged by as much as 10.2 K post-scram before the
-/// decay-heat source was added to the fuel node (2026-08-17). Mixing them
-/// looks like an error, so here is why it is not one.
-///
-/// Write the ideal two-channel model against the bed throughout:
+/// Cumulative energy ledger of the fuel node \[J\], summed over every substep
+/// since construction. `deposited_prompt + deposited_decay - conducted_to_bed`
+/// equals the fuel node's stored-energy change `sum C_fuel dT` to rounding.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct FuelNodeLedger {
+    /// Promptly released fission energy deposited, `sum f_prompt P dt`.
+    pub deposited_prompt: f64,
+    /// Decay heat deposited, `sum P_decay dt`.
+    pub deposited_decay: f64,
+    /// Energy conducted to the bed, `sum C_fuel (T_f - T_f')`.
+    pub conducted_to_bed: f64,
+    /// Stored-energy change, `sum C_fuel dT` over all three operators.
+    pub stored: f64,
+}
+
+/// ~~The **kernel Doppler channel** — the fuel share of HTR-10's published
+/// isothermal coefficient, applied to the UO2 kernel rather than to the bed,
+/// as one extra external term `alpha_D (dT - dT_ref)` on top of a lumped node
+/// that tracked the bed.~~ **REPLACED 2026-09-28 (gh:#360)** by this split:
+/// the fuel node *is* the kernel now, so the fuel share rides the
+/// Nordheim-Fuchs node directly and only the moderator share is external.
 ///
 /// ```text
-/// rho_ideal = alpha_D (T_bed + dT - T_ref - dT_ref) + alpha_m (T_bed - T_ref)
-///           = alpha_iso (T_bed - T_ref) + alpha_D (dT - dT_ref)
+/// rho = alpha_fuel (T_f - T_f,ref) + alpha_mod (T_bed - T_bed,ref)
+/// alpha_fuel = f alpha_iso,   alpha_mod = (1 - f) alpha_iso
 /// ```
 ///
-/// and this implementation gives
-/// `alpha_iso (T_f - T_ref) + alpha_D (dT - dT_ref)`. **The added term is
-/// identical in both**; the whole difference is `alpha_iso (T_f - T_bed)`,
-/// which is the *pre-existing* gap between the kinetics node and the bed node
-/// and is exactly what this module already ran on before 2026-09-22. So this
-/// change neither introduces that discrepancy nor inherits any of it into the
-/// new channel -- it is orthogonal, and closing it would mean replacing the
-/// closed-form node with an externally integrated one, which the section on
-/// [`HtgrKinetics::apply_coolant_heat_removal`] explains at length is the
-/// thing not to do.
+/// `f` is [`Self::HU_FUEL_SHARE_OF_ISOTHERMAL`] by default — an input from a
+/// published ratio, not a fit, and bounded. The two references are the design
+/// point: `T_bed,ref` the bed's seed temperature (950 K) and
+/// `T_f,ref = T_bed,ref + R_fb P_rated`, so the rated design point is neutral.
 ///
-/// # Why the kernel is the right temperature, and why it must be prompt
-///
-/// A UO2 kernel is a quarter of a millimetre across and follows a power change
-/// essentially instantly; the graphite is 5.3 tonnes and takes minutes. That
-/// separation *is* HTR-10's self-limiting response — prompt negative Doppler
-/// arrests the excursion, then the slow graphite channel decides where the core
-/// settles — and it is the case `tampines::pebble_bed::feedback`'s module doc
-/// is built around. Before this channel the simulator had **no prompt feedback
-/// temperature at all**: the only node the feedback could see relaxed on the
-/// bed's ~184 s time constant.
-///
-/// So `dT` is evaluated at the **instantaneous** power on every kinetics
-/// substep, from a resistance refreshed once per plant step
-/// ([`super::pebble_bed::PebbleBedPorousMediaNode::kernel_offset_resistance`]).
-/// Holding the *temperature* fixed across a plant step instead would have added
-/// a 0.1 s lag to the one channel whose whole purpose is to be prompt.
-///
-/// # The split is an INPUT, and it is bounded
-///
-/// `alpha_iso = -1.4e-4 /K` ([`HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K`],
-/// Chen *et al.* 2009) is **isothermal**: fuel and moderator moving together,
-/// so it is the *sum* of the two channels and not either one. What fraction
-/// belongs to the fuel is not published for HTR-10 in a form this workspace can
-/// resolve — see [`Self::HU_FUEL_SHARE_OF_ISOTHERMAL`] for exactly what is and
-/// is not known, and what would settle it.
-///
-/// **The uncertainty is bounded rather than open**, which is why this is usable
-/// at all: the fraction lies in `[0, 1]`, `f = 0` reproduces this simulator's
-/// pre-2026-09-22 behaviour exactly, and `f = 1` puts the whole coefficient on
-/// the kernel. Both bounds are runnable —
-/// [`tests::the_kernel_doppler_split_is_ablated_across_its_full_range`]
-/// measures them and records what the choice is worth.
+/// **Why the old algebra's reassurance no longer applies.** The retired
+/// channel argued that `alpha_iso (T_f - T_ref)` was untouched and the
+/// kernel term merely added on top. That was true algebra on a node that was
+/// itself wrong: `T_f` drifted 235 K above the bed (gh:#360), so
+/// `alpha_iso (T_f - T_bed)` carried ~-4.5 $ nobody intended. With the fuel
+/// node a real node of the energy chain, `T_f - T_bed = R_fb Q_fb` at steady
+/// state and the whole feedback is on physical temperatures.
 #[derive(Debug, Clone, Copy)]
-pub struct KernelDopplerChannel {
-    /// `alpha_D = f * alpha_iso` \[1/K\] — the fuel share, applied to the
-    /// kernel. Zero disables the channel and reproduces the pre-2026-09-22
-    /// model exactly.
-    doppler_coefficient: TemperatureCoefficient,
-    /// `R_kernel` \[K/W of per-pebble power\], refreshed once per plant step
-    /// from the bed's resolved pebble solve. `None` when that solve was out of
-    /// range, which disables the term for that step — see
-    /// [`Self::reactivity_dollars`].
-    offset_resistance: Option<ThermalResistance>,
-    /// `dT_ref` — the kernel-above-node offset at the design point and rated
-    /// power. Subtracting it is what makes the design point neutral.
-    reference_offset: TemperatureInterval,
-    /// `beta`, to convert `dk/k` into the dollars this module's reactivity
-    /// interface speaks. Stored rather than re-read so the channel cannot
-    /// disagree with the prompt layer about `beta`.
-    delayed_fraction: f64,
+pub struct FeedbackSplit {
+    /// `f`, the fuel share, in `(0, 1]`.
+    fuel_share: f64,
+    /// `T_bed,ref` — the bed temperature at which the moderator term is zero.
+    bed_reference_temperature: ThermodynamicTemperature,
 }
 
-impl KernelDopplerChannel {
+impl FeedbackSplit {
     /// The fuel share `f` of the isothermal coefficient, **dimensionless**.
     ///
     /// # What is published, and what this does with it
@@ -373,139 +418,42 @@ impl KernelDopplerChannel {
     /// be reported as a conclusion about this number.
     pub const HU_FUEL_SHARE_OF_ISOTHERMAL: f64 = 0.711_651_917_404_129_8;
 
-    /// Build the channel for the published HTR-10 point, with the fuel share
-    /// defaulting to [`Self::HU_FUEL_SHARE_OF_ISOTHERMAL`].
-    ///
-    /// The reference offset is solved from the *same* resolved pebble the bed
-    /// uses, at the bed's design-point temperature and the core-average pebble
-    /// power, so the design point is neutral by construction rather than by a
-    /// second constant that could drift. See
-    /// [`Self::with_fuel_share`] for the ablation entry point.
-    pub fn new_htr10_published(delayed_fraction: f64) -> Self {
-        Self::with_fuel_share(delayed_fraction, Self::HU_FUEL_SHARE_OF_ISOTHERMAL)
+    /// The HTR-10 split: [`Self::HU_FUEL_SHARE_OF_ISOTHERMAL`], moderator
+    /// referenced to `bed_reference_temperature`.
+    pub fn htr10_published(bed_reference_temperature: ThermodynamicTemperature) -> Self {
+        Self {
+            fuel_share: Self::HU_FUEL_SHARE_OF_ISOTHERMAL,
+            bed_reference_temperature,
+        }
     }
 
-    /// Build the channel with an explicit fuel share `f` — **the ablation
-    /// knob**, per this workspace's rule that a calibrated or input-valued
-    /// parameter must be turn-off-able and measured.
-    ///
-    /// - `f = 0` — the whole isothermal coefficient stays on the bed node.
-    ///   Reproduces this simulator's behaviour before 2026-09-22 **exactly**
-    ///   (the term is identically zero, not merely small).
-    /// - `f = 1` — the whole coefficient rides the kernel.
-    /// - `f = ` [`Self::HU_FUEL_SHARE_OF_ISOTHERMAL`] — the shipped default.
-    ///
-    /// `f` is clamped to `[0, 1]`: outside that range one of the two channels
-    /// changes sign, which would mean a *positive* feedback on either the fuel
-    /// or the graphite, and no reading of the literature supports that for this
-    /// core.
-    pub fn with_fuel_share(delayed_fraction: f64, fuel_share: f64) -> Self {
+    /// `alpha_fuel = f alpha_iso` \[1/K\] — carried by the Nordheim-Fuchs node.
+    pub fn fuel_coefficient(&self) -> TemperatureCoefficient {
+        use uom::si::temperature_coefficient::per_kelvin;
+        TemperatureCoefficient::new::<per_kelvin>(
+            self.fuel_share * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
+        )
+    }
+
+    /// `alpha_mod = (1 - f) alpha_iso` \[1/K\] — applied to the bed.
+    pub fn moderator_coefficient(&self) -> TemperatureCoefficient {
+        use uom::si::temperature_coefficient::per_kelvin;
+        TemperatureCoefficient::new::<per_kelvin>(
+            (1.0 - self.fuel_share) * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
+        )
+    }
+
+    /// The moderator channel's reactivity in dollars at bed temperature
+    /// `bed`, `alpha_mod (T_bed - T_bed,ref) / beta`.
+    pub fn moderator_reactivity_dollars(&self, bed: ThermodynamicTemperature, beta: f64) -> f64 {
         use uom::si::temperature_coefficient::per_kelvin;
         use uom::si::thermodynamic_temperature::kelvin;
-
-        let fuel_share = fuel_share.clamp(0.0, 1.0);
-        let alpha_d = TemperatureCoefficient::new::<per_kelvin>(
-            fuel_share * HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K,
-        );
-
-        // The design point: the bed's own seed temperature and the published
-        // core-average pebble power. Read from the bed module rather than
-        // restated, for the same reason `new_htr10_published` reads its
-        // reference temperature there -- two copies of an operating point
-        // drift, silently.
-        let design_point = super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature();
-        let rated_pebble_power = super::pebble_bed::core_average_pebble_power();
-        let reference_offset = super::pebble_bed::resolved_pebble_profile(
-            design_point,
-            rated_pebble_power,
-        )
-        .map(|p| {
-            TemperatureInterval::new::<temperature_interval::kelvin>(
-                p.peak_kernel_centre.get::<kelvin>() - design_point.get::<kelvin>(),
-            )
-        })
-        // A design point outside the pebble correlation window would be a
-        // construction-time defect, not a transient excursion -- but a zero
-        // reference merely makes the channel measure the offset from zero
-        // instead of from rated, which is a wrong steady state rather than a
-        // panic in a GUI. The bed's own seed is inside the window and
-        // `tests::the_design_point_is_neutral` pins that it resolves.
-        .unwrap_or_else(|| TemperatureInterval::new::<temperature_interval::kelvin>(0.0));
-
-        Self {
-            doppler_coefficient: alpha_d,
-            offset_resistance: None,
-            reference_offset,
-            delayed_fraction,
-        }
-    }
-
-    /// Hand the channel the kernel-above-node resistance from the bed's most
-    /// recent resolved pebble solve.
-    ///
-    /// Called once per plant step by [`super::HtgrPlant::step_with_correctors`],
-    /// which is the same predictor-corrector treatment `core_heat_to_helium`
-    /// gets: on the first corrector this is the previous step's value, and it
-    /// tightens as the loop iterates.
-    pub fn set_offset_resistance(&mut self, resistance: Option<ThermalResistance>) {
-        self.offset_resistance = resistance;
-    }
-
-    /// The kernel-above-node offset `dT` at core thermal power
-    /// `core_thermal_power`, or zero when no resistance is available.
-    ///
-    /// `core_thermal_power` is the **thermal** power — promptly-released
-    /// fission plus decay heat, i.e. [`HtgrKinetics::core_thermal_power`] —
-    /// because that is the heat the pebble actually conducts, and it is the
-    /// quantity the bed's own resistance was solved against. Using the raw
-    /// fission power here would over-state the offset at power and, worse,
-    /// take it to zero after a scram when decay heat is still keeping the
-    /// kernels hot.
-    pub fn kernel_offset(&self, core_thermal_power: Power) -> TemperatureInterval {
-        let Some(resistance) = self.offset_resistance else {
-            return TemperatureInterval::new::<temperature_interval::kelvin>(0.0);
-        };
-        let pebble_power = core_thermal_power / super::pebble_bed::pebble_count();
-        resistance * pebble_power
-    }
-
-    /// This channel's reactivity in **dollars** at core thermal power
-    /// `core_thermal_power`.
-    ///
-    /// ```text
-    /// rho_$ = alpha_D * (dT(P) - dT_ref) / beta
-    /// ```
-    ///
-    /// Negative on a power rise (the kernel runs further above the bed) and
-    /// positive on a power fall, which is the prompt Doppler response.
-    ///
-    /// **Returns exactly zero** when the bed had no resolved profile for the
-    /// step — the fallback is the model that was in service before the pebble
-    /// was resolved, not a fabricated offset. See
-    /// [`super::pebble_bed::PebbleBedPorousMediaNode::kernel_offset_resistance`].
-    pub fn reactivity_dollars(&self, core_thermal_power: Power) -> f64 {
-        use uom::si::temperature_coefficient::per_kelvin;
-
-        if self.delayed_fraction <= 0.0 {
+        if beta <= 0.0 {
             return 0.0;
         }
-        let offset = self.kernel_offset(core_thermal_power);
-        let excess_k = offset.get::<temperature_interval::kelvin>()
-            - self.reference_offset.get::<temperature_interval::kelvin>();
-        let dk_over_k = self.doppler_coefficient.get::<per_kelvin>() * excess_k;
-        dk_over_k / self.delayed_fraction
-    }
-
-    /// The fuel-share Doppler coefficient `alpha_D` this channel carries
-    /// \[1/K\]. The graphite/reflector remainder `alpha_iso - alpha_D` stays
-    /// inside the Nordheim-Fuchs closed form.
-    pub fn doppler_coefficient(&self) -> TemperatureCoefficient {
-        self.doppler_coefficient
-    }
-
-    /// The design-point kernel-above-node offset this channel measures from.
-    pub fn reference_offset(&self) -> TemperatureInterval {
-        self.reference_offset
+        self.moderator_coefficient().get::<per_kelvin>()
+            * (bed.get::<kelvin>() - self.bed_reference_temperature.get::<kelvin>())
+            / beta
     }
 }
 
@@ -617,6 +565,7 @@ impl XenonChannel {
     /// `I = gamma_I * F / lambda_I` and
     /// `X = (gamma_I + gamma_X) * F / lambda_X`, the latter because every
     /// iodine atom eventually becomes a xenon atom.
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
     pub fn new_at_equilibrium(power: Power) -> Self {
         let f = Self::fission_rate_per_cm3_s(power);
         let iodine = Self::YIELD_IODINE * f / Self::LAMBDA_IODINE_PER_S;
@@ -657,11 +606,6 @@ impl XenonChannel {
     pub fn reactivity_dollars(&self) -> f64 {
         -EQUILIBRIUM_XENON_WORTH_DOLLARS * self.xenon_per_cm3 / self.equilibrium_per_cm3
     }
-
-    /// Current Xe-135 number density \[atoms/cm^3\].
-    pub fn xenon_per_cm3(&self) -> f64 {
-        self.xenon_per_cm3
-    }
 }
 
 impl HtgrKinetics {
@@ -671,19 +615,25 @@ impl HtgrKinetics {
     ///
     /// - `Lambda` = [`Self::HTR10_PROMPT_GENERATION_TIME_S`] -- **published**,
     /// - `beta` = [`Self::HTR10_EFFECTIVE_DELAYED_FRACTION`] -- **published**,
-    /// - `C_f` = the pebble bed's own lumped graphite heat capacity,
-    ///   [`super::pebble_bed::bed_heat_capacity`] (about 9.0 MJ/K). This is
-    ///   *derived* from the published pebble count, diameter and graphite
-    ///   density, so the feedback sees the same thermal mass the thermal
-    ///   hydraulics does. It used to be a flat 1e8 J/K sized for the old
-    ///   200 MWth prismatic plant, which at 10 MWth would have made the
-    ///   temperature feedback almost inert.
-    /// - `alpha_f` = [`Self::HTR10_TEMPERATURE_COEFFICIENT_PER_K`] --
-    ///   **published**, and 3.5x the magnitude of the -4e-5 /K it replaced.
+    /// - ~~`C_f` = the pebble bed's own lumped graphite heat capacity,
+    ///   [`super::pebble_bed::bed_heat_capacity`] (about 9.0 MJ/K)~~
+    ///   **CHANGED 2026-09-28 (gh:#360)** — `C_f` is the TRISO particles' own
+    ///   heat capacity, [`super::pebble_bed::fuel_node_heat_capacity`]
+    ///   (~0.27 MJ/K), because this node is the fuel now, not a copy of the
+    ///   bed. The closed form carries `C_f / f_prompt` (module doc).
+    /// - `alpha_f` = ~~[`Self::HTR10_TEMPERATURE_COEFFICIENT_PER_K`]~~ its
+    ///   **fuel share** (`f alpha_iso`, [`FeedbackSplit`]) since 2026-09-28;
+    ///   the moderator share rides the bed. The total is still
+    ///   [`Self::HTR10_TEMPERATURE_COEFFICIENT_PER_K`] -- **published**, and
+    ///   3.5x the magnitude of the -4e-5 /K it replaced.
     ///   This is the coefficient that arrests a LOFC transient, so the old
     ///   value materially under-stated HTR-10's inherent safety margin,
-    /// - reference/initial fuel temperature = **the pebble bed's own
-    ///   design-point temperature**, [`super::pebble_bed::PebbleBedPorousMediaNode::new`]
+    /// - ~~reference/initial fuel temperature = the pebble bed's own
+    ///   design-point temperature~~ **CHANGED 2026-09-28** -- the bed's
+    ///   design-point temperature **plus the fuel's steady offset above it at
+    ///   rated power**, `R_fb P_rated`, so the design point stays neutral with
+    ///   the fuel a real node. Original reasoning, still the principle:
+    ///   **the pebble bed's own design-point temperature**, [`super::pebble_bed::PebbleBedPorousMediaNode::new`]
     ///   (about 950 K), *not* a separately chosen 900 K. This matters now that
     ///   the fuel node has a coolant sink and therefore tracks the bed: the
     ///   feedback is `alpha_f (T_f - T_ref)`, so if `T_ref` sits below the
@@ -756,31 +706,7 @@ impl HtgrKinetics {
     pub const HTR10_TEMPERATURE_COEFFICIENT_PER_K: f64 = -1.4e-4;
 
     pub fn new_htr10_published(reference_power: Power) -> Self {
-        use uom::si::f64::{TemperatureCoefficient, ThermodynamicTemperature};
-        use uom::si::temperature_coefficient::per_kelvin;
-
         let prompt_generation_time = Time::new::<second>(Self::HTR10_PROMPT_GENERATION_TIME_S);
-
-        // Reference AND initial fuel temperature both taken from the pebble
-        // bed's design point, so `T_f - T_ref` is zero there and the
-        // temperature feedback neither holds the reactor down nor pushes it up
-        // at rated conditions. Same principle as `C_f` above: derive it from
-        // the bed rather than choosing a second number that can disagree.
-        let design_point_temperature =
-            super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature();
-
-        let prompt = NordheimFuchsExactTimestepper::new(
-            prompt_generation_time,
-            Ratio::new::<ratio>(Self::HTR10_EFFECTIVE_DELAYED_FRACTION),
-            super::pebble_bed::bed_heat_capacity(),
-            TemperatureCoefficient::new::<per_kelvin>(Self::HTR10_TEMPERATURE_COEFFICIENT_PER_K),
-            design_point_temperature,
-            design_point_temperature,
-            reference_power,
-        )
-        .expect("published HTR-10 kinetics parameters must satisfy NordheimFuchs preconditions");
-
-        let delayed = DelayedNeutronLayer::u235_five_group(prompt_generation_time);
 
         // Seeded SATURATED, not clean: the simulator opens at its operating
         // point, where a real core has been running long enough for the
@@ -788,6 +714,40 @@ impl HtgrKinetics {
         // groups cold would show zero decay heat at t=0 and then a spurious
         // several-minute climb to equilibrium that no operator would ever see.
         let decay = DecayHeat::new_at_equilibrium(FissioningNuclide::U235Thermal, reference_power);
+        let f_prompt = decay.prompt_power_fraction().get::<ratio>();
+
+        // The design point, read from the bed rather than restated: its seed
+        // temperature, and the fuel's steady offset above it at rated power
+        // through the resolved-pebble coupling. At equilibrium the thermal
+        // source is `f_prompt P + P_decay = P`, so the offset is `R P`.
+        let bed_reference = super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature();
+        let coupling = super::pebble_bed::FuelBedCoupling::at_design_point();
+        let fuel_reference = bed_reference + coupling.resistance * reference_power;
+        let fuel_heat_capacity = super::pebble_bed::fuel_node_heat_capacity(fuel_reference);
+        let feedback_split = FeedbackSplit::htr10_published(bed_reference);
+
+        let prompt = NordheimFuchsExactTimestepper::new(
+            prompt_generation_time,
+            Ratio::new::<ratio>(Self::HTR10_EFFECTIVE_DELAYED_FRACTION),
+            // `C_fuel / f_prompt`: the closed form heats with the full
+            // point-kinetics power, so this makes its adiabatic heating
+            // exactly the promptly released share. See the module doc.
+            fuel_heat_capacity / f_prompt,
+            feedback_split.fuel_coefficient(),
+            fuel_reference,
+            fuel_reference,
+            reference_power,
+        )
+        .expect("published HTR-10 kinetics parameters must satisfy NordheimFuchs preconditions");
+
+        // ONE beta (gh:#387): the U-235 five-group shape, rescaled so the
+        // groups sum to the prompt layer's published beta_eff. Built EMPTY --
+        // see the module doc's "Read this first".
+        let delayed = DelayedNeutronLayer::u235_five_group_with_total_fraction(
+            prompt_generation_time,
+            Ratio::new::<ratio>(Self::HTR10_EFFECTIVE_DELAYED_FRACTION),
+        )
+        .expect("published HTR-10 beta_eff is in (0, 1) and Lambda > 0");
 
         Self {
             prompt,
@@ -800,67 +760,58 @@ impl HtgrKinetics {
             // simulator's behaviour before the channel existed. Callers opt
             // in with `enable_xenon_at_equilibrium`.
             xenon: None,
-            // The kernel Doppler channel is ON by default -- per this
-            // workspace's rule that correct physics is the default setting and
-            // not an opt-in. A feedback term behind an off-by-default flag is
-            // a term the recorded transients would never have been measured
-            // with. `set_kernel_fuel_share` is the explicit, visible ablation.
-            kernel_doppler: KernelDopplerChannel::new_htr10_published(
-                Self::HTR10_EFFECTIVE_DELAYED_FRACTION,
-            ),
+            feedback_split,
+            fuel_heat_capacity,
+            fuel_to_bed_resistance: coupling.resistance,
+            bed_temperature: bed_reference,
+            heat_to_bed: reference_power,
+            ledger: FuelNodeLedger::default(),
+            last_external_reactivity_dollars: 0.0,
         }
     }
 
-    /// Cool the reactivity-feedback fuel node by the heat the coolant actually
-    /// carried away over `dt`.
+    /// ~~Cool the reactivity-feedback fuel node by the heat the coolant
+    /// actually carried away over `dt`: `T_f <- T_f - Q_removed dt / C_f`~~
+    /// **REPLACED 2026-09-28 (gh:#360).** The fuel node's only sink is
+    /// conduction to the bed through the resolved-pebble resistance, driven
+    /// by `T_f - T_bed` — not the bed's heat-to-helium, which was a sink sized
+    /// for a different node.
     ///
-    /// # Why this, and not "set the fuel temperature to the bed temperature"
-    ///
-    /// The obvious way to couple the feedback to the core is to overwrite the
-    /// prompt layer's fuel temperature with [`super::pebble_bed`]'s graphite
-    /// temperature each step. **That is the wrong move, and it is worth saying
-    /// why**: the Nordheim-Fuchs timestepper integrates the prompt power *and*
-    /// its adiabatic temperature feedback together in **closed form**, and that
-    /// exactness is precisely what keeps this feedback from being stiff.
-    /// Reactivity feedback is the stiff term in point kinetics -- `alpha_f`
-    /// couples power to temperature and back on the prompt timescale. Replacing
-    /// the closed-form node with an externally integrated one, reset
-    /// discontinuously once per plant step, throws that away and reintroduces
-    /// the stiffness Nordheim-Fuchs is in this simulator to avoid.
-    ///
-    /// So the closed form keeps ownership of the feedback. All that was ever
-    /// actually *missing* from it is a heat sink: `NordheimFuchsExactTimestepper`
-    /// is adiabatic, so its fuel temperature could only ever climb, and after
-    /// any power rise the feedback reactivity stuck at its most negative value
-    /// forever. This applies the sink as a separate, **smooth** operator:
+    /// Applied as the **exact** solution of `C dT/dt = -(T - T_bed)/R` over
+    /// `dt` with `T_bed` held (the bed moves on ~180 s against a 1 ms substep):
     ///
     /// ```text
-    /// T_f <- T_f - Q_removed * dt / C_f
+    /// T_f' = T_bed + (T_f - T_bed) exp(-dt / (R C_fuel))
     /// ```
     ///
-    /// with `C_f` the same graphite heat capacity the bed carries. That is a
-    /// Lie split on the *sink only*, and the sink is slow -- the bed's time
-    /// constant is about 184 s against a 0.1 s plant step -- so it adds no
-    /// stiffness of its own. The fast, stiff part stays inside the closed form.
-    ///
-    /// The result is that the fuel node and the pebble bed see the same power
-    /// in and the same heat out, over the same heat capacity, so they track
-    /// each other physically instead of being reconciled by force.
-    ///
-    /// Call this **after** [`Self::step`] and after the bed has been advanced,
-    /// with the heat that actually crossed the pebble surface.
-    pub fn apply_coolant_heat_removal(&mut self, heat_removed: Power, dt: Time) {
-        let c_f = self.prompt.fuel_heat_capacity;
-        if c_f.get::<joule_per_kelvin>() <= 0.0 {
-            return;
+    /// Unconditionally stable at any `dt`, and the energy it removes,
+    /// `C_fuel (T_f - T_f')`, is returned so the caller hands the bed exactly
+    /// that. Why a separate smooth operator rather than a term inside the
+    /// closed form is the same argument the retired coolant sink made, and it
+    /// still holds: the stiff power-temperature coupling stays analytic; the
+    /// sink, `R C_fuel ~ 0.1-0.3 s` against a 1 ms substep, is well resolved
+    /// as a Lie split.
+    fn transfer_heat_to_bed(&mut self, dt: Time) -> f64 {
+        use uom::si::thermodynamic_temperature::kelvin;
+        let c = self.fuel_heat_capacity.get::<joule_per_kelvin>();
+        let r = self.fuel_to_bed_resistance.get::<kelvin_per_watt>();
+        if !(c > 0.0 && r > 0.0) {
+            return 0.0;
         }
-        let drop = heat_removed * dt / c_f;
-        self.prompt.fuel_temperature -= drop;
+        let t_f = self.prompt.fuel_temperature.get::<kelvin>();
+        let t_b = self.bed_temperature.get::<kelvin>();
+        let relaxed = t_b + (t_f - t_b) * (-dt.get::<second>() / (r * c)).exp();
+        self.prompt.fuel_temperature = ThermodynamicTemperature::new::<kelvin>(relaxed);
+        let moved = c * (t_f - relaxed);
+        self.ledger.conducted_to_bed += moved;
+        self.ledger.stored -= moved;
+        moved
     }
 
-    /// The fuel temperature the reactivity feedback is currently computed
-    /// against -- the Nordheim-Fuchs node, now with a coolant heat sink (see
-    /// [`Self::apply_coolant_heat_removal`]).
+    /// The fuel node's temperature -- the **inventory-averaged kernel
+    /// temperature** since 2026-09-28 (gh:#360). ~~"the Nordheim-Fuchs node,
+    /// now with a coolant heat sink"~~ -- it is still the Nordheim-Fuchs node,
+    /// but a node of the energy chain now, losing heat only to the bed.
     pub fn fuel_temperature(&self) -> ThermodynamicTemperature {
         self.prompt.fuel_temperature
     }
@@ -911,22 +862,49 @@ impl HtgrKinetics {
     /// caller already stepping finer than [`super::KINETICS_SUBSTEP_S`] -- the
     /// 1 ms reference leg of the accuracy test, for instance -- pays nothing
     /// extra.
-    /// `coolant_heat_removal` is the heat the coolant is currently carrying
-    /// off the fuel node, applied **inside** the substep loop rather than as
-    /// one lump afterwards. That matters: the fuel temperature drives the
-    /// reactivity feedback, so a sink applied only at the end of the plant
-    /// step leaves the feedback reading a temperature that is a whole 0.1 s
-    /// stale on the cooling side. Measured 2026-08-14, applying it per plant
-    /// step instead of per substep drifted reactor power **-1.27%** from the
-    /// 1 ms reference on the flow-ramp transient of
-    /// `super::tests::the_plant_outer_correctors_converge`, against a 1%
-    /// tolerance; at substep resolution the drift is well inside it.
+    /// ~~`coolant_heat_removal` is the heat the coolant is currently carrying
+    /// off the fuel node, applied **inside** the substep loop~~ **CHANGED
+    /// 2026-09-28 (gh:#360)** -- the fuel node's sink is conduction to the bed
+    /// (`bed_temperature`, `fuel_to_bed_resistance`), still applied inside the
+    /// substep loop for the reason recorded here: a sink applied once per
+    /// plant step leaves the feedback reading a temperature 0.1 s stale on the
+    /// cooling side (measured 2026-08-14 on the old sink: -1.27 % power drift
+    /// against the 1 ms reference).
+    ///
+    /// - `bed_temperature` -- the corrector's current estimate of the bed
+    ///   temperature. The sink's target and the moderator channel's
+    ///   temperature, both held over the step (the bed moves on ~180 s).
+    /// - `fuel_to_bed_resistance` -- the bed's most recent coupling
+    ///   ([`super::pebble_bed::FuelBedCoupling::resistance`]); `None` keeps
+    ///   the previous step's.
+    ///
+    /// After the call, [`Self::heat_to_bed`] is the average fuel-to-bed heat
+    /// over the step -- the bed's source term.
     pub fn step(
         &mut self,
         dt: Time,
         external_reactivity_dollars: f64,
-        coolant_heat_removal: Power,
+        bed_temperature: ThermodynamicTemperature,
+        fuel_to_bed_resistance: Option<ThermalResistance>,
     ) {
+        use uom::si::thermodynamic_temperature::kelvin;
+        if let Some(r) = fuel_to_bed_resistance {
+            self.fuel_to_bed_resistance = r;
+        }
+        self.bed_temperature = bed_temperature;
+        self.last_external_reactivity_dollars = external_reactivity_dollars;
+        // The fuel capacity moves with temperature (UO2, SiC, carbon cp); it is
+        // refreshed once per plant step at the start-of-step fuel temperature,
+        // and the closed form's `C_fuel / f_prompt` with it.
+        let f_prompt = self.decay.prompt_power_fraction().get::<ratio>();
+        self.fuel_heat_capacity =
+            super::pebble_bed::fuel_node_heat_capacity(self.prompt.fuel_temperature);
+        self.prompt.fuel_heat_capacity = self.fuel_heat_capacity / f_prompt;
+        let beta = self.prompt.delayed_neutron_fraction.get::<ratio>();
+        let rho_moderator_dollars = self
+            .feedback_split
+            .moderator_reactivity_dollars(bed_temperature, beta);
+
         let dt_s = dt.get::<second>();
         let pieces = if dt_s > super::KINETICS_SUBSTEP_S {
             (dt_s / super::KINETICS_SUBSTEP_S).ceil().max(1.0)
@@ -934,6 +912,8 @@ impl HtgrKinetics {
             1.0
         };
         let sub = Time::new::<second>(dt_s / pieces);
+        let c = self.fuel_heat_capacity.get::<joule_per_kelvin>();
+        let mut conducted = 0.0;
         for _ in 0..(pieces as usize) {
             // The xenon channel is an EXTERNAL reactivity contribution, added
             // to whatever the rods are worth. It is evaluated from the
@@ -941,67 +921,99 @@ impl HtgrKinetics {
             // kinetics never sees a xenon worth that depends on the power it
             // is about to produce.
             let rho_xenon_dollars = self.xenon_reactivity_dollars();
-            // The kernel Doppler channel, evaluated on EVERY substep from the
-            // power carried into it -- same "before, not after" treatment as
-            // xenon above, so the feedback never sees an offset that depends
-            // on the power it is about to produce. Evaluating it per substep
-            // rather than per plant step is the whole point of the channel:
-            // it is the only feedback temperature in this model that responds
-            // promptly, and a once-per-0.1 s evaluation would give it the very
-            // lag it exists to remove. See `KernelDopplerChannel`.
-            let rho_kernel_dollars = self
-                .kernel_doppler
-                .reactivity_dollars(self.core_thermal_power());
+            let before = self.prompt.fuel_temperature.get::<kelvin>();
             self.advance_one(
                 sub,
-                external_reactivity_dollars + rho_xenon_dollars + rho_kernel_dollars,
+                external_reactivity_dollars + rho_xenon_dollars + rho_moderator_dollars,
             );
+            let deposited = c * (self.prompt.fuel_temperature.get::<kelvin>() - before);
+            self.ledger.deposited_prompt += deposited;
+            self.ledger.stored += deposited;
             self.apply_decay_heat(sub);
-            self.apply_coolant_heat_removal(coolant_heat_removal, sub);
+            conducted += self.transfer_heat_to_bed(sub);
             self.advance_xenon(sub);
         }
+        self.heat_to_bed = Power::new::<watt>(if dt_s > 0.0 { conducted / dt_s } else { 0.0 });
     }
 
-    /// Hand the kernel Doppler channel the bed's kernel-above-node resistance
-    /// for this plant step. See
-    /// [`KernelDopplerChannel::set_offset_resistance`].
-    pub fn set_kernel_offset_resistance(&mut self, resistance: Option<ThermalResistance>) {
-        self.kernel_doppler.set_offset_resistance(resistance);
+    /// Heat conducted from the fuel node to the bed, averaged over the most
+    /// recent [`Self::step`] -- the bed's source term (before the passive
+    /// loss is taken off it).
+    pub fn heat_to_bed(&self) -> Power {
+        self.heat_to_bed
     }
 
-    /// Rebuild the kernel Doppler channel with an explicit fuel share --
-    /// **the ablation entry point**. `0.0` restores the pre-2026-09-22 model
-    /// exactly; `1.0` puts the whole isothermal coefficient on the kernel.
-    ///
-    /// Rebuilding rather than mutating keeps `alpha_D` and the reference
-    /// offset derived together from one fuel share, so they cannot disagree.
-    /// The current offset resistance is carried across, so an ablation swapped
-    /// in mid-run does not lose a step of coupling.
-    pub fn set_kernel_fuel_share(&mut self, fuel_share: f64) {
-        let carried = self.kernel_doppler.offset_resistance;
-        self.kernel_doppler =
-            KernelDopplerChannel::with_fuel_share(Self::HTR10_EFFECTIVE_DELAYED_FRACTION, fuel_share);
-        self.kernel_doppler.set_offset_resistance(carried);
+    /// Cumulative energy ledger of the fuel node. See [`FuelNodeLedger`].
+    pub fn ledger(&self) -> FuelNodeLedger {
+        self.ledger
     }
 
-    /// The kernel Doppler channel, for display and for tests.
-    pub fn kernel_doppler(&self) -> &KernelDopplerChannel {
-        &self.kernel_doppler
+    /// Rebuild the feedback split with fuel share `fuel_share` -- **the
+    /// ablation entry point**. `f` is clamped to `[1e-3, 1]`:
+    /// `teh_o_prke`'s Nordheim-Fuchs rejects a non-negative coefficient
+    /// (its closed form divides by it), so `f = 0` -- the whole coefficient on
+    /// the bed -- is approached, not reached; `f = 1e-3` leaves 0.1 % on the
+    /// fuel node. ~~`0.0` restores the pre-2026-09-22 model exactly~~ (that
+    /// model -- a bed-tracking shadow node -- no longer exists to restore).
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
+    pub fn set_fuel_share(&mut self, fuel_share: f64) {
+        self.feedback_split.fuel_share = fuel_share.clamp(1.0e-3, 1.0);
+        self.prompt.fuel_feedback_coefficient = self.feedback_split.fuel_coefficient();
     }
 
-    /// Reactivity worth of the current kernel Doppler channel, in dollars, at
-    /// the power most recently produced. Zero at the design point by
-    /// construction, negative above it.
-    pub fn kernel_doppler_reactivity_dollars(&self) -> f64 {
-        self.kernel_doppler
-            .reactivity_dollars(self.core_thermal_power())
+    /// The feedback split, for display and for tests.
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
+    pub fn feedback_split(&self) -> &FeedbackSplit {
+        &self.feedback_split
     }
 
-    /// The kernel's current temperature rise above the bed node, from the
-    /// channel's resistance and the current thermal power. Zero when the bed
-    /// had no resolved profile.
-    pub fn kernel_offset(&self) -> TemperatureInterval {
-        self.kernel_doppler.kernel_offset(self.core_thermal_power())
+    /// The fuel channel's reactivity in dollars, `alpha_fuel (T_f - T_f,ref) / beta`.
+    pub fn fuel_feedback_reactivity_dollars(&self) -> f64 {
+        use uom::si::temperature_coefficient::per_kelvin;
+        use uom::si::thermodynamic_temperature::kelvin;
+        let beta = self.prompt.delayed_neutron_fraction.get::<ratio>();
+        self.prompt.fuel_feedback_coefficient.get::<per_kelvin>()
+            * (self.prompt.fuel_temperature.get::<kelvin>()
+                - self.prompt.fuel_reference_temperature.get::<kelvin>())
+            / beta
+    }
+
+    /// The moderator (bed) channel's reactivity in dollars at the most recent
+    /// step's bed temperature.
+    pub fn moderator_feedback_reactivity_dollars(&self) -> f64 {
+        let beta = self.prompt.delayed_neutron_fraction.get::<ratio>();
+        self.feedback_split
+            .moderator_reactivity_dollars(self.bed_temperature, beta)
+    }
+
+    /// The external (rod) reactivity the most recent step integrated \[$\],
+    /// in the kinetics' own dollars (converted to `rho` with
+    /// [`Self::kinetics_delayed_neutron_fraction`]).
+    pub fn external_reactivity_dollars(&self) -> f64 {
+        self.last_external_reactivity_dollars
+    }
+
+    /// **The net reactivity the kinetics integrates** \[$\]: external (rods)
+    /// + fuel/Doppler + moderator + xenon, every term in the kinetics' own
+    /// dollars. This is the sum the Nordheim-Fuchs step sees -- `rho = beta
+    /// (external + xenon + moderator) + alpha_fuel (T_f - T_ref)` -- divided
+    /// by the same `beta`. Evaluated at the end of the most recent step
+    /// (the xenon term at the end-of-step inventory), so it is a budget of the
+    /// current state, not an average over the step.
+    pub fn net_reactivity_dollars(&self) -> f64 {
+        self.external_reactivity_dollars()
+            + self.fuel_feedback_reactivity_dollars()
+            + self.moderator_feedback_reactivity_dollars()
+            + self.xenon_reactivity_dollars()
+    }
+
+    /// The delayed-neutron fraction the kinetics convert every dollar term
+    /// with (the Nordheim-Fuchs stepper's `beta`, 7.26e-3 published). Since
+    /// 2026-09-29 (gh:#387) it equals the delayed layer's `sum(beta_i)`
+    /// ([`Self::delayed_neutron_fraction`]) and the rod-worth conversion uses
+    /// it; ~~the layer summed to 0.0065 and the rods used that~~.
+    pub fn kinetics_delayed_neutron_fraction(&self) -> Ratio {
+        self.prompt.delayed_neutron_fraction
     }
 
     /// Reactivity worth of the current Xe-135 inventory, in dollars.
@@ -1030,63 +1042,37 @@ impl HtgrKinetics {
     /// opening state for a reactor that has been at power: the HTR-10 LOFC
     /// ATWS test was run on a core that had been operating, so its xenon was
     /// saturated when the circulator tripped.
+    #[cfg(test)] // test-only: no GUI/headless control reaches it (2026-09-29 dead-code pass)
     pub fn enable_xenon_at_equilibrium(&mut self, power: Power) {
         self.xenon = Some(XenonChannel::new_at_equilibrium(power));
     }
 
-    /// Disable the Xe-135 channel.
-    pub fn disable_xenon(&mut self) {
-        self.xenon = None;
-    }
-
-    /// Current Xe-135 number density, or zero if the channel is disabled.
-    pub fn xenon_number_density_per_cm3(&self) -> f64 {
-        self.xenon
-            .as_ref()
-            .map(|x| x.xenon_per_cm3())
-            .unwrap_or(0.0)
-    }
-
-    /// Heat this node by the fission-product decay heat generated over `dt`.
+    /// Heat the fuel node by the fission-product decay heat generated over
+    /// `dt`, at the **real** fuel capacity (the closed form's `C / f_prompt`
+    /// is only for the prompt share).
     ///
-    /// # Why this exists (GitHub issue #22)
-    ///
-    /// [`Self::apply_coolant_heat_removal`] charges this node the SAME
-    /// coolant sink rate the real pebble bed sees, and that rate is sized
-    /// against the bed's FULL thermal source -- fission power plus decay
-    /// heat (see [`Self::core_thermal_power`]). Until this method existed,
-    /// this node's own heating came only from [`Self::advance_one`]'s
-    /// prompt-plus-delayed fission power, with no decay-heat term: it was
-    /// being charged for a removal rate sized for heat it never received.
-    ///
-    /// This is NOT the same concern [`Self::advance_one`]'s decay-bank
-    /// comment raises -- that one is about the decay bank's own DRIVING
-    /// INPUT needing to stay fission-power-only so it does not double-count
-    /// itself internally, and is unaffected here: [`Self::decay_heat_power`]
-    /// is read as an OUTPUT after [`DecayHeat::advance_timestep`] has
-    /// already run for this substep, not fed back into it.
-    ///
-    /// Without this term, the node drifted increasingly colder than the
-    /// bed after any trip -- prompt fission collapses toward zero on scram
-    /// while the coolant sink does not, since the bed (and hence the sink)
-    /// still has decay heat. Measured **-10.2 K by 300 s post-scram** before
-    /// this fix, **+0.04 K after it**, in
-    /// `super::tests::kinetics_fuel_node_tracks_the_bed_node_after_a_scram`,
-    /// and reported as GitHub issue #22's "totally wrong energy balance"
-    /// (the schematic compared this node against a helium temperature).
+    /// Decay heat is deposited in the fuel, where the fission products are
+    /// (maintainer direction 2026-09-28, gh:#360 comment, point 1). History:
+    /// this method was added 2026-08-17 (GitHub issue #22) because the old
+    /// shadow node was charged a coolant sink sized for heat it never
+    /// received; ~~its measured "+0.04 K after it"~~ held only post-scram --
+    /// at power the same node drifted 234.9 K above the bed (gh:#360), half of
+    /// it because the closed form ALSO heated with the full fission power.
+    /// Both halves are gone: the closed form heats with `f_prompt P` and the
+    /// sink is conduction to the bed.
     ///
     /// Call every substep, right after [`Self::advance_one`] has refreshed
-    /// [`Self::decay_heat_power`] -- same resolution
-    /// [`Self::apply_coolant_heat_removal`] needs and for the same reason
-    /// (a term applied only once per plant step lags the reactivity feedback
-    /// by a whole 0.1 s on the heating side too).
+    /// [`Self::decay_heat_power`].
     fn apply_decay_heat(&mut self, dt: Time) {
-        let c_f = self.prompt.fuel_heat_capacity;
-        if c_f.get::<joule_per_kelvin>() <= 0.0 {
+        let c = self.fuel_heat_capacity.get::<joule_per_kelvin>();
+        if c <= 0.0 {
             return;
         }
-        let rise = self.decay_heat_power() * dt / c_f;
-        self.prompt.fuel_temperature += rise;
+        let energy = self.decay_heat_power().get::<watt>() * dt.get::<second>();
+        self.prompt.fuel_temperature +=
+            TemperatureInterval::new::<temperature_interval::kelvin>(energy / c);
+        self.ledger.deposited_decay += energy;
+        self.ledger.stored += energy;
     }
 
     /// One Lie-split kinetics substep. See [`Self::step`], which is the entry
@@ -1170,7 +1156,8 @@ impl HtgrKinetics {
     }
 
     /// Effective total delayed-neutron fraction `beta = sum(beta_i)` reported
-    /// by the delayed-neutron layer (dimensionless).
+    /// by the delayed-neutron layer (dimensionless): 7.26e-3, the same `beta`
+    /// as the prompt layer (gh:#387).
     pub fn delayed_neutron_fraction(&self) -> Ratio {
         self.delayed.total_delayed_neutron_fraction()
     }
@@ -1191,12 +1178,58 @@ pub fn power_in_megawatts(p: Power) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The reactivity budget sums to the net, in the kinetics' own terms**
+    /// (panel reactivity budget, 2026-09-29).
+    ///
+    /// Methodology: a published-HTR-10 kinetics with the xenon channel on,
+    /// stepped 20 s at 0.1 s against a bed held at 1000 K with an external
+    /// +0.5 $; every step require `external + fuel + moderator + xenon =
+    /// net` to 1e-12 absolute (dollars), the recorded external equal to what
+    /// was handed in, and `pcm = $ x beta_kinetics x 1e5` for each term with
+    /// `beta_kinetics = 7.26e-3`.
+    #[test]
+    fn the_reactivity_budget_sums_to_the_net_in_kinetics_dollars() {
+        let mut k = HtgrKinetics::new_htr10_published(Power::new::<megawatt>(10.0));
+        k.enable_xenon_at_equilibrium(Power::new::<megawatt>(10.0));
+        let beta = k.kinetics_delayed_neutron_fraction().get::<ratio>();
+        assert!((beta - 7.26e-3).abs() < 1e-15);
+        for _ in 0..200 {
+            k.step(
+                Time::new::<second>(0.1),
+                0.5,
+                ThermodynamicTemperature::new::<kelvin>(1000.0),
+                None,
+            );
+            let terms = [
+                k.external_reactivity_dollars(),
+                k.fuel_feedback_reactivity_dollars(),
+                k.moderator_feedback_reactivity_dollars(),
+                k.xenon_reactivity_dollars(),
+            ];
+            assert_eq!(terms[0], 0.5);
+            let net = k.net_reactivity_dollars();
+            assert!((terms.iter().sum::<f64>() - net).abs() < 1e-12);
+            for t in terms {
+                let pcm = crate::app::state::reactivity_pcm(t, beta);
+                assert!((pcm - t * beta * 1e5).abs() < 1e-12 * pcm.abs().max(1.0));
+            }
+        }
+        assert!(
+            k.xenon_reactivity_dollars() < 0.0,
+            "the xenon channel must be on"
+        );
+    }
     use uom::si::heat_capacity::joule_per_kelvin;
     use uom::si::power::megawatt;
     use uom::si::thermodynamic_temperature::kelvin;
 
     fn rated() -> Power {
         Power::new::<megawatt>(10.0)
+    }
+
+    fn design_bed() -> ThermodynamicTemperature {
+        super::super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature()
     }
 
     /// V&V: introducing decay heat must NOT move the steady state.
@@ -1254,9 +1287,11 @@ mod tests {
         let mut k = HtgrKinetics::new_htr10_published(rated());
         let dt = Time::new::<second>(0.1);
         for _ in 0..600 {
-            // No coolant removal: this isolates the decay-heat behaviour from
-            // the thermal-hydraulics, which is the point of the test.
-            k.step(dt, -10.0, Power::new::<watt>(0.0));
+            // The bed held at its design point: this isolates the decay-heat
+            // behaviour from the thermal-hydraulics, which is the point of the
+            // test. (CHANGED 2026-09-28: the fuel node's sink is conduction to
+            // the bed now, not a coolant-removal argument.)
+            k.step(dt, -10.0, design_bed(), None);
         }
         let fission = k.total_power().get::<megawatt>();
         let decay = k.decay_heat_power().get::<megawatt>();
@@ -1276,65 +1311,56 @@ mod tests {
         );
     }
 
-    /// V&V: the fuel-temperature feedback node must now COOL, and must do so
-    /// without becoming stiff.
+    /// V&V: the fuel node relaxes to the bed **exactly**, and hands the bed
+    /// exactly the energy it gives up (gh:#360, 2026-09-28).
     ///
-    /// **Methodology.** Two checks on the same run:
+    /// Replaces ~~`the_fuel_node_cools_smoothly_rather_than_stiffly`~~, which
+    /// tested the retired coolant sink.
     ///
-    /// 1. **The sink works.** With no reactivity inserted, applying a steady
-    ///    heat removal must bring the fuel temperature down. Before
-    ///    2026-08-14 the Nordheim-Fuchs node was adiabatic and this was
-    ///    impossible -- it could only climb.
-    /// 2. **It is not stiff.** The removal is applied at the plant timestep
-    ///    (0.1 s) and the temperature trajectory must be monotone and smooth,
-    ///    with no step-to-step reversal. A stiff explicit coupling shows up as
-    ///    exactly that: alternating over- and under-shoot. The check is that
-    ///    the temperature decreases at every step.
+    /// **Methodology.** Displace the fuel node 50 K above a bed held at the
+    /// design point, then apply only the fuel-to-bed operator for 2 s in 1 ms
+    /// steps. Pass criteria: (1) monotone, no overshoot below the bed (a stiff
+    /// explicit sink would oscillate); (2) the trajectory matches
+    /// `T_bed + 50 exp(-t / (R C))` to 1e-9 K; (3) the energy handed to the bed
+    /// equals `C x (drop)` to 1e-9 relative.
     ///
-    /// **Results (2026-08-14).** Printed below. The drop per step matches
-    /// `Q dt / C_f` analytically, and no reversal occurs -- the sink is a
-    /// plain first-order operator, and the fast feedback stays inside the
-    /// closed form where it belongs.
+    /// **Results (2026-09-28).** `C_fuel = 2.6830e5 J/K`, `R = 1.0250e-6 K/W`,
+    /// so the fuel node's time constant `R C = 0.2750 s`; 49.965 K relaxed in
+    /// 2 s, worst deviation from the exact exponential 8e-13 K, energy to the
+    /// bed equal to `C x drop` (1.3406e7 J) to round-off.
+    /// constant at the design point.
     #[test]
-    fn the_fuel_node_cools_smoothly_rather_than_stiffly() {
+    fn the_fuel_node_relaxes_to_the_bed_exactly() {
+        use uom::si::thermodynamic_temperature::kelvin as k_unit;
         let mut k = HtgrKinetics::new_htr10_published(rated());
-        let dt = Time::new::<second>(0.1);
-        let removal = Power::new::<megawatt>(10.0);
-        let c_f = k.prompt.fuel_heat_capacity.get::<joule_per_kelvin>();
-
-        let start = k.fuel_temperature().get::<kelvin>();
-        let mut previous = start;
-        let mut reversals = 0;
-        for _ in 0..600 {
-            k.apply_coolant_heat_removal(removal, dt);
-            let now = k.fuel_temperature().get::<kelvin>();
-            if now > previous + 1e-12 {
-                reversals += 1;
-            }
+        let bed = design_bed();
+        k.bed_temperature = bed;
+        k.prompt.fuel_temperature =
+            ThermodynamicTemperature::new::<k_unit>(bed.get::<k_unit>() + 50.0);
+        let c = k.fuel_heat_capacity.get::<joule_per_kelvin>();
+        let r = k.fuel_to_bed_resistance.get::<kelvin_per_watt>();
+        let tau = r * c;
+        let dt = Time::new::<second>(1.0e-3);
+        let mut moved = 0.0;
+        let mut previous = k.fuel_temperature().get::<k_unit>();
+        let mut worst = 0.0f64;
+        for i in 1..=2000 {
+            moved += k.transfer_heat_to_bed(dt);
+            let now = k.fuel_temperature().get::<k_unit>();
+            assert!(now <= previous && now >= bed.get::<k_unit>(), "step {i}");
+            let exact = bed.get::<k_unit>() + 50.0 * (-(i as f64) * 1.0e-3 / tau).exp();
+            worst = worst.max((now - exact).abs());
             previous = now;
         }
-        let end = previous;
-
-        // Analytical: 600 steps of 0.1 s at 10 MW over C_f.
-        let expected_drop = 1.0e7 * 60.0 / c_f;
+        let drop = bed.get::<k_unit>() + 50.0 - previous;
         println!(
-            "fuel node: {start:.3} K -> {end:.3} K over 60 s at 10 MW removal \
-             (C_f = {c_f:.4e} J/K, analytical drop {expected_drop:.3} K), \
-             {reversals} step reversals"
+            "fuel node: C = {c:.4e} J/K, R = {r:.4e} K/W, tau = R C = {tau:.4} s; \
+             drop {drop:.4} K in 2 s, worst deviation from the exponential {worst:.2e} K, \
+             energy to bed {moved:.4e} J vs C x drop {:.4e} J",
+            c * drop
         );
-        assert!(
-            end < start,
-            "the fuel node must cool -- it used to be adiabatic"
-        );
-        assert_eq!(
-            reversals, 0,
-            "a stiff coupling would show step-to-step reversals; found {reversals}"
-        );
-        assert!(
-            ((start - end) - expected_drop).abs() / expected_drop < 1e-6,
-            "measured drop {:.3} K departs from the analytical {expected_drop:.3} K",
-            start - end
-        );
+        assert!(worst < 1e-9);
+        assert!((moved - c * drop).abs() < 1e-9 * moved);
     }
 
     /// V&V: the two feedback channels must **sum back to the published
@@ -1346,266 +1372,367 @@ mod tests {
     /// reactivity gets created or destroyed by accident. `alpha_iso` is
     /// Chen *et al.* (2009)'s **isothermal** value -- fuel and graphite moving
     /// together -- so the only split that conserves it is one where the two
-    /// parts add back up. If they did not, the model would have a different
-    /// total temperature coefficient from the one it cites, and every
-    /// transient in this simulator would be measuring an unpublished number
-    /// while claiming a published one.
+    /// parts add back up.
     ///
-    /// The graphite share is never written down anywhere: it is whatever the
-    /// closed form already applies minus the kernel channel's `alpha_D`. This
-    /// test is therefore checking an *identity the code relies on*, not an
-    /// arithmetic restatement -- `alpha_D` is built from a clamped fuel share
-    /// inside [`KernelDopplerChannel::with_fuel_share`], and a clamp that
-    /// misbehaved would break the sum without breaking anything else visible.
+    /// **Methodology (rewritten 2026-09-28 for [`FeedbackSplit`]).** Over fuel
+    /// shares 1e-3, 0.25, `HU_FUEL_SHARE`, 0.75, 1 and two out-of-range values
+    /// (-0.5, 1.5) set through [`HtgrKinetics::set_fuel_share`], form
+    /// `alpha_fuel + alpha_mod` and compare to `alpha_iso`; check the
+    /// Nordheim-Fuchs node carries `alpha_fuel`; check the clamp lands on
+    /// `[1e-3, 1]` (Nordheim-Fuchs rejects a non-negative coefficient, so
+    /// `f = 0` is approached, not reached).
     ///
-    /// **Methodology.** Over fuel shares 0, 0.25, `HU_FUEL_SHARE`, 0.75, 1 and
-    /// two deliberately out-of-range values (-0.5, 1.5), form
-    /// `alpha_D + (alpha_iso - alpha_D)` and compare to `alpha_iso`. Pass
-    /// criterion: exact to 1e-18 /K (this is floating-point addition of two
-    /// numbers built from one, so anything looser would hide a real error).
-    /// Also check the clamp: out-of-range shares must land on the endpoints,
-    /// because a share outside [0, 1] gives one channel a *positive*
-    /// coefficient, which no reading of the literature supports for this core.
-    ///
-    /// **Results (2026-09-22).** Every share reproduced
-    /// `alpha_iso = -1.4e-4 /K` to **0.0** -- exactly, not approximately.
-    /// `f = -0.5` clamped to `alpha_D = -0.0` and `f = 1.5` to
-    /// `alpha_D = -1.40000e-4 /K` (leaving `alpha_m = +0.0`). At the shipped
-    /// default the split is **`alpha_D = -9.96313e-5 /K` on the kernel,
-    /// `alpha_m = -4.03687e-5 /K` on the bed**.
-    ///
-    /// **Interpretation.** The split is a redistribution, not a change of
-    /// magnitude. Whatever the fuel share turns out to be, this simulator's
-    /// *total* temperature coefficient remains the published one -- so the
-    /// split can only move **when** feedback arrives, never how much there is
-    /// in total. That is exactly the property that makes the unresolved
-    /// fraction (see [`KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL`])
-    /// tolerable as an input.
+    /// **Results (2026-09-28).** Sum exact (0.0 /K) at every share; -0.5 and
+    /// 1e-3 both clamp to `alpha_fuel = -1.4e-7 /K`, 1.5 to `-1.4e-4 /K`; at
+    /// the shipped default `alpha_fuel = -9.96313e-5 /K` on the fuel node and
+    /// `alpha_mod = -4.03687e-5 /K` on the bed -- the same numbers the retired
+    /// kernel channel recorded on 2026-09-22, since the ratio is unchanged.
     #[test]
     fn the_split_channels_sum_to_the_published_isothermal_coefficient() {
         use uom::si::temperature_coefficient::per_kelvin;
 
         let alpha_iso = HtgrKinetics::HTR10_TEMPERATURE_COEFFICIENT_PER_K;
-        let beta = HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION;
         let mut worst = 0.0f64;
-
+        let mut k = HtgrKinetics::new_htr10_published(rated());
         for share in [
             -0.5,
-            0.0,
+            1.0e-3,
             0.25,
-            KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL,
+            FeedbackSplit::HU_FUEL_SHARE_OF_ISOTHERMAL,
             0.75,
             1.0,
             1.5,
         ] {
-            let channel = KernelDopplerChannel::with_fuel_share(beta, share);
-            let alpha_d = channel.doppler_coefficient().get::<per_kelvin>();
-            let alpha_m = alpha_iso - alpha_d;
-            worst = worst.max((alpha_d + alpha_m - alpha_iso).abs());
-
-            let clamped = share.clamp(0.0, 1.0);
-            assert!(
-                (alpha_d - clamped * alpha_iso).abs() < 1e-18,
-                "share {share} must clamp to {clamped}; alpha_D = {alpha_d:e}"
+            k.set_fuel_share(share);
+            let split = *k.feedback_split();
+            let a_f = split.fuel_coefficient().get::<per_kelvin>();
+            let a_m = split.moderator_coefficient().get::<per_kelvin>();
+            worst = worst.max((a_f + a_m - alpha_iso).abs());
+            let clamped = share.clamp(1.0e-3, 1.0);
+            assert!((a_f - clamped * alpha_iso).abs() < 1e-18, "share {share}");
+            assert_eq!(
+                k.prompt.fuel_feedback_coefficient.get::<per_kelvin>(),
+                a_f,
+                "the closed form must carry the fuel share"
             );
-            println!(
-                "f = {share:>5} -> alpha_D = {alpha_d:+.5e} /K (kernel), \
-                 alpha_m = {alpha_m:+.5e} /K (bed)"
-            );
+            println!("f = {share:>6} -> alpha_fuel = {a_f:+.5e} /K, alpha_mod = {a_m:+.5e} /K");
         }
-
-        println!("worst |alpha_D + alpha_m - alpha_iso| = {worst:.3e} /K");
-        assert!(
-            worst < 1e-18,
-            "the split must conserve the published coefficient; worst {worst:e} /K"
-        );
+        println!("worst |alpha_fuel + alpha_mod - alpha_iso| = {worst:.3e} /K");
+        assert!(worst < 1e-18);
     }
 
-    /// V&V: the kernel Doppler channel must be **exactly zero at the design
-    /// point**, so introducing it does not move the steady state.
+    /// V&V: the rated design point is **neutral**, and a **thermal fixed
+    /// point** of the fuel node (gh:#360, 2026-09-28).
     ///
-    /// # Why this matters more than it looks
+    /// **Methodology.** Build the kinetics at 10 MWth with the bed at its
+    /// 950 K design temperature. Check (1) both feedback channels read zero at
+    /// t = 0; (2) the fuel node opens exactly `R P` above the bed; (3) over one
+    /// 1 ms substep the fuel temperature moves by less than 1e-3 K -- against
+    /// the +0.037 K one substep's deposit alone would give, so source
+    /// `f_prompt P + P_decay` and sink `(T_f - T_bed)/R` balance at the design
+    /// point -- and the heat handed to the bed equals the core thermal power
+    /// to 1 %. The tolerances are derived, not chosen after the fact: the Lie
+    /// split (deposit, then relax) puts the discrete fixed point
+    /// `dt/(2 R C) = 0.18 %` above the continuous one, and power itself falls
+    /// ~0.4 % in the first millisecond (see below), so a 1e-3 criterion on the
+    /// heat -- the first one written -- was tighter than the scheme can meet
+    /// and was widened for that stated reason.
     ///
-    /// This is the same property [`super::super::kinetics`]'s reference
-    /// temperature was chosen for (see
-    /// [`HtgrKinetics::new_htr10_published`]): a feedback term that is
-    /// non-zero at rated conditions silently re-rates the plant, and it does
-    /// so in a direction that looks like physics. The channel measures the
-    /// kernel offset **from its design-point value**, so at rated power and
-    /// the bed's design temperature the term vanishes identically -- which is
-    /// what makes every difference this change produces attributable to the
-    /// *transient*, not to a shifted operating point.
+    /// **What this deliberately does NOT assert: that power holds at 0 $.**
+    /// It does not, and not because of this change: the delayed bank starts
+    /// with **empty precursor groups** (~~and its five-group `beta` sums to
+    /// 6.5e-3 against the prompt layer's 7.26e-3~~ -- one beta since
+    /// 2026-09-29, gh:#387), so at zero inserted reactivity the prompt layer
+    /// sees `rho - beta = -beta` with no delayed source yet, and power falls
+    /// (measured 2026-09-28: 10 MW -> 0.255 MW in 20 s with the bed held; not
+    /// re-measured since the single-beta change -- pending validation work).
+    /// With the precursors at equilibrium it holds:
+    /// `zero_net_dollars_with_equilibrium_precursors_is_stationary`.
+    /// That is the pre-existing opening transient behind gh:#317/#318, recorded
+    /// here so the next reader does not mistake it for a fuel-node defect.
     ///
-    /// It also pins that the design point resolves at all: the reference
-    /// offset is solved through the pebble correlation window, and a
-    /// construction that fell outside it would silently reference zero and put
-    /// a large spurious negative reactivity on the plant at rated power.
+    /// **Results (2026-09-28).** Fuel opens at 960.2501 K = 950 K + 10.2501 K
+    /// (`R P` exactly); both channels 0 $; over one 1 ms substep the fuel moved
+    /// -1.4e-4 K and the heat to the bed was 10.018 MW.
+    /// V&V (gh:#387): **one beta, and near 0 $ the plant is stationary; the
+    /// remaining offset is the kinetics' own Lie-split bias, not a beta
+    /// mismatch.**
     ///
-    /// **Methodology.** Build the channel at the shipped fuel share, hand it
-    /// the resistance the bed's resolved pebble gives at the design point and
-    /// core-average pebble power, and evaluate at exactly the rated thermal
-    /// power. Pass criterion: |rho| < 1e-12 $ and the reference offset is
-    /// strictly positive (a zero would mean the solve failed and the fallback
-    /// fired).
+    /// **Methodology.** Build the kinetics at 10 MW; check the prompt layer's
+    /// `beta` equals the delayed bank's `sum(beta_i)` (both 7.26e-3); seed the
+    /// precursors at their 10 MW equilibrium; step 600 s at the 0.1 s plant
+    /// step (1 ms kinetics substeps) with 0 $ external and the bed held at its
+    /// 950 K design temperature. The fuel feedback is then the only thing that
+    /// moves, so the net reactivity the plant settles at is the offset the
+    /// discrete scheme needs to hold power.
     ///
-    /// **Results (2026-09-22).** Reference offset **23.453 K**, reactivity at
-    /// the design point **-4.876e-17 $** -- zero to floating-point round-off,
-    /// as the algebra requires. At 1.5x rated the same channel is worth
-    /// **-0.1609 $**, and at half rated **+0.1609 $**, so the term is live and
-    /// signed correctly (negative on a power rise) rather than merely small.
+    /// **Instrument, derived before the run's criterion was set.** The Lie
+    /// split (prompt substep, then the delayed source from the prompt power)
+    /// loses `exp(-a)(1 + a) ~ 1 - a^2/2` per substep, `a = beta dt / Lambda`,
+    /// which a steady state must make up with `rho = beta^2 dt / (2 Lambda)`,
+    /// i.e. `beta dt / (2 Lambda)` dollars = **2.16e-3 $** (1.57 pcm) at
+    /// `dt = 1 ms`. Pass: settled net within 25 % of that (the `a^3` terms and
+    /// the backward-Euler precursor lag are the tolerance), power changing by
+    /// less than 1e-4 relative over the last 60 s, and the offset under 5 % of
+    /// the old beta-mismatch bias (+76 pcm = +0.1047 $ at 7.26e-3).
     ///
-    /// **Interpretation.** The offset is 23.45 K at rated, not the 21.30 K
-    /// `one_node`'s resolved-pebble test reports, and the difference is not a
-    /// discrepancy: that test solves at a bed temperature of 815.15 K, this at
-    /// the bed's 950 K design point, and A3 graphite conducts *worse* hot, so
-    /// the same power drives a larger rise. The two agree on the physics and
-    /// disagree on the operating point, which is the correct behaviour for a
-    /// temperature-dependent conductivity.
+    /// ~~Pass: power within 1e-3 relative of 10 MW throughout~~ -- the first
+    /// criterion, written before the split bias was worked out; it failed
+    /// (0.55 % in 60 s), which is what exposed the bias. Recorded rather than
+    /// quietly replaced.
+    ///
+    /// **Results (2026-09-29):** net settles at **+2.37e-3 $** (1.72 pcm, +10 %
+    /// of the analytic split bias) with the power at 9.866 MW (-1.34 %, the
+    /// fuel cooling ~0.14 K to supply that reactivity); power changed 7e-5
+    /// relative over the last 60 s. Against the old bookkeeping, where the
+    /// same run needed +0.105 $, the offset is 44x smaller.
+    #[test]
+    fn zero_net_dollars_with_equilibrium_precursors_is_stationary() {
+        let mut k = HtgrKinetics::new_htr10_published(rated());
+        let beta_p = k.kinetics_delayed_neutron_fraction().get::<ratio>();
+        let beta_d = k.delayed_neutron_fraction().get::<ratio>();
+        assert!((beta_p - 7.26e-3).abs() < 1e-15 && (beta_d - beta_p).abs() < 1e-15);
+        k.delayed.seed_at_equilibrium(rated());
+        let bed = design_bed();
+        let mut p_540 = 0.0;
+        for i in 0..6000 {
+            k.step(Time::new::<second>(0.1), 0.0, bed, None);
+            if i == 5399 {
+                p_540 = k.total_power().get::<megawatt>();
+            }
+        }
+        let p_600 = k.total_power().get::<megawatt>();
+        let net = k.net_reactivity_dollars();
+        let split_bias = beta_p * super::super::KINETICS_SUBSTEP_S
+            / (2.0 * HtgrKinetics::HTR10_PROMPT_GENERATION_TIME_S);
+        let old_bias_dollars = (beta_p - 6.5e-3) / beta_p;
+        println!(
+            "0 $, equilibrium precursors, bed held 600 s: P {p_600:.6} MW, net {net:+.4e} $ \
+             (split bias {split_bias:.4e} $, old beta-mismatch bias {old_bias_dollars:.4e} $), \
+             last-60-s change {:.2e}",
+            (p_600 - p_540).abs() / p_600
+        );
+        assert!(
+            (net - split_bias).abs() < 0.25 * split_bias,
+            "{net:e} vs {split_bias:e}"
+        );
+        assert!((p_600 - p_540).abs() / p_600 < 1e-4);
+        assert!(net.abs() < 0.05 * old_bias_dollars);
+    }
+
+    /// **How long the EMPTY precursor bank takes to fill** (maintainer
+    /// direction 2026-09-29, gh:#387: state it upfront, measure it).
+    ///
+    /// **Methodology.** The plant's own bank (U-235 shape, `sum(beta_i) =
+    /// 7.26e-3`, `Lambda = 1.68e-3 s`), built empty, advanced at a held 10 MW
+    /// in 1 ms steps (the kinetics substep). Record when the summed inventory
+    /// first reaches 1 % of its equilibrium, and when it first comes within
+    /// 1 % of it. Cross-check the second against the analytic deficit
+    /// `sum_i w_i exp(-lambda_i t)`, `w_i = (beta_i/lambda_i) / sum_j
+    /// (beta_j/lambda_j)`, within 1 s.
+    ///
+    /// **Results (2026-09-29):** printed below, and quoted in the module doc.
+    #[test]
+    fn how_long_the_empty_precursor_bank_takes_to_fill() {
+        let k = HtgrKinetics::new_htr10_published(rated());
+        let mut layer = k.delayed.clone();
+        assert_eq!(layer.precursor_inventory(), 0.0);
+        let mut eq = layer.clone();
+        eq.seed_at_equilibrium(rated());
+        let target = eq.precursor_inventory();
+        let dt = Time::new::<second>(1e-3);
+        let (mut t, mut reach_1pct, mut within_1pct) = (0.0, None, None);
+        while within_1pct.is_none() && t < 2000.0 {
+            layer.advance(rated(), dt);
+            t += 1e-3;
+            let f = layer.precursor_inventory() / target;
+            if reach_1pct.is_none() && f >= 0.01 {
+                reach_1pct = Some(t);
+            }
+            if f >= 0.99 {
+                within_1pct = Some(t);
+            }
+        }
+        let (a, b) = (reach_1pct.unwrap(), within_1pct.unwrap());
+        let lam: Vec<f64> = layer
+            .decay_constants()
+            .iter()
+            .map(|l| l.get::<uom::si::frequency::hertz>())
+            .collect();
+        let bet: Vec<f64> = layer
+            .delayed_fractions()
+            .iter()
+            .map(|x| x.get::<ratio>())
+            .collect();
+        let norm: f64 = (0..5).map(|i| bet[i] / lam[i]).sum();
+        let deficit = |t: f64| -> f64 {
+            (0..5)
+                .map(|i| bet[i] / lam[i] / norm * (-lam[i] * t).exp())
+                .sum()
+        };
+        let (mut lo, mut hi) = (0.0, 2000.0);
+        for _ in 0..100 {
+            let mid = 0.5 * (lo + hi);
+            if deficit(mid) > 0.01 {
+                lo = mid
+            } else {
+                hi = mid
+            }
+        }
+        println!(
+            "empty bank at 10 MW: 1 % of equilibrium inventory at {a:.3} s; within 1 % of \
+             equilibrium at {b:.1} s (analytic {hi:.1} s)"
+        );
+        assert!((b - hi).abs() < 1.0, "{b} vs {hi}");
+    }
+
     #[test]
     fn the_design_point_is_neutral() {
-        use uom::si::power::watt;
-
-        let beta = HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION;
-        let mut channel = KernelDopplerChannel::new_htr10_published(beta);
-
-        let design_point =
-            super::super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature();
-        let rated_pebble = super::super::pebble_bed::core_average_pebble_power();
-        let profile = super::super::pebble_bed::resolved_pebble_profile(design_point, rated_pebble)
-            .expect("the design point must sit inside the pebble correlation window");
-        let rise_k =
-            profile.peak_kernel_centre.get::<kelvin>() - design_point.get::<kelvin>();
-        channel.set_offset_resistance(Some(ThermalResistance::new::<
-            uom::si::thermal_resistance::kelvin_per_watt,
-        >(rise_k / rated_pebble.get::<watt>())));
-
-        let rated = super::super::pebble_bed::design().thermal_power;
-        let at_design = channel.reactivity_dollars(rated);
-        let hot = channel.reactivity_dollars(rated * 1.5);
-        let cold = channel.reactivity_dollars(rated * 0.5);
-
+        use uom::si::thermodynamic_temperature::kelvin as k_unit;
+        let mut k = HtgrKinetics::new_htr10_published(rated());
+        let bed = design_bed();
+        let t0 = k.fuel_temperature().get::<k_unit>();
+        let offset0 = t0 - bed.get::<k_unit>();
+        let r = k.fuel_to_bed_resistance.get::<kelvin_per_watt>();
         println!(
-            "reference offset {:.3} K; rho at rated {at_design:+.3e} $, \
-             at 1.5x {hot:+.4} $, at 0.5x {cold:+.4} $",
-            channel.reference_offset().get::<temperature_interval::kelvin>()
+            "design point: fuel {t0:.4} K = bed {:.2} K + {offset0:.4} K (R P = {:.4} K); \
+             fuel channel {:+.3e} $, moderator channel {:+.3e} $",
+            bed.get::<k_unit>(),
+            r * 1.0e7,
+            k.fuel_feedback_reactivity_dollars(),
+            k.moderator_feedback_reactivity_dollars()
         );
+        assert!((offset0 - r * 1.0e7).abs() < 1e-9);
+        assert!(k.fuel_feedback_reactivity_dollars().abs() < 1e-12);
+        assert!(k.moderator_feedback_reactivity_dollars().abs() < 1e-12);
 
-        assert!(
-            channel.reference_offset().get::<temperature_interval::kelvin>() > 1.0,
-            "a zero reference offset means the design-point solve fell back"
+        k.step(Time::new::<second>(1.0e-3), 0.0, bed, None);
+        let moved = k.fuel_temperature().get::<k_unit>() - t0;
+        let q_bed = k.heat_to_bed().get::<megawatt>();
+        println!(
+            "one 1 ms substep at the design point: fuel moved {moved:+.3e} K, heat to bed \
+             {q_bed:.6} MW (rated thermal 10 MW)"
         );
-        assert!(
-            at_design.abs() < 1e-12,
-            "the design point must be neutral; got {at_design:e} $"
-        );
-        assert!(hot < 0.0, "a power RISE must give negative reactivity");
-        assert!(cold > 0.0, "a power FALL must give positive reactivity");
+        assert!(moved.abs() < 1e-3);
+        assert!((q_bed - 10.0).abs() / 10.0 < 1e-2);
     }
 
-    /// V&V **and ablation**: what the unresolved fuel share is actually worth,
-    /// measured across its whole admissible range.
+    /// V&V **and ablation**: what the fuel share is worth across its range.
     ///
-    /// # Why this test is the point of the whole change
+    /// [`FeedbackSplit::HU_FUEL_SHARE_OF_ISOTHERMAL`] is an **input** (a
+    /// published ratio, not a derivation), so its contribution must be
+    /// measured. Rewritten 2026-09-28: with the fuel a real node, the fuel
+    /// channel's worth at a steady power `x P_rated` (bed held at 950 K) is
+    /// `f alpha_iso R P_rated (x - 1) / beta` -- the moderator channel is zero
+    /// with the bed held.
     ///
-    /// [`KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL`] is an **input**,
-    /// not a derivation -- a ratio read off Hu *et al.* (2006) because no
-    /// fuel-only Doppler coefficient for HTR-10 exists in this workspace. This
-    /// workspace's rules are explicit that a parameter of that kind must be
-    /// ablatable and its contribution measured, otherwise it is
-    /// indistinguishable from curve-fitting. This is that measurement.
+    /// **Methodology.** For shares 1e-3, 0.5, shipped, 1 and powers 0.5-2x
+    /// rated, set the fuel node to its steady offset `R x P` above the bed and
+    /// read [`HtgrKinetics::fuel_feedback_reactivity_dollars`]. Pass: monotone
+    /// in `f`, zero at rated, shipped between the bounds.
     ///
-    /// The uncertainty is **bounded**, which is what makes the input usable at
-    /// all: the share must lie in `[0, 1]`, `f = 0` is exactly the model this
-    /// simulator ran before 2026-09-22, and `f = 1` puts the entire published
-    /// coefficient on the kernel. The true answer is inside those two runs.
+    /// **Results (2026-09-28)**, fuel-channel worth [$]:
     ///
-    /// **Methodology.** At a fixed bed design point and the resistance the
-    /// resolved pebble gives there, evaluate the channel's reactivity across
-    /// the power range a transient reaches (0.5x to 2x rated) at fuel shares
-    /// 0, 0.5, the shipped default, and 1. Pass criteria: `f = 0` is
-    /// identically zero everywhere (a *bit-exact* reproduction of the old
-    /// model, not an approximation); the worth is monotone in `f`; and the
-    /// shipped default sits between the bounds.
-    ///
-    /// **Results (2026-09-22)**, kernel Doppler worth in dollars:
-    ///
-    /// | Power | `f = 0` | `f = 0.5` | `f = 0.712` (shipped) | `f = 1` |
+    /// | power | f = 0.001 | f = 0.5 | f = 0.712 (shipped) | f = 1 |
     /// |---|---|---|---|---|
-    /// | 0.5x rated | 0.0000 | +0.1131 | +0.1609 | +0.2261 |
-    /// | 1.0x rated | -0.0000 | -0.0000 | -0.0000 | -0.0000 |
-    /// | 1.5x rated | -0.0000 | -0.1131 | -0.1609 | -0.2261 |
-    /// | 2.0x rated | -0.0000 | -0.2261 | -0.3219 | -0.4523 |
+    /// | 0.5x | +0.0001 | +0.0494 | +0.0703 | +0.0988 |
+    /// | 1.0x | 0 | 0 | 0 | 0 |
+    /// | 1.5x | -0.0001 | -0.0494 | -0.0703 | -0.0988 |
+    /// | 2.0x | -0.0002 | -0.0988 | -0.1407 | -0.1977 |
     ///
-    /// **Interpretation -- and this is the number to quote.** The *entire*
-    /// span of the unresolved fraction is worth **0.4523 $ at double rated
-    /// power**; at 1.5x it spans 0.2261 $, of which **0.0652 $** separates the
-    /// shipped default from the `f = 1` bound. Against HTR-10's
-    /// `beta = 7.26e-3` that is real prompt reactivity -- a fifth of a dollar
-    /// between the bounds at 1.5x is not noise -- so the fraction is worth
-    /// settling, and any conclusion this simulator produces about a *prompt*
-    /// excursion is a conclusion about this input and must be reported that
-    /// way.
-    ///
-    /// What it is **not** worth is the steady state: every share is zero at
-    /// rated, so no operating point, no settled temperature and no recorded
-    /// steady-state number in this simulator depends on the fraction at all.
-    /// The ablation therefore bounds the exposure precisely: transients yes,
-    /// operating points no.
+    /// Smaller than the retired
+    /// channel's 2026-09-22 table (+0.1609 $ at 0.5x shipped) because the
+    /// fuel node is the **average** kernel, 10.25 K above the bed at rated,
+    /// where the retired channel used the **peak** kernel centre, 23.45 K
+    /// above it. That is a change of instrument, stated so the two tables are
+    /// not read as the same quantity: the average kernel is the temperature a
+    /// whole-core Doppler coefficient applies to.
     #[test]
-    fn the_kernel_doppler_split_is_ablated_across_its_full_range() {
-        use uom::si::power::watt;
-
-        let beta = HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION;
-        let design_point =
-            super::super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature();
-        let rated_pebble = super::super::pebble_bed::core_average_pebble_power();
-        let profile = super::super::pebble_bed::resolved_pebble_profile(design_point, rated_pebble)
-            .expect("the design point must sit inside the pebble correlation window");
-        let resistance = ThermalResistance::new::<uom::si::thermal_resistance::kelvin_per_watt>(
-            (profile.peak_kernel_centre.get::<kelvin>() - design_point.get::<kelvin>())
-                / rated_pebble.get::<watt>(),
-        );
-        let rated = super::super::pebble_bed::design().thermal_power;
-
-        let shares = [
-            0.0,
-            0.5,
-            KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL,
-            1.0,
-        ];
-        let fractions = [0.5, 1.0, 1.5, 2.0];
-
-        println!("kernel Doppler worth [$]   f=0.0      f=0.5    f=0.712      f=1.0");
-        for fraction in fractions {
+    fn the_fuel_share_is_ablated_across_its_range() {
+        use uom::si::thermodynamic_temperature::kelvin as k_unit;
+        let bed = design_bed();
+        let shares = [1.0e-3, 0.5, FeedbackSplit::HU_FUEL_SHARE_OF_ISOTHERMAL, 1.0];
+        println!("fuel channel worth [$]    f=0.001    f=0.5   f=0.712     f=1.0");
+        for x in [0.5, 1.0, 1.5, 2.0] {
             let mut row = Vec::new();
             for share in shares {
-                let mut channel = KernelDopplerChannel::with_fuel_share(beta, share);
-                channel.set_offset_resistance(Some(resistance));
-                row.push(channel.reactivity_dollars(rated * fraction));
+                let mut k = HtgrKinetics::new_htr10_published(rated());
+                k.set_fuel_share(share);
+                let r = k.fuel_to_bed_resistance.get::<kelvin_per_watt>();
+                k.prompt.fuel_temperature =
+                    ThermodynamicTemperature::new::<k_unit>(bed.get::<k_unit>() + r * x * 1.0e7);
+                row.push(k.fuel_feedback_reactivity_dollars());
             }
             println!(
-                "  {fraction:>4.1}x rated        {:>8.4} {:>9.4} {:>10.4} {:>10.4}",
+                "  {x:>4.1}x rated        {:>8.4} {:>9.4} {:>9.4} {:>9.4}",
                 row[0], row[1], row[2], row[3]
             );
-
-            // f = 0 must be EXACTLY the old model, not approximately.
-            assert_eq!(
-                row[0], 0.0,
-                "f = 0 must reproduce the pre-2026-09-22 model bit-exactly"
-            );
-            // Monotone in f, in whichever direction the sign runs.
             let ascending = row.windows(2).all(|w| w[1] >= w[0]);
             let descending = row.windows(2).all(|w| w[1] <= w[0]);
-            assert!(
-                ascending || descending,
-                "the worth must be monotone in the fuel share; row {row:?}"
-            );
-            // The shipped default must sit between the two bounds.
-            assert!(
-                (row[2].abs() - row[3].abs()) <= 1e-12 && row[2].abs() >= row[0].abs(),
-                "the shipped share must lie between f = 0 and f = 1; row {row:?}"
-            );
+            assert!(ascending || descending, "row {row:?}");
+            if (x - 1.0f64).abs() < 1e-12 {
+                assert!(row.iter().all(|v| v.abs() < 1e-12));
+            }
         }
     }
 
+    /// V&V: the fuel node's energy ledger closes against its **true**
+    /// enthalpy (gh:#360, 2026-09-28).
+    ///
+    /// **Methodology.** Hold the bed at 950 K, insert +0.3 $ for 30 s then
+    /// -2 $ for 30 s (a heat-up and a cool-down, so the capacity moves both
+    /// ways). The ledger records `sum f_prompt P dt + sum P_decay dt - sum Q_fb dt`
+    /// using the per-step capacity; compare that with the exact enthalpy change
+    /// `integral C_fuel(T) dT` from the start to the end temperature
+    /// (trapezoid, 2000 intervals). Pass: agreement to 1e-4 of the gross energy
+    /// throughput.
+    ///
+    /// **Results (2026-09-28).** Fuel 960.250 K -> 950.467 K; deposited prompt
+    /// 8.0478e7 J, decay 2.7336e7 J, to bed 1.1044e8 J; ledger net
+    /// -2.6214e6 J vs exact enthalpy change -2.6211e6 J -- residual 1.4e-6 of
+    /// the throughput (the per-step frozen capacity; well inside 1e-4).
+    #[test]
+    fn the_fuel_node_ledger_closes_against_the_true_enthalpy() {
+        use uom::si::thermodynamic_temperature::kelvin as k_unit;
+        let mut k = HtgrKinetics::new_htr10_published(rated());
+        let bed = design_bed();
+        let t0 = k.fuel_temperature().get::<k_unit>();
+        let dt = Time::new::<second>(0.1);
+        for i in 0..600 {
+            let rho = if i < 300 { 0.3 } else { -2.0 };
+            k.step(dt, rho, bed, None);
+        }
+        let t1 = k.fuel_temperature().get::<k_unit>();
+        let n = 2000;
+        let mut exact = 0.0;
+        for j in 0..n {
+            let a = t0 + (t1 - t0) * j as f64 / n as f64;
+            let b = t0 + (t1 - t0) * (j + 1) as f64 / n as f64;
+            let ca =
+                super::super::pebble_bed::fuel_node_heat_capacity(ThermodynamicTemperature::new::<
+                    k_unit,
+                >(a))
+                .get::<joule_per_kelvin>();
+            let cb =
+                super::super::pebble_bed::fuel_node_heat_capacity(ThermodynamicTemperature::new::<
+                    k_unit,
+                >(b))
+                .get::<joule_per_kelvin>();
+            exact += 0.5 * (ca + cb) * (b - a);
+        }
+        let l = k.ledger();
+        let net = l.deposited_prompt + l.deposited_decay - l.conducted_to_bed;
+        let throughput = l.deposited_prompt + l.deposited_decay + l.conducted_to_bed;
+        println!(
+            "fuel {t0:.3} K -> {t1:.3} K; deposited prompt {:.4e} J, decay {:.4e} J, to bed \
+             {:.4e} J; ledger net {net:.4e} J vs exact enthalpy change {exact:.4e} J \
+             (residual {:.3e} of throughput)",
+            l.deposited_prompt,
+            l.deposited_decay,
+            l.conducted_to_bed,
+            (net - exact).abs() / throughput
+        );
+        assert!((net - l.stored).abs() < 1e-6 * throughput);
+        assert!((net - exact).abs() < 1e-4 * throughput);
+    }
 }

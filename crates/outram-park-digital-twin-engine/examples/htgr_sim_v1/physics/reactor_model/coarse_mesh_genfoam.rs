@@ -77,8 +77,7 @@
 //! unvalidated coupling ahead of it being real.
 
 use super::one_node::PebbleBedPorousMediaNode;
-use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
-use uom::si::power::watt;
+use uom::si::f64::{AvailableEnergy, MassRate, Power, ThermodynamicTemperature, Time};
 
 /// Placeholder coarse-mesh GeN-Foam core. Currently a thin wrapper around
 /// [`PebbleBedPorousMediaNode`] -- every method below delegates to it
@@ -114,17 +113,33 @@ impl CoarseMeshGenFoamCore {
     pub fn step(
         &mut self,
         dt: Time,
-        fission_power: Power,
-        helium_inlet_temperature: ThermodynamicTemperature,
+        net_heat_to_bed: Power,
+        pebble_conduction_power: Power,
+        helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
+        passive_path: &mut crate::physics::decay_heat_removal::CoreToRccsPath,
     ) -> Power {
         self.fallback.step(
             dt,
-            fission_power,
-            Power::new::<watt>(0.0),
-            helium_inlet_temperature,
+            net_heat_to_bed,
+            pebble_conduction_power,
+            helium_inlet_enthalpy,
             helium_mass_flow,
+            passive_path,
         )
+    }
+
+    /// Delegates to [`PebbleBedPorousMediaNode::fuel_bed_coupling`]. Every
+    /// tier needs one since 2026-09-28 (gh:#360): the fuel node in
+    /// `physics::kinetics` loses its heat to the bed through it, whatever
+    /// tier the bed is.
+    pub fn fuel_bed_coupling(&self) -> Option<super::one_node::FuelBedCoupling> {
+        self.fallback.fuel_bed_coupling()
+    }
+
+    /// Delegates to [`PebbleBedPorousMediaNode::last_step_energy`].
+    pub fn last_step_energy(&self) -> super::one_node::BedStepEnergy {
+        self.fallback.last_step_energy()
     }
 
     /// Delegates to [`PebbleBedPorousMediaNode::pebble_temperature`]. A real
@@ -135,11 +150,9 @@ impl CoarseMeshGenFoamCore {
         self.fallback.pebble_temperature()
     }
 
-    /// Delegates to [`PebbleBedPorousMediaNode::helium_temperature`] -- in a
-    /// real implementation this becomes the mesh's outlet-boundary helium
-    /// temperature.
-    pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
-        self.fallback.helium_temperature()
+    /// Delegates to [`PebbleBedPorousMediaNode::helium_outlet_enthalpy`].
+    pub fn helium_outlet_enthalpy(&self) -> AvailableEnergy {
+        self.fallback.helium_outlet_enthalpy()
     }
 }
 

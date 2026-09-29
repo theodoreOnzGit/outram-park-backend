@@ -730,6 +730,73 @@ pub enum SolverMode {
     HybridAllMach,
 }
 
+/// Face-interpolation scheme for the **energy equation's** convection term
+/// `∇·(φh)` (see [`TampinesSteamArray::he_convection_scheme`]) -- OpenFOAM's
+/// `div(phi,h)` entry in `fvSchemes`.
+///
+/// Enum dispatch (no trait objects) over the flux limiter `λ(r)` applied to the
+/// upwind-biased face reconstruction: `λ = 0` is first-order upwind, `λ = 1`
+/// unlimited central differencing, and the TVD variants pick `λ(r)` from the
+/// local slope ratio so that no new extremum is created.
+///
+/// **Ported 2026-09-29 (gh:#319, #343)** from the sibling port's
+/// `outram_park_fork_coolprop::openfoam_algorithms::rhoPimpleFoam::EnergyConvectionScheme`,
+/// which gained it on 2026-08-12 (bead `op-1fyp`). Until this date the steam
+/// array had no such setting: it convected enthalpy with an explicit
+/// `fvc::div` whose face value is a plain **linear** interpolation, i.e.
+/// `Gauss linear` -- which no upstream `rhoPimpleFoam` tutorial uses for
+/// `div(phi,h)` / `div(phi,e)` (they use `limitedLinear 1`, `linearUpwind`,
+/// `LUST` or `upwind`; checked in the vendored
+/// `crates/outram-foam-basic-lib/upstream_source/openfoam/tutorials/compressible/rhoPimpleFoam/`).
+///
+/// # Why the default changed, and what it fixed
+///
+/// On a coarse steam-generator tube the cell Péclet number is enormous, and
+/// central differencing is then unbounded. At steady state a cell's balance
+/// reads `m_dot (h_in,face - h_out,face) + Q = 0` with
+/// `h_out,face = (h_0 + h_1)/2`, so the inlet cell settles at
+/// `h_0 = 2 h_in - h_1 + 2 Q_0 / m_dot`: **whenever the next cell boils while
+/// the inlet cell is only weakly heated, `h_0` is driven below the feedwater
+/// enthalpy, without bound**. Measured 2026-09-29 on the HTR-10 tube (8 cells,
+/// 34 m, 4 MPa, 313.15 K feedwater at 3 kg/s, inlet-cell wall at the feedwater
+/// temperature, 700 K downstream): the inlet cell fell 100 kJ/kg below the
+/// feedwater at 10.74 s and was still falling at 1.5 kJ/kg per 0.125 s -- the
+/// walk to the 273.15 K IF97 floor behind gh:#319. With the van Leer default it
+/// never undercuts the feedwater
+/// (`tests/heated_tube_never_undercuts_its_feedwater.rs`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum EnergyConvectionScheme {
+    /// **van Leer TVD limiter**, `λ(r) = (r + |r|)/(1 + |r|)` -- the default.
+    /// Second order where the enthalpy field is smooth, falling back toward
+    /// upwind at a front so the field stays bounded by its own initial and
+    /// boundary data. OpenFOAM equivalent: `div(phi,h) Gauss vanLeer`.
+    #[default]
+    VanLeer,
+    /// **minmod TVD limiter**, `λ(r) = max(0, min(r, 1))` -- the most diffusive
+    /// TVD limiter, and the most robust.
+    Minmod,
+    /// **First-order upwind**, `λ ≡ 0`. Bounded (at CFL ≤ 1), strongly diffusive.
+    Upwind,
+    /// **Unlimited central differencing**, `λ ≡ 1` -- second order and
+    /// **unbounded**. The scheme this array used until 2026-09-29, kept only as
+    /// an explicit ablation so a historical study can be re-run: it calls the
+    /// historical operator `fvc::div` itself, so it is **bit-for-bit** the
+    /// pre-2026-09-29 behaviour. **Do not select this for new work** -- see the
+    /// enum doc for the undershoot it produces.
+    Linear,
+}
+
+impl EnergyConvectionScheme {
+    fn limiter(self) -> fvc::Limiter {
+        match self {
+            Self::VanLeer => fvc::Limiter::VanLeer,
+            Self::Minmod => fvc::Limiter::Minmod,
+            Self::Upwind => fvc::Limiter::Upwind,
+            Self::Linear => fvc::Limiter::Linear,
+        }
+    }
+}
+
 /// Which thermodynamic closure `correct_thermo` uses to obtain the cell state.
 ///
 /// Exists so the two can be **measured against each other** on the same case;
@@ -1036,6 +1103,10 @@ pub struct TampinesSteamArray {
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
     /// to the historical path). See [`Self::set_solver_mode`].
     pub mode: SolverMode,
+    /// Face scheme for the energy equation's convection `∇·(φh)` (default
+    /// [`EnergyConvectionScheme::VanLeer`]). See
+    /// [`Self::set_he_convection_scheme`].
+    pub he_convection_scheme: EnergyConvectionScheme,
     /// Lower Mach threshold `lo` of the hybrid blend window
     /// `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)` (default `0.3`, dimensionless).
     /// Below `lo` the KNP dissipation is identically zero. Only read when
@@ -1245,6 +1316,7 @@ impl TampinesSteamArray {
             knp_face_closure: KnpFaceClosure::ReconstructedPressure,
             thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
+            he_convection_scheme: EnergyConvectionScheme::default(),
             ma_blend_lo: Ratio::new::<ratio>(0.3),
             ma_blend_hi: Ratio::new::<ratio>(1.0),
             u,
@@ -2090,7 +2162,19 @@ impl TampinesSteamArray {
 
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
-            let conv_he = fvc::div(&self.phi, &self.he); // explicit ∇·(φh)/V
+            // Explicit ∇·(φh)/V with an upwind-biased, flux-limited face value
+            // (`he_convection_scheme`, default van Leer TVD), and direction-
+            // switched advection terminals. ~~`fvc::div(&self.phi, &self.he)`~~
+            // -- a plain linear (central) face value, unbounded at cell
+            // Péclet ≫ 1 -- until 2026-09-29 (gh:#319, #343): it walked a
+            // steam-generator tube's inlet cell from the feedwater to the
+            // IF97 floor. See [`EnergyConvectionScheme`].
+            let conv_he = match self.he_convection_scheme {
+                // The ablation is the historical operator itself, so it
+                // reproduces pre-2026-09-29 results bit for bit.
+                EnergyConvectionScheme::Linear => fvc::div(&self.phi, &self.he),
+                scheme => fvc::div_limited(&self.phi, &self.he, scheme.limiter()),
+            };
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
             let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
@@ -2711,6 +2795,20 @@ impl TampinesSteamArray {
     /// central-upwind dissipation as a deferred correction on near-sonic faces.
     pub fn set_solver_mode(&mut self, mode: SolverMode) {
         self.mode = mode;
+    }
+
+    /// The face scheme of the energy equation's convection term. See
+    /// [`EnergyConvectionScheme`].
+    pub fn get_he_convection_scheme(&self) -> EnergyConvectionScheme {
+        self.he_convection_scheme
+    }
+
+    /// Select the face scheme of the energy equation's convection term. The
+    /// default [`EnergyConvectionScheme::VanLeer`] is bounded;
+    /// [`EnergyConvectionScheme::Linear`] is the pre-2026-09-29 unbounded
+    /// scheme, available only as an explicit ablation.
+    pub fn set_he_convection_scheme(&mut self, scheme: EnergyConvectionScheme) {
+        self.he_convection_scheme = scheme;
     }
 
     /// The current hybrid Mach-blend window `(lo, hi)` (dimensionless Mach

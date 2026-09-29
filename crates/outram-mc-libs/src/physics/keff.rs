@@ -1446,12 +1446,13 @@ enum CollisionResult {
     /// down-scattered primary and every extra stay live.
     ///
     /// The extras are a fixed-size array rather than a `Vec` because this is
-    /// the hot loop and the count is at most two; `n_sec` says how many of
-    /// `sec` are live.
+    /// the hot loop and the count is at most three ((n,4n), MT=37, via the
+    /// other-channel arm; GitHub #365 audit); `n_sec` says how many of `sec`
+    /// are live.
     ScatterWithSecondaries {
         e: f64,
         u: Direction,
-        sec: [(f64, Direction); 2],
+        sec: [(f64, Direction); 3],
         n_sec: usize,
     },
 }
@@ -1486,11 +1487,14 @@ fn collide_batched(
     let ci = material.sample_nuclide(e, seed, nuclides);
     let nuc = &nuclides[material.components[ci].nuclide_idx];
     let x = if nuc.needs_urr_draw(e) {
-        // Unresolved-resonance self-shielding: draw one band. The
-        // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-        // bit-identical to one from before they existed -- an
-        // unconditional draw would shift every RNG stream in the crate
-        // for no physical reason.
+        // Unresolved-resonance self-shielding: draw one band.
+        //
+        // **Not OpenMC's scheme here (GitHub #407).** The CPU kernels use one
+        // band per nuclide and energy for the flight, the nuclide choice and
+        // the reaction (`Material::macro_xs_total_urr`, `urr_xi`). This GPU
+        // path flies on a union-grid table of the smooth total and draws the
+        // band only at the collision, from the transport stream. Carrying the
+        // URR stream across the GPU flight is not ported.
         nuc.xs_at_energy_urr(e, temp, prn(seed))
     } else {
         nuc.xs_at_energy(e, temp)
@@ -1560,7 +1564,7 @@ fn collide_batched(
                 CollisionResult::ScatterWithSecondaries {
                     e: e2,
                     u: u2,
-                    sec: [(sec_e2, sec_u2), (sec_e2, sec_u2)],
+                    sec: [(sec_e2, sec_u2); 3],
                     n_sec: 1,
                 },
             )
@@ -1575,8 +1579,10 @@ fn collide_batched(
         // and the partition is unchanged for any reactor spectrum.
         let has17 = nuc.has_evaluated_emission(17);
         let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
-        let mut sec = [(e2, u2); 2];
-        for slot in sec.iter_mut() {
+        // Three slots (the array holds (n,4n)'s extras too); two are drawn, as
+        // before, so the RNG stream is unchanged.
+        let mut sec = [(e2, u2); 3];
+        for slot in sec.iter_mut().take(2) {
             if has17 {
                 *slot = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
             }
@@ -1611,8 +1617,8 @@ fn collide_batched(
         // (n,2n)/(n,3n). Drawn unconditionally so the count, not the draw
         // sequence, is what varies -- keeping the RNG stream aligned between
         // multiplicities.
-        let mut sec = [(e2, u2); 2];
-        for slot in sec.iter_mut() {
+        let mut sec = [(e2, u2); 3];
+        for slot in sec.iter_mut().take(2) {
             *slot = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
         }
         // `y(E) = 0` is a real state, not an edge case: ENDF/B-VIII.0's U-235
@@ -1638,6 +1644,30 @@ fn collide_batched(
             )
         } else {
             (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+        // The other neutron-emitting reactions -- (n,n alpha), (n,np), (n,4n),
+        // ... (GitHub #365 audit). Inside MT=1 like the arms above, so before
+        // this they fell through to ELASTIC and lost their extra neutrons.
+        // `x.other` is 0 below their thresholds (>= several MeV on every held
+        // nuclide), so the partition is unchanged for a fission spectrum below.
+        let o = nuc.sample_other_emission(e, u, seed);
+        if o.n_emit == 0 {
+            return (0.0, CollisionResult::Dead);
+        }
+        let n_sec = o.n_emit.saturating_sub(1).min(3);
+        if n_sec > 0 {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: o.e,
+                    u: o.u,
+                    sec: o.extras,
+                    n_sec,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: o.e, u: o.u })
         }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
@@ -1684,14 +1714,22 @@ fn transport_history(
     let mut production = 0.0;
     // Same-generation work stack: the source neutron plus any (n,2n) secondaries.
     let mut stack: Vec<Site> = vec![site];
+    // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`: see
+    // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
+    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
+        let mut urr_e_last = e;
 
         loop {
-            let sigma_t = material.macro_xs_total(e, nuclides);
+            if e != urr_e_last {
+                urr_seed = future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
+            }
+            let sigma_t = material.macro_xs_total_urr(e, nuclides, urr_seed);
             if !(sigma_t > 0.0) {
                 break; // no interaction possible; treat as escape
             }
@@ -1704,15 +1742,13 @@ fn transport_history(
 
             // Collide: advance to the collision site and pick the target nuclide.
             r = stream(r, u, d_col);
-            let ci = material.sample_nuclide(e, seed, nuclides);
-            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+            let nuc_idx = material.components[ci].nuclide_idx;
+            let nuc = &nuclides[nuc_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
-                nuc.xs_at_energy_urr(e, temp, prn(seed))
+                // The same band the flight and the nuclide choice used
+                // (GitHub #407; OpenMC `calculate_urr_xs`).
+                nuc.xs_at_energy_urr(e, temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
             } else {
                 nuc.xs_at_energy(e, temp)
             };
@@ -1867,6 +1903,18 @@ fn transport_history(
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // Other neutron-emitting reactions (GitHub #365 audit); see the
+                // equivalent arm in `collide`.
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Scattering. A moderator nuclide carrying an S(alpha, beta)
                 // table thermalizes via the bound-atom law below its cutoff
@@ -1972,11 +2020,9 @@ fn transport_history_tabulated(
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
+                // Unresolved-resonance self-shielding: draw one band. As in
+                // `collide_batched`, this GPU path does not carry OpenMC's URR
+                // stream (GitHub #407): it flies on the smooth total.
                 nuc.xs_at_energy_urr(e, temp, prn(seed))
             } else {
                 nuc.xs_at_energy(e, temp)
@@ -2107,6 +2153,18 @@ fn transport_history_tabulated(
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // Other neutron-emitting reactions (GitHub #365 audit); see the
+                // equivalent arm in `collide`.
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Kept in lockstep with [`transport_history`] — the two differ
                 // only in where Sigma_t comes from, so the bound-atom

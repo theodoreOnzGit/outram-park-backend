@@ -171,20 +171,22 @@ use state::{HtgrPlotData, HtgrSnapshot};
 /// Nothing is clamped here on purpose: the physics clamps every field itself
 /// (see [`PlantCommands`]), so a value arriving from an OPC-UA write or a test
 /// gets exactly the same bounds as one from a slider.
-fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
+pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
     PlantCommands {
         control_rod_insertion_fraction: s.control_rod_insertion_fraction,
         helium_flow_setpoint: MassRate::new::<kilogram_per_second>(s.helium_flow_setpoint_kg_per_s),
-        // Wind is weather, not plant state -- the operator dials it in the way
-        // they would read it off a met mast. Nothing is clamped here; the
-        // dispersion channel bounds it, same as every other command.
-        meteorology: crate::physics::atmospheric_dispersion::Meteorology {
-            speed: uom::si::f64::Velocity::new::<uom::si::velocity::meter_per_second>(
-                s.wind_speed_m_per_s,
-            ),
-            direction_from: uom::si::f64::Angle::new::<uom::si::angle::degree>(s.wind_from_deg),
-            ..crate::physics::atmospheric_dispersion::Meteorology::default()
-        },
+        // ~~Wind is weather, not plant state -- the operator dials it in the
+        // way they would read it off a met mast. Nothing is clamped here~~
+        // CHANGED 2026-09-29 (maintainer: "that is to be the puff model used
+        // for the map"): the map's ONE puff-model configuration -- fixed
+        // inter-monsoon regime and class, speed clamped to 0.5-5 m/s,
+        // direction only rotates -- built by `map_puff_model::map_meteorology`
+        // and nowhere else, so every map basis and table reads the same
+        // channel run. Limitations: gh:#384.
+        meteorology: crate::physics::map_puff_model::map_meteorology(
+            s.wind_speed_m_per_s,
+            s.wind_from_deg,
+        ),
         // What the Map tab wants of the dispersion field: one cell per screen
         // pixel of the map square, and the operator's plume-clock
         // fast-forward. Travels as a command for the same reason the wind
@@ -194,12 +196,13 @@ fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
         map_field: crate::physics::atmospheric_dispersion::MapFieldRequest {
             cells: s.map_field_cells_requested,
             plume_clock_offset: Time::new::<second>(s.plume_clock_offset_s),
+            weighting: s.map_field_weighting,
         },
-        scenario: if s.circulator_tripped {
-            crate::physics::Scenario::Lofc
-        } else {
-            crate::physics::Scenario::Normal
-        },
+        scenario: crate::physics::scenario_from(
+            s.circulator_tripped,
+            s.water_ingress_triggered,
+            s.dlofc_triggered,
+        ),
         secondary: SecondaryCommands {
             feedwater: if s.feedwater_manual {
                 FeedwaterCommand::Manual {
@@ -560,8 +563,12 @@ impl HtgrSimApp {
     /// Discard the crashed run and start a new plant from defaults, in-app,
     /// without the operator closing the window.
     ///
-    /// Called only from the crash modal's **Restart simulation** button (see
-    /// [`show_crash_modal_with_restart`]).
+    /// Called from the crash modal's **Restart simulation** button (see
+    /// [`show_crash_modal_with_restart`]) and from the Map tab's **Reset
+    /// plant** button ([`map_tab::MapAction::ResetPlant`], gh:#400) -- one
+    /// reset path, so a reset plant is identical to a freshly launched one.
+    /// The Map tab's display state (`map_state`) is a display preference and
+    /// is kept, like the open panel.
     ///
     /// # Why this is safe after a panic
     ///
@@ -603,6 +610,18 @@ impl HtgrSimApp {
         self.thread_health = run.thread_health;
         self.tracers = SchematicTracers::new();
         self.plant_clock_rate = PlantClockRate::default();
+    }
+
+    /// Act on what the Map tab asked for this frame (gh:#400).
+    fn apply_map_action(&mut self, action: map_tab::MapAction) {
+        match action {
+            map_tab::MapAction::None => {}
+            map_tab::MapAction::ResetPlant => self.restart_simulation(),
+            map_tab::MapAction::StartWaterIngress => {
+                self.physics.update(|s| s.water_ingress_triggered = true)
+            }
+            map_tab::MapAction::StartDlofc => self.physics.update(|s| s.dlofc_triggered = true),
+        }
     }
 }
 
@@ -707,7 +726,7 @@ impl eframe::App for HtgrSimApp {
 
         egui::Panel::top("htgr_top").show(ui, |ui| {
             ui.heading(
-                "HTGR Educational Simulator v1.1 -- scaffold (OUTRAM PARK digital-twin engine)",
+                "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
             );
             ui.horizontal(|ui| {
                 egui::global_theme_preference_buttons(ui);
@@ -759,6 +778,9 @@ impl eframe::App for HtgrSimApp {
         // Copied out before the closures below borrow `self` -- the unit is a
         // `Copy` display setting, so the panels take it by value.
         let display_unit = self.display_unit;
+        // What the Map tab asked for this frame, acted on after the panel
+        // closure releases its borrow of `self` (gh:#400).
+        let mut map_action = map_tab::MapAction::None;
         egui::CentralPanel::default().show(ui, |ui| {
             // The schematic tab brings its own pan-and-zoom viewport, so it is
             // kept out of the outer scroll area (nesting two two-axis scroll
@@ -778,14 +800,20 @@ impl eframe::App for HtgrSimApp {
                     Panel::Schematic => {} // drawn above, outside this scroll area
                     Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
                     Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                    Panel::Thermal => {
-                        thermal_tab::draw_thermal(ui, &snapshot, display_unit)
-                    }
+                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot, display_unit),
                     Panel::Map => {
-                        map_tab::draw_map(ui, &self.physics, &snapshot, &mut self.map_state, view)
+                        map_action = map_tab::draw_map(
+                            ui,
+                            &self.physics,
+                            &snapshot,
+                            &mut self.map_state,
+                            view,
+                        )
                     }
                 });
         });
+
+        self.apply_map_action(map_action);
 
         // Keep animating while physics runs on its own threads.
         ui.ctx().request_repaint();
@@ -865,6 +893,36 @@ mod tests {
     ///
     /// **2026-09-22:** the `last_sim_time_s` check was removed with the field
     /// itself, when the tracers moved from the plant clock to frame time.
+    /// **The Map tab's Reset plant button starts the plant from defaults; no
+    /// action leaves the run alone** (gh:#400).
+    ///
+    /// Methodology: a real app; let run 1 advance; apply `MapAction::None`
+    /// and check the same run is still live; then apply `ResetPlant` (the
+    /// button's path) and check the plant clock went back, the old run was
+    /// retired and the new run is live. Result (2026-09-29): pass.
+    #[test]
+    fn the_map_reset_button_restarts_the_plant_and_keeps_the_map_view() {
+        let mut app = HtgrSimApp::start();
+        let mut advanced_to = 0.0;
+        for _ in 0..40 {
+            thread::sleep(Duration::from_millis(50));
+            advanced_to = app.physics.snapshot().sim_time_s;
+            if advanced_to > 0.0 {
+                break;
+            }
+        }
+        assert!(advanced_to > 0.0, "run 1 never advanced");
+        let run_1 = app.thread_health.clone();
+        app.apply_map_action(map_tab::MapAction::None);
+        assert!(run_1.is_running(), "no action must not touch the run");
+
+        app.apply_map_action(map_tab::MapAction::ResetPlant);
+        assert!(!run_1.is_running(), "the reset run must be retired");
+        assert!(app.thread_health.is_running());
+        assert!(app.physics.snapshot().sim_time_s < advanced_to);
+        app.thread_health.retire();
+    }
+
     #[test]
     fn restarting_starts_a_fresh_run_and_abandons_the_old_one() {
         let mut app = HtgrSimApp::start();
@@ -1036,8 +1094,12 @@ mod tests {
     ///
     /// **Results (2026-09-22, after the fix).** The default snapshot maps to
     /// exactly `PlantCommands::default()`: rods 0.50, helium **1.29 kg/s**,
-    /// feedwater **MANUAL at 10.0 kg/s**, condenser 7.000 kPa, wind 3.0 m/s
-    /// from 0 deg at hour 12. Flipping `feedwater_manual` to `false` yields
+    /// feedwater **MANUAL at 10.0 kg/s**, condenser 7.000 kPa, ~~wind 3.0 m/s
+    /// from 0 deg at hour 12~~ **(2026-09-29)** the map puff model: wind
+    /// 1.0 m/s from 0 deg at hour 12, class B fixed (`map_puff_model`). This
+    /// test caught the plant default still on the old 3 m/s speed-derived
+    /// meteorology when the map moved -- a second copy, removed. Flipping
+    /// `feedwater_manual` to `false` yields
     /// `Auto { target_steam_temperature: 713.15 K }`.
     ///
     /// **Interpretation.** The opening frame commands the plant's current

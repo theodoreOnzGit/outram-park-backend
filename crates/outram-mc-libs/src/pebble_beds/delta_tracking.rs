@@ -88,7 +88,7 @@ impl Majorant {
             .map(|&e| {
                 let m = materials
                     .iter()
-                    .map(|mat| mat.macro_xs_total(e, nuclides))
+                    .map(|mat| mat.macro_xs_total_upper_bound(e, nuclides))
                     .fold(0.0_f64, f64::max);
                 m * scale
             })
@@ -198,7 +198,7 @@ impl Majorant {
         let sigma_t_max = |e: f64| {
             materials
                 .iter()
-                .map(|m| m.macro_xs_total(e, nuclides))
+                .map(|m| m.macro_xs_total_upper_bound(e, nuclides))
                 .fold(0.0_f64, f64::max)
         };
 
@@ -671,6 +671,45 @@ where
     D: Fn(Position, Direction) -> f64,
     M: Fn(Position) -> Option<usize>,
 {
+    bounded_delta_flight_urr(
+        start,
+        direction,
+        energy,
+        majorant,
+        materials,
+        nuclides,
+        max_virtual,
+        distance_to_exit,
+        material_at,
+        seed,
+        None,
+    )
+}
+
+/// [`bounded_delta_flight`] for a neutron carrying a URR stream seed: the real
+/// `Σ_t` at each tentative site is the **band** total
+/// ([`Material::macro_xs_total_urr`]), the one the collision will use, as in
+/// OpenMC (GitHub #407). The majorant must then bound band totals, which every
+/// constructor here does ([`Material::macro_xs_total_upper_bound`]). With
+/// `urr_seed = None` it is `bounded_delta_flight` exactly.
+#[allow(clippy::too_many_arguments)]
+pub fn bounded_delta_flight_urr<D, M>(
+    start: Position,
+    direction: Direction,
+    energy: f64,
+    majorant: &Majorant,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    max_virtual: u32,
+    distance_to_exit: D,
+    material_at: M,
+    seed: &mut u64,
+    urr_seed: Option<u64>,
+) -> DeltaStep
+where
+    D: Fn(Position, Direction) -> f64,
+    M: Fn(Position) -> Option<usize>,
+{
     let maj = majorant.at(energy);
     let mut r = start;
     let mut virtual_collisions = 0_u32;
@@ -713,7 +752,10 @@ where
             // wrong answer.
             return DeltaStep::Exhausted { virtual_collisions };
         };
-        let sigma_t = materials[m].macro_xs_total(energy, nuclides);
+        let sigma_t = match urr_seed {
+            Some(us) => materials[m].macro_xs_total_urr(energy, nuclides, us),
+            None => materials[m].macro_xs_total(energy, nuclides),
+        };
         match classify_collision(sigma_t, maj, seed) {
             DeltaEvent::Real => {
                 return DeltaStep::Collision {

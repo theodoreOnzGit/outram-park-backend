@@ -90,8 +90,7 @@ use axial_seven_node::AxialSevenNodeCore;
 use coarse_mesh_genfoam::CoarseMeshGenFoamCore;
 use one_node::PebbleBedPorousMediaNode;
 use std::fmt;
-use uom::si::f64::{MassRate, Power, ThermalResistance, ThermodynamicTemperature, Time};
-use uom::si::power::watt;
+use uom::si::f64::{AvailableEnergy, MassRate, Power, ThermodynamicTemperature, Time};
 
 /// Which pebble-bed fidelity tier is selected -- the `HeaterType`-shaped
 /// marker for [`ReactorModel`].
@@ -210,47 +209,48 @@ impl ReactorModel {
     /// question the primary loop asks: how much heat crossed the pebble
     /// surface this step, given the fission power and the core inlet state.
     ///
-    /// `fission_power` here is, for every tier, already the CALLER-SUMMED
-    /// reactor thermal power (fission plus fission-product decay heat) --
-    /// see `mod.rs`'s "Pebble bed absorbs the core's THERMAL power" comment
-    /// at the `HtgrPlant::step_with_correctors` call site, which passes
-    /// `kinetics::Kinetics::core_thermal_power()`. Every variant wraps
-    /// [`one_node::PebbleBedPorousMediaNode::step`] (directly, or via a
-    /// placeholder's fallback), whose signature takes fission power and
-    /// decay heat as SEPARATE arguments (see its doc comment); this method
-    /// folds the already-summed value in as `fission_power` with a zero
-    /// `decay_heat_power`, since there is no separate decay-heat quantity
-    /// available at this layer to pass instead.
-    /// [`one_node::tests::fission_power_and_decay_heat_power_sum_into_the_same_source_term`]
-    /// establishes that the split does not change the result -- only the
-    /// sum enters `PebbleBedPorousMediaNode`'s balance -- so this is exact,
-    /// not an approximation.
+    /// ~~`fission_power` here is, for every tier, already the CALLER-SUMMED
+    /// reactor thermal power (fission plus fission-product decay heat)~~
+    /// **CHANGED 2026-09-28 (gh:#360)** — the bed no longer receives the
+    /// reactor power: fission and decay heat are deposited in the fuel node
+    /// (`physics::kinetics`), and the bed receives `net_heat_to_bed`, the
+    /// fuel-to-bed conduction less the passive loss, while
+    /// `pebble_conduction_power` (the gross fuel-to-bed heat) is what the
+    /// resolved pebble is solved at. See
+    /// [`one_node::PebbleBedPorousMediaNode::step`].
     pub fn step(
         &mut self,
         dt: Time,
-        fission_power: Power,
-        helium_inlet_temperature: ThermodynamicTemperature,
+        net_heat_to_bed: Power,
+        pebble_conduction_power: Power,
+        helium_inlet_enthalpy: AvailableEnergy,
         helium_mass_flow: MassRate,
+        passive_path: &mut crate::physics::decay_heat_removal::CoreToRccsPath,
     ) -> Power {
         match self {
             Self::OneNodePorousMedia(core) => core.step(
                 dt,
-                fission_power,
-                Power::new::<watt>(0.0),
-                helium_inlet_temperature,
+                net_heat_to_bed,
+                pebble_conduction_power,
+                helium_inlet_enthalpy,
                 helium_mass_flow,
+                passive_path,
             ),
             Self::AxialSevenNode(core) => core.step(
                 dt,
-                fission_power,
-                helium_inlet_temperature,
+                net_heat_to_bed,
+                pebble_conduction_power,
+                helium_inlet_enthalpy,
                 helium_mass_flow,
+                passive_path,
             ),
             Self::CoarseMeshGenFoam(core) => core.step(
                 dt,
-                fission_power,
-                helium_inlet_temperature,
+                net_heat_to_bed,
+                pebble_conduction_power,
+                helium_inlet_enthalpy,
                 helium_mass_flow,
+                passive_path,
             ),
         }
     }
@@ -265,40 +265,33 @@ impl ReactorModel {
         }
     }
 
-    /// Helium temperature leaving the bed.
-    ///
-    /// For `OneNodePorousMedia` this is
-    /// [`one_node::PebbleBedPorousMediaNode::helium_temperature`] -- the
-    /// node's own (well-mixed) fluid temperature, which stands in for an
-    /// "outlet" the same way [`one_node::PebbleBedPorousMediaNode`]'s CSTR
-    /// assumption already treats it (see that struct's doc comment): this
-    /// tier has no separate outlet state to report.
-    pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
+    // ~~`helium_outlet_temperature`~~ -- deleted 2026-09-29: the primary
+    // loop takes the bed outlet as an ENTHALPY (gh:#393) and reports its
+    // temperature itself (`HeliumPrimaryLoop::core_outlet_temperature`), so
+    // nothing read this any more.
+
+    /// Specific enthalpy of the helium leaving the bed \[J/kg\] -- the
+    /// fluid node's integrated state (gh:#393, 2026-09-29), which the primary
+    /// loop's hot-duct CV receives. Every tier: the placeholders are one node
+    /// underneath.
+    pub fn helium_outlet_enthalpy(&self) -> AvailableEnergy {
         match self {
-            Self::OneNodePorousMedia(core) => core.helium_temperature(),
-            Self::AxialSevenNode(core) => core.helium_outlet_temperature(),
-            Self::CoarseMeshGenFoam(core) => core.helium_outlet_temperature(),
+            Self::OneNodePorousMedia(core) => core.helium_outlet_enthalpy(),
+            Self::AxialSevenNode(core) => core.helium_outlet_enthalpy(),
+            Self::CoarseMeshGenFoam(core) => core.helium_outlet_enthalpy(),
         }
     }
 
-    /// Peak fuel-kernel temperature, where the tier resolves one.
-    ///
-    /// `None` is the honest answer for the two placeholder tiers: neither
-    /// resolves the inside of a pebble, so neither has a kernel temperature to
-    /// report and neither may invent one. Consumers
-    /// ([`crate::physics::kinetics::KernelDopplerChannel`], the core map, the
-    /// TRISO-ATOPS release channel) fall back to bed-node behaviour on `None`.
-    pub fn peak_kernel_temperature(&self) -> Option<ThermodynamicTemperature> {
-        match self {
-            Self::OneNodePorousMedia(core) => core.peak_kernel_temperature(),
-            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => None,
-        }
-    }
+    // ~~`peak_kernel_temperature`~~ -- deleted 2026-09-29: no caller since
+    // gh:#360 moved the release and Doppler channels onto the fuel stack
+    // (`HtgrPlant::fuel_stack_temperatures`). The one-node tier still
+    // resolves it (`one_node::PebbleBedPorousMediaNode::peak_kernel_temperature`),
+    // and `Self::pebble_profile` publishes the whole profile.
 
     /// The whole resolved pebble profile, where the tier resolves one.
     ///
     /// `None` for the two placeholder tiers, on the same terms as
-    /// [`Self::peak_kernel_temperature`]: neither resolves the inside of a
+    /// ~~`Self::peak_kernel_temperature`~~ (deleted 2026-09-29): neither resolves the inside of a
     /// pebble, so neither has an interior to report and neither may invent
     /// one. The Map tab draws "--" rather than a fabricated profile.
     pub fn pebble_profile(
@@ -310,16 +303,24 @@ impl ReactorModel {
         }
     }
 
-    /// Kernel-above-node thermal resistance \[K/W of per-pebble power\],
-    /// where the tier resolves one. See
-    /// [`one_node::PebbleBedPorousMediaNode::kernel_offset_resistance`] for
-    /// why the *slope* rather than the temperature is what crosses this
-    /// boundary, and [`Self::peak_kernel_temperature`] for why the other two
-    /// tiers return `None`.
-    pub fn kernel_offset_resistance(&self) -> Option<ThermalResistance> {
+    /// The fuel-to-bed coupling the kinetics fuel node loses heat through
+    /// (gh:#360, 2026-09-28). **Every tier** answers: the placeholders are one
+    /// node underneath, and the fuel node needs a heat path whatever the bed.
+    pub fn fuel_bed_coupling(&self) -> Option<one_node::FuelBedCoupling> {
         match self {
-            Self::OneNodePorousMedia(core) => core.kernel_offset_resistance(),
-            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => None,
+            Self::OneNodePorousMedia(core) => core.fuel_bed_coupling(),
+            Self::AxialSevenNode(core) => core.fuel_bed_coupling(),
+            Self::CoarseMeshGenFoam(core) => core.fuel_bed_coupling(),
+        }
+    }
+
+    /// Energy terms of the most recent bed step, every tier. See
+    /// [`one_node::BedStepEnergy`].
+    pub fn last_step_energy(&self) -> one_node::BedStepEnergy {
+        match self {
+            Self::OneNodePorousMedia(core) => core.last_step_energy(),
+            Self::AxialSevenNode(core) => core.last_step_energy(),
+            Self::CoarseMeshGenFoam(core) => core.last_step_energy(),
         }
     }
 }
@@ -353,16 +354,29 @@ mod tests {
     fn placeholder_tiers_reproduce_one_node_porous_media_exactly() {
         let dt = Time::new::<second>(0.1);
         let fission_power = Power::new::<watt>(1.0e7);
-        let inlet = ThermodynamicTemperature::new::<kelvin>(523.15);
+        let inlet = one_node::helium_enthalpy_at(ThermodynamicTemperature::new::<kelvin>(523.15));
         let flow = MassRate::new::<kilogram_per_second>(4.3);
 
         let mut one_node = ReactorModel::new(ReactorModelKind::OneNodePorousMedia);
         let mut axial = ReactorModel::new(ReactorModelKind::AxialSevenNode);
         let mut genfoam = ReactorModel::new(ReactorModelKind::CoarseMeshGenFoam);
 
-        let q_one = one_node.step(dt, fission_power, inlet, flow).get::<watt>();
-        let q_axial = axial.step(dt, fission_power, inlet, flow).get::<watt>();
-        let q_genfoam = genfoam.step(dt, fission_power, inlet, flow).get::<watt>();
+        let path = crate::physics::decay_heat_removal::CoreToRccsPath::new_at_steady_state(
+            one_node.temperature(),
+            one_node.temperature(),
+            ThermodynamicTemperature::new::<kelvin>(523.15),
+            flow,
+        );
+        let (mut p1, mut p2, mut p3) = (path, path, path);
+        let q_one = one_node
+            .step(dt, fission_power, fission_power, inlet, flow, &mut p1)
+            .get::<watt>();
+        let q_axial = axial
+            .step(dt, fission_power, fission_power, inlet, flow, &mut p2)
+            .get::<watt>();
+        let q_genfoam = genfoam
+            .step(dt, fission_power, fission_power, inlet, flow, &mut p3)
+            .get::<watt>();
 
         assert_eq!(
             q_one, q_axial,
@@ -375,13 +389,15 @@ mod tests {
         assert_eq!(one_node.temperature(), axial.temperature());
         assert_eq!(one_node.temperature(), genfoam.temperature());
         assert_eq!(
-            one_node.helium_outlet_temperature(),
-            axial.helium_outlet_temperature()
+            one_node.helium_outlet_enthalpy(),
+            axial.helium_outlet_enthalpy()
         );
         assert_eq!(
-            one_node.helium_outlet_temperature(),
-            genfoam.helium_outlet_temperature()
+            one_node.helium_outlet_enthalpy(),
+            genfoam.helium_outlet_enthalpy()
         );
+        assert_eq!(p1.reflector_temperature(), p2.reflector_temperature());
+        assert_eq!(p1.reflector_temperature(), p3.reflector_temperature());
     }
 
     #[test]

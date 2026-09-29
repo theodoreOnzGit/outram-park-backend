@@ -3,7 +3,7 @@
 
 ## Members
 
-**44 member crates.** The table below is a one-line index: what each crate is
+**46 member crates.** The table below is a one-line index: what each crate is
 for, and whether it is declared mature. **Each crate's own
 `crates/<crate>/CLAUDE.md` and `README.md` are the authority** for its status,
 its bar, its known gaps and its correction history — this table is a pointer,
@@ -53,6 +53,8 @@ applies: only to crates declared mature".
 | `changi` | **CHANGI** — atmospheric dispersion, plume transport, deposition, ground contamination. Two ports: FLEXPART v10.4 (scalar kernels only) and the Gaussian puff model of `Hammerling-Research-Group/puff` (physics complete, MIT→GPL one-way). Plus `changi::activity` (2026-09-21, **not a port, no upstream**): unit-release chi/Q, decay in transit, dry deposition; deposition velocities are uncited placeholders. **Research/education/V&V only** | |
 | `sembawang` | **SEMBAWANG** — ~~source term for CHANGI.~~ **Severe accident and source term, and orchestrator of the offsite chain** (2026-09-21, #235): drives CHANGI today, RAFFLES and REDHILL later; no dose. ~~Placeholder: nothing implemented~~ **CORRECTED 2026-09-21** — the TRISO fission-product **release** path exists (on `boon-lay`'s TRISO-ATOPS fork, under a caller-**prescribed** temperature transient and inventory). **Severe-accident progression (melt, relocation, vessel failure, MCCI, hydrogen, aerosols) is NOT implemented.** No human V&V | |
 | `redhill` | **REDHILL** — groundwater and geological transport of radionuclides after deposition. **Placeholder: nothing implemented** | |
+| `bishan` | **BISHAN** — Building Internal Source-term and Hazard Analysis Network: Level 2 PSA (in-plant severe-accident progression, containment and building response, in-building aerosols and pool scrubbing, release categories). ~~Placeholder: nothing implemented.~~ **Since 2026-09-29 (#400): one component, a lumped HTR-10 reactor-building CV (`building`); the rest not implemented.** Boundary with SEMBAWANG undecided | `uom` |
+| `buangkok` | **BUANGKOK** — Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge: radiation dose and bioeffects, research-grade safety analysis only. ~~**Placeholder: nothing implemented**~~ **CHANGED 2026-09-28:** ~~partial~~ port of **pyDOSEIA** (MIT) — met processing, Gaussian-plume dilution, inhalation / ground-shine / submersion doses, and (**2026-09-28, second tranche**) ingestion, plume shine (on a port of SciPy's QUADPACK), DCF screening, plume rise, config and driver: all of its computation, I/O and UI excepted — code-to-code verified against upstream (41 of 43 groups bit-exact, 1 899 cases), no validation; 26 upstream defects recorded. ~~ingestion and plume shine not ported~~. Also holds the Liu and Cao HTR-10 dose tables (7, 9). Depends on `changi` (dev: `petir`) | |
 | `dover` | **DOVER** — *Deck-based Open-source Visualisation Engine for Reactors*. The **low-fidelity counterpart of `dhoby-ghaut`** (maintainer, 2026-09-25); direction: schema-checked TOML input decks, steady-state (DWSIM-like) and dynamic runs. **Empty skeleton**: nothing implemented, no dependencies | |
 | `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → GPL-3.0 is **one-way**. Implemented in part, no human V&V | |
 | `outram-park-mpi` | Pure-Rust **MPICH** subset over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold | |
@@ -104,7 +106,7 @@ that `outram-foam-basic-lib` stays publishable independently.
 **Internal dependency edges** are all by **path**, not crates.io. The ones
 worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
 `{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
-`outram-park-digital-twin-engine → nee_soon`; `tampines` dev-deps →
+`outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set); `tampines` dev-deps →
 `{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
 `outram-mc-libs → njoy-outram-park-fork` (cross sections).
 `outram-foam-basic-lib` has no internal deps, and `njoy-outram-park-fork` is

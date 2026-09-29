@@ -528,6 +528,61 @@ covering letter bound in front as an addendum.
 
 ## Librarian history
 
+- **2026-09-28** — two U.S. EPA Federal Guidance Reports added to **Kovan's
+  standard open corpus** (maintainer request), as
+  [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature)
+  `kovan-standard-open-corpus/epa/`, with README rows (new section 3) and
+  `CorpusLiterature` entries in `crates/kovan/src/corpus.rs`:
+  - **`epa-fgr-11`**: Eckerman, K.F., Wolbarst, A.B. and Richardson, A.C.B.
+    (1988). *Limiting Values of Radionuclide Intake and Air Concentration and
+    Dose Conversion Factors for Inhalation, Submersion, and Ingestion.* Federal
+    Guidance Report No. 11, EPA-520/1-88-020, Office of Radiation Programs,
+    U.S. EPA, September 1988; 234 pp. File `epa/fgr-11-epa-520-1-88-020.pdf`,
+    SHA-256 `3d5479f4…8b74`, byte-identical to
+    <https://www.epa.gov/sites/default/files/2015-05/documents/520-1-88-020.pdf>.
+  - **`epa-fgr-13`**: Eckerman, K.F., Leggett, R.W., Nelson, C.B., Puskin,
+    J.S. and Richardson, A.C.B. (1999). *Cancer Risk Coefficients for
+    Environmental Exposure to Radionuclides.* Federal Guidance Report No. 13,
+    EPA 402-R-99-001, Office of Radiation and Indoor Air, U.S. EPA, September
+    1999; 336 pp. (EPA's 2025 accessibility re-issue). File
+    `epa/fgr-13-epa-402-r-99-001.pdf`, SHA-256 `8376c058…ecff4`,
+    byte-identical to
+    <https://www.epa.gov/system/files/documents/2025-03/402-r-99-001_508-d_2.pdf>.
+
+  *Tier basis:* neither report carries a copyright notice or licence statement
+  (full text searched); both carry only the U.S.-Government sponsorship
+  disclaimer. Both were prepared jointly by EPA and Oak Ridge National
+  Laboratory (DOE contractor-operated), so they are **not** claimed as public
+  domain under 17 U.S.C. § 105. They are held on the EPA's own "Copyright
+  Status" statement (<https://www.epa.gov/web-policies-and-procedures/epa-disclaimers>,
+  accessed 2026-09-28): "These documents may be freely distributed and used
+  for non-commercial, scientific and educational purposes. Commercial use ...
+  may be protected", quoted in full in the corpus README. Recorded in
+  `corpus.rs` as `VerifiedOpenLicence` with that non-commercial limit stated
+  in `status_basis`; this is a narrower basis than the NRC and CC BY
+  documents beside them. Filed under a new topic,
+  `nuclear-engineering/safety/radiation-protection` ("Radiation Protection &
+  Dosimetry"), with one corpus connection (FGR-13's preface cites FGR-11).
+
+  Like the other standard-corpus documents, no metadata JSON, extracted
+  Markdown or BibTeX is kept for them in this crate; the `corpus.rs` entry is
+  their record.
+
+  **FGR-15 not added.** The maintainer's copy of Federal Guidance Report
+  No. 15 is EPA 402-R-19-002 (revised August 2019). EPA's FGR-15 page
+  (accessed 2026-09-28) states that "Previous versions of this report (EPA
+  402-R-18-001 and 402-R-19-002) contained errors in the dose coefficient
+  tables ... the previous versions should be discarded"; the current
+  revision is EPA 402-R-25-001 (July 2025). ~~Which version goes into the
+  corpus is left to the maintainer.~~ **SETTLED 2026-09-28**: the maintainer
+  chose the 2025 revision. `epa-fgr-15` added: Bellamy, Samuels, Dewji,
+  Leggett, Hiller, Veinot, Manger, Ryman, Easterly, Hertel, Stewart &
+  Eckerman (ORNL), EPA 402-R-25-001, July 2025,
+  `epa/fgr-15-epa-402-r-25-001.pdf`, SHA-256 `a91cda89…21ae`, from
+  <https://www.epa.gov/system/files/documents/2025-07/fgr15_rev2025july_final_508.pdf>.
+  No copyright notice in its front matter; same EPA basis (non-commercial).
+  The withdrawn 2019 copy is not held.
+
 - **2026-09-17** — `li2014htr10rmc` catalogued (**proprietary**, no licence
   statement anywhere in the document). Li, Yu & Wei, *Research on Benchmark
   Calculation and Analysis of HTR-10 with RMC Code*, HTR 2014 Weihai, paper

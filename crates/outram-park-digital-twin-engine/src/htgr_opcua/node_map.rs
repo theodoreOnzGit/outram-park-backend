@@ -600,46 +600,59 @@ impl HtgrSignal {
 
             Self::CoreInletTemperature => {
                 "Helium temperature entering the core. A computed loop variable, not a boundary \
-                 condition: it is the IHX helium-side outlet after the loop's return transport \
-                 lag, so reducing secondary heat removal raises it."
+                 condition: it is the state of the lumped cold-return helium control volume \
+                 (connection tubes, circulator, annuli, riser channels, top plenum), an enthalpy \
+                 balance fed by the steam-generator helium outlet plus the circulator work, so \
+                 reducing secondary heat removal raises it (corrected 2026-09-29, gh:#392: it was \
+                 described as a fixed return transport lag, which was deleted)."
             }
             Self::CoreOutletTemperature => {
-                "Helium temperature leaving the core, from the lumped-node energy balance \
-                 T_in + Q/(m_dot c_p) relaxed through a first-order core thermal lag."
+                "Helium temperature leaving the core: the pebble bed's own helium node, an \
+                 enthalpy balance solved implicitly with the graphite and inverted through the \
+                 helium equation of state (corrected 2026-09-29, gh:#391, #393: it was described \
+                 as T_in + Q/(m_dot c_p) relaxed through a first-order core thermal lag, which \
+                 was deleted)."
             }
             Self::HeliumMassFlow => {
-                "Helium mass flow through the core. It follows the commanded circulator setpoint \
-                 with a 1 kg/s floor; no circulator dynamics are modelled, so it tracks the \
-                 setpoint within one timestep."
+                "Helium mass flow through the core. It follows the commanded circulator setpoint, \
+                 clamped to 0.3-8.0 kg/s (0.01 kg/s floor after a circulator trip); no circulator \
+                 dynamics are modelled, so it tracks the setpoint within one timestep (corrected \
+                 2026-09-29: the floor was stated as 1 kg/s)."
             }
             Self::HeliumResidenceTime => {
                 "Loop transport residence time m/m_dot, from the helium inventory rho*A*L at the \
                  live density. This is what sets the travel time of the schematic's flow tracers."
             }
             Self::PrimaryPressureDrop => {
-                "Frictional pressure drop around the helium loop: Darcy-Weisbach with a Haaland \
-                 friction factor, evaluated at the live helium density and bulk velocity."
+                "Frictional pressure drop around the helium loop: the KTA packed-bed correlation \
+                 over the pebble bed at the live helium properties, plus the published non-bed \
+                 component sum scaled with flow squared (corrected 2026-09-29: it was described as \
+                 Darcy-Weisbach with a Haaland friction factor, removed with the prismatic core)."
             }
             Self::CirculatorPower => {
-                "Circulator hydraulic power m_dot dp / (rho eta) needed to sustain the loop \
-                 pressure drop. Hydraulic power, not electrical input."
+                "Circulator shaft power m_dot dp / (rho eta) needed to sustain the loop pressure \
+                 drop, with rho the cold-return helium density where the circulator sits. Since \
+                 2026-09-29 (gh:#392) all of it is delivered to the helium as the cold-return \
+                 control volume's source. Shaft power, not electrical input."
             }
             Self::HeliumSpecificHeat => {
-                "Helium isobaric specific heat at the loop pressure (7 MPa) and the current bulk \
-                 mean loop temperature, from the CoolProp-derived Helmholtz equation of state \
+                "Helium isobaric specific heat at the loop pressure (3.0 MPa; corrected \
+                 2026-09-29 from 7 MPa) and the current bulk mean core temperature, from the CoolProp-derived Helmholtz equation of state \
                  (Ortiz-Vega et al.), re-evaluated every timestep rather than frozen."
             }
 
             Self::IhxDuty => {
-                "Heat transferred from the helium loop to the steam side by the intermediate \
-                 heat exchanger, from an effectiveness-NTU model with one isothermal (boiling) \
-                 side, pinched against the steam saturation temperature. It cannot exceed what \
-                 the temperature difference and UA support, and is zero while the helium is \
-                 colder than the steam side."
+                "Heat leaving the helium in the steam generator, m_dot (h_in - h_out) on the \
+                 helium side of a nodalised counter-flow exchanger whose local conductances act on \
+                 resolved node temperatures, so a local temperature cross simply reverses the \
+                 local heat flow (corrected 2026-09-29: it was described as an effectiveness-NTU \
+                 model against the saturation temperature, replaced 2026-08-12)."
             }
             Self::IhxHeliumOutletTemperature => {
-                "Helium temperature leaving the IHX, T_core_out - Q_ihx/(m_dot c_p). The core \
-                 inlet relaxes toward this value through the return transport lag."
+                "Helium temperature leaving the steam generator's helium side, the outlet of its \
+                 resolved helium array. It feeds the cold-return helium control volume, whose \
+                 state is the core inlet (corrected 2026-09-29, gh:#392: it was described as \
+                 T_core_out - Q_ihx/(m_dot c_p) followed by a return transport lag)."
             }
 
             Self::SteamPressure => {

@@ -1,0 +1,43 @@
+[package]
+name = "buangkok"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge) — radiation dose and its biological effects, for research-grade safety analysis: dose coefficients, pathways, dose uncertainty, ALARA. Holds published HTR-10 dose tables (Liu and Cao 2002, Tables 7 and 9) as reference data, and a code-to-code verified port of pyDOSEIA (MIT; Gaussian-plume dilution, inhalation, ground-shine, submersion, ingestion and plume-shine doses, and its driver). Research-grade safety analysis only."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
+# write-ups). Excluded so it never ships to crates.io.
+# `verification_and_validation/` holds the Python that regenerates the
+# code-to-code fixture; it is repo-only too.
+exclude = ["docs", "verification_and_validation"]
+
+# A dose calculation would read CHANGI's air concentrations and deposition
+# and, for uncertainty, RAFFLES; each edge is declared when code here calls
+# into it, not before.
+[dependencies]
+# `published::accident_dose_by_distance` re-exports changi's `AccidentCase`
+# so the accident release (changi, Table 8) and dose (here, Table 9) tables
+# name the accidents identically. Dose sits downstream of dispersion, so
+# buangkok -> changi is the right direction; never the reverse.
+# `pydoseia` also uses changi's `DilutionFactor` (s/m^3) for chi/Q.
+changi = { workspace = true }
+# The plume-shine triple integral runs on petir's port of GSL QAGS by default
+# (maintainer, 2026-09-28: "include petir as a dependency to buangkok.
+# quadpack should be used as regression test, but petir is the main one").
+# `pydoseia::quadpack` (the SciPy QUADPACK port) stays as the bit-exact
+# regression reference against pyDOSEIA. petir is no_std, so this edge adds
+# nothing Android- or wasm-hostile. The code-to-code test also uses petir's
+# `qag` as the checked-and-rejected alternative to `dqagse` (a mutation test).
+petir = { workspace = true }
+uom = { workspace = true }
+
+[dev-dependencies]
+# Half-lives for the ground-shine build-up in the Liu and Cao cross-check
+# (tests/liu_cao_external_dose_cross_check.rs, gh:#379). The README says
+# half-lives come from boon-lay; this is a TEST-only edge, so the library stays
+# free of it. boon-lay does not depend on buangkok, so there is no cycle.
+boon-lay = { workspace = true }
