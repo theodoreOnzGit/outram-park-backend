@@ -391,7 +391,15 @@ fn main() {
         .filter(|s| !s.is_empty())
         .map(|s| s.parse().expect("seed"))
         .collect();
-    let c = case(&case_name);
+    let mut c = case(&case_name);
+    // `--drop-nuclide N` (diagnostic A/B, GitHub #367): remove one nuclide from
+    // every material, to localise a residual to it. Not renormalised.
+    if let Some(drop) = flag(&args, "--drop-nuclide") {
+        eprintln!("  ABLATION: {drop} removed from every material (--drop-nuclide)");
+        for (_, comps) in c.materials.iter_mut() {
+            comps.retain(|(n, _)| *n != drop);
+        }
+    }
     let get = |f: &str, d: usize| flag(&args, f).map_or(d, |s| s.parse().expect(f));
     let (np, ni, na) = (
         get("--particles", c.defaults.0),
