@@ -49,6 +49,14 @@
 //!   ([`crate::advanced_git`]), so the user's credential helpers apply.
 //!   `GIT_TERMINAL_PROMPT=0` makes a missing credential fail fast with Git's
 //!   own message instead of hanging on a prompt no GUI window can answer.
+//!
+//! # Pull: the corpora follow the Kovan folder (GH issue #422)
+//!
+//! The reverse direction. After the Kovan folder is pulled, [`pull_corpora`]
+//! brings each downloaded corpus to its remote's branch tip, so a corpus
+//! another clone saved into does not fall behind and get refused by the next
+//! push. It only ever fast-forwards on its own; a corpus whose local work
+//! would be destroyed is reported, not overridden, and the GUI asks.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -518,6 +526,209 @@ fn pick_remote(dir: &Path) -> Option<String> {
         Some(remotes[0].to_string())
     } else {
         None
+    }
+}
+
+/// A corpus [`pull_corpora`] considers, in the order it considers them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CorpusKind {
+    /// The private literature submodule.
+    Proprietary,
+    /// The user's open corpus.
+    Open,
+    /// The read-only standard corpus.
+    Standard,
+}
+
+impl CorpusKind {
+    /// The label the UI shows.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Proprietary => "Proprietary corpus",
+            Self::Open => "Open corpus",
+            Self::Standard => "Standard corpus",
+        }
+    }
+}
+
+/// What [`pull_corpora`] did to one corpus.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CorpusPullOutcome {
+    /// Moved from `from` to the remote's tip `to`, and left on `branch`.
+    Updated {
+        branch: String,
+        from: String,
+        to: String,
+    },
+    /// Already at the remote's tip; now on `branch` (it may have been
+    /// detached at that same commit before).
+    UpToDate { branch: String },
+    /// Not attempted: not downloaded here, no remote, no system `git`.
+    Skipped { reason: String },
+    /// Following the remote would destroy local work (`reason` says which),
+    /// so nothing was touched. The caller asks the user, and on "yes"
+    /// overrides with [`crate::advanced_git::force_pull_in`] against
+    /// `remote`/`branch`.
+    NeedsConfirmation {
+        remote: String,
+        branch: String,
+        reason: String,
+    },
+    /// A `git` step failed, with Git's words. Nothing was overridden.
+    Failed { message: String },
+}
+
+/// One corpus's result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CorpusPull {
+    pub corpus: CorpusKind,
+    pub dir: PathBuf,
+    pub outcome: CorpusPullOutcome,
+}
+
+impl CorpusPull {
+    /// One human-readable line, e.g. `Open corpus: updated main 1a2b3c4..5d6e7f8`.
+    pub fn line(&self) -> String {
+        let short = |s: &str| s.chars().take(7).collect::<String>();
+        let what = match &self.outcome {
+            CorpusPullOutcome::Updated { branch, from, to } => {
+                format!("updated {branch} {}..{}", short(from), short(to))
+            }
+            CorpusPullOutcome::UpToDate { branch } => format!("up to date ({branch})"),
+            CorpusPullOutcome::Skipped { reason } => format!("not pulled — {reason}"),
+            CorpusPullOutcome::NeedsConfirmation { reason, .. } => {
+                format!("NOT pulled yet — {reason}; asking before overriding")
+            }
+            CorpusPullOutcome::Failed { message } => format!("pull FAILED — {message}"),
+        };
+        format!("{}: {what}", self.corpus.label())
+    }
+}
+
+/// Bring every downloaded corpus to its remote's branch tip — run after the
+/// Kovan folder itself was pulled (GH issue #422; maintainer, 2026-09-29:
+/// *"when pulling from kovan corpus, i want the submodules to pull in and
+/// override the local one as well"*).
+///
+/// Without this, a corpus that another clone saved into falls behind its
+/// remote, and the next [`push_after_save`] refuses it (its detached save
+/// does not contain the remote branch, so it cannot fast-forward).
+///
+/// For each of the proprietary, open and standard corpus, when downloaded:
+/// fetch the tracked branch (`.gitmodules` `branch =`, else the remote's
+/// default — the same rule the push uses), then
+///
+/// - **nothing local would be lost** (a clean tree, `HEAD` an ancestor of
+///   the fetched tip): `git checkout -B <branch> FETCH_HEAD`. The corpus is
+///   left *on the branch*, not detached, so the next save pushes cleanly.
+/// - **something would be lost** (uncommitted or untracked files, or commits
+///   the remote does not have): nothing is touched, and the outcome is
+///   [`CorpusPullOutcome::NeedsConfirmation`]. Overriding destroys work, so
+///   it is the caller's to ask about (the #279 prompt), never done here.
+///
+/// The gitlinks in the Kovan folder are not committed here; the next Save
+/// records the corpora where they now are.
+pub fn pull_corpora(root: &KovanRoot) -> Vec<CorpusPull> {
+    let corpora = [
+        (CorpusKind::Proprietary, root.restricted_sources_dir()),
+        (CorpusKind::Open, root.open_corpus_dir()),
+        (CorpusKind::Standard, root.standard_corpus_dir()),
+    ];
+    let git_ok_here = crate::advanced_git::system_git_available();
+    let mut out: Vec<CorpusPull> = Vec::new();
+    for (corpus, dir) in corpora {
+        // Two corpora configured on one folder: pull it once.
+        if out.iter().any(|p| same_dir(&p.dir, &dir)) {
+            continue;
+        }
+        let outcome = if git_ok_here {
+            pull_one_corpus(root, &dir)
+        } else {
+            CorpusPullOutcome::Skipped {
+                reason: "no usable system `git`, which pulling needs".into(),
+            }
+        };
+        out.push(CorpusPull {
+            corpus,
+            dir,
+            outcome,
+        });
+    }
+    out
+}
+
+/// [`pull_corpora`] for the corpus at `dir`.
+fn pull_one_corpus(root: &KovanRoot, dir: &Path) -> CorpusPullOutcome {
+    if !dir.join(".git").exists() {
+        return CorpusPullOutcome::Skipped {
+            reason: "not downloaded in this Kovan folder".into(),
+        };
+    }
+    let Some(remote) = pick_remote(dir) else {
+        return CorpusPullOutcome::Skipped {
+            reason: "no remote (or several and none is `origin`)".into(),
+        };
+    };
+    let Some(branch) =
+        gitmodules_branch(root, dir).or_else(|| remote_default_branch(dir, &remote))
+    else {
+        return CorpusPullOutcome::Skipped {
+            reason: "neither .gitmodules nor the remote names a branch to follow".into(),
+        };
+    };
+    if let Err(message) = git_ok(dir, &["fetch", "-q", &remote, &branch]) {
+        return CorpusPullOutcome::Failed { message };
+    }
+    let fetched = match git_ok(dir, &["rev-parse", "FETCH_HEAD"]) {
+        Ok(s) => s.trim().to_string(),
+        Err(message) => return CorpusPullOutcome::Failed { message },
+    };
+    let head = git_ok(dir, &["rev-parse", "--verify", "-q", "HEAD"])
+        .map(|s| s.trim().to_string())
+        .ok();
+
+    let dirty = match git_ok(dir, &["status", "--porcelain"]) {
+        Ok(s) => !s.trim().is_empty(),
+        Err(message) => return CorpusPullOutcome::Failed { message },
+    };
+    let behind_only = head.as_deref().is_none_or(|h| {
+        git_ok(dir, &["merge-base", "--is-ancestor", h, &fetched]).is_ok()
+    });
+    if dirty || !behind_only {
+        let reason = match (dirty, behind_only) {
+            (true, false) => "it has unsaved files and saves the remote does not have",
+            (true, true) => "it has unsaved (uncommitted or untracked) files",
+            _ => "it has saves the remote does not have",
+        };
+        return CorpusPullOutcome::NeedsConfirmation {
+            remote,
+            branch,
+            reason: reason.into(),
+        };
+    }
+
+    if let Err(message) = git_ok(dir, &["checkout", "-q", "-B", &branch, &fetched]) {
+        return CorpusPullOutcome::Failed { message };
+    }
+    let tracking = format!("refs/remotes/{remote}/{branch}");
+    if git_ok(dir, &["rev-parse", "--verify", "-q", &tracking]).is_ok() {
+        let _ = git_ok(
+            dir,
+            &[
+                "branch",
+                "-q",
+                &format!("--set-upstream-to={remote}/{branch}"),
+                &branch,
+            ],
+        );
+    }
+    match head {
+        Some(from) if from == fetched => CorpusPullOutcome::UpToDate { branch },
+        from => CorpusPullOutcome::Updated {
+            branch,
+            from: from.unwrap_or_default(),
+            to: fetched,
+        },
     }
 }
 
