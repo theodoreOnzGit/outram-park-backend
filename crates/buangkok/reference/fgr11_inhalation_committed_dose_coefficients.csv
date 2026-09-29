@@ -1,0 +1,14 @@
+# US EPA Federal Guidance Report No. 11, EPA-520/1-88-020 (1988), Table 2.1
+# "Exposure-to-Dose Conversion Factors for Inhalation", column "Effective"
+# (committed effective dose equivalent per unit intake, Sv/Bq, ICRP 30
+# Reference Man: ADULT ONLY, so the five younger-age columns are blank = NaN).
+# Type holds FGR-11's lung clearance CLASS (D/W/Y), not an ICRP 66 absorption
+# type. Noble gases (Kr-85, Xe-133) have no inhalation entry in FGR-11.
+# Values read off the rendered (scanned) pages, not the OCR text layer.
+# Provenance: crates/buangkok/docs/References.md.
+Nuclide,Type,e_g_age_g_lt_1a_Sv/Bq,e_g_age_g_1_2a_Sv/Bq,e_g_age_g_2_7a_Sv/Bq,e_g_age_g_7_12a_Sv/Bq,e_g_age_g_12_17a_Sv/Bq,e_g_age_g_gt_17a_Sv/Bq,f1,printed_page,pdf_page
+Ag-110m,D,,,,,,1.07E-08,5E-02,132,140
+Ag-110m,W,,,,,,8.34E-09,5E-02,132,140
+Ag-110m,Y,,,,,,2.17E-08,5E-02,132,140
+I-131,D,,,,,,8.89E-09,1.0,136,144
+Cs-137,D,,,,,,8.63E-09,1.0,137,145

@@ -19,6 +19,16 @@ scope.~~ **CHANGED 2026-09-28** (maintainer asked for the pyDOSEIA port, then
   upstream (`tests/pydoseia_code_to_code.rs`, `docs/pydoseia-code-to-code.md`).
 - `published`: the Liu and Cao dose tables.
 
+**2026-09-29:** `coefficients` (US EPA FGR-15 2025 + FGR-11 values for the
+five `htgr_sim_v1` nuclides, in `reference/`, provenance in
+`docs/References.md`) and three dose-RATE functions in `pydoseia::dose`
+(`submersion_dose_rate_msv_per_s`, `ground_shine_dose_rate_msv_per_s`,
+`inhalation_committed_dose_rate_msv_per_s`). The rate functions are the
+coefficient products the ported pathways were refactored onto, in upstream's
+multiplication order, so the code-to-code fixture stays bit-exact -- keep it
+that way (one formula, not two). `htgr_sim_v1`'s Map tab is the first
+consumer (indicative dose rate, never a dose to a real person).
+
 ~~Ingestion and plume shine are not ported~~ (**ported 2026-09-28**); what is
 not ported is I/O and UI, listed per function in
 `docs/pydoseia-port-scoping.md`. The crate is **not mature**: no maturity bar

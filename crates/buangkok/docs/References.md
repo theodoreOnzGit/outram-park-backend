@@ -206,3 +206,88 @@ pass). They are not presented as authoritative values.
 | Ir-192 gamma energies and yields, activity 1e6 Ci, damage ratio 5e-5 (defaults of `point_source_dose`) | `plume_shine::POINT_SOURCE_DEFAULT_*` | none stated upstream |
 | Plume-rise stability parameters 8.7e-4 (E), 1.75e-3 (F) | `plume_rise` | AERB/NF/SG/S-1 p. 44; IAEA-TECDOC-379, as upstream cites them |
 | Single-plume ground-level dilution factors at nine distances (upstream's self-test table, attributed by upstream to Hukkoo and Bapat, p. 98) | `tests/pydoseia_code_to_code.rs` only | upstream's `metfunc.py` `test_single_plume_glc_hukkoo`; the 17-digit values appear computed, not transcribed |
+
+---
+
+## US EPA dose coefficients for `htgr_sim_v1`'s dose-rate map (added 2026-09-29)
+
+`buangkok::coefficients` compiles in five CSVs from `reference/`, holding
+the coefficients for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133,
+I-131, Cs-137, Ag-110m) plus Cs-137's short-lived daughter Ba-137m. They are
+returned as the pyDOSEIA port's own table types (`ExternalDcfTable`,
+`InhalationDcfTable`, `ProgenyChains`), so the port's lookups do the
+selecting. The maintainer asked for the dose-rate map on 2026-09-29.
+
+### Sources
+
+| CSV | Document | Table, pages |
+|---|---|---|
+| `fgr15_2025_air_submersion_dose_rate_coefficients.csv` | US EPA **Federal Guidance Report No. 15**, *External Exposure to Radionuclides in Air, Water and Soil*, **EPA 402-R-25-001, revised July 2025**; M.B. Bellamy et al., Oak Ridge National Laboratory for the EPA Office of Radiation and Indoor Air | **Table 4-6** "Reference person effective dose rate coefficients for air submersion", Sv Bq^-1 s^-1 m^3. Printed pp. 192 (Kr-85), 196 (Ag-110m), 199 (I-131, Xe-133), 200 (Cs-137, Ba-137m); PDF pages = printed + 10 |
+| `fgr15_2025_ground_surface_dose_rate_coefficients.csv` | FGR-15, as above | **Table 4-1** "Reference person effective dose rate coefficients for ground surface", Sv Bq^-1 s^-1 m^2. Printed pp. 37 (Kr-85), 41 (Ag-110m), 44 (I-131, Xe-133), 45 (Cs-137, Ba-137m) |
+| `fgr15_2025_short_lived_progeny_links.csv`, `..._half_lives.csv` | FGR-15, as above | Worked **Example 4**, printed pp. 269-270: "In 94.4 percent of the 137Cs transformations, the radioactive decay product 137mBa is formed"; 137mBa half-life 2.552 minutes. (The 2025 revision removed the Appendix A decay-data table, so the example is where the report states these.) |
+| `fgr11_inhalation_committed_dose_coefficients.csv` | US EPA **Federal Guidance Report No. 11**, *Limiting Values of Radionuclide Intake and Air Concentration and Dose Conversion Factors for Inhalation, Submersion, and Ingestion*, EPA-520/1-88-020 (1988); K.F. Eckerman, A.B. Wolbarst, A.C.B. Richardson | **Table 2.1** "Exposure-to-Dose Conversion Factors for Inhalation", column **Effective** (committed effective dose equivalent per unit intake, Sv/Bq). Printed pp. 132 (Ag-110m, classes D 1.07e-8, W 8.34e-9, Y 2.17e-8), 136 (I-131, D 8.89e-9), 137 (Cs-137, D 8.63e-9); PDF pages = printed + 8 |
+
+Files: `crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/epa/`
+(`fgr-15-epa-402-r-25-001.pdf`, SHA-256 `a91cda89…21ae`, and
+`fgr-11-epa-520-1-88-020.pdf`), byte-identical to the EPA copies at
+<https://www.epa.gov/system/files/documents/2025-07/fgr15_rev2025july_final_508.pdf>
+and <https://www.epa.gov/sites/default/files/2015-05/documents/520-1-88-020.pdf>,
+accessed 28 September 2026 (see that corpus's README).
+
+**Not the 2019 FGR-15.** EPA's FGR-15 page states that the earlier versions
+(EPA 402-R-18-001 and 402-R-19-002) "contained errors in the dose coefficient
+tables" and "should be discarded". pyDOSEIA's bundled external table cites
+the 2019 edition; none of it is used here.
+
+### Licence basis
+
+Both reports are EPA publications prepared jointly with Oak Ridge National
+Laboratory (a DOE contractor), so they are not claimed as public domain. They
+carry no copyright notice of their own. They are used on the basis of EPA's
+website statement covering its publications **for non-commercial, scientific
+and educational use** (quoted in the corpus README). A handful of numbers,
+cited to table and page, are reproduced for that use.
+
+### How the values were read
+
+- **FGR-15 (2025)** is born-digital (Acrobat PDFMaker from Word), so its text
+  layer is the document's own text: values were taken from `pdftotext
+  -layout`, and printed p. 200 (Cs-137, Ba-137m submersion) was cross-checked
+  on the rendered page image. Adult values of Cs-137 and Ba-137m ground
+  surface (3.01e-18, 3.87e-16) also appear in the report's Example 4 text.
+- **FGR-11 (1988)** is a scan whose OCR layer garbles exponents, so every
+  value was read off the **rendered page images** (250 dpi crops of each row),
+  not from the text layer.
+- All six FGR-15 age columns are stored (the port's table layout needs them);
+  FGR-11 is adult (ICRP 30 Reference Man) only, so its younger-age columns
+  are blank and look up as missing, never as a number.
+
+### Processing and assumptions
+
+- **Progeny:** FGR-15 coefficients exclude decay products (its Section 5.1).
+  The port's progeny correction (half-life <= 1800 s) adds Ba-137m x 0.944 to
+  Cs-137 on both external pathways, i.e. secular equilibrium. No other
+  tracked nuclide has a short-lived daughter with a coefficient worth adding
+  (Ag-110m's 1.33 % branch to 24.6 s Ag-110 would add ~0.03 %; its branching
+  ratio is not stated in the 2025 FGR-15, so it is omitted, not guessed).
+- **Lung class:** FGR-11 gives classes D/W/Y (ICRP 30 clearance classes, not
+  ICRP 66 absorption types); with no chemical form known, the largest is
+  used (Ag-110m: Y).
+- **Noble gases:** FGR-11 has no inhalation entry for Kr-85 or Xe-133; they
+  are missing on that pathway, never zero.
+- **Mixed weighting:** FGR-15 is ICRP 103 effective dose; FGR-11 is ICRP 26/30
+  committed effective dose equivalent. Adding them is screening practice and
+  is stated wherever the sum is shown.
+
+### Tests
+
+`coefficients::tests::shipped_coefficients_match_the_reports` (the Adult
+column and the three FGR-11 values, as literals),
+`missing_coefficients_are_none_not_zero`, and
+`cs137_carries_ba137m_in_secular_equilibrium`. Pass, 2026-09-29.
+
+### Scope
+
+Indicative, research and education only. Not a dose to any real person, and
+not for emergency, regulatory, occupational or medical use
+(`RESPONSIBLE_USE.md`).

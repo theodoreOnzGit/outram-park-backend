@@ -177,8 +177,10 @@
 pub mod control_rods;
 pub mod atmospheric_dispersion;
 pub mod decay_heat_removal;
+pub mod dose_rate;
 pub mod fission_product_release;
 pub mod kinetics;
+pub mod map_puff_model;
 pub mod primary_loop;
 pub mod protection;
 pub mod reactor_model;
@@ -575,7 +577,15 @@ impl Default for PlantCommands {
             // 2026-09-27 (maintainer direction), i.e. full rated flow.
             helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
-            meteorology: atmospheric_dispersion::Meteorology::default(),
+            // The MAP's one puff-model configuration (maintainer direction
+            // 2026-09-29; `map_puff_model`, gh:#384), so the plant's default
+            // command and the GUI's opening command are the same meteorology.
+            // `Meteorology::default()` stays the channel's own default for
+            // its unit tests.
+            meteorology: map_puff_model::map_meteorology(
+                map_puff_model::default_speed_m_per_s(),
+                0.0,
+            ),
             map_field: atmospheric_dispersion::MapFieldRequest::default(),
             scenario: Scenario::Normal,
         }
@@ -985,8 +995,9 @@ pub struct HtgrPlant {
     /// circulating pool. Quasi-steady like the release channel and far more
     /// expensive, so it is throttled harder and sits outside the corrector
     /// loop -- see [`atmospheric_dispersion`], whose binding scope limit
-    /// (research/education/V&V only, no dose quantity of any kind) applies to
-    /// everything it produces.
+    /// (research/education/V&V only; ~~no dose quantity of any kind~~ -- since
+    /// 2026-09-29 its output feeds the indicative dose rate in [`dose_rate`],
+    /// never a dose to any real person) applies to everything it produces.
     pub dispersion: atmospheric_dispersion::AtmosphericDispersionChannel,
     /// Sim time at which the current scenario was first commanded, `None`
     /// under [`Scenario::Normal`]. Drives the protection system's
@@ -1443,6 +1454,15 @@ impl HtgrPlant {
         // a re-evaluation when the value actually changes, so an operator who
         // turns the wind sees the rose follow without waiting out the throttle.
         if commands.meteorology != self.dispersion.meteorology() {
+            // The map's direction control only ROTATES the plume (maintainer
+            // direction 2026-09-29; `map_puff_model`): rotate the marched
+            // population to the new bearing first, so the plume is the one a
+            // steady wind from there would have built rather than a kinked
+            // Lagrangian response to a wind shift.
+            let new_from = commands.meteorology.direction_from;
+            if new_from != self.dispersion.meteorology().direction_from {
+                self.dispersion.rotate_population_to(new_from);
+            }
             self.dispersion.set_meteorology(commands.meteorology);
         }
         // The map field at 10 Hz, but ONLY when a map is actually on screen.
@@ -1543,7 +1563,11 @@ impl HtgrPlant {
                 slot.ground_bq_per_m2 = r.ground_bq_per_m2;
                 slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
                 slot.ground_bq_per_m2_absolute = r.ground_bq_per_m2_absolute.unwrap_or(f64::NAN);
+                slot.ground_bq_per_m2_absolute_by_nuclide = r.ground_bq_per_m2_absolute_by_nuclide;
             }
+            s.dispersion_source_rate_absolute_by_nuclide_bq_per_s = result
+                .source_rate_absolute_by_nuclide_bq_per_s
+                .map(|r| r.unwrap_or(f64::NAN));
             s.dispersion_source_rate_per_ci_bq_per_s = result.source_rate_per_ci_bq_per_s;
             s.dispersion_source_rate_absolute_bq_per_s =
                 result.source_rate_absolute_bq_per_s.unwrap_or(f64::NAN);

@@ -34,8 +34,11 @@ synthetic inputs (`tests/pydoseia_code_to_code.rs`: 1 899 cases, 41 of 43
 groups bit-exact). The agreement is with pyDOSEIA, not with experiment,
 and there is no validation of any kind; 26 upstream defects are recorded
 (`docs/pydoseia-code-to-code.md`). What is not ported is I/O and UI (see
-`docs/pydoseia-port-scoping.md`). No dose-coefficient data ships with the
-crate. Human V&V review is still outstanding (see README).
+`docs/pydoseia-port-scoping.md`). ~~No dose-coefficient data ships with the
+crate.~~ **CHANGED 2026-09-29:** the port ships none, but [`coefficients`]
+holds US EPA FGR-15 (2025) and FGR-11 coefficients for the five nuclides
+`htgr_sim_v1` tracks, which that example's Map tab uses for an indicative
+dose rate. Human V&V review is still outstanding (see README).
 
 # Why dose has its own crate
 
@@ -679,6 +682,158 @@ table, in the source's order (increasing distance, 0.5 km to 75 km).
 
 ```rust
 pub fn htr10_normal_operation_dose_by_distance() -> Vec<PublishedDoseAtDistance> { /* ... */ }
+```
+
+## Module `coefficients`
+
+Freely usable US EPA dose coefficients (FGR-15 2025 external, FGR-11
+inhalation) for the nuclides `htgr_sim_v1` tracks, as the port's own table
+types. Not a port; see the module docs for provenance.
+Freely usable dose coefficients from the US EPA Federal Guidance Reports,
+for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133, I-131, Cs-137,
+Ag-110m) plus Cs-137's short-lived daughter Ba-137m.
+
+**Not a port.** The pyDOSEIA port ([`crate::pydoseia`]) ships no
+coefficient data and takes caller-supplied tables in upstream's CSV layout.
+This module is such a caller-supplied set, compiled in from `reference/`,
+and returned as the port's own table types so the port's lookups
+([`crate::pydoseia::dcf::external_dcf`],
+[`crate::pydoseia::dcf::InhalationDcfTable`]) do the selecting.
+Added 2026-09-29 when the maintainer asked for a dose-rate map in
+`htgr_sim_v1`.
+
+| Table | Source | CSV |
+|---|---|---|
+| air submersion, Sv m^3 Bq^-1 s^-1 | FGR-15 (EPA 402-R-25-001, **July 2025 revision**), Table 4-6 | `fgr15_2025_air_submersion_dose_rate_coefficients.csv` |
+| ground surface, Sv m^2 Bq^-1 s^-1 | FGR-15 (2025), Table 4-1 | `fgr15_2025_ground_surface_dose_rate_coefficients.csv` |
+| Cs-137 -> Ba-137m, 0.944; T1/2 2.552 min | FGR-15 (2025), worked Example 4, pp. 269-270 | `fgr15_2025_short_lived_progeny_*.csv` |
+| inhalation, committed Sv/Bq, adult | FGR-11 (EPA-520/1-88-020, 1988), Table 2.1, "Effective" | `fgr11_inhalation_committed_dose_coefficients.csv` |
+
+Page numbers, the licence basis (EPA's statement: non-commercial, scientific
+and educational use) and how each value was read are in
+`crates/buangkok/docs/References.md`. The withdrawn 2019 FGR-15
+(EPA-402/R-19/002) is **not** used: EPA says its tables contain errors.
+
+# Two known inconsistencies, stated rather than hidden
+
+- FGR-15 (2025) coefficients are **ICRP 103** effective dose; FGR-11's are
+  ICRP 26/30 **committed effective dose equivalent** for Reference Man.
+  Adding them is common screening practice but mixes two weighting
+  schemes.
+- FGR-11 is **adult only**; the other five age columns of its CSV are blank
+  (NaN), so a non-adult inhalation lookup returns `None`, never a number.
+
+Research-grade only: never a dose to a real person, and not for emergency,
+regulatory, occupational or medical use (`RESPONSIBLE_USE.md`).
+
+```rust
+pub mod coefficients { /* ... */ }
+```
+
+### Functions
+
+#### Function `fgr15_air_submersion`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+FGR-15 (2025) Table 4-6, air submersion.
+
+# Panics
+Never for the shipped CSV (a test parses it).
+
+```rust
+pub fn fgr15_air_submersion() -> crate::pydoseia::dcf::ExternalDcfTable { /* ... */ }
+```
+
+#### Function `fgr15_ground_surface`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+FGR-15 (2025) Table 4-1, ground surface.
+
+# Panics
+Never for the shipped CSV (a test parses it).
+
+```rust
+pub fn fgr15_ground_surface() -> crate::pydoseia::dcf::ExternalDcfTable { /* ... */ }
+```
+
+#### Function `fgr15_short_lived_progeny`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The one short-lived progeny link these nuclides need (Cs-137 -> Ba-137m).
+
+# Panics
+Never for the shipped CSVs (a test parses them).
+
+```rust
+pub fn fgr15_short_lived_progeny() -> crate::pydoseia::dcf::ProgenyChains { /* ... */ }
+```
+
+#### Function `fgr11_inhalation`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+FGR-11 Table 2.1 inhalation, adult only, in the port's inhalation-table
+layout (the `Type` column holds FGR-11's D/W/Y clearance class).
+
+# Panics
+Never for the shipped CSV (a test parses it).
+
+```rust
+pub fn fgr11_inhalation() -> crate::pydoseia::dcf::InhalationDcfTable { /* ... */ }
+```
+
+#### Function `external_coefficient`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+An external dose-rate coefficient through the port's own lookup
+([`dcf::external_dcf`], with [`PROGENY`]), or `None` when the table has no
+row for `nuclide` at that age. **`None` means missing, never zero.**
+
+```rust
+pub fn external_coefficient(table: &crate::pydoseia::dcf::ExternalDcfTable, chains: &crate::pydoseia::dcf::ProgenyChains, nuclide: &str, age: crate::pydoseia::dcf::AgeBracket) -> Option<f64> { /* ... */ }
+```
+
+#### Function `fgr11_inhalation_max_over_classes`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The FGR-11 inhalation coefficient for `nuclide` at `age`, taking the
+**largest over FGR-11's lung clearance classes** (the same rule as the
+port's `LungAbsorptionType::Max`; with no chemical-form information that is
+the conservative choice). `None` when there is no entry -- the noble gases,
+and every non-adult age, since FGR-11 is adult only.
+
+```rust
+pub fn fgr11_inhalation_max_over_classes(table: &crate::pydoseia::dcf::InhalationDcfTable, nuclide: &str, age: crate::pydoseia::dcf::AgeBracket) -> Option<f64> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PROGENY`
+
+The progeny correction used with these tables: include daughters with a
+half-life of at most 1800 s (pyDOSEIA's default `ignore_half_life`).
+For the five nuclides here that adds exactly one term, Ba-137m to Cs-137,
+taken in secular equilibrium (0.944 Bq of Ba-137m per Bq of Cs-137).
+
+```rust
+pub const PROGENY: crate::pydoseia::dcf::ProgenyCorrection = _;
 ```
 
 ## Module `pydoseia`
@@ -3025,6 +3180,12 @@ here (details in `crates/buangkok/docs/pydoseia-port-scoping.md`):
 | `RadioToxicityMaster.xls` / `Inhalation CED Sv per Bq Public` | inhalation e(g), six ages, types F/M/S/V | ICRP (Publ. 72 values, as reproduced in the IAEA BSS); ICRP data are copyrighted | **not copied**; load your own via [`InhalationDcfTable::from_csv`] |
 | `Dose_ecerman_final.xlsx` / `surface_dose`, `submersion_dose` | external dose-rate coefficients, six ages | US EPA **FGR-15** (EPA-402/R-19/002, 2019), Table 4-1 and the submersion table; a US federal report | not copied in this pass; loadable via [`ExternalDcfTable::from_csv`] |
 | `dcf_corr.xlsx` | decay chains and branching | upstream says "SRS 19 based on ICRP 107" (IAEA / ICRP) | **not copied**; load your own via [`ProgenyChains::from_csv`] |
+
+**Note (2026-09-29):** the FGR-15 edition named above is upstream's, the
+2019 EPA-402/R-19/002, which EPA has since **withdrawn** ("contained errors
+in the dose coefficient tables"). The coefficients buangkok does ship, in
+[`crate::coefficients`], are from the **July 2025 revision, EPA
+402-R-25-001**, for five nuclides only.
 
 The tables are read from CSVs in upstream's column layout (see each
 `from_csv`). The code-to-code test uses **synthetic** tables in that layout
@@ -6470,6 +6631,31 @@ propagates, as upstream). Returns `None` only for a NaN age.
 pub fn inhalation_dose(chi_over_q: super::units::DilutionFactor, release: Release, dcf_sv_per_bq: f64, age_years: f64) -> Option<super::units::EffectiveDose> { /* ... */ }
 ```
 
+#### Function `inhalation_committed_dose_rate_msv_per_s`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The inhalation pathway's coefficient product,
+`C * DCF_inh * breathing rate * 1000`, which [`inhalation_dose`] is built on.
+
+- Given an **instantaneous** air concentration `C` \[Bq/m^3\], the result is
+  the **committed** effective dose per second of breathing \[mSv/s\]: the
+  dose committed by one second's intake, not a dose received in that
+  second. It is what an "inhalation dose rate" means on a map, and it must
+  be labelled that way.
+- Given a **time-integrated** concentration \[Bq s/m^3\] it is the
+  committed dose \[mSv\], which is how [`inhalation_dose`] uses it.
+
+Returns `None` only for a NaN age. Not an upstream function: a 2026-09-29
+refactor so a dose-rate caller (`htgr_sim_v1`'s map) and the ported dose
+share one formula. Research-grade only (`RESPONSIBLE_USE.md`).
+
+```rust
+pub fn inhalation_committed_dose_rate_msv_per_s(air_concentration_bq_per_m3: f64, dcf_sv_per_bq: f64, age_years: f64) -> Option<f64> { /* ... */ }
+```
+
 #### Function `deposition_velocity_m_per_s`
 
 **Attributes:**
@@ -6535,6 +6721,25 @@ exposure of one year at the resulting concentration.
 pub fn ground_shine_dose(chi_over_q: super::units::DilutionFactor, release: Release, deposition_velocity_m_per_s: f64, effective_buildup_time_s: f64, dcf_gs: f64) -> super::units::EffectiveDose { /* ... */ }
 ```
 
+#### Function `ground_shine_dose_rate_msv_per_s`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The ground-shine coefficient product `A * DCF_gs * 1000`: the effective
+dose **rate** \[mSv/s\] from a ground-surface concentration `A`
+\[Bq/m^2\] and a ground-surface dose-rate coefficient
+\[Sv m^2 Bq^-1 s^-1\] (FGR-15 Table 4-1 is one).
+
+[`ground_shine_dose`] is built on it (its `gs_dose` step). Not an upstream
+function: a 2026-09-29 refactor so a dose-rate caller and the ported dose
+share one formula. Research-grade only (`RESPONSIBLE_USE.md`).
+
+```rust
+pub fn ground_shine_dose_rate_msv_per_s(ground_bq_per_m2: f64, dcf_gs: f64) -> f64 { /* ... */ }
+```
+
 #### Function `submersion_dose`
 
 **Attributes:**
@@ -6546,6 +6751,32 @@ mSv/y). `dcf_sub` (Sv m^3 Bq^-1 s^-1) from [`super::dcf::external_dcf`].
 
 ```rust
 pub fn submersion_dose(chi_over_q: super::units::DilutionFactor, release: Release, dcf_sub: f64) -> super::units::EffectiveDose { /* ... */ }
+```
+
+#### Function `submersion_dose_rate_msv_per_s`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The submersion coefficient product `C * DCF_sub * 1000`: given an
+**instantaneous** air concentration `C` \[Bq/m^3\] and an air-submersion
+dose-rate coefficient \[Sv m^3 Bq^-1 s^-1\] (FGR-15 Table 4-6 is one), the
+effective dose **rate** \[mSv/s\]; given a time-integrated concentration
+\[Bq s/m^3\], the dose \[mSv\], which is how [`submersion_dose`] uses it.
+
+**Semi-infinite cloud.** The coefficient assumes the receptor stands in a
+uniform cloud of concentration `C` extending far beyond a photon mean free
+path (~100 m in air at 1 MeV). For a narrow plume that over-states the dose
+on the centreline; beneath an elevated plume that has not yet reached the
+ground it under-states it. The finite-cloud alternative is
+[`super::plume_shine`].
+
+Not an upstream function: a 2026-09-29 refactor so a dose-rate caller and
+the ported dose share one formula. Research-grade only.
+
+```rust
+pub fn submersion_dose_rate_msv_per_s(air_concentration_bq_per_m3: f64, dcf_sub: f64) -> f64 { /* ... */ }
 ```
 
 #### Function `age_bracket`

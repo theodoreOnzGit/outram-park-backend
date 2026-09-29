@@ -62,11 +62,25 @@ crate was created that day to reserve the name. It now holds:
 - **Not ported:** I/O and UI only (Excel reading, plots, text formatting, the
   interactive input generator, joblib). Every upstream function's status is
   in [`docs/pydoseia-port-scoping.md`](docs/pydoseia-port-scoping.md).
-- **No dose-coefficient or nuclear data ships with the crate.** Upstream's
-  tables are ICRP-, IAEA- or JAEA-derived, or of unestablished terms, so the
-  caller supplies tables in upstream's CSV layout. Half-lives come from
-  `boon-lay`, not from here.
-- Nothing in the workspace calls it yet. It is not wired into `htgr_sim_v1`.
+- ~~**No dose-coefficient or nuclear data ships with the crate.**~~
+  **CHANGED 2026-09-29:** the pyDOSEIA port itself still ships none (upstream's
+  tables are ICRP-, IAEA- or JAEA-derived, or of unestablished terms, so a
+  caller supplies tables in upstream's CSV layout), but `buangkok::coefficients`
+  now ships one such caller-supplied set: **US EPA FGR-15 (2025 revision, EPA
+  402-R-25-001)** air-submersion (Table 4-6) and ground-surface (Table 4-1)
+  dose-rate coefficients and **FGR-11** (Table 2.1) inhalation coefficients,
+  for Kr-85, Xe-133, I-131, Cs-137 (+ Ba-137m) and Ag-110m only, with
+  provenance in [`docs/References.md`](docs/References.md). Half-lives come
+  from `boon-lay`, not from here.
+- ~~Nothing in the workspace calls it yet. It is not wired into
+  `htgr_sim_v1`.~~ **Wired into `htgr_sim_v1` (2026-09-29):** the Map tab's
+  "Dose rate" basis and dose-rate table compute an **indicative** effective
+  dose rate (µSv/h) through `pydoseia::dose::submersion_dose_rate_msv_per_s`,
+  `inhalation_committed_dose_rate_msv_per_s` and
+  `ground_shine_dose_rate_msv_per_s` (the coefficient products the ported
+  pathways are built on; the code-to-code fixture still passes bit for bit)
+  and the `coefficients` tables. Indicative, research/education only, not a
+  dose to any real person, not for emergency or regulatory use.
 
 **Published dose tables (moved here 2026-09-28):** `buangkok::published` holds
 the HTR-10 dose-versus-distance tables from Liu and Cao (2002) — normal

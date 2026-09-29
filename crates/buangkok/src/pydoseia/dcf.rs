@@ -24,6 +24,12 @@
 //! | `Dose_ecerman_final.xlsx` / `surface_dose`, `submersion_dose` | external dose-rate coefficients, six ages | US EPA **FGR-15** (EPA-402/R-19/002, 2019), Table 4-1 and the submersion table; a US federal report | not copied in this pass; loadable via [`ExternalDcfTable::from_csv`] |
 //! | `dcf_corr.xlsx` | decay chains and branching | upstream says "SRS 19 based on ICRP 107" (IAEA / ICRP) | **not copied**; load your own via [`ProgenyChains::from_csv`] |
 //!
+//! **Note (2026-09-29):** the FGR-15 edition named above is upstream's, the
+//! 2019 EPA-402/R-19/002, which EPA has since **withdrawn** ("contained errors
+//! in the dose coefficient tables"). The coefficients buangkok does ship, in
+//! [`crate::coefficients`], are from the **July 2025 revision, EPA
+//! 402-R-25-001**, for five nuclides only.
+//!
 //! The tables are read from CSVs in upstream's column layout (see each
 //! `from_csv`). The code-to-code test uses **synthetic** tables in that layout
 //! (`tests/data/pydoseia_synthetic_*.csv`), so no copyrighted coefficient is in

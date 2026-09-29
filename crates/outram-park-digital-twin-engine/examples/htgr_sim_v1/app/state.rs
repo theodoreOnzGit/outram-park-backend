@@ -57,8 +57,10 @@ pub const TRACKED_RELEASE_NUCLIDES: usize = 5;
 /// circuit leak is multiplied in, not divided out), so they are a transfer
 /// function rather than a consequence. The `_absolute` fields carry the same
 /// survey on the absolute (Bq) basis — still not a source term. See [`crate::physics::atmospheric_dispersion`], whose binding
-/// scope limit applies: research, education and V&V only, and **no dose
-/// quantity of any kind**.
+/// scope limit applies: research, education and V&V only, and ~~**no dose
+/// quantity of any kind**~~ (**CHANGED 2026-09-29**: the per-nuclide fields
+/// feed the Map tab's INDICATIVE dose rate, computed by `buangkok` in
+/// `crate::physics::dose_rate` -- never a dose to any real person).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ReceptorSnapshot {
     /// Compass bearing from the release point, degrees clockwise from north.
@@ -103,11 +105,19 @@ pub struct ReceptorSnapshot {
     pub ground_bq_per_m2: f64,
     /// Time-integrated air concentration on the **absolute** basis \[Bq·s/m^3\],
     /// summed over the five tracked nuclides; `NAN` when the absolute arm is
-    /// unavailable. Not a concentration at any reactor and never a dose input.
+    /// unavailable. Not a concentration at any reactor ~~and never a dose
+    /// input~~ (**CHANGED 2026-09-29**: the per-nuclide deposit below is the
+    /// ground-shine input of the indicative dose rate; this sum is not).
     pub air_bq_s_per_m3_absolute: f64,
     /// Dry ground deposition on the **absolute** basis \[Bq/m^2\]; `NAN` when
     /// unavailable. Same caveats.
     pub ground_bq_per_m2_absolute: f64,
+    /// Dry ground deposition on the absolute basis \[Bq/m^2\] **per tracked
+    /// nuclide**, in `TRACKED_NUCLIDES` order; `NAN` when unavailable. Added
+    /// 2026-09-29: the map's dose-rate basis turns each nuclide's deposit into
+    /// an indicative ground-shine dose rate with that nuclide's own FGR-15
+    /// coefficient (see `crate::physics::dose_rate`).
+    pub ground_bq_per_m2_absolute_by_nuclide: [f64; TRACKED_RELEASE_NUCLIDES],
 }
 
 /// How many receptors the dispersion channel publishes. Matches
@@ -424,6 +434,12 @@ pub struct HtgrSnapshot {
     /// arm is unavailable. Instantaneous `chi/Q` × this is the map's default
     /// field, an instantaneous air concentration \[Bq/m^3\].
     pub dispersion_source_rate_absolute_bq_per_s: f64,
+    /// The absolute release rate to atmosphere **per tracked nuclide**
+    /// \[Bq/s\], in `TRACKED_NUCLIDES` order; `NAN` before the first run or
+    /// for a nuclide without a published inventory. Added 2026-09-29 for the
+    /// map's dose-rate basis (`crate::physics::dose_rate`): instantaneous
+    /// `chi/Q` × one entry is that nuclide's live air concentration.
+    pub dispersion_source_rate_absolute_by_nuclide_bq_per_s: [f64; TRACKED_RELEASE_NUCLIDES],
     /// Whether the reactor protection system is armed.
     ///
     /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
@@ -756,12 +772,16 @@ impl Default for HtgrSnapshot {
             dispersion_grid_time_s: f64::NAN,
             map_field_cells_requested: crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
             plume_clock_offset_s: 0.0,
-            wind_speed_m_per_s: 3.0,
+            // The map regime's representative speed (inter-monsoon, 1 m/s;
+            // `map_puff_model`, maintainer 2026-09-29).
+            wind_speed_m_per_s: crate::physics::map_puff_model::default_speed_m_per_s(),
             wind_from_deg: 0.0,
             stability_class: "",
             dispersion_evaluated_at_s: f64::NAN,
             dispersion_source_rate_per_ci_bq_per_s: f64::NAN,
             dispersion_source_rate_absolute_bq_per_s: f64::NAN,
+            dispersion_source_rate_absolute_by_nuclide_bq_per_s: [f64::NAN;
+                TRACKED_RELEASE_NUCLIDES],
             reactivity_margin_dollars: 0.0,
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,

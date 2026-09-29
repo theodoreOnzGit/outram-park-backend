@@ -604,9 +604,15 @@ fn draw_secondary_controls(
     // puff model cannot represent at all (nothing advects, so the puffs pile
     // up at the source and the model's own travel-distance sigmas are
     // undefined). Stated rather than silently clamped.
+    //
+    // ~~0.5..=15.0~~ CHANGED 2026-09-29, maintainer: "limit the upper limit of
+    // the slider to 5 m/s so we don't change regime". The map's regime and
+    // Pasquill class are fixed (`map_puff_model`); speed only scales dilution
+    // and advection.
+    use crate::physics::map_puff_model::{MAX_SPEED_M_PER_S, MIN_SPEED_M_PER_S};
     let speed_changed = ui
         .add(
-            egui::Slider::new(&mut wind_speed, 0.5..=15.0)
+            egui::Slider::new(&mut wind_speed, MIN_SPEED_M_PER_S..=MAX_SPEED_M_PER_S)
                 .text("wind speed (m/s)")
                 .drag_value_speed(0.01),
         )
@@ -633,6 +639,7 @@ fn draw_secondary_controls(
         ));
     });
 
+    ui.small(crate::physics::map_puff_model::regime_label());
     ui.small(
         "Meteorological convention: the direction the wind blows FROM. A wind \
          from 0 deg (north) carries the plume SOUTH. Below 0.5 m/s a Gaussian \

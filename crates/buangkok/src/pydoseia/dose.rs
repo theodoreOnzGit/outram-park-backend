@@ -90,10 +90,39 @@ pub fn inhalation_dose(
     dcf_sv_per_bq: f64,
     age_years: f64,
 ) -> Option<EffectiveDose> {
-    let br = breathing_rate_m3_per_s(age_years)?;
+    // Refactored 2026-09-29 (not an upstream change): the coefficient product
+    // is `inhalation_committed_dose_rate_msv_per_s`, fed the time-integrated
+    // concentration `chi/Q * Q` [Bq s m^-3]. The multiplication order is
+    // upstream's, `(((chi/Q * Q) * DCF) * br) * 1000`, so the result is
+    // bit-identical (checked by the code-to-code fixture).
+    let time_integrated = chi_over_q.seconds_per_cubic_meter() * release.becquerels();
     Some(EffectiveDose::from_millisieverts(
-        chi_over_q.seconds_per_cubic_meter() * release.becquerels() * dcf_sv_per_bq * br * 1000.0,
+        inhalation_committed_dose_rate_msv_per_s(time_integrated, dcf_sv_per_bq, age_years)?,
     ))
+}
+
+/// The inhalation pathway's coefficient product,
+/// `C * DCF_inh * breathing rate * 1000`, which [`inhalation_dose`] is built on.
+///
+/// - Given an **instantaneous** air concentration `C` \[Bq/m^3\], the result is
+///   the **committed** effective dose per second of breathing \[mSv/s\]: the
+///   dose committed by one second's intake, not a dose received in that
+///   second. It is what an "inhalation dose rate" means on a map, and it must
+///   be labelled that way.
+/// - Given a **time-integrated** concentration \[Bq s/m^3\] it is the
+///   committed dose \[mSv\], which is how [`inhalation_dose`] uses it.
+///
+/// Returns `None` only for a NaN age. Not an upstream function: a 2026-09-29
+/// refactor so a dose-rate caller (`htgr_sim_v1`'s map) and the ported dose
+/// share one formula. Research-grade only (`RESPONSIBLE_USE.md`).
+#[must_use]
+pub fn inhalation_committed_dose_rate_msv_per_s(
+    air_concentration_bq_per_m3: f64,
+    dcf_sv_per_bq: f64,
+    age_years: f64,
+) -> Option<f64> {
+    let br = breathing_rate_m3_per_s(age_years)?;
+    Some(air_concentration_bq_per_m3 * dcf_sv_per_bq * br * 1000.0)
 }
 
 /// Upstream's total (dry + wet) deposition velocity by **element symbol**,
@@ -184,8 +213,24 @@ pub fn ground_shine_dose(
         * (release.becquerels() / UPSTREAM_YEAR_S)
         * deposition_velocity_m_per_s;
     let conc_rad_ground = deposition_rate * effective_buildup_time_s;
-    let gs_dose = conc_rad_ground * dcf_gs * 1000.0;
+    // Refactored 2026-09-29 (not an upstream change): `conc * DCF * 1000` is
+    // `ground_shine_dose_rate_msv_per_s`, in upstream's order, so the result
+    // is bit-identical.
+    let gs_dose = ground_shine_dose_rate_msv_per_s(conc_rad_ground, dcf_gs);
     EffectiveDose::from_millisieverts(gs_dose * UPSTREAM_YEAR_S)
+}
+
+/// The ground-shine coefficient product `A * DCF_gs * 1000`: the effective
+/// dose **rate** \[mSv/s\] from a ground-surface concentration `A`
+/// \[Bq/m^2\] and a ground-surface dose-rate coefficient
+/// \[Sv m^2 Bq^-1 s^-1\] (FGR-15 Table 4-1 is one).
+///
+/// [`ground_shine_dose`] is built on it (its `gs_dose` step). Not an upstream
+/// function: a 2026-09-29 refactor so a dose-rate caller and the ported dose
+/// share one formula. Research-grade only (`RESPONSIBLE_USE.md`).
+#[must_use]
+pub fn ground_shine_dose_rate_msv_per_s(ground_bq_per_m2: f64, dcf_gs: f64) -> f64 {
+    ground_bq_per_m2 * dcf_gs * 1000.0
 }
 
 /// Submersion dose for one nuclide: `chi/Q * Q * DCF_sub * 1000` (mSv, or
@@ -196,9 +241,33 @@ pub fn submersion_dose(
     release: Release,
     dcf_sub: f64,
 ) -> EffectiveDose {
-    EffectiveDose::from_millisieverts(
-        chi_over_q.seconds_per_cubic_meter() * release.becquerels() * dcf_sub * 1000.0,
-    )
+    // Refactored 2026-09-29 (not an upstream change): the coefficient product
+    // is `submersion_dose_rate_msv_per_s`, fed the time-integrated
+    // concentration, in upstream's multiplication order -- bit-identical.
+    EffectiveDose::from_millisieverts(submersion_dose_rate_msv_per_s(
+        chi_over_q.seconds_per_cubic_meter() * release.becquerels(),
+        dcf_sub,
+    ))
+}
+
+/// The submersion coefficient product `C * DCF_sub * 1000`: given an
+/// **instantaneous** air concentration `C` \[Bq/m^3\] and an air-submersion
+/// dose-rate coefficient \[Sv m^3 Bq^-1 s^-1\] (FGR-15 Table 4-6 is one), the
+/// effective dose **rate** \[mSv/s\]; given a time-integrated concentration
+/// \[Bq s/m^3\], the dose \[mSv\], which is how [`submersion_dose`] uses it.
+///
+/// **Semi-infinite cloud.** The coefficient assumes the receptor stands in a
+/// uniform cloud of concentration `C` extending far beyond a photon mean free
+/// path (~100 m in air at 1 MeV). For a narrow plume that over-states the dose
+/// on the centreline; beneath an elevated plume that has not yet reached the
+/// ground it under-states it. The finite-cloud alternative is
+/// [`super::plume_shine`].
+///
+/// Not an upstream function: a 2026-09-29 refactor so a dose-rate caller and
+/// the ported dose share one formula. Research-grade only.
+#[must_use]
+pub fn submersion_dose_rate_msv_per_s(air_concentration_bq_per_m3: f64, dcf_sub: f64) -> f64 {
+    air_concentration_bq_per_m3 * dcf_sub * 1000.0
 }
 
 /// The age bracket a pathway would use for its coefficient, re-exported here

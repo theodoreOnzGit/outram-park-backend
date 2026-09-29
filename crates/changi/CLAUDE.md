@@ -99,7 +99,12 @@ Tables held today, all from Liu and Cao (2002), NED 218, 81–90:
 | 8 | Airborne release for two design-basis accidents (depressurization, water ingress), 18 nuclides (Bq per accident); the paper's "C-4" stored as C-14. Added 2026-09-28 | `htr10_accident_airborne_release.csv` | `activity/accident_airborne_release.rs` |
 | ~~9~~ | ~~Individual thyroid and whole-body dose vs distance, two design-basis accidents (mSv)~~ — **MOVED to `buangkok::published` 2026-09-28** | — | — |
 
-Nothing in the workspace consumes these tables yet.
+~~Nothing in the workspace consumes these tables yet.~~ **CORRECTED
+2026-09-29** (checked by grep): Table 1 is consumed by `htgr_sim_v1`'s
+`physics::fission_product_release` (`changi::activity::inventory`), which
+drives the absolute arm of its dispersion map and, since 2026-09-29, its
+indicative dose rate; Table 8 is referenced by `buangkok::published`
+(`AccidentCase`). Tables 3 and 5 still have no consumer.
 
 ~~**The Table 7 and Table 9 dose tables are parked
 here, not settled here** (**CORRECTED 2026-09-28**: Table 9, the accident

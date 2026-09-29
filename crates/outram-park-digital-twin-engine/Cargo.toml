@@ -166,8 +166,9 @@ outram-park-fork-offbeat.workspace = true
 #
 # SCOPE (RESPONSIBLE_USE.md, and `changi::activity`'s own binding scope limit):
 # research, education and V&V only. Never for emergency planning, emergency
-# response, dose assessment for real populations, or Level 3 PSA. No dose
-# quantity of any kind is computed.
+# response, dose assessment for real populations, or Level 3 PSA. ~~No dose
+# quantity of any kind is computed.~~ CHANGED 2026-09-29: changi computes
+# none; the map's INDICATIVE dose rate is buangkok's (see below).
 #
 # `gpu`: dispatches `changi::puff::wgsl::field_auto`'s WGSL kernel through
 # PETIR's headless runner. htgr_sim_v1's Map tab evaluates the dispersion
@@ -187,6 +188,19 @@ outram-park-fork-offbeat.workspace = true
 # Android/wasm are unaffected: `petir/wgpu`'s `wgpu` dependency is itself
 # target-gated off both, so enabling this feature there activates nothing.
 changi = { workspace = true, features = ["gpu"] }
+
+# htgr_sim_v1's map "Dose rate" basis (maintainer direction 2026-09-29):
+# `physics::dose_rate` turns the live air concentration and the dry deposit
+# into an INDICATIVE effective dose rate through buangkok's pathway functions
+# (`submersion_dose_rate_msv_per_s`, `ground_shine_dose_rate_msv_per_s`,
+# `inhalation_committed_dose_rate_msv_per_s`) and buangkok's shipped EPA
+# coefficients (FGR-15 2025, FGR-11). DEV-dependency, example-only, for the
+# same reasons as changi above. Direction: buangkok -> changi, petir, uom;
+# nothing depends on this crate, so no cycle. buangkok is pure Rust (petir is
+# no_std), so Android and wasm stay clean.
+# SCOPE: research/education only -- never a dose to any real person, never for
+# emergency or regulatory use (RESPONSIBLE_USE.md, buangkok's CLAUDE.md).
+buangkok = { workspace = true }
 
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)

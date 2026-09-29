@@ -26,8 +26,11 @@
 //! groups bit-exact). The agreement is with pyDOSEIA, not with experiment,
 //! and there is no validation of any kind; 26 upstream defects are recorded
 //! (`docs/pydoseia-code-to-code.md`). What is not ported is I/O and UI (see
-//! `docs/pydoseia-port-scoping.md`). No dose-coefficient data ships with the
-//! crate. Human V&V review is still outstanding (see README).
+//! `docs/pydoseia-port-scoping.md`). ~~No dose-coefficient data ships with the
+//! crate.~~ **CHANGED 2026-09-29:** the port ships none, but [`coefficients`]
+//! holds US EPA FGR-15 (2025) and FGR-11 coefficients for the five nuclides
+//! `htgr_sim_v1` tracks, which that example's Map tab uses for an indicative
+//! dose rate. Human V&V review is still outstanding (see README).
 //!
 //! # Why dose has its own crate
 //!
@@ -61,6 +64,11 @@
 /// Published dose tables (Liu and Cao 2002, Tables 7 and 9), stored as cited
 /// reference data. See the module docs.
 pub mod published;
+
+/// Freely usable US EPA dose coefficients (FGR-15 2025 external, FGR-11
+/// inhalation) for the nuclides `htgr_sim_v1` tracks, as the port's own table
+/// types. Not a port; see the module docs for provenance.
+pub mod coefficients;
 
 /// Port of pyDOSEIA (met processing, Gaussian-plume dilution, inhalation,
 /// ground-shine, submersion, ingestion and plume-shine doses, the driver),

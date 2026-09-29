@@ -431,6 +431,7 @@ outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        v
 raffles                      = { path = "crates/raffles",                      version = "0.0.0" }
 petir                        = { path = "crates/petir",                        version = "0.0.0" }
 changi                       = { path = "crates/changi",                       version = "0.0.0" }
+buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }

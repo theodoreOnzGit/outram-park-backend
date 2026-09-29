@@ -171,20 +171,22 @@ use state::{HtgrPlotData, HtgrSnapshot};
 /// Nothing is clamped here on purpose: the physics clamps every field itself
 /// (see [`PlantCommands`]), so a value arriving from an OPC-UA write or a test
 /// gets exactly the same bounds as one from a slider.
-fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
+pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
     PlantCommands {
         control_rod_insertion_fraction: s.control_rod_insertion_fraction,
         helium_flow_setpoint: MassRate::new::<kilogram_per_second>(s.helium_flow_setpoint_kg_per_s),
-        // Wind is weather, not plant state -- the operator dials it in the way
-        // they would read it off a met mast. Nothing is clamped here; the
-        // dispersion channel bounds it, same as every other command.
-        meteorology: crate::physics::atmospheric_dispersion::Meteorology {
-            speed: uom::si::f64::Velocity::new::<uom::si::velocity::meter_per_second>(
-                s.wind_speed_m_per_s,
-            ),
-            direction_from: uom::si::f64::Angle::new::<uom::si::angle::degree>(s.wind_from_deg),
-            ..crate::physics::atmospheric_dispersion::Meteorology::default()
-        },
+        // ~~Wind is weather, not plant state -- the operator dials it in the
+        // way they would read it off a met mast. Nothing is clamped here~~
+        // CHANGED 2026-09-29 (maintainer: "that is to be the puff model used
+        // for the map"): the map's ONE puff-model configuration -- fixed
+        // inter-monsoon regime and class, speed clamped to 0.5-5 m/s,
+        // direction only rotates -- built by `map_puff_model::map_meteorology`
+        // and nowhere else, so every map basis and table reads the same
+        // channel run. Limitations: gh:#384.
+        meteorology: crate::physics::map_puff_model::map_meteorology(
+            s.wind_speed_m_per_s,
+            s.wind_from_deg,
+        ),
         // What the Map tab wants of the dispersion field: one cell per screen
         // pixel of the map square, and the operator's plume-clock
         // fast-forward. Travels as a command for the same reason the wind
@@ -1036,8 +1038,12 @@ mod tests {
     ///
     /// **Results (2026-09-22, after the fix).** The default snapshot maps to
     /// exactly `PlantCommands::default()`: rods 0.50, helium **1.29 kg/s**,
-    /// feedwater **MANUAL at 10.0 kg/s**, condenser 7.000 kPa, wind 3.0 m/s
-    /// from 0 deg at hour 12. Flipping `feedwater_manual` to `false` yields
+    /// feedwater **MANUAL at 10.0 kg/s**, condenser 7.000 kPa, ~~wind 3.0 m/s
+    /// from 0 deg at hour 12~~ **(2026-09-29)** the map puff model: wind
+    /// 1.0 m/s from 0 deg at hour 12, class B fixed (`map_puff_model`). This
+    /// test caught the plant default still on the old 3 m/s speed-derived
+    /// meteorology when the map moved -- a second copy, removed. Flipping
+    /// `feedwater_manual` to `false` yields
     /// `Auto { target_steam_temperature: 713.15 K }`.
     ///
     /// **Interpretation.** The opening frame commands the plant's current

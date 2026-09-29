@@ -53,13 +53,35 @@
 //! | Per Ci | the same, per curie of core inventory | Bq/m^3 per Ci |
 //! | `chi/Q` | the source-independent dilution factor (the pre-2026-09-28 map) | s/m^3 |
 //!
+//! | **Dose rate** (since 2026-09-29) | INDICATIVE effective dose rate, air pathways | µSv/h |
+//!
 //! Absolute falls back to per-Ci when the release channel has no absolute arm.
+//! Dose rate never falls back: without the absolute arm it is unavailable and
+//! says so.
+//!
+//! ## The dose-rate basis (maintainer direction, 2026-09-29)
+//!
+//! *"wire in buangkok into the map … additional option for dose rate … The
+//! scaling should be 0.8 microsieverts/hr (just about airline) all the way up
+//! to 1 mSv/hr"*, and *"i want a table for dose rates (microsieverts/hr),
+//! placed above the absolute basis map"*. The physics is in
+//! [`crate::physics::dose_rate`], through `buangkok`'s pathway functions and
+//! its shipped US EPA coefficients (FGR-15 2025, FGR-11): a pixel is cloud
+//! submersion + committed inhalation from the live air concentration; ground
+//! shine from the dry deposit is in the receptor table only (the map has no
+//! per-pixel deposit). **Indicative dose rate, research/education only, not a
+//! dose to any real person, not for emergency or regulatory use** -- said on
+//! screen next to the control and the table. ~~"nothing on this tab computes
+//! or displays a dose (dose belongs to `buangkok`)"~~ **CHANGED 2026-09-29**:
+//! the dose-rate basis displays one, computed by `buangkok`.
+//!
 //! The colour scale is set by two sliders -- a floor and a span in decades --
 //! whose absolute-basis defaults are the **indicative** anchors
 //! [`banana_anchor`] and [`one_sievert_anchor`], derived from US EPA
 //! Federal Guidance Report No. 11. **They are colour-scale anchors, not a dose
-//! calculation**: nothing on this tab computes or displays a dose (dose belongs
-//! to `buangkok`), and the anchors are activities of intake placed numerically
+//! calculation**: ~~nothing on this tab computes or displays a dose (dose belongs
+//! to `buangkok`)~~ (**CHANGED 2026-09-29**: the Dose-rate basis displays an
+//! indicative dose rate, computed by `buangkok` -- see below), and the anchors are activities of intake placed numerically
 //! on a Bq/m^3 scale, which is not a unit conversion. See
 //! [`FGR11_K40_INGESTION_SV_PER_BQ`] for the derivation.
 //!
@@ -80,6 +102,8 @@ use outram_park_digital_twin_engine::app_scaffold::SharedState;
 use outram_park_digital_twin_engine::color_maps::hot_to_cold_colour_mark_1;
 
 use super::state::HtgrSnapshot;
+use crate::physics::dose_rate::{self, Pathway};
+use crate::physics::fission_product_release::TRACKED_NUCLIDES;
 
 /// Fraction of the tab's height the map square takes.
 ///
@@ -199,6 +223,25 @@ pub fn one_sievert_anchor() -> f64 {
     ONE_SIEVERT_SV / FGR11_CS137_INGESTION_SV_PER_BQ
 }
 
+/// **"≈ airliner at cruise altitude"** default floor of the dose-rate basis
+/// \[µSv/h\] -- the maintainer's figure (2026-09-29), not a cited value.
+pub use crate::physics::dose_rate::FLOOR_USV_PER_H;
+/// **"high"** default top of the dose-rate basis \[µSv/h\] -- the
+/// maintainer's figure (2026-09-29).
+pub use crate::physics::dose_rate::TOP_USV_PER_H;
+
+/// The framing every dose-rate readout carries (hard rule,
+/// `crates/buangkok/CLAUDE.md`). Pinned by a test so it cannot be edited away.
+pub const DOSE_RATE_FRAMING: &str =
+    "INDICATIVE dose rate -- research/education only, not a dose to \
+     any real person, not for emergency or regulatory use.";
+
+/// The dose-rate basis's default scale: floor [`FLOOR_USV_PER_H`] (0.8 µSv/h),
+/// top [`TOP_USV_PER_H`] (1 mSv/h), span `log10(1000 / 0.8)` = 3.097 decades.
+pub fn dose_rate_anchor_scale() -> ColourScale {
+    ColourScale::clamped(FLOOR_USV_PER_H, (TOP_USV_PER_H / FLOOR_USV_PER_H).log10())
+}
+
 /// Which quantity the map paints. See the module doc's table.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MapBasis {
@@ -213,16 +256,26 @@ pub enum MapBasis {
     /// is not hostage to a source-term input, and because it still draws a
     /// plume when the release channel is empty.
     ChiOverQ,
+    /// INDICATIVE effective dose rate \[µSv/h\] from the air pathways
+    /// (submersion + committed inhalation), through `buangkok`; see
+    /// [`crate::physics::dose_rate`]. Not a dose to any real person.
+    DoseRate,
 }
 
 impl MapBasis {
-    const ALL: [MapBasis; 3] = [MapBasis::Absolute, MapBasis::PerCi, MapBasis::ChiOverQ];
+    const ALL: [MapBasis; 4] = [
+        MapBasis::Absolute,
+        MapBasis::PerCi,
+        MapBasis::ChiOverQ,
+        MapBasis::DoseRate,
+    ];
 
     fn index(self) -> usize {
         match self {
             MapBasis::Absolute => 0,
             MapBasis::PerCi => 1,
             MapBasis::ChiOverQ => 2,
+            MapBasis::DoseRate => 3,
         }
     }
 
@@ -232,6 +285,7 @@ impl MapBasis {
             MapBasis::Absolute => "Bq/m^3",
             MapBasis::PerCi => "Bq/m^3 per Ci",
             MapBasis::ChiOverQ => "s/m^3",
+            MapBasis::DoseRate => "µSv/h",
         }
     }
 
@@ -240,17 +294,23 @@ impl MapBasis {
             MapBasis::Absolute => "Absolute [Bq/m^3]",
             MapBasis::PerCi => "Per Ci of core inventory [Bq/m^3 per Ci]",
             MapBasis::ChiOverQ => "chi/Q [s/m^3]",
+            MapBasis::DoseRate => "Dose rate [µSv/h] (indicative)",
         }
     }
 
     /// The factor that turns instantaneous `chi/Q` \[s/m^3\] into this
-    /// basis: a release rate \[Bq/s\] or \[Bq/s per Ci\], or 1. `NAN` when
-    /// the rate is not available.
+    /// basis: a release rate \[Bq/s\] or \[Bq/s per Ci\], 1, or (dose rate)
+    /// the air-pathway dose rate per unit `chi/Q` \[µSv/h per s/m^3\] from
+    /// `buangkok`. `NAN` when the rate is not available.
     fn factor(self, s: &HtgrSnapshot) -> f64 {
         match self {
             MapBasis::Absolute => s.dispersion_source_rate_absolute_bq_per_s,
             MapBasis::PerCi => s.dispersion_source_rate_per_ci_bq_per_s,
             MapBasis::ChiOverQ => 1.0,
+            MapBasis::DoseRate => dose_rate::air_dose_rate_per_unit_chi_over_q(
+                &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+                dose_rate::coefficients(),
+            ),
         }
     }
 }
@@ -267,9 +327,9 @@ fn effective_basis(requested: MapBasis, s: &HtgrSnapshot) -> MapBasis {
     }
 }
 
-/// The value the map paints for one `chi/Q` sample on `basis`. The texture
-/// and the absolute table's LIVE column both call this, so a row and the
-/// pixel under it cannot disagree by construction.
+/// The value the map paints for one `chi/Q` sample on `basis`. The texture,
+/// the absolute table's LIVE column and the dose-rate table's air row all call
+/// this, so a row and the pixel under it cannot disagree by construction.
 fn field_value(chi_over_q: f64, basis: MapBasis, s: &HtgrSnapshot) -> f64 {
     chi_over_q * basis.factor(s)
 }
@@ -385,6 +445,7 @@ fn default_scale(basis: MapBasis, s: &HtgrSnapshot, field_peak: f64) -> ColourSc
             }
         }
         MapBasis::ChiOverQ => peak_scale(field_peak),
+        MapBasis::DoseRate => dose_rate_anchor_scale(),
     }
 }
 
@@ -431,7 +492,7 @@ pub struct MapTabState {
     /// Operator-set colour scale per basis, indexed by [`MapBasis::index`].
     /// `None` until a slider is touched: the default then tracks
     /// [`default_scale`], which for Per Ci moves with the release rates.
-    scales: [Option<ColourScale>; 3],
+    scales: [Option<ColourScale>; 4],
 }
 
 impl MapTabState {
@@ -581,6 +642,23 @@ fn draw_scale_controls(
              Table 2.2 (ingestion, 'Effective' column): K-40 5.02e-9 Sv/Bq and Cs-137 \
              1.35e-8 Sv/Bq. Arithmetic and provenance: htgr_sim_v1/reference/References.md.",
         );
+    }
+    if basis == MapBasis::DoseRate {
+        ui.colored_label(Color32::from_rgb(200, 60, 20), DOSE_RATE_FRAMING);
+        ui.label(format!(
+            "Default anchors (maintainer's figures, indicative, not regulatory): floor {:.1} µSv/h \
+             = \"≈ airliner at cruise altitude\";  top {:.0} µSv/h = 1 mSv/h \"high\".",
+            FLOOR_USV_PER_H, TOP_USV_PER_H
+        ))
+        .on_hover_text(dose_rate_method_text());
+        ui.label(dose_rate_missing_note());
+        if !basis.factor(s).is_finite() {
+            ui.colored_label(
+                Color32::from_rgb(200, 120, 20),
+                "Dose rate unavailable: no absolute release rate for every tracked nuclide yet \
+                 (no release evaluated, or no published inventory). Nothing is painted.",
+            );
+        }
     }
     (basis, scale)
 }
@@ -832,10 +910,20 @@ fn below_floor_note(field_peak: f64, scale: ColourScale, basis: MapBasis) -> Opt
     if !field_peak.is_finite() || field_peak > scale.floor {
         return None;
     }
+    // Why the field is so low, on the basis where it matters most: the
+    // dose-rate anchors are everyday exposure levels, and a normal-operation
+    // leak sits many decades under them. Said, so a grey map is not read as
+    // a broken one.
+    let why = if basis == MapBasis::DoseRate {
+        " The normal-operation release is tiny (five nuclides leaking from the primary \
+         circuit at ~1 %/day), so its indicative dose rate is far below 0.8 µSv/h."
+    } else {
+        ""
+    };
     Some(if field_peak > 0.0 {
         format!(
             "Whole field below the minimum reading: peak {field_peak:.2e} {} is {:.1} decades \
-             under the floor. Lower \"minimum reading\" to see the plume.",
+             under the floor.{why} Lower \"minimum reading\" to see the plume.",
             basis.unit(),
             (scale.floor / field_peak).log10()
         )
@@ -1112,9 +1200,245 @@ fn sci_or_dash(value: f64, digits: usize) -> String {
     }
 }
 
-/// The dispersion tables and their caveats: absolute, then per-Ci
-/// (unchanged), then `chi/Q` by distance directly under them.
-fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
+/// How the dose rate is computed, for hover text.
+fn dose_rate_method_text() -> &'static str {
+    "Computed by buangkok (pathway functions shared with its pyDOSEIA port): cloud submersion \
+     = live air concentration x US EPA FGR-15 (2025, EPA 402-R-25-001) Table 4-6 air-submersion \
+     coefficient (semi-infinite cloud); committed inhalation = concentration x adult breathing \
+     rate (8400 m^3/y) x FGR-11 Table 2.1 'Effective' coefficient (max over lung classes); \
+     ground shine = dry deposit x FGR-15 Table 4-1. Adult. Cs-137 includes Ba-137m (0.944). \
+     Summed over Kr-85, Xe-133, I-131, Cs-137, Ag-110m. The map pixel is submersion + \
+     inhalation; ground shine is in the table only (no per-pixel deposit). Semi-infinite cloud: \
+     over-states on a narrow plume's centreline, under-states under the elevated plume before \
+     it grounds. Provenance: crates/buangkok/docs/References.md."
+}
+
+/// The on-screen list of (nuclide, pathway) terms with no coefficient.
+fn dose_rate_missing_note() -> String {
+    let missing = dose_rate::coefficients().missing();
+    if missing.is_empty() {
+        return "Every nuclide has a coefficient on every pathway.".to_string();
+    }
+    let list: Vec<String> = missing
+        .iter()
+        .map(|(n, p)| format!("{n} {}", p.label()))
+        .collect();
+    format!(
+        "Missing coefficient (left OUT of the sums, not counted as zero): {}. FGR-11 publishes no \
+         inhalation coefficient for noble gases; their inhalation dose is negligible next to \
+         submersion, not zero.",
+        list.join(", ")
+    )
+}
+
+/// Column headings of the per-pathway split table.
+const DOSE_SPLIT_HEADINGS: [&str; 4] = [
+    "Nuclide",
+    "Cloud submersion [µSv/h]",
+    "Inhalation, committed [µSv/h]",
+    "Ground shine [µSv/h]",
+];
+
+/// One distance's row pair of the dose-rate table: the eight bearings, north
+/// first, clockwise.
+#[derive(Debug, Clone, PartialEq)]
+struct DoseRateRow {
+    distance_m: f64,
+    bearings_deg: Vec<f64>,
+    /// Air pathways (submersion + committed inhalation) \[µSv/h\] -- the
+    /// value of the dose-rate map pixel under the receptor, through the same
+    /// [`field_value`] the texture uses.
+    air: Vec<f64>,
+    /// Ground shine from the dry deposit \[µSv/h\]; `NAN` when unavailable.
+    /// Not on the map.
+    ground: Vec<f64>,
+}
+
+/// Ground-shine rate at one receptor \[µSv/h\], summed over the nuclides
+/// through `buangkok` (every tracked nuclide has a ground coefficient, so the
+/// sum is complete); `NAN` when the deposit is unavailable.
+fn receptor_ground_rate(r: &super::state::ReceptorSnapshot, s: &HtgrSnapshot) -> f64 {
+    let split = dose_rate::receptor_split(
+        r.instantaneous_chi_over_q,
+        &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+        &r.ground_bq_per_m2_absolute_by_nuclide,
+        dose_rate::coefficients(),
+    );
+    let (total, missing) = dose_rate::pathway_total(&split, Pathway::GroundShine);
+    if missing.is_empty() {
+        total
+    } else {
+        f64::NAN
+    }
+}
+
+/// The dose-rate table, one [`DoseRateRow`] per receptor distance, all
+/// bearings. Pure, so a test can check it against the map pixel.
+fn dose_rate_rows(s: &HtgrSnapshot) -> Vec<DoseRateRow> {
+    chi_over_q_rows(s)
+        .into_iter()
+        .map(|row| {
+            let at: Vec<&super::state::ReceptorSnapshot> = row
+                .bearings_deg
+                .iter()
+                .map(|b| {
+                    s.receptors
+                        .iter()
+                        .find(|r| {
+                            (r.distance_m - row.distance_m).abs() < 1e-9
+                                && (r.bearing_deg - b).abs() < 1e-9
+                        })
+                        .expect("receptor from the same ring")
+                })
+                .collect();
+            DoseRateRow {
+                distance_m: row.distance_m,
+                bearings_deg: row.bearings_deg.clone(),
+                air: row
+                    .live
+                    .iter()
+                    .map(|chi| field_value(*chi, MapBasis::DoseRate, s))
+                    .collect(),
+                ground: at.iter().map(|r| receptor_ground_rate(r, s)).collect(),
+            }
+        })
+        .collect()
+}
+
+/// A dose-rate cell: the number, marked when at or below the colour floor,
+/// `unavailable` when there is none. **Never printed as 0 for a missing
+/// value**, and a below-floor value keeps its number.
+fn dose_cell_text(value: f64, floor: f64) -> String {
+    if !value.is_finite() {
+        "unavailable".to_string()
+    } else if value <= floor {
+        format!("{value:.2e} (below floor)")
+    } else {
+        format!("{value:.3e}")
+    }
+}
+
+/// The receptor with the highest air-pathway dose rate, for the split table.
+fn peak_air_receptor(s: &HtgrSnapshot) -> Option<&super::state::ReceptorSnapshot> {
+    s.receptors
+        .iter()
+        .filter(|r| r.distance_m > 0.0)
+        .max_by(|a, b| {
+            a.instantaneous_chi_over_q
+                .total_cmp(&b.instantaneous_chi_over_q)
+        })
+}
+
+/// The whole-table note when every air cell is below the floor, or `None`.
+fn dose_table_below_floor_note(rows: &[DoseRateRow], floor: f64) -> Option<String> {
+    let peak = rows
+        .iter()
+        .flat_map(|r| r.air.iter())
+        .copied()
+        .filter(|v| v.is_finite())
+        .fold(f64::NAN, f64::max);
+    below_floor_note(peak, ColourScale::clamped(floor, 1.0), MapBasis::DoseRate)
+}
+
+/// The dose-rate tables (maintainer direction 2026-09-29: first, above the
+/// absolute basis): by distance x bearing, then the per-pathway split at the
+/// peak receptor.
+fn draw_dose_rate_tables(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale) {
+    ui.strong("Dose rate [µSv/h] by receptor distance -- INDICATIVE");
+    ui.colored_label(Color32::from_rgb(200, 60, 20), DOSE_RATE_FRAMING);
+    let floor = dose_scale.floor;
+    let rows = dose_rate_rows(s);
+    let bearings: Vec<f64> = rows
+        .first()
+        .map(|r| r.bearings_deg.clone())
+        .unwrap_or_default();
+    egui::Grid::new("htgr_map_dose_rate_by_distance")
+        .num_columns(2 + bearings.len())
+        .striped(true)
+        .show(ui, |ui| {
+            ui.label("Distance");
+            ui.label("Pathways");
+            for b in &bearings {
+                ui.label(format!("{b:.0} deg"));
+            }
+            ui.end_row();
+            for row in &rows {
+                for (what, values) in [
+                    ("air LIVE (= map pixel)", &row.air),
+                    ("ground shine", &row.ground),
+                ] {
+                    ui.label(format!("{:.0} m", row.distance_m));
+                    ui.label(what);
+                    for v in values.iter() {
+                        ui.label(dose_cell_text(*v, floor))
+                            .on_hover_text(dose_rate_method_text());
+                    }
+                    ui.end_row();
+                }
+            }
+        });
+    if let Some(note) = dose_table_below_floor_note(&rows, floor) {
+        ui.colored_label(Color32::from_rgb(200, 120, 20), note);
+    }
+    ui.label(format!(
+        "air LIVE = cloud submersion + committed inhalation from the live air concentration, the \
+         same number as the dose-rate map pixel under the receptor. Ground shine = the dry \
+         deposit one 1200 s puff run leaves x FGR-15 ground coefficient; not on the map (no \
+         per-pixel deposit), and it under-states a release held longer. \"below floor\" = at or \
+         under the {floor:.2} µSv/h colour floor. {}",
+        dose_rate_missing_note()
+    ));
+    ui.add_space(4.0);
+
+    let Some(peak) = peak_air_receptor(s) else {
+        return;
+    };
+    ui.strong(format!(
+        "Per-pathway split at the peak receptor ({:.0} deg, {:.0} m) [µSv/h]",
+        peak.bearing_deg, peak.distance_m
+    ));
+    let split = dose_rate::receptor_split(
+        peak.instantaneous_chi_over_q,
+        &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+        &peak.ground_bq_per_m2_absolute_by_nuclide,
+        dose_rate::coefficients(),
+    );
+    egui::Grid::new("htgr_map_dose_rate_split")
+        .num_columns(DOSE_SPLIT_HEADINGS.len())
+        .striped(true)
+        .show(ui, |ui| {
+            for h in DOSE_SPLIT_HEADINGS {
+                ui.label(h);
+            }
+            ui.end_row();
+            for (k, name) in TRACKED_NUCLIDES.iter().enumerate() {
+                ui.label(*name);
+                for p in Pathway::ALL {
+                    ui.label(match split[k][p.index()] {
+                        None => "missing".to_string(),
+                        Some(v) => sci_or_dash(v, 3),
+                    });
+                }
+                ui.end_row();
+            }
+            ui.label("Total");
+            for p in Pathway::ALL {
+                let (total, missing) = dose_rate::pathway_total(&split, p);
+                ui.label(if missing.is_empty() {
+                    sci_or_dash(total, 3)
+                } else {
+                    format!("{} (excl. {})", sci_or_dash(total, 3), missing.join(", "))
+                });
+            }
+            ui.end_row();
+        });
+    ui.add_space(6.0);
+}
+
+/// The dispersion tables and their caveats: dose rate (since 2026-09-29,
+/// first), absolute, then per-Ci (unchanged), then `chi/Q` by distance
+/// directly under them.
+fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale) {
     ui.label(format!(
         "Gaussian puff (changi::puff, ported from R `puff` 0.1.1) -- NOT FLEXPART.  \
          Wind {:.1} m/s FROM {:.0} deg, Pasquill class {}.  Last run at t = {}",
@@ -1142,10 +1466,14 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot) {
          The activity columns DO: they are the five tracked nuclides only, leaked from the \
          primary circuit at the published ~1 %/day (no building retention, filtration or \
          stack model), with TRISO-ATOPS reference failure fractions -- NOT a source term and \
-         not figures for any reactor. Research, education and V&V only; no dose quantity is \
-         computed.",
+         not figures for any reactor. Research, education and V&V only. The dose-rate table \
+         below is INDICATIVE (buangkok, US EPA coefficients) and is not a dose to anyone.",
     );
     ui.add_space(4.0);
+
+    // --- 0. DOSE RATE (maintainer direction 2026-09-29: above the absolute
+    // basis) ---
+    draw_dose_rate_tables(ui, s, dose_scale);
 
     // --- 1. ABSOLUTE (maintainer direction 2026-09-28) ---
     ui.strong("Absolute basis");
@@ -1297,6 +1625,9 @@ pub fn draw_map(
     view: Vec2,
 ) {
     ui.heading("Atmospheric dispersion -- Gaussian puff");
+    // The one puff-model configuration every basis and table below uses
+    // (maintainer direction 2026-09-29; `map_puff_model`, gh:#384).
+    ui.label(crate::physics::map_puff_model::regime_label());
     draw_plume_clock(ui, physics, s);
     ui.add_space(4.0);
 
@@ -1316,7 +1647,8 @@ pub fn draw_map(
 
     ui.add_space(8.0);
     ui.separator();
-    draw_dispersion_table(ui, s);
+    let dose_scale = state.scale_for(MapBasis::DoseRate, s, 0.0);
+    draw_dispersion_table(ui, s, dose_scale);
 }
 
 #[cfg(test)]
@@ -1789,5 +2121,206 @@ mod tests {
         assert_eq!(clock_text(7265.0), "2:01:05");
         assert_eq!(clock_text(f64::NAN), "--");
         assert_eq!(clock_text(-5.0), "0:00:00");
+    }
+
+    // ----- Dose-rate basis (2026-09-29) ---------------------------------
+
+    /// A snapshot projected from a real dispersion run on the MAP's puff
+    /// model, exactly as `physics::write_snapshot` projects it.
+    fn map_snapshot(kernel_k: f64) -> HtgrSnapshot {
+        use crate::physics::atmospheric_dispersion::AtmosphericDispersionChannel;
+        use crate::physics::fission_product_release::TrisoAtopsReleaseChannel;
+        use uom::si::f64::ThermodynamicTemperature;
+        use uom::si::thermodynamic_temperature::kelvin;
+
+        let mut release = TrisoAtopsReleaseChannel::new_htr10();
+        release.update(
+            0.0,
+            Some(TrisoAtopsReleaseChannel::kernel_and_graphite(
+                ThermodynamicTemperature::new::<kelvin>(kernel_k),
+                ThermodynamicTemperature::new::<kelvin>(950.0),
+            )),
+        );
+        let mut channel = AtmosphericDispersionChannel::new();
+        channel.set_meteorology(crate::physics::map_puff_model::map_meteorology(1.0, 0.0));
+        channel.refresh_field(1200.0);
+        let result = channel.evaluate(1200.0, &release);
+        let mut s = HtgrSnapshot::default();
+        for (slot, r) in s.receptors.iter_mut().zip(result.receptors.iter()) {
+            slot.bearing_deg = r.bearing_deg;
+            slot.distance_m = r.distance_m;
+            slot.chi_over_q = r.chi_over_q;
+            slot.instantaneous_chi_over_q = r.instantaneous_chi_over_q;
+            slot.air_bq_s_per_m3_absolute = r.air_bq_s_per_m3_absolute.unwrap_or(f64::NAN);
+            slot.ground_bq_per_m2_absolute = r.ground_bq_per_m2_absolute.unwrap_or(f64::NAN);
+            slot.ground_bq_per_m2_absolute_by_nuclide = r.ground_bq_per_m2_absolute_by_nuclide;
+        }
+        s.dispersion_source_rate_absolute_bq_per_s =
+            result.source_rate_absolute_bq_per_s.unwrap_or(f64::NAN);
+        s.dispersion_source_rate_absolute_by_nuclide_bq_per_s = result
+            .source_rate_absolute_by_nuclide_bq_per_s
+            .map(|r| r.unwrap_or(f64::NAN));
+        s.dispersion_grid = result.grid.chi_over_q.iter().map(|v| *v as f32).collect();
+        s.dispersion_grid_cells = result.grid.cells;
+        s
+    }
+
+    /// **The dose-rate table's air row is the map pixel, and the pixel is the
+    /// sum of the buangkok pathway functions.**
+    ///
+    /// # Methodology
+    ///
+    /// Real dispersion run on the map's puff model (inter-monsoon, class B,
+    /// 1 m/s, from 0 deg), 1200 K kernel, settled 1200 s. For every receptor:
+    ///
+    /// 1. the table's air cell equals `field_value(live chi/Q, DoseRate)` --
+    ///    the function the texture shades -- bit for bit;
+    /// 2. that equals the split table's submersion + inhalation totals
+    ///    (buangkok functions called per nuclide) within 1e-12 relative
+    ///    (f64 reassociation only);
+    /// 3. the ground row equals the split table's ground-shine total.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Pass. At the 1200 K default: peak ring air dose rate 1.625e-7 µSv/h,
+    /// peak field air 2.269e-7 µSv/h (6.5 decades under the 0.8 floor), peak
+    /// ring ground shine 1.140e-10 µSv/h; absolute peak field concentration
+    /// 7.194e-4 Bq/m^3. At 2000 K the field peak is 3.048e-6 µSv/h. Full table
+    /// in `reference/References.md` ("Dose-rate basis").
+    #[test]
+    fn the_dose_rate_table_is_the_pixel_and_the_buangkok_sum() {
+        let s = map_snapshot(1200.0);
+        let rows = dose_rate_rows(&s);
+        assert_eq!(rows.len(), 3);
+        let c = dose_rate::coefficients();
+        let mut peak_air: f64 = 0.0;
+        let mut peak_ground: f64 = 0.0;
+        for row in &rows {
+            for (k, b) in row.bearings_deg.iter().enumerate() {
+                let r = s
+                    .receptors
+                    .iter()
+                    .find(|r| {
+                        (r.distance_m - row.distance_m).abs() < 1e-9
+                            && (r.bearing_deg - b).abs() < 1e-9
+                    })
+                    .unwrap();
+                assert_eq!(
+                    row.air[k],
+                    field_value(r.instantaneous_chi_over_q, MapBasis::DoseRate, &s)
+                );
+                let split = dose_rate::receptor_split(
+                    r.instantaneous_chi_over_q,
+                    &s.dispersion_source_rate_absolute_by_nuclide_bq_per_s,
+                    &r.ground_bq_per_m2_absolute_by_nuclide,
+                    c,
+                );
+                let sum = dose_rate::pathway_total(&split, Pathway::Submersion).0
+                    + dose_rate::pathway_total(&split, Pathway::Inhalation).0;
+                if sum > 0.0 {
+                    assert!(
+                        ((row.air[k] - sum) / sum).abs() <= 1e-12,
+                        "{} vs {sum}",
+                        row.air[k]
+                    );
+                } else {
+                    assert_eq!(row.air[k], 0.0);
+                }
+                assert_eq!(
+                    row.ground[k],
+                    dose_rate::pathway_total(&split, Pathway::GroundShine).0
+                );
+                peak_air = peak_air.max(row.air[k]);
+                peak_ground = peak_ground.max(row.ground[k]);
+            }
+        }
+        for kernel in [1400.0, 1600.0, 1800.0, 2000.0] {
+            let h = map_snapshot(kernel);
+            let p = field_value(field_peak_chi_over_q(&h), MapBasis::DoseRate, &h);
+            let g = dose_rate_rows(&h)
+                .iter()
+                .flat_map(|r| r.ground.iter())
+                .copied()
+                .fold(0.0, f64::max);
+            println!(
+                "kernel {kernel} K: absolute release {:.3e} Bq/s, peak field air dose rate \
+                 {p:.3e} uSv/h, peak ring ground shine {g:.3e} uSv/h",
+                h.dispersion_source_rate_absolute_bq_per_s
+            );
+        }
+        let field_peak = field_value(field_peak_chi_over_q(&s), MapBasis::DoseRate, &s);
+        println!(
+            "default (1200 K kernel) map puff model: absolute release {:.3e} Bq/s, peak field \
+             air concentration {:.3e} Bq/m^3",
+            s.dispersion_source_rate_absolute_bq_per_s,
+            field_value(field_peak_chi_over_q(&s), MapBasis::Absolute, &s)
+        );
+        println!(
+            "default (1200 K kernel) map puff model: peak ring air dose rate {peak_air:.3e} uSv/h, \
+             peak field air {field_peak:.3e} uSv/h, peak ring ground shine {peak_ground:.3e} uSv/h, \
+             floor {FLOOR_USV_PER_H} uSv/h ({:.1} decades below)",
+            (FLOOR_USV_PER_H / field_peak).log10()
+        );
+        assert!(peak_air > 0.0);
+    }
+
+    /// The dose-rate basis's defaults are the maintainer's anchors, and a
+    /// fresh tab's untouched dose-rate scale is that.
+    #[test]
+    fn the_dose_rate_defaults_are_the_maintainers_anchors() {
+        let a = dose_rate_anchor_scale();
+        assert_eq!(a.floor, 0.8);
+        assert!((a.top() - 1000.0).abs() < 1e-9, "{}", a.top());
+        assert!((a.span_decades - (1000.0_f64 / 0.8).log10()).abs() < 1e-15);
+        let s = HtgrSnapshot::default();
+        assert_eq!(
+            MapTabState::default().scale_for(MapBasis::DoseRate, &s, 1.0),
+            a
+        );
+        assert_eq!(MapBasis::DoseRate.unit(), "µSv/h");
+        assert!(DOSE_RATE_FRAMING.contains("not a dose to any real person"));
+        assert!(DOSE_RATE_FRAMING.contains("not for emergency or regulatory use"));
+    }
+
+    /// Missing coefficients show as missing, below-floor cells keep their
+    /// number and say so, and nothing unavailable prints as 0.
+    #[test]
+    fn missing_and_below_floor_cells_are_never_zero() {
+        assert_eq!(dose_cell_text(f64::NAN, 0.8), "unavailable");
+        assert_eq!(dose_cell_text(3.1e-9, 0.8), "3.10e-9 (below floor)");
+        assert_eq!(dose_cell_text(2.0, 0.8), "2.000e0");
+        assert!(dose_rate_missing_note().contains("Kr-85 Inhalation (committed)"));
+        assert!(dose_rate_missing_note().contains("not counted as zero"));
+        // No absolute rate yet: the dose factor is unavailable, not zero.
+        let s = HtgrSnapshot::default();
+        assert!(MapBasis::DoseRate.factor(&s).is_nan());
+        assert_eq!(effective_basis(MapBasis::DoseRate, &s), MapBasis::DoseRate);
+    }
+
+    /// A dose-rate field wholly below the 0.8 µSv/h floor is announced, with
+    /// the reason, on the map and under the table.
+    #[test]
+    fn a_below_floor_dose_rate_field_is_announced() {
+        let a = dose_rate_anchor_scale();
+        let note = below_floor_note(1e-9, a, MapBasis::DoseRate).expect("below floor");
+        assert!(
+            note.contains("normal-operation release is tiny") && note.contains("µSv/h"),
+            "{note}"
+        );
+        assert!(below_floor_note(5.0, a, MapBasis::DoseRate).is_none());
+        let s = map_snapshot(1200.0);
+        let rows = dose_rate_rows(&s);
+        let table_note = dose_table_below_floor_note(&rows, a.floor)
+            .expect("default release is below the floor");
+        assert!(table_note.contains("normal-operation release is tiny"));
+    }
+
+    /// Same inputs, byte-identical dose-rate table: the dose-rate path adds no
+    /// wall clock, RNG or I/O dependence (the headless-determinism property).
+    #[test]
+    fn the_dose_rate_table_is_deterministic() {
+        let a = dose_rate_rows(&map_snapshot(1200.0));
+        let b = dose_rate_rows(&map_snapshot(1200.0));
+        assert_eq!(format!("{a:?}"), format!("{b:?}"));
     }
 }
