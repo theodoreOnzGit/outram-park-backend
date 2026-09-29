@@ -874,6 +874,14 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
     // (NJOY writes both blocks whenever it writes DNU), so it changes none of
     // them; a table from another processor can have it.
     let dnu = t.jxs[jxs::DNU];
+    if single_block && dnu > 0 && nubar.poly.is_some() {
+        // A polynomial prompt nu beside DNU would need a "polynomial plus
+        // table" total, which `NuBar` does not hold; NJOY writes both blocks
+        // whenever it writes DNU, so no table here has this. Refused by name.
+        return Err(NjoyError::NotPorted(
+            "ACE single polynomial NU block beside DNU (prompt polynomial + delayed table)",
+        ));
+    }
     if single_block && dnu > 0 {
         need(t, (dnu - 1) as usize, 1, "DNU LNU")?;
         if t.xss[(dnu - 1) as usize] as i32 != 2 {
@@ -905,7 +913,11 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
             .iter()
             .map(|&e| lin(&nubar.energy, &nubar.nu_total, e) + lin(&ed, &nd, e))
             .collect();
-        return Ok(Some(NuBar { energy: grid, nu_total }));
+        return Ok(Some(NuBar {
+            energy: grid,
+            nu_total,
+            poly: None,
+        }));
     }
     Ok(Some(nubar))
 }
@@ -942,7 +954,17 @@ fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> 
                 nu_total.push(v);
                 e *= 1.2;
             }
-            Ok(NuBar { energy, nu_total })
+            // Exact polynomial in eV: c_k (MeV^-k) * 1e-6^k, as OpenMC scales it.
+            let poly: Vec<f64> = c
+                .iter()
+                .enumerate()
+                .map(|(k, &ci)| ci * EV_PER_MEV.powi(-(k as i32)))
+                .collect();
+            Ok(NuBar {
+                energy,
+                nu_total,
+                poly: Some(poly),
+            })
         }
         2 => {
             // The TAB1 begins immediately after LNU, so its NR is at `at + 1`
@@ -969,7 +991,11 @@ fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> 
                 ));
             }
             let (energy, nu_total) = tab.pairs.iter().copied().unzip();
-            Ok(NuBar { energy, nu_total })
+            Ok(NuBar {
+                energy,
+                nu_total,
+                poly: None,
+            })
         }
         other => Err(NjoyError::EndfParse(format!("ACE NU block LNU={other}"))),
     }

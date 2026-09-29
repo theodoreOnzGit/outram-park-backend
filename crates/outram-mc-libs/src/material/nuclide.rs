@@ -4457,6 +4457,7 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
         return NuBar {
             energy: vec![1.0e-3, 2.0e7],
             nu_total: vec![0.0, 0.0],
+            poly: None,
         };
     }
     let nu = match name {
@@ -4471,6 +4472,7 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
     NuBar {
         energy: vec![1.0e-3, 2.0e7],
         nu_total: vec![nu, nu],
+        poly: None,
     }
 }
 

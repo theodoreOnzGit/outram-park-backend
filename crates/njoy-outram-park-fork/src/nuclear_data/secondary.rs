@@ -26,6 +26,17 @@ pub struct NuBar {
     pub energy: Vec<f64>,
     /// Total ν̄ aligned with `energy`.
     pub nu_total: Vec<f64>,
+    /// The evaluation's **polynomial** ν̄(E) = Σ c_k E^k, E in **eV**, when it
+    /// is given in that form (ENDF `LNU = 1`, ACE NU `LNU = 1`); `None` for a
+    /// tabulated ν̄. When present, [`Self::at`] evaluates it **exactly and
+    /// unclamped at every energy**, as OpenMC's `Polynomial` does
+    /// (`openmc/data/reaction.py:263-268`, coefficients scaled by
+    /// `EV_PER_MEV**-k`), and `energy`/`nu_total` are only a tabulation of it
+    /// for consumers that read the table. GitHub #365 audit: the polynomial
+    /// used to be tabulated on 1e-5 eV – 20 MeV and read lin-lin, which is an
+    /// approximation inside that range (a quadratic is not piecewise linear)
+    /// and a clamp above it.
+    pub poly: Option<Vec<f64>>,
 }
 
 impl NuBar {
@@ -55,7 +66,11 @@ impl NuBar {
             2 => {
                 let tab1 = cur.read_tab1()?;
                 let (energy, nu_total): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
-                Ok(Some(NuBar { energy, nu_total }))
+                Ok(Some(NuBar {
+                    energy,
+                    nu_total,
+                    poly: None,
+                }))
             }
             1 => {
                 let list = cur.read_list()?;
@@ -70,14 +85,23 @@ impl NuBar {
                     energy.push(e);
                     nu_total.push(nu);
                 }
-                Ok(Some(NuBar { energy, nu_total }))
+                Ok(Some(NuBar {
+                    energy,
+                    nu_total,
+                    poly: Some(coeffs),
+                }))
             }
             _ => Ok(None),
         }
     }
 
-    /// Interpolate ν̄ at incident energy `e` \[eV\] (lin-lin, clamped at the ends).
+    /// ν̄ at incident energy `e` \[eV\]: the polynomial exactly when the
+    /// evaluation gives one ([`Self::poly`]), otherwise the table lin-lin,
+    /// clamped at the ends.
     pub fn at(&self, e: f64) -> f64 {
+        if let Some(c) = &self.poly {
+            return c.iter().rev().fold(0.0, |acc, &ci| acc * e + ci);
+        }
         match self.energy.first() {
             None => 0.0,
             Some(&e0) if e <= e0 => self.nu_total[0],

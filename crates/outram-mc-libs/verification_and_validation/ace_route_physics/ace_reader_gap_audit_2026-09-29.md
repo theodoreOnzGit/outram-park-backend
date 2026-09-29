@@ -64,7 +64,7 @@ it would take.
 | NU prompt + total | JXS(2) | `reaction.py:233-313` | total used | unchanged (correct) |
 | **NU single block + DNU** = prompt | JXS(2), JXS(24) | `reaction.py:257-258` | read as total, so delayed lost | **fixed**: total = prompt + delayed; test `ace_nu_single_block_with_dnu` (the old reading was −0.66 % on a constructed U-235 case) |
 | NU TAB1 interpolation regions | NU | `function.py` | dropped | **fixed**: a non-lin-lin region is now refused by name (all held tables are lin-lin) |
-| NU polynomial above 20 MeV | NU | `Polynomial` | tabulated on 1e-5 to 2e7 eV, clamped above | **open**: nothing here transports above 20 MeV |
+| NU polynomial (LNU = 1) | NU | `reaction.py:263-268` (`Polynomial`, exact, unclamped) | tabulated 1e-5 eV–20 MeV, lin-lin, clamped above | **fixed** (both routes): `NuBar::poly` evaluated exactly; test `ace_nu_polynomial_vs_openmc` on a constructed U-235 table, 10 energies 1e-7 eV–150 MeV equal to OpenMC to 0.0 relative |
 | DNU, BDD | JXS(24,25) | `reaction.py:319-365` | read, wired | read, wired |
 | **DNEDL / DNED delayed spectra** | JXS(26,27) | `reaction.py:355-357`; `physics.cpp` `sample_fission_neutron` | not read: delayed neutrons born with the prompt χ (both routes) | **fixed** (both routes; ENDF via MF=5/455 LF=5/LF=1): test `delayed_spectra_vs_openmc`; record `delayed_spectra_2026-09-29.md` (the predicted k sign was wrong; recorded) |
 | **UNR probability tables**: interpolation, total, bounds | JXS(23) | `nuclide.cpp` `calculate_urr_xs`, `urr.h` | nearest table energy; band total; inclusive bounds | **fixed** (both routes): test `urr_sampling_vs_openmc`, bit-equal to OpenMC on 186 rows; k effect consistent with zero (`urr_sampling_2026-09-29.md`) |
