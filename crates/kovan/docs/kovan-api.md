@@ -10597,6 +10597,21 @@ not announce its result is discovery you cannot trust.
 pub fn resolve(explicit: Option<&std::path::Path>) -> io::Result<(std::path::PathBuf, String)> { /* ... */ }
 ```
 
+#### Function `fetch_literature`
+
+Fetch the workspace's literature submodule if it was never checked out
+([`crate::corpus_repos::ensure_workspace_corpus`]), telling the caller on
+stderr only when something happened: a fetch, or a failure. Called by
+every `kovan-cli` command that resolves the workspace, so the first one
+run in a plain clone brings the literature in.
+
+Skipped when `CI` is set: a CI runner has no use for the PDF corpus, and
+fetching it there would cost every job the download.
+
+```rust
+pub fn fetch_literature(root: &std::path::Path) { /* ... */ }
+```
+
 #### Function `output_dir`
 
 Choose where a generated directory such as `agent-docs/` should live.
@@ -13728,6 +13743,44 @@ Every PDF in an open-corpus repository's document folders
 
 ```rust
 pub fn open_corpus_pdfs(repo: &std::path::Path) -> Vec<std::path::PathBuf> { /* ... */ }
+```
+
+#### Function `ensure_workspace_corpus`
+
+Fetch the workspace's own literature submodule ([`WORKSPACE_CORPUS_PATH`])
+when it is registered but not checked out.
+
+A plain `git clone` of the workspace leaves the path an **empty directory
+rather than an error**, so nothing complains until something looks for a
+PDF and does not find one. Before 2026-09-30 nothing in Kovan fetched it:
+[`ensure_library_corpora`] and [`ensure_standard_corpus`] only ever touch a
+*Kovan folder* and the application-data clone, never this mount, and an
+audit that needed the HTR-10 literature found the directory empty.
+
+- Not a submodule of `workspace` (another checkout layout, or a test
+  tree): `Ok(None)`, nothing done.
+- Already checked out: `Ok(Some(`[`RepoState::Existing`]`))`, untouched —
+  updating it is an explicit, separate action, per the module's safety
+  rules.
+- Registered but empty: `git submodule update --init`, then put on its
+  remote's default branch; `Ok(Some(`[`RepoState::Cloned`]`))`.
+
+Failures (offline, no `git`) are values, as everywhere in this module.
+
+```rust
+pub fn ensure_workspace_corpus(workspace: &std::path::Path) -> Result<Option<RepoState>, CorpusRepoError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `WORKSPACE_CORPUS_PATH`
+
+Where the OUTRAM PARK workspace mounts the standard corpus
+([`crate::corpus::CORPUS_REPOSITORY_URL`]) as a Git submodule, relative to
+the workspace root.
+
+```rust
+pub const WORKSPACE_CORPUS_PATH: &str = "crates/kovan-literature/reactor-literature";
 ```
 
 ## Module `digitiser`
@@ -39191,6 +39244,10 @@ pub enum CorpusPullOutcome {
     UpToDate {
         branch: String,
     },
+    Downloaded {
+        branch: String,
+        head: String,
+    },
     Skipped {
         reason: String,
     },
@@ -39230,9 +39287,25 @@ Fields:
 |------|------|---------------|
 | `branch` | `String` |  |
 
+###### `Downloaded`
+
+Was not downloaded in this Kovan folder, and has now been fetched from
+its configured remote (a registered submodule initialised, or a new
+one added) and left on `branch` at `head`. A plain clone of someone's
+Kovan folder, or a folder whose corpora were configured but never
+fetched, lands here on its first pull.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `branch` | `String` |  |
+| `head` | `String` |  |
+
 ###### `Skipped`
 
-Not attempted: not downloaded here, no remote, no system `git`.
+Not attempted: not downloaded here and no remote configured to
+download it from, or no system `git`.
 
 Fields:
 
@@ -39622,7 +39695,7 @@ pub fn push_after_save(root: &crate::root::KovanRoot) -> PushReport { /* ... */ 
 
 #### Function `pull_corpora`
 
-Bring every downloaded corpus to its remote's branch tip — run after the
+Bring every corpus to its remote's branch tip, downloading any not yet here — run after the
 Kovan folder itself was pulled (GH issue #422; maintainer, 2026-09-29:
 *"when pulling from kovan corpus, i want the submodules to pull in and
 override the local one as well"*).
@@ -39646,8 +39719,27 @@ default — the same rule the push uses), then
 The gitlinks in the Kovan folder are not committed here; the next Save
 records the corpora where they now are.
 
+**A corpus that is configured but not downloaded is downloaded** (the
+open and proprietary corpora from `[corpora]`, the standard corpus from
+[`crate::corpus::CORPUS_REPOSITORY_URL`]), through
+[`crate::corpus_repos::ensure_corpus`], then followed as above
+([`CorpusPullOutcome::Downloaded`]). Before this, Pull reported such a
+corpus as "not downloaded" and left it empty, so a fresh clone of a Kovan
+folder never got its literature (maintainer, 2026-09-30: *"make sure the
+pull button from kovan gui also pulls in both corpuses"*).
+
 ```rust
 pub fn pull_corpora(root: &crate::root::KovanRoot) -> Vec<CorpusPull> { /* ... */ }
+```
+
+#### Function `pull_corpora_with`
+
+[`pull_corpora`] with the standard corpus's remote and branch given, so
+tests can use a local repository instead of the network (as
+[`crate::corpus_repos::ensure_library_corpora_with`] does).
+
+```rust
+pub fn pull_corpora_with(root: &crate::root::KovanRoot, standard_remote: &str, standard_branch: &str) -> Vec<CorpusPull> { /* ... */ }
 ```
 
 #### Function `normalize_url`

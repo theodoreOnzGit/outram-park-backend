@@ -18,7 +18,10 @@ extracted Markdown and BibTeX; the documents themselves live in three places:
 
 Fetch the submodule with `git submodule update --init
 crates/kovan-literature/reactor-literature`. A plain clone leaves it an empty
-directory, not an error.
+directory, not an error. Since 2026-09-30 any `kovan-cli` command that
+resolves the workspace (`api-docs`, `affected`, `kloc`, `agent-docs-gen`)
+fetches it when it is empty (`corpus_repos::ensure_workspace_corpus`; skipped
+when `CI` is set).
 
 ## Rules
 

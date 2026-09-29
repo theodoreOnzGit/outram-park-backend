@@ -65,6 +65,7 @@ struct Fixture {
     root: KovanRoot,
     proprietary: String,
     open: String,
+    standard: String,
     parent: String,
 }
 
@@ -100,6 +101,7 @@ fn fixture() -> Option<Fixture> {
         root,
         proprietary,
         open,
+        standard,
         parent,
     })
 }
@@ -596,4 +598,52 @@ fn a_corpus_with_local_work_is_not_overridden_without_asking() {
     assert_eq!(head(&prop_dir), tip(&f.proprietary, "main"));
     assert!(!prop_dir.join("papers/local.pdf").exists());
     assert_eq!(g(&prop_dir, &["symbolic-ref", "--short", "HEAD"]), "main");
+}
+
+/// Maintainer, 2026-09-30: *"make sure the pull button from kovan gui also
+/// pulls in both corpuses"*. A Kovan folder whose corpora are registered but
+/// were never fetched (a plain clone, or `git submodule deinit`) used to get
+/// "not pulled — not downloaded" from Pull and stay empty. Now Pull fetches
+/// both the open and the proprietary corpus, and leaves each on `main` at
+/// its remote's tip.
+#[test]
+fn pulling_downloads_corpora_that_are_configured_but_not_fetched() {
+    let Some(f) = fixture() else { return };
+    let open_dir = f.root.open_corpus_dir();
+    let prop_dir = f.root.restricted_sources_dir();
+    for dir in [&open_dir, &prop_dir] {
+        let rel = dir.strip_prefix(f.root.path()).unwrap().to_string_lossy().to_string();
+        g(f.root.path(), &["submodule", "deinit", "-q", "-f", "--", &rel]);
+        assert!(!dir.join(".git").exists(), "{rel} still checked out");
+    }
+
+    let pulled = pull_corpora_with(&f.root, &f.standard, "main");
+    let lines: Vec<String> = pulled.iter().map(CorpusPull::line).collect();
+    for (kind, dir, remote) in [
+        (CorpusKind::Open, &open_dir, &f.open),
+        (CorpusKind::Proprietary, &prop_dir, &f.proprietary),
+    ] {
+        let p = pulled.iter().find(|p| p.corpus == kind).unwrap();
+        assert_eq!(
+            p.outcome,
+            CorpusPullOutcome::Downloaded {
+                branch: "main".into(),
+                head: tip(remote, "main"),
+            },
+            "{lines:?}"
+        );
+        assert_eq!(head(dir), tip(remote, "main"));
+        assert_eq!(g(dir, &["symbolic-ref", "--short", "HEAD"]), "main");
+    }
+    assert!(open_dir.join("me-open-corpus/b.pdf").exists());
+    assert!(prop_dir.join("papers/c.pdf").exists());
+
+    // The next pull finds them present and up to date.
+    for p in pull_corpora_with(&f.root, &f.standard, "main") {
+        assert!(
+            matches!(p.outcome, CorpusPullOutcome::UpToDate { .. }),
+            "{}",
+            p.line()
+        );
+    }
 }
