@@ -417,19 +417,38 @@ impl IncoherentElasticTable {
     }
 
     /// Sample an incoherent-elastic scatter at incident energy `e` \[eV\]:
-    /// `Some((e_out, mu))` with `e_out == e` (elastic) and `mu` drawn uniformly
-    /// from the nearest grid point's equally-probable cosine bins.
+    /// `Some((e_out, mu))` with `e_out == e` (elastic).
     ///
-    /// Mirrors OpenMC `IncoherentElasticAEDiscrete::sample`
-    /// (`src/secondary_thermal.cpp`): pick the incident-energy bin, then one
-    /// equiprobable cosine. `None` if the table carries no cosines.
+    /// A port of OpenMC `IncoherentElasticAEDiscrete::sample`
+    /// (`src/secondary_thermal.cpp`): `get_energy_index` gives `i, f`; one
+    /// equiprobable cosine index `k`; `mu` interpolated between tables `i` and
+    /// `i+1`; then smeared uniformly over half the distance to its interpolated
+    /// neighbours (reflected at ±1 for the end cosines). ~~drawn uniformly from
+    /// the nearest grid point's equally-probable cosine bins ... Mirrors OpenMC~~
+    /// **CORRECTED 2026-09-29 (GitHub #365 audit):** the previous body took the
+    /// nearest table's cosine with no interpolation and no smearing, while its
+    /// doc claimed to mirror OpenMC. `None` if the table carries no cosines.
     pub fn sample(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
         if self.n_mu == 0 || self.e_grid.is_empty() {
             return None;
         }
-        let i = nearest_index(&self.e_grid, e);
-        let j = ((prn(seed) * self.n_mu as f64) as usize).min(self.n_mu - 1);
-        let mu = self.cosines[i * self.n_mu + j].clamp(-1.0, 1.0);
+        let g = &self.e_grid;
+        let (mut i, mut f) = (0usize, 0.0);
+        if e >= g[0] {
+            i = g.partition_point(|&v| v <= e).saturating_sub(1).min(g.len() - 1);
+            if i + 1 < g.len() {
+                f = (e - g[i]) / (g[i + 1] - g[i]);
+            }
+        }
+        let i1 = (i + 1).min(g.len() - 1);
+        let n = self.n_mu;
+        let c = |row: usize, k: usize| self.cosines[row * n + k];
+        let at = |k: usize| c(i, k) + f * (c(i1, k) - c(i, k));
+        let k = ((prn(seed) * n as f64) as usize).min(n - 1);
+        let mu = at(k);
+        let mu_left = if k == 0 { -1.0 - (mu + 1.0) } else { at(k - 1) };
+        let mu_right = if k == n - 1 { 1.0 + (1.0 - mu) } else { at(k + 1) };
+        let mu = mu + (mu - mu_left).min(mu_right - mu) * (prn(seed) - 0.5);
         Some((e, mu))
     }
 }
@@ -542,6 +561,10 @@ pub struct ThermalScattering {
     /// `emit_e` point, when the table carries that form; empty otherwise, and
     /// then `emit_tables` is used. GitHub #365 audit.
     continuous: Vec<ContinuousEmission>,
+    /// `true` for an ACE IFENG = 1 (**skewed** bins) table: the binned tables
+    /// are then sampled with OpenMC's discrete scheme and bin weights
+    /// (`sample_skewed`), not the equiprobable #188 scheme. GitHub #365 audit.
+    skewed: bool,
     /// The elastic channel — [`ThermalElastic::None`] for a scatterer with no
     /// thermal elastic law (light water).
     elastic: ThermalElastic,
@@ -674,8 +697,8 @@ impl ThermalScattering {
     /// representation holds no form for.~~ **CORRECTED 2026-09-29 (GitHub #365
     /// audit):** `IFENG = 2` is read and sampled with OpenMC's own scheme (see
     /// `sample_continuous`).
-    /// Also `IFENG = 1` (skewed bins), refused here since 2026-09-29 because the
-    /// representation carries no bin weights.
+    /// `IFENG = 1` (skewed bins) is sampled with OpenMC's discrete scheme and
+    /// its bin weights (`sample_skewed`, GitHub #365 audit).
     pub fn from_ace(
         table: &njoy_outram_park_fork::acer::read::RawAceTable,
         name: &str,
@@ -683,23 +706,10 @@ impl ThermalScattering {
         use njoy_outram_park_fork::acer::thermal_read::{decode_thermal, AceThermalElastic};
 
         let t = decode_thermal(table)?;
-        // **IFENG = 1 (skewed bins) is refused** -- GitHub #365 audit. It used
-        // to be accepted and sampled as if its bins were equiprobable, which
-        // they are not: NJOY's skewed form gives the first/last bins 0.1 and
-        // the second/second-to-last 0.4 of an interior bin's probability
-        // (OpenMC `IncoherentInelasticAEDiscrete::sample_params`,
-        // `src/secondary_thermal.cpp`). The emission representation here has no
-        // bin weights, and the continuous within-bin energy draw is derived for
-        // equal-probability bins, so a faithful port needs both extended. No
-        // held table is skewed. Refusing turns a silent mis-sampling into a
-        // named limit.
-        if t.ifeng == 1 {
-            return Err(NjoyError::NotPorted(
-                "thermal ACE table with SKEWED inelastic bins (IFENG = 1): the \
-                 emission representation carries no bin weights, so sampling it as \
-                 equiprobable would be wrong",
-            ));
-        }
+        // IFENG = 1 (skewed bins): ~~refused~~ since the second #365 audit
+        // chunk, sampled by `sample_skewed` (OpenMC's discrete scheme with the
+        // skewed bin weights). It was once accepted and sampled as if its bins
+        // were equiprobable, which they are not.
         let cutoff_ev = t.inel_energy.last().copied().unwrap_or(0.0);
         let elastic = match t.elastic {
             AceThermalElastic::None => ThermalElastic::None,
@@ -752,6 +762,7 @@ impl ThermalScattering {
                     n_mu: c.n_mu,
                 })
                 .collect(),
+            skewed: t.ifeng == 1,
             elastic,
         })
     }
@@ -849,6 +860,7 @@ impl ThermalScattering {
             emit_e,
             emit_tables,
             continuous: Vec::new(),
+            skewed: false,
             elastic,
         })
     }
@@ -950,6 +962,9 @@ impl ThermalScattering {
         if !self.continuous.is_empty() {
             return Some(self.sample_continuous(e, seed));
         }
+        if self.skewed && !self.emit_tables.is_empty() {
+            return Some(self.sample_skewed(e, seed));
+        }
         if self.emit_tables.is_empty() {
             return None;
         }
@@ -973,6 +988,52 @@ impl ThermalScattering {
             table.cosines[base + j].clamp(-1.0, 1.0)
         };
         Some((e_out, mu))
+    }
+
+    /// Sample a **skewed** (ACE IFENG = 1) binned law at incident energy `e`
+    /// \[eV\] — a port of OpenMC's `IncoherentInelasticAEDiscrete::sample_params`
+    /// and `sample` (`src/secondary_thermal.cpp`), GitHub #365 audit:
+    ///
+    /// - bin `j` with NJOY's skewed weights — relative 0.1 and 0.4 for the first
+    ///   two and last two bins, 1 for the rest (`r = prn·(n-3)` mapped exactly
+    ///   as upstream);
+    /// - `E' = (1-f) E(i,j) + f E(i+1,j)` and one equiprobable cosine index `k`,
+    ///   `mu = (1-f) mu(i,j,k) + f mu(i+1,j,k)`, with `i, f` from
+    ///   `get_energy_index` — interpolation between the bracketing tables, not
+    ///   statistical selection.
+    ///
+    /// Only skewed tables use this. The equiprobable form keeps the #188
+    /// continuous-in-bin scheme (maintainer direction).
+    fn sample_skewed(&self, e: f64, seed: &mut u64) -> (f64, f64) {
+        let grid = &self.emit_e;
+        let (mut i, mut f) = (0usize, 0.0);
+        if e >= grid[0] {
+            i = grid.partition_point(|&v| v <= e).saturating_sub(1).min(grid.len() - 1);
+            if i + 1 < grid.len() {
+                f = (e - grid[i]) / (grid[i + 1] - grid[i]);
+            }
+        }
+        let i1 = (i + 1).min(grid.len() - 1);
+        let (a, b) = (&self.emit_tables[i], &self.emit_tables[i1]);
+        let n = a.e_out.len();
+        let r = prn(seed) * (n as f64 - 3.0);
+        let j = if r > 1.0 {
+            r as usize + 1
+        } else if r > 0.6 {
+            n - 2
+        } else if r > 0.5 {
+            n - 1
+        } else if r > 0.1 {
+            1
+        } else {
+            0
+        };
+        let j = j.min(n - 1);
+        let e_out = (1.0 - f) * a.e_out[j] + f * b.e_out[j];
+        let m = a.n_mu;
+        let k = ((prn(seed) * m as f64) as usize).min(m - 1);
+        let mu = (1.0 - f) * a.cosines[j * m + k] + f * b.cosines[j * m + k];
+        (e_out, mu)
     }
 
     /// Sample the **continuous** (ACE IFENG = 2) incoherent-inelastic law at
@@ -1259,23 +1320,6 @@ fn build_elastic_channel(
     }
 }
 
-/// Index of the grid point nearest to `x` on an ascending grid (ties go low).
-/// Used to pick an incoherent-elastic cosine bin; the grid is non-empty.
-fn nearest_index(xs: &[f64], x: f64) -> usize {
-    let n = xs.len();
-    let i = xs.partition_point(|&v| v < x);
-    if i == 0 {
-        return 0;
-    }
-    if i >= n {
-        return n - 1;
-    }
-    if x - xs[i - 1] <= xs[i] - x {
-        i - 1
-    } else {
-        i
-    }
-}
 
 /// Flatten the njoy equiprobable emission bins into a cache-friendly
 /// [`EmissionTable`]. An empty input (σ = 0 at this energy) yields an empty table.
@@ -1355,17 +1399,6 @@ mod tests {
         for w in g.windows(2) {
             assert!(w[1] > w[0], "grid must be strictly ascending");
         }
-    }
-
-    #[test]
-    fn nearest_index_picks_the_closer_grid_point() {
-        let xs = vec![0.0, 1.0, 2.0, 3.0];
-        assert_eq!(nearest_index(&xs, -5.0), 0);
-        assert_eq!(nearest_index(&xs, 0.4), 0);
-        assert_eq!(nearest_index(&xs, 0.5), 0, "a tie must go low");
-        assert_eq!(nearest_index(&xs, 0.6), 1);
-        assert_eq!(nearest_index(&xs, 2.9), 3);
-        assert_eq!(nearest_index(&xs, 99.0), 3);
     }
 
     /// The Bragg step table reproduces the `1/E` sawtooth exactly: σ is zero

@@ -263,7 +263,20 @@ impl AceEnergyLaw {
 /// histogram; tabulated is `intt = 2`), as stored in AND and in LAW=61.
 fn read_cosine_table(t: &RawAceTable, at: usize) -> Result<ContinuumAngularRow, NjoyError> {
     need(t, at, 2, "cosine table header")?;
-    let _intt = t.xss[at] as i32;
+    // `intt` (1 histogram, 2 lin-lin) used to be discarded, and every sampler
+    // here inverts the cdf as lin-lin. GitHub #365 audit: a census of all 11
+    // held tables found `intt = 2` on every AND and law-61 cosine row (14 000+),
+    // and NJOY's ACER writes 2, so a histogram row has no producer here. It is
+    // refused by name rather than silently read as lin-lin; porting it means a
+    // histogram branch in `sample_tabular_mu` and in `ContinuumAngular`'s
+    // cosine sampler, as in OpenMC's `Tabular::sample`.
+    let intt = t.xss[at] as i32;
+    if intt != 2 {
+        return Err(NjoyError::NotPorted(
+            "ACE tabulated cosine distribution with intt != 2 (histogram): the \
+             cosine samplers here are lin-lin only",
+        ));
+    }
     let n = t.xss[at + 1] as usize;
     need(t, at + 2, 3 * n, "cosine table body")?;
     let cosines = t.xss[at + 2..at + 2 + n].to_vec();

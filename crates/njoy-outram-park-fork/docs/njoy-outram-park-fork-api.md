@@ -9670,7 +9670,15 @@ elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed; ~~all read~~
 see the IDPNC match below), and
 `NXS(7) = IFENG` the inelastic form.
 
-# IFENG=2 is REFUSED, not approximated
+# ~~IFENG=2 is REFUSED, not approximated~~ **CORRECTED 2026-09-29 — read (GitHub #365 audit)**
+
+~~`IFENG = 2` is **continuous** ... refused with a message saying which form
+the file carries.~~ `IFENG = 2` (continuous: per outgoing energy a pdf, cdf
+and cosines, with the point count varying by incident energy) is now decoded
+into [`AceThermalContinuous`], and
+`outram_mc_libs::material::thermal::ThermalScattering` samples it with a port
+of OpenMC's `IncoherentInelasticAE::sample` rather than squeezing it into the
+binned form. This is the form OpenMC's own libraries use.
 
 `IFENG = 0` (equiprobable) and `1` (skewed) both store, per incident energy,
 a fixed `NIEB` outgoing energies each with `nang` cosines. ~~— which is
@@ -9678,14 +9686,7 @@ exactly the discrete form the transport side holds.~~ **CORRECTED
 2026-09-29**: the layout is the same, but skewed bins are not equiprobable
 and the transport side's form has no bin weights, so
 `outram_mc_libs::material::thermal::ThermalScattering::from_ace` refuses
-IFENG = 1. This decoder still reads it faithfully (`ifeng` is carried). `IFENG = 2` is **continuous**:
-per outgoing energy it stores a pdf and cdf and the bin count varies with
-incident energy. Squeezing that into the discrete representation would
-silently resample somebody's carefully tabulated distribution, so it is
-refused with a message saying which form the file carries.
-
-The writer supports IFENG=2 (that was its own task), so this is a limit of
-the **transport-side representation**, not of the ACE port.
+IFENG = 1. This decoder still reads it faithfully (`ifeng` is carried).
 
 ```rust
 pub mod thermal_read { /* ... */ }
@@ -9770,6 +9771,144 @@ pub struct AceThermalEmission {
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &AceThermalEmission) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `AceThermalContinuous`
+
+One incident energy's **continuous** (IFENG = 2) emission law: per outgoing
+point `E'` \[eV\], its pdf \[eV⁻¹\] and cdf, and `n_mu` equiprobable cosines
+(sorted), row-major (`point * n_mu + k`). See `decode_continuous_emission`.
+
+```rust
+pub struct AceThermalContinuous {
+    pub e_out: Vec<f64>,
+    pub pdf: Vec<f64>,
+    pub cdf: Vec<f64>,
+    pub cosines: Vec<f64>,
+    pub n_mu: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `e_out` | `Vec<f64>` | Outgoing energies \[eV\], ascending, starting at 0. |
+| `pdf` | `Vec<f64>` | pdf \[eV⁻¹\] at each `e_out`. |
+| `cdf` | `Vec<f64>` | cdf at each `e_out`. |
+| `cosines` | `Vec<f64>` | Cosines, row-major. |
+| `n_mu` | `usize` | Cosines per point. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AceThermalContinuous { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AceThermalContinuous) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9998,6 +10137,7 @@ pub struct AceThermal {
     pub inel_energy: Vec<f64>,
     pub inel_xs: Vec<f64>,
     pub emission: Vec<AceThermalEmission>,
+    pub continuous: Vec<AceThermalContinuous>,
     pub elastic: AceThermalElastic,
     pub ifeng: i32,
 }
@@ -10010,7 +10150,8 @@ pub struct AceThermal {
 | `kt_ev` | `f64` | `kT` \[eV\] the table represents. |
 | `inel_energy` | `Vec<f64>` | Incident energies \[eV\] for σ_inel, ascending. |
 | `inel_xs` | `Vec<f64>` | σ_inel \[barn\] per principal atom at each `inel_energy`. |
-| `emission` | `Vec<AceThermalEmission>` | One emission table per `inel_energy` point. |
+| `emission` | `Vec<AceThermalEmission>` | One emission table per `inel_energy` point, for the binned forms<br>(IFENG = 0, 1). Empty for IFENG = 2. |
+| `continuous` | `Vec<AceThermalContinuous>` | One continuous emission law per `inel_energy` point, for IFENG = 2<br>(GitHub #365 audit). Empty for the binned forms. |
 | `elastic` | `AceThermalElastic` | The elastic channel. |
 | `ifeng` | `i32` | `IFENG` as stored, for provenance. |
 

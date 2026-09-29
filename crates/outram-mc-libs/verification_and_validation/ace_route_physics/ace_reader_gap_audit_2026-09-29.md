@@ -50,12 +50,12 @@ it would take.
 | TYR sign (frame) | JXS(5) | `reaction.py:1055` | read; **CM analytic laws silently dropped** | **fixed**: kept with `lct = 2` and transformed as OpenMC's `scatter_in_cm`; test `uncorrelated_cm_emission` |
 | **\|TY\| > 100 energy-dependent yield** | DLW + \|TY\|−101 | `reaction.py:1059-1062` | not read (MT=5 multiplicity always 1) | **fixed**: `ce_laws::decode_reaction_yield` wired to MT=5; test `ace_mt5_yield_vs_openmc` (e.g. U-235 y(10 MeV) = 1.98752, was 1) |
 | AND: isotropic / 32 equiprobable / tabulated | JXS(8,9) | `angle_distribution.py:143-200` | read | read |
-| AND tabulated `intt` (histogram vs lin-lin) | AND | same | discarded | **open**: every AND row in every held table is `intt = 2` (census over 11 tables, 14 000+ rows), so no case exists; recorded on #365 |
+| AND tabulated `intt` (histogram vs lin-lin) | AND | `angle_distribution.py:143-200` | discarded (read as lin-lin) | **refused by name** when not 2 (was silent); a port is **open**: no held table and no NJOY-written table uses `intt = 1` (census: 11 tables, 14 000+ rows, all 2) |
 | DLW law 2, 3, 33 | JXS(10,11) | `angle_energy.py:83-88` | read | read |
 | DLW law 4 / 44 / 61 | same | `energy_distribution.py`, `kalbach_mann.py`, `correlated.py` | read | read |
 | **Law 4 as a continuum on MT=91/16/17: its AND cosine** | AND | `reaction.py:1131-1135` | AND ignored (stored as correlated-isotropic) | **fixed**: placed as `UncorrelatedEmission` with AND; test `ace_law4_continuum_cosine` on NJOY2016 Li-7 (ENDF/B-VIII.0) and U-238 (JENDL-3.3) |
 | Law 4 / 44 / 61 **discrete lines** (INTT ≥ 10) | DLW | `energy_distribution.py:1239-1262` | refused by name | **open**: no held table has one; recorded on #365 |
-| Law-61 cosine-table `intt` | DLW | `correlated.py` | discarded | **open**: same census status as AND |
+| Law-61 cosine-table `intt` | DLW | `correlated.py` | discarded | **refused by name** when not 2 (same reader, same census) |
 | DLW law 7 / 9 / 11 | same | `energy_distribution.py` | read | read |
 | DLW law 66 | same | `nbody.py:122` | read | read |
 | DLW law 5, 67, 1, 22, 24 | same | OpenMC raises too | refused | **matches upstream** |
@@ -81,10 +81,10 @@ it would take.
 | feature | ACE location | upstream | before | after |
 |---|---|---|---|---|
 | Inelastic, IFENG = 0 (equiprobable) | NXS(7), JXS(1-3) | `thermal.py:794-808` | read and sampled | unchanged. **Named asymmetry with OpenMC:** this crate draws `E'` continuously within the equiprobable bin, with statistical selection of the incident table (#188, deliberate). OpenMC interpolates the discrete `E'` between the bracketing tables. It is shared by both outram routes, so it is a candidate for their common thermal-case residual against OpenMC (HST-009); raised on #365 and #367, not changed here |
-| Inelastic, IFENG = 1 (skewed) | NXS(7) | `thermal.py:806`; `secondary_thermal.cpp` | read, **skew weights ignored** (silently mis-sampled) | **refused by name** in `ThermalScattering::from_ace` (was silent); a port is **open**: bin weights in the emission representation, plus the continuous in-bin draw generalised to weighted bins; recorded on #365 |
+| Inelastic, IFENG = 1 (skewed) | NXS(7) | `thermal.py:806`; `secondary_thermal.cpp` `IncoherentInelasticAEDiscrete` | read, **skew weights ignored** (silently mis-sampled) | **fixed**: OpenMC's discrete scheme with the skewed bin weights; test `thermal_skewed_vs_openmc` on an NJOY2016 `iwt = 0` H-in-H2O table (all |z| ≤ 2.84; 1 eV re-drawn at two other seed bases: |z| ≤ 1.29); a mutation to equiprobable bins fails at z = 234 |
 | Inelastic, IFENG = 2 (continuous) | NXS(7) | `thermal.py:809-887`; `secondary_thermal.cpp` `IncoherentInelasticAE` | refused | **fixed**: decoded and sampled as OpenMC; test `thermal_ifeng2_vs_openmc` on an NJOY2016 `iwt = 2` H-in-H2O table (all |z| ≤ 1.38); record `thermal_ifeng2_2026-09-29.md` |
 | Coherent elastic (IDPNC = 4) | JXS(4,5) | `thermal.py:897-907` | read and sampled | unchanged |
-| Incoherent elastic (IDPNC = 3) | JXS(4-6) | `thermal.py:909-927` | read; nearest-energy cosine set | **open**: OpenMC interpolates; recorded on #365 |
+| Incoherent elastic (IDPNC = 3) | JXS(4-6) | `thermal.py:909-927`; `secondary_thermal.cpp` `IncoherentElasticAEDiscrete` | read; nearest-energy cosine, no smearing (doc claimed to mirror OpenMC) | **fixed** (both routes): interpolated and smeared as OpenMC; test `thermal_incoherent_elastic_vs_openmc` on NJOY2016 H in ZrH (all |z| ≤ 1.18); the old rule fails at z = 28 |
 | **Mixed elastic (IDPNC = 5)** | JXS(4,5) + JXS(7-9) | `thermal.py:909-942` | **silently mis-decoded** (coherent data read as incoherent) | **refused by name** (was silent); a port is **open** because no held evaluation is LTHR = 3; recorded on #365 |
 
 ## Other table classes
