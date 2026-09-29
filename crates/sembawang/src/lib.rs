@@ -126,6 +126,10 @@
 pub mod accident;
 pub mod chain;
 pub mod error;
+/// The HTR-10 depressurised-loss-of-forced-cooling case: PANAMA-I failure
+/// fractions driving the TRISO-ATOPS release chain. See the module docs for
+/// which inputs are HTR-10's own, which are stand-ins and which are estimates.
+pub mod htr10;
 pub mod inventory;
 pub mod scenario;
 pub mod units;

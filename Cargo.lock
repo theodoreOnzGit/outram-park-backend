@@ -8179,6 +8179,7 @@ version = "0.0.1"
 dependencies = [
  "boon-lay",
  "changi",
+ "tampines",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]

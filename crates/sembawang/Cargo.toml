@@ -27,3 +27,13 @@ boon-lay  = { workspace = true }
 changi    = { workspace = true }
 uom       = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+# Examples and tests ONLY. The published HTR-10 pebble and TRISO particle
+# dimensions live in `tampines::pebble_bed` (IAEA-TECDOC-1382 part 2
+# Table 4-17) and must not be copied into this crate, so the HTR-10 case reads
+# them from there. Kept out of `[dependencies]` deliberately: the library takes
+# geometry as an argument (`htr10::Htr10Geometry`), so a consumer of the
+# library pays nothing for this. `tampines` already depends on `boon-lay`, so
+# the edge sembawang -> tampines introduces no cycle.
+tampines = { workspace = true }

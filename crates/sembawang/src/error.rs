@@ -65,9 +65,36 @@ pub struct Caveats {
     /// the first window's release is not read as a physical result.
     pub first_sample_forced_fully_vented: bool,
 
-    /// Upstream's `release_activity` can return a **negative** atom count and
-    /// deliberately does not clamp it. If this is set, at least one node-nuclide
-    /// pair went negative and the total is correspondingly under-stated.
+    /// A release somewhere in the chain went **negative**. Two different things
+    /// set this, and **they push the total in opposite directions**, so the
+    /// flag alone does not tell a reader which way the answer is wrong.
+    ///
+    /// ~~If this is set, at least one node-nuclide pair went negative and the
+    /// total is correspondingly under-stated.~~ **CORRECTED 2026-09-24** — that
+    /// was right for one of the two paths and wrong for the other:
+    ///
+    /// 1. **`release_activity` returning a negative atom count.** Upstream
+    ///    deliberately does not clamp it, and neither does this crate, so the
+    ///    negative propagates and the total is **under-stated**. This path
+    ///    needs a non-empty normal-operation pool to fire at all: with
+    ///    [`crate::accident::release::zero_pools`] every subtracted term is
+    ///    zero, so it cannot.
+    /// 2. **A negative per-window first difference**, i.e. a *non-monotonic*
+    ///    cumulative release. That one is floored to zero at the
+    ///    [`changi::activity::source::SourceTerm`] boundary, which **raises**
+    ///    the sum of the windows above the cumulative endpoint — the total is
+    ///    **over-stated**.
+    ///
+    /// Path 2 is reachable and is not hypothetical. **Silver** is the case:
+    /// the transient breakthrough release fraction
+    /// (`boon_lay::triso_atops_fork::release_models::transient::breakthrough_model_transient`)
+    /// rises, is then driven negative by its `−a/(2r)` time-lag term and
+    /// clamped to zero until breakthrough, and only then grows — so the
+    /// cumulative curie series falls over that stretch. Measured on the HTR-10
+    /// DLOFC case (`crate::htr10`, 2026-09-24): Ag-110m had **13 of 30 windows
+    /// negative**, and the windows sum to `2.503345e-2 Ci` against a cumulative
+    /// endpoint of `2.500569e-2 Ci` — **over-stated by a factor 1.0011**. No
+    /// other nuclide in that run had a single negative window.
     pub negative_atom_count_seen: bool,
 
     /// The Arrhenius diffusion coefficient is **clamped, never extrapolated**,
@@ -79,6 +106,17 @@ pub struct Caveats {
     /// The transient Booth solution **floors at about 1.216e-4** rather than
     /// reaching zero, so a nuclide that should release essentially nothing
     /// still shows a small release fraction.
+    ///
+    /// **NOT WIRED — nothing in this crate ever sets this field, so it is
+    /// always `false` on a computed result.** Stated here because a reader
+    /// finding it in a caveat struct would reasonably assume the condition is
+    /// detected, and it is not: verified 2026-09-24 by searching the workspace
+    /// for writes to it, which occur only in this module's own tests. It is
+    /// kept rather than deleted because the underlying behaviour is real —
+    /// `boon_lay::...::release_models::transient::booth_transient` snaps below
+    /// `BOOTH_TRANSIENT_ZERO_FLOOR = 1e-6` — and detecting it needs the
+    /// release-fraction values, which
+    /// [`crate::accident::release::accident_release`] does not currently keep.
     pub booth_transient_floored: bool,
 
     /// The venting mask was **not contiguous**. This is the condition under
@@ -113,8 +151,9 @@ impl Caveats {
         }
         if self.negative_atom_count_seen {
             v.push(
-                "at least one release went negative and was left unclamped, as upstream \
-                 does; the total is under-stated",
+                "at least one release went negative: an unclamped negative atom count \
+                 under-states the total, while a negative per-window difference is \
+                 floored to zero and OVER-states it (silver does the latter)",
             );
         }
         if self.diffusion_coefficient_clamped {
@@ -126,7 +165,8 @@ impl Caveats {
         if self.booth_transient_floored {
             v.push(
                 "the transient Booth solution floors near 1.216e-4 rather than zero, so \
-                 a near-zero release still reports a small fraction",
+                 a near-zero release still reports a small fraction (NOTE: nothing sets \
+                 this flag on a computed result -- see its field docs)",
             );
         }
         if self.venting_mask_was_gappy {
