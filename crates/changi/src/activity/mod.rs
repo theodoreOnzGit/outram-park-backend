@@ -3,9 +3,17 @@
 //! Radionuclide activity in air and on the ground, from a released source term.
 //!
 //! This module is **not a port**. Everything under it was written here, and it
-//! therefore has **no upstream and no code-to-code verification** — the strongest
-//! evidence it can carry is internal consistency, which is what its tests
-//! assert. Read every number it produces in that light. `changi`'s two ported
+//! therefore has **no upstream and no code-to-code verification**. ~~The
+//! strongest evidence it can carry is internal consistency, which is what its
+//! tests assert.~~ **CORRECTED 2026-09-29** (gh:#380): [`chi_over_q`] now has an
+//! **independent** check, `crates/buangkok/tests/changi_puff_train_vs_plume.rs`.
+//! At constant wind and fixed stability class, `dilution_factors` matches an
+//! age sum written without any of this module's code to <= 3.9e-16, and in the
+//! steady limit reproduces buangkok's pyDOSEIA Gaussian plume with the
+//! residual a second-order expansion predicts. Varying wind, `FromWind`
+//! stability, deposition and the survey are still covered by internal
+//! consistency only (`tests/activity_properties.rs`). Read every number it
+//! produces in that light. `changi`'s two ported
 //! modules ([`crate::puff`] and [`crate::flexpart`]) keep their own harnesses
 //! and are untouched by this one.
 //!
