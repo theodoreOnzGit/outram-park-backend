@@ -15,8 +15,9 @@
 # Cases: godiva (HEU-MET-FAST-001), jemima (IEU-MET-FAST-002), hst009
 # (HEU-SOL-THERM-009 case 1), lct008 (LEU-COMP-THERM-008 case 1, the real
 # lattice with lct008_keff.rs's 11-nuclide tier; its own defaults are
-# 10000 x [250 + 400], pass PARTICLES/INACTIVE/ACTIVE for it), and lct008s (a
-# documented extra: the homogenised 30/70 sphere, not comparable to k = 1).
+# 10000 x [250 + 400], pass PARTICLES/INACTIVE/ACTIVE for it). The homogenised
+# sphere `lct008s` was deleted 2026-09-29 at the maintainer's direction (wrong
+# model).
 #
 # Per-case history counts: PARTICLES/INACTIVE/ACTIVE apply to every case in the
 # invocation, so run lct008 in its own invocation:
@@ -38,7 +39,7 @@
 #   THREADS    threads for every job                     [8]
 #   PARTICLES INACTIVE ACTIVE                             [5000 40 120]
 #   ROUTES     subset, e.g. "1 2 3"                      [1 2 3 4 5]
-#   CASES      subset                                    [godiva jemima hst009 lct008s]
+#   CASES      subset                                    [godiva jemima hst009 lct008]
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(git -C "$HERE" rev-parse --show-toplevel)
@@ -50,7 +51,7 @@ PARTICLES=${PARTICLES:-5000}
 INACTIVE=${INACTIVE:-40}
 ACTIVE=${ACTIVE:-120}
 ROUTES=${ROUTES:-1 2 3 4 5}
-CASES=${CASES:-godiva jemima hst009 lct008 lct008s}
+CASES=${CASES:-godiva jemima hst009 lct008}
 PY=${PY:-$HOME/Documents/research/.venv-openmc/bin/python}
 OPENMC=${OPENMC:-$HOME/Documents/research/openmcbin/bin/openmc}
 export RAYON_NUM_THREADS=$THREADS OMP_NUM_THREADS=$THREADS

@@ -41,14 +41,13 @@
 //! DBRC and whether S(a,b) is attached, so a route that silently lost a term
 //! shows in the data rather than in the residual.
 //!
-//! # LCT-008 here is the SIMPLIFIED model
+//! # LCT-008 is the case-1 LATTICE, on an 11-nuclide tier
 //!
-//! `lct008s` is `lct008_ace_roundtrip.rs`'s homogenised sphere: 30 % fuel /
-//! 70 % borated water by volume, r = 40 cm, U-235/U-238/O-16/H-1/B-10 only (no
-//! U-234, B-11, cladding). It is **not** LEU-COMP-THERM-008 and its `k` is not
-//! comparable to 1.0000 — the lumping the benchmark exists for is homogenised
-//! away. One departure from that example: **H-1 carries S(a,b) H in H2O here**,
-//! which the round-trip example (free-gas H) did not; every route does the same.
+//! `lct008` runs the model `lct008_keff.rs` runs (shared through
+//! `common/lct008_model.rs`) on that example's `--cheap-nuclides` tier; see
+//! [`lct008_lattice_case`]. A homogenised-sphere case (`lct008s`) existed briefly
+//! on 2026-09-28/29 and was **deleted 2026-09-29 at the maintainer's direction**
+//! because it was the wrong model.
 //!
 //! # Usage
 //!
@@ -208,30 +207,8 @@ fn case(name: &str) -> Case {
             },
             defaults: (5000, 40, 120),
         },
-        // lct008_ace_roundtrip.rs: the homogenised simplification (see module
-        // docs). Density = fuel a/o x 0.30 + water a/o x 0.70.
-        "lct008s" => {
-            const FUEL_VF: f64 = 0.30;
-            const WATER_VF: f64 = 1.0 - FUEL_VF;
-            let mix = |fuel: f64, water: f64| fuel * FUEL_VF + water * WATER_VF;
-            Case {
-                materials: vec![(
-                    "LCT-008 case 1, homogenised 30/70",
-                    vec![
-                        ("U235", mix(0.00056868, 0.0)),
-                        ("U238", mix(0.022268, 0.0)),
-                        ("O16", mix(0.045683, 0.033369)),
-                        ("H1", mix(0.0, 0.066737)),
-                        ("B10", mix(2.6055e-07, 1.6769e-05)),
-                    ],
-                )],
-                sab_on_h1: true,
-                model: Model::Sphere(40.0),
-                defaults: (5000, 40, 120),
-            }
-        }
         "lct008" => lct008_lattice_case(),
-        other => panic!("--case must be godiva|jemima|hst009|lct008|lct008s, got {other}"),
+        other => panic!("--case must be godiva|jemima|hst009|lct008, got {other}"),
     }
 }
 
@@ -437,18 +414,57 @@ fn main() {
     let ace_dir = flag(&args, "--ace-dir").map(PathBuf::from);
     let (mut nuclides, sab): (Vec<Nuclide>, Option<ThermalScattering>) = match route.as_str() {
         "endf" => {
-            let n = names.iter().map(|n| load_endf(n)).collect();
-            let sab = c.sab_on_h1.then(|| {
-                let p = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tape");
-                ThermalScattering::from_endf_file(
-                    p.to_str().expect("path"),
-                    1,
-                    TEMP_K,
-                    "c_H_in_H2O",
-                )
-                .expect("H(H2O) S(a,b) from ENDF")
-            });
-            (n, sab)
+            let mut n: Vec<Nuclide> = names.iter().map(|n| load_endf(n)).collect();
+            // `--urr-ladders N [--urr-samples M]` (diagnostic A/B): rebuild the
+            // ENDF route's PURR tables with the ACE libraries' ladder/sample
+            // counts (20 bins / 64 ladders / 10 000 samples) instead of the
+            // construction default (20 / 16 / 2000). Same routine, same bins;
+            // only the Monte Carlo resolution of the tables changes.
+            if let Some(nl) = flag(&args, "--urr-ladders") {
+                let nl: usize = nl.parse().expect("--urr-ladders");
+                let ns: usize = flag(&args, "--urr-samples")
+                    .map_or(10_000, |v| v.parse().expect("--urr-samples"));
+                n = n
+                    .into_iter()
+                    .zip(names.iter())
+                    .map(|(nuc, name)| {
+                        if !nuc.has_urr_probability_tables() {
+                            return nuc;
+                        }
+                        let file = TAPES.iter().find(|(m, _)| m == name).expect("tape").1;
+                        let p = reference_endf(file).expect("tape");
+                        let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+                        let mat = tape.materials()[0];
+                        eprintln!("    {name}: URR tables rebuilt with 20 bins / {nl} ladders / {ns} samples");
+                        nuc.without_urr_probability_tables()
+                            .with_urr_probability_tables(&tape, mat, TEMP_K, 20, nl, ns)
+                            .expect("PURR")
+                    })
+                    .collect();
+            }
+            // `--sab-ace PATH` (diagnostic A/B): the ENDF route with H(H2O) taken
+            // from a thermal ACE table instead of this crate's own ENDF kernel.
+            if let Some(p) = flag(&args, "--sab-ace") {
+                let raw = njoy_outram_park_fork::acer::read::read(&p)
+                    .unwrap_or_else(|e| panic!("read {p}: {e}"));
+                eprintln!("    H1: S(a,b) from {p} (--sab-ace)");
+                let sab = c.sab_on_h1.then(|| {
+                    ThermalScattering::from_ace(&raw, "c_H_in_H2O").expect("S(a,b) from ACE")
+                });
+                (n, sab)
+            } else {
+                let sab = c.sab_on_h1.then(|| {
+                    let p = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tape");
+                    ThermalScattering::from_endf_file(
+                        p.to_str().expect("path"),
+                        1,
+                        TEMP_K,
+                        "c_H_in_H2O",
+                    )
+                    .expect("H(H2O) S(a,b) from ENDF")
+                });
+                (n, sab)
+            }
         }
         "ace" => {
             let dir = ace_dir.clone().expect("--route ace needs --ace-dir");

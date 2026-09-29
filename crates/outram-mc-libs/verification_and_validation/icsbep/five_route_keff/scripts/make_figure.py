@@ -59,15 +59,9 @@ MARKERS = ["o", "s", "D", "^", "v"]
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 
-# Summarised and tabulated but NOT plotted: the homogenised 30/70 sphere run on
-# 2026-09-29 before the maintainer clarified that "simplified" meant the
-# lattice with a reduced nuclide list. Kept as a documented extra.
-EXTRA_CASES = [("lct008s", "LCT-008 homogenised sphere (extra, k not comparable to 1)", None, "")]
-
-
 def summarise(rows):
     out = {}
-    for case, _, _, _ in CASES + EXTRA_CASES:
+    for case, _, _, _ in CASES:
         for route, _ in ROUTES:
             k = np.array([float(r["k"]) for r in rows if r["case"] == case and r["route"] == route])
             if k.size == 0:
@@ -94,7 +88,7 @@ def main():
         w.writerow(["case", "route", "n_seeds", "k_mean", "k_sem", "k_sd_seeds",
                     "mean_internal_sigma", "d_exp_pcm", "d_exp_sigma_pcm",
                     "d_route1_pcm", "d_route1_sigma_pcm", "d_route1_nsigma"])
-        for case, _, _, _ in CASES + EXTRA_CASES:
+        for case, _, _, _ in CASES:
             ref = s.get((case, "route1"))
             for route, _ in ROUTES:
                 v = s.get((case, route))
@@ -112,8 +106,7 @@ def main():
                 w.writerow([case, route, v["n"], f"{v['mean']:.6f}", f"{v['sem']:.6f}",
                             f"{v['sd']:.6f}", f"{v['internal_mean']:.6f}", f"{d_exp:.1f}",
                             f"{1e5 * v['sem']:.1f}", f"{d1:.1f}", f"{s1:.1f}", f"{n1:.2f}"])
-                dexp = (f"{d_exp:+.0f} ± {1e5 * v['sem']:.0f}" if case != "lct008s"
-                        else f"({d_exp:+.0f}; not meaningful)")
+                dexp = f"{d_exp:+.0f} ± {1e5 * v['sem']:.0f}"
                 lines.append(f"| {case} | {route} | {v['n']} | {v['mean']:.5f} ± {v['sem']:.5f} | "
                              f"{1e5 * v['sd']:.0f} | {dexp} | {d1s} |")
     (OUT / "data" / "summary_keff.md").write_text("\n".join(lines) + "\n")

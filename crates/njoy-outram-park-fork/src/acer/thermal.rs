@@ -118,8 +118,16 @@ pub struct ThermalAceOptions {
     pub form: InelasticForm,
 }
 
-/// THERMR card-4 `tol`, 0.05 in the standard thermal decks.
-const CALCEM_TOL: f64 = 0.05;
+/// THERMR card-4 `tol` used by [`AceTable::thermal_from_mf7`]: 0.05, the value
+/// the byte-parity comparisons in `verification_and_validation/` were taken at.
+///
+/// **Not every deck uses it.** OpenMC's `openmc.data.njoy.make_ace_thermal`
+/// passes `error = 0.001` as THERMR's `tol` (`njoy.py`, `_THERMAL_TEMPLATE_THERMR`),
+/// so a table meant to match an OpenMC-library NJOY2016 table must be built with
+/// [`AceTable::thermal_from_mf7_with_tolerance`]. Found 2026-09-29: the five-route
+/// ICSBEP study's Rust H(H2O) table had been built at 0.05 against an NJOY2016
+/// reference at 0.001.
+pub const CALCEM_TOL: f64 = 0.05;
 
 /// The tabulated `calcem` record covering `ev` — the ACE block stores one
 /// emission entry per tabulated incident energy, so the grid is used directly.
@@ -239,6 +247,32 @@ impl AceTable {
         energy_grid: &[f64],
         opts: ThermalAceOptions,
     ) -> Result<Self, NjoyError> {
+        Self::thermal_from_mf7_with_tolerance(
+            mf7,
+            temp_k,
+            name,
+            suffix,
+            energy_grid,
+            opts,
+            CALCEM_TOL,
+        )
+    }
+
+    /// [`Self::thermal_from_mf7`] with THERMR's card-4 `tol` supplied by the
+    /// caller, the convergence tolerance `calcem` builds its `E'`/`mu` grids to.
+    /// Pass the tolerance of the NJOY deck being matched; see [`CALCEM_TOL`].
+    ///
+    /// # Errors
+    /// As [`Self::thermal_from_mf7`].
+    pub fn thermal_from_mf7_with_tolerance(
+        mf7: &Mf7,
+        temp_k: f64,
+        name: &str,
+        suffix: u32,
+        energy_grid: &[f64],
+        opts: ThermalAceOptions,
+        tol: f64,
+    ) -> Result<Self, NjoyError> {
         let ii = mf7
             .incoherent_inelastic
             .as_ref()
@@ -269,7 +303,7 @@ impl AceTable {
         // probabilities", `acer.f90:131`) and so takes the variable
         // `1 4 10 ... 10 4 1` pattern. Pairing either with the other flag
         // would write a table whose NXS(7) lies about its own contents.
-        let calcem = compute_iform0(ii, natom, nang, opts.emax_ev, CALCEM_TOL)?;
+        let calcem = compute_iform0(ii, natom, nang, opts.emax_ev, tol)?;
         let mut emission: Vec<Vec<OutgoingBin>> = Vec::new();
         let mut tabulated: Vec<Vec<AcesixPoint>> = Vec::new();
         if opts.form == InelasticForm::Continuous {
@@ -347,7 +381,11 @@ impl AceTable {
                     real(p.pdf * EMEV, &mut xss, &mut is_int);
                     real(p.cdf, &mut xss, &mut is_int);
                     for j in 0..nang {
-                        real(p.cosines.get(j).copied().unwrap_or(0.0), &mut xss, &mut is_int);
+                        real(
+                            p.cosines.get(j).copied().unwrap_or(0.0),
+                            &mut xss,
+                            &mut is_int,
+                        );
                     }
                 }
             }

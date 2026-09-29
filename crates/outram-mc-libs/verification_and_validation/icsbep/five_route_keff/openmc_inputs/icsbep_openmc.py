@@ -1,9 +1,9 @@
 """OpenMC decks for the four ICSBEP cases of the five-route study (routes 1, 2).
 
-The SAME models `examples/icsbep_five_route_keff.rs` runs on outram-mc, with the
-atom densities and dimensions copied from that file (which cites its own
-sources: godiva_keff_endf_local.rs, jemima_keff.rs, hst009_keff.rs,
-lct008_ace_roundtrip.rs). Only the cross-section library differs between
+The SAME models `examples/icsbep_five_route_keff.rs` runs on outram-mc: Godiva,
+Jemima and HST-009 with the atom densities and dimensions copied from that file
+(which cites godiva_keff_endf_local.rs, jemima_keff.rs, hst009_keff.rs), and
+LCT-008 case 1 read from the committed benchmark XML (see `lct008()` below). Only the cross-section library differs between
 route 1 (NJOY2016 ACE -> HDF5) and route 2 (Rust-NJOY ACE -> HDF5), selected
 with --xs <cross_sections.xml>.
 
@@ -102,19 +102,6 @@ def hst009():
     return [sol, tank, water], geo, src
 
 
-def lct008s():
-    fv, wv = 0.30, 0.70
-    mix = lambda f, w: f * fv + w * wv  # noqa: E731
-    m = mat("LCT-008 case 1, homogenised 30/70", [
-        ("U235", mix(0.00056868, 0.0)), ("U238", mix(0.022268, 0.0)),
-        ("O16", mix(0.045683, 0.033369)), ("H1", mix(0.0, 0.066737)),
-        ("B10", mix(2.6055e-07, 1.6769e-05))], sab=True)
-    s = openmc.Sphere(r=40.0, boundary_type="vacuum")
-    geo = openmc.Geometry([openmc.Cell(fill=m, region=-s)])
-    src = openmc.stats.spherical_uniform(r_outer=40.0)
-    return [m], geo, src
-
-
 # LEU-COMP-THERM-008 case 1, the REAL lattice: the same committed
 # mit-crpg/benchmarks cards outram-mc parses (examples/common/lct008_model.rs),
 # read here with OpenMC's own XML readers, so geometry and densities are the
@@ -144,8 +131,7 @@ def lct008():
     return used, geo, src
 
 
-CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008": lct008,
-         "lct008s": lct008s}
+CASES = {"godiva": godiva, "jemima": jemima, "hst009": hst009, "lct008": lct008}
 
 
 def main():
@@ -203,7 +189,7 @@ def main():
         n_nuc = len({n.name for m in mats for n in m.nuclides})
         w.writerow([a.case, a.label, "openmc", a.seed, f"{k.nominal_value:.6f}",
                     f"{k.std_dev:.6f}", a.particles, a.inactive, a.active, a.threads,
-                    f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008, lct008s)).lower(),
+                    f"{wall:.1f}", "", n_nuc, "", "", str(CASES[a.case] in (hst009, lct008)).lower(),
                     a.commit, f"{kgen.mean():.6f}"])
     print(f"{a.case} {a.label} seed {a.seed}: k = {k.nominal_value:.5f} +/- {k.std_dev:.5f}"
           f"  (generation mean {kgen.mean():.5f})  {wall:.1f} s")

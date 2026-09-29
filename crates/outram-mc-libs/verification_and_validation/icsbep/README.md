@@ -66,7 +66,9 @@
 >   argues against an outram-mc transport cause.
 > - **HST-009.** outram-mc sits −271 ± 35 pcm below OpenMC (#367).
 > - **ACE route.** outram-mc's ACE route is defective on fast cases (#366).
-> - **LCT-008.** Not re-measured here: the campaign ran the simplified model only.
+> - **LCT-008.** Case 1 lattice on an 11-nuclide tier: results pending in the record (the
+>   earlier homogenised-sphere case was deleted 2026-09-29 at the maintainer's direction,
+>   as the wrong model).
 
 Committed OpenMC input files for the ICSBEP criticality benchmarks this crate
 runs as **external** oracles — cases whose answer does not come from any deck
@@ -77,7 +79,7 @@ construction.
 | Directory | Benchmark | Character | Example |
 |---|---|---|---|
 | `leu-comp-therm-008/` | LEU-COMP-THERM-008 — B&W critical lattices | thermal, 2.459 w/o UO₂ rods in 1511 ppm borated water; U-238 is 97.5 % of the heavy metal | `examples/lct008_keff.rs` |
-| `five_route_keff/` | all four cases (LCT-008 **simplified**), 5 code × data routes | OpenMC vs outram-mc on NJOY2016 and Rust-NJOY data | `examples/icsbep_five_route_keff.rs`, record [`five_route_keff_2026_09_29.md`](five_route_keff_2026_09_29.md) |
+| `five_route_keff/` | all four cases (LCT-008 = case-1 lattice, 11-nuclide tier), 5 code × data routes | OpenMC vs outram-mc on NJOY2016 and Rust-NJOY data | `examples/icsbep_five_route_keff.rs`, record [`five_route_keff_2026_09_29.md`](five_route_keff_2026_09_29.md) |
 
 Godiva (HEU-MET-FAST-001), Jemima (IEU-MET-FAST-002) and HEU-SOL-THERM-009 are
 run by `examples/godiva_keff_endf_local.rs`, `examples/jemima_keff.rs` and

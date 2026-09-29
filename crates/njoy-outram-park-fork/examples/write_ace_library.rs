@@ -202,8 +202,16 @@ fn main() {
             "  {name}: NJOY2016 grid {nei} points to {:.3} eV, NIEB {} x {nang} cosines, {form:?}, natom {natom}",
             opts.emax_ev, opts.n_outgoing
         );
-        let t = AceTable::thermal_from_mf7(&mf7, temp_k, stem, 0, &grid_ev, opts)
-            .unwrap_or_else(|e| panic!("thermal ACE {name}: {e:?}"));
+        // THERMR card-4 `tol`: 0.001, what OpenMC's `make_ace_thermal` passes and
+        // therefore what the NJOY2016 reference table was built with. The
+        // writer's own default (0.05) left this table 50x coarser than the one
+        // it is compared against (found 2026-09-29).
+        let tol: f64 =
+            flag(&args, "--thermal-tol").map_or(1.0e-3, |v| v.parse().expect("--thermal-tol"));
+        eprintln!("    THERMR tol {tol}");
+        let t =
+            AceTable::thermal_from_mf7_with_tolerance(&mf7, temp_k, stem, 0, &grid_ev, opts, tol)
+                .unwrap_or_else(|e| panic!("thermal ACE {name}: {e:?}"));
         write(&t, &path);
         eprintln!(
             "  {name}: thermal table in {:.1} s",
