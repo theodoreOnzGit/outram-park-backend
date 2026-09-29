@@ -153,6 +153,68 @@ fn nearest_calcem_record(table: &Iform0Table, ev: f64) -> Option<&IncidentEnergy
     Some(&recs[i])
 }
 
+/// Port of THERMR's `terp` (`thermr.f90`): Lagrangian interpolation (or
+/// extrapolation) of order `il` on an **increasing** table, returning the
+/// tabulated value when `arg` matches a node to `1e-10` relative. `calcem`'s
+/// incident grid is increasing, which is the only case this serves; the
+/// decreasing-table branch of the Fortran is not needed and not ported.
+fn thermr_terp(x: &[f64], y: &[f64], arg: f64, il: usize) -> f64 {
+    const SMALL: f64 = 1.0e-10;
+    let nl = x.len();
+    if nl == 0 {
+        return 0.0;
+    }
+    let il = il.min(nl);
+    // 1-based start index `l` of the il-point stencil, as in the Fortran.
+    let l: usize = if nl == il {
+        1
+    } else {
+        let il2 = il / 2;
+        let iadd = il % 2;
+        let ilow = il2 + 1;
+        let ihi = nl - il2 - iadd;
+        let (iusel, iuseh, ibeg, iend) = (1, nl - il + 1, ilow + 1, ihi - 1);
+        let last = iend + 1 - il2;
+        let xx = |i: usize| x[i - 1];
+        if (arg - xx(ilow)).abs() < SMALL * arg {
+            return y[ilow - 1];
+        }
+        if arg <= xx(ilow) {
+            iusel
+        } else if (xx(ihi) - arg).abs() < SMALL * arg {
+            return y[ihi - 1];
+        } else if xx(ihi) <= arg {
+            iuseh
+        } else {
+            let mut found = None;
+            for m in ibeg..=iend {
+                if (xx(m) - arg).abs() < SMALL * arg {
+                    return y[m - 1];
+                }
+                if xx(m) > arg {
+                    found = Some(m - il2);
+                    break;
+                }
+            }
+            found.unwrap_or(last)
+        }
+    };
+    let mut sum = 0.0;
+    for i in 1..=il {
+        let (mut p, mut pk) = (1.0, 1.0);
+        let inn = l + i - 1;
+        for ip in 1..=il {
+            if ip != i {
+                let inp = l + ip - 1;
+                p *= arg - x[inp - 1];
+                pk *= x[inn - 1] - x[inp - 1];
+            }
+        }
+        sum += p * y[inn - 1] / pk;
+    }
+    sum
+}
+
 impl Default for ThermalAceOptions {
     fn default() -> Self {
         // NJOY-typical dimensions: 16 outgoing energies, 8 equiprobable cosines.
@@ -288,10 +350,6 @@ impl AceTable {
         // (`nmix` in `aceth.f90`). Every material here is treated as nmix=1.
         let natom = opts.natom;
 
-        let xs: Vec<f64> = energy_grid
-            .iter()
-            .map(|&e| ii.cross_section(e, temp_k, natom))
-            .collect();
         // The emission law comes from `calcem` through the ported `acesix`,
         // which is what NJOY does: THERMR writes the MF=6 emission matrix and
         // ACER turns it into bins or into a tabulated density.
@@ -304,6 +362,23 @@ impl AceTable {
         // `1 4 10 ... 10 4 1` pattern. Pairing either with the other flag
         // would write a table whose NXS(7) lies about its own contents.
         let calcem = compute_iform0(ii, natom, nang, opts.emax_ev, tol)?;
+        // ITIX is THERMR's own `xsi` -- `calcem`'s trapezoidal E'-integral of
+        // the SAME rows the emission bins below come from (`thermr.f90:2166-
+        // 2173`), put on the PENDF grid by `terp(esi, xsi, nne, enow, nlt = 5)`
+        // (`thermr.f90:2459`) and copied by `acesix` (`aceth.f90:131`). It was
+        // `IncoherentInelastic::cross_section`, an independent analytic
+        // integral, until 2026-09-29: up to 6.6 % off NJOY2016's ITIX at
+        // 1e-5 eV on H in H2O (median 0.4 %), which is what moved the five-route
+        // study's thermal cases by ~95 pcm (route 2 vs route 1).
+        let (esi, xsi): (Vec<f64>, Vec<f64>) = calcem
+            .records
+            .iter()
+            .map(|r| (r.e_in_ev, r.cross_section_b))
+            .unzip();
+        let xs: Vec<f64> = energy_grid
+            .iter()
+            .map(|&e| thermr_terp(&esi, &xsi, e, 5))
+            .collect();
         let mut emission: Vec<Vec<OutgoingBin>> = Vec::new();
         let mut tabulated: Vec<Vec<AcesixPoint>> = Vec::new();
         if opts.form == InelasticForm::Continuous {
