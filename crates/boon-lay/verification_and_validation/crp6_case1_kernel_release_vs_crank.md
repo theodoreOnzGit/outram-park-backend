@@ -102,3 +102,12 @@ separately (`interface_uniform_equilibrium_density.md`) and is a heavier
 computation; a full multilayer CRP-6 release record is future work. The
 steady-state release-to-birth `<R/B>` comparison against the `triso_atops_fork`
 Booth models (a different, continuous-production scenario) is likewise deferred.
+
+**Added 2026-09-29 (gh:#382):** the **transient** Booth comparison, the same
+scenario as this record, is done in `tests/triso_atops_booth_vs_crp6.rs`.
+`triso_atops_fork`'s `booth_longlived` and `booth_transient` equal the Crank
+series at Case 1a/1b to 2.2e-16 (1a: 0.5337290191). That closes the
+Lagrangian ⟷ Eulerian loop on this benchmark. The same test found that
+upstream's 5000-term truncation leaves a 1.216e-4 floor at small `D't`. It
+over-states Sr/Ba/Eu kernel release by up to 120x at HTR-10 normal-operation
+temperatures (gh:#385). The `<R/B>` comparison above remains deferred.
