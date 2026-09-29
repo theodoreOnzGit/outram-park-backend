@@ -574,6 +574,29 @@ pub struct SteamGeneratorConfig {
     /// 0.075 s complete**, and complete even at `n=1`, so the coupling iterations
     /// added on 2026-09-27 are *not* what rescued them.
     ///
+    /// **RE-MEASURED 2026-09-29 (gh:#319) — the 0.075 s row no longer holds.**
+    /// `TampinesSteamArray`'s energy convection moved that day from an
+    /// unbounded linear face value to a bounded van Leer scheme (the linear one
+    /// walked the cold side's inlet cell to the IF97 273.15 K floor). The same
+    /// sweep, 115.74 s, `cargo test --release -j2 -p tampines --lib
+    /// how_far_the_implicit_coupling_raises_the_stable_substep -- --ignored
+    /// --nocapture`:
+    ///
+    /// ```text
+    /// substep  0.0125 s  | n=1: Completed coldest=320.3K iters=1 | n=8: Completed coldest=320.3K iters=3
+    /// substep  0.0250 s  | n=1: Completed coldest=320.3K iters=1 | n=8: Completed coldest=320.4K iters=4
+    /// substep  0.0500 s  | n=1: Completed coldest=320.3K iters=1 | n=8: Completed coldest=320.3K iters=4
+    /// substep  0.0750 s  | n=1: PANIC                            | n=8: PANIC
+    /// substep  0.1000 s  | n=1: PANIC                            | n=8: PANIC
+    /// ```
+    ///
+    /// The ceiling moved from (0.075, 0.1) s to **(0.05, 0.075) s**. The
+    /// 0.1 s panic is preceded by a drained-cell hold in vapour cell 6
+    /// (`rho_old = 9.59 kg/m3`, `rho_old - dt div(phi) = -2.67 kg/m3`): the
+    /// array's **explicit continuity** is over-draining a low-density cell, a
+    /// mass-Courant limit inside the array. 0.05 s, which `htgr_sim_v1`
+    /// ships, still completes.
+    ///
     /// **Why the row was wrong, confirmed from the history.** Three commits
     /// landed within 47 minutes on 2026-08-13 (`git log -1 --date=iso`):
     ///
@@ -751,8 +774,11 @@ pub struct SteamGeneratorConfig {
 ///
 /// - `n_outer` -- outer (PIMPLE/SIMPLE-like) correctors per array timestep.
 ///   Each one re-solves momentum, pressure and energy from the same old-time
-///   state with the latest iterate. Because both arrays carry their enthalpy
-///   convection as an **explicit** `fvc::div_limited` source inside this loop,
+///   state with the latest iterate. Because ~~both arrays carry~~ the cold
+///   array carries (**CORRECTED 2026-09-29**: the hot array has been
+///   `EnergyBalanceMode::Implicit` since 2026-08-13, and the cold array's
+///   source was an unlimited linear `fvc::div` until 2026-09-29, gh:#319) its
+///   enthalpy convection as an **explicit** `fvc::div_limited` source inside this loop,
 ///   the loop is a Picard iteration whose contraction factor is the cell
 ///   Courant number `Co`: residual reduction over the step is roughly
 ///   `Co^n_outer`. So raising `n_outer` **can** buy a larger substep while
@@ -824,6 +850,8 @@ impl PimpleCorrectors {
     /// [`super::helical_coil_sg_standalone::tests::how_far_the_implicit_coupling_raises_the_stable_substep`]
     /// (244.81 s): 0.05 s and 0.075 s both complete, 0.1 s panics. Full sweep
     /// output and the commit timeline are in [`SteamGeneratorConfig::substep`].
+    /// (**Re-measured 2026-09-29, gh:#319:** under the bounded cold-side
+    /// convection scheme 0.075 s panics too; 0.05 s completes.)
     pub fn hot_gas_default() -> Self {
         Self {
             n_outer: 2,
@@ -1290,7 +1318,12 @@ impl NodalisedCounterFlowSteamGenerator {
     /// `Co_cold`). The explicit-Picard argument below therefore describes the
     /// array that was *never* the constraint.
     ///
-    /// The cold (water/steam) array does carry convection explicitly. For an
+    /// The cold (water/steam) array does carry convection explicitly --
+    /// **CORRECTED 2026-09-29 (gh:#319):** ~~as `fvc::div_limited`~~ until that
+    /// date it was `fvc::div`, an unlimited **linear** face value, not the
+    /// limited one this doc named; `TampinesSteamArray` now uses
+    /// `fvc::div_limited` with a van Leer default
+    /// (`tampines_steam_tables::EnergyConvectionScheme`). For an
     /// explicit array the outer loop is a Picard iteration on an explicit
     /// convection source, whose contraction factor is the cell Courant
     /// number: it converges (and the scheme is then effectively implicit) while
@@ -1303,7 +1336,10 @@ impl NodalisedCounterFlowSteamGenerator {
     /// (`Co_hot = 0.888` on the 2026-08-12 scaling) and a 0.075 s one both
     /// complete, and 0.1 s fails — so whatever sets the ceiling now sits between
     /// 0.075 s and 0.1 s and has not been identified. Recorded as open rather
-    /// than guessed. More correctors still do not relax it.
+    /// than guessed. More correctors still do not relax it. **Re-measured
+    /// 2026-09-29 (gh:#319):** with the cold side's energy convection bounded
+    /// (van Leer), the ceiling sits between 0.05 s and 0.075 s — see
+    /// [`SteamGeneratorConfig::substep`].
     ///
     /// The value uses [`get_fluid_courant_number_one_dimension`] from TUAS
     /// rather than re-deriving `u dt / dx`; that function returns `Err(value)`
