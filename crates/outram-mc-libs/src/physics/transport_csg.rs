@@ -2022,6 +2022,37 @@ pub(crate) fn transport_history_vr(
                     }
                     e = e2;
                     u = u2;
+                } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                    // The other neutron-emitting reactions -- (n,n alpha),
+                    // (n,np), (n,4n), ... (GitHub #365 audit). Inside MT=1, so
+                    // before this they fell through to ELASTIC and lost their
+                    // extra neutrons. Kept in lockstep with the MT=5 arm above.
+                    let o = nuc.sample_other_emission(e, u, seed);
+                    if o.n_emit == 0 {
+                        break;
+                    }
+                    for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                        stack.push((
+                            Site {
+                                r,
+                                u: *su,
+                                e: *se,
+                                delayed_group: my_group,
+                            },
+                            w,
+                            None,
+                            ww_state,
+                            time_s,
+                        ));
+                        if let Some(t) = tally {
+                            score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, *se, r, w);
+                        }
+                    }
+                    if let Some(t) = tally {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, o.e, r, w);
+                    }
+                    e = o.e;
+                    u = o.u;
                 } else {
                     // Scattering. Below its cutoff a moderator nuclide carrying an
                     // S(α,β) table thermalizes via the bound-atom law (lab-frame

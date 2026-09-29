@@ -183,3 +183,26 @@ fn mg_scattering_anisotropy_is_applied_by_default_when_the_set_carries_it() {
     // that is a property of the data, not a default that hides physics.
     assert_eq!(two_group_set().scatter_angle, ScatterAngle::Isotropic);
 }
+
+/// The other neutron-emitting reactions (MT=22, 28, ...) are transported by
+/// default on both routes (GitHub #365 audit): O-16 from `reference-data/endf`
+/// carries seven of them.
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reconstructs O-16 from ENDF; runs by default"
+)]
+fn other_neutron_channels_are_applied_by_default() {
+    let Some(p) = reference_endf("n-008_O_016-ENDF8.0.endf") else {
+        eprintln!("SKIP: reference tape not present");
+        return;
+    };
+    let n = Nuclide::from_endf_file(&p, "O16", 293.6, 1.0e-3).expect("O-16");
+    assert!(
+        n.applies_other_neutron_channels(),
+        "O-16's (n,n alpha), (n,np), ... must be transported by default; the off \
+         switch is `without_other_neutron_channels`"
+    );
+    assert!(!n.clone().without_other_neutron_channels().applies_other_neutron_channels());
+    assert!(n.xs_at_energy(1.8e7, 293.6).other > 0.0);
+}

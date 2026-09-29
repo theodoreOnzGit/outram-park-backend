@@ -13053,6 +13053,7 @@ pub struct MicroXS {
     pub n2n: f64,
     pub n3n: f64,
     pub mt5: f64,
+    pub other: f64,
     pub nu_fission: f64,
 }
 ```
@@ -13069,6 +13070,7 @@ pub struct MicroXS {
 | `n2n` | `f64` | (n,2n) scattering σ (MT=16) \[barn\]; HIGH tier only, else 0. Emits 2<br>neutrons — the multiplicity the transport kernel restores. |
 | `n3n` | `f64` | (n,3n) scattering σ (MT=17) \[barn\]; HIGH tier only, else 0. Emits **3**<br>neutrons.<br><br>Carried separately from [`Self::n2n`] because the multiplicity differs.<br>Before 2026-09-16 this channel had no branch at all: MT=17 is inside<br>MT=1, so the collision still happened, but it fell through to the<br>*elastic* arm and the two extra neutrons were silently lost. U-238's<br>threshold is ~11.3 MeV, so a fission spectrum barely reaches it — but a<br>14 MeV source is squarely above it. |
 | `mt5` | `f64` | **MT=5, "(n,anything)"** σ \[barn\]; HIGH tier only, else 0.<br><br>ENDF/B-VIII.0 uses MT=5 to lump the high-energy channels an evaluator did<br>not resolve individually, and its neutron multiplicity is a *tabulated*<br>`y(E)` in the MF=6 subsection rather than a fixed integer.<br><br>Added 2026-09-17. Before that MT=5 had **no branch**: it is inside MT=1,<br>so the collision happened, but it fell through to whichever arm was last.<br>`tests/channel_branching_consistency.rs` found it by measuring that the<br>partition `elastic + inelastic + (n,2n) + (n,3n) + absorption` fell short<br>of `sigma_total` by **7.0e-4 relative at 10 MeV and 2.7e-3 at 14 MeV**,<br>of which MT=5 was 99.7 % and 94.8 %. It is **zero below ~5 MeV**, so no<br>fission-spectrum result here changes — it matters to a 14 MeV source.<br><br>Exactly the same class as [`Self::n3n`]'s own history. |
+| `other` | `f64` | The **other neutron-emitting reactions** \[barn\] — the sum over<br>`Nuclide`'s other channels (MT=22, 28, 32, 37, 41, ...). Inside MT=1 like<br>(n,2n): branching on it re-partitions the collision. Zero on the LOW<br>tier and when ablated. GitHub #365 audit. |
 | `nu_fission` | `f64` | Fission production ν̄·σ_f \[barn\]. |
 
 ##### Implementations
@@ -13570,6 +13572,36 @@ pub struct Nuclide {
   Sample the outgoing state of an inelastic or multiplying collision on
 
 - ```rust
+  pub fn sample_other_emission(self: &Self, e: f64, u: crate::geometry::position::Direction, seed: &mut u64) -> OtherEmission { /* ... */ }
+  ```
+  Sample a collision on the **other neutron-emitting reactions** at `e`
+
+- ```rust
+  pub fn without_other_neutron_channels(self: Self) -> Self { /* ... */ }
+  ```
+  This nuclide with the other neutron-emitting reactions **switched off**:
+
+- ```rust
+  pub fn applies_other_neutron_channels(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the other neutron-emitting reactions are transported: `true`
+
+- ```rust
+  pub fn other_neutron_channels(self: &Self) -> Vec<(i32, &'static str)> { /* ... */ }
+  ```
+  **Diagnostic**: the other neutron-emitting reactions this nuclide
+
+- ```rust
+  pub fn other_channel_cm(self: &Self, mt: i32) -> Option<bool> { /* ... */ }
+  ```
+  Whether other-channel reaction `mt` is sampled in the centre-of-mass
+
+- ```rust
+  pub fn other_channel_yield(self: &Self, mt: i32, e: f64) -> Option<f64> { /* ... */ }
+  ```
+  Mean neutron multiplicity of other-channel reaction `mt` at `e` \[eV\],
+
+- ```rust
   pub fn mt5_yield(self: &Self, e: f64) -> f64 { /* ... */ }
   ```
   The **neutron multiplicity `y(E)`** of MT=5 at incident energy `e`
@@ -13776,6 +13808,140 @@ pub struct Nuclide {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `OtherEmission`
+
+What an "other"-channel collision produced: the primary's new state, up to
+three extra neutrons (drawn unconditionally, so the RNG stream does not
+depend on the multiplicity), and how many neutrons in all (`0` kills the
+primary).
+
+```rust
+pub struct OtherEmission {
+    pub e: f64,
+    pub u: crate::geometry::position::Direction,
+    pub extras: [(f64, crate::geometry::position::Direction); 3],
+    pub n_emit: usize,
+    pub mt: i32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `e` | `f64` | The primary's outgoing energy \[eV\]. |
+| `u` | `crate::geometry::position::Direction` | The primary's outgoing direction. |
+| `extras` | `[(f64, crate::geometry::position::Direction); 3]` | Extra neutrons, `(E [eV], direction)`; `n_emit - 1` of them are live. |
+| `n_emit` | `usize` | Neutrons emitted in all (the multiplicity drawn for this collision). |
+| `mt` | `i32` | The reaction's MT. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OtherEmission { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -14785,6 +14951,7 @@ pub enum ThermalElastic {
     None,
     Coherent(CoherentElasticTable),
     Incoherent(IncoherentElasticTable),
+    Mixed(CoherentElasticTable, IncoherentElasticTable),
 }
 ```
 
@@ -14818,6 +14985,20 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `IncoherentElasticTable` |  |
+
+###### `Mixed`
+
+**Mixed** coherent + incoherent elastic (ENDF LTHR = 3, ACE IDPNC = 5).
+σ is the sum; a scatter picks the coherent part with probability
+σ_coh/(σ_coh + σ_inc), as OpenMC's `MixedElasticAE::sample_dist`
+(`src/secondary_thermal.cpp`). GitHub #365 audit.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CoherentElasticTable` |  |
+| 1 | `IncoherentElasticTable` |  |
 
 ##### Implementations
 

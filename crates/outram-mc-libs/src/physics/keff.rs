@@ -1433,12 +1433,13 @@ enum CollisionResult {
     /// down-scattered primary and every extra stay live.
     ///
     /// The extras are a fixed-size array rather than a `Vec` because this is
-    /// the hot loop and the count is at most two; `n_sec` says how many of
-    /// `sec` are live.
+    /// the hot loop and the count is at most three ((n,4n), MT=37, via the
+    /// other-channel arm; GitHub #365 audit); `n_sec` says how many of `sec`
+    /// are live.
     ScatterWithSecondaries {
         e: f64,
         u: Direction,
-        sec: [(f64, Direction); 2],
+        sec: [(f64, Direction); 3],
         n_sec: usize,
     },
 }
@@ -1547,7 +1548,7 @@ fn collide_batched(
                 CollisionResult::ScatterWithSecondaries {
                     e: e2,
                     u: u2,
-                    sec: [(sec_e2, sec_u2), (sec_e2, sec_u2)],
+                    sec: [(sec_e2, sec_u2); 3],
                     n_sec: 1,
                 },
             )
@@ -1562,8 +1563,10 @@ fn collide_batched(
         // and the partition is unchanged for any reactor spectrum.
         let has17 = nuc.has_evaluated_emission(17);
         let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
-        let mut sec = [(e2, u2); 2];
-        for slot in sec.iter_mut() {
+        // Three slots (the array holds (n,4n)'s extras too); two are drawn, as
+        // before, so the RNG stream is unchanged.
+        let mut sec = [(e2, u2); 3];
+        for slot in sec.iter_mut().take(2) {
             if has17 {
                 *slot = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
             }
@@ -1598,8 +1601,8 @@ fn collide_batched(
         // (n,2n)/(n,3n). Drawn unconditionally so the count, not the draw
         // sequence, is what varies -- keeping the RNG stream aligned between
         // multiplicities.
-        let mut sec = [(e2, u2); 2];
-        for slot in sec.iter_mut() {
+        let mut sec = [(e2, u2); 3];
+        for slot in sec.iter_mut().take(2) {
             *slot = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
         }
         // `y(E) = 0` is a real state, not an edge case: ENDF/B-VIII.0's U-235
@@ -1625,6 +1628,30 @@ fn collide_batched(
             )
         } else {
             (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+        // The other neutron-emitting reactions -- (n,n alpha), (n,np), (n,4n),
+        // ... (GitHub #365 audit). Inside MT=1 like the arms above, so before
+        // this they fell through to ELASTIC and lost their extra neutrons.
+        // `x.other` is 0 below their thresholds (>= several MeV on every held
+        // nuclide), so the partition is unchanged for a fission spectrum below.
+        let o = nuc.sample_other_emission(e, u, seed);
+        if o.n_emit == 0 {
+            return (0.0, CollisionResult::Dead);
+        }
+        let n_sec = o.n_emit.saturating_sub(1).min(3);
+        if n_sec > 0 {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: o.e,
+                    u: o.u,
+                    sec: o.extras,
+                    n_sec,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: o.e, u: o.u })
         }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
@@ -1854,6 +1881,18 @@ fn transport_history(
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // Other neutron-emitting reactions (GitHub #365 audit); see the
+                // equivalent arm in `collide`.
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Scattering. A moderator nuclide carrying an S(alpha, beta)
                 // table thermalizes via the bound-atom law below its cutoff
@@ -2094,6 +2133,18 @@ fn transport_history_tabulated(
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // Other neutron-emitting reactions (GitHub #365 audit); see the
+                // equivalent arm in `collide`.
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Kept in lockstep with [`transport_history`] — the two differ
                 // only in where Sigma_t comes from, so the bound-atom

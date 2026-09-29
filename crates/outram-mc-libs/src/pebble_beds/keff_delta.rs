@@ -1109,6 +1109,36 @@ where
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- GitHub #365 audit: this delta-tracking
+                // kernel had no MT=5 arm, so those collisions fell through to
+                // ELASTIC here while every other kernel in the crate has handled
+                // them since 2026-09-17. Same arm as `physics::keff`'s.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                if n_emit == 0 {
+                    break 'history;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // The other neutron-emitting reactions (GitHub #365 audit).
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break 'history;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Scattering. Below its cutoff a moderator nuclide carrying an
                 // S(alpha, beta) table thermalizes via the bound-atom law

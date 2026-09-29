@@ -92,6 +92,11 @@ pub struct MicroXS {
     ///
     /// Exactly the same class as [`Self::n3n`]'s own history.
     pub mt5: f64,
+    /// The **other neutron-emitting reactions** \[barn\] — the sum over
+    /// `Nuclide`'s other channels (MT=22, 28, 32, 37, 41, ...). Inside MT=1 like
+    /// (n,2n): branching on it re-partitions the collision. Zero on the LOW
+    /// tier and when ablated. GitHub #365 audit.
+    pub other: f64,
     /// Fission production ν̄·σ_f \[barn\].
     pub nu_fission: f64,
 }
@@ -319,6 +324,18 @@ pub struct Nuclide {
     /// `true` after [`Nuclide::without_delayed_spectra`]: fission neutrons are all
     /// born with the prompt χ. `false` (spectra applied) by default.
     delayed_spectra_ablated: bool,
+    /// The **other neutron-emitting reactions** — every non-redundant channel
+    /// that emits a neutron and is not elastic, a discrete level/continuum
+    /// (MT=51..91), (n,2n), (n,3n), MT=5 or fission: (n,n alpha) MT=22,
+    /// (n,np) MT=28, (n,nd) MT=32, (n,4n) MT=37, (n,2np) MT=41 and the rest.
+    /// GitHub #365 audit: they used to sit inside MT=1 with no arm of their
+    /// own, so a collision on them was sampled as ELASTIC and its extra
+    /// neutrons were lost. Each carries its own law, Q and multiplicity, as
+    /// OpenMC's `inelastic_scatter` (`src/physics.cpp`) treats them.
+    other_channels: Vec<OtherChannel>,
+    /// `true` after [`Nuclide::without_other_neutron_channels`] (the ablation
+    /// arm): those reactions fall back into the elastic remainder, as before.
+    other_channels_ablated: bool,
     /// Unresolved-resonance probability tables, when the caller has asked for
     /// them with [`Nuclide::with_urr_probability_tables`]. `None` — the
     /// default — means the unresolved range is treated as infinitely dilute,
@@ -528,6 +545,8 @@ impl Nuclide {
             chi_frozen_at: None,
             n2n_yield_one: false,
             delayed_spectra_ablated: false,
+            other_channels: Vec::new(),
+            other_channels_ablated: false,
             urr: None,
             dbrc: None,
             // LOW tier has no pointwise reconstruction, so no 0 K grid for DBRC.
@@ -1834,6 +1853,8 @@ impl Nuclide {
         let mut uncorr17: Option<UncorrelatedEmission> = None;
         // Each partial fission's own law, `(mt, law)`, for the chi mixture.
         let mut partial_chi: Vec<(i32, FissionSpectrum)> = Vec::new();
+        // Other neutron-emitting reactions, `(mt, q, yield, law)`.
+        let mut other_raw: Vec<(i32, f64, OtherYield, OtherLaw)> = Vec::new();
 
         for i in 0..n_rx {
             let Some(rx) = ace.reactions.get(i) else { break };
@@ -1847,6 +1868,36 @@ impl Nuclide {
             }
             let decoded = decode_energy_law(table, i)?;
             let is_fission = rx.mt == 18 || [19, 20, 21, 38].contains(&rx.mt);
+            // The other neutron-emitting reactions (GitHub #365 audit): their
+            // law, Q and multiplicity, resolved to a section after `recon`.
+            if rx.ty != 0
+                && is_other_neutron_mt(rx.mt, &|m| ace.reactions.iter().any(|r| r.mt == m))
+            {
+                let ctx = AceLawContext {
+                    awr: ace.awr,
+                    q: rx.q_value,
+                    e_lo: ace.energy.get(rx.threshold_index).copied().unwrap_or(1.0e-5).max(1.0e-5),
+                    e_hi: ace.energy.last().copied().unwrap_or(2.0e7),
+                };
+                let law = ace_other_law(&decoded, table, i, rx.ty, &ctx)?;
+                let n = rx.ty.unsigned_abs();
+                let yield_ = if n > 100 {
+                    match njoy_outram_park_fork::acer::ce_laws::decode_reaction_yield(table, rx.ty)? {
+                        Some(t) if t.interp.iter().all(|&(_, int)| int == 2) => {
+                            OtherYield::Tabulated(t.pairs)
+                        }
+                        Some(_) => {
+                            return Err(NjoyError::NotPorted(
+                                "ACE energy-dependent yield with a non-lin-lin region",
+                            ))
+                        }
+                        None => OtherYield::Fixed(1),
+                    }
+                } else {
+                    OtherYield::Fixed(n)
+                };
+                other_raw.push((rx.mt, rx.q_value, yield_, law));
+            }
             let mut place = |emission: ContinuumEmission| match rx.mt {
                 91 => mt91 = Some(emission),
                 16 => mt16 = Some(emission),
@@ -2085,6 +2136,19 @@ impl Nuclide {
             chi = partial_fission_chi(&ace, partial_chi);
         }
 
+        let other_channels: Vec<OtherChannel> = other_raw
+            .into_iter()
+            .filter_map(|(mt, q, yield_, law)| {
+                recon.section_index(MtReaction::from_any(mt)).map(|section| OtherChannel {
+                    mt,
+                    section,
+                    q,
+                    yield_,
+                    law,
+                })
+            })
+            .collect();
+
         let nu = decode_nu(table)?.unwrap_or_else(|| nubar_for(name, false));
 
         Ok(Self {
@@ -2121,6 +2185,8 @@ impl Nuclide {
             chi_frozen_at: None,
             n2n_yield_one: false,
             delayed_spectra_ablated: false,
+            other_channels,
+            other_channels_ablated: false,
             // **URR IS decoded now (GitHub #307).** It used to be `None` with a
             // comment saying the path did not read the block, which meant the
             // ACE route carried no unresolved-resonance self-shielding while
@@ -2413,6 +2479,35 @@ impl Nuclide {
             }
             UncorrelatedEmission::from_endf(tape, mat, mt)
         };
+        // 7c. The other neutron-emitting reactions (GitHub #365 audit): every
+        //     MF=3 channel that emits a neutron and has no arm of its own --
+        //     MT=22, 28, 32, 37, 41, ... Law: MF=6 (as MT=91/16 read it), else
+        //     MF=4 + MF=5, else the stand-in, listed by
+        //     `other_neutron_channels`. Multiplicity: MF=6's own yields, else by
+        //     MT (`endf_mt_multiplicity`, ACER's table).
+        let mts: Vec<i32> = recon.sections.iter().map(|sec| sec.mt.number()).collect();
+        let mut other_channels = Vec::new();
+        for (section, &mt) in mts.iter().enumerate() {
+            if !is_other_neutron_mt(mt, &|m| mts.contains(&m)) {
+                continue;
+            }
+            let q = recon.sections[section].qi;
+            let (law, yield_) = if let Some(l) = ContinuumEmission::from_endf_mf6(tape, mat, mt)? {
+                (OtherLaw::Correlated(l), OtherYield::FromLaw)
+            } else if let Some(l) = UncorrelatedEmission::from_endf(tape, mat, mt)? {
+                (OtherLaw::Uncorrelated(l), OtherYield::Fixed(endf_mt_multiplicity(mt)))
+            } else if tape.section(mat, 6, mt).is_none() && tape.section(mat, 5, mt).is_none() {
+                // No secondary-neutron data at all: an MF=3-only reaction that
+                // emits no neutron the evaluation describes (e.g. a charged-
+                // particle channel filed outside 102..117). Not a neutron
+                // channel; leave it in the remainder as the evaluation implies.
+                continue;
+            } else {
+                (OtherLaw::StandIn, OtherYield::Fixed(endf_mt_multiplicity(mt)))
+            };
+            other_channels.push(OtherChannel { mt, section, q, yield_, law });
+        }
+
         let continuum = ContinuumLaws {
             uncorrelated: [
                 (91, uncorr(91, mt91.is_some())?),
@@ -2444,6 +2539,8 @@ impl Nuclide {
             chi_frozen_at: None,
             n2n_yield_one: false,
             delayed_spectra_ablated: false,
+            other_channels,
+            other_channels_ablated: false,
             urr: None,
             dbrc: None,
             elastic_0k,
@@ -2584,6 +2681,171 @@ impl Nuclide {
             return (e_out, rotate_direction(u, mu, seed));
         }
         continuum_inelastic_scatter(e, u, self.awr, q, seed)
+    }
+
+    /// Σ of the "other" neutron-emitting channels at `e` \[eV\] on the
+    /// pointwise tier (0 when ablated).
+    fn other_xs(&self, recon: &ReconrResult, e: f64) -> f64 {
+        if self.other_channels_ablated {
+            return 0.0;
+        }
+        self.other_channels.iter().map(|c| recon.eval_section(c.section, e)).sum()
+    }
+
+    /// Sample a collision on the **other neutron-emitting reactions** at `e`
+    /// \[eV\], direction `u` — GitHub #365 audit. A port of OpenMC's reaction
+    /// choice (by cross section, `src/physics.cpp` `sample_scatter`) and
+    /// `inelastic_scatter`:
+    ///
+    /// 1. the reaction, in proportion to its cross section (one uniform);
+    /// 2. the primary's `(E', direction)` from the reaction's own law, with the
+    ///    CM→lab transform the law's frame calls for;
+    /// 3. three extra draws from the same law, unconditionally;
+    /// 4. the multiplicity: the integer yield, or `floor(y) + [xi < frac]` for a
+    ///    tabulated one. OpenMC multiplies the weight by a non-integer yield
+    ///    instead; the expectation is the same, and this is how MT=5 is already
+    ///    sampled here.
+    ///
+    /// Where OpenMC emits the extras as copies of the primary's state, these
+    /// are independent draws from the law, as this crate's (n,2n)/(n,3n) arms
+    /// do; the expectation is the same. At most three extras are kept, which
+    /// covers every multiplicity ENDF defines (MT=37, (n,4n), is 4).
+    pub fn sample_other_emission(
+        &self,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        seed: &mut u64,
+    ) -> OtherEmission {
+        let XsSource::Pointwise { recon, .. } = &self.xs else {
+            return OtherEmission { e, u, extras: [(e, u); 3], n_emit: 1, mt: 0 };
+        };
+        let xs: Vec<f64> = self.other_channels.iter().map(|c| recon.eval_section(c.section, e)).collect();
+        let total: f64 = xs.iter().sum();
+        let target = prn(seed) * total;
+        let mut acc = 0.0;
+        let mut pick = self.other_channels.len() - 1;
+        for (k, x) in xs.iter().enumerate() {
+            acc += x;
+            if target < acc {
+                pick = k;
+                break;
+            }
+        }
+        let ch = &self.other_channels[pick];
+        let (e1, u1) = self.emit_other(ch, e, u, seed);
+        let mut extras = [(e1, u1); 3];
+        for slot in extras.iter_mut() {
+            *slot = self.emit_other(ch, e, u, seed);
+        }
+        let n_emit = match &ch.yield_ {
+            OtherYield::Fixed(n) => *n as usize,
+            OtherYield::Tabulated(pairs) => {
+                let y = interp_pairs(pairs, e).max(0.0);
+                let w = y.floor();
+                w as usize + usize::from(prn(seed) < y - w)
+            }
+            OtherYield::FromLaw => {
+                let y = match &ch.law {
+                    OtherLaw::Correlated(law) => law.total_yield_at(e).max(0.0),
+                    _ => 1.0,
+                };
+                let w = y.floor();
+                w as usize + usize::from(prn(seed) < y - w)
+            }
+        };
+        OtherEmission { e: e1, u: u1, extras, n_emit: n_emit.min(4), mt: ch.mt }
+    }
+
+    fn emit_other(
+        &self,
+        ch: &OtherChannel,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        seed: &mut u64,
+    ) -> (f64, crate::geometry::position::Direction) {
+        use crate::physics::scatter::{
+            continuum_inelastic_scatter, continuum_inelastic_scatter_evaluated, rotate_direction,
+            two_body_scatter, two_body_scatter_with_mu,
+        };
+        match &ch.law {
+            OtherLaw::Correlated(law) => {
+                continuum_inelastic_scatter_evaluated(e, u, self.awr, ch.q, Some(law), seed)
+            }
+            OtherLaw::Uncorrelated(law) => {
+                let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
+                if law.lct >= 2 {
+                    let (el, ml) = crate::physics::scatter::cm_to_lab(e, e_out, mu, self.awr);
+                    (el, rotate_direction(u, ml, seed))
+                } else {
+                    (e_out, rotate_direction(u, mu, seed))
+                }
+            }
+            OtherLaw::TwoBody(ang) => match sample_mf4_mu_cm(ang, e, seed) {
+                Some(mu) => two_body_scatter_with_mu(e, u, self.awr, ch.q, mu, seed),
+                None => two_body_scatter(e, u, self.awr, ch.q, seed),
+            },
+            OtherLaw::StandIn => continuum_inelastic_scatter(e, u, self.awr, ch.q, seed),
+        }
+    }
+
+    /// This nuclide with the other neutron-emitting reactions **switched off**:
+    /// they fall back into the elastic remainder, the behaviour before the #365
+    /// audit. The ablation arm; the default applies them.
+    pub fn without_other_neutron_channels(mut self) -> Self {
+        self.other_channels_ablated = true;
+        self
+    }
+
+    /// Whether the other neutron-emitting reactions are transported: `true`
+    /// when the nuclide has any and they are not ablated.
+    pub fn applies_other_neutron_channels(&self) -> bool {
+        !self.other_channels_ablated && !self.other_channels.is_empty()
+    }
+
+    /// **Diagnostic**: the other neutron-emitting reactions this nuclide
+    /// transports, as `(MT, law kind)`; the kind is `"correlated"`,
+    /// `"uncorrelated"`, `"two-body"` or `"stand-in"` (no readable law).
+    pub fn other_neutron_channels(&self) -> Vec<(i32, &'static str)> {
+        self.other_channels
+            .iter()
+            .map(|c| {
+                (
+                    c.mt,
+                    match c.law {
+                        OtherLaw::Correlated(_) => "correlated",
+                        OtherLaw::Uncorrelated(_) => "uncorrelated",
+                        OtherLaw::TwoBody(_) => "two-body",
+                        OtherLaw::StandIn => "stand-in",
+                    },
+                )
+            })
+            .collect()
+    }
+
+    /// Whether other-channel reaction `mt` is sampled in the centre-of-mass
+    /// frame, or `None` if the nuclide does not transport it.
+    pub fn other_channel_cm(&self, mt: i32) -> Option<bool> {
+        let c = self.other_channels.iter().find(|c| c.mt == mt)?;
+        Some(match &c.law {
+            OtherLaw::Correlated(l) => l.cm_frame,
+            OtherLaw::Uncorrelated(l) => l.lct >= 2,
+            OtherLaw::TwoBody(_) => true,
+            OtherLaw::StandIn => true,
+        })
+    }
+
+    /// Mean neutron multiplicity of other-channel reaction `mt` at `e` \[eV\],
+    /// or `None` if the nuclide does not transport it.
+    pub fn other_channel_yield(&self, mt: i32, e: f64) -> Option<f64> {
+        let c = self.other_channels.iter().find(|c| c.mt == mt)?;
+        Some(match &c.yield_ {
+            OtherYield::Fixed(n) => *n as f64,
+            OtherYield::Tabulated(p) => interp_pairs(p, e),
+            OtherYield::FromLaw => match &c.law {
+                OtherLaw::Correlated(l) => l.total_yield_at(e),
+                _ => 1.0,
+            },
+        })
     }
 
     /// The **neutron multiplicity `y(E)`** of MT=5 at incident energy `e`
@@ -2808,6 +3070,7 @@ impl Nuclide {
                         inelastic: 0.0, // LOW tier lumps inelastic into elastic
                         n2n: 0.0,       // LOW tier lumps (n,2n) into elastic (no group column yet)
                         mt5: 0.0,       // LOW tier: no per-MT data
+                        other: 0.0,
                         n3n: 0.0,       // ditto (n,3n)
                         nu_fission: x.fission * self.nu_bar(e),
                     }
@@ -2827,6 +3090,7 @@ impl Nuclide {
                         inelastic,
                         n2n: 0.0, // LOW tier: (n,2n) still lumped in the group total
                         mt5: 0.0, // LOW tier: no per-MT data
+                        other: 0.0,
                         n3n: 0.0,
                         nu_fission: m.nu_fission,
                     }
@@ -2841,6 +3105,7 @@ impl Nuclide {
                         inelastic: 0.0,
                         n2n: 0.0,
                         mt5: 0.0, // LOW tier: no per-MT data
+                        other: 0.0,
                         n3n: 0.0,
                         nu_fission: x.fission * self.nu_bar(e),
                     }
@@ -2868,6 +3133,7 @@ impl Nuclide {
                     n2n,
                     n3n,
                     mt5,
+                    other: self.other_xs(recon, e),
                     nu_fission: fission * self.nu_bar(e),
                 }
             }
@@ -2896,6 +3162,7 @@ impl Nuclide {
                     n2n,
                     n3n,
                     mt5,
+                    other: self.other_xs(recon, e),
                     nu_fission: fission * self.nu_bar(e),
                 }
             }
@@ -4273,6 +4540,161 @@ fn partial_fission_chi(
     FissionSpectrum::Mixture(parts)
 }
 
+
+/// The emission law of one "other" neutron-emitting reaction — see
+/// [`Nuclide::sample_other_emission`]. An enum per the workspace design rules.
+#[derive(Debug, Clone)]
+enum OtherLaw {
+    /// A correlated energy-angle law (ENDF MF=6 LAW=1/6/7; ACE 44/61/66 or
+    /// an LNW chain of them), with the frame it names.
+    Correlated(ContinuumEmission),
+    /// MF=5 energy + MF=4 cosine, drawn independently (ACE 4/7/9/11 + AND).
+    Uncorrelated(UncorrelatedEmission),
+    /// Two-body kinematics with the reaction Q and the AND/MF=4 CM cosine.
+    TwoBody(ElasticAngular),
+    /// No law this port can read for the reaction: the Weisskopf evaporation
+    /// stand-in, as MT=91/16 use in that case. Listed by
+    /// [`Nuclide::other_neutron_channels`] so it is never silent.
+    StandIn,
+}
+
+/// The neutron multiplicity of one "other" reaction.
+#[derive(Debug, Clone)]
+enum OtherYield {
+    /// An integer number of neutrons (ACE `|TY| <= 100`; ENDF by MT).
+    Fixed(u32),
+    /// An energy-dependent average `y(E)` as `(E [eV], y)` pairs, lin-lin
+    /// (ACE `|TY| > 100`), sampled as `floor(y) + [xi < frac]`.
+    Tabulated(Vec<(f64, f64)>),
+    /// The yield carried by the correlated law's own branches (ENDF MF=6).
+    FromLaw,
+}
+
+/// One "other" neutron-emitting reaction: its section in `recon`, its `Q`
+/// \[eV\], multiplicity and emission law.
+#[derive(Debug, Clone)]
+struct OtherChannel {
+    mt: i32,
+    section: usize,
+    q: f64,
+    yield_: OtherYield,
+    law: OtherLaw,
+}
+
+/// What an "other"-channel collision produced: the primary's new state, up to
+/// three extra neutrons (drawn unconditionally, so the RNG stream does not
+/// depend on the multiplicity), and how many neutrons in all (`0` kills the
+/// primary).
+#[derive(Debug, Clone, Copy)]
+pub struct OtherEmission {
+    /// The primary's outgoing energy \[eV\].
+    pub e: f64,
+    /// The primary's outgoing direction.
+    pub u: crate::geometry::position::Direction,
+    /// Extra neutrons, `(E [eV], direction)`; `n_emit - 1` of them are live.
+    pub extras: [(f64, crate::geometry::position::Direction); 3],
+    /// Neutrons emitted in all (the multiplicity drawn for this collision).
+    pub n_emit: usize,
+    /// The reaction's MT.
+    pub mt: i32,
+}
+
+/// Whether reaction `mt` is one of the "other" neutron-emitting channels, given
+/// which MTs are present. The exclusions are every channel the kernel already
+/// has an arm for, every absorption, and every lump beside its components
+/// (the SUM_RULES families), so nothing is counted twice.
+fn is_other_neutron_mt(mt: i32, has: &dyn Fn(i32) -> bool) -> bool {
+    use njoy_outram_park_fork::acer::ce_decode::ALWAYS_REDUNDANT_MTS;
+    if ALWAYS_REDUNDANT_MTS.contains(&mt) {
+        return false;
+    }
+    match mt {
+        2 | 4 | 5 | 10 | 16 | 17 | 18 | 19 | 20 | 21 | 38 => false,
+        50..=91 => false,
+        102..=117 => false,
+        600..=849 => false,
+        875..=891 if has(16) => false,
+        // Photon-production and heating/damage bookkeeping MTs.
+        150 | 151 => false,
+        m if m >= 200 => false,
+        _ => true,
+    }
+}
+
+/// Neutron multiplicity of reaction `mt` when the evaluation carries no yield
+/// of its own (MF=4 + MF=5), from ACER's table (`acefc.f90:5859-5868`) plus
+/// the ENDF definition of MT=30 (n,2n2alpha), which ACER lists as 1.
+fn endf_mt_multiplicity(mt: i32) -> u32 {
+    match mt {
+        6..=9 | 11 | 16 | 24 | 26 | 30 | 41 | 46..=49 => 2,
+        17 | 25 | 42 => 3,
+        37 => 4,
+        _ => 1,
+    }
+}
+
+/// The law of one "other" neutron-emitting ACE reaction (GitHub #365 audit),
+/// from its decoded DLW entry. Correlated laws and phase space become an
+/// `OtherLaw::Correlated` (a single branch, or the LNW mixture); MF=5-style
+/// laws (4/7/9/11, or a chain of them) an `OtherLaw::Uncorrelated` with the AND
+/// cosine; LAW=3 two-body kinematics with the AND cosine. The frame is the
+/// sign of TY, as for every other ACE reaction.
+fn ace_other_law(
+    decoded: &njoy_outram_park_fork::acer::ce_laws::AceEnergyLaw,
+    table: &njoy_outram_park_fork::acer::read::RawAceTable,
+    i: usize,
+    ty: i32,
+    ctx: &AceLawContext,
+) -> Result<OtherLaw, NjoyError> {
+    use njoy_outram_park_fork::acer::ce_laws::{
+        ace_phase_space_chi, decode_angular, to_chi_and_angular, AceEnergyLaw,
+    };
+    let lct = if ty < 0 { 2 } else { 1 };
+    let cm_frame = ty < 0;
+    let single = |spectrum: ChiTabular, angular: ContinuumAngular| {
+        OtherLaw::Correlated(ContinuumEmission {
+            branches: vec![ContinuumBranch {
+                spectrum,
+                yield_pairs: Vec::new(),
+                applicability: None,
+                angular,
+            }],
+            cm_frame,
+        })
+    };
+    Ok(match decoded {
+        AceEnergyLaw::Tabulated { law: code @ (44 | 61), rows, incident_interp } => {
+            let (chi, ang) = to_chi_and_angular(rows, *code, incident_interp);
+            single(chi, ang)
+        }
+        AceEnergyLaw::PhaseSpace { npsx, apsx } => {
+            match ace_phase_space_chi(*npsx, *apsx, ctx.awr, ctx.q, ctx.e_lo, ctx.e_hi) {
+                Some(chi) => single(chi, ContinuumAngular::EvaluatedIsotropic),
+                None => OtherLaw::StandIn,
+            }
+        }
+        AceEnergyLaw::TwoBodyLevel { .. } => {
+            OtherLaw::TwoBody(decode_angular(table, i + 1, lct)?.unwrap_or_default())
+        }
+        AceEnergyLaw::DiscretePhoton { .. } => OtherLaw::StandIn,
+        other => match other.as_fission_spectrum() {
+            Some(energy) => OtherLaw::Uncorrelated(UncorrelatedEmission {
+                energy,
+                angular: decode_angular(table, i + 1, lct)?.unwrap_or_default(),
+                lct,
+                yield_n: 1,
+            }),
+            None => match other {
+                AceEnergyLaw::Mixture(parts) => OtherLaw::Correlated(ContinuumEmission {
+                    branches: ace_lnw_mixture(parts, table, i, ctx)?,
+                    cm_frame,
+                }),
+                _ => OtherLaw::StandIn,
+            },
+        },
+    })
+}
+
 /// The reaction-level numbers an ACE law needs beyond its own DLW words, for
 /// [`ace_lnw_mixture`]: the target mass and `Q` (LAW=66's `E'_max(E)`) and the
 /// incident range the reaction is open over (LAW=66's synthesised grid).
@@ -5022,6 +5444,25 @@ impl DelayedData {
 }
 
 /// Lin-lin interpolation on an ascending grid, clamped at both ends.
+/// Lin-lin interpolation of `(x, y)` pairs, clamped at the ends.
+fn interp_pairs(p: &[(f64, f64)], x: f64) -> f64 {
+    match p.len() {
+        0 => 0.0,
+        1 => p[0].1,
+        n => {
+            if x <= p[0].0 {
+                return p[0].1;
+            }
+            if x >= p[n - 1].0 {
+                return p[n - 1].1;
+            }
+            let k = p.partition_point(|q| q.0 <= x);
+            let ((x0, y0), (x1, y1)) = (p[k - 1], p[k]);
+            if x1 > x0 { y0 + (y1 - y0) * (x - x0) / (x1 - x0) } else { y1 }
+        }
+    }
+}
+
 fn interp_table(xs: &[f64], ys: &[f64], x: f64) -> f64 {
     if xs.is_empty() || ys.len() != xs.len() {
         return 0.0;

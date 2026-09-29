@@ -585,6 +585,9 @@ fn main() {
                     "no-inelastic" => n.without_inelastic(),
                     // Delayed neutrons born with the prompt chi (GitHub #365).
                     "no-delayed-spectra" => n.without_delayed_spectra(),
+                    // The other neutron-emitting reactions sampled as elastic,
+                    // as before GitHub #365's audit.
+                    "no-other-channels" => n.without_other_neutron_channels(),
                     other => panic!("unknown --ablate {other}"),
                 })
                 .collect();
