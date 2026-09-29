@@ -229,7 +229,9 @@ purpose.
 
 `reference/htr10_primary_helium_activity_end_of_life.csv`, exposed by
 `changi::activity::primary_helium`. Added 2026-09-28. **Reference data only:
-nothing in this crate or in `htgr_sim_v1` consumes it.**
+~~nothing in this crate or in `htgr_sim_v1` consumes it~~** (**CORRECTED
+2026-09-29**: `htgr_sim_v1`'s stage-1 release V&V test compares against it;
+no model takes it as an input).
 
 | Field | Value |
 |---|---|
@@ -407,3 +409,22 @@ coated-particle release. `RESPONSIBLE_USE.md` applies in full: this is not a
 release figure for HTR-10 or any other plant for any operational, licensing,
 siting, emergency-planning or safety purpose; this workspace uses it for
 research-grade safety analysis only.
+
+
+## HTR-10 release rate from the fuel elements, equilibrium core
+
+`reference/htr10_fuel_element_release_rate.csv`, exposed by
+`changi::activity::fuel_release`. Added 2026-09-29 (gh:#399). **Comparison
+data only**: `htgr_sim_v1`'s stage-1 release V&V test compares its
+uncalibrated release rates against it; nothing is tuned to it.
+
+| Field | Value |
+|---|---|
+| Source | Liu Yuanzhong and Cao Jianzhu (citekey `yuanzhong2002fission`), *Nuclear Engineering and Design* **218** (2002) 81–90 |
+| Table | Table 2, "Release rates of important fission products from the fuel elements in the equilibrium core", journal p. 83 |
+| Quantity | Release rate from the fuel elements into the primary helium, per nuclide, **Bq (h MWt)^-1** as the column header states (column `release_rate_bq_per_h_per_mwt`) |
+| Basis (paper Section 2.3) | Diffusion release from the coated particles; maximum normal-operation fuel-centre temperature 864 °C |
+| Contents | 22 nuclides, the same set as Table 1 |
+| Copyright / access | © 2002 Elsevier Science B.V. **Restricted**; not redistributed; only the cited 22 values are reproduced, as scientific citation |
+| Date accessed / transcribed | 2026-09-29, from the text layer of the maintainer's copy (`~/Documents/local-kovan-repo/literature/proprietary/yuanzhong2002fission.pdf`); every value checked against the layout text |
+| Processing | None: values as printed (`2.5E−1` for Sr-90 read as 0.25) |

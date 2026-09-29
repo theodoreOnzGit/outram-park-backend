@@ -1370,12 +1370,29 @@ mod tests {
     ///
     /// # Results after the riser leg (2026-09-29, gh:#397) -- and which quantity is Hu's
     ///
-    /// **Hu's 206 kW is what the surface cooling system dissipates -- the
-    /// RCCS duty.** Until the riser leg the bed -> reflector heat and the RCCS
-    /// heat were the same number at steady state, so the tests compared the
-    /// former. With the risers, part of the bed -> reflector heat goes back
-    /// into the helium (it is not lost from the plant), so the comparable
-    /// quantity is `heat_to_rccs`, and both are now printed:
+    /// **Which quantity Hu's 206 kW is.** Hu, Wang & Gao (2006), section 2.1,
+    /// list it among "the basic data used for the analysis": "(1) The power
+    /// dissipated by surface cooling system: 206 kW (Liang, 2003)" -- the
+    /// **RCCS duty**. The source does not say at which plant state, so the
+    /// forced-flow reading is not more authoritative than the stagnant one; it
+    /// is the reading for a different state, reported, not gated.
+    ///
+    /// **Both quantities, before and after the riser leg** (steady state):
+    ///
+    /// | Reading | stage (b): bed -> reflector | stage (b): RCCS | stage (c): bed -> reflector | stage (c): RCCS |
+    /// |---|---|---|---|---|
+    /// | stagnant, 950 K (gated) | 254.0 kW | 254.0 kW | 254.0 kW | 254.0 kW (+23.3 %) |
+    /// | 4.3 kg/s, 950 K (reported) | 316.5 kW | 316.5 kW (+53.6 %) | 589.1 kW | **134.6 kW (-34.7 %)** |
+    ///
+    /// **The RCCS duty is the reading that counts**, because it is Hu's
+    /// quantity. Until the riser leg the two columns are the same number at
+    /// steady state (nothing leaves the chain between the bed and the RCCS),
+    /// so the stage (b) "+53.6 %" -- ~~recorded as the chain duty~~ -- was
+    /// the RCCS duty as well, not a different quantity; the comparison did
+    /// not change instrument, the physics split the two numbers. With the
+    /// risers, part of the bed -> reflector heat goes back into the helium
+    /// (it is not lost from the plant), which is why the bed -> reflector
+    /// duty no longer measures what Hu's figure measures. Both are printed:
     ///
     /// | Reading | bed -> reflector | to risers | **to RCCS (Hu's quantity)** | reflector / RPV |
     /// |---|---|---|---|---|

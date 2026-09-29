@@ -131,6 +131,7 @@ src/
       steady_state.rs                     ← Booth (long/short), breakthrough, attenuation, noble-gas <R/B>
       transient.rs                        ← accident variants: booth_transient, breakthrough_transient, rf_graph
     activities/mod.rs                     ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented (`coolant_activity.rs`, `source_terms.rs`), code-to-code verified
+    activities/live_pools.rs              ← **NOT a port** (2026-09-29, gh:#399): exact stepping of the circulating/plate-out/clean-up pools from any state, plus a leak sink; reproduces the ported closed forms from empty
     normal_operation/mod.rs               ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented; `normal_operation_node` agrees with upstream to 3.1e-11
   fuel_failure/                           ← **boon-lay fuel failure**: TRISO particle failure from the PANAMA-I formulas (NOT the PANAMA code)
     mod.rs                                ← naming rule, model overview, total_failure_fraction

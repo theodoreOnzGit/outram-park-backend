@@ -81,6 +81,7 @@
 //! upstream Python on the same inputs (data taken 2026-07-15, commit `de374c8`).
 
 pub mod coolant_activity;
+pub mod live_pools;
 pub mod source_terms;
 
 use uom::si::f64::Frequency;

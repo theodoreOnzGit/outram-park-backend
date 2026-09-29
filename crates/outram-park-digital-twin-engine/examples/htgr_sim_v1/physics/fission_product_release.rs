@@ -42,9 +42,13 @@
 //!
 //! # The inventory is a UNIT basis, deliberately, and that is not a shortcut
 //!
-//! **Every activity reported here is per curie of that nuclide's core
-//! inventory.** Nothing in this module derives an inventory, and that is a
-//! considered refusal rather than an omission.
+//! ~~**Every activity reported here is per curie of that nuclide's core
+//! inventory.**~~ **SUPERSEDED 2026-09-23 and 2026-09-29** -- see "BOTH bases"
+//! and "The live primary pools" below: the published Table 1 inventory drives
+//! an absolute arm, which is the simulator's primary basis since gh:#399.
+//! What follows remains true of the reasoning: nothing in this module
+//! *derives* an inventory from yields, and that is a considered refusal
+//! rather than an omission.
 //!
 //! `sembawang::inventory`'s module doc sets out the trap in full: the obvious
 //! route — multiply fission rate by a fission yield — silently gives the wrong
@@ -64,8 +68,9 @@
 //! dependence, which is the whole physics here — is reported exactly.
 //!
 //! **So: nothing in this module may be quoted as a source term for HTR-10 or
-//! any other reactor** — including the absolute becquerel column added below,
-//! which carries a fuel-quality input that is not HTR-10's.
+//! any other reactor** — including the absolute becquerel column added below
+//! (~~which carries a fuel-quality input that is not HTR-10's~~; its inputs are
+//! HTR-10's since 2026-09-29, and it is still indicative only).
 //! `RESPONSIBLE_USE.md` applies with full force: this is an offline
 //! educational demonstration and not a source-term calculation for any real
 //! plant.
@@ -95,12 +100,32 @@
 //! `tests::the_absolute_arm_is_linear_in_inventory` now *checks* the linearity
 //! claim against the two arms instead of asserting it.
 //!
-//! **The deeper objection stands, and is the reason the absolute column is
+//! ~~**The deeper objection stands, and is the reason the absolute column is
 //! not a source term.** The failure fractions below are **TRISO-ATOPS
-//! reference values, not HTR-10 fuel-qualification data**, so an absolute
-//! figure is the product of one reactor's inventory and another reactor's
-//! fuel quality. It is linear in both, so it is a defensible order of
-//! magnitude and nothing more.
+//! reference values, not HTR-10 fuel-qualification data** ...~~
+//! **CHANGED 2026-09-29 (gh:#399, source-term stage 1):** the absolute arm
+//! is now HTR-10's end to end -- Table 1 inventory, HTR-10's measured free
+//! uranium (Tang et al. 2002), a live in-service failure from boon-lay fuel
+//! failure at the plant's kernel temperature, HTR-10's fuel residence, and
+//! HTR-10's primary-circuit constants (Liu & Cao 2002, Yao et al. 2002) in
+//! **live** pools stepped through the transient. It is the simulator's
+//! primary basis now; the per-curie arm is kept as the transfer function
+//! (pool / inventory). Its uncalibrated comparison with Liu & Cao's Tables 2
+//! and 3 is `tests::the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3`.
+//! It is still **indicative, research/education only** (`RESPONSIBLE_USE.md`),
+//! never a licensing source term.
+//!
+//! # The live primary pools (gh:#399)
+//!
+//! ~~The loop pools are TRISO-ATOPS's closed forms at `run_time = 1 year +
+//! sim_t` -- effectively saturated~~. They are now **carried**: each tracked
+//! nuclide's circulating, plate-out and clean-up pools and its cumulative
+//! leak are stepped exactly ([`boon_lay::triso_atops_fork::activities::live_pools`])
+//! over the time since the last evaluation, with the fuel-side source at the
+//! current kernel temperature held over the step, and opened at the exact
+//! 20-full-power-year history ([`POOL_OPENING_HISTORY_S`], Liu & Cao's
+//! Table 3 basis). Rate constants: [`htr10_pool_rates`]. The leak
+//! ([`NodalActivitiesBq::leak_rate`]) is what leaves the circuit.
 //!
 //! # What else is an input rather than a derivation
 //!
@@ -125,6 +150,7 @@
 //! release fraction has been reproduced here. Per `RESPONSIBLE_USE.md` this is
 //! AI-assisted draft material pending human review.
 
+use boon_lay::triso_atops_fork::activities::live_pools::{self, PoolRates, PrimaryPools};
 use boon_lay::triso_atops_fork::activities::{becquerels_from_curies, FailureFractions};
 use boon_lay::triso_atops_fork::normal_operation::{
     normal_operation_node, NodalActivitiesCurie, NodeState, ParentPools, PlantConstants,
@@ -134,7 +160,8 @@ use boon_lay::triso_atops_fork::nuclide_model::{ElementGroup, TrisoAtopsNuclide}
 
 use super::pebble_bed::FuelStackTemperatures;
 
-use uom::si::f64::{Frequency, Length, ThermodynamicTemperature, Time};
+use uom::si::f64::{Frequency, Length, MassRate, ThermodynamicTemperature, Time};
+use uom::si::mass_rate::kilogram_per_second;
 use uom::si::frequency::hertz;
 use uom::si::length::meter;
 use uom::si::time::second;
@@ -144,7 +171,9 @@ use uom::si::time::second;
 /// why the basis is a unit rather than a real inventory.
 pub const UNIT_INVENTORY_CURIES: f64 = 1.0;
 
-/// Becquerels per curie — the one place this module converts.
+/// Becquerels per curie -- the tests' conversion (the channel converts
+/// through boon-lay's `becquerels_from_curies` and the decay constant).
+#[cfg(test)]
 const BQ_PER_CI: f64 = 3.7e10;
 
 /// Look up a nuclide's published HTR-10 core inventory \[Bq\].
@@ -180,7 +209,108 @@ pub struct NodalActivitiesBq {
     pub plate_out_activity: f64,
     /// Clean-up / HPS activity \[Bq\].
     pub clean_up_activity: f64,
+    /// Primary-circuit leak rate `k_leak C` \[Bq/s\] (gh:#399) -- what leaves
+    /// the circuit; the building model of gh:#400 receives it.
+    pub leak_rate: f64,
 }
+
+// ---------------------------------------------------------------------------
+// HTR-10 PRIMARY-CIRCUIT POOL CONSTANTS -- PUBLISHED (gh:#399, 2026-09-29)
+//
+// Liu Yuanzhong & Cao Jianzhu (2002), Nucl. Eng. Des. 218, 81-90, section
+// 2.4.1 (proprietary; cited, not redistributed), give the removal parameters
+// they used for HTR-10's primary helium; Yao et al. (2002), Nucl. Eng. Des.
+// 218, 163-167, give the helium purification throughput. These replace
+// TRISO-ATOPS's reference `k_plate` and `k_clean`, which were for a different
+// plant (and whose provenance was mis-stated; see the struck-through note at
+// the top of `impl Htr10TrisoAtopsInputs`).
+// ---------------------------------------------------------------------------
+
+/// HTR-10 helium purification throughput as a fraction of the primary helium
+/// inventory per hour: **"about 5 %"** (10.5 kg/h; Yao et al. 2002, section 1
+/// and abstract, "corresponding with a 5% gas change of the helium inventory
+/// in primary circuit").
+pub const HTR10_PURIFICATION_INVENTORY_FRACTION_PER_H: f64 = 0.05;
+
+/// HTR-10 helium purification flow \[kg/h\]: **10.5** (Yao et al. 2002).
+pub const HTR10_PURIFICATION_FLOW_KG_PER_H: f64 = 10.5;
+
+/// HTR-10 primary helium inventory \[kg\], **derived** from Yao's two figures:
+/// `10.5 kg/h / (0.05 /h)` = **210 kg**. Sets the loop's cycle time
+/// `M / m_dot`, which turns Liu & Cao's per-cycle deposition into a rate
+/// constant. (It is about ten times the stage (a) primary-loop model's own
+/// inventory, which rests on an invented 6 m^3 allowance -- a finding recorded
+/// on gh:#388; this module uses the published figure.)
+pub fn htr10_primary_helium_inventory_kg() -> f64 {
+    HTR10_PURIFICATION_FLOW_KG_PER_H / HTR10_PURIFICATION_INVENTORY_FRACTION_PER_H
+}
+
+/// Primary helium leakage: **1 % of the total volume per day** (Liu & Cao
+/// 2002 section 2.4.1; "specified to be below 1 % per day" in section 2.4.2)
+/// \[1/s\]. The same constant the dispersion channel's leak uses.
+pub const HTR10_PRIMARY_LEAK_PER_S: f64 = 0.01 / 86_400.0;
+
+/// Liu & Cao's purification **efficiency** by element: **99 %** for I, Kr, Xe
+/// (and C, tritium), **90 %** for Sr, Ag, Cs, Rb (section 2.4.1,
+/// "conservatively set"). `None` for an element they do not name.
+pub fn htr10_purification_efficiency(z: u32) -> Option<f64> {
+    match z {
+        53 | 36 | 54 | 6 | 1 => Some(0.99),
+        38 | 47 | 55 | 37 => Some(0.90),
+        _ => None,
+    }
+}
+
+/// Liu & Cao's deposition **per cycle** of the primary circuit by element:
+/// **30 %** for Rb and Sr, **50 %** for Ag and Cs, **20 %** for iodine
+/// ("conservatively taken", section 2.4.1, against AVR's 50-90 %); noble gases
+/// do not deposit. `None` for an element they do not name.
+pub fn htr10_deposition_per_cycle(z: u32) -> Option<f64> {
+    match z {
+        37 | 38 => Some(0.30),
+        47 | 55 => Some(0.50),
+        53 => Some(0.20),
+        36 | 54 => Some(0.0),
+        _ => None,
+    }
+}
+
+/// The HTR-10 pool rate constants \[1/s\] for a nuclide of element `z` and
+/// decay constant `decay_per_s`, at loop flow `mass_flow`:
+///
+/// - clean-up `k_clean = eta x 0.05 /h` (Yao's throughput x Liu & Cao's
+///   efficiency);
+/// - plate-out `k_plate = -ln(1 - d) m_dot / M` -- a per-cycle deposition `d`
+///   over a cycle of `M / m_dot` (Liu & Cao's `d`, Yao-derived `M`), so it
+///   scales with the flow and vanishes with it;
+/// - leak `k_leak` = 1 %/day.
+///
+/// # Panics
+///
+/// For an element Liu & Cao give no efficiency or deposition for -- a
+/// tracked nuclide outside their list is a wiring error, not a zero.
+pub fn htr10_pool_rates(z: u32, decay_per_s: f64, mass_flow: MassRate) -> PoolRates {
+    let eta = htr10_purification_efficiency(z)
+        .unwrap_or_else(|| panic!("no HTR-10 purification efficiency for Z = {z}"));
+    let d = htr10_deposition_per_cycle(z)
+        .unwrap_or_else(|| panic!("no HTR-10 deposition per cycle for Z = {z}"));
+    let cycles_per_s =
+        mass_flow.get::<kilogram_per_second>().abs() / htr10_primary_helium_inventory_kg();
+    PoolRates {
+        decay: decay_per_s,
+        plate_out: -(1.0 - d).ln() * cycles_per_s,
+        clean_up: eta * HTR10_PURIFICATION_INVENTORY_FRACTION_PER_H / 3600.0,
+        leak: HTR10_PRIMARY_LEAK_PER_S,
+    }
+}
+
+/// How long the pools have been accumulating when the plant opens \[s\]:
+/// **20 full-power years**, the basis of Liu & Cao's primary-helium activities
+/// (Table 3, "at the end of 20a lifetime of full power operation"). The pools
+/// are opened at the exact solution for that history at the opening source,
+/// so the simulator starts from an operating circuit and the comparison with
+/// Table 3 is like-for-like.
+pub const POOL_OPENING_HISTORY_S: f64 = 20.0 * 3.155_76e7;
 
 /// The nuclides this channel tracks, chosen to cover **all five** TRISO-ATOPS
 /// transport groups rather than to be a list of the most radiologically
@@ -207,9 +337,11 @@ pub const TRACKED_NUCLIDES: [&str; 5] = ["Kr-85", "Xe-133", "I-131", "Cs-137", "
 ///
 /// # Why this is throttled when nothing else in the plant is
 ///
-/// The release model is **quasi-steady**: `normal_operation_node` evaluates
+/// The **fuel side** is **quasi-steady**: `normal_operation_node` evaluates
 /// closed-form diffusion at the temperature it is handed, and carries no state
-/// of its own between calls. So unlike the kinetics, the bed or the steam
+/// of its own between calls. (The primary pools downstream of it are live
+/// since 2026-09-29 and are stepped **exactly** over whatever interval
+/// elapsed, so the throttle does not degrade them.) So unlike the kinetics, the bed or the steam
 /// generator, re-evaluating it more often does not integrate anything more
 /// accurately — it just recomputes the same algebra against a temperature that
 /// has barely moved.
@@ -234,107 +366,128 @@ pub const RELEASE_EVALUATION_INTERVAL_S: f64 = 1.0;
 pub struct Htr10TrisoAtopsInputs {
     /// The assembled upstream constants block.
     pub plant: PlantConstants,
-    /// The four defect populations. See
-    /// [`Self::TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS`].
-    pub fractions: FailureFractions,
-    /// Whether the helium purification system (HPS) is in service. `true`
-    /// here: HTR-10 has one, and the clean-up term only applies to noble gases
-    /// and halogens in any case.
+    // ~~`fractions: FailureFractions`~~ -- removed 2026-09-29: the four
+    // defect populations are now computed per evaluation at the live kernel
+    // temperature ([`Self::fractions_at`]), not stored.
+    /// The **closed-form** pools' HPS switch in `normal_operation_node`.
+    /// ~~`true` here: HTR-10 has one~~ **CHANGED 2026-09-29 (gh:#399)**:
+    /// `false`, because the closed-form pools are no longer used -- HTR-10's
+    /// helium purification acts in the live pools ([`htr10_pool_rates`]),
+    /// on every element Liu & Cao give an efficiency for, not only the
+    /// volatiles TRISO-ATOPS's closed form scrubs.
     pub hps_enabled: bool,
 }
 
 impl Htr10TrisoAtopsInputs {
-    /// Plate-out rate constant `k_plate` \[1/s\] — **a TRISO-ATOPS reference
-    /// value, not HTR-10 data.**
-    ///
-    /// `7.5e-4 /s`, upstream's own constants block. This is primary-circuit
-    /// surface chemistry (how fast a volatile deposits on duct and exchanger
-    /// walls) and depends on surface area, temperature and material, none of
-    /// which this model represents. It divides the circulating and plate-out
-    /// pools between each other and does not affect the release rate `R` or
-    /// the graphite term at all.
-    pub const TRISO_ATOPS_PLATE_OUT_PER_S: f64 = 7.5e-4;
-
-    /// Clean-up (helium purification) rate constant `k_clean` \[1/s\] —
-    /// **a TRISO-ATOPS reference value, not HTR-10 data.**
-    ///
-    /// `8.77e-5 /s`, upstream's own constants block. It is a purification-plant
-    /// sizing parameter (flow fraction over circuit inventory), applied only to
-    /// noble gases and halogens.
-    pub const TRISO_ATOPS_CLEAN_UP_PER_S: f64 = 8.77e-5;
+    // ~~`TRISO_ATOPS_PLATE_OUT_PER_S = 7.5e-4` and `TRISO_ATOPS_CLEAN_UP_PER_S
+    // = 8.77e-5` -- "upstream's own constants block"~~ -- DELETED 2026-09-29
+    // (gh:#399). The provenance was wrong: upstream TRISO-ATOPS's code has
+    // `k_plate` 7.5e-4 and `k_clean` 1e-4 as GUI defaults
+    // (`trisoatops_gui.py:300, :382`); 8.77e-5 is from the TRISO-ATOPS paper
+    // (Stoyer, Raichart & Petti, Nucl. Technol. 2026, Table 3: "35% of
+    // inventory per hour with 90% efficiency"), which also gives k_plate =
+    // 7.5e-5, ten times below the GUI's. Neither is HTR-10's. The pools now
+    // carry HTR-10's own published constants: see [`htr10_pool_rates`].
 
     /// Kernel grain size `a_grain` \[m\] — **a TRISO-ATOPS reference value,
     /// not HTR-10 data.**
     ///
-    /// `1e-5 m`, upstream's own constants block. It enters only the
-    /// special-metal equivalent-sphere radius `a_booth = sqrt(2 a_grain r)`,
-    /// so of the tracked nuclides it reaches Cs-137 alone. No grain size for
-    /// HTR-10's UO2 kernels is available in this workspace; upstream's value
-    /// is for UCO fuel and is carried unchanged rather than adjusted towards a
-    /// number nobody has published.
+    /// `1e-5 m`, upstream's GUI default (`trisoatops_gui.py:299`) and the
+    /// TRISO-ATOPS paper's Table 3. It enters only the special-metal
+    /// equivalent-sphere radius `a_booth = sqrt(2 a_grain r)`, so of the
+    /// tracked nuclides it reaches Cs-137 alone. No grain size for HTR-10's
+    /// UO2 kernels is available in this workspace; upstream's value is for UCO
+    /// fuel and is carried unchanged rather than adjusted towards a number
+    /// nobody has published.
     pub const TRISO_ATOPS_GRAIN_SIZE_M: f64 = 1.0e-5;
 
-    /// The four defect populations — **TRISO-ATOPS reference values, not
-    /// HTR-10 fuel-qualification data.**
+    /// HTR-10 first-loading **free uranium fraction**, `U_free / U_total` =
+    /// **5.0e-5**: the average over 25 spherical-fuel-element lots, burn-leach
+    /// method -- Tang et al. (2002), *Nucl. Eng. Des.* 218, 91-102, abstract,
+    /// Table 2 and section 4.2 (proprietary; cited, not redistributed). F1-F10
+    /// averaged 1.1e-4, F11-F25 1.4e-5; the specification limit is 3e-4.
     ///
-    /// `f_hm = 1e-5`, `f_sic = 2e-5`, `f_inc = 3e-5`, `f_inc_sic = 4e-5`, from
-    /// upstream's own constants block. These are a *manufacturing and
-    /// irradiation* result for a specific fuel product line: HTR-10's fuel is
-    /// German-lineage TRISO with its own published free-uranium fraction, and
-    /// substituting these for it would be putting one reactor's fuel quality
-    /// under another's name.
-    ///
-    /// **Release scales essentially linearly in these**, so they set the
-    /// magnitude of every activity reported here and none of its shape. That
-    /// is the second reason the unit-inventory basis is the honest one: a
-    /// curie figure would be the product of two numbers this module does not
-    /// have.
-    ///
-    /// # Computing `f_inc` with boon-lay fuel failure was tried, and is NOT the answer
-    ///
-    /// `boon_lay::fuel_failure` — **boon-lay fuel failure**, boon-lay's own
-    /// agentically coded implementation of the PANAMA-I pressure-vessel and
-    /// SiC-decomposition formulas (not the PANAMA code, whose source this
-    /// project does not have) — and
-    /// `FailureFractions::with_fuel_failure_incremental` will wire a computed
-    /// `f_inc` in. **It must not be used here**, and the reason is
-    /// quantitative rather than cautionary: evaluated for HTR-10's published
-    /// geometry and burnup over the whole plausible fuel-temperature band,
-    /// boon-lay fuel failure's in-service failure fraction under **normal
-    /// operation** is
-    /// `2.4e-15` at 700 degC, `9.3e-13` at 776 degC and `5.9e-7` at 1000 degC
-    /// — four to thirteen orders of magnitude below the `3e-5` here. See
-    /// `boon_lay::fuel_failure::htr10`.
-    ///
-    /// That is not evidence the placeholder is too high. It is evidence the
-    /// two are **different quantities**: `3e-5` is an as-manufactured defect
-    /// fraction, the same order as the PANAMA-I report's own `phi_o` target of
-    /// `6e-5`, which the PANAMA-I equations take as an input and do not model.
-    /// Substituting the computed number would divide every activity below by
-    /// ~1e7 on the strength of a model answering a different question. `f_inc`
-    /// here still needs HTR-10 fuel-qualification data.
-    ///
-    /// Where the seam *is* worth having is a **transient**: at 1600 degC for
-    /// 200 h the same calculation gives `3.1e-5`, and above ~2000 degC SiC
-    /// decomposition takes over. Even then it is an extrapolation — PANAMA-I
-    /// was validated on German TRISO over 1600-2500 degC — and should be
-    /// reported as one.
-    pub const TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS: FailureFractions = FailureFractions {
-        heavy_metal: 1.0e-5,
-        sic: 2.0e-5,
-        incremental: 3.0e-5,
-        incremental_sic: 4.0e-5,
-    };
+    /// **What it measures.** Burn-leach dissolves every uranium atom not
+    /// protected by an intact SiC layer once the carbon (including the PyC) is
+    /// burned off, so it is "the uncoated uranium in the particles with
+    /// defective SiC layer and the contaminated uranium" together (Tang et
+    /// al., section 4.2) -- TRISO-ATOPS's `f_hm + f_sic`. The split between
+    /// the two is **not published**. It matters only for the noble gases and
+    /// halogens, which a defective-SiC particle's intact PyC retains
+    /// (TRISO-ATOPS's `release_rate` counts `f_hm` and not `f_sic` for them).
+    /// This channel takes the **bounding** assignment -- all of it as exposed
+    /// heavy metal (`f_hm`) -- which over-states the gas and iodine release by
+    /// at most the (unknown) defective-SiC share; the other bound (all `f_sic`)
+    /// is reported by `tests::the_free_uranium_split_bounds_the_gas_release`.
+    pub const HTR10_FREE_URANIUM_FRACTION: f64 = 5.0e-5;
 
-    /// Irradiation time \[s\] — one year, upstream's `t_irad`.
+    /// ~~`TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS` -- `f_hm = 1e-5, f_sic =
+    /// 2e-5, f_inc = 3e-5, f_inc_sic = 4e-5`, "from upstream's own constants
+    /// block"~~ -- **DELETED 2026-09-29 (gh:#399)**, and its provenance was
+    /// false: those four numbers are nowhere in upstream TRISO-ATOPS (whose
+    /// GUI defaults are 1e-4, 1e-4, 2.3e-5, 3.6e-5, `trisoatops_gui.py:231-234`)
+    /// nor in the TRISO-ATOPS paper (2e-5, 1e-4, 2.3e-5, 3.6e-5, Table 2). They
+    /// are the synthetic inputs of boon-lay's own reference generator
+    /// (`crates/boon-lay/dev/gen_triso_atops_reference.py:802`). Replaced by
+    /// HTR-10's measured free uranium ([`Self::HTR10_FREE_URANIUM_FRACTION`])
+    /// and a live in-service failure fraction ([`Self::fractions_at`]).
+    ///
+    /// The failure fractions at kernel temperature `kernel` with the
+    /// chemical-attack failure `chemical_attack` added:
+    ///
+    /// | TRISO-ATOPS | Value | Source |
+    /// |---|---|---|
+    /// | `f_hm` | 5.0e-5 | [`Self::HTR10_FREE_URANIUM_FRACTION`] (bounding split) |
+    /// | `f_sic` | 0 | (the other bound; see above) |
+    /// | `f_inc` | `phi_1(T_B) + chemical_attack` | boon-lay fuel failure, end of irradiation, `T_B = T_kernel - 75 K` |
+    /// | `f_inc_sic` | 0 | SiC decomposition is negligible below ~2000 degC |
+    ///
+    /// `phi_1` is **boon-lay fuel failure** (boon-lay's implementation of the
+    /// PANAMA-I pressure-vessel formulas -- not the PANAMA code), at the end of
+    /// irradiation for an HTR-10 particle irradiated at `T_B`
+    /// ([`boon_lay::fuel_failure::htr10::end_of_irradiation_failure`]); `T_B`
+    /// is the report's irradiation (surface) temperature, the kernel less the
+    /// report's own 75 K kernel-versus-surface correction (Eq. (5c); see that
+    /// function's doc). It is an extrapolation with stand-in strength data,
+    /// quasi-steady (an equilibrium core irradiated at the current
+    /// temperature), and negligible at design temperatures -- 1.2e-12 at 776
+    /// degC -- but it is the in-service failure the plant temperature drives,
+    /// so it is live. ~~`2.4e-15` at 700 degC, `9.3e-13` at 776 degC and
+    /// `5.9e-7` at 1000 degC~~ **CORRECTED 2026-09-29**: the current
+    /// implementation gives 2.8e-15, 1.2e-12 and 1.6e-6 (pinned by
+    /// `boon_lay::fuel_failure::htr10::tests::normal_operation_failure_is_negligible_against_the_placeholder`).
+    ///
+    /// `chemical_attack` is the **hook** for stages 3-4 (steam hydrolysis of
+    /// exposed kernels, oxidation-driven failure): the channel passes zero
+    /// until an ingress model supplies it (gh:#401, #402).
+    pub fn fractions_at(
+        kernel: ThermodynamicTemperature,
+        chemical_attack: f64,
+    ) -> FailureFractions {
+        use uom::si::ratio::ratio;
+        use uom::si::thermodynamic_temperature::kelvin;
+        let t_b = ThermodynamicTemperature::new::<kelvin>(kernel.get::<kelvin>() - 75.0);
+        let phi_1 = boon_lay::fuel_failure::htr10::end_of_irradiation_failure(t_b).get::<ratio>();
+        FailureFractions {
+            heavy_metal: Self::HTR10_FREE_URANIUM_FRACTION,
+            sic: 0.0,
+            incremental: phi_1 + chemical_attack,
+            incremental_sic: 0.0,
+        }
+    }
+
+    /// Irradiation time \[s\]: HTR-10's mean fuel residence at full power,
+    /// **1080 FPD** ([`boon_lay::fuel_failure::htr10::RESIDENCE_FULL_POWER_DAYS`],
+    /// derived there from the published 80 000 MWd/t, 27 000 x 5 g and
+    /// 10 MW). ~~One year, upstream's reference `t_irad`~~ until 2026-09-29.
     ///
     /// Sets how long the fuel has been accumulating and releasing, and appears
     /// in the long-lived Booth release fraction and in the birth-rate
     /// normalisation. This simulator has **no burnup**, so the fuel neither
     /// ages nor changes composition as it runs; a fixed irradiation time is
-    /// the consistent choice, and it is a year because that is the reference
-    /// case's. See [`Self::htr10`] for what varying it would mean.
-    pub const IRRADIATION_TIME_S: f64 = 3.155_76e7;
+    /// the consistent choice.
+    pub const IRRADIATION_TIME_S: f64 =
+        boon_lay::fuel_failure::htr10::RESIDENCE_FULL_POWER_DAYS * 86_400.0;
 
     /// Assemble the inputs for the published HTR-10 pebble.
     ///
@@ -362,8 +515,13 @@ impl Htr10TrisoAtopsInputs {
 
         Self {
             plant: PlantConstants {
-                k_plate: Frequency::new::<hertz>(Self::TRISO_ATOPS_PLATE_OUT_PER_S),
-                k_clean: Frequency::new::<hertz>(Self::TRISO_ATOPS_CLEAN_UP_PER_S),
+                // The closed-form pools `normal_operation_node` also returns
+                // are NOT used: the live pools carry HTR-10's constants (see
+                // `htr10_pool_rates`). Zero here makes that visible -- the
+                // release rate, source rate and graphite hold-up this channel
+                // does use do not depend on them.
+                k_plate: Frequency::new::<hertz>(0.0),
+                k_clean: Frequency::new::<hertz>(0.0),
                 graphite_thickness: unfuelled_shell,
                 grain_size: Length::new::<meter>(Self::TRISO_ATOPS_GRAIN_SIZE_M),
                 sic_thickness: particle.silicon_carbide_outer_radius
@@ -373,8 +531,12 @@ impl Htr10TrisoAtopsInputs {
                 run_time: Time::new::<second>(0.0),
                 irradiation_time: Time::new::<second>(Self::IRRADIATION_TIME_S),
             },
-            fractions: Self::TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS,
-            hps_enabled: true,
+            // The CLOSED-FORM pools' HPS switch. Off, because those pools are
+            // not used (and with the zeroed k_plate/k_clean above the ported
+            // `clean_up` is 0/0 when it is on). HTR-10's helium purification
+            // is in the LIVE pools, at Yao/Liu & Cao's rate: see
+            // `htr10_pool_rates`.
+            hps_enabled: false,
         }
     }
 }
@@ -410,17 +572,48 @@ pub struct NuclideRelease {
     /// re-evaluating the model at the published inventory — `None` when that
     /// inventory is unknown.
     ///
-    /// **NOT A SOURCE TERM.** See the module docs: these are one reactor's
-    /// inventory driven through another reactor's fuel-quality data.
+    /// ~~**NOT A SOURCE TERM.** See the module docs: these are one reactor's
+    /// inventory driven through another reactor's fuel-quality data.~~
+    /// **CHANGED 2026-09-29 (gh:#399):** HTR-10's own inventory, HTR-10's own
+    /// measured free uranium and HTR-10's own circuit constants now -- but
+    /// still an indicative, research/education figure (`RESPONSIBLE_USE.md`),
+    /// not a licensing source term. The three pools are the **live** pools.
     pub absolute: Option<NodalActivitiesBq>,
+    /// Coolant source rate `S` \[atoms/s\] -- the live pools' driver.
+    pub source_atoms_per_s: f64,
+    /// The HTR-10 pool rate constants this nuclide was stepped with.
+    pub pool_rates: PoolRates,
+    /// The pools after [`POOL_OPENING_HISTORY_S`] at this source, from empty
+    /// -- what the channel opens with, and what a pure evaluation reports.
+    pub opening_pools: PrimaryPools,
+}
+
+impl NuclideRelease {
+    /// Report `pools` (atoms) as this nuclide's circulating, plate-out and
+    /// clean-up activities, on both bases, and the leak rate.
+    fn set_pools(&mut self, pools: PrimaryPools) {
+        let lam = self.decay_constant.get::<hertz>();
+        if let Some(a) = self.absolute.as_mut() {
+            a.circulating_activity = pools.circulating * lam;
+            a.plate_out_activity = pools.plate_out * lam;
+            a.clean_up_activity = pools.clean_up * lam;
+            a.leak_rate = self.pool_rates.leak * pools.circulating * lam;
+        }
+        // Per curie of core inventory: pool activity over inventory activity.
+        if let Some(inventory) = self.core_inventory_bq {
+            self.activities.circulating_activity = pools.circulating * lam / inventory;
+            self.activities.plate_out_activity = pools.plate_out * lam / inventory;
+            self.activities.clean_up_activity = pools.clean_up * lam / inventory;
+        }
+    }
 }
 
 /// The TRISO fission-product release channel for the HTGR plant.
 ///
-/// Holds the fixed inputs and the most recent evaluation. It carries **no
-/// integrated state** — `normal_operation_node` is closed-form and quasi-steady
-/// — so this struct is `Clone` and cheap for the plant's outer-corrector loop
-/// to rewind, and rewinding it changes nothing.
+/// Holds the fixed inputs, the most recent evaluation and -- ~~no integrated
+/// state~~ since 2026-09-29 (gh:#399) -- the **live primary pools**, which
+/// are integrated state. The plant steps this channel once per plant step,
+/// after its outer-corrector loop, so it is never rewound.
 #[derive(Debug, Clone)]
 pub struct TrisoAtopsReleaseChannel {
     inputs: Htr10TrisoAtopsInputs,
@@ -433,6 +626,14 @@ pub struct TrisoAtopsReleaseChannel {
     evaluated_at: Option<FuelStackTemperatures>,
     /// Plant time of the most recent evaluation \[s\], for the throttle.
     last_evaluated_s: Option<f64>,
+    /// The **live** primary-circuit pools, one per tracked nuclide, in atoms
+    /// (gh:#399). `None` until the first evaluation opens them at the
+    /// [`POOL_OPENING_HISTORY_S`] state.
+    pools: Option<Vec<PrimaryPools>>,
+    /// Primary loop mass flow the plate-out rate is formed at. Set by the
+    /// plant every step ([`Self::set_primary_flow`]); the rated 4.3 kg/s until
+    /// then.
+    primary_flow: MassRate,
 }
 
 impl TrisoAtopsReleaseChannel {
@@ -465,7 +666,15 @@ impl TrisoAtopsReleaseChannel {
             evaluated_at_kernel: None,
             evaluated_at: None,
             last_evaluated_s: None,
+            pools: None,
+            primary_flow: super::pebble_bed::nominal_helium_flow(),
         }
+    }
+
+    /// Set the primary loop mass flow the live plate-out rate is formed at
+    /// (plate-out is per cycle of the loop, so it scales with the flow).
+    pub fn set_primary_flow(&mut self, mass_flow: MassRate) {
+        self.primary_flow = mass_flow;
     }
 
     /// Re-evaluate the release channel if the throttle allows, at the fuel
@@ -511,11 +720,37 @@ impl TrisoAtopsReleaseChannel {
             return false;
         }
 
-        self.latest = self.evaluate_stack(sim_time_s, stack);
+        // The live pools (gh:#399): stepped exactly over the time since the
+        // last evaluation with this evaluation's source held constant; opened
+        // at the 20-year history on the first one.
+        let dt = self
+            .last_evaluated_s
+            .map_or(0.0, |last| (sim_time_s - last).max(0.0));
+        let mut releases = self.evaluate_stack(sim_time_s, stack);
+        let pools = match self.pools.take() {
+            None => releases.iter().map(|r| r.opening_pools).collect::<Vec<_>>(),
+            Some(previous) => previous
+                .iter()
+                .zip(releases.iter())
+                .map(|(pool, r)| live_pools::step(*pool, r.source_atoms_per_s, r.pool_rates, dt).0)
+                .collect(),
+        };
+        for (release, pool) in releases.iter_mut().zip(pools.iter()) {
+            release.set_pools(*pool);
+        }
+        self.pools = Some(pools);
+        self.latest = releases;
         self.evaluated_at_kernel = Some(stack.kernel);
         self.evaluated_at = Some(stack);
         self.last_evaluated_s = Some(sim_time_s);
         true
+    }
+
+    /// The live pools \[atoms\], one per tracked nuclide, `None` before the
+    /// first evaluation.
+    #[cfg(test)] // read by the conservation tests
+    pub fn pools(&self) -> Option<&[PrimaryPools]> {
+        self.pools.as_deref()
     }
 
     /// [`Self::evaluate`] with the whole fuel stack: kernel diffusion at the
@@ -537,6 +772,7 @@ impl TrisoAtopsReleaseChannel {
     /// A fuel stack with one kernel temperature and one graphite temperature,
     /// the SiC at the kernel's (upstream TRISO-ATOPS's own convention) -- for
     /// tests and sweeps that vary a single fuel temperature.
+    #[cfg(test)] // test and sweep helper
     pub fn kernel_and_graphite(
         kernel: ThermodynamicTemperature,
         graphite: ThermodynamicTemperature,
@@ -550,6 +786,7 @@ impl TrisoAtopsReleaseChannel {
     }
 
     /// The fuel stack the most recent evaluation was taken at.
+    #[cfg(test)] // test and sweep helper
     pub fn evaluated_at(&self) -> Option<FuelStackTemperatures> {
         self.evaluated_at
     }
@@ -578,6 +815,7 @@ impl TrisoAtopsReleaseChannel {
     /// This form passes the **kernel** temperature to silver's SiC
     /// breakthrough, exactly as upstream does; [`Self::evaluate_with_sic`] is
     /// the form the plant uses.
+    #[cfg(test)] // test and sweep helper
     pub fn evaluate(
         &self,
         sim_time_s: f64,
@@ -608,8 +846,14 @@ impl TrisoAtopsReleaseChannel {
         graphite_temperature: ThermodynamicTemperature,
     ) -> Vec<NuclideRelease> {
         let mut plant = self.inputs.plant;
-        plant.run_time =
-            Time::new::<second>(Htr10TrisoAtopsInputs::IRRADIATION_TIME_S + sim_time_s.max(0.0));
+        // `run_time` only feeds the closed-form pools, which this channel no
+        // longer uses (the live pools replace them); the history is stated
+        // for completeness.
+        plant.run_time = Time::new::<second>(POOL_OPENING_HISTORY_S + sim_time_s.max(0.0));
+        // HTR-10's measured free uranium plus the live in-service failure at
+        // this kernel temperature (gh:#399). The chemical-attack hook is zero
+        // until an ingress stage supplies it.
+        let fractions = Htr10TrisoAtopsInputs::fractions_at(kernel_temperature, 0.0);
 
         let kernel_node = NodeState {
             core_temperature: kernel_temperature,
@@ -619,11 +863,9 @@ impl TrisoAtopsReleaseChannel {
             core_temperature: silicon_carbide_temperature,
             graphite_temperature,
         };
-        // One curie of this nuclide in the core: the unit basis every number
-        // this module reports is per. See the module doc for why no real
-        // inventory is derived.
-        // `becquerels_from_curies` is `boon-lay`'s own Ci->Bq boundary, used
-        // rather than a local 3.7e10 so the conversion exists once.
+        // One curie of this nuclide in the core: the unit basis of the
+        // per-curie transfer function (`becquerels_from_curies` is boon-lay's
+        // own Ci->Bq boundary).
         let unit_inventory = becquerels_from_curies(UNIT_INVENTORY_CURIES);
 
         self.nuclides
@@ -634,66 +876,82 @@ impl TrisoAtopsReleaseChannel {
                 } else {
                     kernel_node
                 };
-                // "Short-lived" selects the secular-equilibrium <R/B> branch
-                // rather than the long-lived Booth release fraction. The
-                // criterion is the half-life against the irradiation time:
-                // a nuclide that saturates within the irradiation is at
-                // equilibrium, one that does not is still accumulating. This
-                // is upstream's own `sl` flag, decided here from the data
-                // rather than hardcoded per nuclide, so adding a nuclide to
-                // TRACKED_NUCLIDES cannot silently take the wrong branch.
-                let short_lived =
-                    nuclide.half_life.get::<second>() < Htr10TrisoAtopsInputs::IRRADIATION_TIME_S;
+                let lam = nuclide.decay_constant();
+                let lam_per_s = lam.get::<hertz>();
+                // Upstream's short-lived flag: `hl / irad_time < 0.2`
+                // (`calculation_functions.py:263`, `nuclide_import`'s
+                // default `short_lived_ratio`). ~~`half_life <
+                // IRRADIATION_TIME_S`, described as "upstream's own `sl`
+                // flag"~~ -- CORRECTED 2026-09-29: that was not upstream's
+                // criterion and put Ag-110m (250 d) on the short-lived branch.
+                let short_lived = nuclide.half_life.get::<second>()
+                    / Htr10TrisoAtopsInputs::IRRADIATION_TIME_S
+                    < 0.2;
                 let activities = normal_operation_node(
                     nuclide,
                     short_lived,
                     unit_inventory,
-                    self.inputs.fractions,
+                    fractions,
                     plant,
                     node,
                     self.inputs.hps_enabled,
                     ParentPools::none(),
                 )
-                .to_curies(nuclide.decay_constant());
+                .to_curies(lam);
 
-                // ABSOLUTE ARM. The published inventory is driven through
-                // the SAME closed form rather than multiplied onto the
-                // per-curie answer. Scaling would have been cheaper and is
-                // very probably identical -- the module doc asserts the model
-                // is linear in inventory -- but re-evaluating needs no such
-                // assumption, and `linear_in_inventory` below now *checks*
-                // the assertion instead of trusting it.
+                // The fuel side at the published inventory, in atoms: release
+                // rate, coolant source and graphite hold-up. Re-evaluated at
+                // the real inventory rather than scaled from the per-curie
+                // answer; `tests::the_absolute_arm_is_linear_in_inventory`
+                // checks the two agree.
                 let core_inventory_bq = htr10_core_inventory_bq(nuclide.name);
-                let absolute = core_inventory_bq.map(|bq| {
-                    let a = normal_operation_node(
+                let raw = core_inventory_bq.map(|bq| {
+                    normal_operation_node(
                         nuclide,
                         short_lived,
                         Frequency::new::<hertz>(bq),
-                        self.inputs.fractions,
+                        fractions,
                         plant,
                         node,
                         self.inputs.hps_enabled,
                         ParentPools::none(),
                     )
-                    .to_curies(nuclide.decay_constant());
-                    NodalActivitiesBq {
-                        release_rate: a.release_rate * BQ_PER_CI,
-                        source_rate: a.source_rate * BQ_PER_CI,
-                        graphite_activity: a.graphite_activity * BQ_PER_CI,
-                        circulating_activity: a.circulating_activity * BQ_PER_CI,
-                        plate_out_activity: a.plate_out_activity * BQ_PER_CI,
-                        clean_up_activity: a.clean_up_activity * BQ_PER_CI,
-                    }
+                });
+                let source_atoms_per_s = raw.map_or(0.0, |r| r.source_rate);
+                let pool_rates = htr10_pool_rates(nuclide.z, lam_per_s, self.primary_flow);
+                let opening_pools = live_pools::step(
+                    PrimaryPools::default(),
+                    source_atoms_per_s,
+                    pool_rates,
+                    POOL_OPENING_HISTORY_S,
+                )
+                .0;
+                let absolute = raw.map(|a| NodalActivitiesBq {
+                    release_rate: a.release_rate * lam_per_s,
+                    source_rate: a.source_rate * lam_per_s,
+                    graphite_activity: a.graphite_activity * lam_per_s,
+                    // Filled from the pools by `set_pools` below.
+                    circulating_activity: 0.0,
+                    plate_out_activity: 0.0,
+                    clean_up_activity: 0.0,
+                    leak_rate: 0.0,
                 });
 
-                NuclideRelease {
+                let mut release = NuclideRelease {
                     name: nuclide.name,
                     z: nuclide.z,
-                    decay_constant: nuclide.decay_constant(),
+                    decay_constant: lam,
                     activities,
                     core_inventory_bq,
                     absolute,
-                }
+                    source_atoms_per_s,
+                    pool_rates,
+                    opening_pools,
+                };
+                // A pure evaluation reports the opening pools; `update`
+                // replaces them with the live ones.
+                release.set_pools(opening_pools);
+                release
             })
             .collect()
     }
@@ -709,6 +967,7 @@ impl TrisoAtopsReleaseChannel {
     }
 
     /// Plant time of the most recent evaluation \[s\].
+    #[cfg(test)] // test and sweep helper
     pub fn last_evaluated_s(&self) -> Option<f64> {
         self.last_evaluated_s
     }
@@ -729,6 +988,7 @@ impl TrisoAtopsReleaseChannel {
     }
 
     /// The inputs this channel was built with, for display and tests.
+    #[cfg(test)] // test and sweep helper
     pub fn inputs(&self) -> &Htr10TrisoAtopsInputs {
         &self.inputs
     }
@@ -1053,26 +1313,19 @@ mod tests {
 
         let outputs = |nuclide: &TrisoAtopsNuclide, curies: f64| {
             let short_lived =
-                nuclide.half_life.get::<second>() < Htr10TrisoAtopsInputs::IRRADIATION_TIME_S;
+                nuclide.half_life.get::<second>() / Htr10TrisoAtopsInputs::IRRADIATION_TIME_S < 0.2;
             let a = normal_operation_node(
                 nuclide,
                 short_lived,
                 becquerels_from_curies(curies),
-                inputs.fractions,
+                Htr10TrisoAtopsInputs::fractions_at(node.core_temperature, 0.0),
                 plant,
                 node,
                 inputs.hps_enabled,
                 ParentPools::none(),
             )
             .to_curies(nuclide.decay_constant());
-            [
-                a.release_rate,
-                a.source_rate,
-                a.graphite_activity,
-                a.circulating_activity,
-                a.plate_out_activity,
-                a.clean_up_activity,
-            ]
+            [a.release_rate, a.source_rate, a.graphite_activity]
         };
 
         let mut worst = 0.0f64;
@@ -1240,5 +1493,203 @@ mod tests {
         assert_eq!(htr10_core_inventory_bq("Kr-85"), Some(8.75e13));
         assert_eq!(htr10_core_inventory_bq("Ag-110m"), Some(2.16e12));
         assert_eq!(htr10_core_inventory_bq("Pu-239"), None);
+    }
+
+    /// V&V (gh:#399): **the release is compared, uncalibrated, with Liu & Cao
+    /// (2002) Tables 2 and 3.**
+    ///
+    /// # Methodology
+    ///
+    /// Pre-registered instrument: kernel, SiC and fuelled-zone matrix all at
+    /// **864 degC**, Liu & Cao's stated maximum normal-operation fuel-centre
+    /// temperature (section 2.3) -- a bounding-high temperature for a
+    /// core-average model -- at the rated 4.3 kg/s. Everything else is the
+    /// channel as built: Table 1 inventory, Tang's free uranium 5.0e-5 as
+    /// exposed heavy metal, boon-lay fuel failure's `phi_1`, HTR-10's residence
+    /// time and HTR-10's pool constants. Nothing is fitted.
+    ///
+    /// 1. **Table 2** (release rate from the fuel elements, Bq h^-1 MWt^-1):
+    ///    the model's coolant source `S` (after graphite hold-up, i.e. out of
+    ///    the fuel element) x 3600 / 10 MWt.
+    /// 2. **Table 3** (primary-helium activity after 20 full-power years, Bq):
+    ///    the live pools' opening state, which is exactly that history.
+    ///
+    /// Reported as model / published per nuclide. No band is asserted -- the
+    /// finding is the disagreement; only finiteness and positivity are.
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// | Nuclide | `S` model | Table 2 | model/pub | circulating model (20 a) | Table 3 | model/pub |
+    /// |---|---|---|---|---|---|---|
+    /// | Kr-85 | 1.607e3 | 1.5e4 | **0.107** | 3.219e5 Bq | 3.0e6 | **0.107** |
+    /// | Xe-133 | 2.217e6 | 1.2e7 | **0.185** | 4.001e8 | 2.2e9 | **0.182** |
+    /// | I-131 | 7.856e5 | 4.9e6 | **0.160** | 4.760e5 | 2.1e6 | **0.227** |
+    /// | Cs-137 | 1.140e5 | 8.9e3 | **12.8** | 2.228e4 | 1.6e3 | **13.9** |
+    /// | Ag-110m | 3.081e2 | 1.5e2 | **2.05** | 6.024e1 | 2.6e1 | **2.32** |
+    ///
+    /// (`S` in Bq h^-1 MWt^-1.) **Interpretation.** The circulating ratios
+    /// track the source ratios, so HTR-10's own pool constants reproduce Liu &
+    /// Cao's pool arithmetic; the disagreement is on the fuel side. The noble
+    /// gases and iodine come out **5-10x low** and caesium **13x high**, with
+    /// no fitting. Candidate causes, not tested here: Liu & Cao's release is a
+    /// core-integrated calculation over a temperature distribution (this is
+    /// one node at their stated maximum); their free-uranium treatment for the
+    /// gases differs from TRISO-ATOPS's empirical `<R/B>`; and TRISO-ATOPS's
+    /// caesium diffusivities and grain size are for UCO fuel, not HTR-10's UO2.
+    #[test]
+    fn the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3() {
+        use uom::si::thermodynamic_temperature::degree_celsius;
+        let t = ThermodynamicTemperature::new::<degree_celsius>(864.0);
+        let releases = channel().evaluate_with_sic(0.0, t, t, t);
+        println!("nuclide | S model | Table 2 | ratio | circulating model | Table 3 | ratio  (Bq/(h MWt); Bq)");
+        for r in &releases {
+            let a = r
+                .absolute
+                .expect("every tracked nuclide has a Table 1 inventory");
+            let s_model = a.source_rate * 3600.0 / 10.0;
+            let s_pub =
+                changi::activity::fuel_release::htr10_fuel_element_release_rate_bq_per_h_per_mwt(
+                    r.name,
+                )
+                .expect("Table 2 lists every tracked nuclide");
+            let c_pub = changi::activity::primary_helium::htr10_primary_helium_activity(r.name)
+                .expect("Table 3 lists every tracked nuclide")
+                .get::<uom::si::radioactivity::becquerel>();
+            println!(
+                "{} | {:.3e} | {:.2e} | {:.3e} | {:.3e} | {:.2e} | {:.3e}",
+                r.name,
+                s_model,
+                s_pub,
+                s_model / s_pub,
+                a.circulating_activity,
+                c_pub,
+                a.circulating_activity / c_pub
+            );
+            assert!(s_model.is_finite() && s_model > 0.0);
+            assert!(a.circulating_activity.is_finite() && a.circulating_activity > 0.0);
+        }
+    }
+
+    /// **The unpublished free-uranium split bounds the gas and iodine
+    /// release** (gh:#399). Tang's 5.0e-5 is `f_hm + f_sic` together; the
+    /// channel takes it all as `f_hm`. Methodology: evaluate Kr-85, Xe-133 and
+    /// I-131 at 864 degC with the whole fraction as `f_hm` and then as `f_sic`
+    /// (with the same in-service `phi_1`); print the ratio. Results
+    /// (2026-09-29): **1.587e7** for all three -- with the whole fraction as
+    /// defective SiC the intact PyC retains the gases, and the release falls to
+    /// the in-service `phi_1` share alone. The unpublished split is therefore
+    /// the dominant uncertainty of the gas release; the channel's assignment is
+    /// the upper bound.
+    #[test]
+    fn the_free_uranium_split_bounds_the_gas_release() {
+        use boon_lay::triso_atops_fork::normal_operation::normal_operation_node;
+        use uom::si::thermodynamic_temperature::degree_celsius;
+        let t = ThermodynamicTemperature::new::<degree_celsius>(864.0);
+        let ch = channel();
+        let as_hm = Htr10TrisoAtopsInputs::fractions_at(t, 0.0);
+        let as_sic = FailureFractions {
+            heavy_metal: 0.0,
+            sic: Htr10TrisoAtopsInputs::HTR10_FREE_URANIUM_FRACTION,
+            ..as_hm
+        };
+        let node = NodeState {
+            core_temperature: t,
+            graphite_temperature: t,
+        };
+        for name in ["Kr-85", "Xe-133", "I-131"] {
+            let n = ch.nuclides.iter().find(|n| n.name == name).unwrap();
+            let sl = n.half_life.get::<second>() / Htr10TrisoAtopsInputs::IRRADIATION_TIME_S < 0.2;
+            let r = |f| {
+                normal_operation_node(
+                    n,
+                    sl,
+                    becquerels_from_curies(1.0),
+                    f,
+                    ch.inputs.plant,
+                    node,
+                    true,
+                    ParentPools::none(),
+                )
+                .release_rate
+            };
+            let (hm, sic) = (r(as_hm), r(as_sic));
+            println!(
+                "{name}: release with all free U as f_hm / as f_sic = {:.4e}",
+                hm / sic
+            );
+            assert!(
+                hm >= sic,
+                "the exposed-kernel assignment must be the bounding one"
+            );
+        }
+    }
+
+    /// **The live pools open at the 20-year state, relax toward the source's
+    /// equilibrium, carry the leak, and follow a hotter kernel up** (gh:#399).
+    ///
+    /// Methodology: update once at 900 K / 850 K (the opening), then every
+    /// 1 s for 600 s; then raise the kernel to 1300 K for 600 s. Require: the
+    /// first evaluation's pools equal the opening pools exactly; `leak_rate =
+    /// k_leak x circulating` to 1e-12; circulating Xe-133 higher after the
+    /// heat-up than before. Results (2026-09-29): Xe-133 circulating
+    /// 6.5752e7 -> 7.3845e7 Bq, leak 7.61 -> 8.55 Bq/s.
+    #[test]
+    fn the_live_pools_open_carry_the_leak_and_follow_the_kernel() {
+        let mut ch = channel();
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = |kernel| TrisoAtopsReleaseChannel::kernel_and_graphite(k(kernel), k(850.0));
+        assert!(ch.update(0.0, Some(stack(900.0))));
+        for r in ch.latest() {
+            let lam = r.decay_constant.get::<hertz>();
+            let a = r.absolute.unwrap();
+            assert_eq!(a.circulating_activity, r.opening_pools.circulating * lam);
+        }
+        for i in 1..=600 {
+            ch.update(i as f64, Some(stack(900.0)));
+        }
+        let before = ch
+            .latest()
+            .iter()
+            .find(|r| r.name == "Xe-133")
+            .unwrap()
+            .absolute
+            .unwrap();
+        for i in 601..=1200 {
+            ch.update(i as f64, Some(stack(1300.0)));
+        }
+        let after = ch
+            .latest()
+            .iter()
+            .find(|r| r.name == "Xe-133")
+            .unwrap()
+            .absolute
+            .unwrap();
+        for r in ch.latest() {
+            let a = r.absolute.unwrap();
+            assert!(
+                (a.leak_rate - r.pool_rates.leak * a.circulating_activity).abs()
+                    <= 1e-12 * a.leak_rate.abs().max(1e-300)
+            );
+        }
+        println!(
+            "Xe-133 circulating: {:.4e} Bq at 900 K kernel, {:.4e} Bq after 600 s at 1300 K; leak {:.4e} -> {:.4e} Bq/s",
+            before.circulating_activity, after.circulating_activity, before.leak_rate, after.leak_rate
+        );
+        assert!(after.circulating_activity > before.circulating_activity);
+        assert!(ch.pools().unwrap().iter().all(|p| p.leaked > 0.0));
+    }
+
+    /// **The chemical-attack hook adds to the in-service failure** and to
+    /// nothing else (gh:#399; consumers gh:#401, #402).
+    #[test]
+    fn the_chemical_attack_hook_adds_to_the_in_service_failure() {
+        let t = ThermodynamicTemperature::new::<kelvin>(1100.0);
+        let base = Htr10TrisoAtopsInputs::fractions_at(t, 0.0);
+        let hit = Htr10TrisoAtopsInputs::fractions_at(t, 1.0e-3);
+        assert!((hit.incremental - base.incremental - 1.0e-3).abs() < 1e-18);
+        assert_eq!(hit.heavy_metal, base.heavy_metal);
+        assert_eq!(hit.sic, base.sic);
+        assert_eq!(hit.incremental_sic, base.incremental_sic);
+        assert_eq!(base.heavy_metal, 5.0e-5);
     }
 }

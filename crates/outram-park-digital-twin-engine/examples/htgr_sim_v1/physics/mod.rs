@@ -1611,6 +1611,9 @@ impl HtgrPlant {
         // a slightly wrong answer, it would give a confident one. See
         // `fission_product_release`.
         mark_component("TRISO fission-product release (TRISO-ATOPS)");
+        // The live primary pools' plate-out is per loop cycle, so it follows
+        // the loop flow (gh:#399).
+        self.release.set_primary_flow(self.primary.mass_flow());
         self.release
             .update(self.sim_time.get::<second>(), self.fuel_stack_temperatures());
 

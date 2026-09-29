@@ -89,6 +89,7 @@ pub mod decay_transfer;
 /// A published HTR-10 core inventory, so a source term can be built from
 /// measured magnitudes rather than round illustrative numbers. An inventory
 /// is NOT a source term -- see the module docs.
+pub mod fuel_release;
 pub mod inventory;
 /// Published HTR-10 primary-helium activity at the end of a 20-year full-power
 /// life (Liu and Cao 2002, Table 3). Reference data only; nothing in this

@@ -28,8 +28,10 @@
 //!
 //! # What this is NOT
 //!
-//! - **Not wired into any model.** Nothing in this crate or in `htgr_sim_v1`
-//!   reads it.
+//! - **Not wired into any model.** ~~Nothing in this crate or in `htgr_sim_v1`
+//!   reads it.~~ **CORRECTED 2026-09-29**: `htgr_sim_v1`'s stage-1 release
+//!   V&V test compares its uncalibrated live pools against it (gh:#399); no
+//!   model takes it as an input.
 //! - **Not a release.** Helium in the circuit is not effluent; a release
 //!   needs a leak or discharge path, which is a modelling decision for the
 //!   maintainer.
