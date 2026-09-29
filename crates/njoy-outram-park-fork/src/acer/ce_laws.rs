@@ -401,6 +401,35 @@ pub fn decode_angular_block(
     Ok(Some(ElasticAngular { energies, lct }))
 }
 
+/// The **energy-dependent neutron yield** of a reaction whose `TY` has
+/// `|TY| > 100`, or `Ok(None)` when `|TY| <= 100` (the yield is then the
+/// integer `|TY|` itself).
+///
+/// ACE stores such a yield as a TAB1 at DLW-relative word `|TY| - 100`, i.e.
+/// 0-based `JXS(11) - 1 + |TY| - 101` — the location upstream reads it from
+/// (`openmc/data/reaction.py:1059-1062`, `idx = ace.jxs[11] + abs(ty) - 101`),
+/// and the one NJOY's ACER writes it to (`acefc.f90` `acelf6`: `ntyr =
+/// 100 + next - dlw + 1`). The ordinate is a multiplicity, so it is not scaled;
+/// the abscissae come back in eV. The interpolation regions are kept.
+///
+/// MT=5 is the reaction this matters for on the tables here: every held table
+/// that carries MT=5 writes `TY = -101` (an average multiplicity from MF=6),
+/// and before this was read the ACE route took that multiplicity as 1.
+pub fn decode_reaction_yield(t: &RawAceTable, ty: i32) -> Result<Option<Tab1>, NjoyError> {
+    let n = ty.unsigned_abs() as usize;
+    if n <= 100 {
+        return Ok(None);
+    }
+    let dlw = t.jxs[jxs::DLW];
+    if dlw <= 0 {
+        return Err(NjoyError::EndfParse(
+            "ACE TY > 100 points into an absent DLW block".into(),
+        ));
+    }
+    let (tab, _) = read_tab1_full(t, (dlw - 1) as usize + n - 101, 1.0, "TY energy-dependent yield")?;
+    Ok(Some(tab))
+}
+
 /// Decode the **DLW** entry for reaction index `i` (0-based over the `NR`
 /// reactions that emit neutrons).
 pub fn decode_energy_law(t: &RawAceTable, i: usize) -> Result<AceEnergyLaw, NjoyError> {
@@ -684,9 +713,13 @@ pub fn to_chi_and_angular(
                 })
                 .collect(),
         ),
-        // LAW=4 defers its cosine to the AND block, which for these reactions
-        // is isotropic in the evaluation itself -- not "unported", which is a
-        // different claim and one this must not make silently.
+        // LAW=4 defers its cosine to the AND block. ~~which for these reactions
+        // is isotropic in the evaluation itself~~ CORRECTED 2026-09-29: nothing
+        // here checks that, so `EvaluatedIsotropic` is right only when AND is
+        // isotropic. `Nuclide::from_ace` now places a LAW=4 continuum on
+        // MT=91/16/17 as an uncorrelated law with AND's cosine instead, refuses
+        // an anisotropic AND on MT=5, and uses this only where the cosine is
+        // not needed (fission, and a LAW=4 link whose AND it has checked).
         _ => ContinuumAngular::EvaluatedIsotropic,
     };
     (chi, ang)
@@ -818,14 +851,65 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
     }
     let mut at = (nu - 1) as usize;
     need(t, at, 1, "NU header")?;
-    if t.xss[at] < 0.0 {
+    let single_block = t.xss[at] > 0.0;
+    let nubar = decode_nu_block(t, &mut at)?;
+    // **One block plus DNU is PROMPT, not total** — GitHub #365 audit. OpenMC
+    // (`openmc/data/reaction.py:257-258`): `whichnu = 'prompt' if
+    // ace.jxs[24] > 0 else 'total'`, and the total is then prompt + delayed.
+    // This used to be returned as total, which loses the delayed neutrons
+    // (about 1 % of nu on U-235, so ~beta in k). No held table has this form
+    // (NJOY writes both blocks whenever it writes DNU), so it changes none of
+    // them; a table from another processor can have it.
+    let dnu = t.jxs[jxs::DNU];
+    if single_block && dnu > 0 {
+        need(t, (dnu - 1) as usize, 1, "DNU LNU")?;
+        if t.xss[(dnu - 1) as usize] as i32 != 2 {
+            return Err(NjoyError::NotPorted(
+                "ACE DNU block with LNU != 2 beside a single (prompt) NU block",
+            ));
+        }
+        let (ed, nd, _) = read_ace_tab1(t, (dnu - 1) as usize + 1, "DNU delayed nu-bar")?;
+        // Both are lin-lin in E, so their sum is lin-lin on the union grid:
+        // evaluating each there is exact, not a resampling.
+        let mut grid: Vec<f64> = nubar.energy.iter().chain(ed.iter()).copied().collect();
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.dedup();
+        let lin = |x: &[f64], y: &[f64], e: f64| -> f64 {
+            if x.is_empty() {
+                return 0.0;
+            }
+            if e <= x[0] {
+                return y[0];
+            }
+            if e >= x[x.len() - 1] {
+                return y[y.len() - 1];
+            }
+            let k = x.partition_point(|&v| v <= e);
+            let (x0, x1, y0, y1) = (x[k - 1], x[k], y[k - 1], y[k]);
+            if x1 > x0 { y0 + (y1 - y0) * (e - x0) / (x1 - x0) } else { y1 }
+        };
+        let nu_total = grid
+            .iter()
+            .map(|&e| lin(&nubar.energy, &nubar.nu_total, e) + lin(&ed, &nd, e))
+            .collect();
+        return Ok(Some(NuBar { energy: grid, nu_total }));
+    }
+    Ok(Some(nubar))
+}
+
+/// Decode the NU block at `*at`: when it holds prompt **and** total (negative
+/// first word), the total one; otherwise the single one. `*at` is left at that
+/// block's `LNU` word.
+fn decode_nu_block(t: &RawAceTable, at: &mut usize) -> Result<NuBar, NjoyError> {
+    if t.xss[*at] < 0.0 {
         // Both prompt and total present: the total block starts after the
         // prompt one, whose length is |first word|. Prefer TOTAL nu-bar --
         // using prompt as though it were total loses the delayed neutrons and
         // biases k low by roughly beta.
-        let len = (-t.xss[at]) as usize;
-        at += 1 + len;
+        let len = (-t.xss[*at]) as usize;
+        *at += 1 + len;
     }
+    let at = *at;
     need(t, at, 2, "NU LNU")?;
     let lnu = t.xss[at] as i32;
     match lnu {
@@ -845,7 +929,7 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
                 nu_total.push(v);
                 e *= 1.2;
             }
-            Ok(Some(NuBar { energy, nu_total }))
+            Ok(NuBar { energy, nu_total })
         }
         2 => {
             // The TAB1 begins immediately after LNU, so its NR is at `at + 1`
@@ -861,8 +945,18 @@ pub fn decode_nu(t: &RawAceTable) -> Result<Option<NuBar>, NjoyError> {
             // decoding without error.
             // The arithmetic the comment above is about now lives in one
             // place, `read_tab1`, which starts at the record's NR word.
-            let (energy, nu_total, _) = read_ace_tab1(t, at + 1, "NU")?;
-            Ok(Some(NuBar { energy, nu_total }))
+            // `NuBar` interpolates lin-lin, so the record's regions are checked
+            // rather than dropped: a non-lin-lin region would be evaluated
+            // wrongly (GitHub #365 audit). Every held table's NU TAB1 is
+            // `NR = 0`, i.e. lin-lin (measured on NJOY2016's U-234/235/238).
+            let (tab, _) = read_tab1_full(t, at + 1, 1.0, "NU")?;
+            if tab.interp.iter().any(|&(_, int)| int != 2) {
+                return Err(NjoyError::NotPorted(
+                    "ACE NU TAB1 with a non-lin-lin interpolation region",
+                ));
+            }
+            let (energy, nu_total) = tab.pairs.iter().copied().unzip();
+            Ok(NuBar { energy, nu_total })
         }
         other => Err(NjoyError::EndfParse(format!("ACE NU block LNU={other}"))),
     }

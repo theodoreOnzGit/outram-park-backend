@@ -73,6 +73,30 @@
 //! | first generation | `9.34800339898639976e-1` | `9.34800339898639976e-1` (unchanged) |
 //! | last generation | ~~`9.65455778325547076e-1`~~ | `1.00505888346187144e0` |
 //!
+//! ## Re-recorded 2026-09-29: URR sampling now follows OpenMC (GitHub #365 audit)
+//!
+//! Found red after `UrrProbabilityTables::sample` started interpolating
+//! between table energies and `Nuclide::xs_at_energy_urr` started rebuilding
+//! the total from its partials, both as OpenMC's `calculate_urr_xs` does
+//! (verified bit-equal against it in `tests/urr_sampling_vs_openmc.rs`). The
+//! same suite was green on the tree immediately before that change, and
+//! nothing else in the change touches the ENDF route or the history loop.
+//! This is a change in how the unresolved-range data is *applied*, the same
+//! class as the #325 re-record above. As then, the **first generation is
+//! unchanged to the bit**; the streams split at the first unresolved-range
+//! collision.
+//!
+//! | quantity | from `3f141992e` (superseded) | from the #365 URR change |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.95570887535907723e-1`~~ | `9.87846147443726119e-1` |
+//! | `k_std` | ~~`4.30366582278130655e-3`~~ | `4.45222639842739534e-3` |
+//! | first generation | `9.34800339898639976e-1` | `9.34800339898639976e-1` (unchanged) |
+//! | last generation | ~~`1.00505888346187144e0`~~ | `1.01397122631396086e0` |
+//!
+//! The 772 pcm move of this single 2000-history run is one draw's worth of
+//! re-randomisation (its `k_std` is 445 pcm and generations are correlated);
+//! the 32-seed measurement of the change is `+29 ± 33 pcm` on Godiva, route 4.
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -107,10 +131,10 @@ const TEMP: f64 = 293.6;
 /// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.955_708_875_359_077_23e-1;
-const K_STD_PRE_258: f64 = 4.303_665_822_781_306_55e-3;
+const K_MEAN_PRE_258: f64 = 9.878_461_474_437_261_19e-1;
+const K_STD_PRE_258: f64 = 4.452_226_398_427_395_34e-3;
 const K_GEN_FIRST_PRE_258: f64 = 9.348_003_398_986_399_76e-1;
-const K_GEN_LAST_PRE_258: f64 = 1.005_058_883_461_871_44e0;
+const K_GEN_LAST_PRE_258: f64 = 1.013_971_226_313_960_86e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

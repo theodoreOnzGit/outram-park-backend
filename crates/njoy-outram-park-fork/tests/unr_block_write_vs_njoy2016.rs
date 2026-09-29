@@ -287,9 +287,23 @@ fn build_full_with_purr_writes_a_block_that_reads_back_as_generated() {
     // upstream's in-memory `eunr` does), so its last point sits 1e-13 above the
     // read-back table's rounded upper edge, where `sample` rightly says "outside
     // the tabulated range". The read-back energies lie inside both.
+    //
+    // **2026-09-29:** interior points only. `UrrProbabilityTables::covers` is
+    // now strict at both ends, as OpenMC's `energy_in_bounds` is
+    // (`include/openmc/urr.h`), so the first and last tabulated energies are no
+    // longer inside the range on either table. The tolerance is unchanged.
     let mut worst = 0.0f64;
-    for &e in read_back.energies() {
-        for xi in [0.05, 0.5, 0.95] {
+    let grid = read_back.energies();
+    for &e in &grid[1..grid.len() - 1] {
+        // Off the band edges. PURR's 20 bands put cumulative-probability edges
+        // at multiples of 0.05, and since 2026-09-29 `sample` picks "the first
+        // band whose cdf EXCEEDS xi" (OpenMC's `upper_bound_index + 1`) rather
+        // than "the first band whose cdf reaches xi". At an xi sitting exactly
+        // on an edge the two tables then choose by which side of the edge the
+        // 7-figure rounding put the cdf: at 0.95 it differed at 2 and 12.5 keV.
+        // That is a measure-zero event in transport; these values test the
+        // round trip of the numbers, which is what this test is for.
+        for xi in [0.037, 0.51, 0.943] {
             let (a, b) = match (read_back.sample(e, xi), generated.sample(e, xi)) {
                 (Some(a), Some(b)) => (a, b),
                 other => panic!("sample at {e} eV: {other:?}"),

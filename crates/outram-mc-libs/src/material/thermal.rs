@@ -656,6 +656,8 @@ impl ThermalScattering {
     /// refuses — notably `IFENG = 2` (continuous emission), which this
     /// representation holds no form for. See that function's docs: it is a limit
     /// of the transport-side discrete representation, not of the ACE port.
+    /// Also `IFENG = 1` (skewed bins), refused here since 2026-09-29 because the
+    /// representation carries no bin weights.
     pub fn from_ace(
         table: &njoy_outram_park_fork::acer::read::RawAceTable,
         name: &str,
@@ -663,6 +665,23 @@ impl ThermalScattering {
         use njoy_outram_park_fork::acer::thermal_read::{decode_thermal, AceThermalElastic};
 
         let t = decode_thermal(table)?;
+        // **IFENG = 1 (skewed bins) is refused** -- GitHub #365 audit. It used
+        // to be accepted and sampled as if its bins were equiprobable, which
+        // they are not: NJOY's skewed form gives the first/last bins 0.1 and
+        // the second/second-to-last 0.4 of an interior bin's probability
+        // (OpenMC `IncoherentInelasticAEDiscrete::sample_params`,
+        // `src/secondary_thermal.cpp`). The emission representation here has no
+        // bin weights, and the continuous within-bin energy draw is derived for
+        // equal-probability bins, so a faithful port needs both extended. No
+        // held table is skewed. Refusing turns a silent mis-sampling into a
+        // named limit.
+        if t.ifeng == 1 {
+            return Err(NjoyError::NotPorted(
+                "thermal ACE table with SKEWED inelastic bins (IFENG = 1): the \
+                 emission representation carries no bin weights, so sampling it as \
+                 equiprobable would be wrong",
+            ));
+        }
         let cutoff_ev = t.inel_energy.last().copied().unwrap_or(0.0);
         let elastic = match t.elastic {
             AceThermalElastic::None => ThermalElastic::None,

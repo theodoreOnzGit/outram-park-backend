@@ -1392,32 +1392,52 @@ impl Nuclide {
     /// which is why [`UrrSample`] names which it is rather than handing over
     /// four bare numbers.
     ///
-    /// `absorption` is kept consistent with the shielded capture and fission,
-    /// and `total` is taken from the band's own total rather than re-summed, so
-    /// the partials and the total stay in the relationship the table describes.
+    /// `absorption` is kept consistent with the shielded capture and fission.
+    ///
+    /// # The total is the sum of the partials — OpenMC's rule
+    ///
+    /// ~~`total` is taken from the band's own total rather than re-summed, so
+    /// the partials and the total stay in the relationship the table
+    /// describes.~~ **CORRECTED 2026-09-29 (GitHub #365 audit).** OpenMC's
+    /// `Nuclide::calculate_urr_xs` (`src/nuclide.cpp`) sets
+    /// `total = elastic + inelastic + capture + fission`, "calculated as a sum
+    /// of partials instead of the table-provided value", with `inelastic` the
+    /// smooth cross section of the reaction the UNR block's `ILF` names (none
+    /// when `ILF = -1`), and other absorption left out. That matters here more
+    /// than it looks: the collision kernel picks elastic as the **remainder**
+    /// `total - (absorption + inelastic + ...)`, so a band total that does not
+    /// equal its own partials silently turned the difference into elastic
+    /// scattering. With the total rebuilt, the remainder is exactly the shielded
+    /// elastic, as in OpenMC. Negative partials are clamped to zero, as upstream.
     pub fn xs_at_energy_urr(&self, e: f64, temp_k: f64, xi: f64) -> MicroXS {
         let base = self.xs_at_energy(e, temp_k);
         let Some(sample) = self.sample_urr(e, xi) else {
             return base;
         };
         let mut x = base;
-        match sample {
-            UrrSample::SelfShieldingFactors([ft, fe, ff, fc]) => {
-                x.total = base.total * ft;
-                x.elastic = base.elastic * fe;
-                x.fission = base.fission * ff;
-                let capture = (base.absorption - base.fission).max(0.0) * fc;
-                x.absorption = capture + x.fission;
-                x.nu_fission = x.fission * self.nu_bar(e);
-            }
-            UrrSample::CrossSections([st, se, sf, sc]) => {
-                x.total = st;
-                x.elastic = se;
-                x.fission = sf;
-                x.absorption = sc + sf;
-                x.nu_fission = sf * self.nu_bar(e);
-            }
-        }
+        let (elastic, fission, capture) = match sample {
+            UrrSample::SelfShieldingFactors([_ft, fe, ff, fc]) => (
+                base.elastic * fe,
+                base.fission * ff,
+                (base.absorption - base.fission).max(0.0) * fc,
+            ),
+            UrrSample::CrossSections([_st, se, sf, sc]) => (se, sf, sc),
+        };
+        let (elastic, fission, capture) = (elastic.max(0.0), fission.max(0.0), capture.max(0.0));
+        // ILF: -1 no competition; an MT in 51..=91 one competing level; 4 the
+        // lump (here, the sum of the levels, which is what MT=4 is).
+        let ilf = self.urr.as_ref().map_or(-1, |t| t.inelastic_competition);
+        let inelastic = match ilf {
+            -1 => 0.0,
+            51..=91 => self.inelastic_channel_xs(ilf, e).unwrap_or(0.0),
+            _ => base.inelastic,
+        };
+        x.elastic = elastic;
+        x.fission = fission;
+        x.absorption = capture + fission;
+        x.inelastic = inelastic;
+        x.total = elastic + inelastic + capture + fission;
+        x.nu_fission = fission * self.nu_bar(e);
         x
     }
 
@@ -1793,11 +1813,32 @@ impl Nuclide {
                 // LAW=2 is a discrete photon line, which this crate does not
                 // transport. Neither carries a neutron spectrum to place.
                 AceEnergyLaw::TwoBodyLevel { .. } | AceEnergyLaw::DiscretePhoton { .. } => {}
+                // **LAW=4 on MT=91/16/17 is uncorrelated** -- GitHub #365 audit.
+                // Its cosine is the AND block's (`openmc/data/reaction.py:1131-
+                // 1135` applies AND to every uncorrelated law), and this arm used
+                // to store it as a correlated law with `EvaluatedIsotropic`,
+                // dropping an anisotropic AND without a word. It now falls
+                // through to the `ref other` arm below, which places it as the
+                // MF=4 + MF=5 pair (`UncorrelatedEmission`) with AND's cosine --
+                // the representation the ENDF route builds from the same
+                // evaluation. No held table has a LAW=4 continuum (their 91/16/17
+                // are 44/61), so none of them changes.
                 AceEnergyLaw::Tabulated {
                     law,
                     ref rows,
                     ref incident_interp,
-                } => {
+                } if law != 4 || is_fission || ![91, 16, 17].contains(&rx.mt) => {
+                    if law == 4 && rx.mt == 5 {
+                        // MT=5 has no uncorrelated slot: refuse an anisotropic AND
+                        // rather than drop it.
+                        let lct = if rx.ty < 0 { 2 } else { 1 };
+                        if decode_angular(table, i + 1, lct)?.is_some_and(|a| !a.is_all_isotropic()) {
+                            return Err(NjoyError::NotPorted(
+                                "ACE MT=5 LAW=4 with an anisotropic AND cosine: MT=5 has \
+                                 no uncorrelated emission slot to carry it",
+                            ));
+                        }
+                    }
                     let (chi_tab, angular) = to_chi_and_angular(rows, law, incident_interp);
                     if is_fission {
                         // ~~The first fission law encountered defines chi. With
@@ -1917,12 +1958,22 @@ impl Nuclide {
                         take_fission_law(&mut chi, &mut partial_chi, rx.mt, spectrum);
                     } else if [91, 16, 17].contains(&rx.mt) {
                         // The frame: ACE makes TY negative for a centre-of-mass
-                        // distribution. `UncorrelatedEmission` refuses CM on the
+                        // distribution. ~~`UncorrelatedEmission` refuses CM on the
                         // ENDF route (no held section is CM and the transform
-                        // would be untested), and the ACE route matches it —
+                        // would be untested), and the ACE route matches it --
                         // measured 2026-09-25, C-12 MT=28/91 and Na-23 MT=16/91
-                        // are all TY > 0.
-                        if rx.ty >= 0 {
+                        // are all TY > 0.~~ **CORRECTED 2026-09-29 (GitHub #365
+                        // audit).** A TY < 0 law used to be dropped here with no
+                        // else branch, silently handing the reaction to the
+                        // Weisskopf stand-in. It is now kept with `lct = 2`, and
+                        // `Nuclide::sample_inelastic_emission` applies the CM->lab
+                        // transform OpenMC applies for `scatter_in_cm`
+                        // (`src/physics.cpp`, `inelastic_scatter`), verified in
+                        // `tests/uncorrelated_cm_emission.rs`. The held tables are
+                        // still all TY > 0; this removes a silent failure, it does
+                        // not change any of them.
+                        {
+                            let lct = if rx.ty < 0 { 2 } else { 1 };
                             // Multiplicity from the MT, as the ENDF route does
                             // (`acefc.f90:5857-5866` is where ACER sets TY the
                             // same way); TY agrees on every held table.
@@ -1931,11 +1982,11 @@ impl Nuclide {
                                 17 => 3,
                                 _ => 1,
                             };
-                            let angular = decode_angular(table, i + 1, 1)?.unwrap_or_default();
+                            let angular = decode_angular(table, i + 1, lct)?.unwrap_or_default();
                             let emission = UncorrelatedEmission {
                                 energy: spectrum,
                                 angular,
-                                lct: 1,
+                                lct,
                                 yield_n,
                             };
                             match rx.mt {
@@ -1945,6 +1996,33 @@ impl Nuclide {
                                 _ => {}
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // **Energy-dependent multiplicity (|TY| > 100)** -- GitHub #365 audit.
+        // Every held table with MT=5 writes TY = -101: the (n,anything) average
+        // multiplicity y(E) lives in a TAB1 in DLW, and before this was read
+        // `mt5_yield` returned 1 on the ACE route while the ENDF route used the
+        // MF=6 yield. It is carried in the branches' `yield_pairs`, which is the
+        // ENDF route's representation: a single-law branch then reports y(E),
+        // and an applicability mixture reports sum_k p_k y(E) = y(E).
+        if let Some(law) = mt5.as_mut() {
+            if let Some(rx) = ace.reactions.iter().find(|r| r.mt == 5) {
+                if let Some(tab) =
+                    njoy_outram_park_fork::acer::ce_laws::decode_reaction_yield(table, rx.ty)?
+                {
+                    // `yield_at` interpolates lin-lin; a region with any other
+                    // law would be evaluated wrongly, so refuse it by name.
+                    if tab.interp.iter().any(|&(_, int)| int != 2) {
+                        return Err(NjoyError::NotPorted(
+                            "ACE MT=5 energy-dependent yield with a non-lin-lin \
+                             interpolation region",
+                        ));
+                    }
+                    for b in &mut law.branches {
+                        b.yield_pairs = tab.pairs.clone();
                     }
                 }
             }
@@ -2414,10 +2492,15 @@ impl Nuclide {
     /// # Frame
     ///
     /// Returns a **laboratory** energy and direction in every branch. The MF=6
-    /// path applies the CM→lab transform when the section says `LCT >= 2`; the
-    /// MF=4/5 path never needs one, because
-    /// [`UncorrelatedEmission::from_endf`] refuses a centre-of-mass MF=4 rather
-    /// than guessing at a transform it has no evaluation to check against.
+    /// path applies the CM→lab transform when the section says `LCT >= 2`. The
+    /// uncorrelated path applies it when the law's `lct >= 2`, which happens
+    /// only on the **ACE** route (`TY < 0`, where ACE declares both `E'` and
+    /// `mu` centre-of-mass and OpenMC transforms both). The ENDF route still
+    /// never produces one: [`UncorrelatedEmission::from_endf`] refuses a
+    /// centre-of-mass MF=4, because MF=5 energies are laboratory by definition
+    /// and a CM cosine paired with a lab energy is a mixed frame no transform
+    /// resolves exactly (ACER resolves it by declaring both CM, an
+    /// approximation this route does not copy silently).
     pub fn sample_inelastic_emission(
         &self,
         mt: i32,
@@ -2434,9 +2517,20 @@ impl Nuclide {
         }
         if let Some(law) = self.uncorrelated_law(mt) {
             let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
-            // `lct == 1` is guaranteed by `UncorrelatedEmission::from_endf`, so
-            // both halves are already laboratory-frame and only the rotation
-            // about the incident direction is needed.
+            if law.lct >= 2 {
+                // Centre-of-mass law: `e_out` and `mu` are CM quantities and go
+                // through the same transform the correlated path uses. A port of
+                // OpenMC's `inelastic_scatter` (`src/physics.cpp`):
+                // `E = E_cm + (E_in + 2 mu (A+1) sqrt(E_in E_cm)) / (A+1)^2`,
+                // `mu_lab = mu sqrt(E_cm/E) + sqrt(E_in/E)/(A+1)` -- which is
+                // exactly `cm_to_lab`. ~~`lct == 1` is guaranteed by
+                // `UncorrelatedEmission::from_endf`~~ CORRECTED 2026-09-29: no
+                // longer; see that function.
+                let (e_lab, mu_lab) = crate::physics::scatter::cm_to_lab(e, e_out, mu, self.awr);
+                return (e_lab, rotate_direction(u, mu_lab, seed));
+            }
+            // Laboratory law: both halves are already lab-frame and only the
+            // rotation about the incident direction is needed.
             return (e_out, rotate_direction(u, mu, seed));
         }
         continuum_inelastic_scatter(e, u, self.awr, q, seed)
@@ -2444,7 +2538,9 @@ impl Nuclide {
 
     /// The **neutron multiplicity `y(E)`** of MT=5 at incident energy `e`
     /// \[eV\] — the average number of neutrons an `(n,anything)` collision
-    /// emits, read from the MF=6 subsection's own yield table.
+    /// emits, read from the MF=6 subsection's own yield table on the ENDF route
+    /// and from the ACE `|TY| > 100` yield TAB1 on the ACE route (since
+    /// 2026-09-29; before that the ACE route returned 1 here).
     ///
     /// Unlike (n,2n) and (n,3n) this is **not a fixed integer**: MT=5 lumps
     /// channels the evaluator did not resolve, so the evaluation tabulates the
@@ -2485,6 +2581,29 @@ impl Nuclide {
     /// copy of the primary's state (all the stand-in can offer).
     pub fn has_evaluated_emission(&self, mt: i32) -> bool {
         self.continuum_law(mt).is_some() || self.uncorrelated_law(mt).is_some()
+    }
+
+    /// This nuclide with reaction `mt`'s (91, 16 or 17) emission law **replaced**
+    /// by the uncorrelated law `law`: any correlated (MF=6 / ACE 44/61/66) law
+    /// for that MT is removed, since a nuclide never carries both for one MT and
+    /// [`sample_inelastic_emission`](Self::sample_inelastic_emission) would
+    /// otherwise keep preferring it. An `mt` outside 91/16/17 is ignored.
+    ///
+    /// For substituting a law whose answer is known in closed form — how
+    /// `tests/uncorrelated_cm_emission.rs` checks the centre-of-mass transform,
+    /// which no held table exercises.
+    pub fn with_uncorrelated_emission(mut self, mt: i32, law: UncorrelatedEmission) -> Self {
+        let Some(slot) = self.continuum.uncorrelated.iter_mut().find(|(m, _)| *m == mt) else {
+            return self;
+        };
+        slot.1 = Some(law);
+        match mt {
+            91 => self.continuum.mt91 = None,
+            16 => self.continuum.mt16 = None,
+            17 => self.continuum.mt17 = None,
+            _ => {}
+        }
+        self
     }
 
     /// The **uncorrelated MF=4 + MF=5** emission law for `mt` (91, 16 or 17),

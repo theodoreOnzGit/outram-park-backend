@@ -22,14 +22,20 @@
 //! ```
 //!
 //! `NXS(3) = NIL` is `nang - 1`, `NXS(4) = NIEB`, `NXS(5) = IDPNC` selects the
-//! elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed), and
+//! elastic mode (0 none, 3 incoherent, 4 coherent, 5 mixed; ~~all read~~
+//! **CORRECTED 2026-09-29**: 5 is refused, having been silently decoded as 3 —
+//! see the IDPNC match below), and
 //! `NXS(7) = IFENG` the inelastic form.
 //!
 //! # IFENG=2 is REFUSED, not approximated
 //!
 //! `IFENG = 0` (equiprobable) and `1` (skewed) both store, per incident energy,
-//! a fixed `NIEB` outgoing energies each with `nang` cosines — which is exactly
-//! the discrete form the transport side holds. `IFENG = 2` is **continuous**:
+//! a fixed `NIEB` outgoing energies each with `nang` cosines. ~~— which is
+//! exactly the discrete form the transport side holds.~~ **CORRECTED
+//! 2026-09-29**: the layout is the same, but skewed bins are not equiprobable
+//! and the transport side's form has no bin weights, so
+//! `outram_mc_libs::material::thermal::ThermalScattering::from_ace` refuses
+//! IFENG = 1. This decoder still reads it faithfully (`ifeng` is carried). `IFENG = 2` is **continuous**:
 //! per outgoing energy it stores a pdf and cdf and the bin count varies with
 //! incident energy. Squeezing that into the discrete representation would
 //! silently resample somebody's carefully tabulated distribution, so it is
@@ -227,7 +233,21 @@ pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
     let idpnc = t.nxs[nxs::IDPNC];
     let elastic = match idpnc {
         0 => AceThermalElastic::None,
-        3 | 4 | 5 => {
+        // **IDPNC = 5 (mixed coherent + incoherent) is refused, by name** --
+        // GitHub #365 audit. It used to fall into the incoherent branch below,
+        // which reads the *coherent* ITCE/ITCX Bragg data (cumulative S*E in
+        // MeV.b) as an incoherent cross section in barns, and never reads the
+        // incoherent ITCEI/ITCXI/ITCAI blocks: silently wrong physics.
+        // OpenMC reads both parts (`openmc/data/thermal.py:909-942`). No
+        // evaluation in `reference-data/endf/` is LTHR = 3, so there is no
+        // table to verify a port against; refusing is the honest state.
+        5 => {
+            return Err(NjoyError::NotPorted(
+                "ACE thermal table with mixed coherent + incoherent elastic \
+                 (IDPNC = 5): the incoherent part (ITCEI/ITCXI/ITCAI) is not read",
+            ))
+        }
+        3 | 4 => {
             let itce = t.jxs[jxs::ITCE];
             if itce <= 0 {
                 AceThermalElastic::None
@@ -282,7 +302,7 @@ pub fn decode_thermal(t: &RawAceTable) -> Result<AceThermal, NjoyError> {
         other => {
             return Err(NjoyError::EndfParse(format!(
                 "thermal ACE: IDPNC = {other} is not an elastic mode this reads \
-                 (0 none, 3 incoherent, 4 coherent, 5 mixed). Refusing rather than \
+                 (0 none, 3 incoherent, 4 coherent; 5 mixed is refused above). Refusing rather than \
                  dropping the elastic channel silently, which would remove real \
                  scattering from a lattice."
             )));
