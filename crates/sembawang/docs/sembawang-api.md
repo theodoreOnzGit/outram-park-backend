@@ -3296,7 +3296,14 @@ pub struct CoreInventory {
 - **WasmNotSync**
 ## Module `lwr_comparison`
 
-# HTR-10 bounding air ingress against an equivalent-power LWR (GitHub #450, #452, #453)
+# HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453)
+
+**Framing (maintainer decisions, 2026-09-30, #450).** PRIMARY:
+**design basis against design basis**, i.e. the HTR-10 depressurisation
+DBA ([`htr10_dba_release`], Liu & Cao Table 8) against the LWR MHA LOCA
+([`nuscale_mha_loca`]). SECONDARY: the **beyond-design-basis bounding**
+pair, the KORA bound against WASH-1400 PWR 8. [`bounding_comparison`]
+returns both, DBA first.
 
 > **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Nothing here
 > is a source term, a dose or a siting argument for HTR-10, NuScale or any
@@ -3311,6 +3318,8 @@ and `htgr_sim_v1`'s map read the same numbers (maintainer direction,
 
 | Arm | Function | Boundary | What it is |
 |---|---|---|---|
+| **HTR-10 DBA** | [`htr10_dba_release`] | to the environment | Liu & Cao (2002) Table 8, published (depressurisation; water ingress); cross-checked with [`htr10_dba_vs_table9`] |
+| **LWR DBA** | [`nuscale_mha_loca`] | to the environment via containment leakage | RG 1.183 Rev. 1 MHA LOCA, NuScale inventory, `L_a` = 0.20 %/day ([`NUSCALE_LA_PERCENT_PER_DAY`]); no removal, and natural deposition ([`NaturalDeposition`], pending literature) |
 | HTR-10 bounding air ingress | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
 | LWR, NUREG-1465 | [`nureg1465_pwr_into_containment`] | **into containment** | Table 3.13 (PWR), all four phases or gap + early in-vessel |
 | LWR, RG 1.183 Rev. 1 | [`rg1183_pwr_into_containment`], [`rg1183_containment_leakage`] | into containment; then **to the environment** at the TS leak rate `L_a` | Table 2 (MHA LOCA), Table 5 timing, Appendix A-2.7 leakage |
@@ -3323,13 +3332,20 @@ maintainer's attribution (see the CSV header).
 **`L_a` is plant-specific and not in RG 1.183.** [`rg1183_containment_leakage`]
 takes it as an input and also returns the release per unit `L_a`
 (the small-leak limit), so a caller without a sourced `L_a` reports
-"per 1 %/day" rather than inventing one.
+"per 1 %/day" rather than inventing one. **Since 2026-09-30** NuScale's is
+sourced: 0.20 wt%/day (NRC Phase 4 SER Ch. 6, PDF p. 91), used by
+[`nuscale_mha_loca`].
 
-**Removal credit taken in containment: none.** RG 1.183 Appendix A-2.2
-to A-2.6 *allow* natural deposition, sprays, filters and scrubbing, each
-with its own model; none is credited here (conservative), and the iodine
-species split (A-1.1: 95 % CsI, 4.85 % elemental, 0.15 % organic) is
-therefore not needed for transport. Decay during hold-up is applied.
+~~**Removal credit taken in containment: none.** ... the iodine species
+split (A-1.1: 95 % CsI, 4.85 % elemental, 0.15 % organic) is therefore
+not needed for transport.~~ **CHANGED 2026-09-30:** two arms. (i) No
+removal credit. (ii) **Natural deposition only**, as App. A-2.2 allows
+(model: SRP 6.5.2, or NUREG/CR-6189 case by case), through
+[`rg1183_leak`] with explicit rates and the A-1.1 species split. The rates
+are **pending literature** ([`NATURAL_DEPOSITION_PENDING`]) and never
+defaulted. Sprays, filters and scrubbing are not credited. Decay during
+hold-up is applied. The containment is scaled down with power
+([`scaled_containment`], maintainer decision; an assumption).
 
 Dose: [`max_dose`], the same `buangkok` single-plume Gaussian, FGR-15
 submersion and groundshine, FGR-11 inhalation, adult, worst stability class
@@ -3864,6 +3880,279 @@ pub struct Leakage {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NaturalDeposition`
+
+Natural-deposition removal rates in the containment **at the NuScale
+module** (160 MWt) \[1/s\]: an explicit input, never defaulted. `None`
+means pending literature ([`NATURAL_DEPOSITION_PENDING`]).
+
+```rust
+pub struct NaturalDeposition {
+    pub aerosol_per_s: Option<f64>,
+    pub elemental_iodine_per_s: Option<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `aerosol_per_s` | `Option<f64>` | Aerosol removal rate at the reference containment \[1/s\]. |
+| `elemental_iodine_per_s` | `Option<f64>` | Elemental-iodine removal rate at the reference containment \[1/s\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at_power(self: &Self, thermal_power_mwth: f64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  The rates at `thermal_power_mwth`, scaled by the `S/V` factor of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NaturalDeposition { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NaturalDeposition) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LwrDba`
+
+The **LWR design-basis arm** (maintainer decision, 2026-09-30, #450):
+RG 1.183 Rev. 1 MHA LOCA with the NuScale inventory scaled to
+`thermal_power_mwth`, leaking at NuScale's `L_a` = 0.20 %/day (24 h, then
+half), released to the environment over `window`.
+
+```rust
+pub struct LwrDba {
+    pub no_removal: Releases,
+    pub natural_deposition: Option<Releases>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `no_removal` | `Releases` | No removal credit. |
+| `natural_deposition` | `Option<Releases>` | Natural deposition only; `None` while pending literature. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LwrDba { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LwrDba) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -4480,15 +4769,24 @@ pub struct Table9Check {
 - **WasmNotSync**
 #### Struct `ComparisonRow`
 
-One distance of the bounding comparison: the maximum 96 h dose of each
-arm \[Sv\], same site, weather, height and receptor (#452, #453).
+One distance of the HTR-10 / LWR comparison: the maximum 96 h dose of
+each arm \[Sv\], same site, weather, height and receptor (#452, #453).
+
+**Framing (maintainer decision, 2026-09-30, #450): design basis against
+design basis is the PRIMARY comparison**, paired by initiating event and
+design class: the HTR-10 depressurisation DBA against the LWR MHA LOCA.
+~~Like-for-like in containment~~ is not the comparison: it is like-for-like
+in containment, not in response to LOFC or LOCA. The KORA bound against
+WASH-1400 PWR 8 is the SECONDARY, beyond-design-basis bounding comparison.
 
 ```rust
 pub struct ComparisonRow {
     pub distance_m: f64,
     pub class: buangkok::pydoseia::dispersion::StabilityClass,
+    pub htr10_dba_depressurisation_sv: f64,
+    pub lwr_dba_no_removal_sv: f64,
+    pub lwr_dba_natural_deposition_sv: Option<f64>,
     pub htr10_bound_sv: f64,
-    pub rg1183_per_percent_per_day_sv: f64,
     pub wash1400_pwr8_sv: f64,
 }
 ```
@@ -4499,9 +4797,11 @@ pub struct ComparisonRow {
 |------|------|---------------|
 | `distance_m` | `f64` | Receptor distance \[m\]. |
 | `class` | `buangkok::pydoseia::dispersion::StabilityClass` | Worst stability class at 1 m/s. It depends on distance only, so it is<br>the same for every arm. |
-| `htr10_bound_sv` | `f64` | HTR-10 bounding air ingress, to the environment. |
-| `rg1183_per_percent_per_day_sv` | `f64` | RG 1.183 Rev. 1 (NUREG-1465 AST, Table 2) to the environment **per<br>1 %/day** of containment leak rate, with no removal credit. `L_a` is<br>plant-specific and not in RG 1.183, so it is never assumed. |
-| `wash1400_pwr8_sv` | `f64` | WASH-1400 PWR 8, to the atmosphere. |
+| `htr10_dba_depressurisation_sv` | `f64` | DBA: HTR-10 depressurisation, Liu & Cao Table 8 ([`htr10_dba_release`]). |
+| `lwr_dba_no_removal_sv` | `f64` | DBA: LWR MHA LOCA ([`nuscale_mha_loca`]), `L_a` 0.20 %/day, **no<br>removal credit**. |
+| `lwr_dba_natural_deposition_sv` | `Option<f64>` | DBA: the same with **natural deposition only**; `None` while pending<br>literature ([`NATURAL_DEPOSITION_PENDING`]). |
+| `htr10_bound_sv` | `f64` | Beyond-design-basis bounding: HTR-10 KORA air-ingress bound. |
+| `wash1400_pwr8_sv` | `f64` | Beyond-design-basis bounding: WASH-1400 PWR 8, to the atmosphere. |
 
 ##### Implementations
 
@@ -4615,15 +4915,152 @@ pub struct ComparisonRow {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `IncompleteShares`
+
+Share of each arm's released Bq whose nuclide lacks an FGR coefficient on
+some pathway. Those pathways count zero, so a non-zero share marks a
+LOWER-BOUND dose (#456).
+
+```rust
+pub struct IncompleteShares {
+    pub htr10_dba: f64,
+    pub lwr_dba: f64,
+    pub htr10_bound: f64,
+    pub wash1400: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `htr10_dba` | `f64` | HTR-10 depressurisation DBA (H-3, C-14). |
+| `lwr_dba` | `f64` | LWR MHA LOCA, no removal. |
+| `htr10_bound` | `f64` | HTR-10 KORA bound. |
+| `wash1400` | `f64` | WASH-1400 PWR 8. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IncompleteShares { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IncompleteShares) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `BoundingComparison`
 
-The bounding comparison over `distances_m` (#452, and `htgr_sim_v1`'s
-map, #453), from one call so that the two cannot drift apart.
+The comparison over `distances_m` (#452, and `htgr_sim_v1`'s map, #453),
+from one call so that the two cannot drift apart.
 
 ```rust
 pub struct BoundingComparison {
     pub rows: Vec<ComparisonRow>,
-    pub incomplete_fraction: [f64; 3],
+    pub incomplete: IncompleteShares,
 }
 ```
 
@@ -4632,7 +5069,7 @@ pub struct BoundingComparison {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `rows` | `Vec<ComparisonRow>` | One row per distance, in the order given. |
-| `incomplete_fraction` | `[f64; 3]` | Share of each arm's released Bq whose nuclide lacks an FGR<br>coefficient on some pathway, as `[HTR-10, RG 1.183, WASH-1400]`. Those<br>pathways count zero, so a non-zero share marks a LOWER-BOUND dose<br>(#456). |
+| `incomplete` | `IncompleteShares` | Coverage of the FGR tables per arm. |
 
 ##### Implementations
 
@@ -4813,6 +5250,43 @@ L) A`, released `= integral L A dt`).
 pub fn rg1183_containment_leakage(inventory: &Releases, leak_rate_percent_per_day: Option<f64>, window: uom::si::f64::Time) -> Leakage { /* ... */ }
 ```
 
+#### Function `rg1183_leak`
+
+RG 1.183 containment -> environment at leak rate `l_percent` \[%/day\],
+with an optional first-order removal `(aerosol, elemental iodine)`
+\[1/s\] inside the containment (natural deposition). `None` is no
+removal credit. Source: Table 2 fractions, linear over the Table 5
+phases, terminating at the end of early in-vessel (App. A-2.1); leak
+`L_a` for 24 h, then `L_a/2` (PWR, App. A-2.7); decay applied.
+
+Integrated by exact exponential steps of 60 s (`dA/dt = S - (lambda + L
++ lambda_removal) A`, released `= integral L A dt`).
+
+```rust
+pub fn rg1183_leak(inventory: &Releases, l_percent: f64, window: uom::si::f64::Time, removal: Option<(f64, f64)>) -> Releases { /* ... */ }
+```
+
+#### Function `scaled_containment`
+
+**Containment scaled DOWN with power** (maintainer decision, 2026-09-30),
+an ASSUMPTION stated as such: geometric similarity, free volume `V ∝ P`,
+surface `S ∝ V^(2/3)`, so `S/V` grows by `(P_ref/P)^(1/3)`. Returns `(V
+[m^3], S/V factor relative to the NuScale module)`. At 10 MWth: 375 ft^3
+= 10.62 m^3 and `(160/10)^(1/3) = 2.520`. `L_a` (a fraction per day) is
+unchanged; natural deposition (`∝ S/V`) is multiplied by the factor.
+
+```rust
+pub fn scaled_containment(thermal_power_mwth: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `nuscale_mha_loca`
+
+Build the [`LwrDba`].
+
+```rust
+pub fn nuscale_mha_loca(thermal_power_mwth: f64, window: uom::si::f64::Time, deposition: &NaturalDeposition) -> LwrDba { /* ... */ }
+```
+
 #### Function `wash1400_pwr8_to_atmosphere`
 
 WASH-1400 Table 5-1 PWR 8 release **to the atmosphere** \[Bq per nuclide\].
@@ -4869,17 +5343,27 @@ pub fn htr10_dba_vs_table9(case: AccidentCase) -> Vec<Table9Check> { /* ... */ }
 
 #### Function `bounding_comparison`
 
-Build the [`BoundingComparison`]: HTR-10 bound
-([`htr10_air_ingress_bound`]), RG 1.183 per 1 %/day
-([`rg1183_containment_leakage`]) and WASH-1400 PWR 8
-([`wash1400_pwr8_to_atmosphere`]), with the LWR inventory scaled to
-`mwth`, through [`max_dose`] with [`DoseAssumptions::bounding_example`].
+Build the [`BoundingComparison`]: the DBA pair (HTR-10 depressurisation,
+[`htr10_dba_release`]; LWR MHA LOCA, [`nuscale_mha_loca`] with
+`deposition`) and the beyond-design-basis pair (HTR-10 bound,
+[`htr10_air_ingress_bound`]; WASH-1400 PWR 8), with the LWR inventory and
+containment scaled to `mwth`, through [`max_dose`] with
+[`DoseAssumptions::bounding_example`].
 
 # Errors
 If the HTR-10 release chain rejects its inputs.
 
 ```rust
-pub fn bounding_comparison(geometry: crate::htr10::Htr10Geometry, window: uom::si::f64::Time, mwth: f64, distances_m: &[f64]) -> Result<BoundingComparison, crate::Error> { /* ... */ }
+pub fn bounding_comparison(geometry: crate::htr10::Htr10Geometry, window: uom::si::f64::Time, mwth: f64, distances_m: &[f64], deposition: &NaturalDeposition) -> Result<BoundingComparison, crate::Error> { /* ... */ }
+```
+
+#### Function `incomplete_share`
+
+Share of `rel`'s Bq whose nuclide lacks an FGR coefficient on some pathway
+(see [`Dose::missing`]).
+
+```rust
+pub fn incomplete_share(rel: &Releases) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -4892,6 +5376,44 @@ NuScale module thermal power the Table B-5 inventory is attributed to
 
 ```rust
 pub const NUSCALE_MODULE_MWTH: f64 = 160.0;
+```
+
+#### Constant `NUSCALE_LA_PERCENT_PER_DAY`
+
+NuScale's maximum allowable containment (CNV) leak rate `L_a` \[%/day of
+the containment air mass\]: **0.20 wt%/day at P_a**. NRC, *Phase 4 SER,
+Chapter 6* (NuScale DCA), PDF p. 91: "The NuScale maximum allowable CNV
+leak rate, La, is 0.20 wt% of the containment air mass per day at the
+calculated Pa" (proprietary-filed here; cited, not redistributed). As a
+fraction per day it is **unchanged by the power scaling** (maintainer
+decision, 2026-09-30).
+
+```rust
+pub const NUSCALE_LA_PERCENT_PER_DAY: f64 = 0.20;
+```
+
+#### Constant `NUSCALE_CNV_FREE_VOLUME_FT3`
+
+NuScale's minimum containment free volume \[ft^3\]: **6,000 ft^3**. Same
+SER, PDF pp. 19-20 ("the minimum containment free volume is 6,000 ft3",
+ADAMS ML18304A128).
+
+```rust
+pub const NUSCALE_CNV_FREE_VOLUME_FT3: f64 = 6_000.0;
+```
+
+#### Constant `NATURAL_DEPOSITION_PENDING`
+
+What the natural-deposition arm still needs, printed wherever it would be
+(RG 1.183 Rev. 1 App. A-2.2: SRP 6.5.2 is the acceptable model;
+NUREG/CR-6189 only case by case, adjusted to the Rev. 1 source term, at
+10th-percentile values).
+
+```rust
+pub const NATURAL_DEPOSITION_PENDING: &str = "pending literature: RG 1.183 Rev. 1 App. A-2.2 \
+     accepts the natural-deposition model of NUREG-0800 (SRP) Section 6.5.2 (or NUREG/CR-6189, \
+     ML100130305, case by case, adjusted, 10th percentile); neither is held, nor is NuScale's CNV \
+     internal surface area (DCA Part 2 Tier 2 Ch. 6/15, or SER Section 15.0.3)";
 ```
 
 ### Re-exports

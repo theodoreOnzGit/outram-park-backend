@@ -1854,45 +1854,59 @@ fn draw_bounding_toggle(ui: &mut Ui, state: &mut MapTabState) {
     });
 }
 
-/// Column headings of the bounding-comparison table.
-const BOUNDING_HEADINGS: [&str; 5] = [
+/// Column headings of the comparison table: the design-basis pair first,
+/// then the beyond-design-basis bounding pair (maintainer decision,
+/// 2026-09-30, #450).
+const BOUNDING_HEADINGS: [&str; 7] = [
     "Distance",
     "Class (worst, 1 m/s)",
-    "HTR-10 bound [mSv]",
-    "LWR comparison, per 1 %/day L_a [mSv]",
-    "WASH-1400 PWR 8 [mSv]",
+    "DBA: HTR-10 depressurisation [mSv]",
+    "DBA: LWR MHA LOCA, no removal [mSv]",
+    "DBA: LWR MHA LOCA, natural deposition [mSv]",
+    "BDB bound: HTR-10 KORA [mSv]",
+    "BDB bound: WASH-1400 PWR 8 [mSv]",
 ];
 
-/// The bounding table's cells, one row per receptor distance. Pure, so a test
-/// can pin it.
-fn bounding_cells(c: &sembawang::lwr_comparison::BoundingComparison) -> Vec<[String; 5]> {
+/// The comparison table's cells, one row per receptor distance. Pure, so a
+/// test can pin it. A pending column prints "pending literature", never 0.
+fn bounding_cells(c: &sembawang::lwr_comparison::BoundingComparison) -> Vec<[String; 7]> {
     c.rows
         .iter()
         .map(|r| {
             [
                 format!("{:.0} m", r.distance_m),
                 format!("{:?}", r.class),
+                format!("{:.3e}", 1e3 * r.htr10_dba_depressurisation_sv),
+                format!("{:.3}", 1e3 * r.lwr_dba_no_removal_sv),
+                r.lwr_dba_natural_deposition_sv
+                    .map_or("pending literature".to_string(), |v| {
+                        format!("{:.3}", 1e3 * v)
+                    }),
                 format!("{:.3}", 1e3 * r.htr10_bound_sv),
-                format!("{:.3}", 1e3 * r.rg1183_per_percent_per_day_sv),
                 format!("{:.3}", 1e3 * r.wash1400_pwr8_sv),
             ]
         })
         .collect()
 }
 
-/// The bounding-comparison table (#453), shown while the toggle is on.
+/// The comparison table (#453), shown while the toggle is on.
 fn draw_bounding_table(ui: &mut Ui) {
     use crate::physics::bounding_air_ingress as b;
     ui.strong(format!(
-        "Bounding air ingress -- MAXIMUM dose [mSv] over the first {:.0} h",
-        b::WINDOW_H
+        "HTR-10 vs LWR at 10 MWth -- MAXIMUM dose [mSv] over the first {:.0} h. Primary: design \
+         basis vs design basis. Secondary: {}",
+        b::WINDOW_H,
+        b::BDB_LABEL
     ));
-    ui.colored_label(Color32::from_rgb(200, 60, 20), b::CASE_LABEL);
+    ui.colored_label(
+        Color32::from_rgb(200, 60, 20),
+        format!("KORA column: {}", b::CASE_LABEL),
+    );
     match b::comparison() {
         Err(e) => {
             ui.colored_label(
                 Color32::from_rgb(200, 60, 20),
-                format!("Bounding comparison unavailable: {e}"),
+                format!("Comparison unavailable: {e}"),
             );
         }
         Ok(c) => {
@@ -1911,19 +1925,22 @@ fn draw_bounding_table(ui: &mut Ui) {
                         ui.end_row();
                     }
                 });
+            ui.label(b::DBA_LABEL);
             ui.label(b::LWR_LABEL);
+            ui.label(format!("Natural deposition: {}.", b::DEPOSITION_LABEL));
             ui.label(b::WASH_LABEL);
             ui.label(b::f_ox_provenance());
-            let [h, r, w] = c.incomplete_fraction;
+            let i = c.incomplete;
             ui.colored_label(
                 Color32::from_rgb(200, 120, 20),
                 format!(
-                    "FGR coverage: {:.1} % (HTR-10), {:.1} % (RG 1.183), {:.1} % (WASH-1400) of \
-                     released Bq lack a coefficient on some pathway, which counts ZERO -- those \
-                     doses are LOWER BOUNDS (#456).",
-                    100.0 * h,
-                    100.0 * r,
-                    100.0 * w
+                    "FGR coverage: {:.1} % (HTR-10 DBA), {:.1} % (LWR DBA), {:.1} % (KORA bound), \
+                     {:.1} % (WASH-1400) of released Bq lack a coefficient on some pathway, which \
+                     counts ZERO -- those doses are LOWER BOUNDS (#456).",
+                    100.0 * i.htr10_dba,
+                    100.0 * i.lwr_dba,
+                    100.0 * i.htr10_bound,
+                    100.0 * i.wash1400
                 ),
             );
         }
@@ -2051,7 +2068,7 @@ mod tests {
             "10 MWth",
             "different accident physics",
             "#450",
-            "NOT assumed",
+            "0.20 %/day",
         ] {
             assert!(b::LWR_LABEL.contains(needle), "{needle}");
         }
@@ -2059,6 +2076,11 @@ mod tests {
         let cells = super::bounding_cells(c);
         assert_eq!(cells.len(), c.rows.len());
         assert_eq!(cells.last().unwrap()[0], "1000 m");
+        // DBA pair first; the pending natural-deposition column never prints 0.
+        assert!(BOUNDING_HEADINGS[2].starts_with("DBA: HTR-10"));
+        assert!(BOUNDING_HEADINGS[3].starts_with("DBA: LWR"));
+        assert!(BOUNDING_HEADINGS[5].starts_with("BDB bound"));
+        assert!(cells.iter().all(|r| r[4] == "pending literature"));
     }
 
     /// The NRC 2023 EPZ reference figure: `10e-3 Sv / 96 h` = 104.17 µSv/h,

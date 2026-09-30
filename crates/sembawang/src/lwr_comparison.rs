@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 
-//! # HTR-10 bounding air ingress against an equivalent-power LWR (GitHub #450, #452, #453)
+//! # HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453)
+//!
+//! **Framing (maintainer decisions, 2026-09-30, #450).** PRIMARY:
+//! **design basis against design basis**, i.e. the HTR-10 depressurisation
+//! DBA ([`htr10_dba_release`], Liu & Cao Table 8) against the LWR MHA LOCA
+//! ([`nuscale_mha_loca`]). SECONDARY: the **beyond-design-basis bounding**
+//! pair, the KORA bound against WASH-1400 PWR 8. [`bounding_comparison`]
+//! returns both, DBA first.
 //!
 //! > **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Nothing here
 //! > is a source term, a dose or a siting argument for HTR-10, NuScale or any
@@ -15,6 +22,8 @@
 //!
 //! | Arm | Function | Boundary | What it is |
 //! |---|---|---|---|
+//! | **HTR-10 DBA** | [`htr10_dba_release`] | to the environment | Liu & Cao (2002) Table 8, published (depressurisation; water ingress); cross-checked with [`htr10_dba_vs_table9`] |
+//! | **LWR DBA** | [`nuscale_mha_loca`] | to the environment via containment leakage | RG 1.183 Rev. 1 MHA LOCA, NuScale inventory, `L_a` = 0.20 %/day ([`NUSCALE_LA_PERCENT_PER_DAY`]); no removal, and natural deposition ([`NaturalDeposition`], pending literature) |
 //! | HTR-10 bounding air ingress | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
 //! | LWR, NUREG-1465 | [`nureg1465_pwr_into_containment`] | **into containment** | Table 3.13 (PWR), all four phases or gap + early in-vessel |
 //! | LWR, RG 1.183 Rev. 1 | [`rg1183_pwr_into_containment`], [`rg1183_containment_leakage`] | into containment; then **to the environment** at the TS leak rate `L_a` | Table 2 (MHA LOCA), Table 5 timing, Appendix A-2.7 leakage |
@@ -27,13 +36,20 @@
 //! **`L_a` is plant-specific and not in RG 1.183.** [`rg1183_containment_leakage`]
 //! takes it as an input and also returns the release per unit `L_a`
 //! (the small-leak limit), so a caller without a sourced `L_a` reports
-//! "per 1 %/day" rather than inventing one.
+//! "per 1 %/day" rather than inventing one. **Since 2026-09-30** NuScale's is
+//! sourced: 0.20 wt%/day (NRC Phase 4 SER Ch. 6, PDF p. 91), used by
+//! [`nuscale_mha_loca`].
 //!
-//! **Removal credit taken in containment: none.** RG 1.183 Appendix A-2.2
-//! to A-2.6 *allow* natural deposition, sprays, filters and scrubbing, each
-//! with its own model; none is credited here (conservative), and the iodine
-//! species split (A-1.1: 95 % CsI, 4.85 % elemental, 0.15 % organic) is
-//! therefore not needed for transport. Decay during hold-up is applied.
+//! ~~**Removal credit taken in containment: none.** ... the iodine species
+//! split (A-1.1: 95 % CsI, 4.85 % elemental, 0.15 % organic) is therefore
+//! not needed for transport.~~ **CHANGED 2026-09-30:** two arms. (i) No
+//! removal credit. (ii) **Natural deposition only**, as App. A-2.2 allows
+//! (model: SRP 6.5.2, or NUREG/CR-6189 case by case), through
+//! [`rg1183_leak`] with explicit rates and the A-1.1 species split. The rates
+//! are **pending literature** ([`NATURAL_DEPOSITION_PENDING`]) and never
+//! defaulted. Sprays, filters and scrubbing are not credited. Decay during
+//! hold-up is applied. The containment is scaled down with power
+//! ([`scaled_containment`], maintainer decision; an assumption).
 //!
 //! Dose: [`max_dose`], the same `buangkok` single-plume Gaussian, FGR-15
 //! submersion and groundshine, FGR-11 inhalation, adult, worst stability class
@@ -408,11 +424,54 @@ pub fn rg1183_containment_leakage(
     leak_rate_percent_per_day: Option<f64>,
     window: Time,
 ) -> Leakage {
+    // small-leak limit: derivative at L -> 0, by a tiny L and division
+    let per_percent_per_day: Releases = rg1183_leak(inventory, 1e-6, window, None)
+        .into_iter()
+        .map(|(n, v)| (n, v / 1e-6))
+        .collect();
+    let at_la = leak_rate_percent_per_day.map(|la| rg1183_leak(inventory, la, window, None));
+    Leakage {
+        at_la,
+        per_percent_per_day,
+    }
+}
+
+/// The containment removal channels a nuclide sees under RG 1.183 Rev. 1:
+/// `(weight, removal rate [1/s])` pairs summing to weight 1. Noble gases are
+/// not removed. **Iodine** is split by the RG's species, 95 % CsI (aerosol),
+/// 4.85 % elemental, 0.15 % organic (not removed) (RG 1.183 Rev. 1 App.
+/// A-1.1, which applies when the sump pH is kept at 7 or above; assumed).
+/// Every other group, Br included, is particulate (A-1.1: "fission products
+/// should be assumed to be in particulate form").
+fn removal_channels(n: &str, removal: Option<(f64, f64)>) -> Vec<(f64, f64)> {
+    let (aerosol, elemental) = removal.unwrap_or((0.0, 0.0));
+    match element(n) {
+        "Xe" | "Kr" => vec![(1.0, 0.0)],
+        "I" => vec![(0.95, aerosol), (0.0485, elemental), (0.0015, 0.0)],
+        _ => vec![(1.0, aerosol)],
+    }
+}
+
+/// RG 1.183 containment -> environment at leak rate `l_percent` \[%/day\],
+/// with an optional first-order removal `(aerosol, elemental iodine)`
+/// \[1/s\] inside the containment (natural deposition). `None` is no
+/// removal credit. Source: Table 2 fractions, linear over the Table 5
+/// phases, terminating at the end of early in-vessel (App. A-2.1); leak
+/// `L_a` for 24 h, then `L_a/2` (PWR, App. A-2.7); decay applied.
+///
+/// Integrated by exact exponential steps of 60 s (`dA/dt = S - (lambda + L
+/// + lambda_removal) A`, released `= integral L A dt`).
+pub fn rg1183_leak(
+    inventory: &Releases,
+    l_percent: f64,
+    window: Time,
+    removal: Option<(f64, f64)>,
+) -> Releases {
     let table: Vec<Vec<&str>> = rows(RG1183_T2).collect();
     let window_s = window.get::<uom::si::time::second>();
     let dt = 60.0;
     let steps = (window_s / dt).ceil() as usize;
-    let run = |n: &str, bq: f64, l_percent: f64| -> Option<f64> {
+    let run = |n: &str, bq: f64, removal_per_s: f64| -> Option<f64> {
         let g = rg1183_group(element(n))?;
         let r = table.iter().find(|r| r[0] == g)?;
         let f: Vec<f64> = r[1..].iter().map(|x| x.parse().unwrap()).collect();
@@ -444,7 +503,7 @@ pub fn rg1183_containment_leakage(
             // cancels catastrophically when k dt << 1 (long-lived nuclides in
             // the small-leak limit) and returned NEGATIVE releases; found on
             // the first run of the #452 example, 2026-09-30.
-            let x = (lam + l) * dt;
+            let x = (lam + l + removal_per_s) * dt;
             let (phi1, phi2) = if x < 1e-3 {
                 (
                     1.0 - x / 2.0 + x * x / 6.0 - x * x * x / 24.0,
@@ -460,23 +519,105 @@ pub fn rg1183_containment_leakage(
         }
         Some(released)
     };
-    let per_unit = |n: &str, bq: f64| {
-        // small-leak limit: derivative at L -> 0, by a tiny L and division
-        run(n, bq, 1e-6).map(|x| x / 1e-6)
-    };
-    let per_percent_per_day: Releases = inventory
+    inventory
         .iter()
-        .filter_map(|(n, bq)| per_unit(n, *bq).map(|v| (n.clone(), v)))
-        .collect();
-    let at_la = leak_rate_percent_per_day.map(|la| {
-        inventory
-            .iter()
-            .filter_map(|(n, bq)| run(n, *bq, la).map(|v| (n.clone(), v)))
-            .collect()
-    });
-    Leakage {
-        at_la,
-        per_percent_per_day,
+        .filter_map(|(n, bq)| {
+            let mut total = 0.0;
+            for (w, k) in removal_channels(n, removal) {
+                total += run(n, w * bq, k)?;
+            }
+            Some((n.clone(), total))
+        })
+        .collect()
+}
+
+/// NuScale's maximum allowable containment (CNV) leak rate `L_a` \[%/day of
+/// the containment air mass\]: **0.20 wt%/day at P_a**. NRC, *Phase 4 SER,
+/// Chapter 6* (NuScale DCA), PDF p. 91: "The NuScale maximum allowable CNV
+/// leak rate, La, is 0.20 wt% of the containment air mass per day at the
+/// calculated Pa" (proprietary-filed here; cited, not redistributed). As a
+/// fraction per day it is **unchanged by the power scaling** (maintainer
+/// decision, 2026-09-30).
+pub const NUSCALE_LA_PERCENT_PER_DAY: f64 = 0.20;
+
+/// NuScale's minimum containment free volume \[ft^3\]: **6,000 ft^3**. Same
+/// SER, PDF pp. 19-20 ("the minimum containment free volume is 6,000 ft3",
+/// ADAMS ML18304A128).
+pub const NUSCALE_CNV_FREE_VOLUME_FT3: f64 = 6_000.0;
+
+/// **Containment scaled DOWN with power** (maintainer decision, 2026-09-30),
+/// an ASSUMPTION stated as such: geometric similarity, free volume `V ∝ P`,
+/// surface `S ∝ V^(2/3)`, so `S/V` grows by `(P_ref/P)^(1/3)`. Returns `(V
+/// [m^3], S/V factor relative to the NuScale module)`. At 10 MWth: 375 ft^3
+/// = 10.62 m^3 and `(160/10)^(1/3) = 2.520`. `L_a` (a fraction per day) is
+/// unchanged; natural deposition (`∝ S/V`) is multiplied by the factor.
+pub fn scaled_containment(thermal_power_mwth: f64) -> (f64, f64) {
+    let v_ref_m3 = NUSCALE_CNV_FREE_VOLUME_FT3 * 0.028_316_846_592;
+    (
+        v_ref_m3 * thermal_power_mwth / NUSCALE_MODULE_MWTH,
+        (NUSCALE_MODULE_MWTH / thermal_power_mwth).cbrt(),
+    )
+}
+
+/// What the natural-deposition arm still needs, printed wherever it would be
+/// (RG 1.183 Rev. 1 App. A-2.2: SRP 6.5.2 is the acceptable model;
+/// NUREG/CR-6189 only case by case, adjusted to the Rev. 1 source term, at
+/// 10th-percentile values).
+pub const NATURAL_DEPOSITION_PENDING: &str = "pending literature: RG 1.183 Rev. 1 App. A-2.2 \
+     accepts the natural-deposition model of NUREG-0800 (SRP) Section 6.5.2 (or NUREG/CR-6189, \
+     ML100130305, case by case, adjusted, 10th percentile); neither is held, nor is NuScale's CNV \
+     internal surface area (DCA Part 2 Tier 2 Ch. 6/15, or SER Section 15.0.3)";
+
+/// Natural-deposition removal rates in the containment **at the NuScale
+/// module** (160 MWt) \[1/s\]: an explicit input, never defaulted. `None`
+/// means pending literature ([`NATURAL_DEPOSITION_PENDING`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NaturalDeposition {
+    /// Aerosol removal rate at the reference containment \[1/s\].
+    pub aerosol_per_s: Option<f64>,
+    /// Elemental-iodine removal rate at the reference containment \[1/s\].
+    pub elemental_iodine_per_s: Option<f64>,
+}
+
+impl NaturalDeposition {
+    /// No rates: the arm reports [`NATURAL_DEPOSITION_PENDING`].
+    pub const PENDING_LITERATURE: Self = Self {
+        aerosol_per_s: None,
+        elemental_iodine_per_s: None,
+    };
+
+    /// The rates at `thermal_power_mwth`, scaled by the `S/V` factor of
+    /// [`scaled_containment`]; `None` unless both are given.
+    pub fn at_power(&self, thermal_power_mwth: f64) -> Option<(f64, f64)> {
+        let f = scaled_containment(thermal_power_mwth).1;
+        Some((self.aerosol_per_s? * f, self.elemental_iodine_per_s? * f))
+    }
+}
+
+/// The **LWR design-basis arm** (maintainer decision, 2026-09-30, #450):
+/// RG 1.183 Rev. 1 MHA LOCA with the NuScale inventory scaled to
+/// `thermal_power_mwth`, leaking at NuScale's `L_a` = 0.20 %/day (24 h, then
+/// half), released to the environment over `window`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LwrDba {
+    /// No removal credit.
+    pub no_removal: Releases,
+    /// Natural deposition only; `None` while pending literature.
+    pub natural_deposition: Option<Releases>,
+}
+
+/// Build the [`LwrDba`].
+pub fn nuscale_mha_loca(
+    thermal_power_mwth: f64,
+    window: Time,
+    deposition: &NaturalDeposition,
+) -> LwrDba {
+    let inv = pwr_inventory_scaled(thermal_power_mwth);
+    LwrDba {
+        no_removal: rg1183_leak(&inv, NUSCALE_LA_PERCENT_PER_DAY, window, None),
+        natural_deposition: deposition
+            .at_power(thermal_power_mwth)
+            .map(|r| rg1183_leak(&inv, NUSCALE_LA_PERCENT_PER_DAY, window, Some(r))),
     }
 }
 
@@ -770,8 +911,15 @@ pub fn htr10_dba_vs_table9(case: AccidentCase) -> Vec<Table9Check> {
         .collect()
 }
 
-/// One distance of the bounding comparison: the maximum 96 h dose of each
-/// arm \[Sv\], same site, weather, height and receptor (#452, #453).
+/// One distance of the HTR-10 / LWR comparison: the maximum 96 h dose of
+/// each arm \[Sv\], same site, weather, height and receptor (#452, #453).
+///
+/// **Framing (maintainer decision, 2026-09-30, #450): design basis against
+/// design basis is the PRIMARY comparison**, paired by initiating event and
+/// design class: the HTR-10 depressurisation DBA against the LWR MHA LOCA.
+/// ~~Like-for-like in containment~~ is not the comparison: it is like-for-like
+/// in containment, not in response to LOFC or LOCA. The KORA bound against
+/// WASH-1400 PWR 8 is the SECONDARY, beyond-design-basis bounding comparison.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComparisonRow {
     /// Receptor distance \[m\].
@@ -779,34 +927,51 @@ pub struct ComparisonRow {
     /// Worst stability class at 1 m/s. It depends on distance only, so it is
     /// the same for every arm.
     pub class: StabilityClass,
-    /// HTR-10 bounding air ingress, to the environment.
+    /// DBA: HTR-10 depressurisation, Liu & Cao Table 8 ([`htr10_dba_release`]).
+    pub htr10_dba_depressurisation_sv: f64,
+    /// DBA: LWR MHA LOCA ([`nuscale_mha_loca`]), `L_a` 0.20 %/day, **no
+    /// removal credit**.
+    pub lwr_dba_no_removal_sv: f64,
+    /// DBA: the same with **natural deposition only**; `None` while pending
+    /// literature ([`NATURAL_DEPOSITION_PENDING`]).
+    pub lwr_dba_natural_deposition_sv: Option<f64>,
+    /// Beyond-design-basis bounding: HTR-10 KORA air-ingress bound.
     pub htr10_bound_sv: f64,
-    /// RG 1.183 Rev. 1 (NUREG-1465 AST, Table 2) to the environment **per
-    /// 1 %/day** of containment leak rate, with no removal credit. `L_a` is
-    /// plant-specific and not in RG 1.183, so it is never assumed.
-    pub rg1183_per_percent_per_day_sv: f64,
-    /// WASH-1400 PWR 8, to the atmosphere.
+    /// Beyond-design-basis bounding: WASH-1400 PWR 8, to the atmosphere.
     pub wash1400_pwr8_sv: f64,
 }
 
-/// The bounding comparison over `distances_m` (#452, and `htgr_sim_v1`'s
-/// map, #453), from one call so that the two cannot drift apart.
+/// Share of each arm's released Bq whose nuclide lacks an FGR coefficient on
+/// some pathway. Those pathways count zero, so a non-zero share marks a
+/// LOWER-BOUND dose (#456).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IncompleteShares {
+    /// HTR-10 depressurisation DBA (H-3, C-14).
+    pub htr10_dba: f64,
+    /// LWR MHA LOCA, no removal.
+    pub lwr_dba: f64,
+    /// HTR-10 KORA bound.
+    pub htr10_bound: f64,
+    /// WASH-1400 PWR 8.
+    pub wash1400: f64,
+}
+
+/// The comparison over `distances_m` (#452, and `htgr_sim_v1`'s map, #453),
+/// from one call so that the two cannot drift apart.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoundingComparison {
     /// One row per distance, in the order given.
     pub rows: Vec<ComparisonRow>,
-    /// Share of each arm's released Bq whose nuclide lacks an FGR
-    /// coefficient on some pathway, as `[HTR-10, RG 1.183, WASH-1400]`. Those
-    /// pathways count zero, so a non-zero share marks a LOWER-BOUND dose
-    /// (#456).
-    pub incomplete_fraction: [f64; 3],
+    /// Coverage of the FGR tables per arm.
+    pub incomplete: IncompleteShares,
 }
 
-/// Build the [`BoundingComparison`]: HTR-10 bound
-/// ([`htr10_air_ingress_bound`]), RG 1.183 per 1 %/day
-/// ([`rg1183_containment_leakage`]) and WASH-1400 PWR 8
-/// ([`wash1400_pwr8_to_atmosphere`]), with the LWR inventory scaled to
-/// `mwth`, through [`max_dose`] with [`DoseAssumptions::bounding_example`].
+/// Build the [`BoundingComparison`]: the DBA pair (HTR-10 depressurisation,
+/// [`htr10_dba_release`]; LWR MHA LOCA, [`nuscale_mha_loca`] with
+/// `deposition`) and the beyond-design-basis pair (HTR-10 bound,
+/// [`htr10_air_ingress_bound`]; WASH-1400 PWR 8), with the LWR inventory and
+/// containment scaled to `mwth`, through [`max_dose`] with
+/// [`DoseAssumptions::bounding_example`].
 ///
 /// # Errors
 /// If the HTR-10 release chain rejects its inputs.
@@ -815,11 +980,12 @@ pub fn bounding_comparison(
     window: Time,
     mwth: f64,
     distances_m: &[f64],
+    deposition: &NaturalDeposition,
 ) -> Result<BoundingComparison, SembawangError> {
+    let dba = htr10_dba_release(AccidentCase::Depressurization);
+    let lwr = nuscale_mha_loca(mwth, window, deposition);
     let htr = htr10_air_ingress_bound(geometry, window)?;
-    let inv = pwr_inventory_scaled(mwth);
-    let rg = rg1183_containment_leakage(&inv, None, window).per_percent_per_day;
-    let wash = wash1400_pwr8_to_atmosphere(&inv);
+    let wash = wash1400_pwr8_to_atmosphere(&pwr_inventory_scaled(mwth));
     let a = DoseAssumptions::bounding_example();
     let rows: Vec<ComparisonRow> = distances_m
         .iter()
@@ -828,31 +994,44 @@ pub fn bounding_comparison(
             ComparisonRow {
                 distance_m: x,
                 class: h.class,
+                htr10_dba_depressurisation_sv: max_dose(&dba, x, a).total_sv,
+                lwr_dba_no_removal_sv: max_dose(&lwr.no_removal, x, a).total_sv,
+                lwr_dba_natural_deposition_sv: lwr
+                    .natural_deposition
+                    .as_ref()
+                    .map(|r| max_dose(r, x, a).total_sv),
                 htr10_bound_sv: h.total_sv,
-                rg1183_per_percent_per_day_sv: max_dose(&rg, x, a).total_sv,
                 wash1400_pwr8_sv: max_dose(&wash, x, a).total_sv,
             }
         })
         .collect();
-    let incomplete = |rel: &Releases| {
-        let missing = max_dose(rel, 1000.0, a).missing;
-        let tot: f64 = rel.iter().map(|(_, b)| b).sum();
-        let miss: f64 = rel
-            .iter()
-            .filter(|(n, _)| missing.contains(n))
-            .map(|(_, b)| b)
-            .sum();
-        // `+ 0.0` turns the empty sum's -0.0 into 0.0 for printing.
-        if tot > 0.0 {
-            miss / tot + 0.0
-        } else {
-            0.0
-        }
-    };
     Ok(BoundingComparison {
         rows,
-        incomplete_fraction: [incomplete(&htr), incomplete(&rg), incomplete(&wash)],
+        incomplete: IncompleteShares {
+            htr10_dba: incomplete_share(&dba),
+            lwr_dba: incomplete_share(&lwr.no_removal),
+            htr10_bound: incomplete_share(&htr),
+            wash1400: incomplete_share(&wash),
+        },
     })
+}
+
+/// Share of `rel`'s Bq whose nuclide lacks an FGR coefficient on some pathway
+/// (see [`Dose::missing`]).
+pub fn incomplete_share(rel: &Releases) -> f64 {
+    let missing = max_dose(rel, 1000.0, DoseAssumptions::bounding_example()).missing;
+    let tot: f64 = rel.iter().map(|(_, b)| b).sum();
+    let miss: f64 = rel
+        .iter()
+        .filter(|(n, _)| missing.contains(n))
+        .map(|(_, b)| b)
+        .sum();
+    // `+ 0.0` turns the empty sum's -0.0 into 0.0 for printing.
+    if tot > 0.0 {
+        miss / tot + 0.0
+    } else {
+        0.0
+    }
 }
 
 #[cfg(test)]
@@ -934,6 +1113,46 @@ mod tests {
         let p = kora::nabielek_1400c_prediction(140.0).unwrap();
         assert!((p - 1.59e-2).abs() < 0.01e-2, "{p}");
         assert!(kora::nabielek_1400c_prediction(1000.0).is_none());
+    }
+
+    /// The LWR DBA arm: `L_a` = 0.20 %/day as cited; with zero removal the
+    /// natural-deposition path equals no-removal exactly; a removal rate
+    /// lowers every non-noble release and leaves noble gases untouched; the
+    /// iodine species split leaves 0.15 % organic unremovable; the default is
+    /// pending literature (None). The rates used here are **test inputs, not
+    /// data**. The containment scaling at 10 MWth: 10.62 m^3 and 2.520x S/V.
+    #[test]
+    fn lwr_dba_arm_removal_and_scaling() {
+        let w = Time::new::<hour>(96.0);
+        let pending = nuscale_mha_loca(10.0, w, &NaturalDeposition::PENDING_LITERATURE);
+        assert!(pending.natural_deposition.is_none());
+        let zero = NaturalDeposition {
+            aerosol_per_s: Some(0.0),
+            elemental_iodine_per_s: Some(0.0),
+        };
+        let z = nuscale_mha_loca(10.0, w, &zero);
+        assert_eq!(z.natural_deposition.as_ref().unwrap(), &z.no_removal);
+        let some = NaturalDeposition {
+            aerosol_per_s: Some(1e-4),
+            elemental_iodine_per_s: Some(1e-3),
+        };
+        let r = nuscale_mha_loca(10.0, w, &some);
+        let dep = r.natural_deposition.unwrap();
+        for ((n, a), (_, b)) in r.no_removal.iter().zip(&dep) {
+            if matches!(element(n), "Xe" | "Kr") {
+                assert_eq!(a, b, "{n}");
+            } else if *a > 0.0 {
+                assert!(b < a, "{n}");
+            }
+        }
+        let i131 = |rel: &Releases| rel.iter().find(|(n, _)| n == "I-131").unwrap().1;
+        assert!(i131(&dep) > 0.0015 * 0.5 * i131(&r.no_removal));
+        let (v, f) = scaled_containment(10.0);
+        assert!(
+            (v - 10.6188).abs() < 1e-3 && (f - 2.5198).abs() < 1e-3,
+            "{v} {f}"
+        );
+        assert_eq!(NUSCALE_LA_PERCENT_PER_DAY, 0.20);
     }
 
     /// Pins the 2026-09-30 defect: the small-leak limit returned negative Bq

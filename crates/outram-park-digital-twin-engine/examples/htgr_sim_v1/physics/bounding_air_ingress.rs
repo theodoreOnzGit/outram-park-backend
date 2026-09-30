@@ -1,4 +1,13 @@
-//! **Bounding air ingress**, the Map tab's static comparison (#453, epic #450).
+//! **HTR-10 vs LWR comparison**, the Map tab's static table behind the
+//! "Bounding air ingress" toggle (#453, epic #450).
+//!
+//! **Framing (maintainer decisions, 2026-09-30, #450):** the PRIMARY columns
+//! are **design basis against design basis**: the HTR-10 depressurisation DBA
+//! (Liu & Cao 2002 Table 8) and the LWR MHA LOCA (RG 1.183 Rev. 1, NuScale
+//! inventory scaled to 10 MWth, `L_a` 0.20 %/day, no removal; natural
+//! deposition pending literature). The SECONDARY columns are the
+//! **beyond-design-basis bounding** pair: the KORA bound (below) and
+//! WASH-1400 PWR 8.
 //!
 //! > **A BOUNDING CASE, NOT A TRANSIENT (see #420).** Nothing here is stepped
 //! > by the plant model, and nothing here comes from the running simulation.
@@ -43,7 +52,10 @@
 use std::sync::OnceLock;
 
 use sembawang::htr10::Htr10Geometry;
-use sembawang::lwr_comparison::{bound, bounding_comparison, kora, BoundingComparison};
+use sembawang::lwr_comparison::{
+    bound, bounding_comparison, kora, BoundingComparison, NaturalDeposition,
+    NATURAL_DEPOSITION_PENDING,
+};
 use uom::si::f64::Time;
 use uom::si::time::hour;
 
@@ -62,16 +74,29 @@ pub const BUTTON_LABEL: &str = "Bounding air ingress (1400 °C / 140 h, KORA)";
 /// Carried wherever the case is shown (maintainer direction, #453).
 pub const CASE_LABEL: &str = "Bounding case, not a transient; see #420";
 
-/// The LWR column's label (maintainer direction, #453). NUREG-1465 Table 3.13
-/// itself stops at the containment, so the dose arm is its RG 1.183 Rev. 1
-/// revision leaking at 1 %/day. `L_a` is plant-specific and not in RG 1.183.
-pub const LWR_LABEL: &str = "LWR comparison: NUREG-1465 design source term (as revised in \
-     RG 1.183 Rev. 1 Table 2) scaled to 10 MWth, per 1 %/day containment leak (L_a is \
-     plant-specific and NOT assumed; no removal credit); different accident physics; see #450";
+/// The HTR-10 design-basis column's label (#452).
+pub const DBA_LABEL: &str = "HTR-10 design basis: depressurisation (DN65 charging-tube \
+     rupture), Liu & Cao 2002 Table 8 published release";
+
+/// The LWR design-basis column's label. ~~"LWR comparison: NUREG-1465 design
+/// source term (as revised in RG 1.183 Rev. 1 Table 2) scaled to 10 MWth, per
+/// 1 %/day containment leak (L_a is plant-specific and NOT assumed; no removal
+/// credit); different accident physics; see #450"~~ **CHANGED 2026-09-30**
+/// (maintainer decision, #450): NuScale's `L_a` is now sourced.
+pub const LWR_LABEL: &str = "LWR comparison, design basis: NUREG-1465 source term as revised \
+     in RG 1.183 Rev. 1 (MHA LOCA), NuScale inventory scaled to 10 MWth, L_a 0.20 %/day \
+     (NRC Phase 4 SER Ch. 6), 24 h then half; no removal credit; different accident \
+     physics; see #450";
+
+/// The beyond-design-basis pair's heading (maintainer decision, 2026-09-30).
+pub const BDB_LABEL: &str = "Beyond-design-basis bounding comparison (secondary)";
 
 /// The second LWR column's label.
 pub const WASH_LABEL: &str = "WASH-1400 PWR 8: beyond design basis, containment not isolated, \
-     no melt -- the closest LWR analogue of this bounding case";
+     no melt -- the closest LWR analogue of the KORA bounding case";
+
+/// Why the natural-deposition column is empty.
+pub const DEPOSITION_LABEL: &str = NATURAL_DEPOSITION_PENDING;
 
 /// HTR-10 particle and pebble geometry, from `tampines` as the #452 example
 /// reads it.
@@ -96,6 +121,7 @@ pub fn comparison() -> &'static Result<BoundingComparison, String> {
             Time::new::<hour>(WINDOW_H),
             HTR10_MWTH,
             &RECEPTOR_DISTANCES_M,
+            &NaturalDeposition::PENDING_LITERATURE,
         )
         .map_err(|e| e.to_string())
     })
@@ -138,26 +164,29 @@ mod tests {
     /// Recorded 2026-09-30 (`--bounding-air-ingress`), class F at every
     /// distance, maximum dose over 96 h \[mSv\]:
     ///
-    /// | x \[m\] | HTR-10 bound | RG 1.183 per 1 %/d `L_a` | WASH-1400 PWR 8 |
-    /// |---:|---:|---:|---:|
-    /// | 100 | 709.7 | 16 202 | 626.0 |
-    /// | 500 | 45.49 | 1038 | 40.12 |
-    /// | 1000 | 14.318 | 326.9 | 12.63 |
+    /// | x \[m\] | HTR-10 DBA depress. | LWR DBA no removal | LWR nat. dep. | HTR-10 KORA bound | WASH-1400 PWR 8 |
+    /// |---:|---:|---:|---:|---:|---:|
+    /// | 100 | 4.50e-2 | 3234 | pending | 709.7 | 626.0 |
+    /// | 500 | 2.88e-3 | 207.3 | pending | 45.49 | 40.12 |
+    /// | 1000 | 9.08e-4 | 65.2 | pending | 14.318 | 12.63 |
     ///
-    /// FGR-incomplete share of released Bq: HTR-10 0, RG 1.183 0.284,
-    /// WASH-1400 0.035 (the LWR doses are lower bounds, #456). At 100 m a
-    /// ground-level Gaussian plume is at the near edge of the
-    /// Pasquill-Gifford curves; the number is a screening figure, not a
-    /// dose to anyone.
+    /// The LWR doses are lower bounds (#456). At 100 m a ground-level
+    /// Gaussian plume is at the near edge of the Pasquill-Gifford curves; the
+    /// numbers are screening figures, not a dose to anyone.
     #[test]
     fn the_bounding_table_is_sembawangs_at_the_map_distances() {
         let c = comparison().as_ref().expect("bounding chain runs");
         assert_eq!(c.rows.len(), RECEPTOR_DISTANCES_M.len());
         for (row, d) in c.rows.iter().zip(RECEPTOR_DISTANCES_M) {
             assert_eq!(row.distance_m, d);
+            assert_eq!(
+                row.lwr_dba_natural_deposition_sv, None,
+                "pending literature"
+            );
             for v in [
+                row.htr10_dba_depressurisation_sv,
+                row.lwr_dba_no_removal_sv,
                 row.htr10_bound_sv,
-                row.rg1183_per_percent_per_day_sv,
                 row.wash1400_pwr8_sv,
             ] {
                 assert!(v.is_finite() && v > 0.0, "{row:?}");
@@ -166,8 +195,8 @@ mod tests {
         for w in c.rows.windows(2) {
             assert!(w[1].htr10_bound_sv < w[0].htr10_bound_sv);
         }
-        assert_eq!(c.incomplete_fraction[0], 0.0);
-        assert!(c.incomplete_fraction[1] > 0.0 && c.incomplete_fraction[2] > 0.0);
+        assert_eq!(c.incomplete.htr10_bound, 0.0);
+        assert!(c.incomplete.lwr_dba > 0.0 && c.incomplete.wash1400 > 0.0);
         // 1000 m is also a #452 distance: the same number to the digit printed there.
         let at_1km = c.rows.iter().find(|r| r.distance_m == 1000.0).unwrap();
         assert!((1e3 * at_1km.htr10_bound_sv - 14.318).abs() < 5e-4);

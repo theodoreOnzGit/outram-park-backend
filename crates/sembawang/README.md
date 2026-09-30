@@ -20,9 +20,14 @@ Wired in today: `boon-lay`, `changi` and, since 2026-09-30, `buangkok`. Not yet:
 `examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose at
 400 m through `buangkok`'s Gaussian plume. **CORRECTED 2026-09-30 (#452):** the
 library module `lwr_comparison` now computes a research-grade dose through
-the same `buangkok` chain. It places the HTR-10 bounding air-ingress case
-beside LWR counterparts (NUREG-1465, RG 1.183 per unit leak rate, WASH-1400
-PWR 8) at equal power: `examples/lwr_nureg1465_counterpart.rs`. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
+the same `buangkok` chain, comparing HTR-10 with an LWR at equal power
+(`examples/lwr_nureg1465_counterpart.rs`). ~~It places the HTR-10 bounding
+air-ingress case beside LWR counterparts (NUREG-1465, RG 1.183 per unit leak
+rate, WASH-1400 PWR 8).~~ **Reframed 2026-09-30 (maintainer decision, #450):**
+the primary comparison is design basis against design basis, i.e. the HTR-10
+depressurisation (Liu & Cao Table 8) against the RG 1.183 MHA LOCA at NuScale's
+L_a. The HTR-10 bounding air-ingress case against WASH-1400 PWR 8 is the
+secondary, beyond-design-basis bounding comparison. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
 
 ## What exists, and what does not
 
