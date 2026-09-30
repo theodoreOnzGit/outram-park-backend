@@ -591,6 +591,16 @@ fn main() {
                     // The #188 equiprobable S(a,b) scheme, as before GitHub
                     // #407 put OpenMC's discrete sampler in as the default.
                     "legacy-thermal-sampling" => n.with_legacy_thermal_sampling(),
+                    // DBRC kept on the named nuclide only (GitHub #407: the
+                    // per-nuclide split of the lattice DBRC worth). Pairs with
+                    // the OpenMC deck's `--dbrc-nuclides`.
+                    other if other.starts_with("dbrc-only=") => {
+                        if n.name == other["dbrc-only=".len()..] {
+                            n
+                        } else {
+                            n.without_dbrc()
+                        }
+                    }
                     other => panic!("unknown --ablate {other}"),
                 })
                 .collect();

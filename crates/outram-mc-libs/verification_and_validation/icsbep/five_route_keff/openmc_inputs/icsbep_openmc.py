@@ -160,6 +160,10 @@ def main():
     ap.add_argument("--no-dbrc", action="store_true",
                     help="diagnostic (GitHub #407): resonance scattering off, "
                          "for the DBRC-worth comparison with outram-mc's --ablate no-dbrc")
+    ap.add_argument("--dbrc-nuclides", default=None,
+                    help="diagnostic (GitHub #407): comma-separated resonant nuclides "
+                         "(resonance_scattering['nuclides']); pairs with outram-mc's "
+                         "--ablate dbrc-only=<name>")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()
 
@@ -193,6 +197,8 @@ def main():
     s.ptables = not a.no_ptables
     s.resonance_scattering = {"enable": not a.no_dbrc, "method": "dbrc",
                               "energy_min": 1.0e-5, "energy_max": 1000.0}
+    if a.dbrc_nuclides:
+        s.resonance_scattering["nuclides"] = a.dbrc_nuclides.split(",")
     s.output = {"tallies": False, "summary": False}
     model = openmc.Model(geometry=geo, materials=materials, settings=s)
 
