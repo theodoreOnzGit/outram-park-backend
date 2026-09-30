@@ -159,3 +159,64 @@ Earlier result, on the 2026-09-29 digitisation (superseded): port vs upstream
   - Not corrected here, because adding points would be a second, unreviewed
     digitisation. Re-digitising the first few markers of the 5 % and 50 %
     curves was requested on #413.
+
+## DIAGNOSTIC (not adopted): temperature sensitivity of the final releases (#413 check (a), 2026-09-30)
+
+**This section does not change the result.** The committed #413 result
+stays on the Fig. 5 curves as digitised. This check only asks whether small
+digitisation temperature errors could explain the residual.
+
+**Method.**
+- All four curves are shifted uniformly by -15 ... +15 °C.
+- Only upstream TRISO-ATOPS is re-run, with the same method: Eq. 29, and the
+  x10 applied after the initial puff. The port matches upstream to < 4e-11
+  on the unshifted path and is not re-run.
+- Printed `k_plate` at every shift; 7.5e-4 at 0 and ±15 °C.
+- No other input varies. A uniform shift is a crude proxy, since real
+  digitisation error varies along each curve.
+- Driver: `dev/mhtgr_stoyer_tshift_diagnostic.py`. Data:
+  `diagnostic_tshift_final_ratio.csv`.
+- A prediction was posted on #413 before running.
+
+**Median ratio to the paper, printed `k_plate`, by shift.**
+
+| Group | Case | -15 | -10 | -5 | 0 | +5 | +10 | +15 |
+|---|---|---|---|---|---|---|---|---|
+| volatiles (Kr, Xe, I, Te) | A | 0.880 | 0.902 | 0.925 | 0.983 | 1.007 | 1.033 | 1.058 |
+| Cs | A | 0.821 | 0.833 | 0.845 | 0.862 | 0.879 | 0.896 | 0.913 |
+| Sr / Ba / Eu | A | 0.816 | 0.853 | 0.891 | 0.931 | 0.973 | 1.016 | 1.062 |
+| Ag | A | 0.893 | 0.969 | 1.050 | 1.134 | 1.222 | 1.315 | 1.412 |
+| constant-D metals (Zr, Nb, Mo, Ru, Ce, ...) | A | 0.884 | 0.882 | 0.880 | 0.878 | 0.876 | 0.874 | 0.872 |
+| volatiles | B | 0.883 | 0.905 | 0.928 | 0.986 | 1.010 | 1.035 | 1.061 |
+| Cs | B | 0.800 | 0.815 | 0.829 | 0.843 | 0.858 | 0.872 | 0.887 |
+| Sr / Ba / Eu | B | 0.841 | 0.873 | 0.906 | 0.946 | 0.981 | 1.020 | 1.064 |
+| Ag | B | 1.354 | 1.364 | 1.375 | 1.386 | 1.397 | 1.410 | 1.422 |
+| constant-D metals | B | 0.884 | 0.882 | 0.880 | 0.878 | 0.876 | 0.874 | 0.871 |
+
+- The vent fractions move by less than 1 % over ±15 °C.
+- The 7.5e-4 diagnostic shows the same pattern. Per nuclide (including
+  Kr-85, Cs-134, Cs-137, Sr-90, Ag-110m, Ag-111 and Ce-144) is in the CSV.
+
+**Reading.**
+- **The volatiles move 6-8 % per 15 °C**, more than the predicted 3-6 %. Part
+  of that is a step of about 6 % between -5 and 0 °C, where points of the
+  5 % curve cross upstream's 1500 °C switch in the Kr-diffusivity branch.
+- **Cs moves 3-6 %, Sr 14 %, and Ag (Case A) about 25 % per 15 °C.**
+- **The constant-D metals do not move** (-0.7 % per +15 °C, through the vent
+  fraction). These are the bulk of the nuclides at 0.87-0.88. Upstream gives
+  them D = 1e-19 whatever the temperature.
+
+**Verdict.**
+- **The hypothesis is not supported as the explanation for the
+  metal/volatile split.** The largest group of low metals has no temperature
+  dependence, so no temperature error can move it.
+- For the temperature-sensitive groups there is no single uniform shift that
+  reconciles them. Implied shifts to reach ratio 1:
+  - volatiles ≈ +2 °C;
+  - Sr/Ba/Eu ≈ +7 °C;
+  - Cs > +15 °C (not reached in the range);
+  - Ag (Case A) ≈ -8 °C, in the opposite direction.
+- Temperature error of a few °C can explain the volatiles' last 2 %. It
+  cannot explain the ~12 % shortfall of the constant-D metals, which remains
+  undiagnosed.
+
