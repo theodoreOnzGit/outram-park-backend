@@ -58,18 +58,20 @@ use njoy_outram_park_fork::NjoyError;
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
 
-/// Default upper energy \[eV\] of the S(α,β) treatment — the "thermal cutoff".
+/// Default upper energy \[eV\] of the S(α,β) treatment — the "thermal cutoff" —
+/// for a law that carries no stated upper energy of its own (a LEAPR-generated
+/// law, for instance).
 ///
 /// Above it the neutron sees the ordinary free-gas / WMP elastic channel; below
 /// it the bound S(α,β) treatment replaces elastic scattering off the principal
-/// atom. 4 eV is the OpenMC/NJOY convention for light-water thermal tables
-/// (`ENERGY_MAX_THERMAL`-class cutoff): by ~4 eV the S(α,β) cross section has
-/// relaxed to the free-atom limit and the up-scatter probability is negligible,
-/// so the join to free-gas is smooth.
+/// atom. ~~4 eV is the OpenMC/NJOY convention for light-water thermal tables~~.
+/// **CORRECTED 2026-09-30 (GitHub #459):** OpenMC and NJOY use the evaluation's
+/// MF=7/MT=4 `B(4)`: 10.00008 eV for ENDF/B-VIII.0 `tsl-HinH2O`. A table built
+/// from a tape ([`ThermalScattering::from_tape`]) now uses that, and an ACE
+/// table uses its last inelastic energy. This constant remains only the
+/// fallback.
 pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 
-/// Number of incident-energy points on the pre-tabulated σ_inel(E) grid.
-const N_XS_GRID: usize = 200;
 /// Number of incident-energy points on the pre-tabulated emission grid.
 ///
 /// **Sized by measurement, not by taste — and it was wrong until 2026-09-12.**
@@ -266,6 +268,10 @@ const N_OUTGOING: usize = 64;
 const N_COSINES: usize = 8;
 /// Bottom of the pre-tabulation grid \[eV\] — the thermal tail of a Maxwellian.
 const E_MIN_GRID_EV: f64 = 1.0e-5;
+/// Upper end of the span on which `N_EMIT_GRID` was sized
+/// \[eV\]. A table whose cutoff is higher gets proportionally more points in
+/// log energy, so the density below 4 eV is unchanged (GitHub #459).
+const GRID_REFERENCE_TOP_EV: f64 = 4.0;
 /// Number of incident-energy points on the pre-tabulated *incoherent-elastic*
 /// σ(E) / cosine grid. σ_inc_el(E) is smooth (no Bragg edges), so a log grid
 /// resolves it; the coherent channel is stored exactly instead.
@@ -618,9 +624,10 @@ impl ThermalScattering {
     /// all gives [`ThermalElastic::None`] — so light water behaves exactly as it
     /// did before the elastic channel existed.
     ///
-    /// The σ(E) and secondary-distribution grids are baked here (this is the
-    /// expensive step: it integrates the S(α,β) kernel at `N_XS_GRID` +
-    /// `N_EMIT_GRID` incident energies), so the transport loop stays cheap. The
+    /// The σ(E) and secondary-distribution grids are baked here, so the
+    /// transport loop stays cheap. This is the expensive step: THERMR's `calcem`
+    /// table, whose own grid carries σ_inel exactly as NJOY writes ITIE/ITIX
+    /// (GitHub #188, #407), plus `N_EMIT_GRID` emission tables. The
     /// coherent-elastic sawtooth is stored *exactly* as its Bragg-edge table
     /// rather than resampled — see [`CoherentElasticTable`]. The ENDF tape is
     /// read once and shared across all three channel constructors.
@@ -855,7 +862,7 @@ impl ThermalScattering {
     ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
-        use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
+        use uom::si::{energy::electronvolt, thermodynamic_temperature::kelvin};
 
         if n_emit == 0 || n_outgoing == 0 {
             return Err(NjoyError::NotPorted(
@@ -866,21 +873,55 @@ impl ThermalScattering {
         // One parse of the tape, shared by all three channel constructors.
         let sab = IncoherentInelasticScattering::from_tape(tape, mat, t)?;
         let selected_temperature_k = sab.selected_temperature().get::<kelvin>();
-        let cutoff_ev = DEFAULT_THERMAL_CUTOFF_EV;
+        // The evaluation's own upper energy, MF=7/MT=4 B(4), as OpenMC's
+        // library and transport use it (GitHub #459). ~~A hard-coded 4 eV~~
+        // until 2026-09-30: for tsl-HinH2O that dropped the bound treatment
+        // between 4 and 10.00008 eV.
+        //
+        // Precisely: the top of the `calcem` table THERMR builds with
+        // `emax = B(4)`. That is the last ITIE energy NJOY writes (10.0 eV for
+        // tsl-HinH2O) and so OpenMC's `energy_max`.
+        let cutoff_ev = sab
+            .calcem_energy_max_ev(N_COSINES)
+            .unwrap_or_else(|| sab.energy_max_ev());
 
         // σ_inel(E) grid — log-spaced from the thermal tail to the cutoff.
-        let xs_e = log_grid(E_MIN_GRID_EV, cutoff_ev, N_XS_GRID);
-        let xs_sigma: Vec<f64> = xs_e
-            .iter()
-            .map(|&e| {
-                sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(e))
-                    .get::<barn>()
-            })
-            .collect();
+        // Grid counts are DENSITIES, referenced to the 1e-5 to 4 eV span they
+        // were sized on (see `N_EMIT_GRID`), so extending the grid to a higher
+        // cutoff adds points instead of thinning the thermal range. Measured
+        // 2026-09-30 (GitHub #459): stretching 384 points to 10 eV moved the
+        // H-in-H2O fixed point from 292.96 K to 294.94 K
+        // (`tests/thermal_kernel_stationary_distribution.rs`); preserving the
+        // density gives 293.56 K.
+        let dens = |n: usize| {
+            ((n as f64) * (cutoff_ev / E_MIN_GRID_EV).ln()
+                / (GRID_REFERENCE_TOP_EV / E_MIN_GRID_EV).ln())
+            .round()
+            .max(n as f64) as usize
+        };
+        // σ_inel(E): THERMR's own `calcem` xsi on its own incident grid, exactly
+        // the ITIE/ITIX pairs NJOY writes and OpenMC interpolates lin-lin
+        // (GitHub #188, #407). ~~A 200-point log grid filled from
+        // `sab.inelastic_xs`, an independent analytic integral~~ until
+        // 2026-09-30: that is jagged at ±1 % and was measured 6.6 % off NJOY's
+        // ITIX at 1e-5 eV (`tests/thermal_endf_route_xs_vs_njoy.rs`).
+        let (xs_e, xs_sigma): (Vec<f64>, Vec<f64>) = match sab.calcem_inelastic_table(N_COSINES)
+        {
+            Some((e, x)) => e
+                .into_iter()
+                .zip(x)
+                .filter(|&(e, _)| e <= cutoff_ev * (1.0 + 1e-12))
+                .unzip(),
+            None => {
+                return Err(NjoyError::NotPorted(
+                    "ThermalScattering: THERMR's calcem table could not be built for this law",
+                ))
+            }
+        };
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
         // carrying an equiprobable (E', μ) table.
-        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, n_emit);
+        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, dens(n_emit));
         let emit_tables: Vec<EmissionTable> = emit_e
             .iter()
             .map(|&e| {
@@ -890,7 +931,7 @@ impl ThermalScattering {
             })
             .collect();
 
-        let elastic = build_elastic_channel(tape, mat, t)?;
+        let elastic = build_elastic_channel(tape, mat, t, cutoff_ev)?;
 
         Ok(Self {
             name: name.to_string(),
@@ -1380,6 +1421,7 @@ fn build_elastic_channel(
     tape: &njoy_outram_park_fork::endf::tape::Tape,
     mat: i32,
     t: njoy_outram_park_fork::units::Temperature,
+    cutoff_ev: f64,
 ) -> Result<ThermalElastic, NjoyError> {
     use njoy_outram_park_fork::thermr::scattering::{
         CoherentElasticScattering, IncoherentElasticScattering,
@@ -1410,7 +1452,7 @@ fn build_elastic_channel(
 
     match IncoherentElasticScattering::from_tape(tape, mat, t) {
         Ok(ie) => {
-            let e_grid = log_grid(E_MIN_GRID_EV, DEFAULT_THERMAL_CUTOFF_EV, N_INC_ELASTIC_GRID);
+            let e_grid = log_grid(E_MIN_GRID_EV, cutoff_ev, N_INC_ELASTIC_GRID);
             let mut sigma = Vec::with_capacity(e_grid.len());
             let mut cosines = Vec::with_capacity(e_grid.len() * N_INC_ELASTIC_COSINES);
             for &e_ev in &e_grid {

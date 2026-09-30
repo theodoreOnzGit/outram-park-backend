@@ -196,37 +196,29 @@ fn golden_gate(law: &outram_mc_libs::material::thermal::ThermalScattering) {
         .iter()
         .map(|&(e, njoy)| (e, law.total_xs(e), njoy))
         .collect();
-    let worst = assert_table_relative(
+    // The gate is the relative envelope itself; its worst point is printed by
+    // the helper.
+    assert_table_relative(
         "H(H2O) MT=222 incoherent inelastic vs NJOY THERMR",
         &rows,
         H2O_XS_TOL,
         1.0e-6,
     );
 
-    assert!(
-        worst.rel > 0.0,
-        "the H(H2O) cross-section error has changed SIGN (now {:+.2} % at {:.4e} eV). \
-         The recorded defect is a consistent EXCESS of ~+1 % (GitHub #188); a deficit \
-         is a different bug and this gate's premise no longer holds.",
-        worst.rel * 100.0,
-        worst.at,
-    );
-    println!(
-        "  [PASS] the deviation is a consistent excess ({:+.2} % worst), as recorded",
-        worst.rel * 100.0
-    );
+    // ~~A sign assertion (a consistent excess)~~ stood here. It was stale
+    // since 2026-09-13, when the deficit replaced the excess, and it was removed
+    // 2026-09-30 once `calcem` xsi brought the residual to noise around zero
+    // (GitHub #188, #407).
 
     let (lo, hi) = H2O_LAW_UPPER_BOUND_EV;
     assert!(
         law.total_xs(lo) > 0.0,
-        "the H(H2O) law no longer covers {lo} eV; it did on 2026-09-11 (21.257 b)"
+        "the H(H2O) law no longer covers {lo} eV, just below NJOY's 10 eV top"
     );
     assert_eq!(
         law.total_xs(hi),
         0.0,
-        "the H(H2O) law now extends past {hi} eV. That may be an improvement — NJOY's \
-         own run reaches 10 eV — but the handover to free gas has moved, and the \
-         transport's thermal/epithermal seam moved with it."
+        "the H(H2O) law now extends past {hi} eV, the tape's B(4); NJOY's table stops at 10 eV (GitHub #459)."
     );
-    println!("  [PASS] the law still ends between {lo} and {hi} eV (NJOY's runs to 10 eV)");
+    println!("  [PASS] the law ends between {lo} and {hi} eV, where NJOY's does (GitHub #459)");
 }
