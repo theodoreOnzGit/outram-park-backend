@@ -14,9 +14,11 @@ boon-lay (TRISO release) -> SEMBAWANG source term -> CHANGI (air, ground) -> RED
                             RAFFLES: uncertainty propagation across the whole chain (#238)
 ```
 
-Wired in today: `boon-lay` and `changi`. Not yet: `raffles` (#238) and
-`redhill` (a placeholder). **No dose is computed**, and none of this is
-described as PSA. See `docs/ecosystem-naming.md` decision 7.
+Wired in today: `boon-lay`, `changi` and, since 2026-09-30, `buangkok`. Not yet:
+`raffles` (#238) and `redhill` (a placeholder). ~~**No dose is computed**~~
+**UPDATED 2026-09-30:** the library still computes no dose. One example,
+`examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose at
+400 m through `buangkok`'s Gaussian plume. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
 
 ## What exists, and what does not
 

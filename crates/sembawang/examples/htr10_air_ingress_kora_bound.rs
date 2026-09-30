@@ -64,19 +64,65 @@
 //!
 //! | Quantity | Value |
 //! |---|---|
+//! **Updated 2026-09-30:** the release window is now the **96 h dose
+//! period**. The failure fractions stay at their 140 h values.
+//!
+//! | Quantity | Value |
+//! |---|---|
 //! | boon-lay increment Δφ_BL, 1400 °C for 140 h (T_B 776 °C stand-in) | **3.768e-7**: φ₁ 3.768e-7, φ₂ 0, end-of-irradiation φ₁ 1.2e-12 |
 //! | full-failure fraction | **2.0004e-3** = 3e-4 + 5e-4 + 3.768e-7 + 1.2e-3 |
 //! | share carried by KORA f_ox | **60.0 %** (boon-lay's is negligible, 0.02 %) |
 //! | SiC-only fraction (stand-ins) | 1.36e-4 |
-//! | TRISO-ATOPS release, total over released nuclides | **1.998e13 Bq**. Upstream venting and `FullFlowThrough` agree exactly |
-//! | released / core, noble gases and iodine | **2.29e-4**, identical for every noble gas and iodine (one TRISO-ATOPS transport bucket; not decomposed here) |
-//! | released / core, Cs-134, Cs-137 | 1.86e-3 (all six fractions; metals include the SiC-only class) |
-//! | released / core, Sr-89, Sr-90 | 2.32e-5 |
-//! | released / core, **Ag-110m** | **5.57e-2** (breakthrough through **intact** SiC dominates) |
-//! | Circulating activity (Liu & Cao Table 3), added at 100 % | 4.551e9 Bq, negligible beside the fuel release |
-//! | Screened out (t½ < 5.6 h) | Kr-83m, Kr-85m, Kr-87, Kr-88, I-132, I-134 |
+//! | TRISO-ATOPS release over the first 96 h | **1.741e13 Bq**. Upstream venting and `FullFlowThrough` agree exactly |
+//! | released / core: noble gases and I | **1.91e-4**, identical for every noble gas and iodine (one TRISO-ATOPS transport bucket; not decomposed here) |
+//! | released / core: Cs-134, Cs-137 | 1.68e-3 |
+//! | released / core: Sr-89, Sr-90 | 1.92e-5 |
+//! | released / core: **Ag-110m** | **2.49e-2** (breakthrough through intact SiC) |
+//! | Circulating activity (Liu & Cao Table 3), at 100 % | 5.75e9 Bq, negligible |
+//! | Screened out (t½ < 3.84 h) | Kr-83m, Kr-87, Kr-88, I-132, I-134 |
 //! | Not in TRISO-ATOPS's table | H-3, Xe-135m, Rb-88 |
-//! | Caveats | `negative_atom_count_seen` = true: the known silver floor, so Ag-110m is slightly **over**-stated (see `Caveats`) |
+//! | Caveats | `negative_atom_count_seen` = true: the known silver floor, so Ag-110m is slightly **over**-stated |
+//!
+//! **Maximum dose at 400 m, first 96 h** (adult; `buangkok`'s pyDOSEIA
+//! single-plume Gaussian, ground release, ground-level centreline, 1 m/s).
+//! Every release is taken to blow over the one receptor, with no change of
+//! wind direction:
+//!
+//! | Quantity | Value |
+//! |---|---|
+//! | χ/Q by class, A→F (s/m³) | 4.66e-5, 1.28e-4, 2.57e-4, 6.28e-4, 1.24e-3, **2.857e-3** |
+//! | Class used | **F** (the largest, tested) |
+//! | Submersion (FGR-15 2025, all 14 nuclides) | **1.40 mSv** (I-135 0.70, I-133 0.32, Cs-134 0.11) |
+//! | Inhalation (FGR-11, B = 3.33e-4 m³/s) | **26.5 mSv**: I-131 15.8, Cs-137 9.55, Ag-110m 1.11 |
+//! | **Total** | **≈ 28 mSv**, and it is an **under-count**, see below |
+//!
+//! **Maximum dose vs distance** (same assumptions and the same under-count; the
+//! worst class is re-chosen at each distance, and is F everywhere):
+//!
+//! | Distance | 400 m | 600 m | 800 m | 1 km | 1.5 km | **2 km** | 3 km | 5 km | 10 km |
+//! |---|---|---|---|---|---|---|---|---|---|
+//! | Dose (mSv) | 27.9 | 14.1 | 8.74 | 6.03 | 3.11 | **2.01** | 1.13 | 0.56 | 0.23 |
+//!
+//! **The dose falls to 10 mSv at ≈ 738 m** (bisection, class F).
+//!
+//! **Under-counted, stated:**
+//! - `buangkok`'s FGR-11 table carries inhalation coefficients for **only
+//!   Ag-110m, I-131 and Cs-137**. I-133, I-135, Cs-134, Sr-89 and Sr-90 have
+//!   none, and are **missing, not zero**. I-133's Ψ is twice I-131's, so its
+//!   missing inhalation term is likely several mSv (**not computed**).
+//! - Not computed: groundshine (the plume is undepleted, #437), ingestion,
+//!   the screened-out short-lived nuclides (Kr-88, I-132, I-134 among them),
+//!   and H-3, Xe-135m, Rb-88.
+//!
+//! **Conservative, stated:**
+//! - class F at 1 m/s for 96 h with no direction change;
+//! - ground release, no building wake, no depletion, no decay in transit;
+//! - a 1400 °C whole-core hold; the failure fractions at their 140 h values.
+//!
+//! **Context only, not validation:** Liu & Cao 2002 Table 9 gives whole-body
+//! doses of 0.077 mSv (depressurisation) and 0.20 mSv (water ingress) at
+//! 0.25 km, for **different** accidents, with AIRDOS-EPA and measured site
+//! meteorology. They are not a comparator for this case.
 //!
 //! ~~**FINDING: TRISO-ATOPS releases nothing from an isothermal hold, by
 //! construction** … TRISO-ATOPS has no transport path for air ingress.~~
@@ -100,6 +146,16 @@
 //! #420 is sourced).
 
 use boon_lay::fuel_failure::htr10 as panama_htr10;
+use buangkok::coefficients::{
+    external_coefficient, fgr11_inhalation, fgr11_inhalation_max_over_classes,
+    fgr15_air_submersion, fgr15_short_lived_progeny,
+};
+use buangkok::pydoseia::dcf::AgeBracket;
+use buangkok::pydoseia::dispersion::{
+    dilution_single_plume_no_met, MeanSpeedScaling, PlumeGeometry, Receptor, StabilityClass,
+};
+use buangkok::pydoseia::dose::{submersion_dose, Release};
+use buangkok::published::accident_dose_by_distance::htr10_accident_dose_by_distance;
 use boon_lay::triso_atops_fork::accident::AccidentFractions;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
 use changi::activity::inventory::htr10_equilibrium_core;
@@ -108,7 +164,8 @@ use sembawang::accident::release::{accident_release, accident_release_with_venti
 use sembawang::htr10::{self, Htr10Geometry};
 use sembawang::inventory::{CoreInventory, NuclideInventory};
 use sembawang::scenario::TemperatureTransient;
-use uom::si::f64::{ThermodynamicTemperature, Time};
+use uom::si::f64::{Length, Radioactivity, ThermodynamicTemperature, Time};
+use uom::si::length::{kilometer, meter};
 use uom::si::radioactivity::becquerel;
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
@@ -134,8 +191,28 @@ const F_INC_SIC_STAND_IN: f64 = 3.6e-5;
 /// (IAEA-TECDOC-978 Table 5-7; Kugeler 2017 Table 9). Experimental.
 const F_OX_KORA: f64 = 1.2e-3;
 
-/// Time samples in the flat transient.
-const SAMPLES: usize = 141;
+/// Receptor distance \[m\] (#209's order-of-magnitude question).
+const RECEPTOR_M: f64 = 400.0;
+/// Release height \[m\]: ground level, no plume rise, no stack credit (#436).
+const RELEASE_HEIGHT_M: f64 = 0.0;
+/// Wind measurement height \[m\]. pyDOSEIA raises a release below 10 m to
+/// 10 m in its height correction, so with 10 m here the wind is exactly 1 m/s.
+const MEASUREMENT_HEIGHT_M: f64 = 10.0;
+/// Breathing rate \[m³/s\]: FGR-11's "normal breathing rate" 0.020 m³/min,
+/// the highest in the corpus (#437;
+/// `crates/kovan-literature/derived/epa-fgr11-fgr13-breathing-rates.md`).
+/// pyDOSEIA's own is 8400 m³/y (2.66e-4 m³/s), 20 % lower.
+const BREATHING_M3_PER_S: f64 = 0.020 / 60.0;
+
+/// Dose integration period \[h\]: the 4-day early phase (maintainer,
+/// 2026-09-30: "max dose, 96 h"). The RELEASE transient runs to this time, so
+/// the dose counts everything released in the first 96 h. The failure
+/// fractions stay at their 140 h values (KORA's measurement and the 140 h
+/// boon-lay hold), which errs high, since failure only grows with time.
+const DOSE_PERIOD_HOURS: f64 = 96.0;
+
+/// Time samples in the flat release transient.
+const SAMPLES: usize = 97;
 /// Integration steps for the boon-lay isothermal hold.
 const BL_STEPS: usize = 200;
 /// A single node: a uniform hold has no gradient to resolve.
@@ -144,6 +221,25 @@ const N_AXIAL: usize = 1;
 
 /// Nuclides to show first, the five `htgr_sim_v1` tracks.
 const HEADLINE: [&str; 5] = ["Kr-85", "Xe-133", "I-131", "Cs-137", "Ag-110m"];
+
+/// Distances for the dose sweep \[m\].
+const SWEEP_M: [f64; 9] = [400.0, 600.0, 800.0, 1000.0, 1500.0, 2000.0, 3000.0, 5000.0, 10000.0];
+/// Dose level whose distance is reported \[Sv\] (maintainer's question: 10 mSv).
+const DOSE_LEVEL_SV: f64 = 10.0e-3;
+
+/// The largest single-plume χ/Q over classes A-F at `x_m`, and its class.
+fn max_chi_over_q(x_m: f64, geometry: PlumeGeometry) -> (StabilityClass, f64) {
+    let per_class = dilution_single_plume_no_met(
+        Length::new::<meter>(x_m),
+        geometry,
+        MeanSpeedScaling::UnitSpeed,
+    );
+    StabilityClass::ALL
+        .iter()
+        .zip(per_class.iter())
+        .map(|(c, d)| (*c, d.seconds_per_cubic_meter()))
+        .fold((StabilityClass::A, 0.0), |a, b| if b.1 > a.1 { b } else { a })
+}
 
 /// HTR-10 geometry from `tampines` (TECDOC-1382 part 2 Table 4-17), as in the
 /// `htr10_dlofc_panama_source_term` example.
@@ -172,10 +268,11 @@ fn htr10_inventory() -> (CoreInventory, Vec<(String, f64)>) {
     (CoreInventory::new(kept, N_RADIAL, N_AXIAL), dropped)
 }
 
-/// A flat `HOLD_CELSIUS` history over `HOLD_HOURS`, uniform over the nodes.
+/// A flat `HOLD_CELSIUS` history over `DOSE_PERIOD_HOURS` (the release
+/// window), uniform over the nodes.
 fn flat_hold() -> TemperatureTransient {
     let times: Vec<Time> = (0..SAMPLES)
-        .map(|i| Time::new::<hour>(HOLD_HOURS * i as f64 / (SAMPLES - 1) as f64))
+        .map(|i| Time::new::<hour>(DOSE_PERIOD_HOURS * i as f64 / (SAMPLES - 1) as f64))
         .collect();
     let t = ThermodynamicTemperature::new::<degree_celsius>(HOLD_CELSIUS);
     let temperatures = vec![vec![vec![t; N_AXIAL]; SAMPLES]; N_RADIAL];
@@ -264,7 +361,7 @@ fn main() {
             .map_or(f64::NAN, |e| e.activity.get::<becquerel>())
     };
 
-    println!("-- 3. release [Bq]: TRISO-ATOPS (empty pools) + circulating (100 %)");
+    println!("-- 3. release [Bq] over the first {DOSE_PERIOD_HOURS} h: TRISO-ATOPS (empty pools) + circulating (100 %)");
     println!("   nuclide     core inventory   TRISO-ATOPS    + circulating   = total     total/core");
     let mut order: Vec<&(String, f64)> = atops.iter().collect();
     order.sort_by_key(|(n, _)| HEADLINE.iter().position(|h| h == n).unwrap_or(HEADLINE.len()));
@@ -286,7 +383,7 @@ fn main() {
 
     // ------------------------------------------------ 4. what the chain dropped
     println!("-- 4. reported, not corrected");
-    println!("   screened out (t1/2 < 4 % of {HOLD_HOURS} h): {:?}", out.screened_out);
+    println!("   screened out (t1/2 < 4 % of {DOSE_PERIOD_HOURS} h): {:?}", out.screened_out);
     println!(
         "   not in TRISO-ATOPS's nuclide table: {:?}",
         dropped.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>()
@@ -304,4 +401,121 @@ fn main() {
         "   venting: Upstream (uniform-constant branch, frac = 1) total {total_atops:.4e} Bq; \
          FullFlowThrough total {ff_total:.4e} Bq (must agree)"
     );
+
+    // ------------------------------------------------ 5. dose at 400 m (buangkok)
+    // Gaussian plume: buangkok's pyDOSEIA port, single (instantaneous) plume,
+    // no met data, 1 m/s, ground-level release, ground-level centreline
+    // receptor, total reflection. Every class A-F is evaluated and the LARGEST
+    // chi/Q is used (#436: the worst class is tested, not assumed).
+    let geometry = PlumeGeometry {
+        release_height: Length::new::<meter>(RELEASE_HEIGHT_M),
+        measurement_height: Length::new::<meter>(MEASUREMENT_HEIGHT_M),
+        receptor: Receptor::GroundLevelCentreline,
+    };
+    let per_class = dilution_single_plume_no_met(
+        Length::new::<meter>(RECEPTOR_M),
+        geometry,
+        MeanSpeedScaling::UnitSpeed,
+    );
+    println!("\n-- 5. MAXIMUM dose at {RECEPTOR_M} m, first {DOSE_PERIOD_HOURS} h (buangkok Gaussian plume, FGR, adult)");
+    println!("   every release in the {DOSE_PERIOD_HOURS} h window is taken to pass the receptor at the worst class, 1 m/s,");
+    println!("   with no wind-direction change: the whole release blows over one point.");
+    println!("   chi/Q [s/m3] by class, single plume, 1 m/s, ground release, centreline:");
+    let mut worst = (StabilityClass::A, 0.0_f64);
+    for (class, d) in StabilityClass::ALL.iter().zip(per_class.iter()) {
+        let v = d.seconds_per_cubic_meter();
+        println!("     {class:?}: {v:.4e}");
+        if v > worst.1 {
+            worst = (*class, v);
+        }
+    }
+    let chi = per_class[StabilityClass::ALL.iter().position(|c| *c == worst.0).unwrap()];
+    println!("   used: class {:?}, chi/Q = {:.4e} s/m3 (the largest)\n", worst.0, worst.1);
+
+    let sub_table = fgr15_air_submersion();
+    let chains = fgr15_short_lived_progeny();
+    let inh_table = fgr11_inhalation();
+    println!("   nuclide     Q [Bq]       Psi [Bq s/m3]   submersion [Sv]   inhalation [Sv]   total [Sv]");
+    let (mut e_sub_sum, mut e_inh_sum) = (0.0, 0.0);
+    let mut missing_sub = Vec::new();
+    let mut missing_inh = Vec::new();
+    for (n, bq) in &atops {
+        let q = bq + circ_bq(n);
+        let psi = chi.seconds_per_cubic_meter() * q;
+        let release = Release::Instantaneous(Radioactivity::new::<becquerel>(q));
+        let e_sub = external_coefficient(&sub_table, &chains, n, AgeBracket::Adult)
+            .map(|dcf| submersion_dose(chi, release, dcf).sieverts());
+        // Inhalation by hand (Psi * DCF * B), so the #437 breathing rate is
+        // used; buangkok's inhalation_dose hard-codes pyDOSEIA's rate.
+        let e_inh = fgr11_inhalation_max_over_classes(&inh_table, n, AgeBracket::Adult)
+            .map(|dcf| psi * dcf * BREATHING_M3_PER_S);
+        let fmt = |e: Option<f64>| e.map_or_else(|| "MISSING".to_string(), |v| format!("{v:.3e}"));
+        println!(
+            "   {n:<10} {q:>11.3e}   {psi:>13.3e}   {:>15}   {:>15}   {:>10.3e}",
+            fmt(e_sub),
+            fmt(e_inh),
+            e_sub.unwrap_or(0.0) + e_inh.unwrap_or(0.0)
+        );
+        match e_sub {
+            Some(v) => e_sub_sum += v,
+            None => missing_sub.push(n.as_str()),
+        }
+        match e_inh {
+            Some(v) => e_inh_sum += v,
+            None => missing_inh.push(n.as_str()),
+        }
+    }
+    println!(
+        "   TOTAL over nuclides WITH a coefficient: submersion {e_sub_sum:.3e} Sv, inhalation {e_inh_sum:.3e} Sv, sum {:.3e} Sv = {:.3e} mSv",
+        e_sub_sum + e_inh_sum,
+        1e3 * (e_sub_sum + e_inh_sum)
+    );
+    println!("   no submersion coefficient (NOT zero, missing): {missing_sub:?}");
+    println!("   no inhalation coefficient (FGR-11 adult; noble gases have none by design): {missing_inh:?}");
+    println!("   NOT computed: groundshine (the plume is undepleted, #437), ingestion, the screened-out");
+    println!("   short-lived nuclides, and H-3 / Xe-135m / Rb-88 (not in TRISO-ATOPS).");
+
+    // Calculated reference, not validation: Liu & Cao Table 9 (AIRDOS-EPA, measured
+    // site met, their depressurisation and water-ingress releases, not this case).
+    println!("\n   reference (Liu & Cao 2002 Table 9, a DIFFERENT scenario and model; context only):");
+    for row in htr10_accident_dose_by_distance().iter().take(2) {
+        println!(
+            "     {:.2} km: depressurisation whole-body {:.1e} mSv, water ingress whole-body {:.1e} mSv",
+            row.distance.get::<kilometer>(),
+            row.depressurization.whole_body_msv,
+            row.water_ingress.whole_body_msv
+        );
+    }
+
+    // ------------------------------------------------ 6. dose vs distance
+    // The release is fixed, so every pathway above is linear in chi/Q: the dose
+    // at x is (dose at 400 m) * maxchi(x) / maxchi(400 m), with the worst class
+    // re-chosen at each x. Same under-count as section 5 (missing coefficients).
+    let dose_per_chi = (e_sub_sum + e_inh_sum) / worst.1;
+    println!("\n-- 6. MAXIMUM dose vs distance, first {DOSE_PERIOD_HOURS} h (same under-count as section 5)");
+    println!("   distance [m]   class   chi/Q [s/m3]    dose [mSv]");
+    for x in SWEEP_M {
+        let (c, v) = max_chi_over_q(x, geometry);
+        println!("   {x:>12.0}   {c:?}       {v:>11.4e}   {:>10.3}", 1e3 * dose_per_chi * v);
+    }
+    // Bisection for the distance where the dose falls to DOSE_LEVEL_SV
+    // (chi/Q is strictly decreasing in x for every class).
+    let dose_at = |x: f64| dose_per_chi * max_chi_over_q(x, geometry).1;
+    if dose_at(SWEEP_M[0]) > DOSE_LEVEL_SV {
+        let (mut lo, mut hi) = (SWEEP_M[0], 100_000.0_f64);
+        if dose_at(hi) < DOSE_LEVEL_SV {
+            for _ in 0..60 {
+                let mid = 0.5 * (lo + hi);
+                if dose_at(mid) > DOSE_LEVEL_SV { lo = mid } else { hi = mid }
+            }
+            println!(
+                "   dose falls to {:.0} mSv at x = {:.0} m (class {:?})",
+                1e3 * DOSE_LEVEL_SV,
+                hi,
+                max_chi_over_q(hi, geometry).0
+            );
+        } else {
+            println!("   dose is still above {:.0} mSv at 100 km", 1e3 * DOSE_LEVEL_SV);
+        }
+    }
 }

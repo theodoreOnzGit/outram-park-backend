@@ -25,6 +25,10 @@ boon-lay  = { workspace = true }
 # reverse: changi defines the source-term types its own driver consumes, which
 # is what lets changi's end-to-end example run with this crate untouched.
 changi    = { workspace = true }
+# Dose (maintainer direction, 2026-09-30): the Gaussian plume and the dose
+# pathways at the end of the offsite chain. buangkok depends on changi and
+# petir only, so the edge sembawang -> buangkok introduces no cycle.
+buangkok  = { workspace = true }
 uom       = { workspace = true }
 thiserror = { workspace = true }
 

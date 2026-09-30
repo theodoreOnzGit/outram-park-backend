@@ -25,7 +25,12 @@ decision 7).
   a dependency).
 
 The chain ends at activity released, air concentration and deposition.
-**No dose quantity is computed**, and none of this is described as PSA.
+**The library computes no dose quantity**, and none of this is described as
+PSA. ~~(no dose anywhere in the crate)~~ **UPDATED 2026-09-30:** `buangkok`
+is now a dependency (maintainer direction), and **one example**,
+`examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose
+at distance through `buangkok`'s Gaussian plume and FGR coefficients. The
+dose arithmetic is `buangkok`'s, not this crate's.
 
 # STATUS: partially implemented, and the unimplemented part is the larger one
 
@@ -112,8 +117,9 @@ intent, not of progress.
   ingrowth.
 - **Containment transport, pool scrubbing or iodine chemistry.** What leaves
   the fuel is treated as what leaves the building.
-- **Any dose quantity**, here or in [`changi`]. The chain stops at activity
-  in air and on the ground.
+- **Any dose quantity in the library**, here or in [`changi`]. The library
+  chain stops at activity in air and on the ground. Dose comes from
+  `buangkok`, and is used only by the `htr10_air_ingress_kora_bound` example.
 
 # Intended use, and what it will never be for
 
