@@ -412,6 +412,21 @@ Energy 5, 1–93.
 - *Used by:* `op-jyyp.8` (fix the suspect decay-heat model), digitiser V&V.
 - *Note:* 1980 scan OCR'd in 2003 — text quality imperfect in places.
 
+**`liu2002htr10fp`** — Liu Yuanzhong and Cao Jianzhu (2002). *Fission product
+release and its environment impact for normal reactor operations and for
+relevant accidents.* Nuclear Engineering and Design 218, 81–90.
+[doi:10.1016/S0029-5493(02)00200-5](https://doi.org/10.1016/S0029-5493(02)00200-5).
+© 2002 Elsevier, all rights reserved. Catalogued 2026-09-30; the copy is in the private repository as `yuanzhong2002fission.pdf`.
+- *Good for:* the HTR-10 source term. Its Tables 1, 3, 5 and 8 are already in `changi::activity`, and Tables 7 and 9 in `buangkok::published`. The design fuel-defect fractions and the accident release assumptions are in **`derived/liu-cao2002-htr10-source-term-assumptions.md`**.
+- *Used by:* `changi::activity` (inventory, circulating, airborne and accident release), `buangkok::published`, the conservative bound #434/#435.
+
+**`gao2002htr10transient`** — Gao Zuying and Shi Lei (2002). *Thermal hydraulic
+transient analysis of the HTR-10.* Nuclear Engineering and Design 218, 65–80.
+[doi:10.1016/S0029-5493(02)00199-1](https://doi.org/10.1016/S0029-5493(02)00199-1).
+© 2002 Elsevier, all rights reserved. **Not the same paper as `gao2002htr10th`** (51–64). Catalogued 2026-09-30; the copy is in the private repository as `zuying2002thermal.pdf`.
+- *Good for:* HTR-10's accident-analysis results (THERMIX/REACT, so **calculated, not measured**). Table 5 gives peak fuel temperature, power, pressure, graphite corrosion and particle exposure per initiating event; §5.3 covers depressurisation and air ingress, and §5.4 water ingress. Transcribed in **`derived/gao-shi2002-htr10-accident-results.md`**.
+- *Used by:* `htgr_sim_v1` `physics/depressurisation.rs` (§5.3.1); #420, #435, #441, #442.
+
 ## Proprietary tier — reports (`proprietary/reports/`)
 
 **`terry2005evaluation`** — Terry, W. K., Kim, S. S., Montierth, L. M.,
@@ -453,6 +468,13 @@ U.S. NRC, October 2011 (read from the title page; not catalogued before
 2026-09-22).
 - *Tier rationale:* no copyright or licence statement found in the document.
   Moved from `open/reports/` on 2026-09-22 (maintainer decision) to the private repository `propreitrary-literature-theodore`.
+
+**`iaea1997tecdoc978`** — IAEA (1997). *Fuel performance and fission product
+behaviour in gas cooled reactors.* IAEA-TECDOC-978, Vienna. 533 pp.
+Catalogued 2026-09-30; the copy is in the private repository as `2002iaeatecdoc978.pdf`.
+- *Tier rationale:* proprietary, following the 2026-09-22 reclassification of TECDOC-1382 (no verified reuse licence).
+- *Good for:* Chapter 5, water and air ingress. §5.4 has the JAERI burning tests (Table 5-6), KORA (Table 5-7, the same data as Kugeler 2017 Table 9), Nabielek's air-ingress failure model (Eqs. 5-9 to 5-11, two-mechanism constants) and the SiC active/passive oxidation discussion. Eq. 5-2 is the kernel-hydrolysis burst already in `boon_lay::chemistry::kernel_hydrolysis`. Transcribed in **`derived/tecdoc978-air-oxidation-particle-failure.md`**.
+- *Used by:* `boon_lay::chemistry::kernel_hydrolysis`; #435, #441, #443.
 
 ## Proprietary tier — theses (`proprietary/theses/`)
 
@@ -527,6 +549,13 @@ covering letter bound in front as an addendum.
   alongside `op-szai`.
 
 ## Librarian history
+
+- **2026-09-30** — three proprietary documents catalogued: `liu2002htr10fp`, `gao2002htr10transient` and `iaea1997tecdoc978`. Five derived datasets were added (facts with provenance, extracted by an AI agent, **not human-reviewed**) for the fission-product bound #434 and the oxidation epic #441:
+  - `liu-cao2002-htr10-source-term-assumptions.md`
+  - `gao-shi2002-htr10-accident-results.md`
+  - `tecdoc978-air-oxidation-particle-failure.md`
+  - `kugeler2017-oxidising-accident-tests.md`
+  - `epa-fgr11-fgr13-breathing-rates.md`
 
 - **2026-09-28** — two U.S. EPA Federal Guidance Reports added to **Kovan's
   standard open corpus** (maintainer request), as
