@@ -13008,10 +13008,15 @@ What belongs here, and nothing GUI-side:
 - [`ensure_repo`]: make a directory a Git repository, by leaving an
   existing one alone, cloning a remote into it, or initialising it locally
   so the user can add a remote and push later.
-- [`ensure_library_corpora`]: do that for a Kovan folder's two corpus
+- [`ensure_library_corpora`]: do that for ~~a Kovan folder's two corpus
   repositories, the **open corpus** ([`KovanRoot::open_corpus_dir`]) and
   the **proprietary corpus** ([`KovanRoot::restricted_sources_dir`]), from
-  the remotes in its `[corpora]` table ([`crate::root::CorporaConfig`]).
+  the remotes in its `[corpora]` table ([`crate::root::CorporaConfig`])~~
+  **CORRECTED 2026-09-30** (it already covered the standard corpus too,
+  and since GitHub issue #458 a tier may hold several repositories):
+  **every** corpus repository of the folder, standard, open and
+  proprietary, as [`crate::corpus_tiers::resolve`] lists them (the
+  `[corpora]` remotes are each tier's first repository).
 - [`ensure_standard_corpus`]: clone Kovan's standard corpus
   ([`crate::corpus::CORPUS_REPOSITORY_URL`]) once into the platform
   application-data folder, shared by every Kovan folder.
@@ -13466,13 +13471,16 @@ Fields:
 - **WithSubscriber**
 #### Struct `CorporaSetup`
 
-The outcome for each of a Kovan folder's three corpus repositories.
+The outcome for each of a Kovan folder's corpus repositories: the first
+repository of each tier in the three named fields, as before GitHub
+issue #458, and every further one in [`Self::others`].
 
 ```rust
 pub struct CorporaSetup {
     pub standard: Result<RepoState, CorpusRepoError>,
     pub open: Result<RepoState, CorpusRepoError>,
     pub proprietary: Result<RepoState, CorpusRepoError>,
+    pub others: Vec<(crate::corpus_tiers::Tier, String, Result<RepoState, CorpusRepoError>)>,
 }
 ```
 
@@ -13480,9 +13488,10 @@ pub struct CorporaSetup {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `standard` | `Result<RepoState, CorpusRepoError>` | Kovan's standard corpus, the same for every user. |
-| `open` | `Result<RepoState, CorpusRepoError>` | The user's open corpus. |
-| `proprietary` | `Result<RepoState, CorpusRepoError>` | The user's proprietary (closed) corpus. |
+| `standard` | `Result<RepoState, CorpusRepoError>` | Kovan's standard corpus, the same for every user (the tier's first<br>repository). |
+| `open` | `Result<RepoState, CorpusRepoError>` | The user's open corpus (the tier's first repository). |
+| `proprietary` | `Result<RepoState, CorpusRepoError>` | The user's proprietary (closed) corpus (the tier's first repository). |
+| `others` | `Vec<(crate::corpus_tiers::Tier, String, Result<RepoState, CorpusRepoError>)>` | Every further repository (`[[repos.<tier>]]`, #458), in order, with<br>its tier and name. |
 
 ##### Implementations
 
@@ -13632,7 +13641,7 @@ pub fn ensure_repo(dir: &std::path::Path, remote: Option<&str>, branch: Option<&
 
 #### Function `ensure_library_corpora`
 
-Make the three corpus repositories of `root` (maintainer direction,
+Make the corpus repositories of `root` (maintainer direction,
 2026-09-22: a Kovan folder is its own repository plus the standard, open
 and closed corpora):
 
@@ -13640,7 +13649,10 @@ and closed corpora):
   [`crate::corpus::CORPUS_REPOSITORY_URL`], the same for every user;
 - **open corpus** at [`KovanRoot::open_corpus_dir`] and **proprietary
   corpus** at [`KovanRoot::restricted_sources_dir`], from the user's own
-  remotes in `[corpora]`.
+  remotes in `[corpora]`;
+- since GitHub issue #458, **every further repository** of each tier
+  (`[[repos.<tier>]]`, [`crate::corpus_tiers`]), from its own remote and
+  branch, reported in [`CorporaSetup::others`].
 
 Each is attempted independently; one failing does not stop the others.
 See [`ensure_corpus`] for how each is set up.
@@ -13651,8 +13663,14 @@ pub fn ensure_library_corpora(root: &crate::root::KovanRoot) -> CorporaSetup { /
 
 #### Function `ensure_library_corpora_with`
 
-[`ensure_library_corpora`] with the standard corpus's remote and branch
-given, so tests can use a local repository instead of the network.
+[`ensure_library_corpora`] with the **built-in** standard corpus's remote
+and branch given, so tests can use a local repository instead of the
+network. Every repository of every tier ([`crate::corpus_tiers`], #458)
+is set up, each independently, from its own remote and branch.
+
+The proprietary repository at `[paths] restricted_sources` is set up
+from `[corpora] proprietary_remote` only, exactly as before #458 (a
+`[private_submodule] remote` alone never made setup clone it).
 
 ```rust
 pub fn ensure_library_corpora_with(root: &crate::root::KovanRoot, standard_remote: &str, standard_branch: &str) -> CorporaSetup { /* ... */ }
@@ -13781,6 +13799,1624 @@ the workspace root.
 
 ```rust
 pub const WORKSPACE_CORPUS_PATH: &str = "crates/kovan-literature/reactor-literature";
+```
+
+## Module `corpus_tiers`
+
+Several literature repositories per corpus tier (GitHub issue #458).
+
+Maintainer, 2026-09-30: *"kovan should be able to take on multiple
+standard, multiple open and multiple propreitrary github repos in their
+corpus"*. Each tier used to be exactly one repository: the standard
+corpus at [`crate::root::RootPaths::standard_corpus`] from
+[`crate::corpus::CORPUS_REPOSITORY_URL`], the open corpus at
+[`crate::root::RootPaths::open_sources`] and the proprietary corpus at
+[`crate::root::RootPaths::restricted_sources`]. A repository is to be
+split by topic as it nears ~1 GB (GitHub's recommended size, #454), so
+each tier now holds any number of them.
+
+What belongs here: the `[repos]` table of `kovan_root.toml`
+([`RepoTiers`]), resolving it together with the older single-repository
+settings into one ordered list ([`resolve`], [`crate::root::KovanRoot::corpus_repos`]),
+checking it ([`validate`]), the "is this remote public?" guard for
+proprietary pushes ([`public_remote_reason`]), and the size warning
+([`size_warning`]). What does not: cloning, committing and pushing, which
+stay in [`crate::corpus_repos`], [`crate::repository`] and
+[`crate::save_push`] and now loop over this list.
+
+# `kovan_root.toml`
+
+```toml
+[[repos.standard]]
+name = "htgr-standard"
+remote = "https://github.com/example/htgr-standard-corpus.git"
+path = "literature/standard-htgr"
+branch = "main"
+
+[[repos.open]]
+name = "open-thermal-hydraulics"
+remote = "https://github.com/example/open-th.git"
+path = "literature/open-th"
+default = true          # where an open ingest goes unless the user picks another
+
+[[repos.proprietary]]
+name = "proprietary-books"
+remote = "https://github.com/example/private-books.git"
+path = "literature/proprietary-books"
+
+[repos]
+known_public = ["https://github.com/example/some-public-mirror.git"]
+# builtin_standard = false   # drop Kovan's built-in standard repository
+```
+
+Per repository: `name` (unique across every tier; recorded in a paper's
+`[source] repo`), `path` (relative to the Kovan folder), and optionally
+`remote`, `branch`, `default` and, for a standard repository only,
+`writable`.
+
+# Backward compatibility (no migration needed)
+
+A file without `[repos]` behaves exactly as before. The older settings
+are each tier's **implicit first repository**:
+
+| tier | name | path | remote |
+|---|---|---|---|
+| standard | `kovan-standard` ([`BUILTIN_STANDARD_REPOS`]) | `[paths] standard_corpus` | [`crate::corpus::CORPUS_REPOSITORY_URL`] |
+| open | `open` ([`LEGACY_OPEN`]) | `[paths] open_sources` | `[corpora] open_remote` |
+| proprietary | `proprietary` ([`LEGACY_PROPRIETARY`]) | `[paths] restricted_sources` | `[corpora] proprietary_remote`, else `[private_submodule] remote` |
+
+`[[repos.<tier>]]` entries are appended after it. An entry with the same
+`path` as the implicit one (or, for standard, the same remote as a
+built-in) **replaces** it in place, which is how an existing repository
+is renamed, made the default or given a branch without moving it.
+
+# Rules
+
+- **Standard repositories are read-only** to Kovan (never committed into
+  or pushed) unless configured `writable = true`; the corpus maintainer
+  maintains them. Open and proprietary repositories are the user's own.
+- **A proprietary repository never shares or nests a path with another
+  repository** ([`validate`], checked when the folder is opened): a
+  proprietary PDF inside an open checkout would be published by its push.
+- **A proprietary repository is never pushed to a public remote**
+  ([`public_remote_reason`]): not to another tier's remote, not to the
+  built-in standard corpus, not to a `known_public` URL, and not to an
+  HTTPS remote that answers `git ls-remote` without credentials.
+
+```rust
+pub mod corpus_tiers { /* ... */ }
+```
+
+### Types
+
+#### Enum `Tier`
+
+A corpus tier.
+
+```rust
+pub enum Tier {
+    Standard,
+    Open,
+    Proprietary,
+}
+```
+
+##### Variants
+
+###### `Standard`
+
+Kovan's standard corpus: the documents compiled into
+[`crate::corpus::LITERATURE`], read-only to the user.
+
+###### `Open`
+
+The user's openly licensed literature.
+
+###### `Proprietary`
+
+The user's proprietary literature, in private repositories only.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  The label the UI shows, e.g. `Open corpus`.
+
+- ```rust
+  pub fn key(self: Self) -> &'static str { /* ... */ }
+  ```
+  The `[repos]` key, e.g. `open`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **AsId**
+- **AsIdSalt**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Tier { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Tier) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Tier) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Tier) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CorpusRepoConfig`
+
+One `[[repos.<tier>]]` entry of `kovan_root.toml`.
+
+**Bare remote URLs only, never a credential or token**, as every remote in
+`kovan_root.toml` (`DATA_POLICY.md`).
+
+```rust
+pub struct CorpusRepoConfig {
+    pub name: String,
+    pub path: std::path::PathBuf,
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    pub default: bool,
+    pub writable: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Unique across every tier; recorded in a paper's `[source] repo`. |
+| `path` | `std::path::PathBuf` | Where the checkout is mounted, relative to the Kovan folder. |
+| `remote` | `Option<String>` | The repository's remote. Without one the repository is initialised<br>locally, to be given a remote later. |
+| `branch` | `Option<String>` | The branch to check out and follow; else the remote's default. |
+| `default` | `bool` | Whether this is the tier's default ingest target. The first flagged<br>entry wins; with none flagged, the tier's first repository is the<br>default. |
+| `writable` | `bool` | Standard tier only: let Kovan commit into and push this repository<br>(for the corpus maintainer). Ignored for open and proprietary<br>repositories, which are always the user's own. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorpusRepoConfig { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorpusRepoConfig) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `RepoTiers`
+
+**Attributes:**
+
+- `Other("#[serde(default)]")`
+
+The `[repos]` table of `kovan_root.toml`. Omitted from the file while
+empty, so an older file is written back unchanged.
+
+```rust
+pub struct RepoTiers {
+    pub builtin_standard: bool,
+    pub known_public: Vec<String>,
+    pub standard: Vec<CorpusRepoConfig>,
+    pub open: Vec<CorpusRepoConfig>,
+    pub proprietary: Vec<CorpusRepoConfig>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `builtin_standard` | `bool` | Keep Kovan's built-in standard repositories ([`BUILTIN_STANDARD_REPOS`])<br>ahead of any configured ones. On by default. |
+| `known_public` | `Vec<String>` | Remote URLs known to be public, to which no proprietary repository<br>may push (in addition to every standard and open remote). |
+| `standard` | `Vec<CorpusRepoConfig>` | Extra standard repositories. |
+| `open` | `Vec<CorpusRepoConfig>` | Extra open repositories. |
+| `proprietary` | `Vec<CorpusRepoConfig>` | Extra proprietary repositories. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the table says nothing (it is then omitted on save).
+
+- ```rust
+  pub fn of(self: &Self, tier: Tier) -> &[CorpusRepoConfig] { /* ... */ }
+  ```
+  The configured entries of `tier`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RepoTiers { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RepoTiers) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `BuiltinRepo`
+
+A standard repository Kovan knows without configuration.
+
+```rust
+pub struct BuiltinRepo {
+    pub name: &'static str,
+    pub remote: &'static str,
+    pub branch: &'static str,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` |  |
+| `remote` | `&'static str` |  |
+| `branch` | `&'static str` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BuiltinRepo { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BuiltinRepo) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `RepoOrigin`
+
+Where a resolved repository came from.
+
+```rust
+pub enum RepoOrigin {
+    Builtin,
+    Legacy,
+    Configured,
+}
+```
+
+##### Variants
+
+###### `Builtin`
+
+[`BUILTIN_STANDARD_REPOS`].
+
+###### `Legacy`
+
+The older single-repository settings (`[paths]`, `[corpora]`,
+`[private_submodule]`).
+
+###### `Configured`
+
+A `[[repos.<tier>]]` entry.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RepoOrigin { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RepoOrigin) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CorpusRepo`
+
+One corpus repository of a Kovan folder, resolved: an absolute path and
+every setting filled in.
+
+```rust
+pub struct CorpusRepo {
+    pub tier: Tier,
+    pub name: String,
+    pub rel: std::path::PathBuf,
+    pub dir: std::path::PathBuf,
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    pub is_default: bool,
+    pub writable: bool,
+    pub origin: RepoOrigin,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tier` | `Tier` |  |
+| `name` | `String` |  |
+| `rel` | `std::path::PathBuf` | Relative to the Kovan folder. |
+| `dir` | `std::path::PathBuf` | Absolute. |
+| `remote` | `Option<String>` |  |
+| `branch` | `Option<String>` |  |
+| `is_default` | `bool` | The tier's default ingest target. |
+| `writable` | `bool` | Whether Kovan may commit into and push it: always for open and<br>proprietary, only when configured for standard. |
+| `origin` | `RepoOrigin` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_downloaded(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the checkout is here (has its own `.git`).
+
+- ```rust
+  pub fn label(self: &Self) -> String { /* ... */ }
+  ```
+  `Open corpus (name)`, for messages and reports.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CorpusRepo { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CorpusRepo) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `RepoRef`
+
+A reference to one repository, as the ingest form picks it.
+
+```rust
+pub struct RepoRef {
+    pub tier: Tier,
+    pub name: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tier` | `Tier` |  |
+| `name` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RepoRef { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RepoRef) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `resolve`
+
+Every corpus repository `config` declares for the Kovan folder at
+`root_dir`, in tier order (standard, open, proprietary) and within a tier
+in the order described in the module doc.
+
+```rust
+pub fn resolve(root_dir: &std::path::Path, config: &crate::root::RootConfig) -> Vec<CorpusRepo> { /* ... */ }
+```
+
+#### Function `setup_remote`
+
+The remote setup and pull clone `repo` from when it is not downloaded:
+its resolved remote, except that the proprietary repository at
+`[paths] restricted_sources` is fetched from `[corpora]
+proprietary_remote` only, as before #458 (a `[private_submodule] remote`
+alone names where Save may push, not something setup clones).
+
+```rust
+pub fn setup_remote(config: &crate::root::RootConfig, repo: &CorpusRepo) -> Option<String> { /* ... */ }
+```
+
+#### Function `validate`
+
+What is wrong with the repositories `config` declares, one message each;
+empty when nothing is. [`crate::root::KovanRoot::open`] refuses a folder
+with any problem, so nothing can ingest into, commit or push a
+misconfigured repository.
+
+- every name is non-empty, of letters, digits, `-`, `_` or `.`, and
+  unique across all tiers;
+- every path is relative, non-empty and has no `..`;
+- two repositories of one tier do not share a path;
+- **a proprietary repository shares or nests a path with no other
+  repository**, of any tier.
+
+A standard and an open repository may share a path (an older layout
+mounted one checkout as both); it is then pulled once.
+
+```rust
+pub fn validate(config: &crate::root::RootConfig) -> Vec<String> { /* ... */ }
+```
+
+#### Function `public_remote_reason`
+
+Why pushing a proprietary repository to `url` must be refused, if it
+must: `url` is (after [`crate::save_push::normalize_url`]) a remote of a
+standard or open repository, a built-in standard repository, or a
+`known_public` entry; or it contains `outram-park-backend`. Offline and
+deterministic; [`anonymously_readable`] is the network half.
+
+```rust
+pub fn public_remote_reason(config: &crate::root::RootConfig, all: &[CorpusRepo], url: &str) -> Option<String> { /* ... */ }
+```
+
+#### Function `anonymously_readable`
+
+Whether `url` can be read **without any credentials**: `Some(true)` when
+`git ls-remote` succeeds with every credential helper, prompt, `.netrc`
+and user or system Git config out of reach (a public repository),
+`Some(false)` when it fails, `None` when the check does not apply.
+
+Applies only to `http(s)://` URLs and GitHub-style `git@host:owner/repo`
+ones (checked as `https://host/owner/repo`); a local path or an `ssh://`
+URL to a non-GitHub host is `None`. Set `KOVAN_SKIP_VISIBILITY_PROBE` to
+skip it (`None`). A network failure reads as `Some(false)`: the push
+that follows would fail anyway, and the offline checks in
+[`public_remote_reason`] have already run.
+
+```rust
+pub fn anonymously_readable(url: &str) -> Option<bool> { /* ... */ }
+```
+
+#### Function `pdfs_in`
+
+Every PDF under `dir`, recursively, skipping Git's own folder, sorted.
+
+```rust
+pub fn pdfs_in(dir: &std::path::Path) -> Vec<std::path::PathBuf> { /* ... */ }
+```
+
+#### Function `checkout_size`
+
+Total bytes of the files in a checkout, excluding `.git` (for PDFs the
+history is roughly the files again, so this is what nears the limit).
+
+```rust
+pub fn checkout_size(dir: &std::path::Path) -> u64 { /* ... */ }
+```
+
+#### Function `size_warning`
+
+A warning when `repo`'s checkout holds `threshold` bytes or more
+(normally [`SIZE_WARN_BYTES`]), suggesting a new repository in the same
+tier; `None` below it or when the checkout is absent.
+
+```rust
+pub fn size_warning(repo: &CorpusRepo, threshold: u64) -> Option<String> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `BUILTIN_STANDARD_REPOS`
+
+Kovan's built-in standard repositories, pulled by default into every
+Kovan folder. The first is mounted at `[paths] standard_corpus`, any
+later one at `literature/standard-<name>`. Extend the list per folder
+with `[[repos.standard]]`; a topic split of the standard corpus is one
+more entry here.
+
+```rust
+pub const BUILTIN_STANDARD_REPOS: &[BuiltinRepo] = _;
+```
+
+#### Constant `LEGACY_OPEN`
+
+The name of the open repository at `[paths] open_sources`, unless an
+entry with that path renames it.
+
+```rust
+pub const LEGACY_OPEN: &str = "open";
+```
+
+#### Constant `LEGACY_PROPRIETARY`
+
+The name of the proprietary repository at `[paths] restricted_sources`,
+unless an entry with that path renames it.
+
+```rust
+pub const LEGACY_PROPRIETARY: &str = "proprietary";
+```
+
+#### Constant `RECOMMENDED_MAX_BYTES`
+
+GitHub's recommended maximum repository size, 1 GiB.
+
+```rust
+pub const RECOMMENDED_MAX_BYTES: u64 = _;
+```
+
+#### Constant `SIZE_WARN_BYTES`
+
+The size at which [`size_warning`] warns by default: 90 % of
+[`RECOMMENDED_MAX_BYTES`].
+
+```rust
+pub const SIZE_WARN_BYTES: u64 = _;
 ```
 
 ## Module `digitiser`
@@ -22781,6 +24417,7 @@ pub struct SourceRef {
     pub storage: StorageMode,
     pub pdf: Option<std::path::PathBuf>,
     pub corpus: Option<String>,
+    pub repo: Option<String>,
 }
 ```
 
@@ -22792,6 +24429,7 @@ pub struct SourceRef {
 | `storage` | `StorageMode` | How this source participates in Git. Defaults to<br>[`StorageMode::Local`] — see that variant's doc for why this is<br>always a safe, zero-configuration default. |
 | `pdf` | `Option<std::path::PathBuf>` | Path to the source PDF, relative to the entity's own directory (so a<br>library stays relocatable). `None` for a paper catalogued from<br>metadata alone, with no document held locally. |
 | `corpus` | `Option<String>` | The Kovan standard-corpus id ([`crate::corpus::CorpusLiterature::id`])<br>this paper holds the user's notes for, when it is one. The PDF is then<br>found through [`crate::standard_corpus::StandardCorpus`] wherever the<br>corpus is checked out, so `pdf` may be absent or stale without the<br>paper losing its document (GitHub issue on standard-corpus<br>documents not being recognised as ingested, 2026-09-30). |
+| `repo` | `Option<String>` | The name of the corpus repository ([`crate::corpus_tiers::CorpusRepo::name`])<br>the PDF was stored in or found in at ingest (GitHub issue #458: a<br>tier may hold several repositories). `None` for a paper ingested<br>before that, or whose PDF is in no corpus repository. |
 
 ##### Implementations
 
@@ -23564,6 +25202,11 @@ where
   pub fn with_pdf</* synthetic */ impl Into<PathBuf>: Into<PathBuf>>(self: Self, pdf: impl Into<PathBuf>) -> Self { /* ... */ }
   ```
   Attach a source PDF path, relative to the entity's own directory.
+
+- ```rust
+  pub fn with_repo</* synthetic */ impl Into<String>: Into<String>>(self: Self, repo: impl Into<String>) -> Self { /* ... */ }
+  ```
+  Record the corpus repository the PDF is in ([`SourceRef::repo`]). A
 
 - ```rust
   pub fn with_corpus</* synthetic */ impl Into<String>: Into<String>>(self: Self, corpus_id: impl Into<String>) -> Self { /* ... */ }
@@ -31488,8 +33131,11 @@ race):
 - **The document itself** ([`find_existing`], since 2026-09-30): the
   incoming PDF is compared, by path and then by SHA-256 content hash
   ([`crate::fingerprint`], cached in `.kovan/`), with every downloaded
-  standard-corpus file ([`crate::standard_corpus`]) and every paper's PDF.
-  A match is [`IngestPreview::duplicate`] and [`IngestError::Duplicate`]:
+  standard-corpus file ([`crate::standard_corpus`]), every paper's PDF
+  and, since GitHub issue #458, **every PDF in every corpus repository of
+  every tier** ([`crate::corpus_tiers`]), so a document already in any
+  standard, open or proprietary repository is caught even when no paper
+  records it. A match is [`IngestPreview::duplicate`] and [`IngestError::Duplicate`]:
   nothing is written, and the caller opens the existing entry instead.
   Only files of the same byte length are hashed, so the check reads
   almost nothing when there is no duplicate.
@@ -31500,6 +33146,16 @@ race):
   standard-corpus file, because a standard-corpus document was never
   "ingested" to begin with. Both halves are fixed; see
   [`crate::standard_corpus`].
+
+# Which repository (GitHub issue #458)
+
+A tier may hold several repositories. [`IngestChoice::target`] names the
+tier and the repository; `None` means the tier's default
+([`crate::root::KovanRoot::default_repo`]) of the tier the access implies
+(open for [`Access::Open`], proprietary otherwise). A restricted document
+may only go to a proprietary repository, and a standard repository only
+when it is configured `writable` ([`resolve_target`]). The repository is
+recorded in the paper's `[source] repo`.
 
 A file whose **name** matches a corpus document's or a paper's PDF, but
 whose content differs, is only a warning ([`IngestPreview::name_clash`]):
@@ -31554,6 +33210,9 @@ pub enum IngestError {
         message: String,
     },
     Duplicate(ExistingEntry),
+    Target {
+        reason: String,
+    },
 }
 ```
 
@@ -31620,6 +33279,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `ExistingEntry` |  |
+
+###### `Target`
+
+The chosen tier/repository cannot take this document
+([`resolve_target`]); nothing was written.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reason` | `String` |  |
 
 ##### Implementations
 
@@ -31986,6 +33656,12 @@ pub enum ExistingEntry {
         pdf: std::path::PathBuf,
         matched: MatchKind,
     },
+    RepoFile {
+        tier: crate::corpus_tiers::Tier,
+        repo: String,
+        pdf: std::path::PathBuf,
+        matched: MatchKind,
+    },
 }
 ```
 
@@ -32014,6 +33690,20 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `citekey` | `String` |  |
+| `pdf` | `std::path::PathBuf` |  |
+| `matched` | `MatchKind` |  |
+
+###### `RepoFile`
+
+A PDF in one of the folder's corpus repositories that no paper
+records (GitHub issue #458).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tier` | `crate::corpus_tiers::Tier` |  |
+| `repo` | `String` |  |
 | `pdf` | `std::path::PathBuf` |  |
 | `matched` | `MatchKind` |  |
 
@@ -32402,6 +34092,7 @@ pub struct IngestChoice {
     pub access: crate::entity::Access,
     pub topics: Vec<String>,
     pub projects: Vec<String>,
+    pub target: Option<crate::corpus_tiers::RepoRef>,
 }
 ```
 
@@ -32413,6 +34104,7 @@ pub struct IngestChoice {
 | `access` | `crate::entity::Access` | Defaults to [`Access::Restricted`] at the call site that builds this<br>(the GUI form), never here — §41: an unknown-provenance PDF must not<br>silently become Open. |
 | `topics` | `Vec<String>` |  |
 | `projects` | `Vec<String>` |  |
+| `target` | `Option<crate::corpus_tiers::RepoRef>` | Which tier and repository to store the PDF in (GitHub issue #458);<br>`None` is the default repository of the tier `access` implies. See<br>[`resolve_target`]. |
 
 ##### Implementations
 
@@ -32565,6 +34257,44 @@ length, through `cache`. See the module doc.
 
 ```rust
 pub fn find_existing(root: &crate::root::KovanRoot, corpus: &crate::standard_corpus::StandardCorpus, pdf: &std::path::Path, cache: &mut crate::fingerprint::HashCache) -> Option<ExistingEntry> { /* ... */ }
+```
+
+#### Function `target_choices`
+
+The repositories an ingest form may offer for a document with `access`
+(#458), in tier order: for a restricted document only the proprietary
+repositories; for an open one every writable repository (open,
+`writable` standard, and proprietary, where keeping an open document
+private is always safe). Each is accepted by [`resolve_target`].
+
+```rust
+pub fn target_choices(root: &crate::root::KovanRoot, access: crate::entity::Access) -> Vec<crate::corpus_tiers::CorpusRepo> { /* ... */ }
+```
+
+#### Function `default_target`
+
+The target an ingest form starts on: the default repository of the tier
+`access` implies ([`resolve_target`] with no target), as a
+[`crate::corpus_tiers::RepoRef`]. `None` when there is none.
+
+```rust
+pub fn default_target(root: &crate::root::KovanRoot, access: crate::entity::Access) -> Option<crate::corpus_tiers::RepoRef> { /* ... */ }
+```
+
+#### Function `resolve_target`
+
+The corpus repository an ingest of a document with `access` goes to:
+`target` when given, else the default repository of the tier `access`
+implies (open for a committable access, proprietary otherwise).
+
+Refused ([`IngestError::Target`]) when `target` names no repository of
+that tier, when a restricted document would go anywhere but a
+proprietary repository (it would be published), or when a standard
+repository is not configured `writable` (the corpus maintainer maintains
+those).
+
+```rust
+pub fn resolve_target(root: &crate::root::KovanRoot, access: crate::entity::Access, target: Option<&crate::corpus_tiers::RepoRef>) -> Result<crate::corpus_tiers::CorpusRepo, IngestError> { /* ... */ }
 ```
 
 #### Function `same_file_name`
@@ -33073,15 +34803,16 @@ generated citekey: the maintainer ingested WASH-1400 as
 # Where the checkouts are
 
 [`StandardCorpus::for_root`] searches, in order, every place Kovan's
-default pull can put a corpus repository: the folder's
-`literature/standard-corpus/` submodule
-([`KovanRoot::standard_corpus_dir`]), the folder's open corpus when it is
-the same repository ([`KovanRoot::open_corpus_dir`], the maintainer's
+default pull can put a corpus repository: **every standard repository**
+of the folder ([`crate::corpus_tiers`], GitHub issue #458: the built-in
+`literature/standard-corpus/` submodule, [`KovanRoot::standard_corpus_dir`],
+then each `[[repos.standard]]`), **every open repository** (an open
+corpus may be a checkout of the same repository, the maintainer's
 layout), and the shared application-data clone
 ([`crate::corpus_repos::standard_corpus_dir`]). `corpus_file` is a path
 relative to a repository root, so a document is found in whichever
-checkout holds it; a future second corpus repository is one more entry in
-that list, not a new lookup.
+checkout holds it: when the standard corpus is split into topic
+repositories, an entry lives in whichever one holds its file.
 
 # Where the user's notes go (decision, 2026-09-30)
 
@@ -36131,7 +37862,19 @@ Two distinct, clearly labelled operations:
 excluded from the staged set. [`is_excluded`] enforces that at the
 tree-building level — it is a property of this code, not something
 that merely happens to follow from a `.gitignore` a caller could have
-deleted, misedited, or bypassed some other way.
+deleted, misedited, or bypassed some other way. Since GitHub issue #458
+that covers **every** proprietary repository of the folder
+([`crate::corpus_tiers`]), not only `[paths] restricted_sources`.
+
+# Several repositories per tier (GitHub issue #458)
+
+A Save commits **each** of the folder's writable corpus repositories
+that is checked out, independently and before the Kovan repository
+([`commit_corpus_repos`]): every proprietary one through `gix`
+([`save_private_repo`]), every open one (and a standard one only when
+configured `writable`) with the system `git` ([`commit_open_corpus`]).
+Read-only standard repositories are never committed into. The Kovan
+repository then records each registered submodule's commit as a gitlink.
 
 # Why this walks the worktree instead of using `.git/index`
 
@@ -36615,7 +38358,7 @@ pub fn compose_commit_message(generated: &str, note: &str) -> String { /* ... */
 
 What would change if [`save_repository`] ran right now — the "N changes
 since last repository save" the UI shows (§37) — without writing
-anything. See [`private_submodule_head`] for the one documented gap in
+anything. See [`save_private_repo`] for the one documented gap in
 that guarantee's coverage.
 
 ```rust
@@ -36630,7 +38373,8 @@ Returns `Ok(None)` — a no-op — when there is nothing to commit.
 
 `op-3gxp`: when a private literature submodule is configured and ready
 (see [`crate::root::KovanRoot::private_submodule_ready`]), its own
-worktree is committed **first** ([`save_private_submodule`]), before
+worktree is committed **first** ([`save_private_repo`], and since #458
+every other corpus repository, [`commit_corpus_repos`]), before
 anything about the parent repository is touched — a failure there aborts
 this whole call via `?`, so a parent commit can never reference an
 invalid or uncommitted submodule state. The parent tree then records the
@@ -37199,6 +38943,11 @@ open_sources = "literature/open-corpus"
 restricted_sources = "literature/proprietary"
 ```
 
+Further corpus repositories, any number per tier, are `[[repos.standard]]`,
+`[[repos.open]]` and `[[repos.proprietary]]` entries (GitHub issue #458);
+the paths above stay each tier's first repository. See
+[`crate::corpus_tiers`] and [`KovanRoot::corpus_repos`].
+
 ```rust
 pub mod root { /* ... */ }
 ```
@@ -37233,6 +38982,10 @@ pub enum RootError {
     GitInit {
         path: std::path::PathBuf,
         message: String,
+    },
+    InvalidRepos {
+        path: std::path::PathBuf,
+        problems: Vec<String>,
     },
 }
 ```
@@ -37305,6 +39058,19 @@ Fields:
 |------|------|---------------|
 | `path` | `std::path::PathBuf` |  |
 | `message` | `String` |  |
+
+###### `InvalidRepos`
+
+The corpus repositories it declares are unsafe or inconsistent
+([`crate::corpus_tiers::validate`], GitHub issue #458): refused so
+nothing ingests into, commits or pushes a misconfigured repository.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` |  |
+| `problems` | `Vec<String>` |  |
 
 ##### Implementations
 
@@ -38510,6 +40276,7 @@ pub struct RootConfig {
     pub private_submodule: Option<PrivateSubmoduleConfig>,
     pub corpora: CorporaConfig,
     pub save: SaveConfig,
+    pub repos: crate::corpus_tiers::RepoTiers,
 }
 ```
 
@@ -38523,6 +40290,7 @@ pub struct RootConfig {
 | `private_submodule` | `Option<PrivateSubmoduleConfig>` | A private literature submodule, if this library has deliberately<br>opted into one. Absent by default — see [`PrivateSubmoduleConfig`]. |
 | `corpora` | `CorporaConfig` | The user's open and proprietary corpus remotes (#255). Absent in a<br>library that has none. |
 | `save` | `SaveConfig` | Save Repository settings; absent means every default (push after<br>save ON). See [`SaveConfig`]. |
+| `repos` | `crate::corpus_tiers::RepoTiers` | Further corpus repositories per tier (GitHub issue #458); absent in<br>a library with one repository per tier. The older `[paths]`,<br>`[corpora]` and `[private_submodule]` settings stay each tier's first<br>repository. See [`crate::corpus_tiers`]. |
 
 ##### Implementations
 
@@ -38781,6 +40549,36 @@ pub struct KovanRoot {
   pub fn set_push_after_save(self: &mut Self, push: bool) -> Result<(), String> { /* ... */ }
   ```
   Turn "push after save" on or off for this library (the `[save]`
+
+- ```rust
+  pub fn set_repos(self: &mut Self, repos: crate::corpus_tiers::RepoTiers) -> Result<(), String> { /* ... */ }
+  ```
+  Replace this library's `[repos]` table (GitHub issue #458) and write
+
+- ```rust
+  pub fn ensure_repo_paths_ignored(self: &Self) -> std::io::Result<()> { /* ... */ }
+  ```
+  Append to the folder's `.gitignore` a pattern for every
+
+- ```rust
+  pub fn corpus_repos(self: &Self) -> Vec<crate::corpus_tiers::CorpusRepo> { /* ... */ }
+  ```
+  Every corpus repository of this library, in tier order (standard,
+
+- ```rust
+  pub fn tier_repos(self: &Self, tier: crate::corpus_tiers::Tier) -> Vec<crate::corpus_tiers::CorpusRepo> { /* ... */ }
+  ```
+  The repositories of one tier, in order.
+
+- ```rust
+  pub fn default_repo(self: &Self, tier: crate::corpus_tiers::Tier) -> Option<crate::corpus_tiers::CorpusRepo> { /* ... */ }
+  ```
+  The tier's default ingest target (`default = true`, else its first
+
+- ```rust
+  pub fn repo_named(self: &Self, name: &str) -> Option<crate::corpus_tiers::CorpusRepo> { /* ... */ }
+  ```
+  The repository named `name`, in any tier.
 
 - ```rust
   pub fn marker_path(self: &Self) -> PathBuf { /* ... */ }
@@ -39658,16 +41456,28 @@ Save Repository tab writes.
 
 # Order
 
-1. the **proprietary corpus** ([`KovanRoot::restricted_sources_dir`]),
-2. the **open corpus** ([`KovanRoot::open_corpus_dir`]),
-3. the **Kovan repository** itself — only if neither corpus push failed
+Since GitHub issue #458 a tier may hold several repositories
+([`crate::corpus_tiers`]); each is pushed **independently**, one result
+per repository:
+
+1. every **proprietary** repository (the first is
+   [`KovanRoot::restricted_sources_dir`]),
+2. every **open** repository (the first is [`KovanRoot::open_corpus_dir`]),
+3. every **standard** repository configured `writable = true` (none by
+   default),
+4. the **Kovan repository** itself — only if no corpus push failed
    or was refused, so the parent never publishes a gitlink to a corpus
    commit that is not on its remote. A corpus that is merely *skipped*
    (not downloaded here, or no remote configured for it) does not hold
    the parent back: that corpus was never going to be pushed from here.
 
-The **standard corpus is never pushed**: it is read-only to everyone but
-its maintainer, and Save never commits into it.
+A **standard repository is never pushed** unless configured `writable`:
+it is read-only to everyone but its maintainer, and Save never commits
+into it. A checkout mounted in two tiers is pushed once.
+
+The report also carries a **size warning** for every checkout near
+GitHub's recommended 1 GB ([`crate::corpus_tiers::size_warning`]),
+suggesting another repository in the same tier.
 
 # Safety rules (non-negotiable, each pinned by a test)
 
@@ -39683,13 +41493,20 @@ its maintainer, and Save never commits into it.
   the commit, i.e. the branch fast-forwards. Otherwise nothing is moved
   and the push is refused.
 - **Each corpus goes only to its own configured remote.** Every push URL
-  of the proprietary corpus's remote must be the private remote in
-  `kovan_root.toml` (`[private_submodule] remote` and/or
-  `[corpora] proprietary_remote`, which must agree), and must not be the
-  open-corpus or standard-corpus remote; the open corpus's must be
-  `[corpora] open_remote` and must not be a proprietary one. A mismatch is
-  refused, so a proprietary PDF cannot reach a public repository through
-  a mis-set `origin`.
+  of a proprietary repository's remote must be that repository's
+  configured remote (for the first one, `[private_submodule] remote`
+  and/or `[corpora] proprietary_remote`, which must agree), and an open
+  repository's must be its own remote and must not be any proprietary
+  one. A mismatch is refused, so a proprietary PDF cannot reach a public
+  repository through a mis-set `origin`.
+- **Proprietary never goes to a public remote** (#458). A proprietary
+  repository's remote is refused when it is any standard or open
+  repository's remote, Kovan's built-in standard corpus, a
+  `[repos] known_public` entry or an `outram-park-backend` URL
+  ([`crate::corpus_tiers::public_remote_reason`]), or when it is an
+  HTTPS (or GitHub `git@`) remote that `git ls-remote` can read with
+  no credential of the user's in reach
+  ([`crate::corpus_tiers::anonymously_readable`]).
 - **System `git` for the network**, as every remote operation in Kovan
   ([`crate::advanced_git`]), so the user's credential helpers apply.
   `GIT_TERMINAL_PROMPT=0` makes a missing credential fail fast with Git's
@@ -39717,6 +41534,7 @@ One of the repositories a Save pushes.
 pub enum PushRepo {
     ProprietaryCorpus,
     OpenCorpus,
+    StandardCorpus,
     KovanRepository,
 }
 ```
@@ -39725,11 +41543,15 @@ pub enum PushRepo {
 
 ###### `ProprietaryCorpus`
 
-The private literature submodule.
+A proprietary repository (the private literature submodule).
 
 ###### `OpenCorpus`
 
-The user's open corpus.
+An open repository.
+
+###### `StandardCorpus`
+
+A standard repository configured `writable` (#458).
 
 ###### `KovanRepository`
 
@@ -39743,6 +41565,11 @@ The Kovan folder's own repository.
   pub fn label(self: Self) -> &'static str { /* ... */ }
   ```
   The label the UI shows.
+
+- ```rust
+  pub fn for_tier(tier: Tier) -> Self { /* ... */ }
+  ```
+  The kind for a corpus repository of `tier`.
 
 ###### Trait Implementations
 
@@ -40153,6 +41980,7 @@ One repository's result.
 ```rust
 pub struct RepoPush {
     pub repo: PushRepo,
+    pub name: String,
     pub dir: std::path::PathBuf,
     pub outcome: PushOutcome,
 }
@@ -40163,6 +41991,7 @@ pub struct RepoPush {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `repo` | `PushRepo` |  |
+| `name` | `String` | The corpus repository's name ([`crate::corpus_tiers::CorpusRepo::name`]);<br>empty for the Kovan repository. |
 | `dir` | `std::path::PathBuf` |  |
 | `outcome` | `PushOutcome` |  |
 
@@ -40336,6 +42165,7 @@ Every repository's result, in push order.
 ```rust
 pub struct PushReport {
     pub repos: Vec<RepoPush>,
+    pub warnings: Vec<String>,
 }
 ```
 
@@ -40344,6 +42174,7 @@ pub struct PushReport {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `repos` | `Vec<RepoPush>` |  |
+| `warnings` | `Vec<String>` | Checkouts near GitHub's recommended 1 GB<br>([`crate::corpus_tiers::size_warning`]); advice, not a problem. |
 
 ##### Implementations
 
@@ -40362,7 +42193,17 @@ pub struct PushReport {
 - ```rust
   pub fn lines(self: &Self) -> Vec<String> { /* ... */ }
   ```
-  One line per repository ([`RepoPush::line`]).
+  One line per repository ([`RepoPush::line`]), then one per warning.
+
+- ```rust
+  pub fn all(self: &Self, repo: PushRepo) -> Vec<&RepoPush> { /* ... */ }
+  ```
+  Every result for repositories of kind `repo`, in push order (a tier
+
+- ```rust
+  pub fn named(self: &Self, name: &str) -> Option<&PushOutcome> { /* ... */ }
+  ```
+  The result of the corpus repository named `name`, if it was
 
 ###### Trait Implementations
 
@@ -40531,7 +42372,8 @@ pub struct PushReport {
 - **WithSubscriber**
 #### Enum `CorpusKind`
 
-A corpus [`pull_corpora`] considers, in the order it considers them.
+The tier of a corpus [`pull_corpora`] considers (one per repository
+since #458; a tier may appear several times).
 
 ```rust
 pub enum CorpusKind {
@@ -40563,6 +42405,11 @@ The read-only standard corpus.
   pub fn label(self: Self) -> &'static str { /* ... */ }
   ```
   The label the UI shows.
+
+- ```rust
+  pub fn for_tier(tier: Tier) -> Self { /* ... */ }
+  ```
+  The kind for a repository of `tier`.
 
 ###### Trait Implementations
 
@@ -40985,11 +42832,12 @@ Fields:
 - **WithSubscriber**
 #### Struct `CorpusPull`
 
-One corpus's result.
+One corpus repository's result.
 
 ```rust
 pub struct CorpusPull {
     pub corpus: CorpusKind,
+    pub name: String,
     pub dir: std::path::PathBuf,
     pub outcome: CorpusPullOutcome,
 }
@@ -41000,6 +42848,7 @@ pub struct CorpusPull {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `corpus` | `CorpusKind` |  |
+| `name` | `String` | The repository's name ([`crate::corpus_tiers::CorpusRepo::name`]). |
 | `dir` | `std::path::PathBuf` |  |
 | `outcome` | `CorpusPullOutcome` |  |
 
@@ -41170,9 +43019,9 @@ pub struct CorpusPull {
 
 #### Function `push_after_save`
 
-Push the proprietary corpus, the open corpus and then the Kovan
-repository, under the module's safety rules. Never panics; every
-problem is a [`PushOutcome`] in the report.
+Push every corpus repository and then the Kovan repository, under the
+module's safety rules. Never panics; every problem is a [`PushOutcome`]
+in the report.
 
 Called after a successful save whether or not that save committed
 anything, so commits from earlier saves that were never pushed (every
@@ -41180,6 +43029,15 @@ save before 2026-09-28) go up too.
 
 ```rust
 pub fn push_after_save(root: &crate::root::KovanRoot) -> PushReport { /* ... */ }
+```
+
+#### Function `push_after_save_warning_at`
+
+[`push_after_save`], warning about checkouts of `size_warn_bytes` or
+more instead of [`crate::corpus_tiers::SIZE_WARN_BYTES`] (for tests).
+
+```rust
+pub fn push_after_save_warning_at(root: &crate::root::KovanRoot, size_warn_bytes: u64) -> PushReport { /* ... */ }
 ```
 
 #### Function `pull_corpora`
@@ -41193,7 +43051,8 @@ Without this, a corpus that another clone saved into falls behind its
 remote, and the next [`push_after_save`] refuses it (its detached save
 does not contain the remote branch, so it cannot fast-forward).
 
-For each of the proprietary, open and standard corpus, when downloaded:
+For each corpus repository — every proprietary, every open and every
+standard one (#458) — when downloaded:
 fetch the tracked branch (`.gitmodules` `branch =`, else the remote's
 default — the same rule the push uses), then
 
@@ -41223,9 +43082,10 @@ pub fn pull_corpora(root: &crate::root::KovanRoot) -> Vec<CorpusPull> { /* ... *
 
 #### Function `pull_corpora_with`
 
-[`pull_corpora`] with the standard corpus's remote and branch given, so
-tests can use a local repository instead of the network (as
-[`crate::corpus_repos::ensure_library_corpora_with`] does).
+[`pull_corpora`] with the **built-in** standard corpus's remote and
+branch given, so tests can use a local repository instead of the network
+(as [`crate::corpus_repos::ensure_library_corpora_with`] does). Other
+repositories use their own configured remotes and branches.
 
 ```rust
 pub fn pull_corpora_with(root: &crate::root::KovanRoot, standard_remote: &str, standard_branch: &str) -> Vec<CorpusPull> { /* ... */ }

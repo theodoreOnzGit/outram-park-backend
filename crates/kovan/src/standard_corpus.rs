@@ -33,15 +33,16 @@
 //! # Where the checkouts are
 //!
 //! [`StandardCorpus::for_root`] searches, in order, every place Kovan's
-//! default pull can put a corpus repository: the folder's
-//! `literature/standard-corpus/` submodule
-//! ([`KovanRoot::standard_corpus_dir`]), the folder's open corpus when it is
-//! the same repository ([`KovanRoot::open_corpus_dir`], the maintainer's
+//! default pull can put a corpus repository: **every standard repository**
+//! of the folder ([`crate::corpus_tiers`], GitHub issue #458: the built-in
+//! `literature/standard-corpus/` submodule, [`KovanRoot::standard_corpus_dir`],
+//! then each `[[repos.standard]]`), **every open repository** (an open
+//! corpus may be a checkout of the same repository, the maintainer's
 //! layout), and the shared application-data clone
 //! ([`crate::corpus_repos::standard_corpus_dir`]). `corpus_file` is a path
 //! relative to a repository root, so a document is found in whichever
-//! checkout holds it; a future second corpus repository is one more entry in
-//! that list, not a new lookup.
+//! checkout holds it: when the standard corpus is split into topic
+//! repositories, an entry lives in whichever one holds its file.
 //!
 //! # Where the user's notes go (decision, 2026-09-30)
 //!
@@ -90,10 +91,21 @@ impl StandardCorpus {
     /// (or only the shared clone when no folder is open). See the module
     /// doc.
     pub fn for_root(root: Option<&KovanRoot>) -> Self {
+        use crate::corpus_tiers::Tier;
         let mut dirs = Vec::new();
         if let Some(root) = root {
+            let repos = root.corpus_repos();
+            for tier in [Tier::Standard, Tier::Open] {
+                dirs.extend(
+                    repos
+                        .iter()
+                        .filter(|r| r.tier == tier)
+                        .map(|r| r.dir.clone()),
+                );
+            }
+            // A folder whose `[repos]` dropped the built-ins still finds a
+            // corpus checked out at the conventional path.
             dirs.push(root.standard_corpus_dir());
-            dirs.push(root.open_corpus_dir());
         }
         dirs.extend(crate::corpus_repos::standard_corpus_dir());
         Self::with_checkouts(dirs)

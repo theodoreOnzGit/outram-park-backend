@@ -261,6 +261,12 @@ pub struct SourceRef {
     /// documents not being recognised as ingested, 2026-09-30).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub corpus: Option<String>,
+    /// The name of the corpus repository ([`crate::corpus_tiers::CorpusRepo::name`])
+    /// the PDF was stored in or found in at ingest (GitHub issue #458: a
+    /// tier may hold several repositories). `None` for a paper ingested
+    /// before that, or whose PDF is in no corpus repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo: Option<String>,
 }
 
 /// Which topics and projects an entity belongs to (§7, §16).
@@ -486,6 +492,7 @@ impl EntityConfig {
                 storage: StorageMode::default(),
                 pdf: None,
                 corpus: None,
+                repo: None,
             }),
             classification: Classification::unsorted(),
         }
@@ -547,12 +554,23 @@ impl EntityConfig {
         let access = self.source.as_ref().map(|s| s.access).unwrap_or_default();
         let storage = self.source.as_ref().map(|s| s.storage).unwrap_or_default();
         let corpus = self.source.as_ref().and_then(|s| s.corpus.clone());
+        let repo = self.source.as_ref().and_then(|s| s.repo.clone());
         self.source = Some(SourceRef {
             access,
             storage,
             pdf: Some(pdf.into()),
             corpus,
+            repo,
         });
+        self
+    }
+
+    /// Record the corpus repository the PDF is in ([`SourceRef::repo`]). A
+    /// no-op without a `[source]`.
+    pub fn with_repo(mut self, repo: impl Into<String>) -> Self {
+        if let Some(source) = self.source.as_mut() {
+            source.repo = Some(repo.into());
+        }
         self
     }
 

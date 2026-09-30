@@ -5342,6 +5342,7 @@ mod tests {
                 access: Access::Open,
                 topics: vec!["htgrs".into()],
                 projects: vec![],
+                target: None,
             },
         )
         .unwrap();

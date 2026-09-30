@@ -61,6 +61,11 @@
 //! open_sources = "literature/open-corpus"
 //! restricted_sources = "literature/proprietary"
 //! ```
+//!
+//! Further corpus repositories, any number per tier, are `[[repos.standard]]`,
+//! `[[repos.open]]` and `[[repos.proprietary]]` entries (GitHub issue #458);
+//! the paths above stay each tier's first repository. See
+//! [`crate::corpus_tiers`] and [`KovanRoot::corpus_repos`].
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -124,6 +129,13 @@ pub enum RootError {
     AlreadyALibrary { path: PathBuf },
     /// `git init` failed while creating a library (§4).
     GitInit { path: PathBuf, message: String },
+    /// The corpus repositories it declares are unsafe or inconsistent
+    /// ([`crate::corpus_tiers::validate`], GitHub issue #458): refused so
+    /// nothing ingests into, commits or pushes a misconfigured repository.
+    InvalidRepos {
+        path: PathBuf,
+        problems: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for RootError {
@@ -158,6 +170,12 @@ impl std::fmt::Display for RootError {
                     path.display()
                 )
             }
+            Self::InvalidRepos { path, problems } => write!(
+                f,
+                "{}: the corpus repositories are misconfigured: {}",
+                path.display(),
+                problems.join("; ")
+            ),
         }
     }
 }
@@ -346,6 +364,15 @@ pub struct RootConfig {
     /// save ON). See [`SaveConfig`].
     #[serde(default, skip_serializing_if = "SaveConfig::is_default")]
     pub save: SaveConfig,
+    /// Further corpus repositories per tier (GitHub issue #458); absent in
+    /// a library with one repository per tier. The older `[paths]`,
+    /// `[corpora]` and `[private_submodule]` settings stay each tier's first
+    /// repository. See [`crate::corpus_tiers`].
+    #[serde(
+        default,
+        skip_serializing_if = "crate::corpus_tiers::RepoTiers::is_empty"
+    )]
+    pub repos: crate::corpus_tiers::RepoTiers,
 }
 
 impl RootConfig {
@@ -364,6 +391,7 @@ impl RootConfig {
             private_submodule: None,
             corpora: CorporaConfig::default(),
             save: SaveConfig::default(),
+            repos: crate::corpus_tiers::RepoTiers::default(),
         }
     }
 
@@ -512,6 +540,13 @@ impl KovanRoot {
                 path: marker,
                 found: config.schema_version,
                 supported: SCHEMA_VERSION,
+            });
+        }
+        let problems = crate::corpus_tiers::validate(&config);
+        if !problems.is_empty() {
+            return Err(RootError::InvalidRepos {
+                path: marker,
+                problems,
             });
         }
         Ok(Self {
@@ -705,6 +740,13 @@ impl KovanRoot {
     /// Write `updated` over `kovan_root.toml` safely (temporary file, parse
     /// back, rename), then adopt it in memory. Shared by the setters above.
     fn write_config(&mut self, updated: RootConfig) -> Result<(), String> {
+        let problems = crate::corpus_tiers::validate(&updated);
+        if !problems.is_empty() {
+            return Err(format!(
+                "not saved: the corpus repositories would be misconfigured: {}",
+                problems.join("; ")
+            ));
+        }
         let text = updated.to_toml()?;
         let target = self.root.join(ROOT_MARKER);
         let tmp = self.root.join(format!("{ROOT_MARKER}.tmp"));
@@ -725,6 +767,100 @@ impl KovanRoot {
             .map_err(|e| format!("replacing {}: {e}", target.display()))?;
         self.config = updated;
         Ok(())
+    }
+
+    /// Replace this library's `[repos]` table (GitHub issue #458) and write
+    /// it to `kovan_root.toml` as [`Self::set_push_after_save`] does
+    /// (re-reading the other settings from the file first). Refused, with
+    /// nothing written, when the result fails
+    /// [`crate::corpus_tiers::validate`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::set_push_after_save`], plus the validation problems.
+    pub fn set_repos(&mut self, repos: crate::corpus_tiers::RepoTiers) -> Result<(), String> {
+        let mut updated = match std::fs::read_to_string(self.marker_path()) {
+            Ok(text) => toml::from_str::<RootConfig>(&text)
+                .map_err(|e| format!("kovan_root.toml does not parse: {e}"))?,
+            Err(_) => self.config.clone(),
+        };
+        updated.repos = repos;
+        self.write_config(updated)?;
+        self.ensure_repo_paths_ignored()
+            .map_err(|e| format!("kovan_root.toml saved, but .gitignore was not updated: {e}"))
+    }
+
+    /// Append to the folder's `.gitignore` a pattern for every
+    /// `[[repos.<tier>]]` mount it does not ignore yet (#458), as
+    /// [`gitignore_for`] does for the older corpus paths: each corpus is
+    /// its own repository, and a proprietary one that is not (yet) a
+    /// submodule must never be picked up by a plain `git add` of the Kovan
+    /// folder. Ignore rules never apply to a tracked submodule, so this is
+    /// harmless once one is added. Existing lines are kept.
+    ///
+    /// # Errors
+    ///
+    /// A filesystem error reading or writing `.gitignore`.
+    pub fn ensure_repo_paths_ignored(&self) -> std::io::Result<()> {
+        let gitignore = self.root.join(".gitignore");
+        let existing = match std::fs::read_to_string(&gitignore) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(e) => return Err(e),
+        };
+        let missing: Vec<String> = self
+            .corpus_repos()
+            .into_iter()
+            .filter(|r| r.origin == crate::corpus_tiers::RepoOrigin::Configured)
+            .map(|r| gitignore_pattern(&r.rel))
+            .filter(|p| !existing.lines().any(|l| l.trim() == p))
+            .collect();
+        if missing.is_empty() {
+            return Ok(());
+        }
+        let mut merged = existing;
+        if !merged.is_empty() && !merged.ends_with('\n') {
+            merged.push('\n');
+        }
+        merged.push_str("\n# Further corpus repositories ([repos] in kovan_root.toml)\n");
+        for p in missing {
+            merged.push_str(&p);
+            merged.push('\n');
+        }
+        std::fs::write(&gitignore, merged)
+    }
+
+    /// Every corpus repository of this library, in tier order (standard,
+    /// open, proprietary): the older single-repository settings first in
+    /// each tier, then its `[[repos.<tier>]]` entries. See
+    /// [`crate::corpus_tiers::resolve`].
+    pub fn corpus_repos(&self) -> Vec<crate::corpus_tiers::CorpusRepo> {
+        crate::corpus_tiers::resolve(&self.root, &self.config)
+    }
+
+    /// The repositories of one tier, in order.
+    pub fn tier_repos(
+        &self,
+        tier: crate::corpus_tiers::Tier,
+    ) -> Vec<crate::corpus_tiers::CorpusRepo> {
+        self.corpus_repos()
+            .into_iter()
+            .filter(|r| r.tier == tier)
+            .collect()
+    }
+
+    /// The tier's default ingest target (`default = true`, else its first
+    /// repository). `None` only for a standard tier with no repositories.
+    pub fn default_repo(
+        &self,
+        tier: crate::corpus_tiers::Tier,
+    ) -> Option<crate::corpus_tiers::CorpusRepo> {
+        self.tier_repos(tier).into_iter().find(|r| r.is_default)
+    }
+
+    /// The repository named `name`, in any tier.
+    pub fn repo_named(&self, name: &str) -> Option<crate::corpus_tiers::CorpusRepo> {
+        self.corpus_repos().into_iter().find(|r| r.name == name)
     }
 
     /// Absolute path of this root's `kovan_root.toml`.
