@@ -19,9 +19,12 @@
 //! ```
 //!
 //! A selection of `k` elements and the first `k` elements are the same thing
-//! **only when the venting mask is a contiguous run starting at index 0.** For
-//! a monotonically heating transient it always is, which is why the defect
-//! survives: the reference case never exercises it.
+//! **only when the venting mask is a contiguous run starting at index 0.**
+//! ~~For a monotonically heating transient it always is, which is why the
+//! defect survives~~ **CORRECTED 2026-09-30 (#449):** if *every* sample heats, upstream's
+//! `[:-0]` slice is empty, and it **raises `IndexError`** (#447). The pairing
+//! defect survives because upstream's reference cases heat and then cool,
+//! giving a contiguous prefix, and never reheat.
 //!
 //! On a transient that heats, cools and reheats, the mask is gappy and the two
 //! diverge — every venting sample after the gap gets paired with the

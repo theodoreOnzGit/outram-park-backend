@@ -43,7 +43,15 @@
 //! `× λ / 3.7e10` conversion to the reportable [`NodalActivitiesCurie`] (all in
 //! curies, or curies/second for the two rates).
 //!
-//! ## NOT PORTED — the JSON run-file driver and the accident case (bead op-b4a.2.3)
+//! ## ~~NOT PORTED — the JSON run-file driver and the accident case (bead op-b4a.2.3)~~
+//!
+//! **CORRECTED 2026-09-30 (#449):** both exist. The accident pieces are in
+//! [`crate::triso_atops_fork::accident`]. There is **no single
+//! `accident_case` function**: the composition lives in the callers (#447).
+//! There are two run-file readers: the port's own [`crate::triso_atops_fork::run_file::RunFile`]
+//! and, for upstream / GUI-written files,
+//! [`crate::triso_atops_fork::run_file::upstream`], which is code-to-code
+//! verified. The text below is the original plan, kept for history.
 //!
 //! The TRISO-ATOPS GUI writes a `.json` run file (User Manual §2.4) that
 //! `run_functions.py` parses (`process_run_file`, `check_run_file`,

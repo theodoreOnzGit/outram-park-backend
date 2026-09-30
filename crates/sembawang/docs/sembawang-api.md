@@ -848,7 +848,7 @@ pub struct AccidentRelease {
 | `source_term` | `changi::activity::source::SourceTerm` | The source term, ready for `changi`. |
 | `caveats` | `crate::error::Caveats` | Known upstream behaviours that affected this result. **Report these<br>alongside any number taken from `source_term`** — see [`Caveats`]. |
 | `venting` | `super::venting::VentingWindow` | Which samples vented, and how much each released. |
-| `screened_out` | `Vec<String>` | Nuclides dropped by the half-life screen, with the reason. |
+| `screened_out` | `Vec<String>` | Nuclides dropped by the **half-life screen** (t½ below 4 % of the<br>transient), as supplied. ~~"with the reason"~~: no reason is stored,<br>and since #449 unknown names are an error, never listed here. |
 | `cumulative_final` | `Vec<(String, f64)>` | Per released nuclide, the **unfloored cumulative release at the last<br>venting sample** \[Bq\]: upstream `accident_case`'s last total. The<br>source term's window sum equals this unless a window was floored<br>([`Caveats::negative_atom_count_seen`]). This is the quantity to compare<br>with upstream. |
 
 ##### Implementations
@@ -1006,6 +1006,15 @@ both branches:
 isothermal hold vented nothing after `t = 0` and released **0 Bq**
 (#446). The first branch was missing from the port and is restored
 here.
+
+**Where upstream has no answer (#447, #449):** if *every* sample
+vents, as in a monotonic heat-up or any `from_ramp` ramp-and-hold,
+upstream's `accident_temp[:, :-0, :]` is empty and it raises
+`IndexError`. This port returns the ideal-gas fraction `≈ 1 − T0/T`
+instead: a defined answer, but **not an upstream-verified one**. A
+spatially non-uniform field that is constant in time also reaches
+that path, and there every `frac` after the first is 0 (#447 item 1,
+open).
 
 ###### `FullFlowThrough`
 
@@ -1215,7 +1224,10 @@ more.** Whichever nuclides it drops are returned in
 [`AccidentRelease::screened_out`] rather than vanishing.
 
 # Errors
-[`Error::UnknownNuclide`] if a name is not in the supported table;
+[`Error::UnknownNuclide`] if **any** inventory name does not parse or is not
+in the supported table. Non-canonical spellings (`cs137`) are normalised, as
+upstream does. ~~(only when no nuclide survives)~~ **CORRECTED 2026-09-30
+(#449)**: unknown names were previously listed in `screened_out`;
 [`Error::TransientTooShort`] if the venting calculation has too little to
 work with; [`Error::VentingTimeNotOnAxis`] if the venting selection cannot
 be reconciled with the time axis.
@@ -1274,8 +1286,10 @@ pub fn source_term_duration(term: &changi::activity::source::SourceTerm) -> uom:
 #### Constant `DIFFUSION_FIT_MIN_CELSIUS`
 
 Lower edge of the Arrhenius diffusion correlation's fitted range, degrees
-Celsius. Outside it `boon-lay` clamps rather than extrapolating; crossing it
-sets [`Caveats::diffusion_coefficient_clamped`].
+Celsius. Crossing it sets [`Caveats::diffusion_coefficient_clamped`].
+~~Outside it `boon-lay` clamps rather than extrapolating~~ **CORRECTED 2026-09-30 (#449):**
+`boon-lay` clamps only group-specific lower limits and extrapolates
+everything else; see that caveat's docs.
 
 ```rust
 pub const DIFFUSION_FIT_MIN_CELSIUS: f64 = 700.0;
@@ -1311,9 +1325,12 @@ accident_temp = accident_temp[:, :-rmv, :]  # a PREFIX
 ```
 
 A selection of `k` elements and the first `k` elements are the same thing
-**only when the venting mask is a contiguous run starting at index 0.** For
-a monotonically heating transient it always is, which is why the defect
-survives: the reference case never exercises it.
+**only when the venting mask is a contiguous run starting at index 0.**
+~~For a monotonically heating transient it always is, which is why the
+defect survives~~ **CORRECTED 2026-09-30 (#449):** if *every* sample heats, upstream's
+`[:-0]` slice is empty, and it **raises `IndexError`** (#447). The pairing
+defect survives because upstream's reference cases heat and then cool,
+giving a contiguous prefix, and never reheat.
 
 On a transient that heats, cools and reheats, the mask is gappy and the two
 diverge — every venting sample after the gap gets paired with the
@@ -1916,9 +1933,9 @@ pub struct Caveats {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `first_sample_forced_fully_vented` | `bool` | Upstream's `coolant_release` hard-codes `frac[0] = 1`, so the **first<br>sample is always treated as fully vented** regardless of what the<br>integral says. Always true when a venting calculation ran; recorded so<br>the first window's release is not read as a physical result. |
+| `first_sample_forced_fully_vented` | `bool` | Upstream's `coolant_release` hard-codes `frac[0] = 1`, so the **first<br>sample is always treated as fully vented** regardless of what the<br>integral says. ~~Always true when a venting calculation ran; recorded so<br>the first window's release is not read as a physical result.~~<br>**CORRECTED 2026-09-30 (#449):** set only when `coolant_release` ran, so it is false<br>for the uniform-constant branch, `FullFlowThrough` and `Prescribed`.<br>And the forced value does **not** enter the source term: the per-window<br>conversion starts from `cumulative[1]`, so `frac[0]` is never used.<br>It is informational. |
 | `negative_atom_count_seen` | `bool` | A release somewhere in the chain went **negative**. Two different things<br>set this, and **they push the total in opposite directions**, so the<br>flag alone does not tell a reader which way the answer is wrong.<br><br>~~If this is set, at least one node-nuclide pair went negative and the<br>total is correspondingly under-stated.~~ **CORRECTED 2026-09-24** — that<br>was right for one of the two paths and wrong for the other:<br><br>1. **`release_activity` returning a negative atom count.** Upstream<br>   deliberately does not clamp it, and neither does this crate, so the<br>   negative propagates and the total is **under-stated**. This path<br>   needs a non-empty normal-operation pool to fire at all: with<br>   [`crate::accident::release::zero_pools`] every subtracted term is<br>   zero, so it cannot. **Since #448 (2026-09-30) real pools are the<br>   default, so this path CAN fire** (measured: Cs-137 in the HTR-10<br>   DLOFC case), and the flag no longer tells a reader which direction<br>   the total is wrong.<br>2. **A negative per-window first difference**, i.e. a *non-monotonic*<br>   cumulative release. That one is floored to zero at the<br>   [`changi::activity::source::SourceTerm`] boundary, which **raises**<br>   the sum of the windows above the cumulative endpoint — the total is<br>   **over-stated**.<br><br>Path 2 is reachable and is not hypothetical. **Silver** is the case:<br>the transient breakthrough release fraction<br>(`boon_lay::triso_atops_fork::release_models::transient::breakthrough_model_transient`)<br>rises, is then driven negative by its `−a/(2r)` time-lag term and<br>clamped to zero until breakthrough, and only then grows — so the<br>cumulative curie series falls over that stretch. Measured on the HTR-10<br>DLOFC case (`crate::htr10`, 2026-09-24): Ag-110m had **13 of 30 windows<br>negative**, and the windows sum to `2.503345e-2 Ci` against a cumulative<br>endpoint of `2.500569e-2 Ci` — **over-stated by a factor 1.0011**. No<br>other nuclide in that run had a single negative window. |
-| `diffusion_coefficient_clamped` | `bool` | The Arrhenius diffusion coefficient is **clamped, never extrapolated**,<br>outside roughly 700-2400 degrees Celsius. If this is set, the transient<br>spent time outside the fitted range and the release there is governed by<br>a held-constant `D`, not by the correlation. |
+| `diffusion_coefficient_clamped` | `bool` | The transient left the correlation's nominal **700-2400 °C** fitted<br>range. ~~"clamped, never extrapolated"~~ **CORRECTED 2026-09-30 (#449):** `boon-lay`<br>clamps only group-specific **lower** limits (Rb/Cs kernel 700, graphite<br>550; Sr/Ba/Eu kernel 700, graphite 800; Ag/Pd graphite 490 °C). It never<br>clamps above, and never clamps Kr, Xe, I, Te or Se. So this flag<br>**over-flags** some nuclides (it is set for noble gases, which are<br>extrapolated, not clamped) and **misses** Sr graphite clamping between<br>700 and 800 °C. Read it as "outside the fitted range", not "clamped". |
 | `booth_transient_floored` | `bool` | The transient Booth solution **floors at about 1.216e-4** rather than<br>reaching zero, so a nuclide that should release essentially nothing<br>still shows a small release fraction.<br><br>**NOT WIRED — nothing in this crate ever sets this field, so it is<br>always `false` on a computed result.** Stated here because a reader<br>finding it in a caveat struct would reasonably assume the condition is<br>detected, and it is not: verified 2026-09-24 by searching the workspace<br>for writes to it, which occur only in this module's own tests. It is<br>kept rather than deleted because the underlying behaviour is real —<br>`boon_lay::...::release_models::transient::booth_transient` snaps below<br>`BOOTH_TRANSIENT_ZERO_FLOOR = 1e-6` — and detecting it needs the<br>release-fraction values, which<br>[`crate::accident::release::accident_release`] does not currently keep. |
 | `venting_mask_was_gappy` | `bool` | The venting mask was **not contiguous**. This is the condition under<br>which upstream's own prefix-versus-selection pairing goes wrong — see<br>[`crate::accident::venting`]. This crate does not have that defect, but<br>a result computed on a gappy mask cannot be compared against upstream's. |
 
@@ -1929,7 +1946,7 @@ pub struct Caveats {
 - ```rust
   pub const fn any(self: Self) -> bool { /* ... */ }
   ```
-  Whether anything worth reporting happened. Always true in practice —
+  Whether anything worth reporting happened. ~~Always true in practice —
 
 - ```rust
   pub fn lines(self: Self) -> Vec<&'static str> { /* ... */ }

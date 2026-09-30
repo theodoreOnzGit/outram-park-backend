@@ -65,7 +65,7 @@ use boon_lay::triso_atops_fork::normal_operation::{
     normal_operation_node, NodalActivities, NodeState, ParentPools, PlantConstants,
 };
 use boon_lay::triso_atops_fork::run_selection::{
-    select_nuclides, select_nuclides_accident, ParentDecayPolicy,
+    normalise_nuclide_name, select_nuclides, select_nuclides_accident, ParentDecayPolicy,
 };
 use std::collections::HashMap;
 use boon_lay::triso_atops_fork::TrisoAtopsNuclide;
@@ -85,8 +85,10 @@ use crate::units;
 use super::venting::VentingWindow;
 
 /// Lower edge of the Arrhenius diffusion correlation's fitted range, degrees
-/// Celsius. Outside it `boon-lay` clamps rather than extrapolating; crossing it
-/// sets [`Caveats::diffusion_coefficient_clamped`].
+/// Celsius. Crossing it sets [`Caveats::diffusion_coefficient_clamped`].
+/// ~~Outside it `boon-lay` clamps rather than extrapolating~~ **CORRECTED 2026-09-30 (#449):**
+/// `boon-lay` clamps only group-specific lower limits and extrapolates
+/// everything else; see that caveat's docs.
 pub const DIFFUSION_FIT_MIN_CELSIUS: f64 = 700.0;
 
 /// Upper edge of the fitted range, degrees Celsius. See
@@ -309,7 +311,9 @@ pub struct AccidentRelease {
     pub caveats: Caveats,
     /// Which samples vented, and how much each released.
     pub venting: VentingWindow,
-    /// Nuclides dropped by the half-life screen, with the reason.
+    /// Nuclides dropped by the **half-life screen** (t½ below 4 % of the
+    /// transient), as supplied. ~~"with the reason"~~: no reason is stored,
+    /// and since #449 unknown names are an error, never listed here.
     pub screened_out: Vec<String>,
     /// Per released nuclide, the **unfloored cumulative release at the last
     /// venting sample** \[Bq\]: upstream `accident_case`'s last total. The
@@ -381,7 +385,11 @@ fn normal_operation_pools(
     };
     let mut out: HashMap<String, Vec<NodalActivities>> = HashMap::new();
     for s in &selected {
-        let Some(inv) = inventory.nuclides.iter().find(|n| n.name == s.nuclide.name) else {
+        let Some(inv) = inventory
+            .nuclides
+            .iter()
+            .find(|n| normalise_nuclide_name(&n.name).is_ok_and(|c| c == s.nuclide.name))
+        else {
             continue;
         };
         let parent = s
@@ -465,7 +473,10 @@ pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup {
 /// [`AccidentRelease::screened_out`] rather than vanishing.
 ///
 /// # Errors
-/// [`Error::UnknownNuclide`] if a name is not in the supported table;
+/// [`Error::UnknownNuclide`] if **any** inventory name does not parse or is not
+/// in the supported table. Non-canonical spellings (`cs137`) are normalised, as
+/// upstream does. ~~(only when no nuclide survives)~~ **CORRECTED 2026-09-30
+/// (#449)**: unknown names were previously listed in `screened_out`;
 /// [`Error::TransientTooShort`] if the venting calculation has too little to
 /// work with; [`Error::VentingTimeNotOnAxis`] if the venting selection cannot
 /// be reconciled with the time axis.
@@ -510,6 +521,15 @@ pub enum Venting {
     /// isothermal hold vented nothing after `t = 0` and released **0 Bq**
     /// (#446). The first branch was missing from the port and is restored
     /// here.
+    ///
+    /// **Where upstream has no answer (#447, #449):** if *every* sample
+    /// vents, as in a monotonic heat-up or any `from_ramp` ramp-and-hold,
+    /// upstream's `accident_temp[:, :-0, :]` is empty and it raises
+    /// `IndexError`. This port returns the ideal-gas fraction `≈ 1 − T0/T`
+    /// instead: a defined answer, but **not an upstream-verified one**. A
+    /// spatially non-uniform field that is constant in time also reaches
+    /// that path, and there every `frac` after the first is 0 (#447 item 1,
+    /// open).
     Upstream,
     /// Everything released from the fuel leaves the core at once: `frac = 1`
     /// at every sample. The conservative choice for an ingress with no
@@ -574,11 +594,24 @@ pub fn accident_release_with_venting(
 
     // -- which nuclides survive the half-life screen
     let names = inventory.names();
-    let (selected, _errors) = select_nuclides_accident(&names, transient.end(), None);
+    // Names are normalised as upstream's `nuclide_import_accident` does
+    // ("cs137" -> "Cs-137"). A name that is NOT in the TRISO-ATOPS table, or
+    // does not parse, is an ERROR (#449). Upstream raises `KeyError` for the
+    // first and only warns for the second; returning an error for both is
+    // stricter, deliberately, because a nuclide silently left out of a source
+    // term is the kind of silent zero #446 was. Before 2026-09-30 both were
+    // listed as "screened out".
+    let (selected, errors) = select_nuclides_accident(&names, transient.end(), None);
+    if !errors.is_empty() {
+        return Err(Error::UnknownNuclide(format!("{errors:?}")));
+    }
     let kept: Vec<String> = selected.iter().map(|n| n.name.to_string()).collect();
     let screened_out: Vec<String> = names
         .iter()
-        .filter(|n| !kept.iter().any(|k| k == *n))
+        .filter(|n| {
+            let canonical = normalise_nuclide_name(n).unwrap_or_default();
+            !kept.iter().any(|k| *k == canonical)
+        })
         .map(|n| (*n).to_string())
         .collect();
     if selected.is_empty() {
@@ -650,7 +683,7 @@ pub fn accident_release_with_venting(
         let inv = inventory
             .nuclides
             .iter()
-            .find(|n| n.name == nuclide.name)
+            .find(|n| normalise_nuclide_name(&n.name).is_ok_and(|c| c == nuclide.name))
             .ok_or_else(|| Error::UnknownNuclide(nuclide.name.to_string()))?;
 
         let mut kernel_curies = vec![0.0_f64; n_keep];

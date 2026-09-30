@@ -133,6 +133,10 @@ src/
     activities/mod.rs                     ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented (`coolant_activity.rs`, `source_terms.rs`), code-to-code verified
     activities/live_pools.rs              ← **NOT a port** (2026-09-29, gh:#399): exact stepping of the circulating/plate-out/clean-up pools from any state, plus a leak sink; reproduces the ported closed forms from empty
     normal_operation/mod.rs               ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented; `normal_operation_node` agrees with upstream to 3.1e-11
+    accident/mod.rs                       ← accident-case PIECES (release_activity, coolant_release, accident_release_curies); no single accident_case fn (#447). Added to this map 2026-09-30 (#449)
+    run_selection/mod.rs                  ← nuclide selection (sl, parent_decay), name normalisation, half-life screens
+    run_file/mod.rs                       ← the port's own RunFile / RunConfig format
+    run_file/upstream.rs                  ← reads UPSTREAM / GUI-written run files; code-to-code verified vs process_run_file (#449)
   fuel_failure/                           ← **boon-lay fuel failure**: TRISO particle failure from the PANAMA-I formulas (NOT the PANAMA code)
     mod.rs                                ← naming rule, model overview, total_failure_fraction
     weibull / stress / pressure / booth / oxygen / molar_volume / corrosion / strength /
