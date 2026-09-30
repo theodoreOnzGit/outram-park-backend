@@ -159,11 +159,16 @@ workspace's figure-provenance rule.
 | 5-21, failure fraction in air | 256 | 1300 °C (5 points); 1500 °C (5); 1400 °C, two series (9, 8) |
 | 5-23, failure fraction at constant temperature | 257 | measurements: 1300 °C AVR "89/19", 1400 °C AVR 92/8, 92/22 and the 10-particle batch, 1500 °C 73/8. Predictions: Nabielek 1300 and 1400 °C, 2-mec 1500 °C |
 
+### Which points to use (maintainer, 2026-09-30: *"5-21 is very hard to read, those 1400 °C points. If in doubt, ignore points."*)
+- **Fig. 5-21's two 1400 °C series are EXCLUDED.** On its 0–400 h axis they are squeezed into the first ≈ 35 h and are hard to read. Use **Fig. 5-23** for 1400 °C (AVR 92/8, 92/22), with Table 5-7 for the end-of-test values.
+- **Fig. 5-21's fifth 1300 °C point (4.9 failures at 383 h) is EXCLUDED** as doubtful: Table 5-7 and Fig. 5-23 both show 4 failures. The first four points, and Fig. 5-21's 1500 °C series, are unaffected.
+- Nothing downstream used the excluded points. The 96 h conclusion below rests on Fig. 5-23 and Table 5-7.
+
 ### Checks by an AI agent, 2026-09-30
 - **1300 °C points sit on whole failure counts** (F × 16 400):
   - Fig. 5-23: 1.05, 2.08, 2.93, 4.10, i.e. 1, 2, 3, 4 failures, consistent with Table 5-7 (4 by 410 h).
   - Fig. 5-21: 0.98, 2.01, 2.99, 3.97 **and a fifth point, 4.90 at 383 h**.
-  - **Open:** either Fig. 5-21 shows one more failure than Table 5-7 and Fig. 5-23, or that point is misplaced. For the maintainer to check by eye.
+  - ~~**Open:** either Fig. 5-21 shows one more failure … or that point is misplaced.~~ **Resolved 2026-09-30:** the point is excluded as doubtful (see above).
 - **Fig. 5-18:** the plateau is 42.4 % at 19.9 h, matching the text's "42 %".
 - **1400 °C, 96 h:** the measured spheres reach ≈ 9×10⁻⁴ by 18–34 h (AVR 92/22, 92/8) and 1.2×10⁻³ at 140 h (Table 5-7). Failure only grows with time, so **1.2×10⁻³ bounds a 96 h period**. This is used by `sembawang`'s `htr10_air_ingress_kora_bound` (#435).
 - **Nabielek's fit against measurement, from the source's own figure (5-23):**
