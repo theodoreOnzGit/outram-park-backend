@@ -28895,6 +28895,11 @@ pub struct IncoherentInelasticScattering {
   The temperature the S(α,β) tables actually represent: the tabulated
 
 - ```rust
+  pub fn energy_max_ev(self: &Self) -> f64 { /* ... */ }
+  ```
+  The **upper energy \[eV\] of the thermal treatment** the evaluation
+
+- ```rust
   pub fn principal_atom_count(self: &Self) -> f64 { /* ... */ }
   ```
   Number of principal scattering atoms in the material (`B(6)`; `2` for
@@ -28928,6 +28933,21 @@ pub struct IncoherentInelasticScattering {
   pub fn emission(self: &Self, e: NeutronEnergy, n_outgoing: usize, n_cosines: usize) -> Vec<ThermalEmissionBin> { /* ... */ }
   ```
   Secondary energy/angle distribution for a scatter from incident energy
+
+- ```rust
+  pub fn calcem_inelastic_xs(self: &Self, e: NeutronEnergy, n_cosines: usize) -> CrossSection { /* ... */ }
+  ```
+  Incoherent-inelastic cross section **per principal atom** at `e`, as
+
+- ```rust
+  pub fn calcem_inelastic_table(self: &Self, n_cosines: usize) -> Option<(Vec<f64>, Vec<f64>)> { /* ... */ }
+  ```
+  THERMR's inelastic cross section **on its own incident grid**, as NJOY
+
+- ```rust
+  pub fn calcem_energy_max_ev(self: &Self, n_cosines: usize) -> Option<f64> { /* ... */ }
+  ```
+  The highest incident energy \[eV\] of the `calcem` table for `n_cosines`
 
 - ```rust
   pub fn kernel(self: &Self) -> &IncoherentInelastic { /* ... */ }
