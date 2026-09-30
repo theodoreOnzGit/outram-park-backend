@@ -195,6 +195,13 @@
 //! reproduce two would be chasing an artefact. [`RMC_KEFF_VS_HEIGHT`] carries
 //! that single curve.
 //!
+//! **RESOLVED 2026-10-01 from Şeker & Çolak (2003), NED 222:263, Table 3**
+//! (the MCNP paper Li cites): Li's Table 3 MCNP column equals Şeker's
+//! **vacuum** column and Li's Table 4 MCNP column equals Şeker's **helium**
+//! column, in all 12 rows to 5 d.p. (checked by eye against the stored
+//! constants). So Table 4's "(vacuum)" caption is the wrong one. Which medium
+//! Li's single RMC curve was run in is still not stated (gh:#333).
+//!
 //! ## How close is close, for this reference
 //!
 //! The paper's own RMC-vs-MCNP relative differences reach ~0.9 %, and it states
@@ -255,9 +262,10 @@ pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
 /// them.
 ///
 /// Both Tables 3 and 4 are captioned "(vacuum)" while the text says the
-/// calculations were for vacuum *and* helium, so one caption is wrong and it
-/// is not known which table is which (see the module docs). They are kept
-/// under their table numbers for that reason. Transcribed 2026-09-27;
+/// calculations were for vacuum *and* helium, so one caption is wrong ~~and it
+/// is not known which table is which~~ **CORRECTED 2026-10-01**: Şeker &
+/// Çolak (2003) Table 3 shows Table 3 is vacuum and Table 4 is **helium**
+/// (see the module docs). They are kept under their table numbers. Transcribed 2026-09-27;
 /// `the_mcnp_columns_reproduce_the_papers_relative_differences` re-derives the
 /// paper's "Re-diff" column from them.
 pub const MCNP_TABLE3_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
