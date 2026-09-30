@@ -15,7 +15,19 @@
 //! excluded from the staged set. [`is_excluded`] enforces that at the
 //! tree-building level — it is a property of this code, not something
 //! that merely happens to follow from a `.gitignore` a caller could have
-//! deleted, misedited, or bypassed some other way.
+//! deleted, misedited, or bypassed some other way. Since GitHub issue #458
+//! that covers **every** proprietary repository of the folder
+//! ([`crate::corpus_tiers`]), not only `[paths] restricted_sources`.
+//!
+//! # Several repositories per tier (GitHub issue #458)
+//!
+//! A Save commits **each** of the folder's writable corpus repositories
+//! that is checked out, independently and before the Kovan repository
+//! ([`commit_corpus_repos`]): every proprietary one through `gix`
+//! ([`save_private_repo`]), every open one (and a standard one only when
+//! configured `writable`) with the system `git` ([`commit_open_corpus`]).
+//! Read-only standard repositories are never committed into. The Kovan
+//! repository then records each registered submodule's commit as a gitlink.
 //!
 //! # Why this walks the worktree instead of using `.git/index`
 //!
@@ -190,17 +202,27 @@ pub fn compose_commit_message(generated: &str, note: &str) -> String {
 /// ready private submodule exists (see [`SubmoduleGitlink`]); its contents
 /// must still never be walked and flattened into the *parent* repository's
 /// own tree, or the whole point of a separate private repository is lost.
-fn is_excluded(root: &KovanRoot, path: &Path) -> bool {
+fn is_excluded(root: &KovanRoot, private: &[PathBuf], path: &Path) -> bool {
     path.starts_with(root.restricted_sources_dir())
+        || private.iter().any(|p| path.starts_with(p))
         || path.starts_with(root.state_dir())
         || path.components().any(|c| c.as_os_str() == ".git")
+}
+
+/// Every proprietary repository's directory (#458): all of them are kept
+/// out of the Kovan repository's own tree by [`is_excluded`].
+fn private_dirs(root: &KovanRoot) -> Vec<PathBuf> {
+    root.tier_repos(crate::corpus_tiers::Tier::Proprietary)
+        .into_iter()
+        .map(|r| r.dir)
+        .collect()
 }
 
 /// Recursively collect every file under `dir` (relative to `base`) that
 /// `excluded` does not reject, as `(absolute_path, path_relative_to_base)`
 /// pairs. The shared walker behind both [`build_tree`] (the parent
 /// repository, excluding restricted sources/`.kovan`/`.git`) and
-/// [`save_private_submodule`] (the private submodule's own worktree,
+/// [`save_private_repo`] (a proprietary repository's own worktree,
 /// excluding only its own `.git`).
 fn collect_files(
     base: &Path,
@@ -359,7 +381,13 @@ fn build_tree(
     root: &KovanRoot,
     gitlinks: &[SubmoduleGitlink],
 ) -> Result<(gix::ObjectId, BTreeMap<String, gix::ObjectId>), RepositoryError> {
-    build_tree_from(repo, root.path(), |path| is_excluded(root, path), gitlinks)
+    let private = private_dirs(root);
+    build_tree_from(
+        repo,
+        root.path(),
+        |path| is_excluded(root, &private, path),
+        gitlinks,
+    )
 }
 
 /// Flatten `tree_id`'s contents (recursively) into a `path -> blob id` map,
@@ -451,7 +479,7 @@ fn open(root: &KovanRoot) -> Result<gix::Repository, RepositoryError> {
 /// requires the summary to be deterministic; the author identity should not
 /// depend on what happens to be configured on the machine running it).
 /// Shared between [`save_repository`] (the parent repository) and
-/// [`save_private_submodule`] (a private submodule's own history).
+/// [`save_private_repo`] (a proprietary repository's own history).
 fn commit_tree(
     repo: &mut gix::Repository,
     tree_id: gix::ObjectId,
@@ -519,32 +547,19 @@ fn sync_index(repo: &gix::Repository, tree_id: gix::ObjectId) -> Result<(), Repo
         .map_err(|e| err(e.to_string()))
 }
 
-/// The private submodule's current `HEAD` commit id, read-only — used by
-/// [`status`] to preview a gitlink entry without writing anything (unlike
-/// [`save_private_submodule`], which commits). `Ok(None)` for a submodule
-/// repository with no commits yet.
+/// Commit a proprietary repository's own worktree — everything under
+/// `submodule_dir`, excluding only its own `.git` — mirroring
+/// [`save_repository`]'s parent-repository logic but scoped to that
+/// directory's own history. Before GitHub issue #458 this was only ever
+/// `root.restricted_sources_dir()`; it now runs for every proprietary
+/// repository ([`commit_corpus_repos`]).
 ///
-/// **Limitation, documented rather than hidden:** this reads the
-/// submodule's *last commit*, not a preview of what committing its current
-/// worktree would produce — so [`status`] does not surface an in-flight,
-/// not-yet-committed change inside the submodule itself as a pending
-/// parent-repository change. Previewing that would mean building (though
-/// not writing) a full second tree on every status check; not worth it for
-/// a lightweight, frequently-polled preview. [`save_repository`] itself has
-/// no such gap — it always commits the submodule's actual current state.
-fn private_submodule_head(root: &KovanRoot) -> Result<Option<gix::ObjectId>, RepositoryError> {
-    let sub_repo = gix::open(root.restricted_sources_dir())
-        .map_err(|e| RepositoryError::Git(e.to_string()))?;
-    Ok(match sub_repo.head_id() {
-        Ok(id) => Some(id.detach()),
-        Err(_) => None,
-    })
-}
-
-/// Commit the private literature submodule's own worktree — everything
-/// under `root.restricted_sources_dir()`, excluding only its own `.git` —
-/// mirroring [`save_repository`]'s parent-repository logic but scoped to
-/// that directory's own history.
+/// **Limitation, documented rather than hidden:** [`status`] previews a
+/// corpus repository's gitlink from its *last commit* ([`repo_head`]), not
+/// from what committing its current worktree would produce, so an
+/// in-flight change inside a corpus repository is not shown as a pending
+/// parent-repository change. [`save_repository`] has no such gap: it
+/// commits each repository's actual current state first.
 ///
 /// Called from [`save_repository`] **before** any parent-repository write,
 /// and its error propagates immediately via `?` — `op-3gxp`'s hard
@@ -560,16 +575,14 @@ fn private_submodule_head(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
 /// (nothing a gitlink could point at) — [`save_repository`] falls back to
 /// excluding the directory entirely in that case, same as an unconfigured
 /// or not-ready private submodule.
-fn save_private_submodule(
-    root: &KovanRoot,
+fn save_private_repo(
+    submodule_dir: &Path,
     note: &str,
 ) -> Result<Option<gix::ObjectId>, RepositoryError> {
-    let submodule_dir = root.restricted_sources_dir();
-    let mut sub_repo =
-        gix::open(&submodule_dir).map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let mut sub_repo = gix::open(submodule_dir).map_err(|e| RepositoryError::Git(e.to_string()))?;
 
     let excluded = |path: &Path| path.components().any(|c| c.as_os_str() == ".git");
-    let (tree_id, blobs) = build_tree_from(&sub_repo, &submodule_dir, excluded, &[])?;
+    let (tree_id, blobs) = build_tree_from(&sub_repo, submodule_dir, excluded, &[])?;
     let summary = diff_against_head(&sub_repo, &blobs)?;
 
     if summary.is_empty() {
@@ -681,6 +694,23 @@ fn repo_head(dir: &Path) -> Option<gix::ObjectId> {
 /// message is byte-for-byte what it was before notes existed (pinned by a
 /// test).
 fn commit_open_corpus(dir: &Path, note: &str) -> Result<(), RepositoryError> {
+    commit_with_git(
+        dir,
+        note,
+        "Save Kovan repository: open corpus",
+        "open corpus",
+    )
+}
+
+/// [`commit_open_corpus`] with the subject and the error label given (a
+/// writable standard repository uses `Save Kovan repository: standard
+/// corpus`).
+fn commit_with_git(
+    dir: &Path,
+    note: &str,
+    subject: &str,
+    label: &str,
+) -> Result<(), RepositoryError> {
     use std::process::Command;
     if !crate::advanced_git::system_git_available() {
         return Ok(());
@@ -698,7 +728,7 @@ fn commit_open_corpus(dir: &Path, note: &str) -> Result<(), RepositoryError> {
     };
     let failed = |what: &str, o: &std::process::Output| {
         RepositoryError::Git(format!(
-            "open corpus {what}: {}",
+            "{label} {what}: {}",
             String::from_utf8_lossy(&o.stderr).trim()
         ))
     };
@@ -710,7 +740,7 @@ fn commit_open_corpus(dir: &Path, note: &str) -> Result<(), RepositoryError> {
         return Ok(()); // nothing staged
     }
     let has_identity = git(&["config", "user.email"])?.status.success();
-    let message = compose_commit_message("Save Kovan repository: open corpus", note);
+    let message = compose_commit_message(subject, note);
     let mut args = Vec::new();
     if !has_identity {
         args.extend(["-c", "user.name=Kovan", "-c", "user.email=kovan@localhost"]);
@@ -730,10 +760,10 @@ fn commit_open_corpus(dir: &Path, note: &str) -> Result<(), RepositoryError> {
 /// Each is recorded at its repository's current `HEAD`; one not downloaded
 /// yet keeps the commit already in `HEAD` (never dropped, the defect that
 /// removed all three corpus submodules from a real Kovan repository on
-/// 2026-09-22). With `commit`, the user's own corpora are committed first:
-/// the private one as before ([`save_private_submodule`]), the open one
-/// with Git ([`commit_open_corpus`]). The standard corpus is never
-/// committed into: it is read-only to everyone but its maintainer.
+/// 2026-09-22). With `commit`, the user's own corpus repositories are
+/// committed first, each independently ([`commit_corpus_repos`], #458).
+/// A standard repository is never committed into unless configured
+/// `writable`: it is read-only to everyone but its maintainer.
 ///
 /// `commit` is `None` for a read-only preview ([`status`]) and
 /// `Some(note)` for a save, `note` being the user's commit note (possibly
@@ -744,43 +774,68 @@ fn submodule_gitlinks(
     commit: Option<&str>,
 ) -> Result<Vec<SubmoduleGitlink>, RepositoryError> {
     let paths = &root.config().paths;
+    if let Some(note) = commit {
+        commit_corpus_repos(root, note)?;
+    }
     let mut rels = registered_submodules(root);
-    let private_ready = root.private_submodule_ready();
-    if private_ready && !rels.contains(&paths.restricted_sources) {
+    if root.private_submodule_ready() && !rels.contains(&paths.restricted_sources) {
         rels.push(paths.restricted_sources.clone());
     }
     let mut links = Vec::new();
     for rel in rels {
+        // A proprietary repository's files are never walked into this tree
+        // either way ([`is_excluded`]); only its gitlink is recorded.
         let dir = root.path().join(&rel);
-        let head = if rel == paths.restricted_sources {
-            // Registered (setup's `git submodule add`) or configured as the
-            // private submodule. Its files are never walked into this tree
-            // either way ([`is_excluded`]).
-            if repo_head(&dir).is_none() && !private_ready {
-                None
-            } else if let Some(note) = commit {
-                save_private_submodule(root, note)?
-            } else {
-                private_submodule_head(root)?
-            }
-        } else {
-            if let Some(note) = commit {
-                if rel == paths.open_sources && repo_head(&dir).is_some() {
-                    commit_open_corpus(&dir, note)?;
-                }
-            }
-            repo_head(&dir)
-        };
-        if let Some(commit) = head.or_else(|| gitlink_in_head(repo, &rel)) {
+        if let Some(commit) = repo_head(&dir).or_else(|| gitlink_in_head(repo, &rel)) {
             links.push(SubmoduleGitlink { path: rel, commit });
         }
     }
     Ok(links)
 }
 
+/// Commit every writable corpus repository of `root` that is checked out
+/// (GitHub issue #458), each in its own history and before anything of the
+/// Kovan repository is written, so a failure stops the save with no parent
+/// commit pointing at an uncommitted corpus state (`op-3gxp`):
+///
+/// - **proprietary** repositories through `gix` ([`save_private_repo`]);
+/// - **open** repositories, and **standard** ones configured `writable`,
+///   with the system `git` so their own `.gitignore` applies
+///   ([`commit_with_git`]).
+///
+/// A read-only standard repository is skipped. A checkout mounted in two
+/// tiers is committed once, as its first writable tier.
+fn commit_corpus_repos(root: &KovanRoot, note: &str) -> Result<(), RepositoryError> {
+    use crate::corpus_tiers::Tier;
+    let mut done: Vec<PathBuf> = Vec::new();
+    for r in root.corpus_repos() {
+        if !r.writable || !r.is_downloaded() {
+            continue;
+        }
+        let key = r.dir.canonicalize().unwrap_or_else(|_| r.dir.clone());
+        if done.contains(&key) {
+            continue;
+        }
+        done.push(key);
+        match r.tier {
+            Tier::Proprietary => {
+                save_private_repo(&r.dir, note)?;
+            }
+            Tier::Open => commit_open_corpus(&r.dir, note)?,
+            Tier::Standard => commit_with_git(
+                &r.dir,
+                note,
+                "Save Kovan repository: standard corpus",
+                "standard corpus",
+            )?,
+        }
+    }
+    Ok(())
+}
+
 /// What would change if [`save_repository`] ran right now — the "N changes
 /// since last repository save" the UI shows (§37) — without writing
-/// anything. See [`private_submodule_head`] for the one documented gap in
+/// anything. See [`save_private_repo`] for the one documented gap in
 /// that guarantee's coverage.
 pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
     let repo = open(root)?;
@@ -795,7 +850,8 @@ pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
 ///
 /// `op-3gxp`: when a private literature submodule is configured and ready
 /// (see [`crate::root::KovanRoot::private_submodule_ready`]), its own
-/// worktree is committed **first** ([`save_private_submodule`]), before
+/// worktree is committed **first** ([`save_private_repo`], and since #458
+/// every other corpus repository, [`commit_corpus_repos`]), before
 /// anything about the parent repository is touched — a failure there aborts
 /// this whole call via `?`, so a parent commit can never reference an
 /// invalid or uncommitted submodule state. The parent tree then records the

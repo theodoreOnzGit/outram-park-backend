@@ -175,6 +175,10 @@ impl LiteratureList {
     ///   as the maintainer's is, those PDFs are listed once, as standard).
     /// - **Proprietary corpus:** every PDF in it.
     /// - **Other papers:** papers whose PDF is in none of those.
+    ///
+    /// Each tier covers **every** repository of that tier
+    /// ([`crate::corpus_tiers`], GitHub issue #458); when a tier holds more
+    /// than one, each item's label starts with its repository's name.
     pub(super) fn build(root: &KovanRoot, corpus: &StandardCorpus) -> Self {
         let owners: BTreeMap<PathBuf, String> = root
             .paper_dirs()
@@ -230,26 +234,76 @@ impl LiteratureList {
                 }
             })
             .collect();
-        let standard_dir = root.standard_corpus_dir();
+        use crate::corpus_tiers::Tier;
+        let repos = root.corpus_repos();
+        // The repositories of one tier, each checkout once, with the label
+        // prefix its items get (its name, when the tier has several).
+        let tier_dirs = |tier: Tier| -> Vec<(PathBuf, String)> {
+            let mut dirs: Vec<(PathBuf, String)> = Vec::new();
+            for r in repos.iter().filter(|r| r.tier == tier) {
+                if !dirs.iter().any(|(d, _)| d == &r.dir) {
+                    dirs.push((r.dir.clone(), r.name.clone()));
+                }
+            }
+            let several = dirs.len() > 1;
+            dirs.into_iter()
+                .map(|(d, n)| {
+                    (
+                        d,
+                        if several {
+                            format!("{n}: ")
+                        } else {
+                            String::new()
+                        },
+                    )
+                })
+                .collect()
+        };
+        let prefixed = |mut i: LiteratureItem, prefix: &str| {
+            i.label = format!("{prefix}{}", i.label);
+            i
+        };
         let known: Vec<PathBuf> = standard_items
             .iter()
             .filter_map(|i| i.path.as_ref()?.canonicalize().ok())
             .collect();
-        let standard: Vec<PathBuf> = pdfs_under(&standard_dir.join(STANDARD_CORPUS_FOLDER))
-            .into_iter()
-            .filter(|p| p.canonicalize().map_or(true, |c| !known.contains(&c)))
-            .collect();
-        standard_items.extend(standard.into_iter().map(|p| item(p, &standard_dir)));
-        let open_dir = root.open_corpus_dir();
-        let open: Vec<PathBuf> = crate::corpus_repos::open_corpus_pdfs(&open_dir)
-            .into_iter()
-            .filter(|p| {
-                !p.strip_prefix(&open_dir)
-                    .is_ok_and(|rel| rel.starts_with(STANDARD_CORPUS_FOLDER))
-            })
-            .collect();
-        let restricted_dir = root.restricted_sources_dir();
-        let proprietary = pdfs_under(&restricted_dir);
+        let mut standard_dirs = tier_dirs(Tier::Standard);
+        if standard_dirs.is_empty() {
+            standard_dirs.push((root.standard_corpus_dir(), String::new()));
+        }
+        for (standard_dir, prefix) in &standard_dirs {
+            let standard: Vec<PathBuf> = pdfs_under(&standard_dir.join(STANDARD_CORPUS_FOLDER))
+                .into_iter()
+                .filter(|p| p.canonicalize().map_or(true, |c| !known.contains(&c)))
+                .collect();
+            standard_items.extend(
+                standard
+                    .into_iter()
+                    .map(|p| prefixed(item(p, standard_dir), prefix)),
+            );
+        }
+        let mut open_items = Vec::new();
+        for (open_dir, prefix) in tier_dirs(Tier::Open) {
+            let open: Vec<PathBuf> = crate::corpus_repos::open_corpus_pdfs(&open_dir)
+                .into_iter()
+                .filter(|p| {
+                    !p.strip_prefix(&open_dir)
+                        .is_ok_and(|rel| rel.starts_with(STANDARD_CORPUS_FOLDER))
+                })
+                .collect();
+            open_items.extend(
+                open.into_iter()
+                    .map(|p| prefixed(item(p, &open_dir), &prefix)),
+            );
+        }
+        let mut proprietary_items = Vec::new();
+        for (restricted_dir, prefix) in tier_dirs(Tier::Proprietary) {
+            proprietary_items.extend(
+                pdfs_under(&restricted_dir)
+                    .into_iter()
+                    .map(|p| prefixed(item(p, &restricted_dir), &prefix)),
+            );
+        }
 
         let mut groups = vec![
             LiteratureGroup {
@@ -258,14 +312,11 @@ impl LiteratureList {
             },
             LiteratureGroup {
                 title: "Open corpus",
-                items: open.into_iter().map(|p| item(p, &open_dir)).collect(),
+                items: open_items,
             },
             LiteratureGroup {
                 title: "Proprietary corpus",
-                items: proprietary
-                    .into_iter()
-                    .map(|p| item(p, &restricted_dir))
-                    .collect(),
+                items: proprietary_items,
             },
         ];
         let listed: Vec<PathBuf> = groups

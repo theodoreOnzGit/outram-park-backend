@@ -1890,3 +1890,109 @@ column alignment, images (shown as links — no image loaders are installed).
   opens the document the same way. Tests use synthetic PDFs in temporary
   folders: `standard_corpus` (5), `ingest` (4 new), `fingerprint` (1),
   `app::literature_list::standard_corpus_documents_are_listed_as_ingested`.
+- **2026-09-30 — Several standard, open and proprietary repositories per
+  tier (GitHub issue #458).** Maintainer: "kovan should be able to take on
+  multiple standard, multiple open and multiple propreitrary github repos in
+  their corpus"; repositories are to be split by topic as they near GitHub's
+  recommended ~1 GB (#454). **Decisions.** (1) **Configuration:** a
+  `[repos]` table in `kovan_root.toml` with `[[repos.standard]]`,
+  `[[repos.open]]` and `[[repos.proprietary]]` entries, each `name`
+  (unique across all tiers), `path` (relative to the folder), optional
+  `remote`, `branch`, `default` and, standard only, `writable`; plus
+  `known_public = [...]` and `builtin_standard` (default true).
+  `src/corpus_tiers.rs` resolves it into one ordered list
+  (`KovanRoot::corpus_repos`). (2) **Backward compatible without a
+  migration:** the older settings are each tier's implicit first
+  repository — standard `kovan-standard` (the built-in list,
+  `BUILTIN_STANDARD_REPOS`, today `CORPUS_REPOSITORY_URL`) at `[paths]
+  standard_corpus`; open `open` at `open_sources` from `[corpora]
+  open_remote`; proprietary `proprietary` at `restricted_sources` from
+  `proprietary_remote`, else `[private_submodule] remote`. Entries are
+  appended; one with the same `path` (or, for standard, the same remote as a
+  built-in) replaces the implicit one in place, which is how an existing
+  repository is renamed or made the default. A file without `[repos]` writes
+  back unchanged (tested). Rejected: rewriting existing files into
+  `[[repos]]` form (touches a user's hand-edited file for no gain), and
+  making `[repos]` replace the older settings (a silent drop of a repository
+  the user already has). (3) **Validation at open and on write**
+  (`corpus_tiers::validate`, `RootError::InvalidRepos`): names safe and
+  unique, paths relative without `..`, no two repositories of one tier at
+  one path, and **no proprietary repository sharing or nested in any other
+  repository's path**, since a proprietary PDF inside an open checkout
+  would be published by its push. A standard and an open repository may
+  share a checkout (pulled and committed once). (4) **Every consumer
+  iterates:** `StandardCorpus::for_root` searches every standard, then every
+  open repository, so a corpus entry's `corpus_file` is found in whichever
+  standard repository holds it; the literature list shows every repository
+  of each tier (item labels prefixed with the repository name when a tier
+  has several); setup (`ensure_library_corpora`, new
+  `CorporaSetup::others`), pull (`pull_corpora`, one `CorpusPull` per
+  repository with its `name`), Save (`repository::commit_corpus_repos`:
+  every writable checked-out repository committed independently, before the
+  Kovan repository; every proprietary directory kept out of the Kovan tree
+  by `is_excluded`) and push (`save_push`, one `RepoPush` per repository).
+  New `[[repos]]` mounts are added to `.gitignore`
+  (`KovanRoot::ensure_repo_paths_ignored`). **Behaviour change, stated:** a
+  checked-out writable repository that is not a registered submodule (for
+  example a locally initialised open corpus with no remote) is now committed
+  by Save; before, only registered submodules and a ready private submodule
+  were. (5) **Duplicate guard across everything:** `ingest::find_existing`
+  now also hashes every PDF in every repository of every tier
+  (`ExistingEntry::RepoFile`), still only files of the incoming length; the
+  incoming file itself, already in a repository, is an ingest in place and
+  not a duplicate of itself. (6) **Ingest target:** `IngestChoice::target`
+  (`RepoRef { tier, name }`), `None` meaning the default repository
+  (`default = true`, else the first) of the tier the access implies;
+  `resolve_target` refuses a restricted document outside the proprietary
+  tier and any read-only standard repository (`IngestError::Target`). The
+  Ingest form has a Repository dropdown fed by `ingest::target_choices`
+  (restricted: proprietary repositories only; open: open, writable standard,
+  proprietary). The repository is recorded as `[source] repo = "<name>"`
+  (`SourceRef::repo`). (7) **Push safety, per repository, all earlier rules
+  kept** (never forced, detached HEAD only by fast-forward, every push URL
+  must be the repository's own configured remote). **A proprietary
+  repository is refused** when its remote is any standard or open
+  repository's remote, a built-in standard remote, a `known_public` entry
+  or an `outram-park-backend` URL (offline,
+  `corpus_tiers::public_remote_reason`), or when it is an HTTPS or GitHub
+  `git@` remote that `git ls-remote` reads with no credential of the user's
+  in reach (`anonymously_readable`: credential helpers cleared, an empty
+  `HOME`, no global or system Git config, run from an empty directory, so
+  neither a per-URL helper such as `gh auth setup-git`'s nor `~/.netrc` can
+  answer; network, skipped for local paths and with
+  `KOVAN_SKIP_VISIBILITY_PROBE`). An unreachable probe counts as
+  "not shown public", since the push would fail anyway. Standard
+  repositories are never committed or pushed unless `writable = true`.
+  (8) **Size:** the push report carries a warning for every checkout of
+  0.9 GiB or more (files, excluding `.git`), suggesting another repository
+  in the same tier (`corpus_tiers::size_warning`, `PushReport::warnings`).
+  **The maintainer's layout** (`~/Documents/local-kovan-repo`, read, not
+  edited) needs no change; splitting later looks like:
+
+  ```toml
+  [[repos.open]]
+  name = "reactor-literature"          # renames the implicit open repository
+  path = "literature/open-corpus"
+
+  [[repos.open]]
+  name = "open-htgr"
+  remote = "https://github.com/theodoreOnzGit/<new-open-repo>.git"
+  path = "literature/open-htgr"
+  default = true
+
+  [[repos.proprietary]]
+  name = "proprietary-books"
+  remote = "https://github.com/theodoreOnzGit/<new-private-repo>.git"
+  path = "literature/proprietary-books"
+  ```
+
+  Not done: a GUI editor for `[repos]` (hand-edit the file; the setup
+  dialog still configures only the first open and proprietary remote), and
+  a check that a non-GitHub SSH remote is private (only the offline list
+  applies there). Tests: `corpus_tiers::tests` (6, parsing, resolution,
+  validation, offline public-remote guard, size) and
+  `corpus_tiers::multi_repo_tests` (9, two repositories in every tier as
+  submodules of local bare remotes: discovery, ingest into a chosen
+  repository, cross-repository duplicates, per-repository save and push,
+  writable standard, the proprietary-remote guard, pull, size warning, the
+  maintainer's single-repository file and the refused nested layout).

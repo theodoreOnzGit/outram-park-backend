@@ -60,6 +60,7 @@ pub mod commands;
 pub mod connections;
 pub mod corpus;
 pub mod corpus_repos;
+pub mod corpus_tiers;
 pub mod digitiser;
 pub mod entity;
 pub mod fingerprint;
