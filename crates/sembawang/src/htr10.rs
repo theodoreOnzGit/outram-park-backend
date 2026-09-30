@@ -127,7 +127,9 @@ use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::{hour, second};
 
-use crate::accident::release::PlantParameters;
+use crate::accident::release::{
+    NodeTemperatures, NormalOperation, PlantParameters, PrimaryCircuitPools,
+};
 use crate::error::Result;
 use crate::scenario::TemperatureTransient;
 
@@ -492,25 +494,46 @@ pub struct Htr10Geometry {
 ///
 /// - `coolant_pressure` is one atmosphere: this is a **depressurised**
 ///   accident, which is what the transient shape describes.
-/// - `x_liftoff` is zero. `crate::accident::release::zero_pools` means the
-///   accident starts with nothing plated out, so there is nothing to lift off
-///   and any non-zero value here would be arithmetic on an empty pool. This
-///   **under-predicts** the early release by whatever a real operating cycle
-///   would have left in the circuit.
+/// - ~~`x_liftoff` is zero … `zero_pools` means the accident starts with
+///   nothing plated out … **under-predicts**~~ **CORRECTED 2026-09-30 (#448):**
+///   the accident now starts from real normal-operation pools, so a zero
+///   lift-off would silently omit plate-out re-entrainment. `x_liftoff` is
+///   **0.05, an NP-MHTGR stand-in** (Stoyer et al. 2026 Case A, Table 3). No
+///   HTR-10 value is in the corpus; Liu & Cao 2002 instead assume desorption
+///   of 2.4 × the coolant activity.
 /// - `clean_up_fitted` is `true`: HTR-10 has a helium purification system.
+/// - **Normal operation** ([`PrimaryCircuitPools::FromNormalOperation`]):
+///   - `run_time` **20 y**: Liu & Cao 2002's circulating activity is "at the
+///     end of 20 years of full-power operation";
+///   - `irradiation_time` **1080 FPD**: `boon_lay::fuel_failure::htr10::RESIDENCE_FULL_POWER_DAYS`;
+///   - `k_plate`, `k_clean`, `a_grain`: **NP-MHTGR stand-ins**
+///     ([`NormalOperation::np_mhtgr_reference`]);
+///   - fuel and graphite temperatures: **the 776 °C stand-in**
+///     [`STAND_IN_IRRADIATION_CELSIUS`], uniform (#297).
 #[must_use]
 pub fn plant_parameters(
     geometry: Htr10Geometry,
     fractions: AccidentFractions,
 ) -> PlantParameters {
+    let t = stand_in_irradiation_temperature();
+    let year_s = 365.0 * 24.0 * 3600.0;
+    let normal = NormalOperation {
+        run_time: Time::new::<second>(20.0 * year_s),
+        irradiation_time: Time::new::<second>(
+            panama_htr10::RESIDENCE_FULL_POWER_DAYS * 24.0 * 3600.0,
+        ),
+        temperatures: NodeTemperatures::Uniform { core: t, graphite: t },
+        ..NormalOperation::np_mhtgr_reference()
+    };
     PlantParameters {
         fractions,
         graphite_thickness: geometry.graphite_thickness,
         kernel_radius: geometry.kernel_radius,
         sic_thickness: geometry.sic_thickness,
         coolant_pressure: Pressure::new::<kilopascal>(101.325),
-        x_liftoff: 0.0,
+        x_liftoff: 0.05,
         clean_up_fitted: true,
+        pools: PrimaryCircuitPools::FromNormalOperation(normal),
     }
 }
 
@@ -810,8 +833,11 @@ mod tests {
     ///
     /// | arm | total released |
     /// |---|---|
-    /// | PANAMA on (`f_inc_acc = 1.068·10⁻⁷`) | **1.8762·10¹¹ Bq** |
-    /// | PANAMA ablated (`f_inc_acc = 0`) | **1.8747·10¹¹ Bq** |
+    /// | PANAMA on (`f_inc_acc = 1.068·10⁻⁷`) | ~~1.8762·10¹¹~~ **1.7054·10¹¹ Bq** |
+    /// | PANAMA ablated (`f_inc_acc = 0`) | ~~1.8747·10¹¹~~ **1.7040·10¹¹ Bq** |
+    ///
+    /// (Struck values: empty pools, 2026-09-24. Current values: real
+    /// normal-operation pools, 2026-09-30, #448. The ratio is unchanged.)
     ///
     /// Ratio **1.0008** — the accident-added failure raises the source term by
     /// **0.08 %** at a 1500 °C peak, because it is `10⁻⁷` against an
@@ -854,9 +880,12 @@ mod tests {
             (ablation_ratio - 1.0008).abs() < 5.0e-4,
             "the recorded ablation ratio is 1.0008; got {ablation_ratio:.6}"
         );
+        // ~~1.8762e11 Bq~~ with empty pools (2026-09-24). RE-MEASURED 2026-09-30
+        // after #448 made real normal-operation pools the default: 1.7054e11 Bq
+        // (-9.1 %). The ablation ratio is unchanged within its tolerance.
         assert!(
-            (on - 1.8762e11).abs() / 1.8762e11 < 0.02,
-            "the recorded total is 1.8762e11 Bq; got {on:.5e}"
+            (on - 1.7054e11).abs() / 1.7054e11 < 0.02,
+            "the recorded total is 1.7054e11 Bq (real pools, #448); got {on:.5e}"
         );
     }
 
@@ -895,13 +924,26 @@ mod tests {
     /// cooldown time constant at 30 h, 60 h and 120 h and with the late-time
     /// temperature at 800 °C and 1000 °C, and compare the totals.
     ///
-    /// Results (2026-09-24): every arm gives **1.8762·10¹¹ Bq**, identical to
-    /// the last printed digit. The estimates move PANAMA's failure
-    /// accumulation only, and that term is itself 0.08 % of the answer.
+    /// Results (2026-09-24, empty pools): every arm gives **1.8762·10¹¹ Bq**,
+    /// identical to the last printed digit. The estimates move PANAMA's
+    /// failure accumulation only, and that term is itself 0.08 % of the
+    /// answer.
+    ///
+    /// **Re-measured 2026-09-30 with real normal-operation pools (#448).** The
+    /// total falls to ≈ 1.705·10¹¹ Bq, so the same PANAMA increment is a
+    /// larger share, and the arms spread by ≈ 0.1 %. ~~The old fixed 1e-3
+    /// tolerance~~ encoded the 0.08 % share, so it is **replaced by a derived
+    /// bound**, not widened. The spread across arms must not exceed the largest
+    /// PANAMA contribution itself, measured here as each arm's release with its
+    /// increment minus its release with the increment set to zero. And the
+    /// venting window must be **identical** across arms: that is the physical
+    /// claim ("the cooling leg never vents").
     #[test]
     fn the_estimated_cooldown_parameters_cannot_move_the_release() {
         let inv = inventory();
         let mut totals = Vec::new();
+        let mut panama_share = 0.0_f64;
+        let mut windows = Vec::new();
         for (tau_h, late_c) in [(30.0, 900.0), (60.0, 900.0), (120.0, 900.0), (60.0, 800.0), (60.0, 1000.0)] {
             let mut shape = DlofcShape::htr_module_jrc();
             shape.cooldown_time_constant = Time::new::<hour>(tau_h);
@@ -911,23 +953,36 @@ mod tests {
                 np_mhtgr_normal_operation_fractions(),
                 p.accident_increment_final,
             );
-            let plant = plant_parameters(geometry(), fractions);
             let transient = shape.transient(SAMPLES, 1, 1).expect("enough samples");
-            let out = accident_release(&inv, &transient, &plant).expect("the chain runs");
-            totals.push(
-                out.source_term
-                    .nuclides
-                    .iter()
-                    .map(|n| n.total_released().get::<becquerel>())
-                    .sum::<f64>(),
-            );
+            let sum = |f: AccidentFractions| -> (f64, Vec<usize>) {
+                let out = accident_release(&inv, &transient, &plant_parameters(geometry(), f))
+                    .expect("the chain runs");
+                (
+                    out.source_term
+                        .nuclides
+                        .iter()
+                        .map(|n| n.total_released().get::<becquerel>())
+                        .sum::<f64>(),
+                    out.venting.indices().to_vec(),
+                )
+            };
+            let (on, vented) = sum(fractions);
+            let (off, _) = sum(with_panama_accident_increment(
+                np_mhtgr_normal_operation_fractions(),
+                0.0,
+            ));
+            panama_share = panama_share.max((on - off).abs());
+            totals.push(on);
+            windows.push(vented);
         }
         let first = totals[0];
+        println!("arm totals {totals:?}; largest PANAMA contribution {panama_share:.4e} Bq");
         for (i, t) in totals.iter().enumerate() {
+            assert_eq!(windows[i], windows[0], "arm {i} vents a different window");
             assert!(
-                (t - first).abs() / first < 1.0e-3,
-                "arm {i} gives {t:.6e} against arm 0's {first:.6e}; the cooldown estimates \
-                 are supposed to be unable to change the vented release"
+                (t - first).abs() <= panama_share,
+                "arm {i} gives {t:.6e} against arm 0's {first:.6e}: a spread larger than the \
+                 PANAMA term itself ({panama_share:.4e} Bq) means something besides PANAMA moved"
             );
         }
     }
@@ -1000,17 +1055,49 @@ mod tests {
     /// **This test exists because the claim was originally made after checking
     /// four nuclides and generalising.** Four is not twelve, and a structural
     /// argument that has never been able to fail is not evidence. GitHub #300.
+    ///
+    /// **Updated 2026-09-30 (#448):** the structural claim above is about
+    /// **empty pools**, so it is now asserted on the explicit ablation
+    /// (`without_normal_operation_pools`), where it still holds. With the new
+    /// default (real normal-operation pools), path 1 of
+    /// `Caveats::negative_atom_count_seen` can fire as well, and the flagged
+    /// set is measured as **Cs-137 and Ag-110m**. For Cs-137 it is **not yet
+    /// separated** whether that is path 1 (unclamped negative atom count:
+    /// total **under**-stated) or path 2 (floored window: **over**-stated).
+    /// Recorded, not resolved: follow-up on #448.
     #[test]
     fn only_silver_carries_floored_negative_windows() {
         let shape = DlofcShape::htr_module_jrc();
         let transient = shape.transient(SAMPLES, 1, 1).expect("enough samples");
         let p = panama_over_transient(&shape, t_b(), SAMPLES);
-        let plant = plant_parameters(
+        let with_pools = plant_parameters(
             geometry(),
             with_panama_accident_increment(
                 np_mhtgr_normal_operation_fractions(),
                 p.accident_increment_final,
             ),
+        );
+        let plant = with_pools.clone().without_normal_operation_pools();
+        let mut flagged_default = Vec::new();
+        for entry in htr10_equilibrium_core() {
+            if find_nuclide(entry.nuclide).is_none() {
+                continue;
+            }
+            let one = CoreInventory::new(
+                vec![NuclideInventory::uniform(entry.nuclide, entry.activity, 1)],
+                1,
+                1,
+            );
+            if let Ok(out) = accident_release(&one, &transient, &with_pools) {
+                if out.screened_out.is_empty() && out.caveats.negative_atom_count_seen {
+                    flagged_default.push(entry.nuclide);
+                }
+            }
+        }
+        assert_eq!(
+            flagged_default,
+            vec!["Cs-137", "Ag-110m"],
+            "recorded 2026-09-30: with real pools, Cs-137 and Ag-110m flag"
         );
 
         let mut flagged = Vec::new();

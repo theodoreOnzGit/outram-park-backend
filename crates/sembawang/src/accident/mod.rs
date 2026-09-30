@@ -19,6 +19,7 @@ pub mod release;
 pub mod venting;
 
 pub use release::{
-    accident_release, accident_release_with_venting, AccidentRelease, PlantParameters, Venting,
+    accident_release, accident_release_with_venting, AccidentRelease, NodeTemperatures,
+    NormalOperation, PlantParameters, PrimaryCircuitPools, Venting,
 };
 pub use venting::VentingWindow;

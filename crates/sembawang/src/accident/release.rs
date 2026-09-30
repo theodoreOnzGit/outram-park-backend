@@ -60,12 +60,19 @@ use boon_lay::triso_atops_fork::activities::atom_count_from_activity;
 use boon_lay::triso_atops_fork::diffusion::{integrate_diffusion_over_time, DiffusionMaterial};
 use boon_lay::triso_atops_fork::nuclide_model::ElementGroup;
 use boon_lay::triso_atops_fork::release_models::release_fraction_transient;
-use boon_lay::triso_atops_fork::run_selection::select_nuclides_accident;
+use boon_lay::triso_atops_fork::activities::FailureFractions;
+use boon_lay::triso_atops_fork::normal_operation::{
+    normal_operation_node, NodalActivities, NodeState, ParentPools, PlantConstants,
+};
+use boon_lay::triso_atops_fork::run_selection::{
+    select_nuclides, select_nuclides_accident, ParentDecayPolicy,
+};
+use std::collections::HashMap;
 use boon_lay::triso_atops_fork::TrisoAtopsNuclide;
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use uom::si::area::square_meter;
-use uom::si::f64::{Area, Length, Pressure, Ratio, ThermodynamicTemperature, Time};
+use uom::si::f64::{Area, Frequency, Length, Pressure, Ratio, ThermodynamicTemperature, Time};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
@@ -90,7 +97,7 @@ pub const DIFFUSION_FIT_MAX_CELSIUS: f64 = 2400.0;
 ///
 /// Every field is prescribed by the caller. There are no defaults, deliberately
 /// — a default geometry would be a specific reactor's, wearing no label.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlantParameters {
     /// Failure fractions, normal-operation and accident-phase.
     pub fractions: AccidentFractions,
@@ -106,6 +113,114 @@ pub struct PlantParameters {
     pub x_liftoff: f64,
     /// Whether a helium purification system is fitted.
     pub clean_up_fitted: bool,
+    /// The primary-circuit state the accident starts from (GitHub #448). The
+    /// constructors set [`PrimaryCircuitPools::FromNormalOperation`]; the empty
+    /// state is an explicit ablation.
+    pub pools: PrimaryCircuitPools,
+}
+
+/// The primary-circuit and fuel-matrix pools an accident starts from.
+///
+/// Upstream (`trisoatops.py::main`, commit `de374c8`) runs `normal_operation`
+/// and feeds its per-node pools into `accident_case`. That does three things
+/// the empty state omits (#448):
+/// 1. `release_activity` subtracts the graphite, circulating, plate-out and HPS
+///    inventory from what the kernel can still release;
+/// 2. the graphite pool is released through `RF_graph`;
+/// 3. the circuit term `C + x_liftoff · P` is added.
+///
+/// **Default ON** (CLAUDE.md "correct physics is the default"): every
+/// constructor in this crate sets [`Self::FromNormalOperation`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum PrimaryCircuitPools {
+    /// Run TRISO-ATOPS normal operation per node first, as upstream does.
+    FromNormalOperation(NormalOperation),
+    /// **Ablation only.** Every pool empty ([`zero_pools`]). Measured in
+    /// upstream on a heat-up case (#448), this **over**-predicts the metals
+    /// (Ag-110m ×2.0, Cs-137 ×1.6) and slightly **under**-predicts
+    /// un-scrubbed noble gases (Kr-85 ×0.87). The direction is
+    /// nuclide-dependent.
+    EmptyAblation,
+}
+
+/// The normal-operation inputs upstream's `normal_operation` needs, beyond
+/// the inventory, fractions and geometry already in [`PlantParameters`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct NormalOperation {
+    /// Plate-out rate constant `k_plate`.
+    pub k_plate: Frequency,
+    /// Helium-purification clean-up rate constant `k_clean`. Applied only when
+    /// [`PlantParameters::clean_up_fitted`].
+    pub k_clean: Frequency,
+    /// Kernel grain size `a_grain`.
+    pub grain_size: Length,
+    /// Reactor run time, for the coolant-pool balances.
+    pub run_time: Time,
+    /// Fuel irradiation time, for release-to-birth and the short-lived flag.
+    pub irradiation_time: Time,
+    /// Normal-operation fuel and graphite temperatures.
+    pub temperatures: NodeTemperatures,
+}
+
+/// Normal-operation temperatures over the core nodes.
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeTemperatures {
+    /// One fuel and one graphite temperature for every node.
+    Uniform {
+        /// Fuel (kernel) temperature.
+        core: ThermodynamicTemperature,
+        /// Matrix graphite temperature.
+        graphite: ThermodynamicTemperature,
+    },
+    /// Per node, `[ring][axial]`, matching the transient's node layout.
+    PerNode {
+        /// Fuel (kernel) temperatures.
+        core: Vec<Vec<ThermodynamicTemperature>>,
+        /// Matrix graphite temperatures.
+        graphite: Vec<Vec<ThermodynamicTemperature>>,
+    },
+}
+
+impl NodeTemperatures {
+    fn at(&self, ring: usize, axial: usize) -> NodeState {
+        match self {
+            Self::Uniform { core, graphite } => NodeState {
+                core_temperature: *core,
+                graphite_temperature: *graphite,
+            },
+            Self::PerNode { core, graphite } => NodeState {
+                core_temperature: core[ring][axial],
+                graphite_temperature: graphite[ring][axial],
+            },
+        }
+    }
+}
+
+/// Seconds in upstream's year (`convert_time`: 365 days).
+const UPSTREAM_YEAR_S: f64 = 365.0 * 24.0 * 3600.0;
+
+impl NormalOperation {
+    /// The NP-MHTGR reference normal operation, Stoyer et al. 2026 Case A,
+    /// Table 3 (`boon-lay/verification_and_validation/mhtgr_stoyer/constants.csv`):
+    /// `k_plate` 7.5e-5 /s, `k_clean` 8.77e-5 /s, `a_grain` 1e-5 m,
+    /// run time 40 y, irradiation time 3 y.
+    ///
+    /// **Temperatures are a stand-in:** a uniform **885.24 K** (core and
+    /// graphite), the arithmetic mean of the paper's Table 7 per-node profile
+    /// (the paper sets graphite = fuel). A caller with per-node temperatures
+    /// should use [`NodeTemperatures::PerNode`].
+    #[must_use]
+    pub fn np_mhtgr_reference() -> Self {
+        let t = ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(885.24);
+        Self {
+            k_plate: Frequency::new::<uom::si::frequency::hertz>(7.5e-5),
+            k_clean: Frequency::new::<uom::si::frequency::hertz>(8.77e-5),
+            grain_size: Length::new::<uom::si::length::meter>(1.0e-5),
+            run_time: Time::new::<uom::si::time::second>(40.0 * UPSTREAM_YEAR_S),
+            irradiation_time: Time::new::<uom::si::time::second>(3.0 * UPSTREAM_YEAR_S),
+            temperatures: NodeTemperatures::Uniform { core: t, graphite: t },
+        }
+    }
 }
 
 impl PlantParameters {
@@ -145,10 +260,11 @@ impl PlantParameters {
     /// - `incremental_accident` — accident-phase incremental failure fraction.
     /// - `incremental_sic_accident` — accident-phase incremental SiC failure
     ///   fraction.
-    /// - `x_liftoff` — fraction of plated-out activity lifted off. Note this
-    ///   crate currently starts from empty pools (see [`zero_pools`]), so it
-    ///   has nothing to lift off and this parameter does nothing until a
-    ///   normal-operation history is wired in.
+    /// - `x_liftoff` — fraction of plated-out activity lifted off.
+    ///   ~~It does nothing, because the crate starts from empty pools~~
+    ///   **CORRECTED 2026-09-30 (#448):** the plant starts from real
+    ///   normal-operation pools ([`NormalOperation::np_mhtgr_reference`]), so
+    ///   the lift-off term is live.
     #[must_use]
     pub fn np_mhtgr_reference(
         incremental_accident: f64,
@@ -170,7 +286,16 @@ impl PlantParameters {
             coolant_pressure: Pressure::new::<uom::si::pressure::kilopascal>(101.325),
             x_liftoff,
             clean_up_fitted: true,
+            pools: PrimaryCircuitPools::FromNormalOperation(NormalOperation::np_mhtgr_reference()),
         }
+    }
+
+    /// The same plant, with the primary-circuit pools **emptied**: an explicit
+    /// ablation of [`PrimaryCircuitPools::FromNormalOperation`] (#448).
+    #[must_use]
+    pub fn without_normal_operation_pools(mut self) -> Self {
+        self.pools = PrimaryCircuitPools::EmptyAblation;
+        self
     }
 }
 
@@ -186,20 +311,25 @@ pub struct AccidentRelease {
     pub venting: VentingWindow,
     /// Nuclides dropped by the half-life screen, with the reason.
     pub screened_out: Vec<String>,
+    /// Per released nuclide, the **unfloored cumulative release at the last
+    /// venting sample** \[Bq\]: upstream `accident_case`'s last total. The
+    /// source term's window sum equals this unless a window was floored
+    /// ([`Caveats::negative_atom_count_seen`]). This is the quantity to compare
+    /// with upstream.
+    pub cumulative_final: Vec<(String, f64)>,
 }
 
-/// A normal-operation state with every pool empty.
+/// A normal-operation state with every pool empty: the
+/// [`PrimaryCircuitPools::EmptyAblation`] state.
 ///
-/// Used when no normal-operation history has been run, which is this crate's
-/// current position: nothing has accumulated in the coolant, on surfaces or in
-/// the clean-up system before the accident starts.
-///
-/// **That is a modelling choice with a direction.** A real plant carries a
-/// circulating and plated-out inventory built up over the operating cycle, and
-/// an accident lifts some of it off. Starting from zero therefore
-/// **under-predicts** the early release, by however much that pre-existing
-/// inventory would have contributed. Wiring a normal-operation history in is
-/// the obvious next step and is not done here.
+/// ~~Starting from zero therefore **under-predicts** the early release~~
+/// **CORRECTED 2026-09-30 (#448):** the direction is **nuclide-dependent**.
+/// Measured in upstream TRISO-ATOPS (3-year irradiation, 900 °C normal
+/// operation, heat to 1600 °C then cool), the ratio empty ÷ real pools is:
+/// Ag-110m ×2.00 and Cs-137 ×1.59 (**over**-predicted: the kernel term is not
+/// reduced by what already left it); Kr-85 ×0.87 without HPS (**under**: the
+/// circuit term is lost); Sr-90 0.99; I-131 1.00. Since #448 the default is
+/// [`PrimaryCircuitPools::FromNormalOperation`], and this is an ablation.
 #[must_use]
 pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities {
     boon_lay::triso_atops_fork::normal_operation::NodalActivities {
@@ -210,6 +340,77 @@ pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivi
         plate_out_activity: 0.0,
         clean_up_activity: 0.0,
     }
+}
+
+/// Upstream's `normal_operation`, per node, for every inventory nuclide the
+/// normal-operation selection keeps: the pools [`PrimaryCircuitPools::FromNormalOperation`]
+/// starts the accident from. Keyed by nuclide name; each vector is indexed
+/// `ring * n_axial + axial`.
+///
+/// It follows `boon-lay`'s `tests/mhtgr_stoyer_workflow.rs::port_case_nodal`,
+/// which is verified against upstream at 1e-9:
+/// - `select_nuclides` with [`ParentDecayPolicy::UpstreamTableDefault`];
+/// - nuclides in **supplied order** (upstream's `nuclide_sort` is a no-op), so
+///   a parent must precede its daughter for the daughter to see its pools;
+/// - the HPS applied iff [`PlantParameters::clean_up_fitted`].
+fn normal_operation_pools(
+    inventory: &CoreInventory,
+    transient: &TemperatureTransient,
+    plant: &PlantParameters,
+    op: &NormalOperation,
+) -> HashMap<String, Vec<NodalActivities>> {
+    let names = inventory.names();
+    let (selected, _unknown) =
+        select_nuclides(&names, op.irradiation_time, None, ParentDecayPolicy::UpstreamTableDefault);
+    let constants = PlantConstants {
+        k_plate: op.k_plate,
+        k_clean: op.k_clean,
+        graphite_thickness: plant.graphite_thickness,
+        grain_size: op.grain_size,
+        sic_thickness: plant.sic_thickness,
+        kernel_radius: plant.kernel_radius,
+        run_time: op.run_time,
+        irradiation_time: op.irradiation_time,
+    };
+    let f = plant.fractions;
+    let fractions = FailureFractions {
+        heavy_metal: f.heavy_metal,
+        sic: f.sic,
+        incremental: f.incremental,
+        incremental_sic: f.incremental_sic,
+    };
+    let mut out: HashMap<String, Vec<NodalActivities>> = HashMap::new();
+    for s in &selected {
+        let Some(inv) = inventory.nuclides.iter().find(|n| n.name == s.nuclide.name) else {
+            continue;
+        };
+        let parent = s
+            .parent_decay
+            .then(|| out.get(s.nuclide.parents[0]))
+            .flatten()
+            .cloned();
+        let mut nodes = Vec::with_capacity(transient.n_radial * transient.n_axial);
+        for r in 0..transient.n_radial {
+            let axial = inv.axial_curies(r, transient.n_axial);
+            for (k, curies) in axial.iter().enumerate().take(transient.n_axial) {
+                let pools = parent
+                    .as_ref()
+                    .map_or(ParentPools::none(), |p| p[r * transient.n_axial + k].parent_pools());
+                nodes.push(normal_operation_node(
+                    &s.nuclide,
+                    s.short_lived,
+                    units::to_boon_lay_activity(units::from_curies(*curies)),
+                    fractions,
+                    constants,
+                    op.temperatures.at(r, k),
+                    plant.clean_up_fitted,
+                    pools,
+                ));
+            }
+        }
+        out.insert(s.nuclide.name.to_string(), nodes);
+    }
+    out
 }
 
 /// Bridge `normal_operation_node`'s six channels to `release_activity`'s seven.
@@ -429,8 +630,17 @@ pub fn accident_release_with_venting(
     let n_keep = venting.len();
     let kept_times = venting.times(&transient.times);
 
+    // -- the normal-operation pools the accident starts from (#448)
+    let normal_pools: Option<HashMap<String, Vec<NodalActivities>>> = match &plant.pools {
+        PrimaryCircuitPools::FromNormalOperation(op) => {
+            Some(normal_operation_pools(inventory, transient, plant, op))
+        }
+        PrimaryCircuitPools::EmptyAblation => None,
+    };
+
     // -- per-nuclide, per-node release
     let mut releases = Vec::with_capacity(selected.len());
+    let mut cumulative_final = Vec::with_capacity(selected.len());
     for nuclide in &selected {
         let group = nuclide.element_group();
         let volatile = matches!(group, ElementGroup::NobleGas | ElementGroup::Halogen);
@@ -445,6 +655,10 @@ pub fn accident_release_with_venting(
 
         let mut kernel_curies = vec![0.0_f64; n_keep];
         let mut graphite_curies = vec![0.0_f64; n_keep];
+        // Circuit pools summed over nodes, in effective atoms (upstream sums
+        // `nodal_normop[nuclide][4 or 5]` before the `lam / 3.7e10`).
+        let (mut circulating_atoms, mut plate_out_atoms) = (0.0_f64, 0.0_f64);
+        let node_pools = normal_pools.as_ref().and_then(|m| m.get(nuclide.name));
 
         for r in 0..transient.n_radial {
             let axial = inv.axial_curies(r, transient.n_axial);
@@ -476,7 +690,10 @@ pub fn accident_release_with_venting(
                 // Prescribed as zero pools: this crate does not run a
                 // normal-operation history, so nothing has accumulated in the
                 // coolant, on surfaces or in the clean-up system beforehand.
-                let node = bridge_node(&zero_pools(), axial[k], lambda);
+                let pools = node_pools.map_or_else(zero_pools, |v| v[r * transient.n_axial + k]);
+                circulating_atoms += pools.circulating_activity;
+                plate_out_atoms += pools.plate_out_activity;
+                let node = bridge_node(&pools, axial[k], lambda);
 
                 for t in 0..n_keep {
                     let rf_k: Ratio = release_fraction_transient(
@@ -528,10 +745,16 @@ pub fn accident_release_with_venting(
             &kernel_curies,
             &graphite_curies,
             venting.fractions(),
-            0.0,
-            0.0,
+            atoms_to_curies(circulating_atoms, lam_hz),
+            atoms_to_curies(plate_out_atoms, lam_hz),
             plant.x_liftoff,
         );
+
+        cumulative_final.push((
+            nuclide.name.to_string(),
+            units::from_curies(*cumulative.last().unwrap_or(&0.0))
+                .get::<uom::si::radioactivity::becquerel>(),
+        ));
 
         // Cumulative -> per-window. See the module docs.
         let mut per_window = Vec::with_capacity(n_keep - 1);
@@ -568,6 +791,7 @@ pub fn accident_release_with_venting(
         caveats,
         venting,
         screened_out,
+        cumulative_final,
     })
 }
 

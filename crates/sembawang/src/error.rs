@@ -97,7 +97,10 @@ pub struct Caveats {
     ///    negative propagates and the total is **under-stated**. This path
     ///    needs a non-empty normal-operation pool to fire at all: with
     ///    [`crate::accident::release::zero_pools`] every subtracted term is
-    ///    zero, so it cannot.
+    ///    zero, so it cannot. **Since #448 (2026-09-30) real pools are the
+    ///    default, so this path CAN fire** (measured: Cs-137 in the HTR-10
+    ///    DLOFC case), and the flag no longer tells a reader which direction
+    ///    the total is wrong.
     /// 2. **A negative per-window first difference**, i.e. a *non-monotonic*
     ///    cumulative release. That one is floored to zero at the
     ///    [`changi::activity::source::SourceTerm`] boundary, which **raises**

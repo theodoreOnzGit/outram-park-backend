@@ -347,11 +347,19 @@ fn the_released_fractions_are_physical_and_are_reported() {
 /// shorter transient would differentiate them; it was run and they came back
 /// **exactly** equal. Both are recorded here rather than deleted, because a
 /// refuted prediction is what makes the surviving explanation worth anything.
+///
+/// **Pinned to the empty-pool ablation (2026-09-30, #448).** This is a claim
+/// about the *fuel-diffusion* release, which is identical within a Z-bucket.
+/// With real normal-operation pools (the default since #448) the circulating,
+/// plate-out and HPS pools are half-life-dependent, so the drawdown and the
+/// circuit term differ nuclide by nuclide, and identity no longer holds (Kr-88
+/// against its bucket: 3.0 % apart, measured). The ablation isolates the
+/// diffusion part the claim is about.
 #[test]
 fn nuclides_sharing_a_diffusion_bucket_release_identically() {
     let transient = heating_transient(51);
     let inv = CoreInventory::unit(&NUCLIDES, 2, 3);
-    let out = accident_release(&inv, &transient, &plant()).unwrap();
+    let out = accident_release(&inv, &transient, &plant().without_normal_operation_pools()).unwrap();
 
     let released = |label: &str| {
         out.source_term
@@ -441,6 +449,14 @@ fn the_defect_pathway_carries_the_magnitude_of_the_release() {
 /// having reached 1 — a cooler, shorter transient would differentiate them.
 /// It does not: they come back exactly equal, which is what sent the
 /// investigation to the diffusion correlation table where the real answer was.
+///
+/// **Pinned to the empty-pool ablation (2026-09-30, #448).** This is a claim
+/// about the *fuel-diffusion* release, which is identical within a Z-bucket.
+/// With real normal-operation pools (the default since #448) the circulating,
+/// plate-out and HPS pools are half-life-dependent, so the drawdown and the
+/// circuit term differ nuclide by nuclide, and identity no longer holds (Kr-88
+/// against its bucket: 3.0 % apart, measured). The ablation isolates the
+/// diffusion part the claim is about.
 #[test]
 fn a_cooler_shorter_transient_does_not_differentiate_them_either() {
     let cool = TemperatureTransient::from_ramp(
@@ -454,7 +470,7 @@ fn a_cooler_shorter_transient_does_not_differentiate_them_either() {
     )
     .unwrap();
     let inv = CoreInventory::unit(&["Kr-85", "I-131", "Cs-137"], 2, 3);
-    let out = accident_release(&inv, &cool, &plant()).unwrap();
+    let out = accident_release(&inv, &cool, &plant().without_normal_operation_pools()).unwrap();
 
     let released = |label: &str| {
         out.source_term

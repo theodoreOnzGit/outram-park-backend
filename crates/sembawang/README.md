@@ -81,7 +81,7 @@ gases deposit exactly zero. These are consistency checks, not verification.
 - Known upstream behaviours are returned as data (`Caveats`), not logged.
 - The three accident-phase failure fractions are required arguments, not
   defaults: they are not in the cited reference case.
-- Starting from empty normal-operation pools under-predicts the early release.
+- ~~Starting from empty normal-operation pools under-predicts the early release.~~ **CORRECTED 2026-09-30 (#448):** the release now starts from real normal-operation pools by default (code-to-code verified against upstream TRISO-ATOPS at 3.8e-12). Empty pools remain as an explicit ablation, `PlantParameters::without_normal_operation_pools`, and their error is nuclide-dependent: in upstream, metals are **over**-predicted (Ag-110m ×2, Cs-137 ×1.6) and un-scrubbed noble gases slightly under-predicted.
 
 ## Bookkeeping status
 
