@@ -6721,7 +6721,9 @@ Nuclides.
 | [`diffusion`](crate::triso_atops_fork::diffusion) | Arrhenius diffusion coefficients `D(T)` in m^2/s in the kernel, matrix graphite, and (for Ag) the SiC layer, plus the time-integrated `∫D dt` used by transient/accident release. |
 | [`release_models`](crate::triso_atops_fork::release_models) | The dimensionless release-fraction / release-to-birth models: Booth (long-lived, short-lived), breakthrough, graphite attenuation, and their transient (accident) variants, plus the group dispatchers. |
 | [`activities`](crate::triso_atops_fork::activities) | Circulating / plate-out / clean-up activity bookkeeping and the release-rate / graphite source terms, plus the Ci↔Bq and `A = λN` conversions (bead op-b4a.2.2, done). |
-| [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). The JSON run-file driver + accident case are **not ported** — no code exists for either (bead op-b4a.2.3). |
+| [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). ~~The JSON run-file driver + accident case are **not ported** — no code exists for either (bead op-b4a.2.3).~~ **CORRECTED 2026-09-30** — both are ported; see the two rows below. |
+| [`accident`](crate::triso_atops_fork::accident) | Depressurisation-accident release, porting `trisoatops.py::accident_case`: the diffusion integral over the transient, the release of what is left in kernel and graphite scaled by the vented-coolant fraction, plus **all circulating activity and an `x_liftoff` share of the plate-out** (the primary-circuit retention is the plate-out that is not lifted off). No building, dust or helium-purification-system term. |
+| [`run_file`](crate::triso_atops_fork::run_file) | The JSON run file: parsing, validation and unit attachment. |
 
 ## Derivation, step by step
 
@@ -17352,6 +17354,1009 @@ pub use stress::induced_stress_with_thinning_factor;
 
 ```rust
 pub use weibull::weibull_failure_fraction;
+```
+
+## Module `chemistry`
+
+Cited chemical-attack rate laws (graphite-steam oxidation, kernel
+hydrolysis) for the water-ingress source term (gh:#401).
+Chemical attack on HTGR graphite and fuel, as cited closed-form rate laws.
+
+**Not a port.** Each function transcribes one published correlation, with
+its source, table and validity range at its definition. Added 2026-09-29
+for `htgr_sim_v1`'s water-ingress stage (gh:#401).
+
+- [`graphite_steam`] -- IG-110 oxidation by steam, `C + H2O -> CO + H2`
+  (Wang & Sun 2023, Boltzmann-enhanced Langmuir-Hinshelwood fit).
+- [`graphite_air`] -- IG-110 oxidation by air (Contescu et al., ORNL
+  review, Table 3), with the O2-supply limit (gh:#402).
+- [`kernel_hydrolysis`] -- the burst of stored fission gas from exposed
+  UO2 kernels meeting water vapour (IAEA-TECDOC-978 Eq. 5-2).
+
+Research, education and V&V only (`RESPONSIBLE_USE.md`): kinetic fits,
+each only valid inside its stated range, and the caller is told when it
+leaves it.
+
+```rust
+pub mod chemistry { /* ... */ }
+```
+
+### Modules
+
+## Module `graphite_air`
+
+IG-110 graphite oxidation by air, `C + O2 -> CO2` (and `C + 1/2 O2 -> CO`).
+
+# Source
+
+C. I. Contescu et al., *Oxidation of nuclear graphite* (review), ORNL/TM-2022/1839
+(open corpus: `theodore-open-corpus/contescu2022ornltm20221839.pdf`).
+
+- **Rate law:** Regime-1 (chemical control) Arrhenius form, their Eqs. (8)-(9):
+  `Rate = A exp(-E_a/RT)`, with `A = k0 P_O2^n` measured in air (21 % O2).
+- **Parameters:** Table 3 (p. 39), "Selected kinetic parameters oxidation of
+  IG-110 by air", row **Contescu (2011)**: `E_a = 191 kJ/mol`,
+  `ln A = 13.0` (A in 1/s, fraction of mass per second), 597-694 degC,
+  21 % O2, ASTM D7542 method. Chosen as the ORNL row the review builds its
+  comparison on (its text, p. 46: IG-110 191-195 kJ/mol, ln A 13.0-13.1).
+- **Oxygen order `n`: not given for IG-110 in the review.** This module
+  scales linearly with the O2 partial pressure (`n = 1`), an **assumption,
+  labelled**. It matters only where the kinetic rate limits; in an HTGR
+  air-ingress transient at core temperatures the kinetic rate on the bed's
+  graphite exceeds any credible O2 supply by orders of magnitude, so the
+  supply limit binds ([`gasification_rate`]).
+- **Validity:** 597-694 degC, 21 % O2, kinetic regime. Above it the real
+  rate is limited by in-pore diffusion (Regime 2) and boundary-layer mass
+  transfer (Regime 3, the review's s.4.2); the Arrhenius extrapolation
+  OVER-states the kinetic rate there, which is why the supply limit is
+  applied.
+
+# Heat
+
+[`CO2_REACTION_ENTHALPY_J_PER_MOL`] = -393.7 kJ/mol and
+[`CO_REACTION_ENTHALPY_J_PER_MOL`] = -111.4 kJ/mol (the review's s.4.2.1,
+p. 11). The CO/CO2 product split is not given there; the caller chooses,
+and CO2 is the bounding choice for heat per mole of O2 consumed (393.7
+against 2 x 111.4 = 222.8 kJ).
+
+```rust
+pub mod graphite_air { /* ... */ }
+```
+
+### Types
+
+#### Enum `Validity`
+
+Whether a kinetic rate was evaluated inside the measured range.
+
+```rust
+pub enum Validity {
+    InsideMeasuredRange,
+    Extrapolated,
+}
+```
+
+##### Variants
+
+###### `InsideMeasuredRange`
+
+597-694 degC.
+
+###### `Extrapolated`
+
+Outside it (extrapolated Arrhenius; over-states the rate above it).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Validity { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Validity) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Limit`
+
+Which limit set a gasification rate.
+
+```rust
+pub enum Limit {
+    Kinetic,
+    OxygenSupply,
+}
+```
+
+##### Variants
+
+###### `Kinetic`
+
+The chemical kinetics.
+
+###### `OxygenSupply`
+
+The oxygen supply (every arriving O2 molecule reacts).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Limit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Limit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `kinetic_specific_rate`
+
+The kinetic (Regime-1) specific rate \[1/s\] at `temperature` and O2
+partial pressure `oxygen`, first order in O2 (assumption, module doc).
+
+```rust
+pub fn kinetic_specific_rate(temperature: uom::si::f64::ThermodynamicTemperature, oxygen: uom::si::f64::Pressure) -> (uom::si::f64::Frequency, Validity) { /* ... */ }
+```
+
+#### Function `gasification_rate`
+
+Carbon gasified \[mol/s\] from `graphite_mass_kg` of graphite: the lesser of
+the kinetic rate and the O2 supply `oxygen_supply_mol_per_s` (one C per O2,
+the CO2 product). Zero supply gives zero.
+
+```rust
+pub fn gasification_rate(temperature: uom::si::f64::ThermodynamicTemperature, oxygen: uom::si::f64::Pressure, graphite_mass_kg: f64, oxygen_supply_mol_per_s: f64) -> (f64, Limit, Validity) { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CO2_REACTION_ENTHALPY_J_PER_MOL`
+
+`C + O2 -> CO2` \[J/mol\], exothermic (Contescu review s.4.2.1).
+
+```rust
+pub const CO2_REACTION_ENTHALPY_J_PER_MOL: f64 = -393.7e3;
+```
+
+#### Constant `CO_REACTION_ENTHALPY_J_PER_MOL`
+
+`C + 1/2 O2 -> CO` \[J/mol\], exothermic (same source).
+
+```rust
+pub const CO_REACTION_ENTHALPY_J_PER_MOL: f64 = -111.4e3;
+```
+
+#### Constant `ACTIVATION_ENERGY_J_PER_MOL`
+
+Apparent activation energy \[J/mol\] (Table 3, Contescu 2011).
+
+```rust
+pub const ACTIVATION_ENERGY_J_PER_MOL: f64 = 191.0e3;
+```
+
+#### Constant `LN_PRE_EXPONENTIAL_PER_S`
+
+`ln A`, A in 1/s (Table 3, Contescu 2011), measured in air.
+
+```rust
+pub const LN_PRE_EXPONENTIAL_PER_S: f64 = 13.0;
+```
+
+#### Constant `REFERENCE_O2_PA`
+
+O2 partial pressure of the measurement: 21 % of 1 atm \[Pa\].
+
+```rust
+pub const REFERENCE_O2_PA: f64 = _;
+```
+
+## Module `graphite_steam`
+
+IG-110 graphite oxidation by steam, `C + H2O -> CO + H2`.
+
+# Source
+
+C. Wang and X. Sun, "Experimental study on kinetic oxidation of graphite
+IG-110 by steam", *Nuclear Engineering and Design* **410** (2023) 112382
+(proprietary tier: cited, not redistributed).
+
+- **Model:** the Boltzmann-enhanced Langmuir-Hinshelwood (BLH) form, their
+  Eqs. (2)-(3):
+
+  ```text
+  R_spe = k1 exp(-E1/RT) P_H2O^m(T)
+        / [1 + k2 exp(-E2/RT) P_H2^n + k3 exp(-E3/RT) P_H2O^m(T)]
+  m(T)  = m_max + (m_min - m_max) / (1 + exp((T - T0)/theta))
+  ```
+
+  with `R_spe` the **specific** oxidation rate (fraction of the graphite
+  mass per second, 1/s) and the partial pressures in Pa.
+- **Coefficients:** Table 8, p. 11, the **"Unknown n"** column (the
+  eleven-coefficient fit, n optimised to 0.801; MRD 23.9 %). Read off the
+  rendered page 2026-09-29, not only the text layer.
+- **Validity:** their measurements -- **850-1100 degC, P_H2O 0.5-20 kPa,
+  P_H2 0-2 kPa**, graphite IG-110 thin disks in the **chemical-kinetics
+  regime** (their Section 3: the rate is not limited by in-pore or
+  boundary-layer diffusion). Outside that box the fit is an extrapolation,
+  and [`Validity`] says so.
+
+# The reaction enthalpy
+
+[`REACTION_ENTHALPY_J_PER_MOL`] = **+131.3 kJ/mol** (endothermic), from the
+standard enthalpies of formation at 298.15 K: CO(g) -110.53 kJ/mol and
+H2O(g) -241.83 kJ/mol (NIST Chemistry WebBook, SRD 69; public data). Its
+temperature dependence (a few kJ/mol up to 1300 K) is not carried.
+
+```rust
+pub mod graphite_steam { /* ... */ }
+```
+
+### Types
+
+#### Struct `BlhCoefficients`
+
+Wang & Sun (2023) Table 8, "Unknown n" column.
+
+```rust
+pub struct BlhCoefficients {
+    pub k1: f64,
+    pub e1: f64,
+    pub k2: f64,
+    pub e2: f64,
+    pub k3: f64,
+    pub e3: f64,
+    pub m_min: f64,
+    pub m_max: f64,
+    pub t0: f64,
+    pub theta: f64,
+    pub n: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `k1` | `f64` | `k1` \[Pa^-m s^-1\]. |
+| `e1` | `f64` | `E1` \[J/mol\]. |
+| `k2` | `f64` | `k2` \[Pa^-n\]. |
+| `e2` | `f64` | `E2` \[J/mol\]. |
+| `k3` | `f64` | `k3` \[Pa^-m\]. |
+| `e3` | `f64` | `E3` \[J/mol\]. |
+| `m_min` | `f64` | `m_min` \[-\]. |
+| `m_max` | `f64` | `m_max` \[-\]. |
+| `t0` | `f64` | `T0` \[K\]. |
+| `theta` | `f64` | `theta` \[K\]. |
+| `n` | `f64` | Hydrogen reaction order `n` \[-\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn wang_sun_2023_ig110() -> Self { /* ... */ }
+  ```
+  Table 8 (p. 11), "Unknown n": k1 79.15, E1 258.22 kJ/mol, k2
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BlhCoefficients { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BlhCoefficients) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Validity`
+
+Whether a rate was evaluated inside the fit's measured range.
+
+```rust
+pub enum Validity {
+    InsideMeasuredRange,
+    Extrapolated,
+}
+```
+
+##### Variants
+
+###### `InsideMeasuredRange`
+
+850-1100 degC, P_H2O 0.5-20 kPa, P_H2 <= 2 kPa.
+
+###### `Extrapolated`
+
+Outside it: an extrapolation of a kinetic-regime fit, which for a
+thick graphite body at high temperature OVER-states the rate (the real
+rate becomes limited by in-pore and boundary-layer diffusion).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Validity { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Validity) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `specific_rate`
+
+The specific oxidation rate `R_spe` \[1/s\] (fraction of the graphite mass
+per second) and whether it is inside the fit's range. Zero steam gives
+zero rate.
+
+```rust
+pub fn specific_rate(temperature: uom::si::f64::ThermodynamicTemperature, steam: uom::si::f64::Pressure, hydrogen: uom::si::f64::Pressure, c: &BlhCoefficients) -> (uom::si::f64::Frequency, Validity) { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `REACTION_ENTHALPY_J_PER_MOL`
+
+Standard enthalpy of `C(s) + H2O(g) -> CO(g) + H2(g)` \[J/mol\]:
+`-110.53 - (-241.83)` kJ/mol = **+131.30 kJ/mol** (NIST WebBook formation
+enthalpies at 298.15 K). Positive: the reaction absorbs heat.
+
+```rust
+pub const REACTION_ENTHALPY_J_PER_MOL: f64 = 131.30e3;
+```
+
+#### Constant `CARBON_MOLAR_MASS_KG_PER_MOL`
+
+Molar mass of carbon \[kg/mol\] (12.011 g/mol, IUPAC standard atomic weight).
+
+```rust
+pub const CARBON_MOLAR_MASS_KG_PER_MOL: f64 = 12.011e-3;
+```
+
+## Module `kernel_hydrolysis`
+
+Stored fission gas released when water vapour reaches **exposed** UO2
+kernels (the fuel of defective and failed particles).
+
+# Source
+
+IAEA-TECDOC-978, *Fuel performance and fission product behaviour in gas
+cooled reactors* (IAEA, Vienna, 1997), section 5.3.1.1, **Eq. (5-2)**,
+printed p. 223 (proprietary tier: cited, not redistributed):
+
+```text
+f = 2.13e13 P^(-4.353 + 6503/T) exp(-4.7257e4 / T)
+```
+
+`f` is the fraction of an exposed kernel's **noble-gas** inventory released
+as "stored" gas when water vapour at partial pressure `P` \[Pa\] reaches it
+at temperature `T` \[K\] (the stage-1 burst of the HFR-B1 / HRB-17
+injection tests; `Q = 392.9 kJ/mol`). It is a **one-time** release per
+exposure, not a rate: a caller applies the increase of `f` over what has
+already been released.
+
+**Validity** (TECDOC-978, same page): the HFR-B1 data it was fitted to,
+**820-1040 degC and 2.8-1051 Pa** water vapour, UO2 kernels. Outside it the
+fit is an extrapolation and [`stored_gas_fraction`] says so; the result is
+clamped to `[0, 1]` because it is a fraction of an inventory, and the
+clamp is reported. The TECDOC itself notes the extrapolated line reaches
+complete release near 2 kPa at 770 degC.
+
+**Known limitation (gh:#418):** in an HTGR water-ingress accident the
+steam partial pressure is hundreds of kPa, three orders of magnitude above
+the fit. There the function returns [`Validity::ClampedToWholeInventory`]:
+every exposed kernel's whole stored noble gas. Callers must surface that
+flag, not swallow it; a model valid at those pressures is gh:#418.
+
+Not modelled: the stage-2 steady enhancement of `R/B` under continued
+water vapour (TECDOC-978 Eq. 5-3, the `h_o` factors), and iodine or metal
+release from hydrolysed kernels.
+
+```rust
+pub mod kernel_hydrolysis { /* ... */ }
+```
+
+### Types
+
+#### Enum `Validity`
+
+Whether [`stored_gas_fraction`] was evaluated inside the fitted range.
+
+```rust
+pub enum Validity {
+    InsideFittedRange,
+    Extrapolated,
+    ClampedToWholeInventory,
+}
+```
+
+##### Variants
+
+###### `InsideFittedRange`
+
+820-1040 degC and 2.8-1051 Pa.
+
+###### `Extrapolated`
+
+Outside it: extrapolated.
+
+###### `ClampedToWholeInventory`
+
+Extrapolated past a whole inventory and clamped to 1.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Validity { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Validity) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `stored_gas_fraction`
+
+TECDOC-978 Eq. (5-2): the stored-gas fraction of an exposed kernel's noble
+gas released at water-vapour partial pressure `steam` and temperature
+`temperature`. Zero for no steam.
+
+```rust
+pub fn stored_gas_fraction(temperature: uom::si::f64::ThermodynamicTemperature, steam: uom::si::f64::Pressure) -> (uom::si::f64::Ratio, Validity) { /* ... */ }
 ```
 
 ## Re-exports
