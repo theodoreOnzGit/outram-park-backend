@@ -295,7 +295,7 @@ fn main() {
     // outside the TRISO particle itself 
     // this is represented by the heavy_metal fraction outside 
     // F_HM
-    let fractions = AccidentFractions {
+    let accident_fractions = AccidentFractions {
         // outside TRISO failure, 
         // some TRISO can be counted to have "failed" as uranium is already 
         // outside the TRISO particle itself 
@@ -312,8 +312,10 @@ fn main() {
         incremental: F_INC,
         // we also want to account for SiC only failures,
         // TRISO-ATOPS keeps them distinct. This is SiC-only failure 
-        // leaving PyC intact, so noble gases and halogens diffuse 
-        // (remember like activated carbon adsorbs toxic gases and such)
+        // leaving PyC intact, so noble gases and halogens are retained
+        // (remember like activated carbon adsorbs toxic gases and such,
+        // but mechanism is not the same lah)
+        // https://www-pub.iaea.org/mtcd/publications/pdf/te_1645_cd/pdf/tecdoc_1645.pdf
         incremental_sic: F_INC_SIC_STAND_IN,
         // this is incremental failure during accident
         incremental_accident: d_phi_bl + F_OX_KORA,
@@ -336,14 +338,96 @@ fn main() {
     // these failures are then fed into TRISO-ATOPS
 
     // ------------------------------------------------ 3. TRISO-ATOPS release
-    let (inventory, dropped) = htr10_inventory();
-    let plant = htr10::plant_parameters(htr10_geometry(), fractions);
+    // TRISO-ATOPS does not support every nuclide available
+    let (nuclide_inventory, triso_atops_unsupported_nuclides) = htr10_inventory();
+
+    // as of 30 sep 2026 3:14pm, the nuclides not supported are 
+    // H-3 
+    // Xe-135m
+    // Rb-88
+    //
+    // we may need to think about H-3 here... it is missing
+    println!("TRISO-ATOPS lacks support for these nuclides:");
+    dbg!(&triso_atops_unsupported_nuclides);
+
+
+    // for atops calculations, it is impt to get plant parameters,
+    // this includes geometry for the pebble and triso,
+    // as loaded in the function,
+    // the accident_fractions described earlier
+    //
+    // and also parameters regarding the primary-circuit
+    // if you see the plant_parameters function, it should have 
+    // a constructor about primary-circuit pools
+    //
+    // as well as x_liftoff (liftoff fraction for plate out)
+    //
+
+    let plant_parameters = htr10::plant_parameters(
+        htr10_geometry_pebble_and_triso(), 
+        accident_fractions
+    );
+    // If you look at source code,
+    // This contains information for:
+    //
+    // #[derive(Debug, Clone, PartialEq)]
+    //pub struct NormalOperation {
+    //    /// Plate-out rate constant `k_plate`.
+    //    pub k_plate: Frequency,
+    //    /// Helium-purification clean-up rate constant `k_clean`. Applied only when
+    //    /// [`PlantParameters::clean_up_fitted`].
+    //    pub k_clean: Frequency,
+    //    /// Kernel grain size `a_grain`.
+    //    pub grain_size: Length,
+    //    /// Reactor run time, for the coolant-pool balances.
+    //    pub run_time: Time,
+    //    /// Fuel irradiation time, for release-to-birth and the short-lived flag.
+    //    pub irradiation_time: Time,
+    //    /// Normal-operation fuel and graphite temperatures.
+    //    pub temperatures: NodeTemperatures,
+    //}
+    //
+    // basically more of a user set frequency and for plateout, cleaning etc.
+    //
+    // The node temperatures are simply those of graphite and 
+    // the TRISO 
+    //
+    // /// Normal-operation temperatures over the core nodes.
+    // #[derive(Debug, Clone, PartialEq)]
+    // pub enum NodeTemperatures {
+    //     /// One fuel and one graphite temperature for every node.
+    //     Uniform {
+    //         /// Fuel (kernel) temperature.
+    //         core: ThermodynamicTemperature,
+    //         /// Matrix graphite temperature.
+    //         graphite: ThermodynamicTemperature,
+    //     },
+    //     /// Per node, `[ring][axial]`, matching the transient's node layout.
+    //     PerNode {
+    //         /// Fuel (kernel) temperatures.
+    //         core: Vec<Vec<ThermodynamicTemperature>>,
+    //         /// Matrix graphite temperatures.
+    //         graphite: Vec<Vec<ThermodynamicTemperature>>,
+    //     },
+    // }
+
+    // We don't really see building geometry here
+    //
+    //
+    // so model is quite simplified in that regard
+    //
+    // the pools themselves contain nuclides, but need not be coupled to  
+    // any thermal control volume. These run decoupled
+
+
+
+    //
     // Upstream venting: a uniform constant hold takes upstream's frac = 1 branch
     // (restored 2026-09-30, #446). FullFlowThrough is this workspace's explicit
     // conservative mode; on an isothermal hold the two must agree.
-    let out = accident_release(&inventory, &flat_hold(), &plant).expect("the release chain runs");
+    let out = accident_release(&nuclide_inventory, &flat_hold(), &plant_parameters).expect("the release chain runs");
     let out_ff =
-        accident_release_with_venting(&inventory, &flat_hold(), &plant, &Venting::FullFlowThrough)
+        accident_release_with_venting(&nuclide_inventory, &flat_hold(), &plant_parameters, &Venting::FullFlowThrough)
             .expect("the release chain runs");
     let ff_total: f64 = out_ff
         .source_term
@@ -398,7 +482,7 @@ fn main() {
     println!("   screened out (t1/2 < 4 % of {DOSE_PERIOD_HOURS} h): {:?}", out.screened_out);
     println!(
         "   not in TRISO-ATOPS's nuclide table: {:?}",
-        dropped.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>()
+        triso_atops_unsupported_nuclides.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>()
     );
     let c = &out.caveats;
     println!(
@@ -569,9 +653,9 @@ fn main() {
     // is linear in the released activity, so each nuclide's dose scales by
     // its release ratio.
     let out_vent = accident_release_with_venting(
-        &inventory,
+        &nuclide_inventory,
         &flat_hold(),
-        &plant,
+        &plant_parameters,
         &Venting::gao_shi_htr10_cavity_ventilation(),
     )
     .expect("the release chain runs");
@@ -609,7 +693,7 @@ fn max_chi_over_q(x_m: f64, geometry: PlumeGeometry) -> (StabilityClass, f64) {
 
 /// HTR-10 geometry from `tampines` (TECDOC-1382 part 2 Table 4-17), as in the
 /// `htr10_dlofc_panama_source_term` example.
-fn htr10_geometry() -> Htr10Geometry {
+fn htr10_geometry_pebble_and_triso() -> Htr10Geometry {
     let particle = tampines::pebble_bed::triso::TrisoParticle::htr10();
     let pebble = tampines::pebble_bed::pebble::Pebble::htr10();
     Htr10Geometry {
