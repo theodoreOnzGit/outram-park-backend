@@ -58,8 +58,9 @@ the source's value, and state which column is used.**
 
 ## 2. Table 5-7: KORA, irradiated UO₂ TRISO in air (printed p.247)
 
-**HUMAN-CHECKED 2026-09-30.** The maintainer entered Table 5-7 by hand in Kovan,
-eye-checked against the page (Kovan folder `papers/2002/2002iaeatecdoc978/`,
+**HUMAN-CHECKED 2026-09-30.** The maintainer entered Table 5-7 in Kovan's table
+grid by pasting the PDF text layer and correcting values by hand, eye-checked
+against the page (Kovan folder `papers/2002/2002iaeatecdoc978/`,
 dataset `table-5-7`, PDF page 254). An AI agent compared it with the
 transcription below: **all 7 rows and all 9 columns agree exactly.** The rest
 of this file (Table 5-6, the model constants, the text facts) is still
