@@ -4343,6 +4343,141 @@ pub struct Dose {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `Table9Check`
+
+One distance of the Table 9 cross-check of [`htr10_dba_release`] through
+the shared dose chain.
+
+```rust
+pub struct Table9Check {
+    pub distance_m: f64,
+    pub ours_msv: f64,
+    pub published_whole_body_msv: f64,
+    pub ratio: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance_m` | `f64` | Receptor distance \[m\]. |
+| `ours_msv` | `f64` | Our maximum dose \[mSv\]: [`max_dose`] with<br>[`DoseAssumptions::bounding_example`] (worst class, 1 m/s, ground<br>release, 96 h, submersion + groundshine + inhalation). |
+| `published_whole_body_msv` | `f64` | Liu & Cao Table 9 "whole-body" \[mSv\] (their 40 m stack and their<br>unpublished weather; STOERNEU). |
+| `ratio` | `f64` | `ours / published`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Table9Check { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Table9Check) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ComparisonRow`
 
 One distance of the bounding comparison: the maximum 96 h dose of each
@@ -4699,6 +4834,39 @@ velocity, decaying over the exposure period). The arithmetic of
 pub fn max_dose(releases: &Releases, x_m: f64, a: DoseAssumptions) -> Dose { /* ... */ }
 ```
 
+#### Function `htr10_dba_release`
+
+**HTR-10 design-basis releases** to the environment \[Bq per nuclide\]:
+Liu & Cao (2002, NED 218:81-90) **Table 8**, either the depressurisation
+(DN65 charging-tube rupture, s.4.1.1) or the water ingress (two SG tubes,
+relief failed, s.4.1.2), as `changi::activity::accident_airborne_release`
+holds it. Published, not computed here. H-3 and C-14 are included; their
+missing FGR coefficients are reported by [`max_dose`], not zeroed silently
+(#452, 2026-09-30).
+
+```rust
+pub fn htr10_dba_release(case: AccidentCase) -> Releases { /* ... */ }
+```
+
+#### Function `htr10_dba_vs_table9`
+
+Cross-check [`htr10_dba_release`] through [`max_dose`] against Liu & Cao
+Table 9 at its own distances. **Different conditions, stated:** the
+shared chain is a ground-level release at the worst class and 1 m/s (the
+#452 conditions), while Table 9 comes from a 40 m stack under weather the
+paper does not give. The ratio is a finding, not a gate, and nothing is
+tuned to it. Liu & Cao's own conditions are swept (external pathways only)
+in `buangkok/tests/liu_cao_external_dose_cross_check.rs` (#379).
+
+Measured 2026-09-30: ours/Table 9 = 0.12 (depressurisation) and 0.08
+(water ingress) at 250 m, 0.01-0.04 from 0.75 to 15 km, and 1.46 / 1.13
+at 75 km. That is the gap #379 found (Table 9's unstated integration
+period and weather), made larger here by the 96 h groundshine window.
+
+```rust
+pub fn htr10_dba_vs_table9(case: AccidentCase) -> Vec<Table9Check> { /* ... */ }
+```
+
 #### Function `bounding_comparison`
 
 Build the [`BoundingComparison`]: HTR-10 bound
@@ -4724,6 +4892,14 @@ NuScale module thermal power the Table B-5 inventory is attributed to
 
 ```rust
 pub const NUSCALE_MODULE_MWTH: f64 = 160.0;
+```
+
+### Re-exports
+
+#### Re-export `AccidentCase`
+
+```rust
+pub use changi::activity::accident_airborne_release::AccidentCase;
 ```
 
 ## Module `scenario`

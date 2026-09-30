@@ -71,6 +71,30 @@
 //!   The Te-group row is 0 because no Te nuclide has a coefficient, not
 //!   because Te gives no dose. Follow-up: #456.
 //!
+//! **HTR-10 design-basis arm (section 5, added 2026-09-30, #452).** Liu &
+//! Cao (2002) Table 8 releases, published and not computed here, through the
+//! same chain. Maximum dose \[mSv\], 96 h, class F:
+//!
+//! | x \[m\] | depressurisation | water ingress |
+//! |---:|---:|---:|
+//! | 400 | 4.19e-3 | 7.59e-3 |
+//! | 1000 | 9.08e-4 | 1.64e-3 |
+//! | 10000 | 3.42e-5 | 6.20e-5 |
+//!
+//! Per MWth: a tenth of these. H-3 and C-14 have no buangkok coefficient:
+//! 24.4 % / 30.0 % of released Bq, so these are lower bounds too.
+//!
+//! **Cross-check against Liu & Cao Table 9 "whole-body"** (their 40 m stack,
+//! their unpublished weather). Ours/Table 9 is 0.12 / 0.08 at 250 m,
+//! 0.02-0.04 over 0.75-15 km, and rising to 1.46 / 1.13 at 75 km. The same
+//! gap and the same shape mismatch as buangkok's #379 test
+//! (`buangkok/tests/liu_cao_external_dose_cross_check.rs`: 54-60x at
+//! 0.25 km). There it is attributed to Table 9's unstated integration period
+//! (a 50-year Cs-137 groundshine is about 30x a 1-year one) and to their
+//! meteorology or deposition. This chain integrates groundshine over only
+//! 96 h, so its gap is larger still. It is not tuned, and it is not evidence
+//! of a chain error.
+//!
 //! **Defects found and fixed on the way (2026-09-30).**
 //!
 //! - The leakage integrator returned negative Bq for long-lived nuclides
@@ -81,9 +105,10 @@
 
 use sembawang::htr10::Htr10Geometry;
 use sembawang::lwr_comparison::{
-    bounding_comparison, htr10_air_ingress_bound, max_dose, nureg1465_pwr_into_containment,
-    pwr_inventory_scaled, rg1183_containment_leakage, rg1183_pwr_into_containment,
-    wash1400_pwr8_to_atmosphere, DoseAssumptions, Group, N1465Phases, Releases,
+    bounding_comparison, htr10_dba_release, htr10_dba_vs_table9, AccidentCase,
+    htr10_air_ingress_bound, max_dose, nureg1465_pwr_into_containment, pwr_inventory_scaled,
+    rg1183_containment_leakage, rg1183_pwr_into_containment, wash1400_pwr8_to_atmosphere,
+    DoseAssumptions, Group, N1465Phases, Releases,
 };
 use uom::si::f64::Time;
 use uom::si::time::hour;
@@ -256,6 +281,65 @@ fn main() {
             "   {name:<14} {:>6.1} % of released Bq incomplete; nuclides: {:?}",
             100.0 * miss / tot,
             dd.missing
+        );
+    }
+    // -- 5. HTR-10 DESIGN BASIS (Liu & Cao 2002 Table 8), same chain (#452).
+    println!(
+        "\n-- 5. HTR-10 DESIGN-BASIS arm: Liu & Cao (2002) Table 8, published releases, SAME chain"
+    );
+    println!(
+        "   (ground release, worst class at 1 m/s, 96 h, submersion + groundshine + inhalation)"
+    );
+    let dep = htr10_dba_release(AccidentCase::Depressurization);
+    let wat = htr10_dba_release(AccidentCase::WaterIngress);
+    println!(
+        "   {:>8}  {:>18}{:>18}{:>22}{:>22}",
+        "x [m]", "depress. [mSv]", "water ingr. [mSv]", "depress. [mSv/MWth]", "water [mSv/MWth]"
+    );
+    for x in SWEEP_M {
+        let (dd, dw) = (max_dose(&dep, x, a).total_sv, max_dose(&wat, x, a).total_sv);
+        println!(
+            "   {x:>8.0}  {:>18.4e}{:>18.4e}{:>22.4e}{:>22.4e}",
+            1e3 * dd,
+            1e3 * dw,
+            1e3 * dd / HTR10_MWTH,
+            1e3 * dw / HTR10_MWTH
+        );
+    }
+    for (name, rel) in [("depressurisation", &dep), ("water ingress", &wat)] {
+        let dd = max_dose(rel, 1000.0, a);
+        let tot: f64 = rel.iter().map(|(_, b)| b).sum();
+        let miss: f64 = rel
+            .iter()
+            .filter(|(n, _)| dd.missing.contains(n))
+            .map(|(_, b)| b)
+            .sum();
+        println!(
+            "   {name}: {:.1} % of released Bq lack a coefficient on some pathway (LOWER BOUND): {:?}",
+            100.0 * miss / tot + 0.0,
+            dd.missing
+        );
+    }
+    println!("\n   Cross-check against Liu & Cao Table 9 'whole-body' (their 40 m stack, their unpublished");
+    println!("   weather; a DIFFERENT calculation -- the ratio is a finding, nothing is tuned):");
+    println!(
+        "   {:>8}  {:>14}{:>14}{:>10}   {:>14}{:>14}{:>10}",
+        "x [m]", "depr. ours", "Table 9", "ratio", "water ours", "Table 9", "ratio"
+    );
+    let (cd, cw) = (
+        htr10_dba_vs_table9(AccidentCase::Depressurization),
+        htr10_dba_vs_table9(AccidentCase::WaterIngress),
+    );
+    for (d, w) in cd.iter().zip(&cw) {
+        println!(
+            "   {:>8.0}  {:>14.3e}{:>14.2e}{:>10.2}   {:>14.3e}{:>14.2e}{:>10.2}",
+            d.distance_m,
+            d.ours_msv,
+            d.published_whole_body_msv,
+            d.ratio,
+            w.ours_msv,
+            w.published_whole_body_msv,
+            w.ratio
         );
     }
     println!(

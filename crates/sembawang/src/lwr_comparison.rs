@@ -52,6 +52,9 @@ use buangkok::pydoseia::dispersion::{
     dilution_single_plume_no_met, MeanSpeedScaling, PlumeGeometry, Receptor, StabilityClass,
 };
 use buangkok::pydoseia::dose::{deposition_velocity_m_per_s, submersion_dose, Release};
+pub use changi::activity::accident_airborne_release::AccidentCase;
+use buangkok::published::accident_dose_by_distance::htr10_accident_dose_by_distance;
+use changi::activity::accident_airborne_release::htr10_accident_release;
 use changi::activity::inventory::htr10_equilibrium_core;
 use changi::activity::primary_helium::htr10_primary_helium_end_of_life;
 use uom::si::f64::{Length, Radioactivity, ThermodynamicTemperature, Time};
@@ -705,6 +708,68 @@ pub fn max_dose(releases: &Releases, x_m: f64, a: DoseAssumptions) -> Dose {
     }
 }
 
+/// **HTR-10 design-basis releases** to the environment \[Bq per nuclide\]:
+/// Liu & Cao (2002, NED 218:81-90) **Table 8**, either the depressurisation
+/// (DN65 charging-tube rupture, s.4.1.1) or the water ingress (two SG tubes,
+/// relief failed, s.4.1.2), as `changi::activity::accident_airborne_release`
+/// holds it. Published, not computed here. H-3 and C-14 are included; their
+/// missing FGR coefficients are reported by [`max_dose`], not zeroed silently
+/// (#452, 2026-09-30).
+pub fn htr10_dba_release(case: AccidentCase) -> Releases {
+    htr10_accident_release()
+        .iter()
+        .map(|e| (e.nuclide.to_string(), e.release(case).get::<becquerel>()))
+        .collect()
+}
+
+/// One distance of the Table 9 cross-check of [`htr10_dba_release`] through
+/// the shared dose chain.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Table9Check {
+    /// Receptor distance \[m\].
+    pub distance_m: f64,
+    /// Our maximum dose \[mSv\]: [`max_dose`] with
+    /// [`DoseAssumptions::bounding_example`] (worst class, 1 m/s, ground
+    /// release, 96 h, submersion + groundshine + inhalation).
+    pub ours_msv: f64,
+    /// Liu & Cao Table 9 "whole-body" \[mSv\] (their 40 m stack and their
+    /// unpublished weather; STOERNEU).
+    pub published_whole_body_msv: f64,
+    /// `ours / published`.
+    pub ratio: f64,
+}
+
+/// Cross-check [`htr10_dba_release`] through [`max_dose`] against Liu & Cao
+/// Table 9 at its own distances. **Different conditions, stated:** the
+/// shared chain is a ground-level release at the worst class and 1 m/s (the
+/// #452 conditions), while Table 9 comes from a 40 m stack under weather the
+/// paper does not give. The ratio is a finding, not a gate, and nothing is
+/// tuned to it. Liu & Cao's own conditions are swept (external pathways only)
+/// in `buangkok/tests/liu_cao_external_dose_cross_check.rs` (#379).
+///
+/// Measured 2026-09-30: ours/Table 9 = 0.12 (depressurisation) and 0.08
+/// (water ingress) at 250 m, 0.01-0.04 from 0.75 to 15 km, and 1.46 / 1.13
+/// at 75 km. That is the gap #379 found (Table 9's unstated integration
+/// period and weather), made larger here by the 96 h groundshine window.
+pub fn htr10_dba_vs_table9(case: AccidentCase) -> Vec<Table9Check> {
+    let rel = htr10_dba_release(case);
+    let a = DoseAssumptions::bounding_example();
+    htr10_accident_dose_by_distance()
+        .iter()
+        .map(|row| {
+            let x = row.distance.get::<meter>();
+            let ours = 1e3 * max_dose(&rel, x, a).total_sv;
+            let published = row.doses(case).whole_body_msv;
+            Table9Check {
+                distance_m: x,
+                ours_msv: ours,
+                published_whole_body_msv: published,
+                ratio: ours / published,
+            }
+        })
+        .collect()
+}
+
 /// One distance of the bounding comparison: the maximum 96 h dose of each
 /// arm \[Sv\], same site, weather, height and receptor (#452, #453).
 #[derive(Debug, Clone, PartialEq)]
@@ -829,6 +894,28 @@ mod tests {
         // ~24 h at L then 72 h at L/2 (minus the ramp): ~ 0.962 (1 + 1.5 - 0.1) / 100 per %/day.
         let expect = 0.962 * 1.0e15 * (1.0 + 1.5) / 100.0;
         assert!((per - expect).abs() / expect < 0.08, "{per} vs ~{expect}");
+    }
+
+    /// The HTR-10 DBA arm is Liu & Cao Table 8 as `changi` holds it (18
+    /// nuclides; Xe-133 2.2e10 / 6.5e8 Bq, I-131 2.5e7 / 2.2e8 Bq), and its
+    /// Table 9 cross-check covers all 13 published distances with finite,
+    /// positive doses. The ratios are recorded on #452, not asserted.
+    #[test]
+    fn htr10_dba_arm_is_table_8_and_meets_table_9_distances() {
+        let get = |r: &Releases, n: &str| r.iter().find(|(m, _)| m == n).unwrap().1;
+        let d = htr10_dba_release(AccidentCase::Depressurization);
+        let w = htr10_dba_release(AccidentCase::WaterIngress);
+        assert_eq!((d.len(), w.len()), (18, 18));
+        assert_eq!((get(&d, "Xe-133"), get(&w, "Xe-133")), (2.2e10, 6.5e8));
+        assert_eq!((get(&d, "I-131"), get(&w, "I-131")), (2.5e7, 2.2e8));
+        for case in [AccidentCase::Depressurization, AccidentCase::WaterIngress] {
+            let rows = htr10_dba_vs_table9(case);
+            assert_eq!(rows.len(), 13);
+            assert_eq!(rows[0].distance_m, 250.0);
+            assert!(rows
+                .iter()
+                .all(|r| r.ours_msv.is_finite() && r.ours_msv > 0.0));
+        }
     }
 
     /// `bound::F_OX_KORA` is the committed TECDOC-978 Table 5-7 row it
