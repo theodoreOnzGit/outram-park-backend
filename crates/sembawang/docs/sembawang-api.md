@@ -3354,7 +3354,9 @@ pub const F_INC_SIC_STAND_IN: f64 = 3.6e-5;
 #### Constant `F_OX_KORA`
 
 KORA AVR 92/22: about 20 of 16 400 particles failed in air at 1400 °C
-for 140 h (IAEA-TECDOC-978 Table 5-7 = Kugeler 2017 Table 9).
+for 140 h (IAEA-TECDOC-978 Table 5-7 = Kugeler 2017 Table 9). Pinned
+to the committed Table 5-7 row by
+`tests::f_ox_kora_is_the_table_5_7_sphere_test` (#453).
 
 ```rust
 pub const F_OX_KORA: f64 = 1.2e-3;
@@ -3366,6 +3368,202 @@ boon-lay fuel-failure integration steps over the hold.
 
 ```rust
 pub const BL_STEPS: usize = 200;
+```
+
+## Module `kora`
+
+IAEA-TECDOC-978 (IAEA, Vienna, 1997) air-oxidation fuel data, the
+maintainer's kovan digitisations, committed under `reference/tecdoc978/`
+with their provenance (#453). Proprietary tier: the values are cited, the
+PDF is not redistributed.
+
+```rust
+pub mod kora { /* ... */ }
+```
+
+### Types
+
+#### Struct `HeatingTest`
+
+One row of TECDOC-978 Table 5-7 (KORA heating tests in air, Kr-85
+release).
+
+```rust
+pub struct HeatingTest {
+    pub sample: String,
+    pub particles: f64,
+    pub max_celsius: f64,
+    pub hours: f64,
+    pub failed: f64,
+    pub failed_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sample` | `String` | Fuel sample (e.g. `AVR 92/22`). |
+| `particles` | `f64` | Particles in the sample. |
+| `max_celsius` | `f64` | Maximum temperature \[°C\]. |
+| `hours` | `f64` | Time at temperature \[h\]. |
+| `failed` | `f64` | Failed particles. |
+| `failed_fraction` | `f64` | Printed fraction of failed particles. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HeatingTest { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HeatingTest) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `table_5_7`
+
+Table 5-7, every row.
+
+# Panics
+Never for the shipped CSV (a test parses it).
+
+```rust
+pub fn table_5_7() -> Vec<HeatingTest> { /* ... */ }
+```
+
+#### Function `sphere_test`
+
+The Table 5-7 **whole-sphere** test (16 400 particles; the 10-particle
+rows are loose particles, not fuel in a sphere) at `celsius` for
+`hours`, if Table 5-7 has one.
+
+```rust
+pub fn sphere_test(celsius: f64, hours: f64) -> Option<HeatingTest> { /* ... */ }
+```
+
+#### Function `fig_5_23`
+
+One Fig. 5-23 series, by its legend name: `(hours, failure fraction)`,
+in digitised order.
+
+```rust
+pub fn fig_5_23(series: &str) -> Vec<(f64, f64)> { /* ... */ }
+```
+
+#### Function `nabielek_1400c_prediction`
+
+Fig. 5-23's **1400 °C Nabielek prediction** (dashed line) at `hours`,
+interpolated log-linearly between the digitised points (the figure's
+y axis is logarithmic). `None` outside the digitised range. A
+**model prediction** shown for context, not a measurement, and not
+used in the bound.
+
+```rust
+pub fn nabielek_1400c_prediction(hours: f64) -> Option<f64> { /* ... */ }
 ```
 
 ### Types
@@ -3986,7 +4184,7 @@ pub struct Dose {
 | `chi_over_q` | `f64` | chi/Q used \[s/m^3\]. |
 | `total_sv` | `f64` | Total over nuclides with coefficients \[Sv\]. |
 | `by_group` | `Vec<(Group, f64)>` | By group \[Sv\]. |
-| `missing` | `Vec<String>` | Nuclides lacking a coefficient on some pathway (NOT counted as zero). |
+| `missing` | `Vec<String>` | Nuclides lacking a coefficient on some pathway. ~~(NOT counted as<br>zero)~~ **CORRECTED 2026-09-30:** a missing pathway contributes<br>nothing to `total_sv` or `by_group`, so those are LOWER BOUNDS; this<br>list says which nuclides make them so (#456). |
 
 ##### Implementations
 
@@ -4063,6 +4261,274 @@ pub struct Dose {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ComparisonRow`
+
+One distance of the bounding comparison: the maximum 96 h dose of each
+arm \[Sv\], same site, weather, height and receptor (#452, #453).
+
+```rust
+pub struct ComparisonRow {
+    pub distance_m: f64,
+    pub class: buangkok::pydoseia::dispersion::StabilityClass,
+    pub htr10_bound_sv: f64,
+    pub rg1183_per_percent_per_day_sv: f64,
+    pub wash1400_pwr8_sv: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance_m` | `f64` | Receptor distance \[m\]. |
+| `class` | `buangkok::pydoseia::dispersion::StabilityClass` | Worst stability class at 1 m/s. It depends on distance only, so it is<br>the same for every arm. |
+| `htr10_bound_sv` | `f64` | HTR-10 bounding air ingress, to the environment. |
+| `rg1183_per_percent_per_day_sv` | `f64` | RG 1.183 Rev. 1 (NUREG-1465 AST, Table 2) to the environment **per<br>1 %/day** of containment leak rate, with no removal credit. `L_a` is<br>plant-specific and not in RG 1.183, so it is never assumed. |
+| `wash1400_pwr8_sv` | `f64` | WASH-1400 PWR 8, to the atmosphere. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ComparisonRow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ComparisonRow) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoundingComparison`
+
+The bounding comparison over `distances_m` (#452, and `htgr_sim_v1`'s
+map, #453), from one call so that the two cannot drift apart.
+
+```rust
+pub struct BoundingComparison {
+    pub rows: Vec<ComparisonRow>,
+    pub incomplete_fraction: [f64; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rows` | `Vec<ComparisonRow>` | One row per distance, in the order given. |
+| `incomplete_fraction` | `[f64; 3]` | Share of each arm's released Bq whose nuclide lacks an FGR<br>coefficient on some pathway, as `[HTR-10, RG 1.183, WASH-1400]`. Those<br>pathways count zero, so a non-zero share marks a LOWER-BOUND dose<br>(#456). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundingComparison { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoundingComparison) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -4180,6 +4646,21 @@ velocity, decaying over the exposure period). The arithmetic of
 
 ```rust
 pub fn max_dose(releases: &Releases, x_m: f64, a: DoseAssumptions) -> Dose { /* ... */ }
+```
+
+#### Function `bounding_comparison`
+
+Build the [`BoundingComparison`]: HTR-10 bound
+([`htr10_air_ingress_bound`]), RG 1.183 per 1 %/day
+([`rg1183_containment_leakage`]) and WASH-1400 PWR 8
+([`wash1400_pwr8_to_atmosphere`]), with the LWR inventory scaled to
+`mwth`, through [`max_dose`] with [`DoseAssumptions::bounding_example`].
+
+# Errors
+If the HTR-10 release chain rejects its inputs.
+
+```rust
+pub fn bounding_comparison(geometry: crate::htr10::Htr10Geometry, window: uom::si::f64::Time, mwth: f64, distances_m: &[f64]) -> Result<BoundingComparison, crate::Error> { /* ... */ }
 ```
 
 ### Constants and Statics

@@ -81,9 +81,9 @@
 
 use sembawang::htr10::Htr10Geometry;
 use sembawang::lwr_comparison::{
-    htr10_air_ingress_bound, max_dose, nureg1465_pwr_into_containment, pwr_inventory_scaled,
-    rg1183_containment_leakage, rg1183_pwr_into_containment, wash1400_pwr8_to_atmosphere,
-    DoseAssumptions, Group, N1465Phases, Releases,
+    bounding_comparison, htr10_air_ingress_bound, max_dose, nureg1465_pwr_into_containment,
+    pwr_inventory_scaled, rg1183_containment_leakage, rg1183_pwr_into_containment,
+    wash1400_pwr8_to_atmosphere, DoseAssumptions, Group, N1465Phases, Releases,
 };
 use uom::si::f64::Time;
 use uom::si::time::hour;
@@ -206,6 +206,19 @@ fn main() {
             dh.class
         );
     }
+    // htgr_sim_v1's map (#453) reads `bounding_comparison`: it must give these
+    // rows exactly, or the map and this example have drifted apart.
+    let cmp = bounding_comparison(htr10_geometry(), window, HTR10_MWTH, &SWEEP_M)
+        .expect("bounding comparison");
+    for (row, x) in cmp.rows.iter().zip(SWEEP_M) {
+        assert_eq!(row.htr10_bound_sv, max_dose(&htr, x, a).total_sv);
+        assert_eq!(row.wash1400_pwr8_sv, max_dose(&w8, x, a).total_sv);
+        assert_eq!(
+            row.rg1183_per_percent_per_day_sv,
+            max_dose(&leak.per_percent_per_day, x, a).total_sv
+        );
+    }
+    println!("   (`bounding_comparison`, which htgr_sim_v1's map calls, gives these rows exactly)");
 
     println!("\n-- 3. dose [mSv] by group at 400 m");
     let d = [

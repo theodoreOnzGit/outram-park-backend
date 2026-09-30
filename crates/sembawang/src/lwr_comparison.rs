@@ -91,10 +91,115 @@ pub mod bound {
     /// f_inc_sic, **stand-in** (NP-MHTGR).
     pub const F_INC_SIC_STAND_IN: f64 = 3.6e-5;
     /// KORA AVR 92/22: about 20 of 16 400 particles failed in air at 1400 °C
-    /// for 140 h (IAEA-TECDOC-978 Table 5-7 = Kugeler 2017 Table 9).
+    /// for 140 h (IAEA-TECDOC-978 Table 5-7 = Kugeler 2017 Table 9). Pinned
+    /// to the committed Table 5-7 row by
+    /// `tests::f_ox_kora_is_the_table_5_7_sphere_test` (#453).
     pub const F_OX_KORA: f64 = 1.2e-3;
     /// boon-lay fuel-failure integration steps over the hold.
     pub const BL_STEPS: usize = 200;
+}
+
+/// IAEA-TECDOC-978 (IAEA, Vienna, 1997) air-oxidation fuel data, the
+/// maintainer's kovan digitisations, committed under `reference/tecdoc978/`
+/// with their provenance (#453). Proprietary tier: the values are cited, the
+/// PDF is not redistributed.
+pub mod kora {
+    const TABLE_5_7: &str = include_str!("../reference/tecdoc978/table5_7_kora_heating_in_air.csv");
+    const FIG_5_23: &str =
+        include_str!("../reference/tecdoc978/fig5_23_failure_fraction_air_ingress_constant_t.csv");
+
+    /// One row of TECDOC-978 Table 5-7 (KORA heating tests in air, Kr-85
+    /// release).
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct HeatingTest {
+        /// Fuel sample (e.g. `AVR 92/22`).
+        pub sample: String,
+        /// Particles in the sample.
+        pub particles: f64,
+        /// Maximum temperature \[°C\].
+        pub max_celsius: f64,
+        /// Time at temperature \[h\].
+        pub hours: f64,
+        /// Failed particles.
+        pub failed: f64,
+        /// Printed fraction of failed particles.
+        pub failed_fraction: f64,
+    }
+
+    /// Split one CSV line, honouring double quotes (`"16,400"`).
+    fn fields(line: &str) -> Vec<String> {
+        let (mut out, mut cur, mut quoted) = (Vec::new(), String::new(), false);
+        for c in line.chars() {
+            match c {
+                '"' => quoted = !quoted,
+                ',' if !quoted => out.push(std::mem::take(&mut cur)),
+                _ => cur.push(c),
+            }
+        }
+        out.push(cur);
+        out
+    }
+
+    fn data_lines(csv: &str) -> impl Iterator<Item = Vec<String>> + '_ {
+        csv.lines()
+            .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+            .skip(1)
+            .map(fields)
+    }
+
+    /// Table 5-7, every row.
+    ///
+    /// # Panics
+    /// Never for the shipped CSV (a test parses it).
+    pub fn table_5_7() -> Vec<HeatingTest> {
+        data_lines(TABLE_5_7)
+            .map(|f| {
+                let num = |i: usize| f[i].replace(',', "").trim().parse::<f64>().unwrap();
+                HeatingTest {
+                    sample: f[0].clone(),
+                    particles: num(1),
+                    max_celsius: num(4),
+                    hours: num(5),
+                    failed: num(7),
+                    failed_fraction: num(8),
+                }
+            })
+            .collect()
+    }
+
+    /// The Table 5-7 **whole-sphere** test (16 400 particles; the 10-particle
+    /// rows are loose particles, not fuel in a sphere) at `celsius` for
+    /// `hours`, if Table 5-7 has one.
+    pub fn sphere_test(celsius: f64, hours: f64) -> Option<HeatingTest> {
+        table_5_7()
+            .into_iter()
+            .find(|t| t.particles > 1000.0 && t.max_celsius == celsius && t.hours == hours)
+    }
+
+    /// One Fig. 5-23 series, by its legend name: `(hours, failure fraction)`,
+    /// in digitised order.
+    pub fn fig_5_23(series: &str) -> Vec<(f64, f64)> {
+        data_lines(FIG_5_23)
+            .filter(|f| f[0] == series)
+            .map(|f| (f[1].parse().unwrap(), f[2].parse().unwrap()))
+            .collect()
+    }
+
+    /// Fig. 5-23's **1400 °C Nabielek prediction** (dashed line) at `hours`,
+    /// interpolated log-linearly between the digitised points (the figure's
+    /// y axis is logarithmic). `None` outside the digitised range. A
+    /// **model prediction** shown for context, not a measurement, and not
+    /// used in the bound.
+    pub fn nabielek_1400c_prediction(hours: f64) -> Option<f64> {
+        let pts = fig_5_23("1400C prediction Nabielek (dashed lines)");
+        pts.windows(2).find_map(|w| {
+            let ((t0, f0), (t1, f1)) = (w[0], w[1]);
+            (t0..=t1).contains(&hours).then(|| {
+                let a = (hours - t0) / (t1 - t0);
+                (f0.ln() + a * (f1.ln() - f0.ln())).exp()
+            })
+        })
+    }
 }
 
 /// The HTR-10 bounding air-ingress release over `window` \[Bq per nuclide\]:
@@ -510,7 +615,10 @@ pub struct Dose {
     pub total_sv: f64,
     /// By group \[Sv\].
     pub by_group: Vec<(Group, f64)>,
-    /// Nuclides lacking a coefficient on some pathway (NOT counted as zero).
+    /// Nuclides lacking a coefficient on some pathway. ~~(NOT counted as
+    /// zero)~~ **CORRECTED 2026-09-30:** a missing pathway contributes
+    /// nothing to `total_sv` or `by_group`, so those are LOWER BOUNDS; this
+    /// list says which nuclides make them so (#456).
     pub missing: Vec<String>,
 }
 
@@ -597,6 +705,91 @@ pub fn max_dose(releases: &Releases, x_m: f64, a: DoseAssumptions) -> Dose {
     }
 }
 
+/// One distance of the bounding comparison: the maximum 96 h dose of each
+/// arm \[Sv\], same site, weather, height and receptor (#452, #453).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComparisonRow {
+    /// Receptor distance \[m\].
+    pub distance_m: f64,
+    /// Worst stability class at 1 m/s. It depends on distance only, so it is
+    /// the same for every arm.
+    pub class: StabilityClass,
+    /// HTR-10 bounding air ingress, to the environment.
+    pub htr10_bound_sv: f64,
+    /// RG 1.183 Rev. 1 (NUREG-1465 AST, Table 2) to the environment **per
+    /// 1 %/day** of containment leak rate, with no removal credit. `L_a` is
+    /// plant-specific and not in RG 1.183, so it is never assumed.
+    pub rg1183_per_percent_per_day_sv: f64,
+    /// WASH-1400 PWR 8, to the atmosphere.
+    pub wash1400_pwr8_sv: f64,
+}
+
+/// The bounding comparison over `distances_m` (#452, and `htgr_sim_v1`'s
+/// map, #453), from one call so that the two cannot drift apart.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoundingComparison {
+    /// One row per distance, in the order given.
+    pub rows: Vec<ComparisonRow>,
+    /// Share of each arm's released Bq whose nuclide lacks an FGR
+    /// coefficient on some pathway, as `[HTR-10, RG 1.183, WASH-1400]`. Those
+    /// pathways count zero, so a non-zero share marks a LOWER-BOUND dose
+    /// (#456).
+    pub incomplete_fraction: [f64; 3],
+}
+
+/// Build the [`BoundingComparison`]: HTR-10 bound
+/// ([`htr10_air_ingress_bound`]), RG 1.183 per 1 %/day
+/// ([`rg1183_containment_leakage`]) and WASH-1400 PWR 8
+/// ([`wash1400_pwr8_to_atmosphere`]), with the LWR inventory scaled to
+/// `mwth`, through [`max_dose`] with [`DoseAssumptions::bounding_example`].
+///
+/// # Errors
+/// If the HTR-10 release chain rejects its inputs.
+pub fn bounding_comparison(
+    geometry: Htr10Geometry,
+    window: Time,
+    mwth: f64,
+    distances_m: &[f64],
+) -> Result<BoundingComparison, SembawangError> {
+    let htr = htr10_air_ingress_bound(geometry, window)?;
+    let inv = pwr_inventory_scaled(mwth);
+    let rg = rg1183_containment_leakage(&inv, None, window).per_percent_per_day;
+    let wash = wash1400_pwr8_to_atmosphere(&inv);
+    let a = DoseAssumptions::bounding_example();
+    let rows: Vec<ComparisonRow> = distances_m
+        .iter()
+        .map(|&x| {
+            let h = max_dose(&htr, x, a);
+            ComparisonRow {
+                distance_m: x,
+                class: h.class,
+                htr10_bound_sv: h.total_sv,
+                rg1183_per_percent_per_day_sv: max_dose(&rg, x, a).total_sv,
+                wash1400_pwr8_sv: max_dose(&wash, x, a).total_sv,
+            }
+        })
+        .collect();
+    let incomplete = |rel: &Releases| {
+        let missing = max_dose(rel, 1000.0, a).missing;
+        let tot: f64 = rel.iter().map(|(_, b)| b).sum();
+        let miss: f64 = rel
+            .iter()
+            .filter(|(n, _)| missing.contains(n))
+            .map(|(_, b)| b)
+            .sum();
+        // `+ 0.0` turns the empty sum's -0.0 into 0.0 for printing.
+        if tot > 0.0 {
+            miss / tot + 0.0
+        } else {
+            0.0
+        }
+    };
+    Ok(BoundingComparison {
+        rows,
+        incomplete_fraction: [incomplete(&htr), incomplete(&rg), incomplete(&wash)],
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -636,6 +829,24 @@ mod tests {
         // ~24 h at L then 72 h at L/2 (minus the ramp): ~ 0.962 (1 + 1.5 - 0.1) / 100 per %/day.
         let expect = 0.962 * 1.0e15 * (1.0 + 1.5) / 100.0;
         assert!((per - expect).abs() / expect < 0.08, "{per} vs ~{expect}");
+    }
+
+    /// `bound::F_OX_KORA` is the committed TECDOC-978 Table 5-7 row it
+    /// cites (AVR 92/22, 16 400 particles, 1400 °C, 140 h, 20 failed), and
+    /// the printed fraction is failed/particles to its printed precision.
+    /// Fig. 5-23's 1400 °C Nabielek prediction at 140 h is recorded for
+    /// context (2026-09-30: 1.59e-2, about 13x the measurement; not used).
+    #[test]
+    fn f_ox_kora_is_the_table_5_7_sphere_test() {
+        assert_eq!(kora::table_5_7().len(), 7);
+        let t = kora::sphere_test(bound::HOLD_CELSIUS, bound::HOLD_HOURS).unwrap();
+        assert_eq!(t.sample, "AVR 92/22");
+        assert_eq!((t.particles, t.failed), (16_400.0, 20.0));
+        assert_eq!(t.failed_fraction, bound::F_OX_KORA);
+        assert!((t.failed / t.particles - t.failed_fraction).abs() < 0.05e-3);
+        let p = kora::nabielek_1400c_prediction(140.0).unwrap();
+        assert!((p - 1.59e-2).abs() < 0.01e-2, "{p}");
+        assert!(kora::nabielek_1400c_prediction(1000.0).is_none());
     }
 
     /// Pins the 2026-09-30 defect: the small-leak limit returned negative Bq

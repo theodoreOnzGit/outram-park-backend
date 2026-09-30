@@ -6787,6 +6787,7 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "outram-park-fork-offbeat",
  "roots",
+ "sembawang",
  "serde",
  "tampines",
  "tampines-steam-tables",

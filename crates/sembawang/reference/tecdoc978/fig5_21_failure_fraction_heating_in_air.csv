@@ -1,0 +1,35 @@
+# IAEA, "Fuel performance and fission product behaviour in gas cooled reactors", IAEA-TECDOC-978, Vienna, 1997. Proprietary tier: cited, the PDF is not redistributed; the values are the maintainer's digitisation.
+# Fig 5-21 failure fraction of fuel particles within fuel spheres during heating in air at 1300C and of 10 intact unbonded particles at 1500C (printed page 256).
+# Maintainer's digitisation in kovan: id fig-5-21-failure-fraction-of-fuel-particles-within-fuel-spheres-during-heating-in-air-at-1300c-and-of-10-intact-unbonded-particles-at-1500c, method manual_digitisation, by teddy0 via kovan (gui, hand-placed), at 2026-09-30T02:02:18Z;
+# copied verbatim from ~/Documents/local-kovan-repo/papers/2002/2002iaeatecdoc978/ on 2026-09-30 (#453).
+# x_axis: linear scale, px 98.64404296875 = 0 , px 844.9560546875 = 400
+# y_axis: log scale, px 473.33837890625 = 0.000001 , px 21.866485595703125 = 1
+# Long format: one row per digitised point, series named as in the figure legend.
+series,Time (hours),Failure Fraction
+"1300C (Circles)",257.09625521853224,0.00005958466662773989
+"1300C (Circles)",308.9989381378615,0.00012241094601731073
+"1300C (Circles)",329.7933130818406,0.000182075815275221
+"1300C (Circles)",360.6203551709676,0.00024205154550811661
+"1300C (Circles)",382.83120055847536,0.00029879004049136395
+"1500C (squares)",-0.013150603193960927,0.3546646693474672
+"1500C (squares)",0.5761076439026018,0.5711299284871907
+"1500C (squares)",1.0227701712915136,0.6863313276975289
+"1500C (squares)",2.9130221721786884,0.7644323220501723
+"1500C (squares)",11.853927548681767,0.9784029884560952
+"1400C (Triangles) first series",2.019173710308568,0.00005767123888127596
+"1400C (Triangles) first series",2.446437462339224,0.00011569360713177494
+"1400C (Triangles) first series",3.6060785882663904,0.00017964386763946177
+"1400C (Triangles) first series",5.740074729447603,0.00024586870853338366
+"1400C (Triangles) first series",5.740074729447603,0.000335247962873784
+"1400C (Triangles) first series",17.73941131095812,0.0004895819230029744
+"1400C (Triangles) first series",25.38622536470025,0.0005584081562362377
+"1400C (Triangles) first series",29.355155919701502,0.0006036933740766261
+"1400C (Triangles) first series",33.970199817200076,0.0007024962057019106
+"1400C (Triangles) second series",2.7186418632769076,0.0001708175410114548
+"1400C (Triangles) second series",2.7681365464422387,0.0000584013894953727
+"1400C (Triangles) second series",2.905400056397114,0.0001165775150424092
+"1400C (Triangles) second series",4.699247013471845,0.0004089073718447937
+"1400C (Triangles) second series",10.44697657164429,0.0005384036393350261
+"1400C (Triangles) second series",14.231046284234914,0.0007281282861409806
+"1400C (Triangles) second series",15.542115624552242,0.0009733807453032654
+"1400C (Triangles) second series",32.05299235105961,0.0011346731465868292

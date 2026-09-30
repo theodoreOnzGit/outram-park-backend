@@ -4,6 +4,10 @@
 //! widgets: the live core map, the pebble and TRISO particle drill-down and
 //! the release table moved to [`super::thermal_tab`] ("Live thermal state and
 //! FP release"), which replaced the static geometry viewer.
+//! **UPDATED 2026-09-30 (#453):** it also holds the **Bounding air ingress**
+//! toggle and table: a static bounding case, not a transient (#420), set
+//! beside two LWR source terms at 10 MWth. See
+//! [`crate::physics::bounding_air_ingress`]. It does not use the live plume.
 //!
 //! # The picture is a live plume, evaluated once per screen pixel
 //!
@@ -572,6 +576,9 @@ pub struct MapTabState {
     /// `None` until a slider is touched: the default then tracks
     /// [`default_scale`], which for Per Ci moves with the release rates.
     scales: [Option<ColourScale>; 4],
+    /// Whether the **Bounding air ingress** comparison is shown (#453). A
+    /// display toggle, not a scenario: it starts nothing in the plant.
+    bounding_air_ingress: bool,
 }
 
 impl MapTabState {
@@ -1824,6 +1831,109 @@ fn draw_scenario_buttons(ui: &mut Ui) -> MapAction {
     action
 }
 
+/// The **Bounding air ingress** toggle (#453), on its own row and apart from
+/// the scenario buttons, because it is a bounding case, not a transient
+/// (#420): it starts nothing and changes no plant state.
+fn draw_bounding_toggle(ui: &mut Ui, state: &mut MapTabState) {
+    use crate::physics::bounding_air_ingress as b;
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Comparison:");
+        ui.toggle_value(&mut state.bounding_air_ingress, b::BUTTON_LABEL)
+            .on_hover_text(format!(
+                "{}. Every particle exposed to air at 1400 °C for 140 h (KORA f_ox), \
+                 TRISO-ATOPS release, worst-class dose over 96 h, beside two LWR source terms \
+                 at 10 MWth. Separate from the DLOFC scenario, whose O2 supply is zero. \
+                 Research and education only.",
+                b::CASE_LABEL
+            ));
+        ui.colored_label(Color32::from_rgb(200, 120, 20), b::CASE_LABEL);
+    });
+}
+
+/// Column headings of the bounding-comparison table.
+const BOUNDING_HEADINGS: [&str; 5] = [
+    "Distance",
+    "Class (worst, 1 m/s)",
+    "HTR-10 bound [mSv]",
+    "LWR comparison, per 1 %/day L_a [mSv]",
+    "WASH-1400 PWR 8 [mSv]",
+];
+
+/// The bounding table's cells, one row per receptor distance. Pure, so a test
+/// can pin it.
+fn bounding_cells(c: &sembawang::lwr_comparison::BoundingComparison) -> Vec<[String; 5]> {
+    c.rows
+        .iter()
+        .map(|r| {
+            [
+                format!("{:.0} m", r.distance_m),
+                format!("{:?}", r.class),
+                format!("{:.3}", 1e3 * r.htr10_bound_sv),
+                format!("{:.3}", 1e3 * r.rg1183_per_percent_per_day_sv),
+                format!("{:.3}", 1e3 * r.wash1400_pwr8_sv),
+            ]
+        })
+        .collect()
+}
+
+/// The bounding-comparison table (#453), shown while the toggle is on.
+fn draw_bounding_table(ui: &mut Ui) {
+    use crate::physics::bounding_air_ingress as b;
+    ui.strong(format!(
+        "Bounding air ingress -- MAXIMUM dose [mSv] over the first {:.0} h",
+        b::WINDOW_H
+    ));
+    ui.colored_label(Color32::from_rgb(200, 60, 20), b::CASE_LABEL);
+    match b::comparison() {
+        Err(e) => {
+            ui.colored_label(
+                Color32::from_rgb(200, 60, 20),
+                format!("Bounding comparison unavailable: {e}"),
+            );
+        }
+        Ok(c) => {
+            egui::Grid::new("htgr_map_bounding_air_ingress")
+                .num_columns(BOUNDING_HEADINGS.len())
+                .striped(true)
+                .show(ui, |ui| {
+                    for h in BOUNDING_HEADINGS {
+                        ui.label(h);
+                    }
+                    ui.end_row();
+                    for row in bounding_cells(c) {
+                        for cell in row {
+                            ui.label(cell);
+                        }
+                        ui.end_row();
+                    }
+                });
+            ui.label(b::LWR_LABEL);
+            ui.label(b::WASH_LABEL);
+            ui.label(b::f_ox_provenance());
+            let [h, r, w] = c.incomplete_fraction;
+            ui.colored_label(
+                Color32::from_rgb(200, 120, 20),
+                format!(
+                    "FGR coverage: {:.1} % (HTR-10), {:.1} % (RG 1.183), {:.1} % (WASH-1400) of \
+                     released Bq lack a coefficient on some pathway, which counts ZERO -- those \
+                     doses are LOWER BOUNDS (#456).",
+                    100.0 * h,
+                    100.0 * r,
+                    100.0 * w
+                ),
+            );
+        }
+    }
+    ui.label(
+        "Worst stability class at 1 m/s, ground-level release for every arm, the whole release \
+         passing one receptor (buangkok single plume; FGR-15 submersion and groundshine, FGR-11 \
+         inhalation, adult). NOT the map's live weather or plume, and not a dose to anyone. \
+         sembawang::lwr_comparison::bounding_comparison, the same function as the sembawang \
+         example lwr_nureg1465_counterpart (#452). Research, education and V&V only.",
+    );
+    ui.add_space(6.0);
+}
+
 /// Draw the whole Map tab: the Gaussian puff dispersion widgets.
 ///
 /// `view` is the tab's viewport, measured by the caller **outside** the scroll
@@ -1844,6 +1954,7 @@ pub fn draw_map(
 ) -> MapAction {
     ui.heading("Atmospheric dispersion -- Gaussian puff");
     let action = draw_scenario_buttons(ui);
+    draw_bounding_toggle(ui, state);
     if s.dlofc_triggered {
         ui.colored_label(
             Color32::from_rgb(200, 120, 20),
@@ -1911,12 +2022,39 @@ pub fn draw_map(
     ui.add_space(8.0);
     ui.separator();
     let dose_scale = state.scale_for(MapBasis::DoseRate, s, 0.0);
+    if state.bounding_air_ingress {
+        draw_bounding_table(ui);
+    }
     draw_dispersion_table(ui, s, dose_scale);
     action
 }
 
 #[cfg(test)]
 mod tests {
+    /// The bounding toggle starts off, and the table carries the labels the
+    /// maintainer asked for (#453): the case is a bound, not a transient
+    /// (#420); the LWR column names NUREG-1465, 10 MWth, different accident
+    /// physics and #450; one row per map receptor distance.
+    #[test]
+    fn the_bounding_table_is_off_by_default_and_labelled() {
+        use crate::physics::bounding_air_ingress as b;
+        assert!(!super::MapTabState::default().bounding_air_ingress);
+        assert!(b::CASE_LABEL.contains("not a transient") && b::CASE_LABEL.contains("#420"));
+        for needle in [
+            "NUREG-1465",
+            "10 MWth",
+            "different accident physics",
+            "#450",
+            "NOT assumed",
+        ] {
+            assert!(b::LWR_LABEL.contains(needle), "{needle}");
+        }
+        let c = b::comparison().as_ref().unwrap();
+        let cells = super::bounding_cells(c);
+        assert_eq!(cells.len(), c.rows.len());
+        assert_eq!(cells.last().unwrap()[0], "1000 m");
+    }
+
     /// The NRC 2023 EPZ reference figure: `10e-3 Sv / 96 h` = 104.17 µSv/h,
     /// and it sits inside the dose-rate basis's default 0.8 µSv/h - 1 mSv/h
     /// scale (so the default ramp shows the tick). Floor and top unchanged.

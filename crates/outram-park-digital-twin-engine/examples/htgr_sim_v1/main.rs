@@ -92,6 +92,15 @@ fn main() -> eframe::Result<()> {
     // regression tests. See `headless`.
     let args: Vec<String> = std::env::args().collect();
 
+    // The Map tab's static "Bounding air ingress" table (#453) as CSV; no
+    // plant is run (a bounding case, not a transient, #420).
+    //
+    //     cargo run --release --example htgr_sim_v1 -- --bounding-air-ingress
+    if args.iter().any(|a| a == "--bounding-air-ingress") {
+        headless::print_bounding_air_ingress();
+        return Ok(());
+    }
+
     if args.iter().any(|a| a == "--headless") {
         let nums: Vec<usize> = args[1..]
             .iter()

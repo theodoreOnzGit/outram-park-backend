@@ -280,6 +280,40 @@ pub fn run_and_print(cfg: &HeadlessConfig) {
     }
 }
 
+/// Print the Map tab's **Bounding air ingress** table (#453) as CSV: the
+/// `--bounding-air-ingress` entry point. It is a bounding case, not a
+/// transient (#420), so it runs no plant; the numbers are
+/// `sembawang::lwr_comparison::bounding_comparison`'s, cached by
+/// [`crate::physics::bounding_air_ingress::comparison`].
+pub fn print_bounding_air_ingress() {
+    use crate::physics::bounding_air_ingress as b;
+    println!("# {}", b::CASE_LABEL);
+    println!("# {}", b::LWR_LABEL);
+    println!("# {}", b::WASH_LABEL);
+    println!("# {}", b::f_ox_provenance());
+    match b::comparison() {
+        Err(e) => println!("# unavailable: {e}"),
+        Ok(c) => {
+            println!(
+                "# FGR-incomplete share of released Bq (dose is a LOWER BOUND where > 0, #456): \
+                 htr10 {:.4}, rg1183 {:.4}, wash1400 {:.4}",
+                c.incomplete_fraction[0], c.incomplete_fraction[1], c.incomplete_fraction[2]
+            );
+            println!("distance_m,class,htr10_bound_msv,rg1183_per_1pct_day_msv,wash1400_pwr8_msv");
+            for r in &c.rows {
+                println!(
+                    "{:.0},{:?},{:.6e},{:.6e},{:.6e}",
+                    r.distance_m,
+                    r.class,
+                    1e3 * r.htr10_bound_sv,
+                    1e3 * r.rg1183_per_percent_per_day_sv,
+                    1e3 * r.wash1400_pwr8_sv
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
