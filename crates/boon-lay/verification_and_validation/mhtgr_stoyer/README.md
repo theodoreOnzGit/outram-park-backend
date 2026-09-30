@@ -72,16 +72,18 @@ diagnostic.
 **Source of the curves.** `fig05_accident_temperature_c.csv` holds the
 maintainer's (teddy0) **manual digitisation** in kovan.
 - Kovan artifact id: `fig-5-transient-temperature-profiles-for-the-mhtgr-test-cases-5-curve-from-ref-15`
-  (kind `digitised_graph`).
-- Hand-placed points, digitised 2026-09-29T12:04:42Z, from pdf page 16.
+  (kind `digitised_graph`), from pdf page 16.
+- First digitised 2026-09-29T12:04:42Z.
+- **Re-digitised 2026-09-30T01:50:02Z** (kovan commit 066e691): t = 0 markers
+  added to the 5 % and 50 % curves, and four erroneous 50 % points removed.
 - Calibration: x, px 100.303 = 0 h to px 509.756 = 140 h; y, px 341.680 =
   200 °C to px 30.210 = 1600 °C, both linear.
-- Stored in the maintainer's kovan notes, outside this repo.
-- The values are copied verbatim.
-- **Negative times:** two points sit at slightly negative time (20 % curve
-  -0.36 h; 25 % curve -0.54 h). This is digitisation noise. They are kept
-  in the CSV as digitised, and both drivers clamp them to t = 0. None is
-  dropped.
+- Stored in the maintainer's kovan notes, outside this repo. Values copied
+  verbatim.
+- **Negative times:** four points sit at slightly negative time (5 % curve
+  -0.12 h; 20 % -0.36 h; 25 % -0.54 h; 50 % -0.36 h). This is digitisation
+  noise. They are kept in the CSV as digitised, and both drivers clamp them
+  to t = 0.
 
 **The paper's "-200 / -400 / -600 °C" rule, over the whole transient.**
 Each curve was compared with the 5 % curve lowered by the stated offset,
@@ -107,7 +109,37 @@ what the paper's code was run on.
 - `upstream_case_*_accident.csv` holds every intermediate. It also carries
   the alternative reading, Eq. 29 / 10, which differs by < 1 %.
 
-**Results.**
+**Results on the re-digitised curves (2026-09-30; the current result).**
+- **Port vs upstream:** worst relative difference **3.9e-11**.
+- **Final vs the paper:** median **0.88**, both cases and both `k_plate`.
+  - Case A: range 0.86-1.15. The volatiles (I, Te, Xe) are at 0.97-0.99;
+    the metals at 0.86-0.94; Ag-110m and Ag-111 at 1.12 and 1.15.
+  - Case B: range 0.66-1.79 at the printed `k_plate`, 0.66-0.99 at 7.5e-4.
+    The outliers are Cs-134 (0.67), Kr-85 (0.76) and Ag-111 (1.79 at the
+    printed value).
+  - Per nuclide, before and after: `final_release_ratio_before_after.csv`.
+- **Vent fractions, before -> after:**
+
+| Curve | Before | After |
+|---|---|---|
+| 5 % | 0.444 | **0.551** |
+| 20 % | 0.478 | 0.478 |
+| 25 % | 0.616 | 0.616 |
+| 50 % | 0.407 | **0.519** |
+
+- **The 50 % curve now rises monotonically to its peak**, so its dip no
+  longer gaps the rising part of the vent mask. Points after the peak that
+  step up again (noise in the decline) are still admitted by upstream's
+  `dTdt >= 0` mask: 27 of 46 samples are kept.
+- The 20 % curve still has one down-step before its peak, between -0.36 h
+  (595.0 °C) and 0.66 h (592.8 °C). It is left as digitised.
+- The remaining ~12 % shortfall is concentrated in the metals, and is not
+  diagnosed.
+
+Earlier result, on the 2026-09-29 digitisation (superseded): port vs upstream
+2.2e-11; ~~median 0.83~~ (Case A 0.80-0.93).
+
+**Earlier results (2026-09-29 digitisation, superseded).**
 - **Port vs upstream:** worst relative difference **2.2e-11**.
 - **Against the paper's final column:** a near-uniform **~0.83**.
   - Case A: median 0.830, range 0.80-0.93.
