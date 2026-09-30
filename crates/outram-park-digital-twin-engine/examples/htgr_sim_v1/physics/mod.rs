@@ -544,8 +544,9 @@ pub enum Scenario {
     /// **DLOFC + ATWS + air ingress** (gh:#402): the DN65 fuel-loading tube
     /// ruptures, the circulator stops, the rods stay where they are, the
     /// primary and secondary isolate at 28.06 s (Gao & Shi 2002 s.5.3.1).
-    /// See [`depressurisation`]; the air-ingress O2 supply is unpublished and
-    /// zero (gh:#420).
+    /// See [`depressurisation`]; ~~the air-ingress O2 supply is unpublished
+    /// and zero (gh:#420)~~ **since 2026-09-30:** air ingress via the Gao &
+    /// Shi cavity-ventilation rate, assumed to exchange the core gas (#420).
     DlofcAtws,
 }
 
@@ -1395,16 +1396,25 @@ impl HtgrPlant {
             }
             None => None,
         };
-        // DLOFC + ATWS (gh:#402): blowdown and, once air reaches the core,
-        // graphite oxidation -- whose O2 supply is unpublished and zero
-        // (gh:#420).
+        // DLOFC + ATWS (gh:#402): blowdown and graphite oxidation. ~~Its O2
+        // supply is unpublished and zero (gh:#420).~~ Since 2026-09-30: air
+        // ingress via the Gao & Shi cavity-ventilation rate, assumed to
+        // exchange the core gas (#420) -- the bed void's gas, at 1 atm and the
+        // bed temperature, exchanged at 100 %/day for 72 h.
         let dlofc_step = match self.depressurisation.as_mut() {
             Some(d) => {
+                let bed = self.core.temperature();
+                let supply = d.ventilation_oxygen_supply_mol_per_s(
+                    dt.get::<second>(),
+                    reactor_model::one_node::bed_void_volume()
+                        .get::<uom::si::volume::cubic_meter>(),
+                    bed,
+                );
                 let st = d.step(
                     dt.get::<second>(),
-                    self.core.temperature(),
+                    bed,
                     reactor_model::one_node::graphite_mass().get::<uom::si::mass::kilogram>(),
-                    depressurisation::PUBLISHED_OXYGEN_SUPPLY_MOL_PER_S.unwrap_or(0.0),
+                    supply,
                 );
                 self.primary.isolate_secondary(st.secondary_isolated);
                 Some(st)
@@ -1769,6 +1779,14 @@ impl HtgrPlant {
             if st.vented_fraction > 0.0 {
                 self.release.vent_circulating(st.vented_fraction);
             }
+            // The air-ingress ventilation (#420) exchanges the remaining
+            // primary gas, and its circulating activity, with the same rate
+            // and 72 h window as `sembawang`'s Venting::Ventilation. Stepped
+            // here as a well-mixed exchange of the live pool, i.e. the
+            // convolution that sembawang's cumulative `frac(t)` over-states.
+            if st.exchanged_fraction > 0.0 {
+                self.release.vent_circulating(st.exchanged_fraction);
+            }
         }
         if let Some(st) = ingress_step {
             if st.vented_fraction > 0.0 {
@@ -2027,6 +2045,7 @@ impl HtgrPlant {
         s.dlofc_discharged_kg = d.map_or(f64::NAN, |d| d.discharged_kg);
         s.dlofc_vented_fraction = d.map_or(f64::NAN, |d| d.vented_fraction);
         s.dlofc_graphite_oxidised_kg = d.map_or(f64::NAN, |d| d.carbon_oxidised_kg);
+        s.dlofc_air_exchanged_fraction = d.map_or(f64::NAN, |d| d.exchanged_fraction);
         s.riser_heat_mw = self.decay_heat_path.heat_to_risers().get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
@@ -5489,10 +5508,14 @@ mod tests {
     /// to 1e-9 of the step's gross; at the end ~150 kg is discharged (5 tau
     /// = 114 s), the circulator is stopped, the rods never moved (ATWS: the
     /// effective insertion stays the operator's), the release channel's
-    /// cumulative stack release rose, and -- with no published O2 supply --
-    /// no graphite has oxidised. Correctness checks only.
+    /// cumulative stack release rose, and ~~-- with no published O2 supply --
+    /// no graphite has oxidised~~ **(since 2026-09-30, #420)** the
+    /// ventilation's O2 has oxidised graphite (> 0), the ventilation
+    /// exchanged a positive fraction, and the ledger still closes with the
+    /// oxidation heat in it. Correctness checks only.
     ///
-    /// Results (2026-09-29): printed below; pass.
+    /// Results (2026-09-29): printed below; pass. Re-run 2026-09-30 with air
+    /// ingress: pass; printed below.
     #[test]
     fn dlofc_atws_conserves_energy_and_vents_the_published_mass() {
         let mut plant = HtgrPlant::new();
@@ -5525,7 +5548,7 @@ mod tests {
         let d = plant.depressurisation.expect("running");
         let released = plant.release.cumulative_stack_release_bq().to_vec();
         println!(
-            "DLOFC 150 s: discharged {:.2} kg, vented {:.4}, oxidised {:.3} kg, fission {:.4} MW, \
+            "DLOFC 150 s: discharged {:.2} kg, vented {:.4}, oxidised {:.3e} kg, fission {:.4} MW, \
              flow {:.3} kg/s, worst step residual {worst:.3e}; stack release since the \
              rupture: {:?}",
             d.discharged_kg,
@@ -5541,10 +5564,74 @@ mod tests {
         );
         assert!(worst < 1e-9, "{worst:e}");
         assert!((d.discharged_kg - 150.0).abs() < 0.5);
-        assert_eq!(d.carbon_oxidised_kg, 0.0, "no published O2 supply (gh:#420)");
+        // Air ingress (#420): 150 s of ventilation at ~4.8e-5 mol O2/s.
+        assert!(d.carbon_oxidised_kg > 0.0, "the default DLOFC oxidises graphite (#420)");
+        assert!(d.oxygen_supplied_mol > 0.0 && d.exchanged_fraction > 0.0);
+        assert!(
+            (d.carbon_oxidised_kg - d.oxygen_supplied_mol * 12.011e-3).abs()
+                <= 1e-9 * d.carbon_oxidised_kg.max(1e-30),
+            "supply-limited: every O2 mol oxidises one C mol"
+        );
         assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
         assert!(!plant.protection.is_tripped(), "ATWS: nothing drives the rods");
         assert!(released.iter().zip(&released_at_trip).all(|(a, b)| a > b));
+    }
+
+    /// **INDICATIVE, NOT VALIDATED (#420): the default DLOFC with air
+    /// ingress, 30 min.** Methodology: 60 s normal, then
+    /// [`Scenario::DlofcAtws`] for 1800 s at 0.1 s; prints graphite oxidised,
+    /// O2 delivered, the exchanged fraction and the stack release since the
+    /// rupture per tracked nuclide. Asserts only that the ledger closes and
+    /// oxidation happened. Not a comparison with anything.
+    ///
+    /// Results: on #420 (2026-09-30).
+    #[test]
+    #[ignore = "indicative 30 min whole-plant DLOFC with air ingress (#420); minutes of wall time. Run with --ignored."]
+    fn dlofc_with_air_ingress_indicative_30_min() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let lead = 600;
+        let mut at_trip = Vec::new();
+        let mut worst = 0.0f64;
+        for i in 0..(lead + 18_000) {
+            let mut commands = design_commands();
+            if i >= lead {
+                commands.scenario = Scenario::DlofcAtws;
+            }
+            if i == lead {
+                at_trip = plant.release.cumulative_stack_release_bq().to_vec();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_return_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let d = plant.depressurisation.expect("running");
+        let rel = plant.release.cumulative_stack_release_bq().to_vec();
+        println!(
+            "INDICATIVE DLOFC+air 1800 s: oxidised {:.4e} kg C, O2 {:.4} mol, exchanged {:.5}, \
+             oxidation heat {:.4e} J, bed {:.1} K, fission {:.4} MW, worst residual {worst:.3e}",
+            d.carbon_oxidised_kg,
+            d.oxygen_supplied_mol,
+            d.exchanged_fraction,
+            d.oxidation_heat_j,
+            plant.core.temperature().get::<kelvin>(),
+            plant.kinetics.total_power().get::<megawatt>()
+        );
+        for (k, name) in fission_product_release::TRACKED_NUCLIDES.iter().enumerate() {
+            println!("  {name:>8}: stack release since rupture {:.4e} Bq", rel[k] - at_trip[k]);
+        }
+        assert!(worst < 1e-9 && d.carbon_oxidised_kg > 0.0);
     }
 
     /// **V&V, first measurement (gh:#402): DLOFC + ATWS, uncalibrated,
@@ -5559,7 +5646,10 @@ mod tests {
     /// recriticality (ATWS; the reactivity bookkeeping is #387/#408's
     /// demo-grade reference). Note the scenario difference: Liu & Cao's
     /// depressurisation is a DBA WITH scram; this is ATWS, so the fission
-    /// source does not stop at 7 s. Air ingress is off (gh:#420).
+    /// source does not stop at 7 s. ~~Air ingress is off (gh:#420).~~
+    /// **Not re-measured since the #420 air-ingress change (2026-09-30);
+    /// pending validation work** -- the ventilation now exchanges the primary
+    /// gas and oxidises graphite, so the table below predates it.
     ///
     /// # Results (2026-09-29, first and only run under the no-validation rule)
     ///

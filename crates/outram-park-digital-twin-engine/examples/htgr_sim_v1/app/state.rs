@@ -170,10 +170,13 @@ pub struct HtgrSnapshot {
     /// tab. A control input; see `physics::Scenario::DlofcAtws`.
     pub dlofc_triggered: bool,
     /// DLOFC readouts (gh:#402), `NAN` unless it runs: helium discharged
-    /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\].
+    /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\],
+    /// and (since 2026-09-30, #420) the fraction of the primary gas exchanged
+    /// with air by the Gao & Shi cavity ventilation.
     pub dlofc_discharged_kg: f64,
     pub dlofc_vented_fraction: f64,
     pub dlofc_graphite_oxidised_kg: f64,
+    pub dlofc_air_exchanged_fraction: f64,
     /// Water-ingress readouts (gh:#401), `NAN` unless the accident runs:
     /// primary pressure \[MPa\], steam in the primary \[kg\], graphite
     /// gasified \[kg\], H2 and CO mole fractions \[%\], fraction of the
@@ -817,6 +820,7 @@ impl Default for HtgrSnapshot {
             dlofc_discharged_kg: f64::NAN,
             dlofc_vented_fraction: f64::NAN,
             dlofc_graphite_oxidised_kg: f64::NAN,
+            dlofc_air_exchanged_fraction: f64::NAN,
             ingress_pressure_mpa: f64::NAN,
             ingress_steam_kg: f64::NAN,
             ingress_graphite_corroded_kg: f64::NAN,

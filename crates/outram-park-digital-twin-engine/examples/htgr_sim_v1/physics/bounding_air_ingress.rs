@@ -2,8 +2,11 @@
 //!
 //! > **A BOUNDING CASE, NOT A TRANSIENT (see #420).** Nothing here is stepped
 //! > by the plant model, and nothing here comes from the running simulation.
-//! > The air-ingress O2 supply is unpublished (#420), so the live DLOFC
-//! > scenario oxidises nothing and fails no fuel by oxidation. This case
+//! > ~~The air-ingress O2 supply is unpublished (#420), so the live DLOFC
+//! > scenario oxidises nothing and fails no fuel by oxidation.~~ **Since
+//! > 2026-09-30** the live DLOFC has air ingress via the Gao & Shi
+//! > cavity-ventilation rate (#420), which oxidises bed graphite; it still
+//! > fails no fuel by oxidation (no KORA law in the live model). This case
 //! > instead ASSUMES the worst: every particle exposed to air at 1400 °C for
 //! > 140 h. Research, education and V&V only; not a dose to any real person,
 //! > not a siting, emergency or licensing figure (`RESPONSIBLE_USE.md`).
@@ -26,7 +29,8 @@
 //! **Not the map's live weather.** The table is the worst-class screening of
 //! #452 at the map's receptor distances, not a dose along the live plume.
 //! **Graphite–air kinetics** stay in [`super::depressurisation`] (Contescu,
-//! supply-limited), where the zero O2 supply of #420 keeps them idle.
+//! supply-limited), ~~where the zero O2 supply of #420 keeps them idle~~
+//! fed since 2026-09-30 by the Gao & Shi cavity ventilation (#420).
 //! TECDOC-978 Fig. 5-23's 1400 °C Nabielek *prediction* is shown for context
 //! only. Fig. 5-18 (compact weight loss) and Fig. 5-21 are committed as data,
 //! not used here: 5-18 would check `boon-lay`'s graphite–air kinetics, which
