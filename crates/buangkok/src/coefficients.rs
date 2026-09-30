@@ -8,6 +8,11 @@
 //! FGR coefficients. The progeny table still holds only Cs-137 -> Ba-137m, so
 //! e.g. Kr-88 -> Rb-88 is not corrected for.
 //!
+//! The FGR-11 inhalation table gained **I-132, I-133, I-134, I-135, Cs-134,
+//! Sr-89 and Sr-90** on 2026-09-30, for `sembawang`'s HTR-10 air-ingress dose
+//! example. It now holds 10 nuclides; H-3, C-14 and every other Liu & Cao
+//! nuclide still have **no inhalation entry (missing, not zero)**.
+//!
 //! **Not a port.** The pyDOSEIA port ([`crate::pydoseia`]) ships no
 //! coefficient data and takes caller-supplied tables in upstream's CSV layout.
 //! This module is such a caller-supplied set, compiled in from `reference/`,

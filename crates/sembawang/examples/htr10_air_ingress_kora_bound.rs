@@ -93,23 +93,27 @@
 //! | χ/Q by class, A→F (s/m³) | 4.66e-5, 1.28e-4, 2.57e-4, 6.28e-4, 1.24e-3, **2.857e-3** |
 //! | Class used | **F** (the largest, tested) |
 //! | Submersion (FGR-15 2025, all 14 nuclides) | **1.40 mSv** (I-135 0.70, I-133 0.32, Cs-134 0.11) |
-//! | Inhalation (FGR-11, B = 3.33e-4 m³/s) | **26.5 mSv**: I-131 15.8, Cs-137 9.55, Ag-110m 1.11 |
-//! | **Total** | **≈ 28 mSv**, and it is an **under-count**, see below |
+//! | Inhalation (FGR-11, B = 3.33e-4 m³/s) | **45.9 mSv**: I-131 15.8, Cs-137 9.55, Cs-134 6.22, I-133 6.06, Sr-90 3.43, Sr-89 2.66, Ag-110m 1.11, I-135 1.03 |
+//! | **Total** | **47.2 mSv** (~~≈ 28 mSv~~ before 2026-09-30's FGR-11 additions). Still an under-count, see below |
 //!
 //! **Maximum dose vs distance** (same assumptions and the same under-count; the
 //! worst class is re-chosen at each distance, and is F everywhere):
 //!
 //! | Distance | 400 m | 600 m | 800 m | 1 km | 1.5 km | **2 km** | 3 km | 5 km | 10 km |
 //! |---|---|---|---|---|---|---|---|---|---|
-//! | Dose (mSv) | 27.9 | 14.1 | 8.74 | 6.03 | 3.11 | **2.01** | 1.13 | 0.56 | 0.23 |
+//! | Dose (mSv) | 47.2 | 24.0 | 14.8 | 10.2 | 5.27 | **3.41** | 1.91 | 0.95 | 0.39 |
 //!
-//! **The dose falls to 10 mSv at ≈ 738 m** (bisection, class F).
+//! **The dose falls to 10 mSv at ≈ 1011 m** (bisection, class F). ~~27.9 mSv
+//! at 400 m, 2.01 at 2 km, 10 mSv at ≈ 738 m~~: those were before `buangkok`'s
+//! FGR-11 table gained I-133, I-135, Cs-134, Sr-89 and Sr-90 (2026-09-30).
 //!
 //! **Under-counted, stated:**
-//! - `buangkok`'s FGR-11 table carries inhalation coefficients for **only
-//!   Ag-110m, I-131 and Cs-137**. I-133, I-135, Cs-134, Sr-89 and Sr-90 have
-//!   none, and are **missing, not zero**. I-133's Ψ is twice I-131's, so its
-//!   missing inhalation term is likely several mSv (**not computed**).
+//! - ~~Inhalation for only Ag-110m, I-131, Cs-137~~ **fixed 2026-09-30**: every
+//!   released nuclide with an FGR-11 entry is now counted. The noble gases have
+//!   none by design (their dose is submersion).
+//! - Cs-137, Cs-134 and Ag-110m are probably **over**-stated by the empty
+//!   normal-operation pools (#448: ×1.6 for Cs-137, ×2 for Ag-110m in an
+//!   upstream case), so this total is high on its Cs part.
 //! - Not computed: groundshine (the plume is undepleted, #437), ingestion,
 //!   the screened-out short-lived nuclides (Kr-88, I-132, I-134 among them),
 //!   and H-3, Xe-135m, Rb-88.

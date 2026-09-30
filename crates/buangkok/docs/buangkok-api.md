@@ -691,7 +691,17 @@ inhalation) for the nuclides `htgr_sim_v1` tracks, as the port's own table
 types. Not a port; see the module docs for provenance.
 Freely usable dose coefficients from the US EPA Federal Guidance Reports,
 for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133, I-131, Cs-137,
-Ag-110m) plus Cs-137's short-lived daughter Ba-137m.
+Ag-110m) plus Cs-137's short-lived daughter Ba-137m, all ages. The two
+FGR-15 tables also carry the 18 further nuclides of Liu & Cao (2002)
+Tables 5 and 8, **Adult only** (younger ages NaN = missing), added
+2026-09-29 for the gh:#379 cross-check -- the workspace's one source of
+FGR coefficients. The progeny table still holds only Cs-137 -> Ba-137m, so
+e.g. Kr-88 -> Rb-88 is not corrected for.
+
+The FGR-11 inhalation table gained **I-132, I-133, I-134, I-135, Cs-134,
+Sr-89 and Sr-90** on 2026-09-30, for `sembawang`'s HTR-10 air-ingress dose
+example. It now holds 10 nuclides; H-3, C-14 and every other Liu & Cao
+nuclide still have **no inhalation entry (missing, not zero)**.
 
 **Not a port.** The pyDOSEIA port ([`crate::pydoseia`]) ships no
 coefficient data and takes caller-supplied tables in upstream's CSV layout.
