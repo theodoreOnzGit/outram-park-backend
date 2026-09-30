@@ -186,6 +186,8 @@ pub enum WikiAction {
     /// shared knowledge state — the caller should refresh it here too, not
     /// only navigate.
     OpenPaper(String),
+    /// A standard-corpus citation was opened, by corpus id (2026-09-30).
+    OpenCorpusLiterature(String),
 }
 
 pub struct WikiState {
@@ -270,6 +272,14 @@ impl WikiState {
                 }
                 if let Some(doi) = &flow.preview.doi {
                     ui.label(format!("DOI: {doi}"));
+                }
+                // The duplicate guard (2026-09-30): a duplicate is refused by
+                // `ingest`; a same-name file is only a warning.
+                if let Some(dup) = &flow.preview.duplicate {
+                    ui.colored_label(Color32::from_rgb(220, 90, 90), dup.to_string());
+                }
+                if let Some(clash) = &flow.preview.name_clash {
+                    ui.colored_label(Color32::from_rgb(220, 170, 60), clash.to_string());
                 }
                 ui.separator();
 
@@ -491,6 +501,7 @@ impl WikiState {
         // synthetic "Unsorted" concept at the top so an unclassified paper
         // never disappears (op-sr4n.4).
         let mut open_paper = None;
+        let mut open_corpus: Option<String> = None;
         let mut classify_target = None;
         let entries = self.bib.entries(root).clone();
         let mut drill_into = None;
@@ -522,7 +533,13 @@ impl WikiState {
                     )
                     .on_hover_ui(|ui| crate::mindmap::citations_hover(ui, &title, &here));
                 resp.context_menu(|ui| {
-                    pick_citation(ui, &here, &mut open_paper, &mut classify_target);
+                    pick_citation(
+                        ui,
+                        &here,
+                        &mut open_paper,
+                        &mut open_corpus,
+                        &mut classify_target,
+                    );
                 });
                 ui.add_space(6.0);
             }
@@ -555,7 +572,13 @@ impl WikiState {
                         ui.weak("built-in corpus (read-only)");
                     }
                     ui.separator();
-                    pick_citation(ui, &cites, &mut open_paper, &mut classify_target);
+                    pick_citation(
+                        ui,
+                        &cites,
+                        &mut open_paper,
+                        &mut open_corpus,
+                        &mut classify_target,
+                    );
                     ui.separator();
                     if ui.button("Go here").clicked() {
                         drill_into = Some(c.id.clone());
@@ -574,6 +597,9 @@ impl WikiState {
         if let Some(citekey) = open_paper {
             action = Some(WikiAction::OpenPaper(citekey));
         }
+        if let Some(id) = open_corpus {
+            action = Some(WikiAction::OpenCorpusLiterature(id));
+        }
         action
     }
 }
@@ -585,11 +611,13 @@ fn pick_citation(
     ui: &mut egui::Ui,
     citations: &[crate::mindmap::Citation],
     open: &mut Option<String>,
+    open_corpus: &mut Option<String>,
     classify: &mut Option<String>,
 ) {
     use crate::mindmap::{CitationAction, CitationPick};
     match crate::mindmap::citations_menu(ui, citations, &[CitationAction::Reclassify]) {
         Some(CitationPick::Open(k)) => *open = Some(k),
+        Some(CitationPick::OpenCorpus(k)) => *open_corpus = Some(k),
         Some(CitationPick::Action(CitationAction::Reclassify, k)) => *classify = Some(k),
         Some(CitationPick::Action(CitationAction::LiteratureCard, _)) => {}
         None => {}
