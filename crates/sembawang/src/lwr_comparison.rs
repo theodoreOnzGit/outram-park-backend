@@ -49,7 +49,7 @@
 //! |---|---|---|---|
 //! | **DB: HTR-10 DLOFC** | [`htr10_dba_release`] | to the environment | Liu & Cao (2002) Table 8, published (depressurisation; water ingress); cross-checked with [`htr10_dba_vs_table9`] |
 //! | **DB: LWR LOCA** | [`nuscale_mha_loca`] | to the environment via containment leakage | RG 1.183 Rev. 1 MHA LOCA, NuScale inventory, `L_a` = 0.20 %/day ([`NUSCALE_LA_PERCENT_PER_DAY`]); no removal, and natural deposition ([`NaturalDeposition`], pending literature) |
-//! | **BDB: HTR-10 DLOFC + air ingress** | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
+//! | **BDB: HTR-10 DLOFC + air ingress** | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, vented full flow-through ([`AIR_INGRESS_VENTING`], #469), + Liu & Cao circulating at 100 % |
 //! | **BDB: LWR LOCA + core melt** | [`nuscale_severe_loca`] | to the environment via containment leakage | NUREG-1465 Table 3.13 PWR, all four phases, Table 3.6 timing ([`nureg1465_pwr_phases`]); intact containment at `L_a`; no removal, and natural deposition (pending literature). [`CONTAINED_CORE_MELT_ASSUMPTION`] |
 //! | Context: WASH-1400 PWR 8 | [`wash1400_pwr8_to_atmosphere`] | **to the atmosphere** | Table 5-1: gap release, containment not isolated, no core melt (#451) |
 //! | LWR, NUREG-1465 | [`nureg1465_pwr_into_containment`] | **into containment** | Table 3.13 (PWR), all four phases or gap + early in-vessel |
@@ -109,7 +109,7 @@ use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::hour;
 
-use crate::accident::release::accident_release;
+use crate::accident::release::{accident_release_with_venting, Venting};
 use crate::htr10::{self, Htr10Geometry};
 use crate::inventory::{CoreInventory, NuclideInventory};
 use crate::scenario::TemperatureTransient;
@@ -130,10 +130,12 @@ pub mod bound {
     pub const HOLD_CELSIUS: f64 = 1400.0;
     /// Hold duration the failure fractions are taken at \[h\].
     pub const HOLD_HOURS: f64 = 140.0;
-    /// f_hm, Liu & Cao 2002 s.2.1 (HTR-10 design free uranium).
-    pub const F_HM: f64 = 3.0e-4;
-    /// f_inc, Liu & Cao 2002 s.2.1 (design irradiation failure).
-    pub const F_INC: f64 = 5.0e-4;
+    /// f_hm, Liu & Cao 2002 s.2.1 (HTR-10 design free uranium); read from
+    /// [`crate::htr10::LIU_CAO_DESIGN_FREE_URANIUM`], one copy (#469).
+    pub const F_HM: f64 = crate::htr10::LIU_CAO_DESIGN_FREE_URANIUM;
+    /// f_inc, Liu & Cao 2002 s.2.1 (design irradiation failure); read from
+    /// [`crate::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE`], one copy (#469).
+    pub const F_INC: f64 = crate::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE;
     /// f_sic, **stand-in** (NP-MHTGR reference; no HTR-10 value).
     pub const F_SIC_STAND_IN: f64 = 1.0e-4;
     /// f_inc_sic, **stand-in** (NP-MHTGR).
@@ -254,6 +256,7 @@ pub mod kora {
 /// boon-lay fuel failure at 1400 °C/140 h plus KORA f_ox as the accident
 /// increment, TRISO-ATOPS release (real normal-operation pools, #448) of the
 /// Liu & Cao Table 1 inventory under a flat 1400 °C hold over the window,
+/// vented by [`AIR_INGRESS_VENTING`] (full flow-through, stated since #469),
 /// **plus** Liu & Cao Table 3's circulating activity released at 100 %
 /// (conservative; it double-counts the model's own circuit term, as the
 /// example states). The chain of `examples/htr10_air_ingress_kora_bound.rs`.
@@ -266,26 +269,8 @@ pub fn htr10_air_ingress_bound(
     geometry: Htr10Geometry,
     window: Time,
 ) -> Result<Releases, SembawangError> {
-    use bound::*;
-    let t_b = htr10::stand_in_irradiation_temperature();
-    let hold_t = ThermodynamicTemperature::new::<degree_celsius>(HOLD_CELSIUS);
-    let (_, _, f_end) =
-        htr10::isothermal_failure(t_b, hold_t, Time::new::<hour>(HOLD_HOURS), BL_STEPS);
-    let d_phi_bl = f_end - panama_htr10::end_of_irradiation_failure(t_b).get::<ratio>();
-    let fractions = AccidentFractions {
-        heavy_metal: F_HM,
-        sic: F_SIC_STAND_IN,
-        incremental: F_INC,
-        incremental_sic: F_INC_SIC_STAND_IN,
-        incremental_accident: d_phi_bl + F_OX_KORA,
-        incremental_sic_accident: 0.0,
-    };
-    let kept: Vec<NuclideInventory> = htr10_equilibrium_core()
-        .iter()
-        .filter(|e| find_nuclide(e.nuclide).is_some())
-        .map(|e| NuclideInventory::uniform(e.nuclide, e.activity, 1))
-        .collect();
-    let inventory = CoreInventory::new(kept, 1, 1);
+    let hold_t = ThermodynamicTemperature::new::<degree_celsius>(bound::HOLD_CELSIUS);
+    let fractions = air_ingress_bound_fractions();
     let samples = 97;
     let window_h = window.get::<hour>();
     let times: Vec<Time> = (0..samples)
@@ -293,8 +278,63 @@ pub fn htr10_air_ingress_bound(
         .collect();
     let transient =
         TemperatureTransient::from_nodes(times, vec![vec![vec![hold_t; 1]; samples]; 1])?;
+    air_ingress_release_over(geometry, fractions, &transient)
+}
+
+/// How the bounding air ingress carries the release out of the core:
+/// **[`Venting::FullFlowThrough`]**, `frac = 1` at every sample — the
+/// conservative limit of [`Venting::Prescribed`], and the assumption of the
+/// #435 bound ("every particle exposed", no primary-circuit retention).
+///
+/// **Why not [`Venting::Upstream`] (#469 item 4).** Upstream TRISO-ATOPS is a
+/// depressurisation model: its only transport is gas expansion while the core
+/// heats. It gives `frac = 1` on an *exactly* uniform, constant hold (#446),
+/// but a hold drifting by 0.1 K takes its `coolant_release` branch and vents
+/// `≈ 1 − T0/T`, so the bound fell from 1.69e13 Bq to 4.94e10 Bq
+/// (`tests::a_near_isothermal_air_ingress_still_vents`, measured 2026-09-30).
+/// Air ingress convects the release out whatever the temperature does, so the
+/// transport is stated explicitly. On the exact hold the two agree, so the
+/// recorded bounding numbers do not move.
+pub const AIR_INGRESS_VENTING: Venting = Venting::FullFlowThrough;
+
+/// The bounding case's six failure fractions: the four normal-operation
+/// classes (tramp uranium `f_hm`, SiC defects `f_sic`, in-service `f_inc`,
+/// SiC-only in-service `f_inc_sic`) plus the accident increment, boon-lay fuel
+/// failure over the 1400 °C/140 h hold and KORA `f_ox`.
+fn air_ingress_bound_fractions() -> AccidentFractions {
+    use bound::*;
+    let t_b = htr10::stand_in_irradiation_temperature();
+    let hold_t = ThermodynamicTemperature::new::<degree_celsius>(HOLD_CELSIUS);
+    let (_, _, f_end) =
+        htr10::isothermal_failure(t_b, hold_t, Time::new::<hour>(HOLD_HOURS), BL_STEPS);
+    let d_phi_bl = f_end - panama_htr10::end_of_irradiation_failure(t_b).get::<ratio>();
+    AccidentFractions {
+        heavy_metal: F_HM,
+        sic: F_SIC_STAND_IN,
+        incremental: F_INC,
+        incremental_sic: F_INC_SIC_STAND_IN,
+        incremental_accident: d_phi_bl + F_OX_KORA,
+        incremental_sic_accident: 0.0,
+    }
+}
+
+/// The release half of [`htr10_air_ingress_bound`] over any one-node
+/// `transient`: TRISO-ATOPS from real normal-operation pools, vented by
+/// [`AIR_INGRESS_VENTING`], plus Liu & Cao Table 3's circulating activity at
+/// 100 %. Split out so a test can hand it a near-isothermal history (#469).
+fn air_ingress_release_over(
+    geometry: Htr10Geometry,
+    fractions: AccidentFractions,
+    transient: &TemperatureTransient,
+) -> Result<Releases, SembawangError> {
+    let kept: Vec<NuclideInventory> = htr10_equilibrium_core()
+        .iter()
+        .filter(|e| find_nuclide(e.nuclide).is_some())
+        .map(|e| NuclideInventory::uniform(e.nuclide, e.activity, 1))
+        .collect();
+    let inventory = CoreInventory::new(kept, 1, 1);
     let plant = htr10::plant_parameters(geometry, fractions);
-    let out = accident_release(&inventory, &transient, &plant)?;
+    let out = accident_release_with_venting(&inventory, transient, &plant, &AIR_INGRESS_VENTING)?;
     let circulating = htr10_primary_helium_end_of_life();
     Ok(out
         .source_term
@@ -1772,5 +1812,53 @@ mod tests {
             assert!(row.lwr_severe_loca_no_removal_sv >= row.lwr_dba_no_removal_sv);
         }
         assert!(c.incomplete.lwr_severe_loca > 0.0 && c.incomplete.lwr_severe_loca < 1.0);
+    }
+
+    /// **A near-isothermal air ingress still vents (#469 item 4).** Air
+    /// ingress carries the release out by gas exchange whatever the
+    /// temperature does, so the bound must not depend on heat-up expansion.
+    ///
+    /// Methodology: the bounding release over the exact 1400 °C hold, and over
+    /// the same hold drifting up by 0.1 K across the 96 h window (97 samples,
+    /// same fractions, same geometry). Upstream's heat-up venting
+    /// (`coolant_release`) vents `≈ 1 − T0/T ≈ 6e-5` of the drifting case, so a
+    /// bound built on it collapses to the circulating activity; a transport
+    /// fraction (here `Venting::FullFlowThrough`) is indifferent to the 0.1 K.
+    /// Pass: the summed release of the drifting case is within 1 % of the
+    /// exact hold's. Results (2026-09-30): printed; fails with
+    /// `Venting::Upstream`, passes with `FullFlowThrough`.
+    #[test]
+    fn a_near_isothermal_air_ingress_still_vents() {
+        let particle = tampines::pebble_bed::triso::TrisoParticle::htr10();
+        let pebble = tampines::pebble_bed::pebble::Pebble::htr10();
+        let geometry = Htr10Geometry {
+            kernel_radius: particle.kernel_radius,
+            sic_thickness: particle.silicon_carbide_outer_radius - particle.inner_pyc_outer_radius,
+            graphite_thickness: pebble.outer_radius - pebble.fuelled_zone_radius,
+        };
+        let samples = 97;
+        let times: Vec<Time> = (0..samples)
+            .map(|i| Time::new::<hour>(96.0 * i as f64 / (samples - 1) as f64))
+            .collect();
+        let at = |drift_k: f64| {
+            let temps = (0..samples)
+                .map(|i| {
+                    vec![ThermodynamicTemperature::new::<degree_celsius>(
+                        bound::HOLD_CELSIUS + drift_k * i as f64 / (samples - 1) as f64,
+                    )]
+                })
+                .collect();
+            let tr = TemperatureTransient::from_nodes(times.clone(), vec![temps]).unwrap();
+            let r = air_ingress_release_over(geometry, air_ingress_bound_fractions(), &tr)
+                .expect("release chain runs");
+            r.iter().map(|(_, bq)| bq).sum::<f64>()
+        };
+        let (flat, drifting) = (at(0.0), at(0.1));
+        println!("bound release: isothermal {flat:.4e} Bq, +0.1 K drift {drifting:.4e} Bq");
+        assert!(flat > 0.0);
+        assert!(
+            (drifting / flat - 1.0).abs() < 0.01,
+            "a 0.1 K drift must not change the vented release: {drifting:e} vs {flat:e}"
+        );
     }
 }

@@ -51,7 +51,8 @@
 //! |---|---|
 //! | oxidation failure f_ox = 1.2e-3 | KORA AVR 92/22, IAEA-TECDOC-978 **Table 5-7**, pinned to the committed row (`sembawang/reference/tecdoc978/`) |
 //! | fuel failure over the hold | `boon-lay` (the PANAMA-I report's equations), increment only |
-//! | release | TRISO-ATOPS (`boon-lay` fork) from real normal-operation pools, `sembawang` venting (#446: Upstream, checked against FullFlowThrough), plus Liu & Cao circulating activity at 100 % |
+//! | release | TRISO-ATOPS (`boon-lay` fork) from real normal-operation pools, ~~`sembawang` venting (#446: Upstream, checked against FullFlowThrough)~~ **CHANGED 2026-09-30 (#469 item 4)**: vented by `sembawang::lwr_comparison::AIR_INGRESS_VENTING` = `Venting::FullFlowThrough`, a transport fraction, so a near-isothermal hold still vents (Upstream's heat-up venting dropped a +0.1 K drift to 0.3 % of the bound); plus Liu & Cao circulating activity at 100 % |
+//! | primary-circuit pools, `x_liftoff` | `sembawang::htr10::primary_circuit_pools()` (20 y, NP-MHTGR `k_plate`/`k_clean` stand-ins) and `sembawang::htr10::X_LIFTOFF_NP_MHTGR_STAND_IN` (0.05), through `htr10::plant_parameters` (#469 item 3). The live pools' opening history reads the same `htr10::OPERATING_HISTORY_S` |
 //! | LWR arms | ~~RG 1.183 Rev. 1 Table 2 (NUREG-1465 AST) **per 1 %/day** of leak rate~~ **CORRECTED 2026-09-30** (the code leaks at NuScale's `L_a` = 0.20 %/day since 3236b50dc3): design-basis LOCA, RG 1.183 Rev. 1 Table 2; LOCA + core melt, NUREG-1465 Table 3.13 all phases; both at `L_a` 0.20 %/day, no removal credit; WASH-1400 PWR 8 (context). NuScale DCA Table B-5 inventory scaled to 10 MWth |
 //! | dose | `buangkok` single plume, ground release, 1 m/s, worst class, FGR-15/FGR-11, 96 h |
 //!
@@ -268,5 +269,34 @@ mod tests {
         let at_1km = c.rows.iter().find(|r| r.distance_m == 1000.0).unwrap();
         assert!((1e3 * at_1km.htr10_bound_sv - 14.318).abs() < 5e-4);
         assert!(f_ox_provenance().contains("AVR 92/22"));
+    }
+
+    /// **#469 items 3 and 4, on the simulator's own bounding arm.** The
+    /// table's plant is `sembawang::htr10::plant_parameters`, whose pools and
+    /// lift-off are the named `primary_circuit_pools()` and
+    /// `X_LIFTOFF_NP_MHTGR_STAND_IN`, over the same history the live pools
+    /// open at; and it vents by a transport fraction, not by heat-up
+    /// expansion. Harness check, not validation.
+    #[test]
+    fn the_bounding_plant_reads_one_source_and_vents_by_transport() {
+        use sembawang::accident::release::{PrimaryCircuitPools, Venting};
+        use sembawang::htr10;
+        let p = htr10::plant_parameters(
+            htr10_geometry(),
+            htr10::np_mhtgr_normal_operation_fractions(),
+        );
+        assert_eq!(p.pools, htr10::primary_circuit_pools());
+        assert_eq!(p.x_liftoff, htr10::X_LIFTOFF_NP_MHTGR_STAND_IN);
+        match p.pools {
+            PrimaryCircuitPools::FromNormalOperation(op) => assert_eq!(
+                op.run_time.get::<uom::si::time::second>(),
+                super::super::fission_product_release::POOL_OPENING_HISTORY_S
+            ),
+            PrimaryCircuitPools::EmptyAblation => panic!("pools are on by default"),
+        }
+        assert_eq!(
+            sembawang::lwr_comparison::AIR_INGRESS_VENTING,
+            Venting::FullFlowThrough
+        );
     }
 }

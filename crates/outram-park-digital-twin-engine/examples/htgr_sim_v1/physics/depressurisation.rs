@@ -315,6 +315,10 @@ mod tests {
     /// against `lambda P V x_O2 / (R T)` by hand (19.855 mol of gas, 4.160 mol
     /// O2, 4.815e-5 mol/s); a step straddling 72 h gets half the rate; after
     /// 72 h zero. Results (2026-09-30): pass; printed below.
+    ///
+    /// The exchange runs at a **constant** 1200 K bed: the live air ingress
+    /// vents by gas exchange whatever the temperature does, not by heat-up
+    /// expansion (checked for #469 item 4; no change was needed here).
     #[test]
     fn the_ventilation_supplies_oxygen_for_72_hours_then_none() {
         let (rate, cut_off) = gao_shi_ventilation();

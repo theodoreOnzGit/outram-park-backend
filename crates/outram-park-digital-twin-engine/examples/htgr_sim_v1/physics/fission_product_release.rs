@@ -105,8 +105,11 @@
 //! reference values, not HTR-10 fuel-qualification data** ...~~
 //! **CHANGED 2026-09-29 (gh:#399, source-term stage 1):** the absolute arm
 //! is now HTR-10's end to end -- Table 1 inventory, HTR-10's measured free
-//! uranium (Tang et al. 2002), a live in-service failure from boon-lay fuel
-//! failure at the plant's kernel temperature, HTR-10's fuel residence, and
+//! uranium (Tang et al. 2002), ~~a live in-service failure from boon-lay fuel
+//! failure at the plant's kernel temperature~~ **(CHANGED 2026-09-30, #469)**
+//! an in-service failure of Liu & Cao's design `5e-4` plus the live boon-lay
+//! fuel failure at the plant's kernel temperature, the NP-MHTGR SiC-only
+//! stand-in (metals only), HTR-10's fuel residence, and
 //! HTR-10's primary-circuit constants (Liu & Cao 2002, Yao et al. 2002) in
 //! **live** pools stepped through the transient. It is the simulator's
 //! primary basis now; the per-curie arm is kept as the transfer function
@@ -335,7 +338,13 @@ pub fn htr10_pool_rates(z: u32, decay_per_s: f64, mass_flow: MassRate) -> PoolRa
 /// are opened at the exact solution for that history at the opening source,
 /// so the simulator starts from an operating circuit and the comparison with
 /// Table 3 is like-for-like.
-pub const POOL_OPENING_HISTORY_S: f64 = 20.0 * 3.155_76e7;
+///
+/// ~~`20.0 * 3.155_76e7` (365.25-d years), typed here~~ -- **CHANGED
+/// 2026-09-30 (#469 item 3)**: read from `sembawang::htr10::OPERATING_HISTORY_S`
+/// (365-d years), the history `sembawang::htr10::primary_circuit_pools` uses,
+/// so the simulator and `htr10::plant_parameters` hold one copy. The opening
+/// history moved by -0.068 %; nothing recorded here was re-measured for it.
+pub const POOL_OPENING_HISTORY_S: f64 = sembawang::htr10::OPERATING_HISTORY_S;
 
 /// The nuclides this channel tracks, chosen to cover **all five** TRISO-ATOPS
 /// transport groups rather than to be a list of the most radiologically
@@ -439,7 +448,9 @@ impl Htr10TrisoAtopsInputs {
     /// al., section 4.2) -- TRISO-ATOPS's `f_hm + f_sic`. The split between
     /// the two is **not published**. It matters only for the noble gases and
     /// halogens, which a defective-SiC particle's intact PyC retains
-    /// (TRISO-ATOPS's `release_rate` counts `f_hm` and not `f_sic` for them).
+    /// (TRISO-ATOPS's `release_rate` counts `f_hm` and not `f_sic` for them;
+    /// the physics is IAEA-TECDOC-CD-1645 (2010), §1.2.1, §12.3, §12.5.2 --
+    /// see [`Self::fractions_at`]).
     /// This channel takes the **bounding** assignment -- all of it as exposed
     /// heavy metal (`f_hm`) -- which over-states the gas and iodine release by
     /// at most the (unknown) defective-SiC share; the other bound (all `f_sic`)
@@ -462,10 +473,42 @@ impl Htr10TrisoAtopsInputs {
     ///
     /// | TRISO-ATOPS | Value | Source |
     /// |---|---|---|
-    /// | `f_hm` | 5.0e-5 | [`Self::HTR10_FREE_URANIUM_FRACTION`] (bounding split) |
-    /// | `f_sic` | 0 | (the other bound; see above) |
-    /// | `f_inc` | `phi_1(T_B) + chemical_attack` | boon-lay fuel failure, end of irradiation, `T_B = T_kernel - 75 K` |
-    /// | `f_inc_sic` | 0 | SiC decomposition is negligible below ~2000 degC |
+    /// | `f_hm` | 5.0e-5 | [`Self::HTR10_FREE_URANIUM_FRACTION`] -- tramp uranium **and** SiC manufacturing defects, measured together (bounding split) |
+    /// | `f_sic` | 0 | inside the measured 5.0e-5 above (the other bound; see there). Not the audited example's 1e-4 NP-MHTGR stand-in, which would count the defective-SiC population twice |
+    /// | ~~`f_inc`~~ | ~~`phi_1(T_B) + chemical_attack`~~ | ~~boon-lay fuel failure only~~ **CHANGED 2026-09-30 (#469 item 1)**, see the next row |
+    /// | `f_inc` | `5.0e-4 + phi_1(T_B) + chemical_attack` | Liu & Cao 2002 §2.1 design irradiation failure (`sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE`), plus boon-lay fuel failure at end of irradiation, `T_B = T_kernel - 75 K`, plus the chemical-attack hook |
+    /// | ~~`f_inc_sic`~~ | ~~0~~ | ~~"SiC decomposition is negligible below ~2000 degC"~~ **CORRECTED 2026-09-30 (#469)**: that reason conflated two things. `f_inc_sic` is the *in-service SiC-only failure* population, not SiC decomposition (PANAMA's `phi_2`, which is not routed here) |
+    /// | `f_inc_sic` | 3.6e-5 | **NP-MHTGR stand-in** (`sembawang::htr10::np_mhtgr_normal_operation_fractions`, TRISO-ATOPS's reference); no HTR-10 value is published. The audited example carries the same value |
+    ///
+    /// **Why `f_inc` is not `phi_1` alone (#469 item 1).** The fuel fails in
+    /// service as it is irradiated (the audited example, l.309-312). `phi_1`
+    /// is the PANAMA-I pressure-vessel *accident* failure and is `~1e-12` at
+    /// design temperatures; `boon_lay::triso_atops_fork::activities::FailureFractions::with_fuel_failure_incremental`
+    /// itself warns that using it for steady state "would silently answer a
+    /// different question". Before this change the channel therefore started
+    /// from the as-manufactured defects alone. Liu & Cao's design value is the
+    /// HTR-10 in-service figure the audited example uses; `phi_1(T_B)` is kept
+    /// on top because it is the part that rises with the live temperature. At
+    /// 776 degC the overlap it could double-count is `1.2e-12`, 2.4e-9 of the
+    /// design value.
+    ///
+    /// **SiC-only failures keep the gases (#469 item 2).** A particle whose
+    /// SiC has failed but whose PyC layers are intact (`f_sic`, `f_inc_sic`)
+    /// releases **metallic** fission products only: Kr, Xe and the halogens
+    /// stay inside, by slow diffusion through the PyC, not adsorption.
+    /// IAEA-TECDOC-CD-1645 (2010), *HTGR Fuels and Materials*: §1.2.1 (the
+    /// IPyC and OPyC are the gaseous fission-product barriers; SiC retains the
+    /// metals), §12.3 (Kr/Xe diffusion in PyC is negligible), §12.5.2
+    /// (`D ~ 2e-18 m^2/s` for fission gases in PyC, "for all practical purposes
+    /// ... impervious to fission gases"),
+    /// <https://www-pub.iaea.org/mtcd/publications/pdf/te_1645_cd/pdf/tecdoc_1645.pdf>.
+    /// This channel does not route it itself: boon-lay's
+    /// `triso_atops_fork::activities::source_terms::release_rate` gives noble
+    /// gases and halogens `(f_hm + f_inc)` only, and
+    /// `triso_atops_fork::accident::AccidentFractions::volatile_sum` does the
+    /// same in an accident (upstream TRISO-ATOPS's own split).
+    /// `tests::sic_only_failures_release_metals_but_keep_gases_and_halogens`
+    /// pins it through this channel.
     ///
     /// `phi_1` is **boon-lay fuel failure** (boon-lay's implementation of the
     /// PANAMA-I pressure-vessel formulas -- not the PANAMA code), at the end of
@@ -496,8 +539,13 @@ impl Htr10TrisoAtopsInputs {
         FailureFractions {
             heavy_metal: Self::HTR10_FREE_URANIUM_FRACTION,
             sic: 0.0,
-            incremental: phi_1 + chemical_attack,
-            incremental_sic: 0.0,
+            incremental: sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE
+                + phi_1
+                + chemical_attack,
+            // SiC-only in-service failure: metals only (TECDOC-CD-1645
+            // §1.2.1, §12.3, §12.5.2; see the doc above).
+            incremental_sic: sembawang::htr10::np_mhtgr_normal_operation_fractions()
+                .incremental_sic,
         }
     }
 
@@ -984,6 +1032,11 @@ impl TrisoAtopsReleaseChannel {
     /// temperature of the latest evaluation (`f_hm + f_inc`,
     /// [`Htr10TrisoAtopsInputs::fractions_at`]) -- as atoms added to the
     /// circulating pool. Returns the atoms added, summed.
+    ///
+    /// **SiC-only failures (`f_sic`, `f_inc_sic`) are left out on purpose**:
+    /// their intact PyC keeps the noble gas in (IAEA-TECDOC-CD-1645 (2010)
+    /// §1.2.1, §12.3; `D ~ 2e-18 m^2/s`, §12.5.2), and steam that has not
+    /// reached the kernel cannot hydrolyse it (#469 item 2).
     pub fn release_stored_noble_gas(&mut self, cumulative_fraction: f64) -> f64 {
         let (Some(pools), Some(stack)) = (self.pools.as_mut(), self.evaluated_at) else {
             return 0.0;
@@ -1119,8 +1172,9 @@ impl TrisoAtopsReleaseChannel {
         // longer uses (the live pools replace them); the history is stated
         // for completeness.
         plant.run_time = Time::new::<second>(POOL_OPENING_HISTORY_S + sim_time_s.max(0.0));
-        // HTR-10's measured free uranium plus the live in-service failure at
-        // this kernel temperature (gh:#399). The chemical-attack hook is zero
+        // HTR-10's measured free uranium, the design in-service failure plus
+        // the live boon-lay failure at this kernel temperature, and the
+        // SiC-only stand-in (gh:#399, #469). The chemical-attack hook is zero
         // until an ingress stage supplies it.
         let fractions = Htr10TrisoAtopsInputs::fractions_at(kernel_temperature, 0.0);
 
@@ -1790,6 +1844,12 @@ mod tests {
     ///
     /// # Results (2026-09-29)
     ///
+    /// **Not re-measured since 62434bb998; pending validation work.** #469
+    /// (2026-09-30) added Liu & Cao's design in-service failure `f_inc` = 5e-4
+    /// and the `f_inc_sic` stand-in, which raise the gas and iodine release by
+    /// about `(5e-5 + 5e-4) / 5e-5` = 11x and Cs-137 by about 12x; the table
+    /// below is the pre-#469 channel.
+    ///
     /// | Nuclide | `S` model | Table 2 | model/pub | circulating model (20 a) | Table 3 | model/pub |
     /// |---|---|---|---|---|---|---|
     /// | Kr-85 | 1.607e3 | 1.5e4 | **0.107** | 3.219e5 Bq | 3.0e6 | **0.107** |
@@ -1845,12 +1905,16 @@ mod tests {
     /// release** (gh:#399). Tang's 5.0e-5 is `f_hm + f_sic` together; the
     /// channel takes it all as `f_hm`. Methodology: evaluate Kr-85, Xe-133 and
     /// I-131 at 864 degC with the whole fraction as `f_hm` and then as `f_sic`
-    /// (with the same in-service `phi_1`); print the ratio. Results
+    /// (with the same in-service `f_inc`); print the ratio. ~~Results
     /// (2026-09-29): **1.587e7** for all three -- with the whole fraction as
     /// defective SiC the intact PyC retains the gases, and the release falls to
     /// the in-service `phi_1` share alone. The unpublished split is therefore
-    /// the dominant uncertainty of the gas release; the channel's assignment is
-    /// the upper bound.
+    /// the dominant uncertainty of the gas release~~ **CHANGED 2026-09-30
+    /// (#469 item 1)**: with Liu & Cao's design in-service failure `f_inc` =
+    /// 5e-4 in the channel, the ratio is **1.1000** for all three (printed by
+    /// this test, 2026-09-30), i.e. `(5e-5 + 5e-4) / 5e-4`. The in-service
+    /// failure, not the unpublished split, now dominates the gas release. The
+    /// channel's assignment is still the upper bound.
     #[test]
     fn the_free_uranium_split_bounds_the_gas_release() {
         use boon_lay::triso_atops_fork::normal_operation::normal_operation_node;
@@ -1902,7 +1966,9 @@ mod tests {
     /// 1 s for 600 s; then raise the kernel to 1300 K for 600 s. Require: the
     /// first evaluation's pools equal the opening pools exactly; `leak_rate =
     /// k_leak x circulating` to 1e-12; circulating Xe-133 higher after the
-    /// heat-up than before. Results (2026-09-29): Xe-133 circulating
+    /// heat-up than before. Results (2026-09-29; **not re-measured since
+    /// 62434bb998, pending validation work** -- #469 raised `f_inc`, about 11x
+    /// on Xe-133): Xe-133 circulating
     /// 6.5752e7 -> 7.3845e7 Bq, leak 7.61 -> 8.55 Bq/s.
     #[test]
     fn the_live_pools_open_carry_the_leak_and_follow_the_kernel() {
@@ -2066,6 +2132,97 @@ mod tests {
         assert_eq!(base.heavy_metal, 5.0e-5);
     }
 
+    /// **#469 item 1: the initial failed fraction carries every class the
+    /// audited example does** -- tramp uranium and SiC manufacturing defects
+    /// (Tang's measured 5.0e-5, as `f_hm`), in-service failure `f_inc` (Liu &
+    /// Cao §2.1 design 5e-4 plus boon-lay's live `phi_1`), and the SiC-only
+    /// in-service class `f_inc_sic` (NP-MHTGR stand-in) -- so the channel does
+    /// not start from the as-manufactured defects alone. Methodology: read
+    /// [`Htr10TrisoAtopsInputs::fractions_at`] at the 776 degC `T_B` stand-in
+    /// and at 864 degC; compare with the `sembawang` constants (one source).
+    /// Results (2026-09-30): pass. Before this change `f_inc` was `phi_1`
+    /// alone, ~1e-12 here, below the asserted in-service class.
+    #[test]
+    fn the_initial_failed_fraction_carries_every_audited_class() {
+        use uom::si::thermodynamic_temperature::degree_celsius;
+        for c in [776.0 + 75.0, 864.0] {
+            let t = ThermodynamicTemperature::new::<degree_celsius>(c);
+            let f = Htr10TrisoAtopsInputs::fractions_at(t, 0.0);
+            assert_eq!(
+                f.heavy_metal,
+                Htr10TrisoAtopsInputs::HTR10_FREE_URANIUM_FRACTION
+            );
+            assert!(
+                f.incremental >= sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE,
+                "in-service failure missing at {c} degC: f_inc = {:e}",
+                f.incremental
+            );
+            assert!(
+                f.incremental - sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE < 1e-9,
+                "phi_1 is negligible at normal temperatures: {:e}",
+                f.incremental
+            );
+            assert!(f.incremental > f.heavy_metal + f.sic);
+            assert_eq!(
+                f.incremental_sic,
+                sembawang::htr10::np_mhtgr_normal_operation_fractions().incremental_sic
+            );
+            assert!(f.incremental_sic > 0.0);
+            println!(
+                "{c} degC: f_hm {:.2e}, f_sic {:.1e}, f_inc {:.6e}, f_inc_sic {:.2e}",
+                f.heavy_metal, f.sic, f.incremental, f.incremental_sic
+            );
+        }
+    }
+
+    /// **#469 item 2: SiC-only failures release metals and keep the gases
+    /// and halogens** (intact PyC; IAEA-TECDOC-CD-1645 (2010) §1.2.1, §12.3,
+    /// §12.5.2). Methodology: the channel's own nuclides through
+    /// `normal_operation_node` at 864 degC with **only** the SiC-only classes
+    /// set (`f_sic` = Tang's 5.0e-5, `f_inc_sic` from
+    /// [`Htr10TrisoAtopsInputs::fractions_at`]). Pass: Kr-85, Xe-133 and I-131
+    /// release exactly zero; Cs-137 releases a positive amount. Silver is not
+    /// asserted: its breakthrough model releases through intact SiC and
+    /// ignores the fractions (upstream's split). Results (2026-09-30): pass.
+    #[test]
+    fn sic_only_failures_release_metals_but_keep_gases_and_halogens() {
+        use boon_lay::triso_atops_fork::normal_operation::normal_operation_node;
+        use uom::si::thermodynamic_temperature::degree_celsius;
+        let t = ThermodynamicTemperature::new::<degree_celsius>(864.0);
+        let ch = channel();
+        let sic_only = FailureFractions {
+            heavy_metal: 0.0,
+            sic: Htr10TrisoAtopsInputs::HTR10_FREE_URANIUM_FRACTION,
+            incremental: 0.0,
+            incremental_sic: Htr10TrisoAtopsInputs::fractions_at(t, 0.0).incremental_sic,
+        };
+        let node = NodeState {
+            core_temperature: t,
+            graphite_temperature: t,
+        };
+        let rate = |name: &str| {
+            let n = ch.nuclides.iter().find(|n| n.name == name).unwrap();
+            let sl = n.half_life.get::<second>() / Htr10TrisoAtopsInputs::IRRADIATION_TIME_S < 0.2;
+            normal_operation_node(
+                n,
+                sl,
+                becquerels_from_curies(1.0),
+                sic_only,
+                ch.inputs.plant,
+                node,
+                false,
+                ParentPools::none(),
+            )
+            .release_rate
+        };
+        for name in ["Kr-85", "Xe-133", "I-131"] {
+            assert_eq!(rate(name), 0.0, "{name} must stay behind intact PyC");
+        }
+        let cs = rate("Cs-137");
+        assert!(cs > 0.0, "Cs-137 leaves through failed SiC: {cs:e}");
+        println!("SiC-only failures at 864 degC: Cs-137 release rate {cs:.4e} (unit inventory); Kr/Xe/I 0");
+    }
+
     /// The design-point fuel stack the plant opens at: the bed at its seed
     /// temperature, plus `bed_offset_k`, and the fuel node at the bed plus
     /// `R P_rated`. This mirrors `KineticsChannel::new_htr10_published`, so
@@ -2120,6 +2277,12 @@ mod tests {
     ///   measurement. Cs-137 (2.8e-6) and then Ag-110m (2.5e-18) fell outside
     ///   it for physical reasons, not wiring faults, so the band was dropped
     ///   rather than widened a second time. The spread IS the finding.
+    ///
+    /// **Not re-measured since 62434bb998; pending validation work.** #469
+    /// (2026-09-30) added Liu & Cao's design in-service failure `f_inc` = 5e-4
+    /// and the `f_inc_sic` stand-in, which raise the gas and iodine release by
+    /// about `(5e-5 + 5e-4) / 5e-5` = 11x and Cs-137 by about 12x; the table
+    /// below is the pre-#469 channel.
     ///
     /// # Results (re-measured 2026-09-29 on `develop` after the merge, i.e.
     /// with source-term stage 1, gh:#399)

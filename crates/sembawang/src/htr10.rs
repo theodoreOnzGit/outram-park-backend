@@ -510,31 +510,76 @@ pub struct Htr10Geometry {
 ///     ([`NormalOperation::np_mhtgr_reference`]);
 ///   - fuel and graphite temperatures: **the 776 °C stand-in**
 ///     [`STAND_IN_IRRADIATION_CELSIUS`], uniform (#297).
+///
+/// The pools and the lift-off fraction are the named
+/// [`primary_circuit_pools`] and [`X_LIFTOFF_NP_MHTGR_STAND_IN`] (#469), so
+/// `htgr_sim_v1` reads the same source rather than a second set of literals.
 #[must_use]
 pub fn plant_parameters(
     geometry: Htr10Geometry,
     fractions: AccidentFractions,
 ) -> PlantParameters {
-    let t = stand_in_irradiation_temperature();
-    let year_s = 365.0 * 24.0 * 3600.0;
-    let normal = NormalOperation {
-        run_time: Time::new::<second>(20.0 * year_s),
-        irradiation_time: Time::new::<second>(
-            panama_htr10::RESIDENCE_FULL_POWER_DAYS * 24.0 * 3600.0,
-        ),
-        temperatures: NodeTemperatures::Uniform { core: t, graphite: t },
-        ..NormalOperation::np_mhtgr_reference()
-    };
     PlantParameters {
         fractions,
         graphite_thickness: geometry.graphite_thickness,
         kernel_radius: geometry.kernel_radius,
         sic_thickness: geometry.sic_thickness,
         coolant_pressure: Pressure::new::<kilopascal>(101.325),
-        x_liftoff: 0.05,
+        x_liftoff: X_LIFTOFF_NP_MHTGR_STAND_IN,
         clean_up_fitted: true,
-        pools: PrimaryCircuitPools::FromNormalOperation(normal),
+        pools: primary_circuit_pools(),
     }
+}
+
+/// HTR-10 design **as-manufactured free uranium**, `< 3·10⁻⁴`: Liu & Cao
+/// 2002 §2.1 (p.82), a design specification, not a measurement
+/// (`crates/kovan-literature/derived/liu-cao2002-htr10-source-term-assumptions.md` §1).
+/// TRISO-ATOPS's `f_hm` in the bounding case and the audited example.
+pub const LIU_CAO_DESIGN_FREE_URANIUM: f64 = 3.0e-4;
+
+/// HTR-10 design **particle failure fraction from irradiation**, `5·10⁻⁴`:
+/// Liu & Cao 2002 §2.1 (p.82), a design specification. TRISO-ATOPS's `f_inc`,
+/// the in-service failure that accumulates as the fuel is irradiated
+/// (#469 item 1). Read by `htgr_sim_v1` and by
+/// [`crate::lwr_comparison::bound::F_INC`].
+pub const LIU_CAO_DESIGN_IRRADIATION_FAILURE: f64 = 5.0e-4;
+
+/// Plate-out lift-off fraction `x_liftoff`, **0.05, an NP-MHTGR stand-in**
+/// (Stoyer, Raichart & Petti, Nucl. Technol. 2026, Case A, Table 3). No HTR-10
+/// value is in the corpus; Liu & Cao 2002 §4.1.1.2 instead assume desorption
+/// of 2.4 × the coolant activity, which `htgr_sim_v1`'s live DLOFC applies.
+pub const X_LIFTOFF_NP_MHTGR_STAND_IN: f64 = 0.05;
+
+/// Full-power operating history the primary-circuit pools have accumulated
+/// over \[s\]: **20 years** of 365 d, Liu & Cao 2002's circulating-activity
+/// basis ("at the end of 20 years of full-power operation", Table 3). One copy:
+/// [`primary_circuit_pools`] and `htgr_sim_v1`'s live-pool opening history both
+/// read it (#469).
+pub const OPERATING_HISTORY_S: f64 = 20.0 * 365.0 * 86_400.0;
+
+/// The HTR-10 **primary-circuit pools** an accident starts from:
+/// [`PrimaryCircuitPools::FromNormalOperation`] over
+///
+/// - `run_time` [`OPERATING_HISTORY_S`] (20 y, Liu & Cao 2002);
+/// - `irradiation_time` **1080 FPD**,
+///   `boon_lay::fuel_failure::htr10::RESIDENCE_FULL_POWER_DAYS`;
+/// - `k_plate`, `k_clean`, `a_grain`: **NP-MHTGR stand-ins**
+///   ([`NormalOperation::np_mhtgr_reference`]);
+/// - fuel and graphite at the **776 °C stand-in**
+///   [`STAND_IN_IRRADIATION_CELSIUS`], uniform (#297).
+///
+/// The named constructor #469 item 3 asks for; [`plant_parameters`] uses it.
+#[must_use]
+pub fn primary_circuit_pools() -> PrimaryCircuitPools {
+    let t = stand_in_irradiation_temperature();
+    PrimaryCircuitPools::FromNormalOperation(NormalOperation {
+        run_time: Time::new::<second>(OPERATING_HISTORY_S),
+        irradiation_time: Time::new::<second>(
+            panama_htr10::RESIDENCE_FULL_POWER_DAYS * 24.0 * 3600.0,
+        ),
+        temperatures: NodeTemperatures::Uniform { core: t, graphite: t },
+        ..NormalOperation::np_mhtgr_reference()
+    })
 }
 
 /// `T_B` as a `uom` temperature, for callers that do not want to reach for the
@@ -1167,5 +1212,25 @@ mod tests {
             "the unmodelled set is recorded so a change to either table is visible"
         );
         assert_eq!(inventory().nuclides.len(), 19);
+    }
+
+    /// **One plant-parameter source (#469 item 3):** [`plant_parameters`]
+    /// carries exactly the named [`primary_circuit_pools`] and
+    /// [`X_LIFTOFF_NP_MHTGR_STAND_IN`], the pools run over
+    /// [`OPERATING_HISTORY_S`], and the bounding case's `f_hm`/`f_inc` are the
+    /// Liu & Cao §2.1 constants here, not copies.
+    #[test]
+    fn plant_parameters_read_the_named_pools_and_lift_off() {
+        let p = plant_parameters(geometry(), np_mhtgr_normal_operation_fractions());
+        assert_eq!(p.pools, primary_circuit_pools());
+        assert_eq!(p.x_liftoff, X_LIFTOFF_NP_MHTGR_STAND_IN);
+        match primary_circuit_pools() {
+            PrimaryCircuitPools::FromNormalOperation(op) => {
+                assert_eq!(op.run_time.get::<second>(), OPERATING_HISTORY_S);
+            }
+            PrimaryCircuitPools::EmptyAblation => panic!("the default is the real pools"),
+        }
+        assert_eq!(crate::lwr_comparison::bound::F_HM, LIU_CAO_DESIGN_FREE_URANIUM);
+        assert_eq!(crate::lwr_comparison::bound::F_INC, LIU_CAO_DESIGN_IRRADIATION_FAILURE);
     }
 }
