@@ -69,7 +69,7 @@
 //!   therefore counted as zero: HTR-10 0 %, WASH PWR 8 3.5 % (Te, Cs-136, Rb,
 //!   Ba-140, Sr-91/92), RG 1.183 28.4 % (adds actinides, lanthanides, Ru, Mo).
 //!   The Te-group row is 0 because no Te nuclide has a coefficient, not
-//!   because Te gives no dose. The follow-up issue is on #452.
+//!   because Te gives no dose. Follow-up: #456.
 //!
 //! **Defects found and fixed on the way (2026-09-30).**
 //!
