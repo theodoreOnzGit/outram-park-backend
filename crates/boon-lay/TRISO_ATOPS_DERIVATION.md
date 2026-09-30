@@ -496,8 +496,9 @@ These are recorded so the port faithfully reproduces upstream behaviour (a
 - **`release_activity` silver test uses `z == 47 or z == 48`.** The
   accident-path `release_activity` tests silver with `z == 48` (cadmium) where
   the transport grouping elsewhere uses `z == 46` (palladium). This looks like an
-  upstream inconsistency; it only affects the still-scaffolded accident-activity
-  path and is flagged here for whoever ports it.
+  upstream inconsistency; it only affects the ~~still-scaffolded~~
+  accident-activity path (**CORRECTED 2026-09-30 (#449):** ported, with the Cd typo behind a
+  flag that `sembawang` sets faithfully), and is flagged here for its readers.
 
 ## 9. References
 

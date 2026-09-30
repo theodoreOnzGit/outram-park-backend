@@ -119,8 +119,13 @@ fn celsius_to_kelvin(celsius: f64) -> f64 {
 /// - `graphite_temperature` — matrix-graphite temperature.
 ///
 /// # Assumptions
-/// Inputs outside the ~700–2400 °C validity window are clamped (never
-/// extrapolated) exactly as upstream; results there are boundary values.
+/// ~~Inputs outside the ~700–2400 °C validity window are clamped (never
+/// extrapolated)~~ **CORRECTED 2026-09-30 (#449), verified against the code below:** only
+/// the **lower** clamps listed above exist, and they are group-specific (Rb/Cs
+/// kernel ≥ 700 °C, graphite ≥ 550 °C; Sr/Ba/Eu kernel ≥ 700 °C, graphite
+/// ≥ 800 °C; Ag/Pd graphite ≥ 490 °C). There is **no upper clamp**, and
+/// Kr, Xe, I, Te, Se and the Ag/Pd kernel are **extrapolated**, exactly as
+/// upstream does.
 #[must_use]
 pub fn diffusion_coefficient(
     z: u32,

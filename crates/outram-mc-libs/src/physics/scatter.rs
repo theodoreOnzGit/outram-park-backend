@@ -475,11 +475,10 @@ impl DbrcTable {
 ///
 /// The returned velocity is isotropic in azimuth about `u` and makes cosine `mu`
 /// with it, `mu` being sampled jointly with the speed by the same rejection.
-fn sample_target_velocity(e: f64, u: Direction, awr: f64, kt_ev: f64, seed: &mut u64) -> [f64; 3] {
-    sample_target_velocity_dbrc(e, u, awr, kt_ev, seed, None)
-}
-
-/// [`sample_target_velocity`] with the optional DBRC rejection layered on top.
+///
+/// With `dbrc = Some(..)` the optional DBRC rejection is layered on top.
+/// (A `dbrc = None` wrapper, `sample_target_velocity`, had no caller and was
+/// removed 2026-09-30.)
 ///
 /// # The two rejections are separate, and the order matters
 ///
@@ -525,27 +524,39 @@ fn sample_target_velocity_dbrc(
         Some((t, e_up, s_max)) => {
             // OpenMC: draw CXS candidates until E_rel < E_up, then accept with
             // σ⁰ᴷ(E_rel)/σ_max; on rejection start again from a new candidate.
-            // Bounded, so a pathological RNG cannot hang transport.
-            let mut last = (0.0, 0.0);
-            'outer: for _ in 0..4096 {
-                let mut cand = (0.0, 0.0);
-                let mut e_rel = f64::INFINITY;
-                for _ in 0..4096 {
-                    cand = sample_cxs_target(beta_vn, alpha, seed);
-                    let beta_vt = cand.0.sqrt();
-                    e_rel = (beta_vn * beta_vn + cand.0 - 2.0 * beta_vn * beta_vt * cand.1).max(0.0)
-                        * kt_ev
-                        / awr;
-                    if e_rel < e_up {
-                        break;
+            //
+            // **Unbounded, as upstream (`while (true)`).** ~~Bounded at 4096
+            // trials, returning the last, unaccepted candidate~~ until
+            // 2026-09-30 (GitHub #407). Next to a resonance the envelope
+            // σ_max is the 0 K peak, so the acceptance σ̄/σ_peak is small
+            // (U-238 at 20.5 eV: the window reaches the 20.87 eV peak). The
+            // cap was then hit often, and each hit returned a plain CXS
+            // target. That
+            // silently undid most of the correction, and it was measured:
+            // U-238's single-scatter spectrum at 20.5 eV was chi²/ν =
+            // 2625/59 against OpenMC (`tests/dbrc_single_scatter_vs_openmc.rs`).
+            // The loop terminates with probability 1 whenever σ⁰ᴷ > 0 inside
+            // the window. `s_max > 0` is checked before entering.
+            if !(s_max > 0.0) {
+                sample_cxs_target(beta_vn, alpha, seed)
+            } else {
+                loop {
+                    let (cand, e_rel) = loop {
+                        let cand = sample_cxs_target(beta_vn, alpha, seed);
+                        let beta_vt = cand.0.sqrt();
+                        let e_rel = (beta_vn * beta_vn + cand.0 - 2.0 * beta_vn * beta_vt * cand.1)
+                            .max(0.0)
+                            * kt_ev
+                            / awr;
+                        if e_rel < e_up {
+                            break (cand, e_rel);
+                        }
+                    };
+                    if prn(seed) < t.xs_at(e_rel) / s_max {
+                        break cand;
                     }
                 }
-                last = cand;
-                if !(s_max > 0.0) || prn(seed) < t.xs_at(e_rel) / s_max {
-                    break 'outer;
-                }
             }
-            last
         }
     };
 

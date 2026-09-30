@@ -6722,7 +6722,7 @@ Nuclides.
 | [`release_models`](crate::triso_atops_fork::release_models) | The dimensionless release-fraction / release-to-birth models: Booth (long-lived, short-lived), breakthrough, graphite attenuation, and their transient (accident) variants, plus the group dispatchers. |
 | [`activities`](crate::triso_atops_fork::activities) | Circulating / plate-out / clean-up activity bookkeeping and the release-rate / graphite source terms, plus the Ci↔Bq and `A = λN` conversions (bead op-b4a.2.2, done). |
 | [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). ~~The JSON run-file driver + accident case are **not ported** — no code exists for either (bead op-b4a.2.3).~~ **CORRECTED 2026-09-30** — both are ported; see the two rows below. |
-| [`accident`](crate::triso_atops_fork::accident) | Depressurisation-accident release, porting `trisoatops.py::accident_case`: the diffusion integral over the transient, the release of what is left in kernel and graphite scaled by the vented-coolant fraction, plus **all circulating activity and an `x_liftoff` share of the plate-out** (the primary-circuit retention is the plate-out that is not lifted off). No building, dust or helium-purification-system term. **A depressurisation model:** activity leaves only by venting while the core heats, and there is **no ingress (flow-through) transport** (#446); see the module docs. |
+| [`accident`](crate::triso_atops_fork::accident) | Depressurisation-accident release: the **pieces** of `trisoatops.py::accident_case` (~~porting `accident_case`~~ **CORRECTED 2026-09-30 (#449):** there is no single `accident_case` function; callers compose it, #447): the diffusion integral over the transient, the release of what is left in kernel and graphite scaled by the vented-coolant fraction, plus **all circulating activity and an `x_liftoff` share of the plate-out** (the primary-circuit retention is the plate-out that is not lifted off). No building, dust or helium-purification-system term. **A depressurisation model:** activity leaves only by venting while the core heats, and there is **no ingress (flow-through) transport** (#446); see the module docs. |
 | [`run_file`](crate::triso_atops_fork::run_file) | The JSON run file: parsing, validation and unit attachment. |
 
 ## Derivation, step by step
@@ -6832,8 +6832,10 @@ into, because a nuclide's group decides which release model is applied to it.
 The runtime `sl` (short-lived) and `parent_decay` flags. In TRISO-ATOPS those
 are **not intrinsic** to a nuclide — they are recomputed for each run from the
 reactor's irradiation time (`nuclide_import`) and the accident duration
-(`nuclide_import_accident`). They therefore live in the nodal-orchestration
-layer ([`crate::triso_atops_fork::normal_operation`], scaffolded).
+(`nuclide_import_accident`). ~~They therefore live in the nodal-orchestration
+layer (`normal_operation`, scaffolded).~~ **CORRECTED 2026-09-30 (#449):** they live in
+[`crate::triso_atops_fork::run_selection`] (`SelectedNuclide`), which is
+implemented.
 
 ```rust
 pub mod nuclide_model { /* ... */ }
@@ -8337,8 +8339,13 @@ and a high-temperature branch). This `D` becomes the reduced coefficient
 - `graphite_temperature` — matrix-graphite temperature.
 
 # Assumptions
-Inputs outside the ~700–2400 °C validity window are clamped (never
-extrapolated) exactly as upstream; results there are boundary values.
+~~Inputs outside the ~700–2400 °C validity window are clamped (never
+extrapolated)~~ **CORRECTED 2026-09-30 (#449), verified against the code below:** only
+the **lower** clamps listed above exist, and they are group-specific (Rb/Cs
+kernel ≥ 700 °C, graphite ≥ 550 °C; Sr/Ba/Eu kernel ≥ 700 °C, graphite
+≥ 800 °C; Ag/Pd graphite ≥ 490 °C). There is **no upper clamp**, and
+Kr, Xe, I, Te, Se and the Ag/Pd kernel are **extrapolated**, exactly as
+upstream does.
 
 ```rust
 pub fn diffusion_coefficient(z: u32, kernel_temperature: uom::si::f64::ThermodynamicTemperature, graphite_temperature: uom::si::f64::ThermodynamicTemperature) -> KernelGraphiteDiffusion { /* ... */ }
@@ -10504,7 +10511,15 @@ are effective-unit `f64` (see [`crate::triso_atops_fork::activities`] for why);
 `× λ / 3.7e10` conversion to the reportable [`NodalActivitiesCurie`] (all in
 curies, or curies/second for the two rates).
 
-## NOT PORTED — the JSON run-file driver and the accident case (bead op-b4a.2.3)
+## ~~NOT PORTED — the JSON run-file driver and the accident case (bead op-b4a.2.3)~~
+
+**CORRECTED 2026-09-30 (#449):** both exist. The accident pieces are in
+[`crate::triso_atops_fork::accident`]. There is **no single
+`accident_case` function**: the composition lives in the callers (#447).
+There are two run-file readers: the port's own [`crate::triso_atops_fork::run_file::RunFile`]
+and, for upstream / GUI-written files,
+[`crate::triso_atops_fork::run_file::upstream`], which is code-to-code
+verified. The text below is the original plan, kept for history.
 
 The TRISO-ATOPS GUI writes a `.json` run file (User Manual §2.4) that
 `run_functions.py` parses (`process_run_file`, `check_run_file`,
@@ -12116,14 +12131,482 @@ absence is a decision rather than an omission:
 
 # Unit convention
 
-The JSON carries **bare numbers**, and upstream attaches units positionally
-through a parallel `const_units` list: lengths in metres, rate constants in
+**This port's own [`RunFile`]** carries **bare numbers**, with the units
+fixed. ~~and upstream attaches units positionally through a parallel
+`const_units` list~~ **CORRECTED 2026-09-30 (#449):** upstream's own file carries
+`[value, unit]` pairs. It **checks** each unit against `const_units`, and
+converts `run_time` / `irradiation_time` from whatever `convert_time` unit
+the file names (see [`upstream`]). In this port's format the units are: lengths in metres, rate constants in
 s⁻¹, and **`run_time` and `irradiation_time` in years**. Those two are the
 trap — a caller who assumes seconds is out by a factor of 3.15e7 — so
 [`RunFile::to_config`] converts them explicitly and the field docs say so.
 
 ```rust
 pub mod run_file { /* ... */ }
+```
+
+### Modules
+
+## Module `upstream`
+
+Reading an upstream / GUI-written run file (#449).
+Reading an **upstream / GUI-written** TRISO-ATOPS run file (GitHub #449).
+
+[`super::RunFile`] is this port's own JSON shape: bare numbers, one
+inventory per nuclide, and no CSV references. It **cannot** read a file
+upstream's GUI writes. This module reads that format, following
+`process_run_file`, `read_profile` and `check_run_file`:
+
+- **Constants** are `[value, unit]` pairs, and each unit is **checked**:
+  `''` for fractions, `'m'` for lengths, `'s^-1'` for rate constants.
+  `run_time` and `irradiation_time` take any `convert_time` unit (s, min,
+  hr, d, yr) and are converted to seconds.
+- **`k_clean`** is read only when `hps_tog` is true. Otherwise it stays 0,
+  as upstream leaves `constants[9]`.
+- **The accident constants** `f_inc_acc`, `f_inc_sic_acc` and `x_liftoff`
+  are read only when `accident_tog` is true.
+- **`Nuclides`** is an inline list, or a CSV path (first column, header row).
+- **`Inventories`** is an inline `n_nuclides × n_radial` array (Ci), or a
+  CSV path (header row, first column dropped).
+- **`Core_Temps` / `Graphite_Temps`** go through `read_profile`:
+  `[path, has_header, has_index]`, giving `n_axial` rows × `n_radial`
+  columns.
+- **`Times`** is `[entry, unit]`. The entry is tried first as a CSV path
+  (header row, first column), then as a `read_profile` entry, and the
+  result is multiplied by `convert_time(unit)`.
+- **`Accident_Temps`** is one CSV path per ring (header row, first column
+  dropped: `n_times × n_axial` each), or an inline
+  `[ring][time][axial]` array.
+- **`check_run_file`** checks the shapes, and that the **sum** of the
+  failure fractions (six in accident mode, the first four otherwise) is not
+  above 1. A sum of exactly 1 is counted as an error in accident mode (the
+  silver warning upstream increments `error_count` for), and is only a
+  warning otherwise.
+
+The constants keep **upstream's positional 15-slot layout**
+(`constants[0..15]`, the `accident_case` indices), because that is the
+contract the code-to-code fixture verifies.
+
+# Deliberate differences, stated
+- **Relative paths** resolve against the **run file's directory**. Upstream
+  resolves them against the process working directory. The code-to-code
+  fixture runs upstream from the run file's directory, so the two agree.
+- **CSV parsing is plain comma-separated numbers**, with an optional header
+  row and an optional index column. Quoted fields and pandas' type
+  inference are not reproduced.
+- Upstream raises, rather than counting an error, for several malformed
+  inputs (a missing required key, for example). Here **every** failure is
+  an [`UpstreamRunFileError`].
+
+```rust
+pub mod upstream { /* ... */ }
+```
+
+### Types
+
+#### Struct `UpstreamRunFile`
+
+A run file as upstream's `process_run_file` returns it.
+
+```rust
+pub struct UpstreamRunFile {
+    pub constants: [f64; 15],
+    pub hps: bool,
+    pub accident: bool,
+    pub n_radial: usize,
+    pub n_axial: usize,
+    pub nuclides: Vec<String>,
+    pub inventories: Vec<Vec<f64>>,
+    pub core_temperatures: Vec<Vec<f64>>,
+    pub graphite_temperatures: Vec<Vec<f64>>,
+    pub times: Option<Vec<f64>>,
+    pub accident_temperatures: Option<Vec<Vec<Vec<f64>>>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `constants` | `[f64; 15]` | `constants[0..15]` in SI (times in seconds), upstream's positional<br>layout. Unread slots are 0, as upstream's `np.zeros`. |
+| `hps` | `bool` | `hps_tog`. |
+| `accident` | `bool` | `accident_tog`. |
+| `n_radial` | `usize` | `n_radial`. |
+| `n_axial` | `usize` | `n_axial`. |
+| `nuclides` | `Vec<String>` | Nuclide names, in file order. |
+| `inventories` | `Vec<Vec<f64>>` | Inventories \[Ci\], `[nuclide][ring]`. |
+| `core_temperatures` | `Vec<Vec<f64>>` | Normal-operation fuel temperatures, `[axial][ring]`, in the file's units. |
+| `graphite_temperatures` | `Vec<Vec<f64>>` | Normal-operation graphite temperatures, `[axial][ring]`. |
+| `times` | `Option<Vec<f64>>` | Accident times \[s\], when `accident_tog`. |
+| `accident_temperatures` | `Option<Vec<Vec<Vec<f64>>>>` | Accident temperatures, `[ring][time][axial]`, when `accident_tog`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamRunFile { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamRunFile) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `UpstreamRunFileError`
+
+Why an upstream-format run file was rejected.
+
+```rust
+pub enum UpstreamRunFileError {
+    Unreadable(String),
+    MissingKey(String),
+    BadConstant(String),
+    WrongUnit {
+        constant: String,
+        found: String,
+    },
+    UnknownTimeUnit(String),
+    NotAnInteger(String),
+    BadTable {
+        key: String,
+        reason: String,
+    },
+    ShapeMismatch(String),
+    FractionSum(f64),
+}
+```
+
+##### Variants
+
+###### `Unreadable`
+
+The file could not be read or is not JSON.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `MissingKey`
+
+A key upstream requires is absent (`required_keys`, `accident_keys`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadConstant`
+
+A constant is not a `[number, unit]` pair.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `WrongUnit`
+
+A constant's unit is not the one upstream accepts for it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `constant` | `String` | The constant. |
+| `found` | `String` | The unit found. |
+
+###### `UnknownTimeUnit`
+
+A time unit `convert_time` does not know.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotAnInteger`
+
+`n_radial` or `n_axial` is not an integer.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadTable`
+
+A table or CSV could not be read as numbers.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` | Which key. |
+| `reason` | `String` | Why. |
+
+###### `ShapeMismatch`
+
+`check_run_file`: a shape disagrees with `n_radial` / `n_axial` / the
+time count.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `FractionSum`
+
+`check_run_file`: the failure fractions sum above 1, or to exactly 1 in
+accident mode.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamRunFileError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamRunFileError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `read_upstream_run_file`
+
+Read and check an upstream-format run file.
+
+# Errors
+Every problem found, as upstream's `error_count` would count it (see the
+module docs for where this is stricter).
+
+```rust
+pub fn read_upstream_run_file(path: &std::path::Path) -> Result<UpstreamRunFile, Vec<UpstreamRunFileError>> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CONSTANT_NAMES`
+
+Upstream's constant names, in `constants[]` order (`const_names` plus
+`accident_constants`).
+
+```rust
+pub const CONSTANT_NAMES: [&str; 15] = _;
 ```
 
 ### Types
@@ -12505,7 +12988,10 @@ Fields:
 The run file exactly as it appears on disk.
 
 Field names match the JSON keys upstream's `required_keys` /
-`accident_keys` lists demand, so `serde` reads a GUI-written file directly.
+`accident_keys` lists demand. ~~so `serde` reads a GUI-written file
+directly~~ **CORRECTED 2026-09-30 (#449):** it does **not**. Upstream writes constants as
+`[value, unit]` pairs and tables as CSV paths, which this struct rejects.
+Use [`upstream::read_upstream_run_file`] for those files.
 Every quantity is a bare number here; [`RunFile::to_config`] is what
 attaches units and validates.
 

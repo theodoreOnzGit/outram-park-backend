@@ -68,8 +68,8 @@ MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into GPL-3.0
 | `calculation_functions.py` — `nuclide_import`, `nuclide_import_accident` | `triso_atops_fork::run_selection` (`select_nuclides`, `select_nuclides_accident`, `normalise_nuclide_name`) | **Ported + verified** (2026-09-21) — both classification tests compared decision-for-decision against upstream. Parent-decay wiring is behind [`ParentDecayPolicy`] because upstream's is defeated by an `==` bug; see the defect note below. |
 | `calculation_functions.py` — `inventory_processing` | `triso_atops_fork::run_selection` / `accident::distribute_inventory_axially` | **Ported + verified** (2026-09-21) |
 | `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case` | `triso_atops_fork::accident` (`release_activity`, `coolant_release`, `mean_temperature_rate`, `accident_release_curies`, `atoms_to_curies`) | **Ported + verified** (2026-09-21) ~~Scaffold~~ ~~NOT PORTED~~ — 6 068 code-to-code cases. `main`'s argparse shell is not ported and will not be; see "What is deliberately not ported". |
-| `run_functions.py` — `convert_time`, `read_save_file`, `process_run_file`, `check_run_file`, `read_profile` | `triso_atops_fork::run_file` (`TimeUnit`, `RunFile`, `RunConfig`, `RunFile::to_config`) | **Ported** (2026-09-21) — serde-derived, so a GUI-written JSON file deserialises directly; validation collects every problem rather than the first. |
-| `run_functions.py` — `nuclide_sort` | `triso_atops_fork::run_selection::sort_parents_before_daughters` | **Ported** (2026-09-21) — does what upstream *intends*; upstream's own version is a no-op (defect 7 below). |
+| `run_functions.py` — `convert_time`, `read_save_file`, `process_run_file`, `check_run_file`, `read_profile` | `triso_atops_fork::run_file` (`TimeUnit`, `RunFile`, `RunConfig`, `RunFile::to_config`) | **Ported** (2026-09-21), ~~serde-derived, so a GUI-written JSON file deserialises directly~~. **CORRECTED 2026-09-30 (#449):** `RunFile` is the port's **own** format (bare numbers, no CSV references) and **cannot** read a GUI-written file. The new `run_file::upstream::read_upstream_run_file` reads upstream's format, including `[value, unit]` constants, CSV paths and per-ring accident CSVs. It is code-to-code verified against upstream `process_run_file` (7 cases, `tests/triso_atops_upstream_run_file.rs`). |
+| `run_functions.py` — `nuclide_sort` | `triso_atops_fork::run_selection::sort_parents_before_daughters` | **Ported** (2026-09-21) — does what upstream *intends*; upstream's own version is a no-op (~~defect 7~~ **defect 6** below; CORRECTED 2026-09-30 (#449)). |
 | `run_functions.py` — `create_log`, `count_errors`, `trisoatops`; `trisoatops.py` — `main` | — | **Deliberately not ported** — Python `logging` setup, an error counter that `Result` replaces, a version banner, and an argparse shell. See "What is deliberately not ported". |
 | `trisoatops_gui.py` (1432 LOC) | — | **Excluded (GUI, out of scope)** |
 
@@ -157,7 +157,10 @@ divergence worth recording rather than an inherited bug.
 has.** `nuclide_import` checks `if nuclide_name in nuclides` before lookup;
 `nuclide_import_accident` (line 313) does not, so a name that satisfies the
 regex but is absent from the table raises `KeyError` instead of being skipped
-with a warning. Its `else` branch also logs `{match}`, which is `None`
+with a warning. **CORRECTED 2026-09-30 (#449), verified by running upstream:** `nuclide_import`
+raises `KeyError` too. It appends the name to `used_nuclides` before its guard,
+and the parent loop then indexes `nuclide_out[name]`. So neither import skips
+an unknown name. Its `else` branch also logs `{match}`, which is `None`
 whenever that branch is taken.
 
 **6. `nuclide_sort` never reorders anything.** `run_functions.py:412` reads
@@ -187,7 +190,10 @@ heat-up gives — then `rmv == 0`, and `[:-0]` is `[:0]`, the **empty** slice.
 The whole temperature history vanishes and every downstream integral is empty.
 The port cannot reproduce this (slices arrive aligned and a mismatch is an
 assertion), but a reader comparing against a stock run on a monotonic transient
-will see upstream produce nothing, and should know why.
+will see upstream produce nothing, and should know why. ~~produce nothing~~
+**CORRECTED 2026-09-30 (#449), verified by running upstream:** upstream **raises
+`IndexError`** on such a transient; it does not return an empty result. The port
+returns `frac ≈ 1 − T0/T`, an answer upstream never produces (#447).
 
 **8. The nuclide-name regex is unanchored, so a malformed name is silently
 truncated into a *different* valid nuclide.** `nuclide_import` and
@@ -315,15 +321,17 @@ Bead status:
 - **op-b4a.2.2** — activity bookkeeping + per-node orchestration (**done this
   pass**, uom-typed + verified against upstream Python).
 - **op-b4a.2.3** — run-file JSON API + accident-case driver entry point
-  (~~still scaffolded~~ **CORRECTED 2026-09-21: not ported — no code exists**;
-  blocked by nothing, but out of scope this pass).
+  (~~still scaffolded~~ ~~**CORRECTED 2026-09-21: not ported — no code exists**~~;
+  **CORRECTED 2026-09-30 (#449):** ported. `accident` provides the pieces and `run_file`
+  reads both formats; see the tables above.)
 - **op-b4a.2.4** — verification (done).
 
 ## Verification approach & results
 
 > **See also: [`triso-atops-code-to-code.md`](triso-atops-code-to-code.md)** —
 > an exhaustive **code-to-code** verification of the whole calculation core
-> against the upstream Python: 5 699 cases over 32 function groups, covering
+> against the upstream Python: ~~5 699 cases over 32 function groups~~ **14 130
+cases** after its third pass (**CORRECTED 2026-09-30 (#449)**, per that document), covering
 > every pointwise model, the transient dispatcher, the cumulative diffusion
 > integral, the end-to-end `normal_operation_node` chain and all 84 nuclide
 > decay constants (added 2026-09-15). That is the primary evidence that the
@@ -387,5 +395,5 @@ Total: 25 core + 17 activity/nodal library unit tests + 7 integration tests, all
 green under `cargo test -p boon-lay --lib --tests --release`.
 
 **Not claimed:** *validation* of a full reactor source term against measured
-release data — that needs a public benchmark case (and the still-scaffolded
-accident/JSON driver, op-b4a.2.3).
+release data — that needs a public benchmark case ~~(and the still-scaffolded
+accident/JSON driver, op-b4a.2.3)~~ (**CORRECTED 2026-09-30 (#449):** the driver is ported).

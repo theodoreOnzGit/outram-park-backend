@@ -1,0 +1,54 @@
+{
+ "Cs-137": {
+  "outcome": "kept",
+  "canonical": [
+   "Cs-137"
+  ]
+ },
+ "cs137": {
+  "outcome": "kept",
+  "canonical": [
+   "Cs-137"
+  ]
+ },
+ "CS-137": {
+  "outcome": "kept",
+  "canonical": [
+   "Cs-137"
+  ]
+ },
+ "cs-137": {
+  "outcome": "kept",
+  "canonical": [
+   "Cs-137"
+  ]
+ },
+ "Ag-110m": {
+  "outcome": "kept",
+  "canonical": [
+   "Ag-110m"
+  ]
+ },
+ "ag110m": {
+  "outcome": "kept",
+  "canonical": [
+   "Ag-110m"
+  ]
+ },
+ "Xx-999": {
+  "outcome": "raised",
+  "error": "KeyError"
+ },
+ "Cs-999": {
+  "outcome": "raised",
+  "error": "KeyError"
+ },
+ "???": {
+  "outcome": "skipped",
+  "canonical": []
+ },
+ "137": {
+  "outcome": "skipped",
+  "canonical": []
+ }
+}

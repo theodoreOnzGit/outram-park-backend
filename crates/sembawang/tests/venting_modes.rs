@@ -126,7 +126,16 @@ fn prescribed_ones_equal_full_flow_through_and_a_half_halves_the_release() {
     let ff = totals(&run(&heating(), &Venting::FullFlowThrough));
     assert_eq!(ones, ff);
 
-    let half = totals(&run(&heating(), &Venting::Prescribed(vec![0.5; SAMPLES])));
+    // Halving holds for the FUEL release only: the circuit term (circulating +
+    // x_liftoff x plate-out) is added OUTSIDE frac, as upstream's
+    // `accident_totals` does. So this part runs on the empty-pool ablation,
+    // where the circuit term is zero (#448).
+    let empty = plant().without_normal_operation_pools();
+    let run0 = |v: &Venting| {
+        accident_release_with_venting(&inventory(), &heating(), &empty, v).unwrap()
+    };
+    let ff = totals(&run0(&Venting::FullFlowThrough));
+    let half = totals(&run0(&Venting::Prescribed(vec![0.5; SAMPLES])));
     for ((n, h), (_, f)) in half.iter().zip(&ff) {
         let rel = (h - 0.5 * f).abs() / f.max(f64::MIN_POSITIVE);
         assert!(rel < 1e-12, "{n}: 0.5 venting gave {h:e}, expected {:e}", 0.5 * f);

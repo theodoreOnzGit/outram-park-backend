@@ -134,3 +134,36 @@ S(α,β) sampler, default − legacy ablation, same binary:
   - Route 4 sat −59 ± 14 below OpenMC before, so this moves it toward OpenMC as
     well.
 - **HST-009.** Both routes are consistent with zero at ±33–47.
+
+## Addendum 2026-09-30: DBRC rejection was truncated (GitHub #407)
+
+**How it was found.** The lattice DBRC worth disagreed between the codes:
+outram-mc −42.6 ± 20.0 pcm, OpenMC +27.6 ± 10.5 (3.1σ). So the sampler itself
+was compared against OpenMC, at the level of the single-scatter spectrum:
+- test: `tests/dbrc_single_scatter_vs_openmc.rs`;
+- reference: `openmc_inputs/dbrc_single_scatter_reference.py`;
+- setup: a monoenergetic source in a thin U-238 sphere, E0 = 6.4, 20.5 and
+  36.4 eV, DBRC on and off, a chi-square on the shape.
+
+**The defect.** The rejection loop was capped at 4096 trials. On a miss it
+returned the last candidate, which had not been accepted. OpenMC loops without
+a bound. Near a resonance the envelope is the 0 K peak, so the acceptance is
+small; at 20.5 eV the window reaches the 20.87 eV peak. The cap was therefore
+hit often, and each hit returned a plain CXS target.
+
+**The fix.** The loop is unbounded, as upstream.
+
+| E0 = 20.5 eV, DBRC on | χ²/ν | z | `<E'>` vs OpenMC |
+|---|---|---|---|
+| before | 407/58 | +32 | −5.7e-4 |
+| after | 97/58 | +3.6 | −1.4e-5 |
+
+Every other row has \|z\| ≤ 2.4.
+
+**Paired lattice A/B, route 3, 32 seeds.** Predicted +20 to +70 pcm. Measured
+**+14.5 ± 16.1 pcm**. That is consistent with the low end of the prediction,
+and not resolved. Lattice route 3 against route 1 at 32 seeds is now
+−22.0 ± 13.4 pcm (it was −36 ± 15).
+
+**Not changed.** The analog pin is bit-identical: Godiva never reaches the
+truncation.

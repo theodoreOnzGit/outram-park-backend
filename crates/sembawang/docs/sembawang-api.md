@@ -233,6 +233,7 @@ pub struct PlantParameters {
     pub coolant_pressure: uom::si::f64::Pressure,
     pub x_liftoff: f64,
     pub clean_up_fitted: bool,
+    pub pools: PrimaryCircuitPools,
 }
 ```
 
@@ -247,6 +248,7 @@ pub struct PlantParameters {
 | `coolant_pressure` | `uom::si::f64::Pressure` | Coolant pressure, for the venting calculation. |
 | `x_liftoff` | `f64` | Fraction of plated-out activity lifted off during the accident. |
 | `clean_up_fitted` | `bool` | Whether a helium purification system is fitted. |
+| `pools` | `PrimaryCircuitPools` | The primary-circuit state the accident starts from (GitHub #448). The<br>constructors set [`PrimaryCircuitPools::FromNormalOperation`]; the empty<br>state is an explicit ablation. |
 
 ##### Implementations
 
@@ -256,6 +258,11 @@ pub struct PlantParameters {
   pub fn np_mhtgr_reference(incremental_accident: f64, incremental_sic_accident: f64, x_liftoff: f64) -> Self { /* ... */ }
   ```
   The NP-MHTGR reference geometry and normal-operation failure fractions,
+
+- ```rust
+  pub fn without_normal_operation_pools(self: Self) -> Self { /* ... */ }
+  ```
+  The same plant, with the primary-circuit pools **emptied**: an explicit
 
 ###### Trait Implementations
 
@@ -285,7 +292,6 @@ pub struct PlantParameters {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -368,6 +374,459 @@ pub struct PlantParameters {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `PrimaryCircuitPools`
+
+The primary-circuit and fuel-matrix pools an accident starts from.
+
+Upstream (`trisoatops.py::main`, commit `de374c8`) runs `normal_operation`
+and feeds its per-node pools into `accident_case`. That does three things
+the empty state omits (#448):
+1. `release_activity` subtracts the graphite, circulating, plate-out and HPS
+   inventory from what the kernel can still release;
+2. the graphite pool is released through `RF_graph`;
+3. the circuit term `C + x_liftoff · P` is added.
+
+**Default ON** (CLAUDE.md "correct physics is the default"): every
+constructor in this crate sets [`Self::FromNormalOperation`].
+
+```rust
+pub enum PrimaryCircuitPools {
+    FromNormalOperation(NormalOperation),
+    EmptyAblation,
+}
+```
+
+##### Variants
+
+###### `FromNormalOperation`
+
+Run TRISO-ATOPS normal operation per node first, as upstream does.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `NormalOperation` |  |
+
+###### `EmptyAblation`
+
+**Ablation only.** Every pool empty ([`zero_pools`]). Measured in
+upstream on a heat-up case (#448), this **over**-predicts the metals
+(Ag-110m ×2.0, Cs-137 ×1.6) and slightly **under**-predicts
+un-scrubbed noble gases (Kr-85 ×0.87). The direction is
+nuclide-dependent.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PrimaryCircuitPools { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PrimaryCircuitPools) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NormalOperation`
+
+The normal-operation inputs upstream's `normal_operation` needs, beyond
+the inventory, fractions and geometry already in [`PlantParameters`].
+
+```rust
+pub struct NormalOperation {
+    pub k_plate: uom::si::f64::Frequency,
+    pub k_clean: uom::si::f64::Frequency,
+    pub grain_size: uom::si::f64::Length,
+    pub run_time: uom::si::f64::Time,
+    pub irradiation_time: uom::si::f64::Time,
+    pub temperatures: NodeTemperatures,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `k_plate` | `uom::si::f64::Frequency` | Plate-out rate constant `k_plate`. |
+| `k_clean` | `uom::si::f64::Frequency` | Helium-purification clean-up rate constant `k_clean`. Applied only when<br>[`PlantParameters::clean_up_fitted`]. |
+| `grain_size` | `uom::si::f64::Length` | Kernel grain size `a_grain`. |
+| `run_time` | `uom::si::f64::Time` | Reactor run time, for the coolant-pool balances. |
+| `irradiation_time` | `uom::si::f64::Time` | Fuel irradiation time, for release-to-birth and the short-lived flag. |
+| `temperatures` | `NodeTemperatures` | Normal-operation fuel and graphite temperatures. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn np_mhtgr_reference() -> Self { /* ... */ }
+  ```
+  The NP-MHTGR reference normal operation, Stoyer et al. 2026 Case A,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NormalOperation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NormalOperation) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `NodeTemperatures`
+
+Normal-operation temperatures over the core nodes.
+
+```rust
+pub enum NodeTemperatures {
+    Uniform {
+        core: uom::si::f64::ThermodynamicTemperature,
+        graphite: uom::si::f64::ThermodynamicTemperature,
+    },
+    PerNode {
+        core: Vec<Vec<uom::si::f64::ThermodynamicTemperature>>,
+        graphite: Vec<Vec<uom::si::f64::ThermodynamicTemperature>>,
+    },
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+One fuel and one graphite temperature for every node.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `core` | `uom::si::f64::ThermodynamicTemperature` | Fuel (kernel) temperature. |
+| `graphite` | `uom::si::f64::ThermodynamicTemperature` | Matrix graphite temperature. |
+
+###### `PerNode`
+
+Per node, `[ring][axial]`, matching the transient's node layout.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `core` | `Vec<Vec<uom::si::f64::ThermodynamicTemperature>>` | Fuel (kernel) temperatures. |
+| `graphite` | `Vec<Vec<uom::si::f64::ThermodynamicTemperature>>` | Matrix graphite temperatures. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NodeTemperatures { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NodeTemperatures) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `AccidentRelease`
 
 A completed release calculation.
@@ -378,6 +837,7 @@ pub struct AccidentRelease {
     pub caveats: crate::error::Caveats,
     pub venting: super::venting::VentingWindow,
     pub screened_out: Vec<String>,
+    pub cumulative_final: Vec<(String, f64)>,
 }
 ```
 
@@ -388,7 +848,8 @@ pub struct AccidentRelease {
 | `source_term` | `changi::activity::source::SourceTerm` | The source term, ready for `changi`. |
 | `caveats` | `crate::error::Caveats` | Known upstream behaviours that affected this result. **Report these<br>alongside any number taken from `source_term`** — see [`Caveats`]. |
 | `venting` | `super::venting::VentingWindow` | Which samples vented, and how much each released. |
-| `screened_out` | `Vec<String>` | Nuclides dropped by the half-life screen, with the reason. |
+| `screened_out` | `Vec<String>` | Nuclides dropped by the **half-life screen** (t½ below 4 % of the<br>transient), as supplied. ~~"with the reason"~~: no reason is stored,<br>and since #449 unknown names are an error, never listed here. |
+| `cumulative_final` | `Vec<(String, f64)>` | Per released nuclide, the **unfloored cumulative release at the last<br>venting sample** \[Bq\]: upstream `accident_case`'s last total. The<br>source term's window sum equals this unless a window was floored<br>([`Caveats::negative_atom_count_seen`]). This is the quantity to compare<br>with upstream. |
 
 ##### Implementations
 
@@ -546,6 +1007,15 @@ isothermal hold vented nothing after `t = 0` and released **0 Bq**
 (#446). The first branch was missing from the port and is restored
 here.
 
+**Where upstream has no answer (#447, #449):** if *every* sample
+vents, as in a monotonic heat-up or any `from_ramp` ramp-and-hold,
+upstream's `accident_temp[:, :-0, :]` is empty and it raises
+`IndexError`. This port returns the ideal-gas fraction `≈ 1 − T0/T`
+instead: a defined answer, but **not an upstream-verified one**. A
+spatially non-uniform field that is constant in time also reaches
+that path, and there every `frac` after the first is 0 (#447 item 1,
+open).
+
 ###### `FullFlowThrough`
 
 Everything released from the fuel leaves the core at once: `frac = 1`
@@ -685,18 +1155,17 @@ Fields:
 
 - `MustUse { reason: None }`
 
-A normal-operation state with every pool empty.
+A normal-operation state with every pool empty: the
+[`PrimaryCircuitPools::EmptyAblation`] state.
 
-Used when no normal-operation history has been run, which is this crate's
-current position: nothing has accumulated in the coolant, on surfaces or in
-the clean-up system before the accident starts.
-
-**That is a modelling choice with a direction.** A real plant carries a
-circulating and plated-out inventory built up over the operating cycle, and
-an accident lifts some of it off. Starting from zero therefore
-**under-predicts** the early release, by however much that pre-existing
-inventory would have contributed. Wiring a normal-operation history in is
-the obvious next step and is not done here.
+~~Starting from zero therefore **under-predicts** the early release~~
+**CORRECTED 2026-09-30 (#448):** the direction is **nuclide-dependent**.
+Measured in upstream TRISO-ATOPS (3-year irradiation, 900 °C normal
+operation, heat to 1600 °C then cool), the ratio empty ÷ real pools is:
+Ag-110m ×2.00 and Cs-137 ×1.59 (**over**-predicted: the kernel term is not
+reduced by what already left it); Kr-85 ×0.87 without HPS (**under**: the
+circuit term is lost); Sr-90 0.99; I-131 1.00. Since #448 the default is
+[`PrimaryCircuitPools::FromNormalOperation`], and this is an ablation.
 
 ```rust
 pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities { /* ... */ }
@@ -755,7 +1224,10 @@ more.** Whichever nuclides it drops are returned in
 [`AccidentRelease::screened_out`] rather than vanishing.
 
 # Errors
-[`Error::UnknownNuclide`] if a name is not in the supported table;
+[`Error::UnknownNuclide`] if **any** inventory name does not parse or is not
+in the supported table. Non-canonical spellings (`cs137`) are normalised, as
+upstream does. ~~(only when no nuclide survives)~~ **CORRECTED 2026-09-30
+(#449)**: unknown names were previously listed in `screened_out`;
 [`Error::TransientTooShort`] if the venting calculation has too little to
 work with; [`Error::VentingTimeNotOnAxis`] if the venting selection cannot
 be reconciled with the time axis.
@@ -814,8 +1286,10 @@ pub fn source_term_duration(term: &changi::activity::source::SourceTerm) -> uom:
 #### Constant `DIFFUSION_FIT_MIN_CELSIUS`
 
 Lower edge of the Arrhenius diffusion correlation's fitted range, degrees
-Celsius. Outside it `boon-lay` clamps rather than extrapolating; crossing it
-sets [`Caveats::diffusion_coefficient_clamped`].
+Celsius. Crossing it sets [`Caveats::diffusion_coefficient_clamped`].
+~~Outside it `boon-lay` clamps rather than extrapolating~~ **CORRECTED 2026-09-30 (#449):**
+`boon-lay` clamps only group-specific lower limits and extrapolates
+everything else; see that caveat's docs.
 
 ```rust
 pub const DIFFUSION_FIT_MIN_CELSIUS: f64 = 700.0;
@@ -851,9 +1325,12 @@ accident_temp = accident_temp[:, :-rmv, :]  # a PREFIX
 ```
 
 A selection of `k` elements and the first `k` elements are the same thing
-**only when the venting mask is a contiguous run starting at index 0.** For
-a monotonically heating transient it always is, which is why the defect
-survives: the reference case never exercises it.
+**only when the venting mask is a contiguous run starting at index 0.**
+~~For a monotonically heating transient it always is, which is why the
+defect survives~~ **CORRECTED 2026-09-30 (#449):** if *every* sample heats, upstream's
+`[:-0]` slice is empty, and it **raises `IndexError`** (#447). The pairing
+defect survives because upstream's reference cases heat and then cool,
+giving a contiguous prefix, and never reheat.
 
 On a transient that heats, cools and reheats, the mask is gappy and the two
 diverge — every venting sample after the gap gets paired with the
@@ -1092,10 +1569,28 @@ pub use release::accident_release_with_venting;
 pub use release::AccidentRelease;
 ```
 
+#### Re-export `NodeTemperatures`
+
+```rust
+pub use release::NodeTemperatures;
+```
+
+#### Re-export `NormalOperation`
+
+```rust
+pub use release::NormalOperation;
+```
+
 #### Re-export `PlantParameters`
 
 ```rust
 pub use release::PlantParameters;
+```
+
+#### Re-export `PrimaryCircuitPools`
+
+```rust
+pub use release::PrimaryCircuitPools;
 ```
 
 #### Re-export `Venting`
@@ -1438,9 +1933,9 @@ pub struct Caveats {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `first_sample_forced_fully_vented` | `bool` | Upstream's `coolant_release` hard-codes `frac[0] = 1`, so the **first<br>sample is always treated as fully vented** regardless of what the<br>integral says. Always true when a venting calculation ran; recorded so<br>the first window's release is not read as a physical result. |
-| `negative_atom_count_seen` | `bool` | A release somewhere in the chain went **negative**. Two different things<br>set this, and **they push the total in opposite directions**, so the<br>flag alone does not tell a reader which way the answer is wrong.<br><br>~~If this is set, at least one node-nuclide pair went negative and the<br>total is correspondingly under-stated.~~ **CORRECTED 2026-09-24** — that<br>was right for one of the two paths and wrong for the other:<br><br>1. **`release_activity` returning a negative atom count.** Upstream<br>   deliberately does not clamp it, and neither does this crate, so the<br>   negative propagates and the total is **under-stated**. This path<br>   needs a non-empty normal-operation pool to fire at all: with<br>   [`crate::accident::release::zero_pools`] every subtracted term is<br>   zero, so it cannot.<br>2. **A negative per-window first difference**, i.e. a *non-monotonic*<br>   cumulative release. That one is floored to zero at the<br>   [`changi::activity::source::SourceTerm`] boundary, which **raises**<br>   the sum of the windows above the cumulative endpoint — the total is<br>   **over-stated**.<br><br>Path 2 is reachable and is not hypothetical. **Silver** is the case:<br>the transient breakthrough release fraction<br>(`boon_lay::triso_atops_fork::release_models::transient::breakthrough_model_transient`)<br>rises, is then driven negative by its `−a/(2r)` time-lag term and<br>clamped to zero until breakthrough, and only then grows — so the<br>cumulative curie series falls over that stretch. Measured on the HTR-10<br>DLOFC case (`crate::htr10`, 2026-09-24): Ag-110m had **13 of 30 windows<br>negative**, and the windows sum to `2.503345e-2 Ci` against a cumulative<br>endpoint of `2.500569e-2 Ci` — **over-stated by a factor 1.0011**. No<br>other nuclide in that run had a single negative window. |
-| `diffusion_coefficient_clamped` | `bool` | The Arrhenius diffusion coefficient is **clamped, never extrapolated**,<br>outside roughly 700-2400 degrees Celsius. If this is set, the transient<br>spent time outside the fitted range and the release there is governed by<br>a held-constant `D`, not by the correlation. |
+| `first_sample_forced_fully_vented` | `bool` | Upstream's `coolant_release` hard-codes `frac[0] = 1`, so the **first<br>sample is always treated as fully vented** regardless of what the<br>integral says. ~~Always true when a venting calculation ran; recorded so<br>the first window's release is not read as a physical result.~~<br>**CORRECTED 2026-09-30 (#449):** set only when `coolant_release` ran, so it is false<br>for the uniform-constant branch, `FullFlowThrough` and `Prescribed`.<br>And the forced value does **not** enter the source term: the per-window<br>conversion starts from `cumulative[1]`, so `frac[0]` is never used.<br>It is informational. |
+| `negative_atom_count_seen` | `bool` | A release somewhere in the chain went **negative**. Two different things<br>set this, and **they push the total in opposite directions**, so the<br>flag alone does not tell a reader which way the answer is wrong.<br><br>~~If this is set, at least one node-nuclide pair went negative and the<br>total is correspondingly under-stated.~~ **CORRECTED 2026-09-24** — that<br>was right for one of the two paths and wrong for the other:<br><br>1. **`release_activity` returning a negative atom count.** Upstream<br>   deliberately does not clamp it, and neither does this crate, so the<br>   negative propagates and the total is **under-stated**. This path<br>   needs a non-empty normal-operation pool to fire at all: with<br>   [`crate::accident::release::zero_pools`] every subtracted term is<br>   zero, so it cannot. **Since #448 (2026-09-30) real pools are the<br>   default, so this path CAN fire** (measured: Cs-137 in the HTR-10<br>   DLOFC case), and the flag no longer tells a reader which direction<br>   the total is wrong.<br>2. **A negative per-window first difference**, i.e. a *non-monotonic*<br>   cumulative release. That one is floored to zero at the<br>   [`changi::activity::source::SourceTerm`] boundary, which **raises**<br>   the sum of the windows above the cumulative endpoint — the total is<br>   **over-stated**.<br><br>Path 2 is reachable and is not hypothetical. **Silver** is the case:<br>the transient breakthrough release fraction<br>(`boon_lay::triso_atops_fork::release_models::transient::breakthrough_model_transient`)<br>rises, is then driven negative by its `−a/(2r)` time-lag term and<br>clamped to zero until breakthrough, and only then grows — so the<br>cumulative curie series falls over that stretch. Measured on the HTR-10<br>DLOFC case (`crate::htr10`, 2026-09-24): Ag-110m had **13 of 30 windows<br>negative**, and the windows sum to `2.503345e-2 Ci` against a cumulative<br>endpoint of `2.500569e-2 Ci` — **over-stated by a factor 1.0011**. No<br>other nuclide in that run had a single negative window. |
+| `diffusion_coefficient_clamped` | `bool` | The transient left the correlation's nominal **700-2400 °C** fitted<br>range. ~~"clamped, never extrapolated"~~ **CORRECTED 2026-09-30 (#449):** `boon-lay`<br>clamps only group-specific **lower** limits (Rb/Cs kernel 700, graphite<br>550; Sr/Ba/Eu kernel 700, graphite 800; Ag/Pd graphite 490 °C). It never<br>clamps above, and never clamps Kr, Xe, I, Te or Se. So this flag<br>**over-flags** some nuclides (it is set for noble gases, which are<br>extrapolated, not clamped) and **misses** Sr graphite clamping between<br>700 and 800 °C. Read it as "outside the fitted range", not "clamped". |
 | `booth_transient_floored` | `bool` | The transient Booth solution **floors at about 1.216e-4** rather than<br>reaching zero, so a nuclide that should release essentially nothing<br>still shows a small release fraction.<br><br>**NOT WIRED — nothing in this crate ever sets this field, so it is<br>always `false` on a computed result.** Stated here because a reader<br>finding it in a caveat struct would reasonably assume the condition is<br>detected, and it is not: verified 2026-09-24 by searching the workspace<br>for writes to it, which occur only in this module's own tests. It is<br>kept rather than deleted because the underlying behaviour is real —<br>`boon_lay::...::release_models::transient::booth_transient` snaps below<br>`BOOTH_TRANSIENT_ZERO_FLOOR = 1e-6` — and detecting it needs the<br>release-fraction values, which<br>[`crate::accident::release::accident_release`] does not currently keep. |
 | `venting_mask_was_gappy` | `bool` | The venting mask was **not contiguous**. This is the condition under<br>which upstream's own prefix-versus-selection pairing goes wrong — see<br>[`crate::accident::venting`]. This crate does not have that defect, but<br>a result computed on a gappy mask cannot be compared against upstream's. |
 
@@ -1451,7 +1946,7 @@ pub struct Caveats {
 - ```rust
   pub const fn any(self: Self) -> bool { /* ... */ }
   ```
-  Whether anything worth reporting happened. Always true in practice —
+  Whether anything worth reporting happened. ~~Always true in practice —
 
 - ```rust
   pub fn lines(self: Self) -> Vec<&'static str> { /* ... */ }
@@ -2252,12 +2747,22 @@ Assemble [`PlantParameters`] for an HTR-10 DLOFC.
 
 - `coolant_pressure` is one atmosphere: this is a **depressurised**
   accident, which is what the transient shape describes.
-- `x_liftoff` is zero. `crate::accident::release::zero_pools` means the
-  accident starts with nothing plated out, so there is nothing to lift off
-  and any non-zero value here would be arithmetic on an empty pool. This
-  **under-predicts** the early release by whatever a real operating cycle
-  would have left in the circuit.
+- ~~`x_liftoff` is zero … `zero_pools` means the accident starts with
+  nothing plated out … **under-predicts**~~ **CORRECTED 2026-09-30 (#448):**
+  the accident now starts from real normal-operation pools, so a zero
+  lift-off would silently omit plate-out re-entrainment. `x_liftoff` is
+  **0.05, an NP-MHTGR stand-in** (Stoyer et al. 2026 Case A, Table 3). No
+  HTR-10 value is in the corpus; Liu & Cao 2002 instead assume desorption
+  of 2.4 × the coolant activity.
 - `clean_up_fitted` is `true`: HTR-10 has a helium purification system.
+- **Normal operation** ([`PrimaryCircuitPools::FromNormalOperation`]):
+  - `run_time` **20 y**: Liu & Cao 2002's circulating activity is "at the
+    end of 20 years of full-power operation";
+  - `irradiation_time` **1080 FPD**: `boon_lay::fuel_failure::htr10::RESIDENCE_FULL_POWER_DAYS`;
+  - `k_plate`, `k_clean`, `a_grain`: **NP-MHTGR stand-ins**
+    ([`NormalOperation::np_mhtgr_reference`]);
+  - fuel and graphite temperatures: **the 776 °C stand-in**
+    [`STAND_IN_IRRADIATION_CELSIUS`], uniform (#297).
 
 ```rust
 pub fn plant_parameters(geometry: Htr10Geometry, fractions: boon_lay::triso_atops_fork::accident::AccidentFractions) -> crate::accident::release::PlantParameters { /* ... */ }

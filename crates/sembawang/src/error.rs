@@ -80,8 +80,13 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub struct Caveats {
     /// Upstream's `coolant_release` hard-codes `frac[0] = 1`, so the **first
     /// sample is always treated as fully vented** regardless of what the
-    /// integral says. Always true when a venting calculation ran; recorded so
-    /// the first window's release is not read as a physical result.
+    /// integral says. ~~Always true when a venting calculation ran; recorded so
+    /// the first window's release is not read as a physical result.~~
+    /// **CORRECTED 2026-09-30 (#449):** set only when `coolant_release` ran, so it is false
+    /// for the uniform-constant branch, `FullFlowThrough` and `Prescribed`.
+    /// And the forced value does **not** enter the source term: the per-window
+    /// conversion starts from `cumulative[1]`, so `frac[0]` is never used.
+    /// It is informational.
     pub first_sample_forced_fully_vented: bool,
 
     /// A release somewhere in the chain went **negative**. Two different things
@@ -97,7 +102,10 @@ pub struct Caveats {
     ///    negative propagates and the total is **under-stated**. This path
     ///    needs a non-empty normal-operation pool to fire at all: with
     ///    [`crate::accident::release::zero_pools`] every subtracted term is
-    ///    zero, so it cannot.
+    ///    zero, so it cannot. **Since #448 (2026-09-30) real pools are the
+    ///    default, so this path CAN fire** (measured: Cs-137 in the HTR-10
+    ///    DLOFC case), and the flag no longer tells a reader which direction
+    ///    the total is wrong.
     /// 2. **A negative per-window first difference**, i.e. a *non-monotonic*
     ///    cumulative release. That one is floored to zero at the
     ///    [`changi::activity::source::SourceTerm`] boundary, which **raises**
@@ -116,10 +124,14 @@ pub struct Caveats {
     /// other nuclide in that run had a single negative window.
     pub negative_atom_count_seen: bool,
 
-    /// The Arrhenius diffusion coefficient is **clamped, never extrapolated**,
-    /// outside roughly 700-2400 degrees Celsius. If this is set, the transient
-    /// spent time outside the fitted range and the release there is governed by
-    /// a held-constant `D`, not by the correlation.
+    /// The transient left the correlation's nominal **700-2400 °C** fitted
+    /// range. ~~"clamped, never extrapolated"~~ **CORRECTED 2026-09-30 (#449):** `boon-lay`
+    /// clamps only group-specific **lower** limits (Rb/Cs kernel 700, graphite
+    /// 550; Sr/Ba/Eu kernel 700, graphite 800; Ag/Pd graphite 490 °C). It never
+    /// clamps above, and never clamps Kr, Xe, I, Te or Se. So this flag
+    /// **over-flags** some nuclides (it is set for noble gases, which are
+    /// extrapolated, not clamped) and **misses** Sr graphite clamping between
+    /// 700 and 800 °C. Read it as "outside the fitted range", not "clamped".
     pub diffusion_coefficient_clamped: bool,
 
     /// The transient Booth solution **floors at about 1.216e-4** rather than
@@ -146,9 +158,9 @@ pub struct Caveats {
 }
 
 impl Caveats {
-    /// Whether anything worth reporting happened. Always true in practice —
-    /// [`Self::first_sample_forced_fully_vented`] is set on every venting run —
-    /// which is the point.
+    /// Whether anything worth reporting happened. ~~Always true in practice —
+    /// [`Self::first_sample_forced_fully_vented`] is set on every venting run~~
+    /// (**CORRECTED 2026-09-30 (#449):** not set by the non-`coolant_release` venting modes).
     #[must_use]
     pub const fn any(self) -> bool {
         self.first_sample_forced_fully_vented

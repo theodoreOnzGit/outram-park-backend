@@ -15,6 +15,9 @@ exclude = ["docs", "verification_and_validation/*.csv"]
 uom             = { workspace = true }
 serde           = { workspace = true }
 serde-xml-rs    = { workspace = true }
+# JSON for reading upstream / GUI-written TRISO-ATOPS run files
+# (triso_atops_fork::run_file::upstream, #449). Pure Rust; wasm/Android-clean.
+serde_json      = { workspace = true }
 anyhow          = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
@@ -32,10 +35,10 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
-# JSON only for the run-file round-trip test. The library itself derives
-# Serialize/Deserialize and stays format-agnostic, so a consumer picks its own
-# serde format -- which also keeps the lib wasm/Android-clean.
-serde_json      = { workspace = true }
+# ~~JSON only for the run-file round-trip test; the library stays
+# format-agnostic.~~ UPDATED 2026-09-30 (#449): serde_json is now a library
+# dependency, because reading upstream's own run file (run_file::upstream) is
+# inherently JSON. The port's RunFile still derives serde and stays format-agnostic.
 log             = { workspace = true }
 csv             = { workspace = true }
 

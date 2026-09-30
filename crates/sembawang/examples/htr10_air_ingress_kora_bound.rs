@@ -39,11 +39,15 @@
 //! - Geometry: HTR-10's, from `tampines::pebble_bed` (TECDOC-1382 Table 4-17).
 //!
 //! **Known behaviours of the chain, reported, not corrected:**
-//! 1. **The primary-circuit pools start empty** (`zero_pools`). So the
-//!    TRISO-ATOPS release carries no circulating activity and no plate-out
-//!    lift-off, and under-predicts. The example therefore prints Liu & Cao
-//!    Table 3's circulating activity **beside** it, released at 100 % as in
-//!    #435, and a combined total.
+//! 1. ~~**The primary-circuit pools start empty** (`zero_pools`) … under-predicts~~
+//!    **CORRECTED 2026-09-30 (#448):** the release now starts from **real
+//!    normal-operation pools** (the new default, code-to-code verified against
+//!    upstream at 3.8e-12). HTR-10 has no sourced `k_plate`, `k_clean`,
+//!    `a_grain`, `x_liftoff` or normal-operation temperature, so those are
+//!    stand-ins (see `htr10::plant_parameters`). Liu & Cao's Table 3
+//!    circulating activity is still printed **beside** the release. It now
+//!    double-counts the model's own circuit term, which is conservative and
+//!    negligible here.
 //! 2. **A half-life screen drops nuclides with t½ < 4 % of the 140 h
 //!    transient** (≈ 5.6 h). The dropped ones are printed.
 //! 3. **TRISO-ATOPS releases by diffusion, not 100 %.** This is a realistic
@@ -64,57 +68,54 @@
 //!
 //! | Quantity | Value |
 //! |---|---|
-//! **Updated 2026-09-30:** the release window is now the **96 h dose
-//! period**. The failure fractions stay at their 140 h values.
+//! **Updated 2026-09-30 (third run):** real normal-operation pools (#448)
+//! and groundshine added. The release window is the **96 h dose period**; the
+//! failure fractions stay at their 140 h values. Earlier results are struck
+//! through below.
 //!
 //! | Quantity | Value |
 //! |---|---|
-//! | boon-lay increment Δφ_BL, 1400 °C for 140 h (T_B 776 °C stand-in) | **3.768e-7**: φ₁ 3.768e-7, φ₂ 0, end-of-irradiation φ₁ 1.2e-12 |
-//! | full-failure fraction | **2.0004e-3** = 3e-4 + 5e-4 + 3.768e-7 + 1.2e-3 |
-//! | share carried by KORA f_ox | **60.0 %** (boon-lay's is negligible, 0.02 %) |
+//! | boon-lay increment Δφ_BL, 1400 °C for 140 h (T_B 776 °C stand-in) | **3.768e-7** |
+//! | full-failure fraction | **2.0004e-3** = 3e-4 + 5e-4 + 3.768e-7 + 1.2e-3 (KORA, 60 %) |
 //! | SiC-only fraction (stand-ins) | 1.36e-4 |
-//! | TRISO-ATOPS release over the first 96 h | **1.741e13 Bq**. Upstream venting and `FullFlowThrough` agree exactly |
-//! | released / core: noble gases and I | **1.91e-4**, identical for every noble gas and iodine (one TRISO-ATOPS transport bucket; not decomposed here) |
-//! | released / core: Cs-134, Cs-137 | 1.68e-3 |
-//! | released / core: Sr-89, Sr-90 | 1.92e-5 |
-//! | released / core: **Ag-110m** | **2.49e-2** (breakthrough through intact SiC) |
-//! | Circulating activity (Liu & Cao Table 3), at 100 % | 5.75e9 Bq, negligible |
+//! | TRISO-ATOPS release over 96 h | **1.689e13 Bq**. Upstream venting and `FullFlowThrough` agree exactly |
+//! | released / core | noble gases and I **1.91e-4** (Kr-85 1.76e-4); Cs-134 1.49e-3; **Cs-137 1.02e-3** (~~1.68e-3~~ with empty pools); Sr 1.9e-5; **Ag-110m 2.49e-2** |
 //! | Screened out (t½ < 3.84 h) | Kr-83m, Kr-87, Kr-88, I-132, I-134 |
 //! | Not in TRISO-ATOPS's table | H-3, Xe-135m, Rb-88 |
-//! | Caveats | `negative_atom_count_seen` = true: the known silver floor, so Ag-110m is slightly **over**-stated |
+//! | Caveats | `negative_atom_count_seen` = true: silver and, since #448, Cs-137 (the path is not yet separated; see `htr10` tests) |
 //!
 //! **Maximum dose at 400 m, first 96 h** (adult; `buangkok`'s pyDOSEIA
-//! single-plume Gaussian, ground release, ground-level centreline, 1 m/s).
-//! Every release is taken to blow over the one receptor, with no change of
-//! wind direction:
+//! single-plume Gaussian, ground release, ground-level centreline, 1 m/s,
+//! class F, the largest χ/Q; the whole release blows over one point):
 //!
-//! | Quantity | Value |
-//! |---|---|
-//! | χ/Q by class, A→F (s/m³) | 4.66e-5, 1.28e-4, 2.57e-4, 6.28e-4, 1.24e-3, **2.857e-3** |
-//! | Class used | **F** (the largest, tested) |
-//! | Submersion (FGR-15 2025, all 14 nuclides) | **1.40 mSv** (I-135 0.70, I-133 0.32, Cs-134 0.11) |
-//! | Inhalation (FGR-11, B = 3.33e-4 m³/s) | **45.9 mSv**: I-131 15.8, Cs-137 9.55, Cs-134 6.22, I-133 6.06, Sr-90 3.43, Sr-89 2.66, Ag-110m 1.11, I-135 1.03 |
-//! | **Total** | **47.2 mSv** (~~≈ 28 mSv~~ before 2026-09-30's FGR-11 additions). Still an under-count, see below |
+//! | Pathway | Dose | Notes |
+//! |---|---|---|
+//! | Submersion (FGR-15) | **1.35 mSv** | I-135 0.70, I-133 0.32 |
+//! | Inhalation (FGR-11, B = 3.33e-4 m³/s) | **41.4 mSv** | I-131 15.8, I-133 6.06, Cs-137 5.81, Cs-134 5.52, Sr-90 3.45, Sr-89 2.66 |
+//! | **Groundshine (FGR-15, 96 h, new)** | **23.4 mSv** | I-133 5.90, Cs-134 5.22, I-131 4.38, I-135 3.65, Cs-137 2.97 |
+//! | **Total** | **66.1 mSv** | ~~47.2~~ (empty pools, no groundshine); ~~27.9~~ (with 3 FGR-11 nuclides) |
 //!
-//! **Maximum dose vs distance** (same assumptions and the same under-count; the
-//! worst class is re-chosen at each distance, and is F everywhere):
+//! Groundshine method: deposit `A = Ψ · v_d`, with pyDOSEIA's SRS-19
+//! velocities (noble gases 0, iodine and particulates 1000 m/d); present from
+//! t = 0; no weathering; decaying over 96 h,
+//! `E = A · DCF_gs · (1 − e^{−λT})/λ`. The plume is **not** depleted by the
+//! deposition. That errs high on both air and ground, and is stated.
+//!
+//! **Maximum dose vs distance** (same assumptions; class F everywhere):
 //!
 //! | Distance | 400 m | 600 m | 800 m | 1 km | 1.5 km | **2 km** | 3 km | 5 km | 10 km |
 //! |---|---|---|---|---|---|---|---|---|---|
-//! | Dose (mSv) | 47.2 | 24.0 | 14.8 | 10.2 | 5.27 | **3.41** | 1.91 | 0.95 | 0.39 |
+//! | Dose (mSv) | 66.1 | 33.5 | 20.8 | 14.3 | 7.38 | **4.78** | 2.67 | 1.33 | 0.54 |
 //!
-//! **The dose falls to 10 mSv at ≈ 1011 m** (bisection, class F). ~~27.9 mSv
-//! at 400 m, 2.01 at 2 km, 10 mSv at ≈ 738 m~~: those were before `buangkok`'s
-//! FGR-11 table gained I-133, I-135, Cs-134, Sr-89 and Sr-90 (2026-09-30).
+//! **The dose falls to 10 mSv at ≈ 1238 m** (~~1011 m~~ without groundshine
+//! and pools; ~~738 m~~ with 3 FGR-11 nuclides).
 //!
 //! **Under-counted, stated:**
 //! - ~~Inhalation for only Ag-110m, I-131, Cs-137~~ **fixed 2026-09-30**: every
 //!   released nuclide with an FGR-11 entry is now counted. The noble gases have
 //!   none by design (their dose is submersion).
-//! - Cs-137, Cs-134 and Ag-110m are probably **over**-stated by the empty
-//!   normal-operation pools (#448: ×1.6 for Cs-137, ×2 for Ag-110m in an
-//!   upstream case), so this total is high on its Cs part.
-//! - Not computed: groundshine (the plume is undepleted, #437), ingestion,
+//! - ~~Cs and Ag over-stated by empty pools~~: fixed by #448; see above.
+//! - Not computed: ingestion,
 //!   the screened-out short-lived nuclides (Kr-88, I-132, I-134 among them),
 //!   and H-3, Xe-135m, Rb-88.
 //!
@@ -152,13 +153,13 @@
 use boon_lay::fuel_failure::htr10 as panama_htr10;
 use buangkok::coefficients::{
     external_coefficient, fgr11_inhalation, fgr11_inhalation_max_over_classes,
-    fgr15_air_submersion, fgr15_short_lived_progeny,
+    fgr15_air_submersion, fgr15_ground_surface, fgr15_short_lived_progeny,
 };
 use buangkok::pydoseia::dcf::AgeBracket;
 use buangkok::pydoseia::dispersion::{
     dilution_single_plume_no_met, MeanSpeedScaling, PlumeGeometry, Receptor, StabilityClass,
 };
-use buangkok::pydoseia::dose::{submersion_dose, Release};
+use buangkok::pydoseia::dose::{deposition_velocity_m_per_s, submersion_dose, Release};
 use buangkok::published::accident_dose_by_distance::htr10_accident_dose_by_distance;
 use boon_lay::triso_atops_fork::accident::AccidentFractions;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
@@ -365,7 +366,8 @@ fn main() {
             .map_or(f64::NAN, |e| e.activity.get::<becquerel>())
     };
 
-    println!("-- 3. release [Bq] over the first {DOSE_PERIOD_HOURS} h: TRISO-ATOPS (empty pools) + circulating (100 %)");
+    println!("-- 3. release [Bq] over the first {DOSE_PERIOD_HOURS} h: TRISO-ATOPS (real normal-operation pools, #448) + Liu & Cao circulating (100 %)");
+    println!("   (the Liu & Cao column DOUBLE-COUNTS the model's own circuit term: conservative, and negligible here)");
     println!("   nuclide     core inventory   TRISO-ATOPS    + circulating   = total     total/core");
     let mut order: Vec<&(String, f64)> = atops.iter().collect();
     order.sort_by_key(|(n, _)| HEADLINE.iter().position(|h| h == n).unwrap_or(HEADLINE.len()));
@@ -400,7 +402,7 @@ fn main() {
         c.diffusion_coefficient_clamped,
         c.venting_mask_was_gappy
     );
-    println!("   pools start EMPTY (zero_pools): no plate-out lift-off; circulating added by hand above.");
+    println!("   pools: real normal-operation pools (#448; HTR-10 stand-ins, see htr10::plant_parameters), x_liftoff 0.05 (stand-in).");
     println!(
         "   venting: Upstream (uniform-constant branch, frac = 1) total {total_atops:.4e} Bq; \
          FullFlowThrough total {ff_total:.4e} Bq (must agree)"
@@ -439,8 +441,11 @@ fn main() {
     let sub_table = fgr15_air_submersion();
     let chains = fgr15_short_lived_progeny();
     let inh_table = fgr11_inhalation();
-    println!("   nuclide     Q [Bq]       Psi [Bq s/m3]   submersion [Sv]   inhalation [Sv]   total [Sv]");
-    let (mut e_sub_sum, mut e_inh_sum) = (0.0, 0.0);
+    let gs_table = fgr15_ground_surface();
+    let exposure_s = DOSE_PERIOD_HOURS * 3600.0;
+    println!("   nuclide     Q [Bq]       Psi [Bq s/m3]   submersion [Sv]   inhalation [Sv]   groundshine [Sv]   total [Sv]");
+    let (mut e_sub_sum, mut e_inh_sum, mut e_gs_sum) = (0.0, 0.0, 0.0);
+    let mut missing_gs = Vec::new();
     let mut missing_sub = Vec::new();
     let mut missing_inh = Vec::new();
     for (n, bq) in &atops {
@@ -453,13 +458,34 @@ fn main() {
         // used; buangkok's inhalation_dose hard-codes pyDOSEIA's rate.
         let e_inh = fgr11_inhalation_max_over_classes(&inh_table, n, AgeBracket::Adult)
             .map(|dcf| psi * dcf * BREATHING_M3_PER_S);
+        // Groundshine: deposit A = Psi * v_d [Bq/m2] (pyDOSEIA's SRS-19
+        // velocities; the plume is NOT depleted by it, which errs high), present
+        // from t = 0, no weathering, decaying over the dose period:
+        // E = A * DCF_gs * (1 - exp(-lambda T)) / lambda.
+        let element = n.split('-').next().unwrap_or("");
+        let v_d = deposition_velocity_m_per_s(element);
+        let lam = find_nuclide(n)
+            .map(|x| x.decay_constant().get::<uom::si::frequency::hertz>())
+            .unwrap_or(0.0);
+        let decay_integral = if lam > 0.0 { -(-lam * exposure_s).exp_m1() / lam } else { exposure_s };
+        let e_gs = if v_d == 0.0 {
+            Some(0.0)
+        } else {
+            external_coefficient(&gs_table, &chains, n, AgeBracket::Adult)
+                .map(|dcf| psi * v_d * dcf * decay_integral)
+        };
         let fmt = |e: Option<f64>| e.map_or_else(|| "MISSING".to_string(), |v| format!("{v:.3e}"));
         println!(
-            "   {n:<10} {q:>11.3e}   {psi:>13.3e}   {:>15}   {:>15}   {:>10.3e}",
+            "   {n:<10} {q:>11.3e}   {psi:>13.3e}   {:>15}   {:>15}   {:>16}   {:>10.3e}",
             fmt(e_sub),
             fmt(e_inh),
-            e_sub.unwrap_or(0.0) + e_inh.unwrap_or(0.0)
+            fmt(e_gs),
+            e_sub.unwrap_or(0.0) + e_inh.unwrap_or(0.0) + e_gs.unwrap_or(0.0)
         );
+        match e_gs {
+            Some(v) => e_gs_sum += v,
+            None => missing_gs.push(n.as_str()),
+        }
         match e_sub {
             Some(v) => e_sub_sum += v,
             None => missing_sub.push(n.as_str()),
@@ -470,13 +496,15 @@ fn main() {
         }
     }
     println!(
-        "   TOTAL over nuclides WITH a coefficient: submersion {e_sub_sum:.3e} Sv, inhalation {e_inh_sum:.3e} Sv, sum {:.3e} Sv = {:.3e} mSv",
-        e_sub_sum + e_inh_sum,
-        1e3 * (e_sub_sum + e_inh_sum)
+        "   TOTAL over nuclides WITH a coefficient: submersion {e_sub_sum:.3e} Sv, inhalation {e_inh_sum:.3e} Sv, \
+         groundshine ({DOSE_PERIOD_HOURS} h) {e_gs_sum:.3e} Sv, sum {:.3e} Sv = {:.3e} mSv",
+        e_sub_sum + e_inh_sum + e_gs_sum,
+        1e3 * (e_sub_sum + e_inh_sum + e_gs_sum)
     );
+    println!("   no groundshine coefficient (NOT zero, missing): {missing_gs:?}");
     println!("   no submersion coefficient (NOT zero, missing): {missing_sub:?}");
     println!("   no inhalation coefficient (FGR-11 adult; noble gases have none by design): {missing_inh:?}");
-    println!("   NOT computed: groundshine (the plume is undepleted, #437), ingestion, the screened-out");
+    println!("   NOT computed: ingestion, the screened-out");
     println!("   short-lived nuclides, and H-3 / Xe-135m / Rb-88 (not in TRISO-ATOPS).");
 
     // Calculated reference, not validation: Liu & Cao Table 9 (AIRDOS-EPA, measured
@@ -495,7 +523,7 @@ fn main() {
     // The release is fixed, so every pathway above is linear in chi/Q: the dose
     // at x is (dose at 400 m) * maxchi(x) / maxchi(400 m), with the worst class
     // re-chosen at each x. Same under-count as section 5 (missing coefficients).
-    let dose_per_chi = (e_sub_sum + e_inh_sum) / worst.1;
+    let dose_per_chi = (e_sub_sum + e_inh_sum + e_gs_sum) / worst.1;
     println!("\n-- 6. MAXIMUM dose vs distance, first {DOSE_PERIOD_HOURS} h (same under-count as section 5)");
     println!("   distance [m]   class   chi/Q [s/m3]    dose [mSv]");
     for x in SWEEP_M {

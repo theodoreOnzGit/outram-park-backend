@@ -1195,7 +1195,8 @@ pub(crate) fn transport_history_vr(
     // **non-relativistic** — `sqrt(2E/m)`. That is 1.1 % low in `v` at 20 MeV
     // and negligible below, and it is the same helper the `InverseVelocity`
     // score already uses, so the two cannot disagree with each other.
-    let mut time_s = 0.0_f64;
+    // Set from each popped particle's birth time before it is read.
+    let mut time_s: f64;
     // **Sampled on a SEPARATE stream, by jump-ahead**
     // (gh:#262). Drawing the precursor group from the
     // main stream would consume two variates per
@@ -1223,7 +1224,8 @@ pub(crate) fn transport_history_vr(
     // `advance_prn_seed(data::nuclides.size(), ..)` after a collision that
     // changed `E` (`physics.cpp`).
     let mut urr_seed = crate::rng::lcg::future_seed(URR_STRIDE, *seed);
-    let mut urr_e_last = f64::NAN;
+    // Reset for each popped particle before it is read (see the pop below).
+    let mut urr_e_last: f64;
     let mut neg_dist: u64 = 0;
     let mut neg_level: u64 = 0;
     let mut neg_worst = 0.0_f64;

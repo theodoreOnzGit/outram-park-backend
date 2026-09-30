@@ -45,7 +45,9 @@
 //! separate step and is **not** claimed here — it needs a public benchmark ~~and
 //! the still-scaffolded accident/JSON driver, bead op-b4a.2.3~~. **CORRECTED
 //! 2026-09-28** — the accident/JSON driver is no longer scaffolded: it was
-//! ported on 2026-09-21 as `run_file::{RunFile, RunConfig}` and
+//! ported on 2026-09-21 as `run_file::{RunFile, RunConfig}` (**CORRECTED 2026-09-30 (#449):**
+//! the port's own format; upstream-format files are read by
+//! `run_file::upstream`) and
 //! `accident::accident_release_curies`, and the end-to-end `accident_case`
 //! composition is verified against upstream `de374c8` in the third pass of
 //! `docs/triso-atops-code-to-code.md`.)

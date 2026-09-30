@@ -38,7 +38,9 @@
 //! - **DBRC worth here:** −21.1 ± 42.4 pcm.
 //!
 //! The routes agree within statistics. Resolving a ~50 pcm gap at 3σ would
-//! need about 4× the seeds. Timing:
+//! need about 4× the seeds. Timing (hardware: Intel i9-13900K, 32 logical
+//! cores, 3 threads used, 62 GiB RAM, Linux 7.2.6, CPU only; the machine was
+//! shared with other runs):
 //! - building the ACE library: 183 s and 312 MB;
 //! - reading it back: 0.7 s;
 //! - the ENDF route: 57 s.

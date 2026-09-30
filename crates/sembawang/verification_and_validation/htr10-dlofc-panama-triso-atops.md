@@ -193,8 +193,15 @@ Venting spans only the **heating** leg (upstream's `coolant_release` selects
 | Cs-137 | 6.920·10¹⁴ | 2.395·10¹⁰ | 3.461·10⁻⁵ | 2.394·10¹⁰ | 1.0004 |
 | Ag-110m | 2.160·10¹² | 5.407·10⁴ | 2.503·10⁻⁸ | 5.407·10⁴ | 1.0000 |
 
-**Total over the 19 modelled nuclides: 1.8762·10¹¹ Bq with PANAMA,
-1.8747·10¹¹ Bq ablated — ratio 1.0008.**
+~~**Total over the 19 modelled nuclides: 1.8762·10¹¹ Bq with PANAMA,
+1.8747·10¹¹ Bq ablated — ratio 1.0008.**~~ **RE-MEASURED 2026-09-30 (#448):**
+the release now starts from real normal-operation pools by default (HTR-10
+stand-ins; `htr10::plant_parameters`, `x_liftoff` 0.05). The total is
+**1.7054·10¹¹ Bq with PANAMA and 1.7040·10¹¹ Bq ablated**, and the **ratio is
+unchanged at 1.0008**. The finding below stands. **The per-nuclide table
+above is the 2026-09-24 empty-pool measurement and has not been re-tabulated**;
+Cs-137 moves most (pools ×0.6 in the air-ingress case). Re-run
+`htr10_dlofc_panama_source_term` for the current per-nuclide values.
 
 ### 4.1 The headline result: at HTR-10's DLOFC the seam is negligible, and that is the finding
 

@@ -33,8 +33,12 @@
 //!
 //! # Unit convention
 //!
-//! The JSON carries **bare numbers**, and upstream attaches units positionally
-//! through a parallel `const_units` list: lengths in metres, rate constants in
+//! **This port's own [`RunFile`]** carries **bare numbers**, with the units
+//! fixed. ~~and upstream attaches units positionally through a parallel
+//! `const_units` list~~ **CORRECTED 2026-09-30 (#449):** upstream's own file carries
+//! `[value, unit]` pairs. It **checks** each unit against `const_units`, and
+//! converts `run_time` / `irradiation_time` from whatever `convert_time` unit
+//! the file names (see [`upstream`]). In this port's format the units are: lengths in metres, rate constants in
 //! s⁻¹, and **`run_time` and `irradiation_time` in years**. Those two are the
 //! trap — a caller who assumes seconds is out by a factor of 3.15e7 — so
 //! [`RunFile::to_config`] converts them explicitly and the field docs say so.
@@ -139,7 +143,10 @@ pub enum RunFileError {
 /// The run file exactly as it appears on disk.
 ///
 /// Field names match the JSON keys upstream's `required_keys` /
-/// `accident_keys` lists demand, so `serde` reads a GUI-written file directly.
+/// `accident_keys` lists demand. ~~so `serde` reads a GUI-written file
+/// directly~~ **CORRECTED 2026-09-30 (#449):** it does **not**. Upstream writes constants as
+/// `[value, unit]` pairs and tables as CSV paths, which this struct rejects.
+/// Use [`upstream::read_upstream_run_file`] for those files.
 /// Every quantity is a bare number here; [`RunFile::to_config`] is what
 /// attaches units and validates.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -440,6 +447,9 @@ impl RunFile {
         })
     }
 }
+
+/// Reading an upstream / GUI-written run file (#449).
+pub mod upstream;
 
 #[cfg(test)]
 mod tests {

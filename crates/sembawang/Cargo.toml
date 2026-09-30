@@ -33,6 +33,8 @@ uom       = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+# Reads boon-lay's upstream code-to-code probes (tests/nuclide_names_code_to_code.rs).
+serde_json = { workspace = true }
 # Examples and tests ONLY. The published HTR-10 pebble and TRISO particle
 # dimensions live in `tampines::pebble_bed` (IAEA-TECDOC-1382 part 2
 # Table 4-17) and must not be copied into this crate, so the HTR-10 case reads
