@@ -139,7 +139,8 @@ members = [
     "crates/buangkok",
     # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
     # The low-fidelity counterpart of dhoby-ghaut (maintainer, 2026-09-25).
-    # EMPTY SKELETON: details undecided, no code, no deps.
+    # First model (2026-09-25, merged 2026-09-30): a deck-driven steam-methane-
+    # reforming CSTR on outram-park-fork-dwsim-libs; see crates/dover/README.md.
     "crates/dover",
 ]
 

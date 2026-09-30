@@ -18,8 +18,9 @@ studio that needs a quantity the solver crates do not expose gets it added
 there.
 
 Its **low-fidelity counterpart is [DOVER](../dover/README.md)** (maintainer,
-2026-09-25), which fills the same role over low-fidelity models. DOVER is an
-empty skeleton for now.
+2026-09-25), which fills the same role over low-fidelity models. ~~DOVER is an
+empty skeleton for now.~~ **CORRECTED 2026-09-30**: its first model, a
+deck-driven steam-methane-reforming CSTR, is merged.
 
 ## What is here
 
