@@ -16,9 +16,13 @@ boon-lay (TRISO release) -> SEMBAWANG source term -> CHANGI (air, ground) -> RED
 
 Wired in today: `boon-lay`, `changi` and, since 2026-09-30, `buangkok`. Not yet:
 `raffles` (#238) and `redhill` (a placeholder). ~~**No dose is computed**~~
-**UPDATED 2026-09-30:** the library still computes no dose. One example,
+**UPDATED 2026-09-30:** ~~the library still computes no dose.~~ One example,
 `examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose at
-400 m through `buangkok`'s Gaussian plume. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
+400 m through `buangkok`'s Gaussian plume. **CORRECTED 2026-09-30 (#452):** the
+library module `lwr_comparison` now computes a research-grade dose through
+the same `buangkok` chain. It places the HTR-10 bounding air-ingress case
+beside LWR counterparts (NUREG-1465, RG 1.183 per unit leak rate, WASH-1400
+PWR 8) at equal power: `examples/lwr_nureg1465_counterpart.rs`. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
 
 ## What exists, and what does not
 

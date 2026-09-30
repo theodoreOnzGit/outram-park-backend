@@ -31,6 +31,12 @@ is now a dependency (maintainer direction), and **one example**,
 `examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose
 at distance through `buangkok`'s Gaussian plume and FGR coefficients. The
 dose arithmetic is `buangkok`'s, not this crate's.
+**UPDATED again 2026-09-30 (#452, #453):** [`lwr_comparison`] is library
+code that calls that same `buangkok` arithmetic, so that the HTR-10
+bounding air-ingress case and its LWR counterparts (NUREG-1465, RG 1.183,
+WASH-1400 PWR 8) reach the example and `htgr_sim_v1` from one function.
+~~"The library computes no dose quantity"~~ no longer holds for that
+module; the dose there is research-grade and indicative only.
 
 # STATUS: partially implemented, and the unimplemented part is the larger one
 
@@ -117,9 +123,17 @@ intent, not of progress.
   ingrowth.
 - **Containment transport, pool scrubbing or iodine chemistry.** What leaves
   the fuel is treated as what leaves the building.
-- **Any dose quantity in the library**, here or in [`changi`]. The library
+- ~~**Any dose quantity in the library**, here or in [`changi`]. The library
   chain stops at activity in air and on the ground. Dose comes from
-  `buangkok`, and is used only by the `htr10_air_ingress_kora_bound` example.
+  `buangkok`, and is used only by the `htr10_air_ingress_kora_bound` example.~~
+  **CORRECTED 2026-09-30 (#452):** [`lwr_comparison::max_dose`] computes a
+  research-grade dose through `buangkok`'s plume and FGR coefficients, for
+  the `lwr_nureg1465_counterpart` example and `htgr_sim_v1` (#453). The
+  HTR-10 source-term chain itself still stops at activity.
+  [`lwr_comparison::rg1183_containment_leakage`] is a one-node LWR
+  containment leak for RG 1.183's method only, with no removal credit. It
+  is not HTR containment transport, which the entry above still says does
+  not exist.
 
 # Intended use, and what it will never be for
 
@@ -3229,6 +3243,957 @@ pub struct CoreInventory {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `lwr_comparison`
+
+# HTR-10 bounding air ingress against an equivalent-power LWR (GitHub #450, #452, #453)
+
+> **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Nothing here
+> is a source term, a dose or a siting argument for HTR-10, NuScale or any
+> plant. The HTR-10 arm is a **bounding case, not a transient** (#420); the
+> LWR arms are **published design / risk-study source terms with different
+> accident physics** (#450). The comparison puts them through the **same**
+> dispersion and dose arithmetic so the difference is the source term alone.
+
+One library function per arm, so the `lwr_nureg1465_counterpart` example
+and `htgr_sim_v1`'s map read the same numbers (maintainer direction,
+#452/#453):
+
+| Arm | Function | Boundary | What it is |
+|---|---|---|---|
+| HTR-10 bounding air ingress | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
+| LWR, NUREG-1465 | [`nureg1465_pwr_into_containment`] | **into containment** | Table 3.13 (PWR), all four phases or gap + early in-vessel |
+| LWR, RG 1.183 Rev. 1 | [`rg1183_pwr_into_containment`], [`rg1183_containment_leakage`] | into containment; then **to the environment** at the TS leak rate `L_a` | Table 2 (MHA LOCA), Table 5 timing, Appendix A-2.7 leakage |
+| LWR, WASH-1400 PWR 8 | [`wash1400_pwr8_to_atmosphere`] | **to the atmosphere** | Table 5-1: gap release, containment not isolated, no core melt -- the closest analogue to the HTR-10 bound (#451) |
+
+The LWR inventory is NuScale's Table B-5 (one module) scaled by thermal
+power, [`pwr_inventory_scaled`]; the 160 MWt module power is the
+maintainer's attribution (see the CSV header).
+
+**`L_a` is plant-specific and not in RG 1.183.** [`rg1183_containment_leakage`]
+takes it as an input and also returns the release per unit `L_a`
+(the small-leak limit), so a caller without a sourced `L_a` reports
+"per 1 %/day" rather than inventing one.
+
+**Removal credit taken in containment: none.** RG 1.183 Appendix A-2.2
+to A-2.6 *allow* natural deposition, sprays, filters and scrubbing, each
+with its own model; none is credited here (conservative), and the iodine
+species split (A-1.1: 95 % CsI, 4.85 % elemental, 0.15 % organic) is
+therefore not needed for transport. Decay during hold-up is applied.
+
+Dose: [`max_dose`], the same `buangkok` single-plume Gaussian, FGR-15
+submersion and groundshine, FGR-11 inhalation, adult, worst stability class
+at 1 m/s, as `examples/htr10_air_ingress_kora_bound.rs`, whose chain
+[`htr10_air_ingress_bound`] reproduces.
+
+```rust
+pub mod lwr_comparison { /* ... */ }
+```
+
+### Modules
+
+## Module `bound`
+
+The bounding case's constants, with the sources of
+`examples/htr10_air_ingress_kora_bound.rs` (the maintainer's bounding case
+B, 2026-09-30): whole core 1400 °C for 140 h, every particle exposed.
+
+```rust
+pub mod bound { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `HOLD_CELSIUS`
+
+Hold temperature \[°C\].
+
+```rust
+pub const HOLD_CELSIUS: f64 = 1400.0;
+```
+
+#### Constant `HOLD_HOURS`
+
+Hold duration the failure fractions are taken at \[h\].
+
+```rust
+pub const HOLD_HOURS: f64 = 140.0;
+```
+
+#### Constant `F_HM`
+
+f_hm, Liu & Cao 2002 s.2.1 (HTR-10 design free uranium).
+
+```rust
+pub const F_HM: f64 = 3.0e-4;
+```
+
+#### Constant `F_INC`
+
+f_inc, Liu & Cao 2002 s.2.1 (design irradiation failure).
+
+```rust
+pub const F_INC: f64 = 5.0e-4;
+```
+
+#### Constant `F_SIC_STAND_IN`
+
+f_sic, **stand-in** (NP-MHTGR reference; no HTR-10 value).
+
+```rust
+pub const F_SIC_STAND_IN: f64 = 1.0e-4;
+```
+
+#### Constant `F_INC_SIC_STAND_IN`
+
+f_inc_sic, **stand-in** (NP-MHTGR).
+
+```rust
+pub const F_INC_SIC_STAND_IN: f64 = 3.6e-5;
+```
+
+#### Constant `F_OX_KORA`
+
+KORA AVR 92/22: about 20 of 16 400 particles failed in air at 1400 °C
+for 140 h (IAEA-TECDOC-978 Table 5-7 = Kugeler 2017 Table 9).
+
+```rust
+pub const F_OX_KORA: f64 = 1.2e-3;
+```
+
+#### Constant `BL_STEPS`
+
+boon-lay fuel-failure integration steps over the hold.
+
+```rust
+pub const BL_STEPS: usize = 200;
+```
+
+### Types
+
+#### Type Alias `Releases`
+
+Activity released per nuclide \[Bq\].
+
+```rust
+pub type Releases = Vec<(String, f64)>;
+```
+
+#### Enum `N1465Phases`
+
+Which NUREG-1465 phases to include.
+
+```rust
+pub enum N1465Phases {
+    GapAndEarlyInVessel,
+    All,
+}
+```
+
+##### Variants
+
+###### `GapAndEarlyInVessel`
+
+Gap + early in-vessel (the part a design-basis LOCA conventionally uses).
+
+###### `All`
+
+All four phases (gap, early in-vessel, ex-vessel, late in-vessel).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> N1465Phases { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &N1465Phases) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Leakage`
+
+RG 1.183 containment -> environment for one leak rate.
+
+```rust
+pub struct Leakage {
+    pub at_la: Option<Releases>,
+    pub per_percent_per_day: Releases,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `at_la` | `Option<Releases>` | Released to the environment at the given `L_a` \[Bq per nuclide\];<br>`None` when no `L_a` was supplied. |
+| `per_percent_per_day` | `Releases` | Released per unit `L_a` in the small-leak limit \[Bq per nuclide per<br>(1 %/day)\] -- what a caller without a sourced `L_a` reports. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Leakage { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Group`
+
+The comparison's reporting groups.
+
+```rust
+pub enum Group {
+    NobleGases,
+    Halogens,
+    AlkaliMetals,
+    Tellurium,
+    BariumStrontium,
+    Silver,
+    Other,
+}
+```
+
+##### Variants
+
+###### `NobleGases`
+
+Xe, Kr.
+
+###### `Halogens`
+
+I, Br.
+
+###### `AlkaliMetals`
+
+Cs, Rb.
+
+###### `Tellurium`
+
+Te, Sb, Se.
+
+###### `BariumStrontium`
+
+Ba, Sr.
+
+###### `Silver`
+
+Ag, Pd (HTR-10's silver; not a NUREG-1465 group).
+
+###### `Other`
+
+Everything else (noble metals, lanthanides, cerium, Mo).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn of(nuclide: &str) -> Group { /* ... */ }
+  ```
+  The group of a nuclide label.
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  A short label.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Group { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Group) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DoseAssumptions`
+
+The site and dose assumptions every arm shares -- those of
+`examples/htr10_air_ingress_kora_bound.rs`.
+
+```rust
+pub struct DoseAssumptions {
+    pub release_height_m: f64,
+    pub measurement_height_m: f64,
+    pub breathing_m3_per_s: f64,
+    pub exposure_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `release_height_m` | `f64` | Release height \[m\]: **0, ground level**, for every arm (the HTR-10<br>example's; an LWR containment leak is also conventionally a ground-level<br>release). Kept identical so the comparison is like-for-like. |
+| `measurement_height_m` | `f64` | Wind measurement height \[m\]. |
+| `breathing_m3_per_s` | `f64` | Adult breathing rate \[m^3/s\] (FGR-11 convention, 20 L/min). |
+| `exposure_s` | `f64` | Groundshine exposure period \[s\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn bounding_example() -> Self { /* ... */ }
+  ```
+  The HTR-10 bounding example's: ground release, 10 m wind, 20 L/min,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DoseAssumptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Dose`
+
+A maximum dose at one distance.
+
+```rust
+pub struct Dose {
+    pub class: buangkok::pydoseia::dispersion::StabilityClass,
+    pub chi_over_q: f64,
+    pub total_sv: f64,
+    pub by_group: Vec<(Group, f64)>,
+    pub missing: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `class` | `buangkok::pydoseia::dispersion::StabilityClass` | Worst stability class at 1 m/s (largest chi/Q). |
+| `chi_over_q` | `f64` | chi/Q used \[s/m^3\]. |
+| `total_sv` | `f64` | Total over nuclides with coefficients \[Sv\]. |
+| `by_group` | `Vec<(Group, f64)>` | By group \[Sv\]. |
+| `missing` | `Vec<String>` | Nuclides lacking a coefficient on some pathway (NOT counted as zero). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Dose { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `htr10_air_ingress_bound`
+
+The HTR-10 bounding air-ingress release over `window` \[Bq per nuclide\]:
+boon-lay fuel failure at 1400 °C/140 h plus KORA f_ox as the accident
+increment, TRISO-ATOPS release (real normal-operation pools, #448) of the
+Liu & Cao Table 1 inventory under a flat 1400 °C hold over the window,
+**plus** Liu & Cao Table 3's circulating activity released at 100 %
+(conservative; it double-counts the model's own circuit term, as the
+example states). The chain of `examples/htr10_air_ingress_kora_bound.rs`.
+
+`geometry` is HTR-10's (the caller reads it from `tampines::pebble_bed`).
+
+# Errors
+If the release chain rejects its inputs.
+
+```rust
+pub fn htr10_air_ingress_bound(geometry: crate::htr10::Htr10Geometry, window: uom::si::f64::Time) -> Result<Releases, crate::Error> { /* ... */ }
+```
+
+#### Function `pwr_inventory_scaled`
+
+NuScale Table B-5 (one module) scaled to `thermal_power_mwth` \[Bq\].
+
+```rust
+pub fn pwr_inventory_scaled(thermal_power_mwth: f64) -> Releases { /* ... */ }
+```
+
+#### Function `nureg1465_pwr_into_containment`
+
+NUREG-1465 Table 3.13 PWR release **into containment** \[Bq per nuclide\].
+Nuclides whose element has no Table 3.8 group are omitted.
+
+```rust
+pub fn nureg1465_pwr_into_containment(inventory: &Releases, phases: N1465Phases) -> Releases { /* ... */ }
+```
+
+#### Function `rg1183_pwr_into_containment`
+
+RG 1.183 Rev. 1 Table 2 PWR release **into containment** (gap + early
+in-vessel) \[Bq per nuclide\], no decay.
+
+```rust
+pub fn rg1183_pwr_into_containment(inventory: &Releases) -> Releases { /* ... */ }
+```
+
+#### Function `rg1183_containment_leakage`
+
+**RG 1.183 Rev. 1 containment leakage to the environment** over `window`.
+
+- Source into the well-mixed containment: Table 2 fractions, released
+  **linearly** over each Table 5 phase (gap 0.5 min -> 0.23 h, early
+  in-vessel 0.23 -> 4.5 h; the RG's stated default), release terminating
+  at the end of early in-vessel (Appendix A-2.1).
+- Leakage (Appendix A-2.7): `L_a` for the first 24 h, `L_a / 2` after (PWR).
+- Removal: **none credited** (module doc). Radioactive decay applied.
+- `leak_rate_percent_per_day`: the plant's TS `L_a`. **Plant-specific, not
+  in RG 1.183; never defaulted here.** `None` -> only the per-unit result.
+
+Integrated by explicit exponential steps of 60 s (`dA/dt = S - (lambda +
+L) A`, released `= integral L A dt`).
+
+```rust
+pub fn rg1183_containment_leakage(inventory: &Releases, leak_rate_percent_per_day: Option<f64>, window: uom::si::f64::Time) -> Leakage { /* ... */ }
+```
+
+#### Function `wash1400_pwr8_to_atmosphere`
+
+WASH-1400 Table 5-1 PWR 8 release **to the atmosphere** \[Bq per nuclide\].
+Iodine = the I column + the organic-I column.
+
+```rust
+pub fn wash1400_pwr8_to_atmosphere(inventory: &Releases) -> Releases { /* ... */ }
+```
+
+#### Function `max_dose`
+
+Maximum dose at `x_m` from `releases`, the whole release passing the
+receptor at the worst class, 1 m/s: submersion (FGR-15) + inhalation
+(FGR-11, max over classes) + groundshine (FGR-15, deposited at buangkok's
+velocity, decaying over the exposure period). The arithmetic of
+`examples/htr10_air_ingress_kora_bound.rs` section 5.
+
+```rust
+pub fn max_dose(releases: &Releases, x_m: f64, a: DoseAssumptions) -> Dose { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `NUSCALE_MODULE_MWTH`
+
+NuScale module thermal power the Table B-5 inventory is attributed to
+\[MWth\] -- **the maintainer's attribution**, not stated in the document
+(see the CSV header).
+
+```rust
+pub const NUSCALE_MODULE_MWTH: f64 = 160.0;
+```
+
 ## Module `scenario`
 
 The prescribed temperature transient.
