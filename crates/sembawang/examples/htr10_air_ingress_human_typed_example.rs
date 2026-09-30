@@ -355,6 +355,11 @@ fn main() {
     // Rb-88
     //
     // we may need to think about H-3 here... it is missing
+    //
+    // but as it stands, it is about 0.3% of Sr+Cs activity.
+    // negligible in other words compared to them 
+    //
+    // but for KP-FHR, one may have to reconsider
     println!("TRISO-ATOPS lacks support for these nuclides:");
     dbg!(&triso_atops_unsupported_nuclides);
 
@@ -433,23 +438,49 @@ fn main() {
     // Upstream venting: a uniform constant hold takes upstream's frac = 1 branch
     // (restored 2026-09-30, #446). FullFlowThrough is this workspace's explicit
     // conservative mode; on an isothermal hold the two must agree.
-    let out = accident_release(&nuclide_inventory, &flat_hold(), &plant_parameters).expect("the release chain runs");
-    let out_ff =
-        accident_release_with_venting(&nuclide_inventory, &flat_hold(), &plant_parameters, &Venting::FullFlowThrough)
-            .expect("the release chain runs");
-    let ff_total: f64 = out_ff
+    //
+    // the accident_release code 
+    // This takes in nuclide inventory, transient progression 
+    // parameter supplied and works out release in becquerels
+    let release_bq = accident_release(&nuclide_inventory, &flat_hold(), &plant_parameters).expect("the release chain runs");
+    // suppose for air ingress, we have an isothermal temperature 
+    //
+    // normally if vessel heats up, gas expands, then it forces 
+    // some radionuclides out
+    //
+    // but then, for isothermal cases, radionuclides should also physically 
+    // transfer out due to convection and such
+    //
+    // This is the venting phenomena described here 
+    // venting is not going to rely on temperature changes,
+    // but you basically supply a fraction, for which u prescribe a formula 
+    // for how much radionuclides get out of the helium loop
+    //
+    // in this conservative estimate, all the radionuclides are flushed 
+    // out into environment
+    // 
+    let release_full_flowthru =
+        accident_release_with_venting(
+            &nuclide_inventory, 
+            &flat_hold(), 
+            &plant_parameters, 
+            &Venting::FullFlowThrough
+        ).expect("the release chain runs");
+    let ff_total: f64 = release_full_flowthru
         .source_term
         .nuclides
         .iter()
         .map(|r| r.total_released().get::<becquerel>())
         .sum();
 
-    let atops: Vec<(String, f64)> = out
+    let atops: Vec<(String, f64)> = release_bq
         .source_term
         .nuclides
         .iter()
         .map(|r| (r.label.clone(), r.total_released().get::<becquerel>()))
         .collect();
+    // now if you were ever interested in core inventory or 
+    // loop inventory such, you can see them here:
     let circulating = htr10_primary_helium_end_of_life();
     let circ_bq = |n: &str| {
         circulating
@@ -463,6 +494,7 @@ fn main() {
             .find(|e| e.nuclide == n)
             .map_or(f64::NAN, |e| e.activity.get::<becquerel>())
     };
+    // more diagnostics
 
     println!("-- 3. release [Bq] over the first {DOSE_PERIOD_HOURS} h: TRISO-ATOPS (real normal-operation pools, #448) + Liu & Cao circulating (100 %)");
     println!("   (the Liu & Cao column DOUBLE-COUNTS the model's own circuit term: conservative, and negligible here)");
@@ -487,12 +519,12 @@ fn main() {
 
     // ------------------------------------------------ 4. what the chain dropped
     println!("-- 4. reported, not corrected");
-    println!("   screened out (t1/2 < 4 % of {DOSE_PERIOD_HOURS} h): {:?}", out.screened_out);
+    println!("   screened out (t1/2 < 4 % of {DOSE_PERIOD_HOURS} h): {:?}", release_bq.screened_out);
     println!(
         "   not in TRISO-ATOPS's nuclide table: {:?}",
         triso_atops_unsupported_nuclides.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>()
     );
-    let c = &out.caveats;
+    let c = &release_bq.caveats;
     println!(
         "   caveats: first-sample-vented {}, negative-atoms {}, D-clamped {}, gappy-venting {}",
         c.first_sample_forced_fully_vented,
@@ -505,6 +537,11 @@ fn main() {
         "   venting: Upstream (uniform-constant branch, frac = 1) total {total_atops:.4e} Bq; \
          FullFlowThrough total {ff_total:.4e} Bq (must agree)"
     );
+
+    // lastly, after release fraction, dispersion, 
+    // using Gaussian Plume. 
+    //
+    // This does not look pretty on the simulator, but gives reasonable numbers
 
     // ------------------------------------------------ 5. dose at 400 m (buangkok)
     // Gaussian plume: buangkok's pyDOSEIA port, single (instantaneous) plume,
@@ -604,6 +641,7 @@ fn main() {
         e_sub_sum + e_inh_sum + e_gs_sum,
         1e3 * (e_sub_sum + e_inh_sum + e_gs_sum)
     );
+    // these show what is not accounted for in the radionuclide dose calculation
     println!("   no groundshine coefficient (NOT zero, missing): {missing_gs:?}");
     println!("   no submersion coefficient (NOT zero, missing): {missing_sub:?}");
     println!("   no inhalation coefficient (FGR-11 adult; noble gases have none by design): {missing_inh:?}");
@@ -668,14 +706,14 @@ fn main() {
     )
     .expect("the release chain runs");
     let full: std::collections::HashMap<&str, f64> =
-        out.cumulative_final.iter().map(|(n, b)| (n.as_str(), *b)).collect();
+        release_bq.cumulative_final.iter().map(|(n, b)| (n.as_str(), *b)).collect();
     let mut vent_dose = 0.0;
     for (n, bq) in &out_vent.cumulative_final {
         let scale = if full[n.as_str()] > 0.0 { bq / full[n.as_str()] } else { 0.0 };
         vent_dose += dose_by_nuclide.iter().find(|(m, _)| m == n).map_or(0.0, |(_, d)| *d) * scale;
     }
     let vent_total: f64 = out_vent.cumulative_final.iter().map(|(_, b)| b).sum();
-    let full_total: f64 = out.cumulative_final.iter().map(|(_, b)| b).sum();
+    let full_total: f64 = release_bq.cumulative_final.iter().map(|(_, b)| b).sum();
     println!("\n-- 7. transport arm: Gao & Shi cavity ventilation (100 %/day, cut off at 72 h) instead of full venting");
     println!(
         "   release {vent_total:.4e} Bq (full venting {full_total:.4e}; ratio {:.3}); max dose at {RECEPTOR_M} m {:.2} mSv (bound {:.2} mSv)",
