@@ -6722,7 +6722,7 @@ Nuclides.
 | [`release_models`](crate::triso_atops_fork::release_models) | The dimensionless release-fraction / release-to-birth models: Booth (long-lived, short-lived), breakthrough, graphite attenuation, and their transient (accident) variants, plus the group dispatchers. |
 | [`activities`](crate::triso_atops_fork::activities) | Circulating / plate-out / clean-up activity bookkeeping and the release-rate / graphite source terms, plus the Ci↔Bq and `A = λN` conversions (bead op-b4a.2.2, done). |
 | [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). ~~The JSON run-file driver + accident case are **not ported** — no code exists for either (bead op-b4a.2.3).~~ **CORRECTED 2026-09-30** — both are ported; see the two rows below. |
-| [`accident`](crate::triso_atops_fork::accident) | Depressurisation-accident release, porting `trisoatops.py::accident_case`: the diffusion integral over the transient, the release of what is left in kernel and graphite scaled by the vented-coolant fraction, plus **all circulating activity and an `x_liftoff` share of the plate-out** (the primary-circuit retention is the plate-out that is not lifted off). No building, dust or helium-purification-system term. |
+| [`accident`](crate::triso_atops_fork::accident) | Depressurisation-accident release, porting `trisoatops.py::accident_case`: the diffusion integral over the transient, the release of what is left in kernel and graphite scaled by the vented-coolant fraction, plus **all circulating activity and an `x_liftoff` share of the plate-out** (the primary-circuit retention is the plate-out that is not lifted off). No building, dust or helium-purification-system term. **A depressurisation model:** activity leaves only by venting while the core heats, and there is **no ingress (flow-through) transport** (#446); see the module docs. |
 | [`run_file`](crate::triso_atops_fork::run_file) | The JSON run file: parsing, validation and unit attachment. |
 
 ## Derivation, step by step
@@ -11299,6 +11299,26 @@ The chain upstream's `accident_case` runs, per nuclide and per node:
 The first two steps already live in
 [`diffusion`](super::diffusion) and
 [`release_models`](super::release_models); this module adds the rest.
+
+# A depressurisation model: no ingress transport (GitHub #446)
+
+Upstream's accident case moves released activity out of the core **only by
+venting**, per its user manual: *"releases are due to a breach in the
+reactor resulting in a venting of the core"*. [`coolant_release`] gives the
+ideal-gas expansion fraction at the samples where the core **heats**
+(`dT/dt ≥ 0`).
+
+Upstream's driver has one other branch: for a **uniform, constant**
+accident temperature it skips [`coolant_release`] and sets `frac = 1` at
+every sample (`trisoatops.py::accident_case`,
+`else: frac = np.ones(np.size(times))`). That branch lives in the
+orchestration, not here: `sembawang::accident::release::Venting::Upstream`,
+restored there 2026-09-30.
+
+**There is no air- or water-ingress transport**, i.e. no gas flowing through
+the core and carrying the release out while the temperature is falling or
+non-uniform. `sembawang`'s `Venting::FullFlowThrough` and
+`Venting::Prescribed` add one. They are **not** upstream.
 
 # Scope limit
 

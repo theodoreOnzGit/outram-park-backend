@@ -48,7 +48,8 @@
 //!    transient** (≈ 5.6 h). The dropped ones are printed.
 //! 3. **TRISO-ATOPS releases by diffusion, not 100 %.** This is a realistic
 //!    release at bounding failure fractions, and it should sit **below**
-//!    #435's 100 %-release bound. #438 compares the two.
+//!    #435's 100 %-release bound, except silver, where #435 also takes 100 %.
+//!    #438 compares the two.
 //! 4. **The irradiation temperature is a stand-in**
 //!    (`stand_in_irradiation_temperature`, #297), and Δφ_BL depends on it.
 //!
@@ -67,44 +68,43 @@
 //! | full-failure fraction | **2.0004e-3** = 3e-4 + 5e-4 + 3.768e-7 + 1.2e-3 |
 //! | share carried by KORA f_ox | **60.0 %** (boon-lay's is negligible, 0.02 %) |
 //! | SiC-only fraction (stand-ins) | 1.36e-4 |
-//! | **TRISO-ATOPS release, every nuclide** | **0 Bq** |
-//! | Circulating activity (Liu & Cao Table 3), added at 100 % | 4.551e9 Bq over the released nuclides (Xe-133 and Xe-135 at 2.2e9 each) |
+//! | TRISO-ATOPS release, total over released nuclides | **1.998e13 Bq**. Upstream venting and `FullFlowThrough` agree exactly |
+//! | released / core, noble gases and iodine | **2.29e-4**, identical for every noble gas and iodine (one TRISO-ATOPS transport bucket; not decomposed here) |
+//! | released / core, Cs-134, Cs-137 | 1.86e-3 (all six fractions; metals include the SiC-only class) |
+//! | released / core, Sr-89, Sr-90 | 2.32e-5 |
+//! | released / core, **Ag-110m** | **5.57e-2** (breakthrough through **intact** SiC dominates) |
+//! | Circulating activity (Liu & Cao Table 3), added at 100 % | 4.551e9 Bq, negligible beside the fuel release |
 //! | Screened out (t½ < 5.6 h) | Kr-83m, Kr-85m, Kr-87, Kr-88, I-132, I-134 |
 //! | Not in TRISO-ATOPS's table | H-3, Xe-135m, Rb-88 |
+//! | Caveats | `negative_atom_count_seen` = true: the known silver floor, so Ag-110m is slightly **over**-stated (see `Caveats`) |
 //!
-//! **FINDING: TRISO-ATOPS releases nothing from an isothermal hold, by
-//! construction.** Its accident model moves activity out of the core only by
-//! **coolant venting while the fuel heats**. `coolant_release` selects
-//! samples with dT/dt ≥ 0 and vents the fraction that thermal expansion
-//! pushes out. A flat 1400 °C hold never heats:
-//! - after the first sample, nothing vents;
-//! - the first sample is forced "fully vented" (upstream's `frac[0] = 1`), but
-//!   at t = 0 nothing has diffused out of the fuel yet.
+//! ~~**FINDING: TRISO-ATOPS releases nothing from an isothermal hold, by
+//! construction** … TRISO-ATOPS has no transport path for air ingress.~~
+//! **CORRECTED 2026-09-30 (#446):** the first run of this example released
+//! **0 Bq**, and it was read as an upstream limitation. **Reading upstream
+//! showed it was a port defect.** `trisoatops.py::accident_case` (commit
+//! `de374c8`) has
+//! `if not np.all(accident_temp == accident_temp[0,0,0]): … coolant_release …
+//! else: frac = np.ones(np.size(times))`,
+//! so a uniform constant hold vents fully at every sample. `sembawang`'s port
+//! always called `coolant_release`. The branch is restored in
+//! `sembawang::accident::release::Venting::Upstream`; the numbers above are
+//! after the fix.
 //!
-//! The released activity is therefore exactly zero. The DLOFC example
-//! releases 1.9e11 Bq only because its transient heats for 30 h.
-//!
-//! **So TRISO-ATOPS has no transport path for air ingress**, where air flowing
-//! through the core carries the fuel's release out continuously. This number
-//! is **not** an air-ingress release. It measures the model's structure, and
-//! it is recorded, not worked around.
-//!
-//! **What would give an air-ingress release:**
-//! - a venting (or core gas-exchange) fraction for the air flow, e.g. from the
-//!   cavity ventilation (Gao & Shi: 100 %/day for 3 days) or the chimney
-//!   draught. This needs #420's source;
-//! - or #435's conservative assumption that everything released from the fuel
-//!   leaves the core, i.e. a vent fraction of 1 at every sample.
-//!
-//! Neither is in `sembawang`'s API today. The fuel-side numbers above
-//! (failure fractions) stand on their own.
+//! **What remains true:** for a **non-uniform** transient, upstream (and so
+//! this chain, by default) still transports activity only while the core
+//! heats. That is a depressurisation model, with no ingress flow. For ingress
+//! transients with gradients, use `Venting::FullFlowThrough` (conservative,
+//! everything released leaves the core) or `Venting::Prescribed` (a
+//! caller-supplied exchanged fraction, e.g. from the cavity ventilation once
+//! #420 is sourced).
 
 use boon_lay::fuel_failure::htr10 as panama_htr10;
 use boon_lay::triso_atops_fork::accident::AccidentFractions;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
 use changi::activity::inventory::htr10_equilibrium_core;
 use changi::activity::primary_helium::htr10_primary_helium_end_of_life;
-use sembawang::accident::release::accident_release;
+use sembawang::accident::release::{accident_release, accident_release_with_venting, Venting};
 use sembawang::htr10::{self, Htr10Geometry};
 use sembawang::inventory::{CoreInventory, NuclideInventory};
 use sembawang::scenario::TemperatureTransient;
@@ -230,7 +230,19 @@ fn main() {
     // ------------------------------------------------ 3. TRISO-ATOPS release
     let (inventory, dropped) = htr10_inventory();
     let plant = htr10::plant_parameters(htr10_geometry(), fractions);
+    // Upstream venting: a uniform constant hold takes upstream's frac = 1 branch
+    // (restored 2026-09-30, #446). FullFlowThrough is this workspace's explicit
+    // conservative mode; on an isothermal hold the two must agree.
     let out = accident_release(&inventory, &flat_hold(), &plant).expect("the release chain runs");
+    let out_ff =
+        accident_release_with_venting(&inventory, &flat_hold(), &plant, &Venting::FullFlowThrough)
+            .expect("the release chain runs");
+    let ff_total: f64 = out_ff
+        .source_term
+        .nuclides
+        .iter()
+        .map(|r| r.total_released().get::<becquerel>())
+        .sum();
 
     let atops: Vec<(String, f64)> = out
         .source_term
@@ -288,11 +300,8 @@ fn main() {
         c.venting_mask_was_gappy
     );
     println!("   pools start EMPTY (zero_pools): no plate-out lift-off; circulating added by hand above.");
-    if total_atops == 0.0 {
-        println!();
-        println!("   FINDING: TRISO-ATOPS released NOTHING. Its accident model vents the core only");
-        println!("   while the fuel HEATS (coolant_release selects dT/dt >= 0). A flat hold never");
-        println!("   heats, so nothing leaves the core after t = 0. TRISO-ATOPS has no transport");
-        println!("   path for air ingress (air flow through the core). See this file's doc comment.");
-    }
+    println!(
+        "   venting: Upstream (uniform-constant branch, frac = 1) total {total_atops:.4e} Bq; \
+         FullFlowThrough total {ff_total:.4e} Bq (must agree)"
+    );
 }

@@ -276,6 +276,80 @@ pub fn accident_release(
     transient: &TemperatureTransient,
     plant: &PlantParameters,
 ) -> Result<AccidentRelease> {
+    accident_release_with_venting(inventory, transient, plant, &Venting::Upstream)
+}
+
+/// How released activity leaves the core, i.e. the vented fraction `frac(t)`
+/// that multiplies the cumulative fuel release (upstream
+/// `accident_totals = frac * (kernel + graphite) + …`).
+///
+/// **TRISO-ATOPS is a depressurisation model.** Its user manual: *"releases
+/// are due to a breach in the reactor resulting in a venting of the core"*.
+/// Its only transport is [`Venting::Upstream`]: thermal expansion of the
+/// coolant while the core heats. **It has no air- or water-ingress transport**,
+/// in which gas flows through the core and carries the release out whatever
+/// the temperature does. The other two variants exist for that (GitHub #446),
+/// and they are **this workspace's additions, not upstream behaviour**.
+///
+/// `frac(t)` is the fraction of the fuel's cumulative release up to `t` that
+/// has left the core by `t`. It is dimensionless, in `[0, 1]`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Venting {
+    /// Upstream TRISO-ATOPS (`trisoatops.py::accident_case`, commit `de374c8`),
+    /// both branches:
+    /// - **uniform and constant temperature** (every node at every time equal
+    ///   to the first, by exact comparison as upstream's
+    ///   `np.all(accident_temp == accident_temp[0, 0, 0])`): **`frac = 1` at
+    ///   every sample**, and no `coolant_release` call;
+    /// - **otherwise:** `coolant_release`. The ideal-gas expansion fraction at
+    ///   the heating samples (`dT/dt ≥ 0`), with upstream's forced
+    ///   `frac[0] = 1`.
+    ///
+    /// ~~Before 2026-09-30 the port always took the second branch~~, so an
+    /// isothermal hold vented nothing after `t = 0` and released **0 Bq**
+    /// (#446). The first branch was missing from the port and is restored
+    /// here.
+    Upstream,
+    /// Everything released from the fuel leaves the core at once: `frac = 1`
+    /// at every sample. The conservative choice for an ingress with no
+    /// primary-circuit retention (the #435 bound's assumption). Not upstream.
+    FullFlowThrough,
+    /// A caller-supplied `frac(t)`, **one entry per transient sample**, each
+    /// finite and in `[0, 1]`: e.g. the cumulative fraction of the core's gas
+    /// exchanged by an ingress flow. The caller owns the number and its
+    /// source. Not upstream.
+    Prescribed(Vec<f64>),
+}
+
+impl TemperatureTransient {
+    /// Whether every node at every time has exactly the first node's first
+    /// temperature: upstream's test for skipping `coolant_release`.
+    fn is_uniform_and_constant(&self) -> bool {
+        let first = self.temperatures[0][0][0];
+        self.temperatures
+            .iter()
+            .flatten()
+            .flatten()
+            .all(|t| *t == first)
+    }
+}
+
+/// [`accident_release`] with the core-venting (transport) mode chosen
+/// explicitly; see [`Venting`]. [`accident_release`] is this with
+/// [`Venting::Upstream`].
+///
+/// # Errors
+/// As [`accident_release`], plus [`Error::VentingLengthMismatch`] and
+/// [`Error::VentingFractionOutOfRange`] for a bad [`Venting::Prescribed`].
+///
+/// # Panics
+/// As [`accident_release`].
+pub fn accident_release_with_venting(
+    inventory: &CoreInventory,
+    transient: &TemperatureTransient,
+    plant: &PlantParameters,
+    venting_mode: &Venting,
+) -> Result<AccidentRelease> {
     assert_eq!(
         inventory.n_radial, transient.n_radial,
         "inventory and transient disagree on the radial node count"
@@ -312,18 +386,41 @@ pub fn accident_release(
         )));
     }
 
-    // -- venting
-    let rate = mean_temperature_rate(&transient.times, &transient.all_node_histories());
-    let hot = transient.hot_node_history();
-    let (vent_fraction, vent_times) = coolant_release(
-        &transient.times,
-        &rate,
-        &hot,
-        plant.coolant_pressure,
-    );
-    let venting =
-        VentingWindow::from_coolant_release(&transient.times, &vent_times, vent_fraction.clone())?;
-    caveats.first_sample_forced_fully_vented = !venting.is_empty();
+    // -- venting (see `Venting`)
+    let n_samples = transient.times.len();
+    let venting = match venting_mode {
+        Venting::Upstream if transient.is_uniform_and_constant() => {
+            // Upstream's `else: frac = np.ones(np.size(times))`.
+            VentingWindow::all_samples(vec![1.0; n_samples])
+        }
+        Venting::Upstream => {
+            let rate = mean_temperature_rate(&transient.times, &transient.all_node_histories());
+            let hot = transient.hot_node_history();
+            let (vent_fraction, vent_times) =
+                coolant_release(&transient.times, &rate, &hot, plant.coolant_pressure);
+            let window =
+                VentingWindow::from_coolant_release(&transient.times, &vent_times, vent_fraction)?;
+            caveats.first_sample_forced_fully_vented = !window.is_empty();
+            window
+        }
+        Venting::FullFlowThrough => VentingWindow::all_samples(vec![1.0; n_samples]),
+        Venting::Prescribed(fractions) => {
+            if fractions.len() != n_samples {
+                return Err(Error::VentingLengthMismatch {
+                    expected: n_samples,
+                    got: fractions.len(),
+                });
+            }
+            if let Some((index, &value)) = fractions
+                .iter()
+                .enumerate()
+                .find(|(_, f)| !(f.is_finite() && (0.0..=1.0).contains(*f)))
+            {
+                return Err(Error::VentingFractionOutOfRange { index, value });
+            }
+            VentingWindow::all_samples(fractions.clone())
+        }
+    };
     caveats.venting_mask_was_gappy = !venting.is_contiguous();
     if venting.len() < 2 {
         return Err(Error::TransientTooShort(venting.len()));

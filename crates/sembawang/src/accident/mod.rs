@@ -18,5 +18,7 @@
 pub mod release;
 pub mod venting;
 
-pub use release::{accident_release, AccidentRelease, PlantParameters};
+pub use release::{
+    accident_release, accident_release_with_venting, AccidentRelease, PlantParameters, Venting,
+};
 pub use venting::VentingWindow;

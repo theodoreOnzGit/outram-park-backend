@@ -124,6 +124,25 @@ impl VentingWindow {
         })
     }
 
+    /// A window over **every** sample of an `n`-sample axis, with the given
+    /// fraction at each, where `n = fractions.len()`.
+    ///
+    /// For the venting modes that do not go through `coolant_release`: the
+    /// upstream uniform-constant-temperature branch, full flow-through, and
+    /// caller-prescribed fractions (see [`crate::accident::release::Venting`]).
+    /// The indices are `0..n`, so the window is contiguous and a prefix and
+    /// this selection coincide. The pairing hazard in the module docs cannot
+    /// arise.
+    #[must_use]
+    pub fn all_samples(fractions: Vec<f64>) -> Self {
+        let n = fractions.len();
+        Self {
+            indices: (0..n).collect(),
+            fractions,
+            full_len: n,
+        }
+    }
+
     /// How many samples vented.
     #[must_use]
     pub fn len(&self) -> usize {

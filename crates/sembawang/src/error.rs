@@ -46,6 +46,25 @@ pub enum Error {
         /// The offending time, in seconds.
         time_s: f64,
     },
+
+    /// A [`crate::accident::release::Venting::Prescribed`] fraction series does
+    /// not have one entry per transient sample.
+    #[error("prescribed venting has {got} fractions for a {expected}-sample transient")]
+    VentingLengthMismatch {
+        /// Number of transient samples.
+        expected: usize,
+        /// Number of fractions supplied.
+        got: usize,
+    },
+
+    /// A prescribed venting fraction is not a finite number in `[0, 1]`.
+    #[error("prescribed venting fraction {value} at sample {index} is not in [0, 1]")]
+    VentingFractionOutOfRange {
+        /// Sample index.
+        index: usize,
+        /// The offending value.
+        value: f64,
+    },
 }
 
 /// This crate's result type.
