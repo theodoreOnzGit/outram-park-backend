@@ -812,10 +812,14 @@ suspicious."*
 
 ## Three findings that changed the plan
 
-1. **8,335 TRISO is unattainable.** The count moves in symmetry shells (8336 →
+1. ~~**8,335 TRISO is unattainable.** The count moves in symmetry shells (8336 →
    8240 in one step of pitch); nearest reachable are 8330 and 8340. The paper's
    arrangement is therefore *not* exactly the one specified — its zone radius,
-   particle radius or rejection rule must differ in the last digit.
+   particle radius or rejection rule must differ in the last digit.~~
+   **CORRECTED 2026-10-01 (gh:#430):** that holds only for the symmetric
+   offsets tried; a generic offset gives exactly 8335. Şeker & Çolak (2003),
+   NED 222:263, p.266, state that their whole-particle cubic lattice was
+   *"verified to be 8335"*.
 2. **One shared surface cannot clip the conus.** Region surfaces inside a
    lattice tile are evaluated in the **tile-local** frame, so each boundary tile
    needs its own translated copy (`surface_in_tile_frame`).

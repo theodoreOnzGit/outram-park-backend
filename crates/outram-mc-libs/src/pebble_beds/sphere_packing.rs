@@ -689,7 +689,7 @@ mod tests {
 /// lies **wholly** inside. That is the same predicate `pack_in_ball` uses; only
 /// the arrangement differs.
 ///
-/// # `offset` matters, and 8335 exactly is NOT reachable
+/// # `offset` matters ~~, and 8335 exactly is NOT reachable~~
 ///
 /// `offset` shifts the lattice in units of the pitch, so `[0.0; 3]` puts a
 /// particle at the ball centre and `[0.5; 3]` puts the centre between eight.
@@ -710,10 +710,19 @@ mod tests {
 /// **The benchmark's stated 8335 is not attainable by any of them.** The
 /// closest are 8330 and 8340, i.e. **+/-0.060 %** in both particle count and
 /// packing fraction (0.050218 or 0.050278 against the 0.050248 implied by
-/// 8335). That is negligible for `k` but it is a real discrepancy with the
+/// 8335). That is negligible for `k`. ~~But it is a real discrepancy with the
 /// reference, and it is stated rather than rounded away: the paper's
 /// arrangement is evidently not exactly this one, or its zone radius or
-/// particle radius differ in the last digit.
+/// particle radius differ in the last digit.~~
+///
+/// **CORRECTED 2026-10-01 (gh:#430):** the inference does not follow, because
+/// only the symmetric offsets in the table were tried. Under the same keep rule,
+/// a generic offset such as `(0.13, 0.37, 0.71)` at pitch ≈ 0.195124 cm gives
+/// exactly 8335, and so do many other pitches (a brute force, 2026-09-30). The
+/// source says the same: Şeker & Çolak (2003), *HTR-10 full core first
+/// criticality analysis with MCNP*, Nucl. Eng. Des. 222, 263–270, p.266, build
+/// a whole-particle cubic lattice and *"the number of full fuel particles inside
+/// a fuel ball is verified to be 8335"*.
 ///
 /// # Parameters
 /// - `particle_radius`, `ball_radius` \[cm\].

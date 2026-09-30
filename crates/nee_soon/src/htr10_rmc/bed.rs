@@ -10,14 +10,27 @@
 //! the pitch**. Its prose —
 //!
 //! > *"There are seven balls at these faces; one at the center of the basal
-//! > plane and six surrounding spheres ... The intermediate section of each
-//! > hexagonal prism contains three full balls as well as partial contributions
-//! > from the neighboring hexagonal prism cells from all six sides."*
+//! > plane and six surrounding spheres. These six spheres are not centered at
+//! > the corners of the hexagons, but rather, hexagonal prism side surfaces
+//! > surround these balls. The intermediate section of each hexagonal prism
+//! > contains three full balls as well as partial contributions from the
+//! > neighboring hexagonal prism cells from all six sides."*
 //!
-//! — does not determine a cell: it describes sharing between neighbours without
-//! saying how much, and the figures carry no extractable dimensions. So the cell
-//! is derived from the invariants the paper **does** state, and then checked
-//! against one it states that was *not* used in the derivation.
+//! **CORRECTED 2026-10-01 (gh:#429):** the quotation above was previously
+//! elided (`...`) exactly across the "not centered at the corners" sentence,
+//! which is restored. The text is Li, Yu & Wei (2014) p.3, and it is
+//! **verbatim from Şeker & Çolak (2003), p.266**, the MCNP model Li follows:
+//! Şeker, V., Çolak, Ü. (2003), *HTR-10 full core first criticality analysis
+//! with MCNP*, Nucl. Eng. Des. 222, 263–270, doi:10.1016/S0029-5493(03)00031-1.
+//! Şeker is therefore the primary source for the cell; see "What Şeker & Çolak
+//! (2003) settles" below.
+//!
+//! — ~~does not determine a cell: it describes sharing between neighbours
+//! without saying how much, and the figures carry no extractable dimensions.~~
+//! **CORRECTED 2026-10-01:** the prose alone does not determine a cell, but the
+//! figures do carry dimensions (the 6 cm ball is a built-in scale bar, gh:#429),
+//! and Şeker's Table 3 ball counts constrain the cell independently (below).
+//! The cell here is derived from the invariants the paper **does** state.
 //!
 //! # The decode
 //!
@@ -31,19 +44,79 @@
 //! touch. Expanding the pitch from the touching value `d` by
 //! `sqrt(0.7405/0.61)` gives 6.6106 cm.
 //!
-//! # The check that makes it evidence
+//! # ~~The check that makes it evidence~~ A consistency check, not evidence
 //!
 //! The cell above was fitted to **two** stated quantities — layer height and
 //! filling fraction. Tiling it through the stated core (180 cm diameter,
 //! 197 cm high) predicts **~27 038 balls** against the paper's stated **27 000**,
-//! a 0.14 % difference. Nothing was tuned to hit that, which is what makes the
-//! reconstruction evidence rather than a fit.
+//! a 0.14 % difference. ~~Nothing was tuned to hit that, which is what makes the
+//! reconstruction evidence rather than a fit.~~ **CORRECTED 2026-10-01
+//! (gh:#430):** [`HexBedCell::balls_in_core`] reduces to
+//! `V_core × 0.61 / V_ball` for **any** pitch and height, so the 27 038 follows
+//! from the 0.61 put in and cannot fail. It checks arithmetic, not the cell.
+//! The 27 000 is also the **equilibrium** (all-fuel) core, not the 57:43
+//! initial core. The independent count the check lacked is Şeker & Çolak
+//! (2003) Table 3 (below).
 //!
 //! # What this is not
 //!
 //! It reproduces the paper's stated *invariants*. It does **not** claim to be
 //! their exact unit-cell tiling, which their text does not determine. Any
 //! write-up must say so.
+//!
+//! # What Şeker & Çolak (2003) settles (read 2026-10-01)
+//!
+//! Şeker & Çolak (2003), NED 222:263–270 (full citation above), is the MCNP
+//! model whose cell text Li (2014) reproduces. What it adds, and where **this
+//! module departs from it**:
+//!
+//! **1. An independent ball count (Table 3).** For N = 9…20 layers, every row
+//! satisfies, exactly (checked arithmetically on all 12 rows):
+//!
+//! | quantity | Şeker Table 3 |
+//! |---|---|
+//! | loading height | `9.798 N + 6.0` cm |
+//! | total balls | `1346 N + 733` |
+//! | fuel balls | `767 N + 418` (0.570 of the total) |
+//!
+//! 1346 balls per 9.798 cm layer in the r = 90 cm core is a filling fraction
+//! of **0.6106**, Şeker's *"61%"*, measured **after** the wall rejection in
+//! item 3. The constant 733 is one extra **basal** plane: both the top and the
+//! bottom basal planes are whole balls. At the critical row (N = 12) the model
+//! holds 16 885 balls against the experiment's 16 890 at 123.06 cm.
+//!
+//! **2. The cell is clustered, not uniformly diluted (gh:#429).** The counts
+//! split each layer into **733 balls in the basal plane and 613 in the central
+//! plane**: areal fractions through the ball centres of **0.814 / 0.681** over
+//! the whole bed. **This module's cell is uniform: 0.747 / 0.747.** A
+//! reconstruction consistent with the text, the counts and Li's Fig. 3 (an
+//! inference, medium confidence, not built): **13 balls per prism**, i.e. the 7
+//! touching basal balls (7:6 = 1.167 against the counted 733:613 = 1.196) plus
+//! 3 full + 6 half central balls, with a hexagon circumradius ≈ 9.4–9.7 cm.
+//! Fuel is assigned **per layer** to 0.57:0.43 (p.267), not as a fixed per-cell
+//! pattern.
+//!
+//! **3. Wall-crossing balls are rejected everywhere (gh:#331).** p.267:
+//! *"Outer boundary of the array is the inner surface of the side reflector. If
+//! any ball intersects with the reflector surface, it is rejected."* The same
+//! applies at the cone and the discharge tube. **This module cuts balls at the
+//! side wall by default** and rejects them only at the cone and tube; see
+//! [`TwoBallBed::rejecting_side_wall_crossers`].
+//!
+//! **4. The top layer is whole.** p.267: *"The top layer is formed by adding
+//! half spheres to each ball present in this layer."* The count (+733) says
+//! the bottom plane is whole too. **This module clips the top layer** at the
+//! bed plane (gh:#429 item 3; see [`TwoBallBed`], "Axial layout").
+//!
+//! **5. The cone and discharge tube hold graphite balls only**, hexagonally
+//! arranged and rejected at the surfaces (p.267), which is what
+//! [`TwoBallBed`] builds.
+//!
+//! **6. The heights (gh:#333).** Şeker's height runs from the bottom of the
+//! lowest ball to the top of the highest, but the same balls at 0.61 fill
+//! **H − 0.55 cm** of volume-equivalent bed (0.58 cm at N = 9, 0.48 cm at
+//! N = 20), not H − 6 cm. Matching a model to a row is therefore done
+//! correctly by **ball count**. See [`super::RMC_KEFF_VS_HEIGHT`].
 //!
 //! # Where it is built (2026-09-25)
 //!
@@ -143,6 +216,12 @@ impl HexBedCell {
     /// Continuum estimate — cells per unit area times the core's footprint —
     /// rather than an integer tiling, because the boundary cells are partial and
     /// the paper's own 27 000 is a round design figure, not a count.
+    ///
+    /// **Not an independent check (gh:#430, 2026-10-01):** algebraically this is
+    /// `V_core × packing_fraction / V_ball`, so for [`Self::from_paper`] it is
+    /// `V_core × 0.61 / V_ball` whatever the pitch or height. An independent
+    /// count is Şeker & Çolak (2003) Table 3: `1346 N + 733` balls at loading
+    /// height `9.798 N + 6.0` cm (module docs).
     #[must_use]
     pub fn balls_in_core(&self, core_diameter_cm: f64, core_height_cm: f64) -> f64 {
         let footprint = PI * (core_diameter_cm / 2.0).powi(2);
@@ -436,6 +515,12 @@ pub enum FuelAssignment {
 /// bed and replaces the top layer's upper 0.55 cm, which the bed plane clips
 /// off. (Without it the top slab would be under-packed.)
 ///
+/// **A departure from the source, stated 2026-10-01 (gh:#429 item 3):** Şeker
+/// & Çolak (2003) p.267 build the top layer from whole balls (*"formed by
+/// adding half spheres to each ball present in this layer"*), and their Table 3
+/// count (`1346 N + 733`) implies a whole bottom basal plane as well. The clip
+/// here is volume-equivalent, not ball-for-ball.
+///
 /// # Fuel/dummy identity
 ///
 /// Assigned to BALLS, never to tiles: every tile holding a piece of a ball
@@ -662,8 +747,9 @@ impl TwoBallBed {
             .fold(0u8, |m, (i, id)| m | (u8::from(self.is_present(*id)) << i))
     }
 
-    /// Li (2014)'s rule: remove every ball that crosses the cone, the tube wall
-    /// or the tube bottom. Runs before [`Self::assign`], so a removed ball is
+    /// Li (2014)'s rule, taken from Şeker & Çolak (2003) p.267 (*"Balls
+    /// intersect with cone or discharge tube surface are rejected"*): remove
+    /// every ball that crosses the cone, the tube wall or the tube bottom. Runs before [`Self::assign`], so a removed ball is
     /// never counted in the fuel split.
     fn reject(&mut self) {
         if self.tube.is_none() {
@@ -699,6 +785,15 @@ impl TwoBallBed {
     /// 2026-09-27 (maintainer, gh:#331):** it drops the bed's filling fraction
     /// to 0.5737 against Li's stated 61 % (the cut gives 0.6089), so the cut
     /// stays the default and this stays an ablation only.
+    ///
+    /// **New source evidence, 2026-10-01 (for the maintainer to re-decide on
+    /// gh:#331; the default is unchanged):** Li's silence is filled by the model
+    /// Li follows. Şeker & Çolak (2003) p.267: *"If any ball intersects with the
+    /// reflector surface, it is rejected."* And their 61 % is measured **after**
+    /// that rejection (Table 3: 1346 balls per 9.798 cm layer over the whole
+    /// r = 90 cm cylinder is 0.6106). So rejection and 61 % are compatible in the
+    /// source. They are incompatible here only because this lattice is diluted
+    /// uniformly to 0.61 *before* rejecting (gh:#429).
     #[must_use]
     pub fn rejecting_side_wall_crossers(mut self) -> Self {
         let r = 0.5 * self.cell.ball_diameter;

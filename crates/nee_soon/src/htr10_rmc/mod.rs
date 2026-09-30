@@ -59,10 +59,22 @@
 //! the residual at the critical loading is ~~`-2365` pcm on ENDF/B-VIII.0 and
 //! `-922` pcm on VII.0~~ **`-2726` pcm on ENDF/B-VIII.0 and `-1283` pcm on
 //! VII.0** (CORRECTED 2026-09-27, gh:#333: matched on the paper's whole-ball
-//! height; `n_axial = 25` IS the paper's 123.576 cm loading), roughly -4000 pcm
+//! height; ~~`n_axial = 25` IS the paper's 123.576 cm loading~~), roughly -4000 pcm
 //! from the numbers above; the drift is still there (~~`+10.2`~~ `+13.2 +/- 4.0`
-//! pcm/cm on VIII.0). Every "height-matched" residual in this section (and in
-//! #218) used the volume-equivalent height and is low by 165-480 pcm. Record:
+//! pcm/cm on VIII.0). ~~Every "height-matched" residual in this section (and in
+//! #218) used the volume-equivalent height and is low by 165-480 pcm.~~
+//! **CORRECTED 2026-10-01 from Şeker & Çolak (2003) Table 3 (gh:#333):** the
+//! reference rows hold `1346 N + 733` balls, which at 0.61 is **H − 0.55 cm**
+//! of volume-equivalent bed (0.58 cm at N = 9, 0.48 cm at N = 20), not
+//! H − 6 cm. `n_axial = 2N + 1` holds `(2N+1) x 4.899` cm, which is
+//! **0.52–0.63 cm (≈ 60–75 balls) less** than the row it was matched to. So:
+//! - the whole-ball-height residuals above are **low**;
+//! - the earlier volume-equivalent ones were **high**;
+//! - in both cases by roughly **70–250 pcm**. That magnitude is estimated from
+//!   the reference's own slope, not measured, and it assumes Li's RMC model
+//!   has Şeker's inventory.
+//!
+//! The correct match is by **ball count**. Record:
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`.
 //!
 //! **Model defects, production path (`assemble_explicit_triso`):**
@@ -234,6 +246,16 @@ pub mod plots;
 ///
 /// Heights are the paper's convention: bottom of the lowest ball to top of the
 /// highest, `9.798 N + 6.0` cm (gh:#333).
+///
+/// **The inventory behind each height (2026-10-01).** These are exactly the
+/// heights of Şeker & Çolak (2003), NED 222:263, Table 3 (the MCNP model Li
+/// follows), which also gives the ball counts: `1346 N + 733` balls, of which
+/// `767 N + 418` are fuel, for N = 9…20. At a 0.61 filling fraction that is
+/// **H − 0.55 cm** of volume-equivalent bed (0.58 cm at N = 9, 0.48 cm at
+/// N = 20). Match a model to a row **by ball count**, not by height. The
+/// experiment's first criticality was 16 890 balls at 123.06 cm; Şeker's
+/// N = 12 row holds 16 885. Whether Li's RMC model holds the same count is not
+/// stated.
 pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
     (94.182, 0.894_693),
     (103.980, 0.937_122),

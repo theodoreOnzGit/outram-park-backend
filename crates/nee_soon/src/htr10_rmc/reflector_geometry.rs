@@ -102,8 +102,14 @@ pub const COOLANT_CENTRE_RADIUS_CM: f64 = 144.6;
 pub const COOLANT_ZT_CM: (f64, f64) = (105.0, 610.0);
 
 /// Control-rod and irradiation channel radius \[cm\]: 130 mm diameter (p. 242).
+/// Corroborated by Şeker & Çolak (2003), NED 222:263, p.268: *"Each hole
+/// housing control rods are 13 cm in diameter."*
 pub const ROD_CHANNEL_RADIUS_CM: f64 = 6.5;
 /// Control-rod and irradiation channel centre radius \[cm\]: 1021 mm (p. 242).
+/// Corroborated by Şeker & Çolak (2003) p.268: ten rods *"placed symmetrically
+/// in the side reflector and 102.1 cm away from the center"*, each *"five B4C
+/// ring segments enclosed in stainless steel sleeves"*. Their channel azimuths
+/// are drawn (Fig. 4) but not stated (gh:#330).
 pub const ROD_CHANNEL_CENTRE_RADIUS_CM: f64 = 102.1;
 /// Control-rod and irradiation channel axial extent, `z_T` \[cm\]: 0-4500 mm
 /// (p. 242).

@@ -221,9 +221,10 @@ pub mod mat {
     /// ~~What the discharge tube actually contains.~~ **CORRECTED 2026-09-25:**
     /// the tube contains whole graphite balls, and since then
     /// [`super::assemble_explicit_triso`] places them explicitly (Li, Yu & Wei
-    /// 2014: the cone region and discharge tube are formed by graphite balls
-    /// in hexagonal geometry, and balls intersecting the cone or tube surface
-    /// are rejected). This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
+    /// 2014, following Şeker & Çolak 2003 p.267: *"The cone region and
+    /// discharge tube are formed by only graphite balls"*, arranged in
+    /// hexagonal geometry, and balls intersecting the cone or tube surface are
+    /// rejected). This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
     /// ablation now.
     pub const HOMOG_DUMMY: usize = 10;
     /// Homogenised fuel zone, used only by [`super::assemble`].
@@ -907,9 +908,14 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// particle universe or matrix graphite, with `outer` = matrix so anything
 /// beyond the array's extent is graphite.
 ///
-/// The realised particle count is **8340**, not the paper's stated 8335 — see
-/// `cubic_array_in_ball`'s docs for why 8335 is unattainable (the count moves in
-/// symmetry shells). That is +0.060 % in fuel volume.
+/// The realised particle count is **8340**, not the paper's stated 8335.
+/// ~~See `cubic_array_in_ball`'s docs for why 8335 is unattainable (the count
+/// moves in symmetry shells).~~ **CORRECTED 2026-10-01 (gh:#430):** 8335 **is**
+/// attainable: a generic lattice offset gives exactly 8335, and Şeker & Çolak
+/// (2003) p.266 build the same whole-particle cubic lattice and state that
+/// *"the number of full fuel particles inside a fuel ball is verified to be
+/// 8335"*. Only the symmetric offsets tried here miss it. That is +0.060 % in
+/// fuel volume, < 5 pcm.
 pub fn assemble_explicit_triso(
     n_rings: usize,
     n_axial: usize,
