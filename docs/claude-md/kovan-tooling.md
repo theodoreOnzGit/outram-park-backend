@@ -31,25 +31,26 @@ edges no longer need filing from this workspace. The former rule, and the
 `docs/kopitiam-issues/` queue it fed, are preserved in
 [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](../claude-md-rationale/tooling-kopitiam-kovan.md).
 
-### Literature handling (the kovan ingestion mandate was RETIRED 2026-09-21)
+### Literature: the maintainer supplies the kovan corpus (2026-10-01)
 
-**~~ANY literature ingested OR USED goes into kovan (HARD RULE)~~ and ~~READ
-AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` (HARD RULE)~~ — RETIRED
-2026-09-21 at the maintainer's request. Neither applies any more.** Literature
-does **not** have to be routed into `crates/kovan-literature`, and reads of it
-do not have to go through the `kovan lit` CLI. Do not enforce either rule, and
-do not treat a paper that is not in the archive as a defect to fix. The full
-original text of both rules is preserved in
+**The maintainer supplies the kovan corpus and ingests literature into it
+manually.** Do not ingest, import or move literature into kovan or
+`crates/kovan-literature` on your own initiative, and do not treat a paper
+missing from the corpus as a defect to fix. When the maintainer hands you a
+paper, read it where it is given.
+
+**From time to time the maintainer may ask an agent to hardcode the mind map,
+the standard corpus or annotations in `kovan-literature`.** Do that when asked,
+and only then.
+
+~~The earlier literature rules (the 2026-09-21 retirement note of the kovan
+ingestion and read-through-`kovan lit` mandates)~~ **REPLACED 2026-10-01** by
+the two paragraphs above, at the maintainer's request. The original mandates
+are preserved in
 [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](../claude-md-rationale/tooling-kopitiam-kovan.md).
 
-`kovan lit import` / `outline` / `bibtex` and `kopitiam pdf2md` all remain
-available and are still perfectly good tools — using them is now a choice, not
-an obligation. `crates/kovan-literature/` and its `CATALOGUE.md` stay where
-they are; existing citations into the archive remain valid.
-
-**What survives this retirement, because it never came from `kovan` in the
-first place** — these are `DATA_POLICY.md` and compliance obligations and they
-still bind wherever a document lives:
+**Compliance obligations that are not kovan rules** still bind wherever a
+document lives (`DATA_POLICY.md`):
 
 - **The open/proprietary split.** Public, openly published literature is
   committable; anything restricted is not and must stay out of the repository.

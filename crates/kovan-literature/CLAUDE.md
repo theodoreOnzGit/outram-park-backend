@@ -25,6 +25,9 @@ when `CI` is set).
 
 ## Rules
 
+- **The maintainer supplies the corpus and ingests literature manually**
+  (2026-10-01). Hardcode the mind map, the standard corpus or annotations here
+  only when the maintainer asks; the rules below govern how, once asked.
 - **Only documents in `reactor-literature/kovan-standard-open-corpus/` are
   hardcoded into Kovan** (maintainer direction). Adding one means: the PDF and
   its README row there, then its `CorpusLiterature` entry in
