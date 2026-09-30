@@ -109,7 +109,64 @@ what the paper's code was run on.
 - `upstream_case_*_accident.csv` holds every intermediate. It also carries
   the alternative reading, Eq. 29 / 10, which differs by < 1 %.
 
-**Results on the re-digitised curves (2026-09-30; the current result).**
+**REPORTED RESULT (2026-09-30, #413 check (b)): dense PCHIP resampling of the digitised curves.**
+
+**The rule, fixed and posted on #413 before running.** The reported result
+uses a dense, shape-preserving resampling of the maintainer's digitised
+points, whatever it gives.
+- Reason: upstream's `coolant_release` integrates dn/dt by cumulative
+  trapezoid over the supplied time points, so its vent fraction depends on
+  the grid. The paper fed a dense profile.
+- Processing: `dev/mhtgr_stoyer_fig5_pchip.py`. It clamps t < 0 to 0 and
+  resamples with PCHIP (Fritsch-Carlson, scipy's `PchipInterpolator` rule,
+  in numpy) every 0.1 h. Output: `fig05_accident_temperature_c_pchip_0p1h.csv`.
+  These are **interpolated values, not digitised points**.
+- Upstream outputs: `upstream_case_*_accident_pchip.csv`.
+- Port vs upstream on the dense grid: see the test.
+
+**Vent fractions: sparse / dense / exact ideal-gas 1 − T₀/T_peak.**
+
+| Curve | Sparse | Dense | Exact |
+|---|---|---|---|
+| 5 % | 0.551 | 0.416 | 0.423 |
+| 20 % | 0.478 | 0.465 | 0.469 |
+| 25 % | 0.616 | 0.534 | 0.539 |
+| 50 % | 0.519 | 0.610 | 0.618 |
+
+The dense values reach the exact values within 1.6 %, as predicted. The 20 %
+curve keeps its one digitised down-step near t = 0 (595.0 → 592.8 °C). The
+50 % curve's flat digitised points near the peak (dT = 0) are still admitted
+by upstream's `dT/dt >= 0` mask.
+
+**Final / paper, median by group, sparse → dense.** Per nuclide:
+`final_release_ratio_sparse_vs_pchip.csv`.
+
+| Group | A, printed `k_plate` | B, printed `k_plate` | B, 7.5e-4 |
+|---|---|---|---|
+| volatiles (Kr, Xe, I, Te) | 0.983 → **0.884** | 0.986 → **0.887** | 0.982 → 0.884 |
+| Cs | 0.862 → 0.858 | 0.843 → 0.840 | 0.758 → 0.754 |
+| Sr / Ba / Eu | 0.931 → 0.843 | 0.946 → 0.866 | 0.936 → 0.849 |
+| Ag | 1.134 → **0.874** | 1.386 → 1.352 | 0.834 → 0.799 |
+| constant-D metals | 0.878 → **0.907** | 0.878 → **0.907** | 0.878 → 0.907 |
+| **all nuclides** | 0.881 → **0.903** (0.84-0.94) | 0.881 → **0.904** (0.67-1.74) | 0.881 → 0.900 |
+
+Case A at 7.5e-4 matches Case A at the printed `k_plate` to the third digit.
+
+**Against the prediction.**
+- The constant-D metals move toward 1 but do not reach it: 0.878 → 0.907,
+  against a predicted ~0.91.
+- The groups weighted to the hot curves drop by ~10 %, because the 5 % and
+  20 % curves' vent fractions fall.
+
+**Outcome.** The spread between groups narrows markedly. In Case A every
+nuclide now lies within 0.84-0.94. A common factor of ~0.90 remains, and it
+is not diagnosed. The Case B outliers remain: Cs-134 0.67, Kr-85 0.68 and
+Ag-111 (1.74 at the printed value, 0.70 at 7.5e-4).
+
+**Sparse-point results, kept for comparison (superseded as the reported
+result).**
+
+**Sparse-point result on the re-digitised curves (2026-09-30; superseded by the dense resampling above).**
 - **Port vs upstream:** worst relative difference **3.9e-11**.
 - **Final vs the paper:** median **0.88**, both cases and both `k_plate`.
   - Case A: range 0.86-1.15. The volatiles (I, Te, Xe) are at 0.97-0.99;

@@ -97,41 +97,43 @@ def main():
         # ---- accident: the four Fig. 5 curves, each applied to the WHOLE core
         # (s.III.A.3: "four transient cases representing different core
         # sections"), combined by Eq. (29). Upstream accident_case per curve.
-        curves = {}
-        for r in rows("fig05_accident_temperature_c.csv"):
-            curves.setdefault(r["core_fraction_percent"], []).append(
-                (max(0.0, float(r["time_h"])), float(r["temperature_c"])))  # clamp noise t < 0 to 0
-        weights = {"5": 0.05, "20": 0.2, "25": 0.25, "50": 0.5}  # Eq. (29)
-        per_curve = {}
-        for pct, pts in curves.items():
-            times = np.array([t for t, _ in pts]) * 3600.0
-            temp = np.array([T for _, T in pts])
-            acc = np.broadcast_to(temp[None, :, None], (3, temp.size, 14)).copy()
-            totals, _ = tri.accident_case(constants, names, nodal, acc, times, log, True)
-            per_curve[pct] = {n: float(np.asarray(v)[-1]) for n, v in totals.items()}
-        nuclides = sorted(set().union(*[set(v) for v in per_curve.values()]),
-                          key=lambda n: [r["nuclide"] for r in inv_rows].index(n))
-        out = DATA / f"upstream_case_{case}{suffix}_accident.csv"
-        with open(out, "w", newline="") as f:
-            f.write(f"# Upstream TRISO-ATOPS de374c8 accident_case, Stoyer Case {case.upper()}, k_plate = {c('k_plate')} 1/s.\n"
-                    "# total_<p> = accident_case's last value for the Fig. 5 curve <p>% applied to the whole core; eq29 = sum w_p total_p;\n"
-                    "# initial = circulating + x_liftoff x plate-out (t = 0 term, curve-independent);\n"
-                    "# final_as_paper = initial + (eq29 - initial)/10  (s.III.A.5: the x10 building reduction applies to releases AFTER the initial puff);\n"
-                    "# final_div10_all = eq29/10 (the alternative reading, reported for comparison only). Empty = nuclide not selected for that curve.\n")
-            w = csv.writer(f)
-            w.writerow(["nuclide", "total_5", "total_20", "total_25", "total_50", "eq29", "initial",
-                        "final_as_paper", "final_div10_all"])
-            for n in nuclides:
-                tot = [per_curve[p].get(n) for p in ("5", "20", "25", "50")]
-                if any(v is None for v in tot):
-                    w.writerow([n] + ["" if v is None else repr(v) for v in tot] + ["", "", "", ""])
-                    continue
-                eq29 = sum(weights[p] * per_curve[p][n] for p in ("5", "20", "25", "50"))
-                k = [r["nuclide"] for r in inv_rows].index(n)
-                initial = float(output[k][3]) + c("x_liftoff") * float(output[k][4])
-                w.writerow([n] + [repr(v) for v in tot] + [repr(eq29), repr(initial),
-                            repr(initial + (eq29 - initial) / 10.0), repr(eq29 / 10.0)])
-        print(f"case {case}{suffix}: accident -> {out.relative_to(CRATE)}")
+        for curve_file, tag, label in (("fig05_accident_temperature_c.csv", "", "sparse digitised points"),
+                                       ("fig05_accident_temperature_c_pchip_0p1h.csv", "_pchip", "PCHIP 0.1 h resampling (REPORTED, gh:#413 check (b) rule)")):
+            curves = {}
+            for r in rows(curve_file):
+                curves.setdefault(r["core_fraction_percent"], []).append(
+                    (max(0.0, float(r["time_h"])), float(r["temperature_c"])))  # clamp noise t < 0 to 0
+            weights = {"5": 0.05, "20": 0.2, "25": 0.25, "50": 0.5}  # Eq. (29)
+            per_curve = {}
+            for pct, pts in curves.items():
+                times = np.array([t for t, _ in pts]) * 3600.0
+                temp = np.array([T for _, T in pts])
+                acc = np.broadcast_to(temp[None, :, None], (3, temp.size, 14)).copy()
+                totals, _ = tri.accident_case(constants, names, nodal, acc, times, log, True)
+                per_curve[pct] = {n: float(np.asarray(v)[-1]) for n, v in totals.items()}
+            nuclides = sorted(set().union(*[set(v) for v in per_curve.values()]),
+                              key=lambda n: [r["nuclide"] for r in inv_rows].index(n))
+            out = DATA / f"upstream_case_{case}{suffix}_accident{tag}.csv"
+            with open(out, "w", newline="") as f:
+                f.write(f"# Upstream TRISO-ATOPS de374c8 accident_case, Stoyer Case {case.upper()}, k_plate = {c('k_plate')} 1/s; Fig. 5 as {label} ({curve_file}).\n"
+                        "# total_<p> = accident_case's last value for the Fig. 5 curve <p>% applied to the whole core; eq29 = sum w_p total_p;\n"
+                        "# initial = circulating + x_liftoff x plate-out (t = 0 term, curve-independent);\n"
+                        "# final_as_paper = initial + (eq29 - initial)/10  (s.III.A.5: the x10 building reduction applies to releases AFTER the initial puff);\n"
+                        "# final_div10_all = eq29/10 (the alternative reading, reported for comparison only). Empty = nuclide not selected for that curve.\n")
+                w = csv.writer(f)
+                w.writerow(["nuclide", "total_5", "total_20", "total_25", "total_50", "eq29", "initial",
+                            "final_as_paper", "final_div10_all"])
+                for n in nuclides:
+                    tot = [per_curve[p].get(n) for p in ("5", "20", "25", "50")]
+                    if any(v is None for v in tot):
+                        w.writerow([n] + ["" if v is None else repr(v) for v in tot] + ["", "", "", ""])
+                        continue
+                    eq29 = sum(weights[p] * per_curve[p][n] for p in ("5", "20", "25", "50"))
+                    k = [r["nuclide"] for r in inv_rows].index(n)
+                    initial = float(output[k][3]) + c("x_liftoff") * float(output[k][4])
+                    w.writerow([n] + [repr(v) for v in tot] + [repr(eq29), repr(initial),
+                                repr(initial + (eq29 - initial) / 10.0), repr(eq29 / 10.0)])
+            print(f"case {case}{suffix}{tag}: accident -> {out.relative_to(CRATE)}")
 
 if __name__ == "__main__":
     main()
