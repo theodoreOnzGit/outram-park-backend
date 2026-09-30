@@ -526,10 +526,14 @@ pub enum Venting {
     /// vents, as in a monotonic heat-up or any `from_ramp` ramp-and-hold,
     /// upstream's `accident_temp[:, :-0, :]` is empty and it raises
     /// `IndexError`. This port returns the ideal-gas fraction `≈ 1 − T0/T`
-    /// instead: a defined answer, but **not an upstream-verified one**. A
-    /// spatially non-uniform field that is constant in time also reaches
-    /// that path, and there every `frac` after the first is 0 (#447 item 1,
-    /// open).
+    /// instead: a defined answer, but **not an upstream-verified one**.
+    ///
+    /// A spatially **non-uniform field that is constant in time** is now an
+    /// **error**, [`Error::NoVentingTransport`] (#447, 2026-09-30).
+    /// ~~(every `frac` after the first is 0: a silent 0 Bq)~~. Upstream
+    /// raises there. Heat-up venting moves nothing, but a real core leaks and
+    /// convects, so the caller picks [`Venting::Ventilation`],
+    /// [`Venting::FullFlowThrough`] or [`Venting::Prescribed`].
     Upstream,
     /// Everything released from the fuel leaves the core at once: `frac = 1`
     /// at every sample. The conservative choice for an ingress with no
@@ -540,9 +544,62 @@ pub enum Venting {
     /// exchanged by an ingress flow. The caller owns the number and its
     /// source. Not upstream.
     Prescribed(Vec<f64>),
+    /// **Ventilation / gas exchange** (#447): the core gas is exchanged at a
+    /// constant rate `λ` (air changes per unit time), well mixed, until an
+    /// optional cut-off, after which it is sealed:
+    /// `frac(t) = 1 − exp(−λ · min(t, cut_off))`.
+    ///
+    /// For transport that upstream's heat-up venting does not have:
+    /// convection, leakage and ventilation through a break, which carry the
+    /// release out of a core **whatever its temperature does**. See
+    /// [`Venting::gao_shi_htr10_cavity_ventilation`] for the sourced HTR-10
+    /// case. Not upstream.
+    ///
+    /// **It errs high, and the docs say so:** `frac(t)` multiplies the
+    /// *cumulative* fuel release (upstream's `accident_totals` structure), so
+    /// activity released late is credited the same escape fraction as activity
+    /// released at `t = 0`, and activity released after the cut-off still
+    /// escapes at the frozen fraction. A convolution over release time would
+    /// give less.
+    Ventilation {
+        /// Exchange rate `λ`, air changes per unit time.
+        rate: Frequency,
+        /// When the exchange stops (the break is sealed). `None` means never.
+        cut_off: Option<Time>,
+    },
+}
+
+impl Venting {
+    /// **HTR-10 air ingress, the reactor-cavity ventilation**, from Gao & Shi
+    /// 2002 (NED 218:65-80) §5.3.2: after the hot-gas-duct rupture, *"the
+    /// venting flow is 100 % d⁻¹ in the first 3 days. It is conservatively
+    /// assumed that the air source is cut off 3 days later"*, and the cavity
+    /// is then sealed. So `λ = 1 d⁻¹` and the cut-off is **72 h**, giving
+    /// `frac(72 h) = 1 − e⁻³ = 0.950`.
+    ///
+    /// **The assumption, stated:** the core gas exchanges at the **cavity's**
+    /// rate, i.e. the core is well mixed with the cavity through the break.
+    /// Gao & Shi give the cavity's air change, not the core's. Maintainer's
+    /// choice, 2026-09-30: *"a reasonable and citable scenario"*. The fact is
+    /// transcribed in `crates/kovan-literature/derived/gao-shi2002-htr10-accident-results.md` §2.
+    #[must_use]
+    pub fn gao_shi_htr10_cavity_ventilation() -> Self {
+        Self::Ventilation {
+            rate: Frequency::new::<uom::si::frequency::hertz>(1.0 / 86_400.0),
+            cut_off: Some(Time::new::<uom::si::time::second>(72.0 * 3600.0)),
+        }
+    }
 }
 
 impl TemperatureTransient {
+    /// Whether every node's temperature is the same at every time (spatial
+    /// variation allowed): the non-uniform isothermal case (#447).
+    fn is_constant_in_time(&self) -> bool {
+        self.temperatures
+            .iter()
+            .all(|ring| ring.iter().all(|slice| slice == &ring[0]))
+    }
+
     /// Whether every node at every time has exactly the first node's first
     /// temperature: upstream's test for skipping `coolant_release`.
     fn is_uniform_and_constant(&self) -> bool {
@@ -627,6 +684,14 @@ pub fn accident_release_with_venting(
             // Upstream's `else: frac = np.ones(np.size(times))`.
             VentingWindow::all_samples(vec![1.0; n_samples])
         }
+        Venting::Upstream if transient.is_constant_in_time() => {
+            // Constant in time but NOT uniform in space (the uniform case is
+            // caught above). Upstream's `[:-0]` slice is empty and it raises
+            // `IndexError`. The port used to return frac = [1, 0, 0, …] and a
+            // silent 0 Bq fuel release (#447). The model has no transport
+            // here, so the caller must choose one.
+            return Err(Error::NoVentingTransport);
+        }
         Venting::Upstream => {
             let rate = mean_temperature_rate(&transient.times, &transient.all_node_histories());
             let hot = transient.hot_node_history();
@@ -638,6 +703,17 @@ pub fn accident_release_with_venting(
             window
         }
         Venting::FullFlowThrough => VentingWindow::all_samples(vec![1.0; n_samples]),
+        Venting::Ventilation { rate, cut_off } => {
+            let lam = rate.get::<uom::si::frequency::hertz>();
+            let t_cut = cut_off.map_or(f64::INFINITY, |c| c.get::<second>());
+            VentingWindow::all_samples(
+                transient
+                    .times
+                    .iter()
+                    .map(|t| -(-lam * t.get::<second>().min(t_cut)).exp_m1())
+                    .collect(),
+            )
+        }
         Venting::Prescribed(fractions) => {
             if fractions.len() != n_samples {
                 return Err(Error::VentingLengthMismatch {

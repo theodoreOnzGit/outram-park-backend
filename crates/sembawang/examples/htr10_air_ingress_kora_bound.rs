@@ -110,6 +110,15 @@
 //! **The dose falls to 10 mSv at ≈ 1238 m** (~~1011 m~~ without groundshine
 //! and pools; ~~738 m~~ with 3 FGR-11 nuclides).
 //!
+//! **Transport arm (#447, 2026-09-30).** The bound vents fully (upstream's
+//! isothermal branch, the conservative limit). With the core gas exchanged
+//! instead at HTR-10's cavity ventilation rate, 100 %/day for 72 h then
+//! sealed (Gao & Shi 2002 §5.3.2, `Venting::gao_shi_htr10_cavity_ventilation`),
+//! the release is **0.950** of full venting (1 − e⁻³) and the maximum 400 m
+//! dose is **62.9 mSv** against 66.1. Full venting adds only ≈ 5 %, because
+//! three air changes already exchange 95 % of the core gas. That arm also
+//! errs high, by construction: `frac(t)` multiplies the cumulative release.
+//!
 //! **Under-counted, stated:**
 //! - ~~Inhalation for only Ag-110m, I-131, Cs-137~~ **fixed 2026-09-30**: every
 //!   released nuclide with an FGR-11 entry is now counted. The noble gases have
@@ -445,6 +454,7 @@ fn main() {
     let exposure_s = DOSE_PERIOD_HOURS * 3600.0;
     println!("   nuclide     Q [Bq]       Psi [Bq s/m3]   submersion [Sv]   inhalation [Sv]   groundshine [Sv]   total [Sv]");
     let (mut e_sub_sum, mut e_inh_sum, mut e_gs_sum) = (0.0, 0.0, 0.0);
+    let mut dose_by_nuclide: Vec<(String, f64)> = Vec::new();
     let mut missing_gs = Vec::new();
     let mut missing_sub = Vec::new();
     let mut missing_inh = Vec::new();
@@ -486,6 +496,10 @@ fn main() {
             Some(v) => e_gs_sum += v,
             None => missing_gs.push(n.as_str()),
         }
+        dose_by_nuclide.push((
+            n.clone(),
+            e_sub.unwrap_or(0.0) + e_inh.unwrap_or(0.0) + e_gs.unwrap_or(0.0),
+        ));
         match e_sub {
             Some(v) => e_sub_sum += v,
             None => missing_sub.push(n.as_str()),
@@ -550,4 +564,34 @@ fn main() {
             println!("   dose is still above {:.0} mSv at 100 km", 1e3 * DOSE_LEVEL_SV);
         }
     }
+
+    // ------------------------------------------------ 7. transport arm: Gao & Shi ventilation
+    // The bound above vents fully (upstream's isothermal branch). Here the
+    // core gas instead exchanges at the HTR-10 cavity ventilation rate, Gao &
+    // Shi 2002 §5.3.2: 100 %/day, well mixed, cut off at 72 h. Every pathway
+    // is linear in the released activity, so each nuclide's dose scales by
+    // its release ratio.
+    let out_vent = accident_release_with_venting(
+        &inventory,
+        &flat_hold(),
+        &plant,
+        &Venting::gao_shi_htr10_cavity_ventilation(),
+    )
+    .expect("the release chain runs");
+    let full: std::collections::HashMap<&str, f64> =
+        out.cumulative_final.iter().map(|(n, b)| (n.as_str(), *b)).collect();
+    let mut vent_dose = 0.0;
+    for (n, bq) in &out_vent.cumulative_final {
+        let scale = if full[n.as_str()] > 0.0 { bq / full[n.as_str()] } else { 0.0 };
+        vent_dose += dose_by_nuclide.iter().find(|(m, _)| m == n).map_or(0.0, |(_, d)| *d) * scale;
+    }
+    let vent_total: f64 = out_vent.cumulative_final.iter().map(|(_, b)| b).sum();
+    let full_total: f64 = out.cumulative_final.iter().map(|(_, b)| b).sum();
+    println!("\n-- 7. transport arm: Gao & Shi cavity ventilation (100 %/day, cut off at 72 h) instead of full venting");
+    println!(
+        "   release {vent_total:.4e} Bq (full venting {full_total:.4e}; ratio {:.3}); max dose at {RECEPTOR_M} m {:.2} mSv (bound {:.2} mSv)",
+        vent_total / full_total,
+        1e3 * vent_dose,
+        1e3 * (e_sub_sum + e_inh_sum + e_gs_sum)
+    );
 }

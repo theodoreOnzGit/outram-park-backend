@@ -985,6 +985,10 @@ pub enum Venting {
     Upstream,
     FullFlowThrough,
     Prescribed(Vec<f64>),
+    Ventilation {
+        rate: uom::si::f64::Frequency,
+        cut_off: Option<uom::si::f64::Time>,
+    },
 }
 ```
 
@@ -1011,10 +1015,14 @@ here.
 vents, as in a monotonic heat-up or any `from_ramp` ramp-and-hold,
 upstream's `accident_temp[:, :-0, :]` is empty and it raises
 `IndexError`. This port returns the ideal-gas fraction `≈ 1 − T0/T`
-instead: a defined answer, but **not an upstream-verified one**. A
-spatially non-uniform field that is constant in time also reaches
-that path, and there every `frac` after the first is 0 (#447 item 1,
-open).
+instead: a defined answer, but **not an upstream-verified one**.
+
+A spatially **non-uniform field that is constant in time** is now an
+**error**, [`Error::NoVentingTransport`] (#447, 2026-09-30).
+~~(every `frac` after the first is 0: a silent 0 Bq)~~. Upstream
+raises there. Heat-up venting moves nothing, but a real core leaks and
+convects, so the caller picks [`Venting::Ventilation`],
+[`Venting::FullFlowThrough`] or [`Venting::Prescribed`].
 
 ###### `FullFlowThrough`
 
@@ -1035,7 +1043,41 @@ Fields:
 |-------|------|---------------|
 | 0 | `Vec<f64>` |  |
 
+###### `Ventilation`
+
+**Ventilation / gas exchange** (#447): the core gas is exchanged at a
+constant rate `λ` (air changes per unit time), well mixed, until an
+optional cut-off, after which it is sealed:
+`frac(t) = 1 − exp(−λ · min(t, cut_off))`.
+
+For transport that upstream's heat-up venting does not have:
+convection, leakage and ventilation through a break, which carry the
+release out of a core **whatever its temperature does**. See
+[`Venting::gao_shi_htr10_cavity_ventilation`] for the sourced HTR-10
+case. Not upstream.
+
+**It errs high, and the docs say so:** `frac(t)` multiplies the
+*cumulative* fuel release (upstream's `accident_totals` structure), so
+activity released late is credited the same escape fraction as activity
+released at `t = 0`, and activity released after the cut-off still
+escapes at the frozen fraction. A convolution over release time would
+give less.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rate` | `uom::si::f64::Frequency` | Exchange rate `λ`, air changes per unit time. |
+| `cut_off` | `Option<uom::si::f64::Time>` | When the exchange stops (the break is sealed). `None` means never. |
+
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn gao_shi_htr10_cavity_ventilation() -> Self { /* ... */ }
+  ```
+  **HTR-10 air ingress, the reactor-cavity ventilation**, from Gao & Shi
 
 ###### Trait Implementations
 
@@ -1706,6 +1748,7 @@ pub enum Error {
         index: usize,
         value: f64,
     },
+    NoVentingTransport,
 }
 ```
 
@@ -1778,6 +1821,14 @@ Fields:
 |------|------|---------------|
 | `index` | `usize` | Sample index. |
 | `value` | `f64` | The offending value. |
+
+###### `NoVentingTransport`
+
+`Venting::Upstream` on a field that is **constant in time but not
+uniform in space** (#447). Upstream raises `IndexError` here, and the
+port used to return a silent 0 Bq. TRISO-ATOPS transports activity only
+by heat-up expansion, which is zero here, but a real core still leaks,
+convects and is ventilated.
 
 ##### Implementations
 

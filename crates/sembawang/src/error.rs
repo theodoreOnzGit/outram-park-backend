@@ -65,6 +65,19 @@ pub enum Error {
         /// The offending value.
         value: f64,
     },
+
+    /// `Venting::Upstream` on a field that is **constant in time but not
+    /// uniform in space** (#447). Upstream raises `IndexError` here, and the
+    /// port used to return a silent 0 Bq. TRISO-ATOPS transports activity only
+    /// by heat-up expansion, which is zero here, but a real core still leaks,
+    /// convects and is ventilated.
+    #[error(
+        "the temperature field is constant in time but not uniform: TRISO-ATOPS's heat-up venting \
+         moves nothing and upstream raises here. Choose a transport: Venting::Ventilation \
+         (e.g. gao_shi_htr10_cavity_ventilation), Venting::FullFlowThrough (the conservative limit) \
+         or Venting::Prescribed"
+    )]
+    NoVentingTransport,
 }
 
 /// This crate's result type.
