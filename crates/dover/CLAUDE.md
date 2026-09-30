@@ -42,8 +42,11 @@ hierarchical, physics-derived surrogates, run uncalibrated first.
 - `chem-eng-real-time-process-control-simulator`: exact zero-order-hold
   transfer-function blocks for dynamic process-control runs.
 - `serde` and `toml` are already in the root `[workspace.dependencies]`
-  (`kovan` uses them for its own files). No crate currently reads a
-  *simulation* input deck against a schema, so the deck reader is the new part.
+  (`kovan` uses them for its own files). ~~No crate currently reads a
+  *simulation* input deck against a schema, so the deck reader is the new
+  part.~~ **CORRECTED 2026-09-30** — that reader now exists: `dover::deck`
+  parses a TOML deck into a typed `Deck` (`schema_version = 1`,
+  `deny_unknown_fields`), and `dover` depends on `serde` and `toml`.
 
 Not decided: the schema's form and versioning, which models a deck may name,
 and whether DOVER has a windowing GUI.
