@@ -70,24 +70,22 @@
 //!   figures) in both cases: graphite 40/40, circulating 64/64, plate-out
 //!   52/52, HPS 24/24, initial release 46/46.
 //!
-//! - **Accident path, port vs upstream: worst relative difference 2.2e-11**
-//!   over every curve's last total, both cases, both plate-out constants.
-//! - **Final releases vs the paper: a near-uniform ~0.83** (Case A median
-//!   0.830, range 0.80-0.93; Case B median 0.831, range 0.65-1.75 with
-//!   Ag-111 1.75 and Cs-134 0.65 the outliers at printed `k_plate`; 0.64-0.90
-//!   at 7.5e-4). Nearly every nuclide sits at 0.80-0.93 whatever its
-//!   chemistry, so the factor is common to all of them -- the **venting
-//!   fraction** (breathing, Eq. 27), which multiplies every fuel and graphite
-//!   release and depends on each curve's starting temperature. The rendered
-//!   Fig. 5 shows a t = 0 marker on the 5 % curve (~800 degC) and on the 50 %
-//!   curve (~200 degC) that the digitisation does not contain (its first
-//!   points are 923 degC at 0.32 h and 326 degC at 1.35 h), and its early
-//!   points are non-monotonic in places (digitisation noise), which makes
-//!   the upstream venting mask gappy. The venting fractions this gives are
-//!   0.44 / 0.48 / 0.62 / 0.41 (5 / 20 / 25 / 50 %). **Not corrected here**:
-//!   adding points would be a second digitisation; requested from the
-//!   maintainer on gh:#413. The plate-out constant does not matter for the
-//!   final releases (both runs agree to a few % except Ag-111 and Cs-136).
+//! - **Accident path (re-digitised Fig. 5, 2026-09-30T01:50:02Z, kovan
+//!   066e691): port vs upstream worst relative difference 3.9e-11.**
+//! - **Final releases vs the paper: median 0.88** in both cases, at both
+//!   plate-out constants. Case A spans 0.86-1.15: the volatiles (I, Te, Xe)
+//!   are at 0.97-0.99, the metals at 0.86-0.94, and the two silvers at
+//!   1.12-1.15. Case B spans 0.66-1.79, with Cs-134 0.67, Kr-85 0.76 and
+//!   Ag-111 1.79 at the printed plate-out constant. Per nuclide:
+//!   `final_release_ratio_before_after.csv`.
+//! - **Vent fractions** (5 / 20 / 25 / 50 %) went from 0.44 / 0.48 / 0.62 /
+//!   0.41 to **0.55** / 0.48 / 0.62 / **0.52** once the t = 0 markers were
+//!   added. The 50 % curve now rises monotonically, so its early dip no
+//!   longer gaps the vent mask.
+//! - ~~On the 2026-09-29 digitisation: median 0.83 (0.80-0.93 in Case A),
+//!   attributed to the missing t = 0 markers~~ -- the re-digitisation moved it
+//!   to 0.88, which confirms the direction. The remaining ~12 % sits mainly in
+//!   the metals and is not diagnosed.
 //!
 //! **Interpretation.** The workflow, the fork and the upstream code agree
 //! with the published tables once the plate-out constant is the upstream
