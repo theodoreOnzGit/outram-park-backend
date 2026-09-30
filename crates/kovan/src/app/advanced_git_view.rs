@@ -283,15 +283,34 @@ impl AdvancedGitState {
                 ui.weak("clean — nothing to save");
             }
             Some(s) => {
-                for a in &s.added {
-                    ui.label(format!("+ {a}"));
-                }
-                for c in &s.changed {
-                    ui.label(format!("~ {c}"));
-                }
-                for r in &s.removed {
-                    ui.label(format!("- {r}"));
-                }
+                // Maintainer, 2026-09-30: on a fresh Kovan folder the list
+                // "floods" the tab and pushes the Save Repository button off
+                // the bottom ("I cannot even find the save repository
+                // button"). The list therefore gets its OWN scroll area,
+                // capped in height, so the note box and the button below it
+                // stay on screen however many files changed. A one-line count
+                // comes first, so the size is visible without scrolling.
+                ui.weak(format!(
+                    "{} added, {} changed, {} removed",
+                    s.added.len(),
+                    s.changed.len(),
+                    s.removed.len()
+                ));
+                egui::ScrollArea::vertical()
+                    .id_salt("save_repository_changes")
+                    .max_height(changes_list_max_height(ui.available_height()))
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        for a in &s.added {
+                            ui.label(format!("+ {a}"));
+                        }
+                        for c in &s.changed {
+                            ui.label(format!("~ {c}"));
+                        }
+                        for r in &s.removed {
+                            ui.label(format!("- {r}"));
+                        }
+                    });
             }
             None => {
                 ui.weak("(loading…)");
@@ -794,6 +813,14 @@ impl AdvancedGitState {
     }
 }
 
+/// Height cap for the "Changes since last save" list: a third of the room left
+/// below the heading, clamped to `[120, 360]` px. That leaves the note box,
+/// the push checkbox and the Save Repository button visible below the list
+/// even on a small window. The list scrolls inside its cap.
+fn changes_list_max_height(available: f32) -> f32 {
+    (available / 3.0).clamp(120.0, 360.0)
+}
+
 /// A remote operation a repository panel can run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RemoteOp {
@@ -1155,5 +1182,58 @@ mod tests {
         state.persist_push_setting(&root);
         assert!(crate::advanced_git::push_after_save_setting(&root));
         assert!(!state.message_is_error, "{}", state.message);
+    }
+
+    /// A fresh Kovan folder with thousands of new files must not push the
+    /// Save Repository button off the window (maintainer, 2026-09-30: "my
+    /// save repository page is flooded with changes. I cannot even find the
+    /// save repository button").
+    ///
+    /// Drawn headless in a 1000 × 700 window with 5 000 added files, the whole
+    /// tab (list, note box, checkbox, buttons) must fit within the window
+    /// height. Before the change, every file was a bare label in the page, so
+    /// the page grew with the file count and the button sat below all of them.
+    /// Control run, 2026-09-30: with the cap removed (the list in a scroll
+    /// area with no height limit), this test FAILS, with an 849 px page in a
+    /// 700 px window.
+    #[test]
+    fn thousands_of_changes_do_not_push_the_save_button_off_screen() {
+        let dir = tempfile::tempdir().unwrap();
+        let root =
+            KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+                .unwrap();
+        let mut state = AdvancedGitState {
+            loaded_once: true, // keep `ui` from re-scanning and replacing the status
+            status: Some(crate::repository::SaveSummary {
+                added: (0..5000).map(|i| format!("corpus/file_{i:05}.md")).collect(),
+                changed: Vec::new(),
+                removed: Vec::new(),
+            }),
+            ..Default::default()
+        };
+        let window = egui::vec2(1000.0, 700.0);
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, window)),
+            ..Default::default()
+        };
+        let ctx = egui::Context::default();
+        let mut page_height = f32::NAN;
+        let _ = ctx.run_ui(input, |ui| {
+            state.ui(ui, &root);
+            page_height = ui.min_rect().height();
+        });
+        assert!(
+            page_height < window.y,
+            "the Save Repository tab is {page_height:.0} px tall in a {:.0} px window; \
+             the button is off screen",
+            window.y
+        );
+    }
+
+    #[test]
+    fn the_changes_list_cap_leaves_room_below_it() {
+        assert_eq!(changes_list_max_height(300.0), 120.0);
+        assert_eq!(changes_list_max_height(600.0), 200.0);
+        assert_eq!(changes_list_max_height(3000.0), 360.0);
     }
 }
