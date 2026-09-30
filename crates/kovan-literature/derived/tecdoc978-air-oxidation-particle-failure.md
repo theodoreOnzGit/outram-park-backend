@@ -20,7 +20,7 @@ the conservative bound (#435, `f_ox`).
 | Sections | §5.4 (printed pp.243–251): §5.4.1 (JAERI), §5.4.2.2 (KORA), §5.4.2.3 (model); Tables 5-6, 5-7; Eqs. 5-9 to 5-11; Figs. 5-18 to 5-24 |
 | Copy held | the maintainer's private repository, `literature/proprietary/2002iaeatecdoc978.pdf` (533 pp.; the tables are on PDF pages 252 and 254) |
 | Access tier | **Proprietary**, following the workspace's treatment of TECDOC-1382 (reclassified 2026-09-22 for want of a verified reuse licence). Facts only |
-| Processing | **Tables 5-6 and 5-7 and the model constants were transcribed by an AI agent from rendered page images** (PDF pages 252, 254, 255, 259 at 110–130 dpi), because the text layer garbles them, 2026-09-30. **Not reviewed by a human.** No figure was digitised. |
+| Processing | **Tables 5-6 and 5-7 and the model constants were transcribed by an AI agent from rendered page images** (PDF pages 252, 254, 255, 259 at 110–130 dpi), because the text layer garbles them, 2026-09-30. **Not reviewed by a human.** ~~No figure was digitised.~~ **UPDATED 2026-09-30:** Figs. 5-18, 5-21 and 5-23 were **digitised by the maintainer by hand in Kovan** (see §4). |
 
 ---
 
@@ -144,3 +144,33 @@ digitised).
 At HTR-10's air-ingress temperatures the fit gives **negligible** failure.
 The **JAERI 900 °C compact result above (1.2×10⁻³) contradicts it**, through
 local exothermic heating that a nominal-temperature model cannot see (#445).
+
+## 4. Digitised figures (the maintainer, by hand, in Kovan, 2026-09-30)
+
+**Where they are:** the maintainer's Kovan folder, `papers/2002/2002iaeatecdoc978/2002iaeatecdoc978.md`
+(private repository, because the source is proprietary). Each dataset records the page, the figure
+region, both axis calibrations (pixel ↔ value), the axis scales (Fig. 5-21 and Fig. 5-23 are
+log-y, linear-x), the method (`manual_digitisation`) and the digitiser. That satisfies the
+workspace's figure-provenance rule.
+
+| Figure | PDF page | Series |
+|---|---|---|
+| 5-18, compact weight in air at 1400 °C | — | 6 data points (0.5–19.9 h) |
+| 5-21, failure fraction in air | 256 | 1300 °C (5 points); 1500 °C (5); 1400 °C, two series (9, 8) |
+| 5-23, failure fraction at constant temperature | 257 | measurements: 1300 °C AVR "89/19", 1400 °C AVR 92/8, 92/22 and the 10-particle batch, 1500 °C 73/8. Predictions: Nabielek 1300 and 1400 °C, 2-mec 1500 °C |
+
+### Checks by an AI agent, 2026-09-30
+- **1300 °C points sit on whole failure counts** (F × 16 400):
+  - Fig. 5-23: 1.05, 2.08, 2.93, 4.10, i.e. 1, 2, 3, 4 failures, consistent with Table 5-7 (4 by 410 h).
+  - Fig. 5-21: 0.98, 2.01, 2.99, 3.97 **and a fifth point, 4.90 at 383 h**.
+  - **Open:** either Fig. 5-21 shows one more failure than Table 5-7 and Fig. 5-23, or that point is misplaced. For the maintainer to check by eye.
+- **Fig. 5-18:** the plateau is 42.4 % at 19.9 h, matching the text's "42 %".
+- **1400 °C, 96 h:** the measured spheres reach ≈ 9×10⁻⁴ by 18–34 h (AVR 92/22, 92/8) and 1.2×10⁻³ at 140 h (Table 5-7). Failure only grows with time, so **1.2×10⁻³ bounds a 96 h period**. This is used by `sembawang`'s `htr10_air_ingress_kora_bound` (#435).
+- **Nabielek's fit against measurement, from the source's own figure (5-23):**
+  - the 1400 °C prediction is 3.7×10⁻³ at 68.6 h and 1.5×10⁻² at 133.8 h;
+  - measured, 1.2×10⁻³ at 140 h: **≈ 12× over-prediction**.
+  
+  The agent's 2-mec calculation (§3) reproduces the figure's 1400 °C curve to within 17–21 % (0.79–0.83 of it), and its 1300 °C curve to 0.55. At 1500 °C it matches to 0.67–1.32. The figure's 1300 and 1400 °C "Nabielek" curves are probably the single-mechanism fit; that was not confirmed.
+- **Source inconsistencies (not digitisation errors):**
+  - Fig. 5-23 labels the 1300 °C sphere **AVR 89/19**, where Table 5-7 says **89/12**.
+  - **AVR 92/8** (Figs. 5-19 and 5-23; 1400 °C, 9 % FIMA) does not appear in Table 5-7.
