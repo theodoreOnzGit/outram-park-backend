@@ -30,6 +30,22 @@ tables at 293.6 K, 1000 × [5 + 10], one seed. One temperature changed to
 The first two arms are asserted bit-identical and the third asserted
 different, so a change in any of these behaviours fails the test.
 
+## Re-measured (2026-09-30): the model gained H-1
+
+~~The table above~~ is superseded. On bare Godiva the third arm had gone
+blind: after the ACE-route fixes (#365, #366, #407) all four arms gave a
+bit-identical k = 0.982577, because no collision in the short run reached
+the free-gas range. The test now adds H-1 at 5.0e-3 atoms/(b·cm) from
+`reference-data/endf`. A neutron-mass target is a free gas at every energy.
+The conclusions are unchanged:
+
+| Arm | k |
+|---|---|
+| everything 293.6 K | 1.014268 ± 0.017209 |
+| `Cell::temperature` = 1200 K | 1.014268 ± 0.017209 (bit-identical) |
+| `Material::temperature` = 1200 K | 1.014268 ± 0.017209 (bit-identical) |
+| `KeffSettings::temperature_k` = 1200 K | 1.013499 ± 0.007813 (differs) |
+
 ## The rule for a user
 
 **To run a model at temperature T, build (or read) the nuclides at T, load the

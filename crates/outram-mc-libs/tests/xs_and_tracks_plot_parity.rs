@@ -94,7 +94,14 @@ fn library() -> Option<&'static XsLibrary> {
             let p = ace_reference_file_or_skip(&rel, &format!("xs_plot_parity/{n}"))?;
             lib = lib.with_nuclide(IncidentNeutronData::from_ace_file(&p, None).expect(n));
         }
+        // C12.ace.gz is generated scratch and gitignored (`*.ace.gz`), so a
+        // checkout without it must SKIP, not panic, like the submodule tables
+        // above (2026-09-30: this panicked in a clean worktree).
         let c12 = vv_dir().join("data/C12.ace.gz");
+        if !c12.is_file() {
+            eprintln!("SKIP xs_plot_parity: {} absent (generated, gitignored)", c12.display());
+            return None;
+        }
         lib = lib.with_nuclide(IncidentNeutronData::from_ace_file(&c12, None).expect("C12"));
         Some(lib)
     })

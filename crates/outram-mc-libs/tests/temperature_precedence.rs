@@ -33,6 +33,24 @@
 //! Pass criteria fixed before running; the third arm is the negative control
 //! that shows the harness can see a change at all.
 //!
+//! # Protocol fixed 2026-09-30: the control had gone blind
+//!
+//! On bare Godiva the third arm stopped being able to see anything. After the
+//! ACE-route fixes of GitHub #365, #366 and #407, all four arms gave
+//! bit-identical k = 0.982577. No collision in this short run reached the
+//! free-gas range (below 400 kT, or below 1 keV for a DBRC nuclide), so the
+//! run temperature was never read.
+//!
+//! This was checked, not assumed: the same all-identical result appears with
+//! `physics/scatter.rs` reverted to its state before the #407 changes. So it
+//! is the instrument, not a kernel defect.
+//!
+//! The criterion is kept, and the **model** is changed. H-1 is added at
+//! 5.0e-3 atoms/(b·cm), from `reference-data/endf`. A neutron-mass target is
+//! a free gas at every energy, so the run temperature is read on every H-1
+//! collision. The model is therefore no longer the Godiva benchmark; it is a
+//! lightly moderated HEU sphere, which is all this test needs.
+//!
 //! # Results (2026-09-27)
 //!
 //! Recorded in `docs/temperatures.md` from this test's printout.
@@ -59,7 +77,13 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         p.exists().then_some(())?;
         Some(Nuclide::from_ace_file(&p, n).expect("ACE table decodes"))
     };
-    Some(vec![load("U235")?, load("U238")?])
+    // H-1 from the repository's ENDF/B-VIII.0 tape (pointwise, like the ACE
+    // nuclides). A neutron-mass target is scattered as a free gas at every
+    // energy (the at-rest gate needs `awr > 1`), so its collisions always read
+    // `KeffSettings::temperature_k`. See "Protocol fixed 2026-09-30" above.
+    let h = njoy_outram_park_fork::reference_data::reference_endf("n-001_H_001-ENDF8.0-Beta6.endf")?;
+    let h1 = Nuclide::from_endf_file(&h, "H1", T_REF, 1.0e-3).expect("H-1 reconstructs");
+    Some(vec![load("U235")?, load("U238")?, h1])
 }
 
 fn model(cell_t: f64, mat_t: f64) -> (Geometry, Vec<Material>) {
@@ -98,6 +122,10 @@ fn model(cell_t: f64, mat_t: f64) -> (Geometry, Vec<Material>) {
             NuclideComponent {
                 nuclide_idx: 1,
                 atom_density: 2.4984e-3,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 5.0e-3,
             },
         ],
         temperature: mat_t,
