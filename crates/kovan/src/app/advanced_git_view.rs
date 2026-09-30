@@ -72,7 +72,7 @@ use std::path::PathBuf;
 /// so each panel uses the repository's own `origin` and the branch it has
 /// checked out, read from Git on refresh.
 struct RepoPanel {
-    label: &'static str,
+    label: String,
     dir: PathBuf,
     remotes: Vec<RemoteInfo>,
     /// The branch checked out, if any.
@@ -80,7 +80,7 @@ struct RepoPanel {
 }
 
 impl RepoPanel {
-    fn load(label: &'static str, dir: PathBuf) -> Self {
+    fn load(label: String, dir: PathBuf) -> Self {
         Self {
             label,
             remotes: advanced_git::list_remotes_in(&dir).unwrap_or_default(),
@@ -158,7 +158,7 @@ enum GitJobDone {
     /// A panel's fetch/pull/push; `corpora` is set when the Kovan folder
     /// was pulled and its corpora followed it (#422).
     Remote {
-        label: &'static str,
+        label: String,
         dir: PathBuf,
         remote: String,
         branch: String,
@@ -189,7 +189,7 @@ enum GitJobDone {
 /// destructive enough that it must not be able to land on a different
 /// repository than the one the user was shown.
 struct ForcePullPrompt {
-    label: &'static str,
+    label: String,
     dir: PathBuf,
     remote: String,
     branch: String,
@@ -212,11 +212,27 @@ impl AdvancedGitState {
         }
         self.branches = advanced_git::local_branches(root).unwrap_or_default();
         self.history = advanced_git::history(root, 20).unwrap_or_default();
-        self.repos = std::iter::once(("Kovan folder", root.path().to_path_buf()))
-            .chain([
-                ("Open corpus", root.open_corpus_dir()),
-                ("Proprietary corpus", root.restricted_sources_dir()),
-            ])
+        // Every open and proprietary repository (#458); a tier with one
+        // repository keeps its plain label.
+        let corpus = root.corpus_repos();
+        let mut panels: Vec<(String, PathBuf)> =
+            vec![("Kovan folder".to_string(), root.path().to_path_buf())];
+        for tier in [
+            crate::corpus_tiers::Tier::Open,
+            crate::corpus_tiers::Tier::Proprietary,
+        ] {
+            let in_tier: Vec<_> = corpus.iter().filter(|r| r.tier == tier).collect();
+            for r in &in_tier {
+                let label = if in_tier.len() == 1 {
+                    tier.label().to_string()
+                } else {
+                    r.label()
+                };
+                panels.push((label, r.dir.clone()));
+            }
+        }
+        self.repos = panels
+            .into_iter()
             .filter(|(_, dir)| crate::corpus_repos::is_git_repo(dir))
             .map(|(label, dir)| RepoPanel::load(label, dir))
             .collect();
@@ -373,7 +389,7 @@ impl AdvancedGitState {
                 let mut action: Option<(usize, RemoteOp)> = None;
                 for (i, repo) in self.repos.iter().enumerate() {
                     ui.add_space(4.0);
-                    ui.label(egui::RichText::new(repo.label).strong());
+                    ui.label(egui::RichText::new(&repo.label).strong());
                     ui.weak(repo.dir.display().to_string());
                     match (repo.remote(), &repo.branch) {
                         (Some(remote), Some(branch)) => {
@@ -495,7 +511,7 @@ impl AdvancedGitState {
         let (remote, branch, label, dir) = (
             remote.name.clone(),
             branch.to_string(),
-            repo.label,
+            repo.label.clone(),
             repo.dir.clone(),
         );
         let kovan_folder = dir == root.path();
@@ -627,8 +643,13 @@ impl AdvancedGitState {
                     branch,
                     reason,
                 } => {
+                    let label = if p.name.is_empty() {
+                        p.corpus.label().to_string()
+                    } else {
+                        format!("{} ({})", p.corpus.label(), p.name)
+                    };
                     let prompt = ForcePullPrompt {
-                        label: p.corpus.label(),
+                        label,
                         dir: p.dir,
                         remote,
                         branch,
@@ -653,7 +674,7 @@ impl AdvancedGitState {
     /// those two is testable without a repository or a running `git`.
     fn record(
         &mut self,
-        label: &'static str,
+        label: String,
         dir: PathBuf,
         remote: String,
         branch: String,
@@ -806,7 +827,7 @@ mod tests {
 
     fn panel(names: &[&str]) -> RepoPanel {
         RepoPanel {
-            label: "test",
+            label: "test".into(),
             dir: PathBuf::new(),
             remotes: names
                 .iter()
@@ -829,7 +850,7 @@ mod tests {
     fn state_after(result: Result<String, advanced_git::RemoteError>) -> AdvancedGitState {
         let mut state = AdvancedGitState::default();
         state.record(
-            "Kovan folder",
+            "Kovan folder".into(),
             PathBuf::from("/tmp/local-kovan-repo"),
             "origin".into(),
             "main".into(),
@@ -909,6 +930,7 @@ mod tests {
         use crate::save_push::{CorpusKind, CorpusPull, CorpusPullOutcome};
         let confirm = |corpus, dir: &str| CorpusPull {
             corpus,
+            name: String::new(),
             dir: PathBuf::from(dir),
             outcome: CorpusPullOutcome::NeedsConfirmation {
                 remote: "origin".into(),
@@ -922,6 +944,7 @@ mod tests {
             confirm(CorpusKind::Open, "/k/open"),
             CorpusPull {
                 corpus: CorpusKind::Standard,
+                name: String::new(),
                 dir: PathBuf::from("/k/std"),
                 outcome: CorpusPullOutcome::UpToDate {
                     branch: "main".into(),
@@ -947,7 +970,7 @@ mod tests {
         let gate = std::sync::Arc::new(std::sync::RwLock::new(false));
         let mut state = AdvancedGitState::default();
         state.queued_force_pulls.push_back(ForcePullPrompt {
-            label: "Open corpus",
+            label: "Open corpus".into(),
             dir: PathBuf::from("/k/open"),
             remote: "origin".into(),
             branch: "main".into(),
@@ -960,7 +983,7 @@ mod tests {
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
             GitJobDone::Remote {
-                label: "Kovan folder",
+                label: "Kovan folder".into(),
                 dir: PathBuf::from("/k"),
                 remote: "origin".into(),
                 branch: "main".into(),
@@ -1048,6 +1071,7 @@ mod tests {
             repos: vec![
                 RepoPush {
                     repo: PushRepo::ProprietaryCorpus,
+                    name: String::new(),
                     dir: PathBuf::new(),
                     outcome: PushOutcome::Pushed {
                         remote_url: "https://example.com/private.git".into(),
@@ -1057,6 +1081,7 @@ mod tests {
                 },
                 RepoPush {
                     repo: PushRepo::OpenCorpus,
+                    name: String::new(),
                     dir: PathBuf::new(),
                     outcome: PushOutcome::Failed {
                         message: "the remote has commits this folder does not have — pull first"
@@ -1065,12 +1090,14 @@ mod tests {
                 },
                 RepoPush {
                     repo: PushRepo::KovanRepository,
+                    name: String::new(),
                     dir: PathBuf::new(),
                     outcome: PushOutcome::Skipped {
                         reason: "a corpus above was not pushed".into(),
                     },
                 },
             ],
+            warnings: Vec::new(),
         };
         let mut state = AdvancedGitState {
             commit_note: "note".into(),
@@ -1091,11 +1118,13 @@ mod tests {
         let ok = PushReport {
             repos: vec![RepoPush {
                 repo: PushRepo::KovanRepository,
+                name: String::new(),
                 dir: PathBuf::new(),
                 outcome: PushOutcome::UpToDate {
                     branch: "main".into(),
                 },
             }],
+            warnings: Vec::new(),
         };
         let mut state = AdvancedGitState::default();
         state.record_save(Ok(Some(summary)), Some(ok));

@@ -49,6 +49,10 @@ struct IngestFlow {
     preview: IngestPreview,
     citekey: String,
     access: Access,
+    /// The tier and repository to store the PDF in (#458); reset to the
+    /// default of the tier `access` implies whenever it stops being a valid
+    /// choice ([`ingest::target_choices`]).
+    target: Option<crate::corpus_tiers::RepoRef>,
     message: String,
 }
 
@@ -64,6 +68,7 @@ impl IngestFlow {
             preview,
             citekey,
             access: Access::Restricted,
+            target: None,
             message,
         }
     }
@@ -295,6 +300,34 @@ impl WikiState {
                     "Restricted / proprietary",
                 );
                 ui.radio_value(&mut flow.access, Access::Open, "Open / redistributable");
+                // Which repository (#458): a tier may hold several. The
+                // choices follow the access, so a restricted document can
+                // only be put in a proprietary repository.
+                let choices = ingest::target_choices(root, flow.access);
+                let valid = flow
+                    .target
+                    .as_ref()
+                    .is_some_and(|t| choices.iter().any(|r| r.tier == t.tier && r.name == t.name));
+                if !valid {
+                    flow.target = ingest::default_target(root, flow.access);
+                }
+                let shown = flow
+                    .target
+                    .as_ref()
+                    .and_then(|t| choices.iter().find(|r| r.name == t.name))
+                    .map(|r| r.label())
+                    .unwrap_or_else(|| "no repository available".to_string());
+                egui::ComboBox::from_label("Repository")
+                    .selected_text(shown)
+                    .show_ui(ui, |ui| {
+                        for r in &choices {
+                            let value = Some(crate::corpus_tiers::RepoRef {
+                                tier: r.tier,
+                                name: r.name.clone(),
+                            });
+                            ui.selectable_value(&mut flow.target, value, r.label());
+                        }
+                    });
                 // No topics or projects here (maintainer, 2026-09-22: too
                 // much at ingest). The paper starts unsorted; classify it
                 // later with Reclassify.
@@ -321,6 +354,7 @@ impl WikiState {
                 access: flow.access,
                 topics: Vec::new(),
                 projects: Vec::new(),
+                target: flow.target.clone(),
             };
             match ingest::ingest(root, &flow.preview, choice) {
                 Ok(()) => {

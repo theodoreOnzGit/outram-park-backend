@@ -934,6 +934,12 @@ impl DigitiseApp {
                 crate::ingest::ExistingEntry::Paper { citekey, .. } => {
                     self.activate_paper_and_navigate(citekey)
                 }
+                // A PDF already in a corpus repository that no paper records
+                // (#458): open that copy, which offers an ingest in place.
+                crate::ingest::ExistingEntry::RepoFile { pdf, .. } => {
+                    let pdf = pdf.clone();
+                    self.open_document(&pdf);
+                }
             }
             self.set_status(message);
             return;
@@ -3290,6 +3296,10 @@ impl DigitiseApp {
             parts.push(describe("standard corpus", &setup.standard));
             parts.push(describe("open corpus", &setup.open));
             parts.push(describe("proprietary corpus", &setup.proprietary));
+            for (tier, name, r) in &setup.others {
+                let what = format!("{} ({name})", tier.label().to_lowercase());
+                parts.push(describe(&what, r));
+            }
             parts.join("; ")
         });
         Ok(())
@@ -3904,6 +3914,7 @@ mod tests {
             access,
             topics: vec!["htgrs".to_string()],
             projects: vec![],
+            target: None,
         };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey

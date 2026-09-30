@@ -18,8 +18,11 @@
 //! - **The document itself** ([`find_existing`], since 2026-09-30): the
 //!   incoming PDF is compared, by path and then by SHA-256 content hash
 //!   ([`crate::fingerprint`], cached in `.kovan/`), with every downloaded
-//!   standard-corpus file ([`crate::standard_corpus`]) and every paper's PDF.
-//!   A match is [`IngestPreview::duplicate`] and [`IngestError::Duplicate`]:
+//!   standard-corpus file ([`crate::standard_corpus`]), every paper's PDF
+//!   and, since GitHub issue #458, **every PDF in every corpus repository of
+//!   every tier** ([`crate::corpus_tiers`]), so a document already in any
+//!   standard, open or proprietary repository is caught even when no paper
+//!   records it. A match is [`IngestPreview::duplicate`] and [`IngestError::Duplicate`]:
 //!   nothing is written, and the caller opens the existing entry instead.
 //!   Only files of the same byte length are hashed, so the check reads
 //!   almost nothing when there is no duplicate.
@@ -30,6 +33,16 @@
 //!   standard-corpus file, because a standard-corpus document was never
 //!   "ingested" to begin with. Both halves are fixed; see
 //!   [`crate::standard_corpus`].
+//!
+//! # Which repository (GitHub issue #458)
+//!
+//! A tier may hold several repositories. [`IngestChoice::target`] names the
+//! tier and the repository; `None` means the tier's default
+//! ([`crate::root::KovanRoot::default_repo`]) of the tier the access implies
+//! (open for [`Access::Open`], proprietary otherwise). A restricted document
+//! may only go to a proprietary repository, and a standard repository only
+//! when it is configured `writable` ([`resolve_target`]). The repository is
+//! recorded in the paper's `[source] repo`.
 //!
 //! A file whose **name** matches a corpus document's or a paper's PDF, but
 //! whose content differs, is only a warning ([`IngestPreview::name_clash`]):
@@ -83,6 +96,9 @@ pub enum IngestError {
     /// The PDF is already in the library ([`find_existing`]); nothing was
     /// written. Open the existing entry instead.
     Duplicate(ExistingEntry),
+    /// The chosen tier/repository cannot take this document
+    /// ([`resolve_target`]); nothing was written.
+    Target { reason: String },
 }
 
 impl std::fmt::Display for IngestError {
@@ -102,6 +118,7 @@ impl std::fmt::Display for IngestError {
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Bib { path, message } => write!(f, "{}: {message}", path.display()),
             Self::Duplicate(existing) => write!(f, "not ingested: {existing}"),
+            Self::Target { reason } => write!(f, "not ingested: {reason}"),
         }
     }
 }
@@ -136,13 +153,23 @@ pub enum ExistingEntry {
         pdf: PathBuf,
         matched: MatchKind,
     },
+    /// A PDF in one of the folder's corpus repositories that no paper
+    /// records (GitHub issue #458).
+    RepoFile {
+        tier: crate::corpus_tiers::Tier,
+        repo: String,
+        pdf: PathBuf,
+        matched: MatchKind,
+    },
 }
 
 impl ExistingEntry {
     /// How it matched.
     pub fn matched(&self) -> &MatchKind {
         match self {
-            Self::StandardCorpus { matched, .. } | Self::Paper { matched, .. } => matched,
+            Self::StandardCorpus { matched, .. }
+            | Self::Paper { matched, .. }
+            | Self::RepoFile { matched, .. } => matched,
         }
     }
 }
@@ -165,6 +192,16 @@ impl std::fmt::Display for ExistingEntry {
                 pdf,
                 matched,
             } => (format!("paper {citekey}"), Some(pdf.clone()), matched),
+            Self::RepoFile {
+                tier,
+                repo,
+                pdf,
+                matched,
+            } => (
+                format!("a file of the {} repository {repo:?}", tier.key()),
+                Some(pdf.clone()),
+                matched,
+            ),
         };
         let at = pdf
             .map(|p| p.display().to_string())
@@ -237,7 +274,14 @@ pub fn find_existing(
         .into_iter()
         .filter(|(_, p)| len(p) == Some(size))
         .collect();
-    if standard.is_empty() && papers.is_empty() {
+    let repo_files: Vec<_> = repo_pdfs(root)
+        .into_iter()
+        .filter(|(_, p)| len(p) == Some(size))
+        .collect();
+    // The incoming file itself being in a repository is not a duplicate:
+    // that is an ingest in place (`corpus_resident`).
+    let repo_files: Vec<_> = repo_files.into_iter().filter(|(_, p)| !same(p)).collect();
+    if standard.is_empty() && papers.is_empty() && repo_files.is_empty() {
         return None;
     }
     let sha256 = cache.sha256(&target)?;
@@ -268,8 +312,129 @@ pub fn find_existing(
             }
         }
     }
+    if found.is_none() {
+        for (repo, p) in repo_files {
+            if cache.sha256(&p).as_ref() == Some(&sha256) {
+                found = Some(ExistingEntry::RepoFile {
+                    tier: repo.tier,
+                    repo: repo.name.clone(),
+                    pdf: p,
+                    matched: content.clone(),
+                });
+                break;
+            }
+        }
+    }
     cache.save();
     found
+}
+
+/// Every PDF in every corpus repository of `root` (all tiers, in order),
+/// with the repository it is in; Git's own folder skipped. A repository
+/// mounted in two tiers is walked once.
+fn repo_pdfs(root: &KovanRoot) -> Vec<(crate::corpus_tiers::CorpusRepo, PathBuf)> {
+    let mut seen: Vec<PathBuf> = Vec::new();
+    let mut out = Vec::new();
+    for repo in root.corpus_repos() {
+        let key = repo.dir.canonicalize().unwrap_or_else(|_| repo.dir.clone());
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        let files = crate::corpus_tiers::pdfs_in(&repo.dir);
+        out.extend(files.into_iter().map(|f| (repo.clone(), f)));
+    }
+    out
+}
+
+/// The repositories an ingest form may offer for a document with `access`
+/// (#458), in tier order: for a restricted document only the proprietary
+/// repositories; for an open one every writable repository (open,
+/// `writable` standard, and proprietary, where keeping an open document
+/// private is always safe). Each is accepted by [`resolve_target`].
+pub fn target_choices(root: &KovanRoot, access: Access) -> Vec<crate::corpus_tiers::CorpusRepo> {
+    use crate::corpus_tiers::Tier;
+    let all = root.corpus_repos();
+    let order: &[Tier] = if access.is_committable() {
+        &[Tier::Open, Tier::Standard, Tier::Proprietary]
+    } else {
+        &[Tier::Proprietary]
+    };
+    order
+        .iter()
+        .flat_map(|tier| {
+            all.iter()
+                .filter(move |r| r.tier == *tier && r.writable)
+                .cloned()
+        })
+        .collect()
+}
+
+/// The target an ingest form starts on: the default repository of the tier
+/// `access` implies ([`resolve_target`] with no target), as a
+/// [`crate::corpus_tiers::RepoRef`]. `None` when there is none.
+pub fn default_target(root: &KovanRoot, access: Access) -> Option<crate::corpus_tiers::RepoRef> {
+    resolve_target(root, access, None)
+        .ok()
+        .map(|r| crate::corpus_tiers::RepoRef {
+            tier: r.tier,
+            name: r.name,
+        })
+}
+
+/// The corpus repository an ingest of a document with `access` goes to:
+/// `target` when given, else the default repository of the tier `access`
+/// implies (open for a committable access, proprietary otherwise).
+///
+/// Refused ([`IngestError::Target`]) when `target` names no repository of
+/// that tier, when a restricted document would go anywhere but a
+/// proprietary repository (it would be published), or when a standard
+/// repository is not configured `writable` (the corpus maintainer maintains
+/// those).
+pub fn resolve_target(
+    root: &KovanRoot,
+    access: Access,
+    target: Option<&crate::corpus_tiers::RepoRef>,
+) -> Result<crate::corpus_tiers::CorpusRepo, IngestError> {
+    use crate::corpus_tiers::Tier;
+    let tier = match target {
+        Some(t) => t.tier,
+        None if access.is_committable() => Tier::Open,
+        None => Tier::Proprietary,
+    };
+    if !access.is_committable() && tier != Tier::Proprietary {
+        return Err(IngestError::Target {
+            reason: format!(
+                "a restricted document may only be stored in a proprietary repository, not the \
+                 {} tier, which is published",
+                tier.key()
+            ),
+        });
+    }
+    let repo = match target {
+        Some(t) => root
+            .tier_repos(tier)
+            .into_iter()
+            .find(|r| r.name == t.name)
+            .ok_or_else(|| IngestError::Target {
+                reason: format!("there is no {} repository named {:?}", tier.key(), t.name),
+            })?,
+        None => root.default_repo(tier).ok_or_else(|| IngestError::Target {
+            reason: format!("this folder has no {} repository", tier.key()),
+        })?,
+    };
+    if !repo.writable {
+        return Err(IngestError::Target {
+            reason: format!(
+                "the {} repository {:?} is read-only (standard repositories are maintained by \
+                 the corpus maintainer; set `writable = true` on its [[repos.standard]] entry to \
+                 file documents there)",
+                tier.key(),
+                repo.name
+            ),
+        });
+    }
+    Ok(repo)
 }
 
 /// A standard-corpus document (downloaded or not) or paper whose PDF has
@@ -420,6 +585,10 @@ pub struct IngestChoice {
     pub access: Access,
     pub topics: Vec<String>,
     pub projects: Vec<String>,
+    /// Which tier and repository to store the PDF in (GitHub issue #458);
+    /// `None` is the default repository of the tier `access` implies. See
+    /// [`resolve_target`].
+    pub target: Option<crate::corpus_tiers::RepoRef>,
 }
 
 /// Run §23's write transaction: store the PDF, create/update the
@@ -465,19 +634,19 @@ pub fn ingest_with(
         return Err(IngestError::Duplicate(existing));
     }
 
-    // §23 step 3: store the PDF under open/restricted source storage. The
-    // open one is the user's open-corpus repository: into their own folder
-    // there, never the standard corpus's (#255).
-    let store_dir = if choice.access.is_committable() {
-        crate::corpus_repos::open_corpus_ingest_dir(&root.open_sources_dir())
-    } else {
-        root.restricted_sources_dir()
+    // §23 step 3: store the PDF in the chosen repository (#458). In an
+    // open (or writable standard) one, into the user's own folder there,
+    // never the standard corpus's (#255).
+    let target = resolve_target(root, choice.access, choice.target.as_ref())?;
+    let store_dir = match target.tier {
+        crate::corpus_tiers::Tier::Proprietary => target.dir.clone(),
+        _ => crate::corpus_repos::open_corpus_ingest_dir(&target.dir),
     };
     // A PDF already in one of the folder's corpora is used where it is: a
     // copy would duplicate a corpus document, and copying a proprietary one
     // into the open corpus would publish it.
-    let dest_pdf = match corpus_resident(root, &preview.source_pdf) {
-        Some(in_place) => in_place,
+    let (dest_pdf, repo_name) = match corpus_resident(root, &preview.source_pdf) {
+        Some((in_place, repo)) => (in_place, repo),
         None => {
             std::fs::create_dir_all(&store_dir).map_err(|source| IngestError::Io {
                 path: store_dir.clone(),
@@ -488,7 +657,7 @@ pub fn ingest_with(
                 path: dest_pdf.clone(),
                 source,
             })?;
-            dest_pdf
+            (dest_pdf, Some(target.name.clone()))
         }
     };
 
@@ -517,7 +686,10 @@ pub fn ingest_with(
     // else: leave EntityConfig::paper's default Classification::unsorted()
     // in place — §7's inbox for rapid ingestion, and what keeps `validate`
     // satisfiable without forcing the user to classify before ingesting.
-    let config = config.with_pdf(relative_to(&paper_dir, &dest_pdf));
+    let mut config = config.with_pdf(relative_to(&paper_dir, &dest_pdf));
+    if let Some(repo) = repo_name {
+        config = config.with_repo(repo);
+    }
     config.save_paper(&paper_dir).map_err(IngestError::Entity)?;
 
     // §23 step 9: update the derived index/graph. Best-effort — a failure
@@ -528,22 +700,23 @@ pub fn ingest_with(
 }
 
 /// `pdf`, as a path inside `root`, when it is already in one of the
-/// folder's corpora (open, proprietary or standard); `None` otherwise.
-fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<PathBuf> {
+/// folder's corpus repositories (any repository of any tier, #458), with
+/// that repository's name (`None` for the conventional standard-corpus
+/// mount when `[repos]` dropped it); `None` otherwise.
+fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<(PathBuf, Option<String>)> {
     let pdf = pdf.canonicalize().ok()?;
     let root_dir = root.path().canonicalize().ok()?;
-    [
-        root.open_sources_dir(),
-        root.restricted_sources_dir(),
-        root.standard_corpus_dir(),
-    ]
-    .into_iter()
-    .filter_map(|d| d.canonicalize().ok())
-    .any(|d| pdf.starts_with(d))
-    .then(|| {
+    let inside = |d: &Path| d.canonicalize().is_ok_and(|d| pdf.starts_with(d));
+    let repo = match root.corpus_repos().into_iter().find(|r| inside(&r.dir)) {
+        Some(r) => Some(r.name),
+        None if inside(&root.standard_corpus_dir()) => None,
+        None => return None,
+    };
+    Some((
         root.path()
-            .join(pdf.strip_prefix(&root_dir).unwrap_or(&pdf))
-    })
+            .join(pdf.strip_prefix(&root_dir).unwrap_or(&pdf)),
+        repo,
+    ))
 }
 
 /// Append `entry` to `root`'s bibliography, creating the file if absent,
@@ -664,6 +837,7 @@ mod tests {
             access: Access::Open,
             topics: vec![],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
         let recorded = EntityConfig::load(&root.paper_dir(&citekey))
@@ -702,6 +876,7 @@ mod tests {
             access: Access::Open,
             topics: vec![],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
         let filed = root.papers_dir().join("2021").join(&citekey);
@@ -740,6 +915,7 @@ mod tests {
             access: Access::Open,
             topics: vec!["htgrs".to_string()],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
 
@@ -772,6 +948,7 @@ mod tests {
             access: Access::Restricted,
             topics: topics.into_iter().map(String::from).collect(),
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice(vec!["htgrs"])).unwrap();
 
@@ -791,6 +968,7 @@ mod tests {
             access: Access::Restricted,
             topics: vec![],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
 
@@ -830,6 +1008,7 @@ mod tests {
             access: Access::Open,
             topics: vec![],
             projects: vec![],
+            target: None,
         }
     }
 

@@ -367,14 +367,39 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   2026-09-28**: both exist now. The reader crops a region into the digitiser,
   and tables are digitised with no OCR, in a spreadsheet grid beside the PDF
   (GH #353).
-- **Save Repository** (top bar → the Save Repository tab) — commits the
-  proprietary corpus, the open corpus and the Kovan folder, with an optional
-  note, then (default ON, "Push after save" checkbox, persisted as
-  `[save] push_after_save` in `kovan_root.toml`) pushes each corpus to its
-  own configured remote and then the Kovan folder: fast-forward only, never
-  forced, never to a remote other than the one configured for that corpus.
-  Per-repository results are shown under the button. See `DECISIONS.md`
-  (2026-09-28) and `src/save_push.rs`.
+- **Save Repository** (top bar → the Save Repository tab) — commits every
+  proprietary and open corpus repository and the Kovan folder, with an
+  optional note, then (default ON, "Push after save" checkbox, persisted as
+  `[save] push_after_save` in `kovan_root.toml`) pushes each corpus
+  repository to its own configured remote and then the Kovan folder:
+  fast-forward only, never forced, never to a remote other than the one
+  configured for that repository, and a proprietary repository never to a
+  public one. Per-repository results are shown under the button. See
+  `DECISIONS.md` (2026-09-28, 2026-09-30) and `src/save_push.rs`.
+- **Several repositories per corpus tier** (GitHub issue #458) — a Kovan
+  folder may hold any number of standard, open and proprietary repositories
+  (for example one per topic, once a repository nears GitHub's recommended
+  1 GB). Each is a `[[repos.<tier>]]` entry in `kovan_root.toml`; the older
+  single-repository settings stay each tier's first repository, so an
+  existing folder needs no change:
+
+  ```toml
+  [[repos.open]]
+  name = "open-thermal-hydraulics"
+  remote = "https://github.com/example/open-th.git"
+  path = "literature/open-th"
+  default = true        # the Ingest form's preselected open repository
+
+  [[repos.proprietary]]
+  name = "proprietary-books"
+  remote = "https://github.com/example/private-books.git"
+  path = "literature/proprietary-books"
+  ```
+
+  The Ingest form picks the repository (restricted documents only ever go
+  to a proprietary one) and records it in the paper's `[source] repo`.
+  Standard repositories are read-only unless `writable = true`. See
+  `src/corpus_tiers.rs`.
 - **Gruvbox theming** (top bar → theme dropdown) — Gruvbox Dark / Gruvbox
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance
