@@ -315,6 +315,14 @@ fn main() {
         // leaving PyC intact, so noble gases and halogens are retained
         // (remember like activated carbon adsorbs toxic gases and such,
         // but mechanism is not the same lah)
+        // Mechanism is slow diffusion, not adsorption: IAEA-TECDOC-CD-1645
+        // (2010), "HTGR Fuels and Materials":
+        // - §1.2.1: IPyC and OPyC are gaseous fission product barriers; SiC
+        //   retains metallic fission products;
+        // - §12.3: Kr/Xe diffusion in PyC is very small, so only metallic
+        //   transport through intact coatings needs to be considered;
+        // - §12.5.2: D ~ 2e-18 m2/s for fission gases in PyC, "for all
+        //   practical purposes ... impervious to fission gases".
         // https://www-pub.iaea.org/mtcd/publications/pdf/te_1645_cd/pdf/tecdoc_1645.pdf
         incremental_sic: F_INC_SIC_STAND_IN,
         // this is incremental failure during accident
