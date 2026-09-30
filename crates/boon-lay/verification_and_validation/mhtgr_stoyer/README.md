@@ -277,3 +277,49 @@ digitisation temperature errors could explain the residual.
   cannot explain the ~12 % shortfall of the constant-D metals, which remains
   undiagnosed.
 
+
+## DIAGNOSTIC (not adopted): release vs time against Figs. 6 and 7 (#413 check (c), part 2, 2026-09-30)
+
+**This section does not change the result.** The reported #413 result stays at the dense-PCHIP final (median 0.90).
+
+**Data.**
+- `fig06_case_a_total_release_ci.csv` and `fig07_case_b_total_release_ci.csv` hold the maintainer's kovan digitisations of the paper's Fig. 6 (Case A; the figure title's "305-MWth" is a slip for 350) and Fig. 7 (Case B). Kovan commit 051bf9a, 2026-09-30T04:50:54Z / 04:56:31Z; calibrations are in the headers.
+- Six nuclides, 0-60 h, **log y axis**, so a reading error of about ±5-10 % is within reading precision.
+
+**Method.**
+- `dev/mhtgr_stoyer_fig67_overlay.py` runs upstream `accident_case` per dense Fig. 5 curve, keeping the whole time series. Each curve's series ends where the vent mask truncates it (5 %: 61.5 h; 20 %: 59.2 h; 25 %: 60.4 h; 50 %: 65.1 h) and is held after that.
+- Combined by Eq. 29 at each digitised time; as published = initial + (Eq. 29 − initial)/10.
+- Output: `upstream_case_{a,b}_accident_pchip_series.csv` and `fig67_overlay_ours_vs_paper.csv`.
+- The port's series equals upstream's to **3.8e-11** (`accident_series_port_matches_upstream_for_figs_6_and_7`).
+- Predictions were posted on #413 before running.
+
+**Findings.**
+1. **The figures plot the as-published series, and Tables 10/14 are their values at about 60 h.** The paper's last points at 58-61 h equal the Table finals within reading error:
+
+| Case | Kr-85 | Xe-133 | I-131 | Sr-90 | Cs-137 | Ag-110m |
+|---|---:|---:|---:|---:|---:|---:|
+| A (fig/table) | 0.96 | 1.02 | 1.04 | 0.86 | 1.01 | 0.99 |
+| B (fig/table) | 1.02 | 0.99 | 0.90 | 1.04 | 1.05 | — |
+
+   Case B Ag-110m's last digitised point is at 44 h.
+
+2. **Same curve shape.** Growth over the last ~15 h, paper vs ours: Xe-133 ×1.47 vs ×1.44; I-131 ×1.51 vs ×1.45; Kr-85 ×1.41 vs ×1.41; Ag-110m ×4.36 vs ×4.22 (Case A). Both are still rising at 60 h. The plots stop at 60 h, so they cannot show whether the paper's release kept rising past 60 h.
+
+3. **The ~0.9 is already present at intermediate times.** The best-resolved series are the increment-dominated Xe-133 and I-131. Their increment ratio (ours − initial)/(paper − table initial) by time bin:
+
+| Nuclide | Case | 5-15 h | 15-30 h | 30-45 h | 45-61 h |
+|---|---|---:|---:|---:|---:|
+| Xe-133 | A | 0.87 | 0.84 | 0.86 | 0.86 |
+| I-131 | A | 0.89 | 0.84 | 0.87 | 0.86 |
+| Xe-133 | B | 0.90 | 0.85 | 0.90 | 0.88 |
+| I-131 | B | 0.89 | 0.85 | 0.89 | 0.90 |
+
+   The 0-5 h bin is lower (0.74-0.82, few points, near the initial puff).
+   - **This is a roughly time-independent multiplier, not a gap that opens near the end.** It is consistent with a vent-fraction/T(0)-type effect.
+   - It is **inconsistent with the release-duration or truncation hypothesis**, since the gap is there from 5 h.
+   - Cs increments are too small against the large initial term to resolve.
+   - Case B Kr-85 sits at a flat ~0.67, an outlier to follow up.
+
+4. **Evaluating at 60 h does not close the gap.** Our values at 60 h are 1-9 % BELOW our finals, because the 50 % curve vents to 65.1 h. My prediction of < 2 % was refuted. So at the paper's apparent comparison point, ours/table = 0.79-0.96 (Case A: Xe-133 0.85, I-131 0.85, Cs-137 0.94), slightly further from 1 than the finals. This is a different comparison point, not a fit, and is not adopted.
+
+**Hypothesis (not adopted; flagged to the coordinator).** The residual is a near-constant ~0.86-0.90 multiplier on the heat-up increment from the earliest resolvable times. That points to something that scales frac × release uniformly in time, such as the vent fraction through the curves' T(0), or an unrecorded factor in the paper's post-processing. It does not point to the release window.

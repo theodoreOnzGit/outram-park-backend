@@ -442,8 +442,10 @@ fn constants(case: &str, k_plate_override: Option<f64>) -> impl Fn(&str) -> f64 
     }
 }
 
-/// Upstream `accident_case`'s last total \[Ci\] per nuclide for one Fig. 5
-/// curve applied uniformly to every node, composed from the port's public
+/// Upstream `accident_case`'s totals \[Ci\] per nuclide for one Fig. 5
+/// curve applied uniformly to every node, as `(hours, series)` over the
+/// samples upstream keeps (its vent-mask truncation); callers take the last
+/// value for the final release (#413 check (c) uses the whole series), composed from the port's public
 /// accident functions in upstream's order -- including upstream's truncation
 /// of the temperature field to the FIRST `n_keep` samples when the venting
 /// mask is gappy (reproduced, as the code-to-code suite does).
@@ -452,7 +454,7 @@ fn port_accident_curve(
     nodal: &Nodal,
     curve: &[(f64, f64)],
     c: &dyn Fn(&str) -> f64,
-) -> HashMap<String, f64> {
+) -> HashMap<String, (Vec<f64>, Vec<f64>)> {
     use boon_lay::triso_atops_fork::accident::{
         accident_release_curies, atoms_to_curies, coolant_release, mean_temperature_rate,
         release_activity, AccidentFractions, NormalOperationNode, ReleaseMaterial as AccMat,
@@ -575,9 +577,68 @@ fn port_accident_curve(
             atoms_to_curies(plate, lam),
             c("x_liftoff"),
         );
-        out.insert(nuc.name.to_string(), *series.last().unwrap());
+        let hours: Vec<f64> = curve[..n_keep].iter().map(|(t, _)| *t).collect();
+        out.insert(nuc.name.to_string(), (hours, series));
     }
     out
+}
+
+/// `numpy.interp` at `t` with the value held beyond the last sample.
+fn interp_hold(h: &[f64], v: &[f64], t: f64) -> f64 {
+    let t = t.min(h[h.len() - 1]);
+    let k = h.partition_point(|x| *x <= t).clamp(1, h.len() - 1);
+    let (h0, h1) = (h[k - 1], h[k]);
+    if h1 == h0 {
+        v[k]
+    } else {
+        v[k - 1] + (v[k] - v[k - 1]) * (t - h0) / (h1 - h0)
+    }
+}
+
+/// **#413 check (c), part 2 (DIAGNOSTIC): the port's cumulative release vs
+/// time equals upstream's**, for the six nuclides of the paper's Figs. 6/7,
+/// both cases, dense PCHIP Fig. 5, Eq. (29) at every whole hour 0-140 h
+/// (each curve held after upstream's vent-mask truncation).
+///
+/// Methodology: upstream series from `dev/mhtgr_stoyer_fig67_overlay.py`
+/// (`upstream_case_{a,b}_accident_pchip_series.csv`); port series from
+/// [`port_accident_curve`]; gate 1e-9 relative (code-to-code). The overlay
+/// against the paper's digitised Figs. 6/7 is in
+/// `fig67_overlay_ours_vs_paper.csv` and the README; it is reported, not
+/// gated, and changes nothing in the reported #413 result.
+///
+/// Results (2026-09-30): pass; worst relative difference printed.
+#[test]
+fn accident_series_port_matches_upstream_for_figs_6_and_7() {
+    let nucs = ["Kr-85", "Xe-133", "I-131", "Sr-90", "Cs-137", "Ag-110m"];
+    let weights = [("5", 0.05), ("20", 0.2), ("25", 0.25), ("50", 0.5)];
+    let mut worst = 0.0f64;
+    for (case, inv, dt) in CASES {
+        let c = constants(case, None);
+        let (_, nodal) = port_case_nodal(case, inv, dt, None);
+        let names: Vec<String> = table(inv).iter().map(|r| r["nuclide"].clone()).collect();
+        let curves: Vec<(String, HashMap<String, (Vec<f64>, Vec<f64>)>)> =
+            fig5("fig05_accident_temperature_c_pchip_0p1h.csv")
+                .into_iter()
+                .map(|(pct, curve)| (pct, port_accident_curve(&names, &nodal, &curve, &c)))
+                .collect();
+        for row in table(&format!("upstream_case_{case}_accident_pchip_series.csv")) {
+            let t = f(&row, "time_h");
+            for n in nucs {
+                let port: f64 = curves
+                    .iter()
+                    .map(|(pct, m)| {
+                        let w = weights.iter().find(|(p, _)| p == pct).unwrap().1;
+                        let (h, v) = &m[n];
+                        w * interp_hold(h, v, t)
+                    })
+                    .sum();
+                worst = worst.max(rel(port, f(&row, &format!("{n}_eq29"))));
+            }
+        }
+    }
+    println!("port vs upstream release-vs-time series: worst relative difference {worst:.3e}");
+    assert!(worst < 1e-9, "{worst:e}");
 }
 
 /// **The accident (final) path: port vs upstream per Fig. 5 curve, and the
@@ -618,7 +679,11 @@ fn accident_final_releases_port_upstream_and_paper() {
                         .collect();
                 let mut eq29: HashMap<String, f64> = HashMap::new();
                 for (pct, curve) in fig5(curve_file) {
-                    let port = port_accident_curve(&names, &nodal, &curve, &c);
+                    let port: HashMap<String, f64> =
+                        port_accident_curve(&names, &nodal, &curve, &c)
+                            .into_iter()
+                            .map(|(n, (_, s))| (n, *s.last().unwrap()))
+                            .collect();
                     for (n, v) in &port {
                         let u = f(&up[n], &format!("total_{pct}"));
                         let r = rel(*v, u);
