@@ -959,10 +959,20 @@ mod tests {
     /// - leakage has the right sign and the non-leakage factors respond.
     #[test]
     fn machinery_invariants_fast_pincell() {
+        // 10 000 histories per generation, not `cheap_keff`'s 250. Measured
+        // 2026-09-30 over 40 seeds (Vacuum): at 250 the direct-k gap below has
+        // a per-run spread of 0.113 (mean -0.005 +/- 0.018), so the +/-0.10
+        // gate was about one sigma and passed only on this seed's luck. It
+        // failed (+0.128) when the fission source became combed (GitHub
+        // #460), which leaves the distribution unchanged (old sampler: spread
+        // 0.115, mean -0.007 +/- 0.018). At 10 000 the spread is 0.014 (mean
+        // +0.001 +/- 0.002), so the gate is seven sigma and means something.
+        // The protocol was fixed; the threshold was not moved.
+        let mut cfg = config_for(0.4);
+        cfg.keff.n_particles = 10_000;
         for bc in [BoundaryType::Reflective, BoundaryType::Vacuum] {
-            let report =
-                run_keff_reactor_physics(&pincell(bc), &materials(), &nuclides(), &config_for(0.4))
-                    .expect("Ok");
+            let report = run_keff_reactor_physics(&pincell(bc), &materials(), &nuclides(), &cfg)
+                .expect("Ok");
             log_report(
                 if bc == BoundaryType::Reflective {
                     "fast/refl"
@@ -1000,7 +1010,7 @@ mod tests {
             let direct_k = p_tot / (a_tot + l_tot);
             let gap = (report.keff.k_mean - direct_k) / report.keff.k_mean;
             // With real Σ_a the gap is small; the margin here absorbs the
-            // 250-history statistical noise and the LOW-tier free-gas treatment
+            // statistical noise (see above) and the LOW-tier free-gas treatment
             // on this hard spectrum. A tight gate lives in the ENDF+S(α,β)
             // Phase-C V&V.
             assert!(

@@ -171,8 +171,10 @@ pub struct Cell {
     /// ~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport
     /// does not read this field.** Cross sections are looked up at the
     /// material's temperature and broadened at the nuclide's build
-    /// temperature; free-gas kinematics use the run's
-    /// `KeffSettings::temperature_k`. Changing it to 1200 K leaves `k`
+    /// temperature; free-gas kinematics use ~~the run's
+    /// `KeffSettings::temperature_k`~~ the nuclide's data temperature (the
+    /// material's for a multipole nuclide; GitHub #313, 2026-09-30).
+    /// Changing it to 1200 K leaves `k`
     /// bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's
     /// declared temperature for callers and a future per-cell treatment (OpenMC
     /// has one); see `docs/temperatures.md`.

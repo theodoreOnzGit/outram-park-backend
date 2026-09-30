@@ -164,6 +164,26 @@
 //!
 //! It is one 2000-history draw. The paired worth is on #407.
 //!
+//! ## Re-recorded 2026-09-30: fission-source combing (GitHub #460)
+//!
+//! The next generation's source is now drawn by OpenMC's uniform comb
+//! (`synchronize_bank`), one variate per generation, instead of `n`
+//! independent draws with replacement. That is a transport change, and a
+//! deliberate one. The first generation is unchanged, as it must be: the
+//! comb acts only between generations. **Cause proved:** with only
+//! `transport_csg.rs`'s `resample` put back to the with-replacement draw
+//! (the #313, #461 and #463 changes of the same day left in place), the
+//! test reproduces the previous row **bit for bit**, all four values.
+//!
+//! | quantity | #407 URR + DBRC (superseded) | #460 comb |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.89128190214768388e-1`~~ | `9.88088405842273865e-1` |
+//! | `k_std` | ~~`5.49770408934844787e-3`~~ | `3.74932273347360848e-3` |
+//! | first generation | `9.35484563494561105e-1` | `9.35484563494561105e-1` (unchanged) |
+//! | last generation | ~~`9.82661289061869225e-1`~~ | `1.00328075246550052e0` |
+//!
+//! The smaller `k_std` is one draw and is not evidence of lower variance.
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -198,10 +218,10 @@ const TEMP: f64 = 293.6;
 /// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.891_281_902_147_683_88e-1;
-const K_STD_PRE_258: f64 = 5.497_704_089_348_447_87e-3;
+const K_MEAN_PRE_258: f64 = 9.880_884_058_422_738_65e-1;
+const K_STD_PRE_258: f64 = 3.749_322_733_473_608_48e-3;
 const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.826_612_890_618_692_25e-1;
+const K_GEN_LAST_PRE_258: f64 = 1.003_280_752_465_500_52e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

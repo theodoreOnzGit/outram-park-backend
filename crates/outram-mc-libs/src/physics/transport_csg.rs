@@ -66,6 +66,7 @@ const MAX_VIRTUAL_COLLISIONS: u32 = 100_000;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
+use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
@@ -105,7 +106,7 @@ pub struct SourceBox {
 
 /// A fission-source neutron awaiting transport in the next generation. Also the
 /// unit of work for [`crate::physics::fixed_source`], which reuses
-/// [`transport_history`].
+/// [`transport_history_vr`].
 #[derive(Clone, Copy)]
 pub(crate) struct Site {
     pub(crate) r: Position,
@@ -459,7 +460,6 @@ pub fn run_keff_csg_seq(
     mut leak_bins: Option<&mut Vec<TallyBin>>,
 ) -> KeffResult {
     let mut seed = settings.seed;
-    let temp = settings.temperature_k;
 
     // Initial source: rejection-sample the box for points in a fissile cell.
     let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
@@ -555,7 +555,6 @@ pub fn run_keff_csg_seq(
                     materials,
                     nuclides,
                     majorants,
-                    temp,
                     k_running,
                     &mut next_bank,
                     &mut seed,
@@ -633,21 +632,8 @@ pub fn run_keff_csg_seq(
             break;
         }
 
-        // `k` trigger (GitHub #263): stop once the eigenvalue's own
-        // uncertainty meets the requested metric. Checked only on active
-        // generations, and only once there are at least two of them — a
-        // standard error from one realisation is not a number.
-        if let Some(trig) = settings.keff_trigger {
-            if active && active_k.len() >= 2 {
-                let stats = crate::tally::trigger::BinStats {
-                    sum: active_k.iter().sum(),
-                    sum_sq: active_k.iter().map(|k| k * k).sum(),
-                };
-                let ratio = crate::tally::trigger::bin_ratio(stats, active_k.len(), &trig);
-                if crate::tally::trigger::satisfied(ratio) {
-                    break;
-                }
-            }
+        if keff_trigger_met(settings, active, &active_k) {
+            break;
         }
 
         source = resample(&next_bank, settings.n_particles, &mut seed);
@@ -736,7 +722,6 @@ pub fn run_keff_csg_par(
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par as rayon;
 
-    let temp = settings.temperature_k;
     let n_bins = tally.as_deref().map(|t| t.n_bins()).unwrap_or(0);
     let leak_enabled = leak_bins.is_some() && leak_edges.len() >= 2;
     let n_leak = leak_edges.len().saturating_sub(1);
@@ -844,13 +829,17 @@ pub fn run_keff_csg_par(
                         } else {
                             Vec::new()
                         };
-                        let outcome = transport_history(
+                        // The run's own variance reduction, as the sequential
+                        // path (GitHub #461). ~~`transport_history`, which
+                        // hard-coded analog~~ until 2026-09-30: survival
+                        // biasing and weight windows were silently dropped
+                        // under `CpuMultiThread`.
+                        let outcome = transport_history_vr(
                             source[hist_idx],
                             geom,
                             materials,
                             nuclides,
                             majorants,
-                            temp,
                             k_running,
                             &mut local_bank,
                             &mut seed,
@@ -858,6 +847,11 @@ pub fn run_keff_csg_par(
                             &mut local_batch,
                             leak_edges_gen,
                             &mut local_leak,
+                            &settings.variance_reduction,
+                            None,
+                            None,
+                            None,
+                            1.0,
                         );
                         (outcome, local_bank, local_batch, local_leak)
                     })
@@ -952,6 +946,11 @@ pub fn run_keff_csg_par(
             }
 
             if next_bank.is_empty() {
+                break;
+            }
+            // The `k` trigger, as the sequential path (GitHub #461).
+            // ~~Checked only on the sequential path~~ until 2026-09-30.
+            if keff_trigger_met(settings, active, &active_k) {
                 break;
             }
             source = resample(&next_bank, settings.n_particles, &mut src_seed);
@@ -1070,41 +1069,10 @@ pub(crate) struct HistoryOutcome {
     pub leak_infinity: u64,
 }
 
-pub(crate) fn transport_history(
-    site: Site,
-    geom: &Geometry,
-    materials: &[Material],
-    nuclides: &[Nuclide],
-    majorants: &[Majorant],
-    temp: f64,
-    k_running: f64,
-    next_bank: &mut Vec<Site>,
-    seed: &mut u64,
-    tally: Option<&Tally>,
-    batch: &mut [f64],
-    leak_edges: &[f64],
-    leak_batch: &mut [f64],
-) -> HistoryOutcome {
-    // Analog. Delegating rather than duplicating is what makes "analog is
-    // untouched" checkable instead of merely claimed: there is one history
-    // loop, and `ANALOG.is_analog()` is true, so every branch this change adds
-    // is skipped. `tests/variance_reduction_is_bit_identical_when_analog.rs`
-    // pins that at the eigenvalue.
-    let analog = VarianceReduction {
-        survival_biasing: false,
-        weight_cutoff: 0.25,
-        weight_survive: 1.0,
-        survival_normalization: false,
-        weight_windows: None,
-    };
-    debug_assert!(analog.is_analog());
-    transport_history_vr(
-        site, geom, materials, nuclides, majorants, temp, k_running, next_bank, seed, tally,
-        batch, leak_edges, leak_batch, &analog, None, None, None, 1.0,
-    )
-}
-
-/// [`transport_history`] with an explicit variance-reduction configuration.
+/// One history of the CSG k-eigenvalue kernel, with an explicit
+/// variance-reduction configuration. (The analog-only `transport_history`
+/// wrapper was removed 2026-09-30, GitHub #461: its one caller, the parallel
+/// path, dropped the run's variance reduction through it.)
 ///
 /// GitHub #258. With [`VarianceReduction::is_analog`] true this is the analog
 /// kernel, unchanged and consuming the RNG stream in exactly the same order —
@@ -1127,7 +1095,6 @@ pub(crate) fn transport_history_vr(
     // declares delta tracking, which is every model predating bn:op-867c --
     // and that is what makes this change bit-identical for all of them.
     majorants: &[Majorant],
-    temp: f64,
     k_running: f64,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
@@ -1161,6 +1128,8 @@ pub(crate) fn transport_history_vr(
     // which under variance reduction is arbitrarily far.
     birth_weight: f64,
 ) -> HistoryOutcome {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
     let mut virtual_collisions: u64 = 0;
@@ -1761,7 +1730,7 @@ pub(crate) fn transport_history_vr(
                         }
                         for _ in 0..n {
                             let (dx, dy, dz) = isotropic_direction(seed);
-                            let e_born = nuc.sample_fission_energy(e, seed);
+                            let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
                             if let Some(t) = tally {
                                 score_fission_birth(
                                     batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
@@ -1818,11 +1787,16 @@ pub(crate) fn transport_history_vr(
                     } else {
                         0.0
                     };
-                    production += nu_bar;
-                    let n = sample_num_neutrons(nu_bar, k_running, seed);
+                    // Weighted, as OpenMC's `create_fission_sites`
+                    // (`nu_t = wgt / keff * ...`, `src/physics.cpp:180`),
+                    // GitHub #461. Analog `w` is exactly 1.0, so this is
+                    // bit-identical there; under weight windows the split and
+                    // rouletted particles used to bank as if at weight 1.
+                    production += w * nu_bar;
+                    let n = sample_num_neutrons(w * nu_bar, k_running, seed);
                     for _ in 0..n {
                         let (dx, dy, dz) = isotropic_direction(seed);
-                        let e_born = nuc.sample_fission_energy(e, seed);
+                        let e_born = nuc.sample_fission_energy_below(e, e_cap_fission, seed);
                         // Fission-spectrum estimator: chi is MEASURED from the
                         // energies neutrons are actually born with, rather than
                         // assumed from an analytic Watt form.
@@ -2097,7 +2071,11 @@ pub(crate) fn transport_history_vr(
                             // motion is sampled, so the neutron can gain energy
                             // and the population has a Maxwellian fixed point
                             // (bead op-50vu). Above it, target-at-rest as before.
-                            let kt = nuc.free_gas_kt(temp);
+                            // kT as OpenMC: the pointwise data's own
+                            // temperature, or the collision material's for a
+                            // multipole nuclide (GitHub #313). ~~The run-wide
+                            // `settings.temperature_k`~~ until 2026-09-30.
+                            let kt = nuc.free_gas_kt(mat_temp);
                             let mu_cm = nuc
                                 .sample_elastic_mu_cm(e, seed)
                                 .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
@@ -2247,16 +2225,32 @@ pub(crate) fn transport_history_vr(
     }
 }
 
-/// Resample `n` sites uniformly with replacement — crude fixed-size population
-/// control for the fission bank each generation.
+/// `k` trigger (GitHub #263): whether the eigenvalue's own uncertainty meets
+/// the requested metric. Checked only on active generations, and only once
+/// there are at least two of them — a standard error from one realisation is
+/// not a number. Shared by the sequential and parallel paths (GitHub #461).
+fn keff_trigger_met(settings: &KeffSettings, active: bool, active_k: &[f64]) -> bool {
+    let Some(trig) = settings.keff_trigger else {
+        return false;
+    };
+    if !active || active_k.len() < 2 {
+        return false;
+    }
+    let stats = crate::tally::trigger::BinStats {
+        sum: active_k.iter().sum(),
+        sum_sq: active_k.iter().map(|k| k * k).sum(),
+    };
+    let ratio = crate::tally::trigger::bin_ratio(stats, active_k.len(), &trig);
+    crate::tally::trigger::satisfied(ratio)
+}
+
+/// Resample `n` sites for the next generation by uniform combing
+/// ([`crate::physics::fission::comb_resample`], GitHub #460).
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    let len = bank.len();
-    (0..n)
-        .map(|_| {
-            let idx = ((prn(seed) * len as f64) as usize).min(len - 1);
-            bank[idx]
-        })
-        .collect()
+    // Uniform combing, as OpenMC's `synchronize_bank` (GitHub #460). ~~Each of
+    // the `n` sites was drawn independently with replacement~~ until
+    // 2026-09-30.
+    crate::physics::fission::comb_resample(bank, n, seed)
 }
 
 /// Mean and standard error of the mean (1σ) of the active-generation eigenvalues.

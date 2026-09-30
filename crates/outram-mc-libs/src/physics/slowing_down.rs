@@ -75,7 +75,7 @@
 //! |---|---|---|
 //! | [`ScatterKernel::IsotropicCmAtRest`] | — | this is the deterministic model exactly; **the oracle comparison** |
 //! | [`ScatterKernel::AnisotropicCmAtRest`] | the nuclide's own ENDF MF=4 law | anisotropy of elastic scattering |
-//! | [`ScatterKernel::Production`] | S(α,β) and free-gas target motion | exactly what `transport_csg::transport_history` does |
+//! | [`ScatterKernel::Production`] | S(α,β) and free-gas target motion | exactly what `transport_csg::transport_history_vr` does |
 //!
 //! Keeping the band above the inelastic thresholds' reach (U-238's first level
 //! is at 44.9 keV, C-12's at 4.44 MeV) removes the remaining channels, and
@@ -212,7 +212,7 @@ pub enum ScatterKernel {
     /// The nuclide's own ENDF MF=4 angular law, target still at rest. The
     /// difference from [`Self::IsotropicCmAtRest`] is the worth of anisotropy.
     AnisotropicCmAtRest,
-    /// Exactly what `transport_csg::transport_history` does: the bound-atom
+    /// Exactly what `transport_csg::transport_history_vr` does: the bound-atom
     /// S(α,β) law where the nuclide has one, otherwise free-gas with the
     /// target's own thermal motion sampled below `400·kT`.
     Production,
@@ -591,7 +591,7 @@ impl InfiniteMediumMc {
                 let x = &xs[i];
 
                 // Which channel: the same partition as
-                // `transport_csg::transport_history`.
+                // `transport_csg::transport_history_vr`.
                 let xi = prn(&mut seed) * x.total;
                 if xi < x.absorption {
                     // Fission and capture both remove the neutron here; below
@@ -685,7 +685,7 @@ impl InfiniteMediumMc {
 /// This walker is deliberately *not* a re-implementation. Its flights, boundary
 /// crossings and collisions go through [`Geometry::locate`],
 /// [`Geometry::distance_to_boundary`] and [`Geometry::cross_surface`] — the same
-/// calls `transport_csg::transport_history` makes — so what is under test is the
+/// calls `transport_csg::transport_history_vr` makes — so what is under test is the
 /// real spatial machinery. Only fission banking and the tally plumbing are left
 /// out, because a resonance-escape measurement is a per-history outcome rather
 /// than a track-length score.

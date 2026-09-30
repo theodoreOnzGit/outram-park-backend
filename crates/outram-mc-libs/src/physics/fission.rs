@@ -40,9 +40,65 @@ pub fn sample_num_neutrons(nu_bar: f64, keff: f64, seed: &mut u64) -> usize {
     n.max(0.0) as usize
 }
 
+/// Draw the next generation's `n` source sites from a fission bank by
+/// **uniform combing**, as OpenMC's `synchronize_bank` does
+/// (`src/eigenvalue.cpp:150-175`, Uniform Combing method,
+/// doi:10.1080/00295639.2022.2091906).
+///
+/// The teeth are `total/n` apart with one random offset in `[0, total/n)`, and
+/// tooth `i` takes site `floor(offset + i * total/n)`. Every site is therefore
+/// taken `floor(n/total)` or `ceil(n/total)` times, and exactly `n` sites come
+/// back.
+///
+/// GitHub #460: this crate used to draw `n` sites independently with
+/// replacement. That is unbiased per generation, but the multinomial noise it
+/// adds enlarges the finite-N population-control bias, which is negative and
+/// O(1/N). One variate is consumed, where the old sampler consumed `n`.
+///
+/// An empty bank returns an empty source; callers already guard against it,
+/// as OpenMC treats it as fatal.
+pub fn comb_resample<T: Copy>(bank: &[T], n: usize, seed: &mut u64) -> Vec<T> {
+    let total = bank.len();
+    if total == 0 || n == 0 {
+        return Vec::new();
+    }
+    let teeth = total as f64 / n as f64;
+    let offset = prn(seed) * teeth;
+    (0..n)
+        .map(|i| {
+            let idx = ((offset + i as f64 * teeth).floor() as usize).min(total - 1);
+            bank[idx]
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The comb takes every site `floor(n/total)` or `ceil(n/total)` times and
+    /// returns exactly `n`. Sampling with replacement fails this: its
+    /// multiplicities are multinomial, so some site is almost surely taken 0 or
+    /// 3+ times. GitHub #460.
+    #[test]
+    fn comb_multiplicities_are_floor_or_ceil() {
+        for &(total, n) in &[(1000usize, 1000usize), (1234, 1000), (700, 1000), (5000, 1000)] {
+            let bank: Vec<usize> = (0..total).collect();
+            let mut seed = 0xC0B_u64 + total as u64;
+            let out = comb_resample(&bank, n, &mut seed);
+            assert_eq!(out.len(), n);
+            let mut count = vec![0usize; total];
+            for i in out {
+                count[i] += 1;
+            }
+            let lo = n / total;
+            let hi = lo + usize::from(n % total != 0);
+            assert!(
+                count.iter().all(|&c| c == lo || c == hi),
+                "total {total}, n {n}: multiplicities outside {{{lo}, {hi}}}"
+            );
+        }
+    }
 
     /// Over many draws the mean integer count converges to ν̄/keff.
     #[test]

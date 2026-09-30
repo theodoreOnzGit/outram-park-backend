@@ -43,9 +43,13 @@
 //!
 //! ## The Doppler feedback is GLOBAL, and that is a real limitation
 //!
-//! `outram-mc` takes **one** temperature for the whole problem
-//! (`KeffSettings::temperature_k`); it is not per-material. So the feedback
-//! this loop applies is a single fuel temperature applied everywhere, which is
+//! ~~`outram-mc` takes **one** temperature for the whole problem
+//! (`KeffSettings::temperature_k`); it is not per-material.~~ **CORRECTED
+//! 2026-09-30 (GitHub #313):** the CSG transport reads each material's
+//! temperature (and each pointwise nuclide's data temperature), not the run
+//! temperature. This loop sets every material to the one fuel temperature.
+//! So the feedback this loop applies is a single fuel temperature applied
+//! everywhere, which is
 //! coherent with a **lumped** thermal model of one node and would be wrong for
 //! a spatially resolved one. A mesh-resolved coupling needs per-cell
 //! temperature in the transport, which the transport does not yet accept.
@@ -245,6 +249,14 @@ impl McGenFoamDirect {
         region.insert_scalar(zero("TFuel", &mesh));
 
         let t0 = thermal.fuel_temperature().get::<kelvin>();
+        // The transport's temperature is the materials' (GitHub #313): a
+        // multipole nuclide is Doppler-broadened at, and moves its targets
+        // at, its material's temperature. Start every material at the
+        // thermal model's initial fuel temperature.
+        let mut materials = materials;
+        for m in materials.iter_mut() {
+            m.temperature = t0;
+        }
         Self {
             geometry,
             materials,
@@ -361,8 +373,17 @@ impl McGenFoamDirect {
                 .map_err(|e| DirectCouplingError::Thermal(format!("{e:?}")))?;
             let t_after = self.thermal.fuel_temperature().get::<kelvin>();
 
-            // 4. Feed the temperature back into the transport.
+            // 4. Feed the temperature back into the transport: into every
+            //    material, which is what the CSG transport reads (GitHub
+            //    #313). ~~The run temperature only~~ until 2026-09-30: that
+            //    moved the free-gas kinematics and nothing else, so a
+            //    multipole nuclide's Doppler broadening never saw the
+            //    feedback. The run temperature is kept in step for the
+            //    record.
             self.settings.temperature_k = t_after;
+            for m in self.materials.iter_mut() {
+                m.temperature = t_after;
+            }
 
             let dk = history
                 .last()

@@ -58,6 +58,7 @@
 
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
+use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::pebble_beds::delta_tracking::{
     classify_collision, sample_delta_distance, DeltaEvent, Majorant,
@@ -957,6 +958,8 @@ fn transport_history<Q>(
 where
     Q: MaterialQuery,
 {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     // Safety cap on events per history — a purely-scattering reflective medium with
     // vanishing absorption could otherwise bounce forever (mirrors keff drivers).
     material_at.begin_history();
@@ -1031,7 +1034,7 @@ where
                     next_bank.push(Site {
                         r,
                         u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy(e, seed),
+                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
                 break 'history; // fission absorbs the incident neutron
@@ -1192,15 +1195,13 @@ where
     production
 }
 
-/// Resample `n` sites uniformly with replacement — fixed-size population control.
+/// Resample `n` sites for the next generation by uniform combing
+/// ([`crate::physics::fission::comb_resample`], GitHub #460).
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    let len = bank.len();
-    (0..n)
-        .map(|_| {
-            let idx = ((prn(seed) * len as f64) as usize).min(len - 1);
-            bank[idx]
-        })
-        .collect()
+    // Uniform combing, as OpenMC's `synchronize_bank` (GitHub #460). ~~Each of
+    // the `n` sites was drawn independently with replacement~~ until
+    // 2026-09-30.
+    crate::physics::fission::comb_resample(bank, n, seed)
 }
 
 /// Mean and standard error of the mean (1σ) of the active-generation eigenvalues.

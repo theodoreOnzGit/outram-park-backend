@@ -171,10 +171,10 @@ struct SectionIndex {
     mt18: Option<usize>,
     mt27: Option<usize>,
     mt101: Option<usize>,
-    /// One slot per entry of [`DISAPPEARANCE`], in the same order, so the
+    /// One slot per entry of [`DISAPPEARANCE_MTS`], in the same order, so the
     /// indexed absorption sum adds the same terms (absent ones as `0.0`) in
     /// the same order as the searched one, and rounds identically.
-    disappearance: [Option<usize>; 15],
+    disappearance: [Option<usize>; 21],
 }
 
 impl SectionIndex {
@@ -189,7 +189,7 @@ impl SectionIndex {
             mt18: at(MtReaction::Mt18Fission),
             mt27: at(MtReaction::Mt27Absorption),
             mt101: at(MtReaction::Mt101AbsorptionTotal),
-            disappearance: DISAPPEARANCE.map(at),
+            disappearance: disappearance().map(at),
         }
     }
 }
@@ -305,6 +305,13 @@ pub struct Nuclide {
     /// [`Nuclide::with_target_at_rest`] and [`Nuclide::free_gas_kt`]. `false`
     /// (the default, and what every constructor produces) is the physics.
     target_at_rest: bool,
+    /// kT \[eV\] of the temperature this nuclide's pointwise data were
+    /// broadened to: an ACE table's own `kT`, or `k_B * T` for a nuclide built
+    /// from ENDF at `T`. `None` on the LOW (`Core`, multipole) tier, whose
+    /// Doppler broadening happens at lookup. [`Nuclide::free_gas_kt`] uses it,
+    /// as OpenMC takes the elastic kinematics kT from the data temperature
+    /// (`nuc->kTs_[i_temp]`, `src/physics.cpp:697`), GitHub #313.
+    data_kt_ev: Option<f64>,
     /// **Ablation flag, not a model option.** When `Some(e_ref)`, ν̄ is read at
     /// `e_ref` \[eV\] whatever the incident energy, removing ν̄'s energy
     /// dependence while keeping its magnitude — see
@@ -540,6 +547,7 @@ impl Nuclide {
             // LOW tier reads no tape, so there is no MF=6 to carry.
             continuum: ContinuumLaws::default(),
             target_at_rest: false,
+            data_kt_ev: None,
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
@@ -576,8 +584,9 @@ impl Nuclide {
     ///
     /// Use it on the moderator nuclide of a *thermal* problem — the H-1 in light
     /// water gets the H-in-H₂O `tsl` table; the C-12/C-13 of an HTR-10 pebble
-    /// gets `tsl-crystalline-graphite`. Below the table's thermal cutoff (~4 eV)
-    /// the neutron then scatters off the bound-atom law instead of the free-gas
+    /// gets `tsl-crystalline-graphite`. Below the table's thermal cutoff
+    /// (~~~4 eV~~ the tape's own `E_max` since GitHub #459, 2026-09-30:
+    /// 10 eV for ENDF/B-VIII.0 H-in-H₂O) the neutron then scatters off the bound-atom law instead of the free-gas
     /// elastic kernel: the bound cross section (inelastic **plus** the
     /// scatterer's elastic channel, if it has one) is used in
     /// [`Nuclide::xs_at_energy`] and the secondary energy/angle are drawn by
@@ -586,6 +595,13 @@ impl Nuclide {
     ///
     /// It is the caller's responsibility that `thermal` matches this nuclide
     /// (an H-in-H₂O table on H-1, at the material temperature).
+    ///
+    /// **The law belongs to this nuclide entry, not to a material** (OpenMC
+    /// attaches it per material, `material.cpp:852-867`; GitHub #462). Every
+    /// material that references this entry's index scatters with the bound
+    /// law. A model with the same isotope both bound and free (water and a
+    /// hydride, graphite and a carbonate) needs two entries, one with and one
+    /// without the law, each referenced by its own materials.
     pub fn with_thermal_scattering(mut self, thermal: ThermalScattering) -> Self {
         self.thermal = Some(thermal);
         self
@@ -807,28 +823,49 @@ impl Nuclide {
         self.target_at_rest
     }
 
-    /// The `k_B·T` \[eV\] this nuclide's **elastic kinematics** should use at
-    /// material temperature `temp_k` \[K\].
+    /// The `k_B·T` \[eV\] this nuclide's **elastic kinematics** (free gas and
+    /// DBRC) use in a collision whose cross sections are looked up at
+    /// `lookup_temp_k` \[K\].
     ///
-    /// Normally `K_BOLTZMANN_EV_PER_K * temp_k`. Returns `0.0` when
-    /// [`with_target_at_rest`](Self::with_target_at_rest) has been applied,
-    /// which makes [`free_gas_elastic_scatter`] fall through to its
-    /// target-at-rest branch — the ablation is expressed **through the
+    /// As OpenMC (`src/physics.cpp:697`,
+    /// `kT = nuc->multipole_ ? p.sqrtkT()^2 : nuc->kTs_[i_temp]`):
+    ///
+    /// - a **pointwise** nuclide (ACE or ENDF route) uses the temperature its
+    ///   data were broadened to ([`Nuclide::data_kt_ev`]), whatever
+    ///   `lookup_temp_k` is, so the target motion is always consistent with
+    ///   the Doppler broadening already in the table;
+    /// - a **multipole** (`Core`) nuclide uses `k_B * lookup_temp_k`, the
+    ///   temperature its cross sections are evaluated at.
+    ///
+    /// ~~Normally `K_BOLTZMANN_EV_PER_K * temp_k`, with transport passing the
+    /// run-wide `KeffSettings::temperature_k`~~ **CORRECTED 2026-09-30
+    /// (GitHub #313).** The CSG kernel took the kinematics kT from the run
+    /// temperature and the cross sections from the material, two temperatures
+    /// at one collision.
+    ///
+    /// Returns `0.0` when [`with_target_at_rest`](Self::with_target_at_rest)
+    /// has been applied, which makes [`free_gas_elastic_scatter`] fall through
+    /// to its target-at-rest branch — the ablation is expressed **through the
     /// production code path**, with no branch added to the transport kernel.
     ///
     /// Every transport driver calls this rather than multiplying the
     /// temperature itself, so the ablation cannot be reachable from one driver
-    /// and not another.
-    ///
-    /// This is the elastic *kinematics* temperature only. It is not the
-    /// temperature cross sections are looked up at ([`Nuclide::xs_at_energy`]
-    /// takes that separately) and not the S(α,β) table temperature.
-    pub fn free_gas_kt(&self, temp_k: f64) -> f64 {
+    /// and not another. It is not the S(α,β) table temperature.
+    pub fn free_gas_kt(&self, lookup_temp_k: f64) -> f64 {
         if self.target_at_rest {
             0.0
+        } else if let Some(kt) = self.data_kt_ev {
+            kt
         } else {
-            crate::physics::scatter::K_BOLTZMANN_EV_PER_K * temp_k
+            crate::physics::scatter::K_BOLTZMANN_EV_PER_K * lookup_temp_k
         }
+    }
+
+    /// kT \[eV\] of the temperature this nuclide's pointwise data were
+    /// broadened to (an ACE table's `kT`; `k_B * T` for an ENDF build at `T`).
+    /// `None` for a multipole (`Core`) nuclide, broadened at lookup.
+    pub fn data_kt_ev(&self) -> Option<f64> {
+        self.data_kt_ev
     }
 
     /// Average neutrons per fission ν̄ at incident energy `e` \[eV\].
@@ -2236,6 +2273,7 @@ impl Nuclide {
                 mt5,
             },
             target_at_rest: false,
+            data_kt_ev: Some(ace.kt_ev),
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
@@ -2590,6 +2628,7 @@ impl Nuclide {
             thermal: None,
             continuum,
             target_at_rest: false,
+            data_kt_ev: Some(crate::physics::scatter::K_BOLTZMANN_EV_PER_K * temp_k),
             nu_frozen_at: None,
             chi_frozen_at: None,
             n2n_yield_one: false,
@@ -3724,6 +3763,16 @@ impl Nuclide {
     ///
     /// Before this, every neutron came from the prompt χ, on both routes.
     pub fn sample_fission_energy(&self, e_in: f64, seed: &mut u64) -> f64 {
+        self.sample_fission_energy_below(e_in, f64::INFINITY, seed)
+    }
+
+    /// [`sample_fission_energy`](Self::sample_fission_energy), resampling
+    /// until the birth energy is below `e_cap` \[eV\] as well as below this
+    /// nuclide's own data top. The transport kernels pass
+    /// [`library_energy_max_ev`] of the run's nuclides, which is OpenMC's
+    /// `data::energy_max[neutron]` (the lowest top energy of any loaded
+    /// nuclide). GitHub #463 item 2.
+    pub fn sample_fission_energy_below(&self, e_in: f64, e_cap: f64, seed: &mut u64) -> f64 {
         let e_chi = self.chi_incident_energy(e_in);
         // Under the prompt-only ablation (#262) no delayed neutron is produced,
         // so none is born with a delayed spectrum.
@@ -3750,11 +3799,54 @@ impl Nuclide {
                             break;
                         }
                     }
-                    return sample_chi(&d.spectra[group], e_chi, seed);
+                    return self.resample_below_data_max(&d.spectra[group], e_chi, e_cap, seed);
                 }
             }
         }
-        sample_chi(&self.chi, e_chi, seed)
+        self.resample_below_data_max(&self.chi, e_chi, e_cap, seed)
+    }
+
+    /// Draw from `spectrum` at `e_chi` until the birth energy is below
+    /// `min(e_cap, this nuclide's pointwise data top)`, as OpenMC's
+    /// `sample_fission_neutron` does (`src/physics.cpp:1091-1109`: `if
+    /// (site->E < data::energy_max[neutron]) break;`, fatal after
+    /// `MAX_SAMPLE` = 100000 tries). GitHub #463 item 2; ~~no resampling~~
+    /// until 2026-09-30. With no finite bound (a multipole nuclide and no cap)
+    /// it is one draw, as before.
+    fn resample_below_data_max(
+        &self,
+        spectrum: &FissionSpectrum,
+        e_chi: f64,
+        e_cap: f64,
+        seed: &mut u64,
+    ) -> f64 {
+        const MAX_SAMPLE: usize = 100_000;
+        let e_top = self.pointwise_energy_max_ev().unwrap_or(f64::INFINITY).min(e_cap);
+        if !e_top.is_finite() {
+            return sample_chi(spectrum, e_chi, seed);
+        }
+        for _ in 0..MAX_SAMPLE {
+            let e = sample_chi(spectrum, e_chi, seed);
+            if e < e_top {
+                return e;
+            }
+        }
+        panic!(
+            "{}: fission energy resampled {MAX_SAMPLE} times without falling below the \
+             data maximum {e_top:.4e} eV (OpenMC stops with the same error)",
+            self.name
+        );
+    }
+
+    /// The top of this nuclide's pointwise energy grid \[eV\] (the last MT=1
+    /// point), or `None` for a multipole (`Core`) nuclide.
+    pub fn pointwise_energy_max_ev(&self) -> Option<f64> {
+        match &self.xs {
+            XsSource::Pointwise { recon, index, .. } => index
+                .mt1
+                .and_then(|i| recon.sections[i].pairs.last().map(|&(e, _)| e)),
+            XsSource::Core { .. } => None,
+        }
     }
 
     /// This nuclide with delayed-neutron spectra **switched off**: every fission
@@ -3869,7 +3961,8 @@ impl Nuclide {
 ///
 /// This is the OpenMC `Nuclide::create_derived` sum
 /// (`src/nuclide.cpp:409-417`): every non-redundant reaction with
-/// `is_disappearance(mt)` (`src/endf.cpp:59` — MT 101–117, …) plus fission.
+/// `is_disappearance(mt)` (`src/endf.cpp:59` — MT 101–117, 155, 182,
+/// 191–193, 197, 600–849) plus fission.
 ///
 /// # Redundant-section handling
 ///
@@ -3882,8 +3975,9 @@ impl Nuclide {
 /// 1. MF=3 **MT=27** present ⇒ use it directly (already includes fission).
 /// 2. else MF=3 **MT=101** (neutron-disappearance total, excludes fission)
 ///    present ⇒ `fission + MT101`.
-/// 3. else ⇒ `fission + MT102 (n,γ) + Σ MT103…117` (the individual
-///    charged-particle-emission partials that are present).
+/// 3. else ⇒ `fission + MT102 (n,γ) + Σ MT103…117, 155, 182, 191–193, 197`
+///    (the individual charged-particle-emission partials that are present;
+///    [`DISAPPEARANCE_MTS`]).
 ///
 /// Was previously `fission + MT102` only, which classified e.g. the ~940 b
 /// Li-6(n,t)α (MT=105) as *scattering* (GitHub #169).
@@ -3899,9 +3993,9 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
         return fission + mt101;
     }
     // MT 102 (n,γ) plus every charged-particle disappearance partial present
-    // (the list is module-level, [`DISAPPEARANCE`], so the indexed path shares it).
+    // (the list is module-level, [`DISAPPEARANCE_MTS`], so the indexed path shares it).
     fission
-        + DISAPPEARANCE
+        + disappearance()
             .iter()
             .map(|&mt| recon.eval_mt(mt, e))
             .sum::<f64>()
@@ -3927,29 +4021,40 @@ fn absorption_mt27_indexed(recon: &ReconrResult, index: &SectionIndex, fission: 
             .sum::<f64>()
 }
 
+/// The lowest top energy \[eV\] of any pointwise nuclide in `nuclides`, or
+/// `f64::INFINITY` when none is pointwise: OpenMC's
+/// `data::energy_max[neutron]`, the bound below which fission neutrons are
+/// resampled (GitHub #463 item 2).
+pub fn library_energy_max_ev(nuclides: &[Nuclide]) -> f64 {
+    nuclides
+        .iter()
+        .filter_map(Nuclide::pointwise_energy_max_ev)
+        .fold(f64::INFINITY, f64::min)
+}
+
 /// MT 102 (n,γ) plus every charged-particle disappearance partial, the parts
 /// [`absorption_mt27`] sums when an evaluation carries neither MT=27 nor
-/// MT=101.
-const DISAPPEARANCE: [MtReaction; 15] = {
-    use njoy_outram_park_fork::MtReaction as Mt;
-    [
-        Mt::Mt102Capture,
-        Mt::Mt103Np,
-        Mt::Mt104Nd,
-        Mt::Mt105Nt,
-        Mt::Mt106NHe3,
-        Mt::Mt107NAlpha,
-        Mt::Mt108N2Alpha,
-        Mt::Mt109N3Alpha,
-        Mt::Mt111N2Proton,
-        Mt::Mt112NProtonAlpha,
-        Mt::Mt113NT2Alpha,
-        Mt::Mt114ND2Alpha,
-        Mt::Mt115NProtonD,
-        Mt::Mt116NProtonT,
-        Mt::Mt117NDAlpha,
-    ]
-};
+/// MT=101: OpenMC's `is_disappearance` (`src/endf.cpp:60-72`), less its
+/// MT=600-849 level partials, which RECONR folds into the MT=103-107 lumps
+/// (`synthesise_lumped_particle_channels`) so that adding them here would
+/// count them twice.
+///
+/// ~~MT 102-117 only~~ **CORRECTED 2026-09-30 (GitHub #463 item 1):** MT=155
+/// (n,tα), 182 (n,dt), 191 (n,p³He), 192 (n,d³He), 193 (n,³Heα) and 197
+/// (n,3p) were missing, so a tape carrying any of them would have scattered
+/// those neutrons elastically. None of the 39 tapes in `reference-data/endf/`
+/// carries one (checked 2026-09-30), so no recorded number moves. They are
+/// appended after the original fifteen, so the summation order of those is
+/// unchanged and every existing result rounds identically.
+const DISAPPEARANCE_MTS: [i32; 21] = [
+    102, 103, 104, 105, 106, 107, 108, 109, 111, 112, 113, 114, 115, 116, 117, 155, 182, 191, 192,
+    193, 197,
+];
+
+/// [`DISAPPEARANCE_MTS`] as reactions.
+fn disappearance() -> [MtReaction; 21] {
+    DISAPPEARANCE_MTS.map(MtReaction::from_any)
+}
 
 /// Sample a fission-neutron birth energy \[eV\] from χ at incident energy `e_in`
 /// \[eV\] — dispatches over every [`FissionSpectrum`] law this port reconstructs:
@@ -5079,6 +5184,40 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// GitHub #463 item 1: the absorption fallback counts OpenMC's full
+    /// disappearance set, MT=155/182/191-193/197 included, on both the
+    /// searched and the indexed path. Fails before 2026-09-30, where MT=155
+    /// and MT=197 fell into the elastic remainder and the sum read 1 b
+    /// instead of 1 + 2 + 4 b.
+    #[test]
+    fn absorption_fallback_counts_every_disappearance_mt() {
+        let flat = |mt: i32, v: f64| ReconrSection {
+            lr: 0,
+            mt: MtReaction::from_any(mt),
+            qi: 0.0,
+            pairs: vec![(1.0e-5, v), (2.0e7, v)],
+        };
+        let recon = ReconrResult {
+            material: njoy_outram_park_fork::reconr::mf1::MaterialInfo {
+                za: 3006.0,
+                awr: 5.9,
+                lrp: 0,
+                lfi: 0,
+                nlib: 0,
+                elis: 0.0,
+                nfor: 6,
+                emax: 2.0e7,
+            },
+            sections: vec![flat(1, 10.0), flat(2, 3.0), flat(102, 1.0), flat(155, 2.0), flat(197, 4.0)],
+            resonance_upper_limit: None,
+            unresolved_table: None,
+        };
+        let e = 1.0e6;
+        assert_eq!(absorption_mt27(&recon, 0.0, e), 7.0);
+        let index = SectionIndex::new(&recon);
+        assert_eq!(absorption_mt27_indexed(&recon, &index, 0.0, e), 7.0);
+    }
 
     /// The exponential angular sampler must reproduce its target mean cosine μ̄ —
     /// the whole point of a maximum-entropy model with a prescribed first moment.

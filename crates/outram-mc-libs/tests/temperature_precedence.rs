@@ -14,7 +14,7 @@
 //! | Nuclide build temperature | `Nuclide::from_endf_file(.., T, ..)`, or the ACE table's own | **Sets the Doppler broadening of pointwise cross sections.** It wins for `Pointwise` nuclides. |
 //! | S(α,β) table temperature | `ThermalScattering::from_endf_file(.., T, ..)` | Selects the bound-scattering table |
 //! | `Material::temperature` | the material | Passed to every cross-section lookup; **only multipole (`Core`) nuclides use it**. Pointwise nuclides ignore it |
-//! | `KeffSettings::temperature_k` | the run | **Free-gas elastic kinematics** (target thermal motion, `free_gas_kt`) |
+//! | `KeffSettings::temperature_k` | the run | ~~**Free-gas elastic kinematics**~~ **Nothing in the CSG drivers** since 2026-09-30 (GitHub #313): the free-gas kT is the nuclide's data temperature (pointwise) or the material's (multipole), as OpenMC |
 //! | `Cell::temperature` | the cell | **Not read by transport at all** |
 //!
 //! # Methodology
@@ -27,11 +27,18 @@
 //! - cell temperature → k must be **bit-identical** (never read);
 //! - material temperature → k must be **bit-identical** (ACE nuclides are
 //!   pointwise, so the lookup ignores it);
-//! - run temperature → k must **differ** (the free-gas target velocity
-//!   distribution changes, and with it the random streams).
+//! - ~~run temperature → k must **differ** (the free-gas target velocity
+//!   distribution changes, and with it the random streams).~~ **CHANGED
+//!   2026-09-30 (GitHub #313):** run temperature → k must be
+//!   **bit-identical**. The free-gas kT of a pointwise nuclide is now the
+//!   temperature its data were broadened to, as OpenMC takes it
+//!   (`nuc->kTs_[i_temp]`, `src/physics.cpp:697`). Before the fix this arm
+//!   differed, so the new assertion fails on the old kernel;
+//! - **H-1 build temperature** → k must **differ**. This is the negative
+//!   control that shows the harness can see a change at all. It replaced the
+//!   run-temperature arm in that role on 2026-09-30.
 //!
-//! Pass criteria fixed before running; the third arm is the negative control
-//! that shows the harness can see a change at all.
+//! Pass criteria fixed before running.
 //!
 //! # Protocol fixed 2026-09-30: the control had gone blind
 //!
@@ -51,9 +58,10 @@
 //! collision. The model is therefore no longer the Godiva benchmark; it is a
 //! lightly moderated HEU sphere, which is all this test needs.
 //!
-//! # Results (2026-09-27)
+//! # Results
 //!
-//! Recorded in `docs/temperatures.md` from this test's printout.
+//! Recorded in `docs/temperatures.md` from this test's printout (2026-09-27,
+//! re-measured 2026-09-30 twice: once for the H-1 protocol, once for #313).
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -70,6 +78,10 @@ const T_REF: f64 = 293.6;
 const T_HOT: f64 = 1200.0;
 
 fn nuclides() -> Option<Vec<Nuclide>> {
+    nuclides_with_h1_at(T_REF)
+}
+
+fn nuclides_with_h1_at(h1_t: f64) -> Option<Vec<Nuclide>> {
     let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../reference-data/ace/reference-njoy/endf-b-viii.0/293.6K");
     let load = |n: &str| -> Option<Nuclide> {
@@ -79,10 +91,10 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     };
     // H-1 from the repository's ENDF/B-VIII.0 tape (pointwise, like the ACE
     // nuclides). A neutron-mass target is scattered as a free gas at every
-    // energy (the at-rest gate needs `awr > 1`), so its collisions always read
-    // `KeffSettings::temperature_k`. See "Protocol fixed 2026-09-30" above.
+    // energy (the at-rest gate needs `awr > 1`), so its collisions always use
+    // its data temperature (GitHub #313). See "Protocol fixed 2026-09-30".
     let h = njoy_outram_park_fork::reference_data::reference_endf("n-001_H_001-ENDF8.0-Beta6.endf")?;
-    let h1 = Nuclide::from_endf_file(&h, "H1", T_REF, 1.0e-3).expect("H-1 reconstructs");
+    let h1 = Nuclide::from_endf_file(&h, "H1", h1_t, 1.0e-3).expect("H-1 reconstructs");
     Some(vec![load("U235")?, load("U238")?, h1])
 }
 
@@ -162,11 +174,14 @@ fn which_temperature_takes_precedence() {
     let cell_hot = k(&nucs, T_HOT, T_REF, T_REF);
     let mat_hot = k(&nucs, T_REF, T_HOT, T_REF);
     let run_hot = k(&nucs, T_REF, T_REF, T_HOT);
+    let h1_hot_nucs = nuclides_with_h1_at(T_HOT).expect("loaded once already");
+    let h1_hot = k(&h1_hot_nucs, T_REF, T_REF, T_REF);
     for (label, (km, ks)) in [
         ("all 293.6 K (reference)", reference),
         ("Cell::temperature 1200 K", cell_hot),
         ("Material::temperature 1200 K", mat_hot),
         ("KeffSettings::temperature_k 1200 K", run_hot),
+        ("H-1 built at 1200 K (control)", h1_hot),
     ] {
         println!("{label:<38} k = {km:.6} +/- {ks:.6}");
     }
@@ -182,10 +197,44 @@ fn which_temperature_takes_precedence() {
         "Material::temperature changed k on pointwise (ACE) nuclides: the lookup \
          now uses it, and docs/temperatures.md is wrong"
     );
-    assert_ne!(
+    assert_eq!(
         run_hot.0.to_bits(),
         reference.0.to_bits(),
-        "KeffSettings::temperature_k changed nothing: either the free-gas kernel \
-         no longer reads it, or this harness cannot see a change"
+        "KeffSettings::temperature_k changed k in a CSG run: the free-gas kT is \
+         being taken from the run again rather than from the nuclide data \
+         (GitHub #313), and docs/temperatures.md is wrong"
     );
+    assert_ne!(
+        h1_hot.0.to_bits(),
+        reference.0.to_bits(),
+        "H-1 built at 1200 K changed nothing: this harness cannot see a change"
+    );
+}
+
+/// GitHub #313: the free-gas kT is the data temperature for a pointwise
+/// nuclide, whatever lookup temperature is passed, and the lookup temperature
+/// for a multipole one. OpenMC `src/physics.cpp:697`. Fails on the kernel
+/// before 2026-09-30, where `free_gas_kt(T)` returned `k_B * T` for every
+/// nuclide.
+#[test]
+fn free_gas_kt_is_the_data_temperature_for_pointwise_nuclides() {
+    use outram_mc_libs::physics::scatter::K_BOLTZMANN_EV_PER_K as KB;
+    let Some(nucs) = nuclides() else {
+        eprintln!("SKIP: reference-data/ace submodule not initialised");
+        return;
+    };
+    // ACE U-235: the table's own kT.
+    let u235 = &nucs[0];
+    let kt_table = u235.data_kt_ev().expect("an ACE nuclide is pointwise");
+    assert!((kt_table - KB * T_REF).abs() < 1.0e-3 * kt_table, "ACE kT {kt_table} eV is not 293.6 K");
+    assert_eq!(u235.free_gas_kt(T_HOT).to_bits(), kt_table.to_bits());
+    // ENDF H-1 built at 293.6 K: k_B * 293.6, not k_B * 1200.
+    let h1 = &nucs[2];
+    assert_eq!(h1.free_gas_kt(T_HOT).to_bits(), (KB * T_REF).to_bits());
+    // The target-at-rest ablation still wins.
+    assert_eq!(h1.clone().with_target_at_rest().free_gas_kt(T_HOT), 0.0);
+    // Multipole (`Core`): the lookup temperature.
+    let core = Nuclide::from_core("U235").expect("embedded U-235");
+    assert_eq!(core.data_kt_ev(), None);
+    assert_eq!(core.free_gas_kt(T_HOT).to_bits(), (KB * T_HOT).to_bits());
 }

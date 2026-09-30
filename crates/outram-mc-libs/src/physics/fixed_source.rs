@@ -5,7 +5,7 @@
 //!
 //! Per the crate porting rule, the *physics* here is **not** reinvented: every
 //! flight, collision, reaction and boundary crossing is the already-ported
-//! [`transport_history`](crate::physics::transport_csg::transport_history) (the
+//! [`transport_history_vr`](crate::physics::transport_csg::transport_history_vr) (the
 //! translation of OpenMC `src/physics.cpp`). What is new — and marked as new,
 //! not a port — is the fixed-source **orchestration** around it: sample source
 //! particles from an external [`FixedSource`], transport each to death, and
@@ -158,7 +158,12 @@ pub struct FixedSourceSettings {
     /// for the tally's mean/uncertainty. Each batch is flushed as one
     /// realization; read a tally with `n_batches` as the realization count.
     pub n_batches: usize,
-    /// Material temperature \[K\] for the cross-section lookup.
+    /// ~~Material temperature \[K\] for the cross-section lookup.~~
+    /// **CORRECTED 2026-09-30 (GitHub #313).** Not read by the fixed-source
+    /// transport: cross sections use each `Material::temperature`, and the
+    /// free-gas kinematics use the nuclide's data temperature (pointwise) or
+    /// the material's (multipole), see [`crate::material::nuclide::Nuclide::free_gas_kt`].
+    /// Until 2026-09-30 it set the free-gas kT only.
     pub temperature_k: f64,
     /// Master RNG seed (fixed → reproducible on the single-thread path).
     pub seed: u64,
@@ -310,7 +315,6 @@ pub fn run_fixed_source_traced(
                     nuclides,
                     // No delta-tracked regions in the fixed-source path (yet).
                     &[],
-                    settings.temperature_k,
                     1.0,
                     &mut next,
                     &mut seed,

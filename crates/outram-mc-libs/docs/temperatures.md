@@ -8,10 +8,10 @@ controls nothing. Checked 2026-09-27 by reading `physics/transport_csg.rs`,
 
 | Temperature | Set by | Controls | Pointwise nuclide | Multipole (`Core`) nuclide |
 |---|---|---|---|---|
-| **Nuclide build temperature** | `Nuclide::from_endf_file(path, name, T, tol)`; an ACE table's own temperature | Doppler broadening baked into the pointwise table | **This one wins** | not used for the resolved range |
+| **Nuclide build temperature** | `Nuclide::from_endf_file(path, name, T, tol)`; an ACE table's own temperature | Doppler broadening baked into the pointwise table, **and** (since 2026-09-30, GitHub #313) the free-gas and DBRC target-motion kT, as OpenMC | **This one wins**, for the cross sections and the kinematics | not used for the resolved range |
 | **S(α,β) table temperature** | `ThermalScattering::from_endf_file(.., T, ..)` / `from_leapr(.., T, ..)` | Which bound-scattering table is used (nearest tabulated, reported by `selected_temperature_k`) | used | used |
-| **`Material::temperature`** | the material | Passed to every cross-section lookup (flight distance and collision) | **ignored** | **this one wins** (WMP Doppler evaluator) |
-| **`KeffSettings::temperature_k`** | the run | CSG drivers: free-gas elastic target motion (`free_gas_kt`) only. Simple drivers in `keff.rs`: also the lookup temperature | kinematics only | kinematics (and, in the simple drivers, the lookup) |
+| **`Material::temperature`** | the material | Passed to every cross-section lookup (flight distance and collision), and the free-gas kT of a multipole nuclide | **ignored** | **this one wins** (WMP Doppler evaluator and target motion) |
+| **`KeffSettings::temperature_k`** | the run | CSG drivers: ~~free-gas elastic target motion (`free_gas_kt`) only~~ **nothing** since 2026-09-30 (GitHub #313). Simple drivers in `keff.rs`: the lookup temperature, and the multipole free-gas temperature | not read (CSG) | not read (CSG); lookup and kinematics in the simple drivers |
 | **`Cell::temperature`** | the cell | **Nothing in transport** | not read | not read |
 
 ## Measured (2026-09-27)
@@ -46,18 +46,45 @@ The conclusions are unchanged:
 | `Material::temperature` = 1200 K | 1.014268 ± 0.017209 (bit-identical) |
 | `KeffSettings::temperature_k` = 1200 K | 1.013499 ± 0.007813 (differs) |
 
+## Re-measured (2026-09-30, GitHub #313): the kinematics follow the data
+
+The CSG kernel used two temperatures at one collision: the cross sections
+from the material, the free-gas and DBRC target motion from the run. It now
+takes the kinematics kT as OpenMC does (`src/physics.cpp:697`,
+`kT = nuc->multipole_ ? p.sqrtkT()^2 : nuc->kTs_[i_temp]`): the temperature
+a pointwise nuclide's data were broadened to (`Nuclide::data_kt_ev`), or the
+collision material's for a multipole nuclide. So the run temperature arm is
+now **bit-identical**, and the control that shows the harness can see a
+change is H-1 built at 1200 K instead:
+
+| Arm | k |
+|---|---|
+| everything 293.6 K | 0.985972 ± 0.011291 |
+| `Cell::temperature` = 1200 K | 0.985972 ± 0.011291 (bit-identical) |
+| `Material::temperature` = 1200 K | 0.985972 ± 0.011291 (bit-identical) |
+| `KeffSettings::temperature_k` = 1200 K | 0.985972 ± 0.011291 (bit-identical; differed before #313) |
+| H-1 built at 1200 K (control) | 1.024975 ± 0.011279 (differs) |
+
+The reference moved from 1.014268 because the fission source is now combed
+(GitHub #460), not because of #313: H-1 is built at 293.6 K, so its kT did
+not change.
+
 ## The rule for a user
 
 **To run a model at temperature T, build (or read) the nuclides at T, load the
 S(α,β) tables at T, and set `KeffSettings::temperature_k = T`.** Set
 `Material::temperature = T` as well, which matters only for multipole
-nuclides. `Cell::temperature` is descriptive only.
+nuclides. `Cell::temperature` is descriptive only. (In the CSG drivers the
+run temperature is no longer read; setting it keeps the simple drivers of
+`keff.rs` consistent.)
 
 A model with different temperatures in different regions needs one nuclide
-set per temperature, attached to the materials of those regions. The free-gas
-kinematics then still use the single run temperature. That is a known
-limitation (OpenMC resolves temperature per cell; gh:#269 tracks
-multi-temperature treatment).
+set per temperature, attached to the materials of those regions. ~~The
+free-gas kinematics then still use the single run temperature. That is a
+known limitation~~ **CORRECTED 2026-09-30 (GitHub #313):** the free-gas
+kinematics follow each nuclide set's own data temperature, so such a model is
+consistent. OpenMC resolves temperature per cell; gh:#269 tracks
+multi-temperature treatment.
 
 ## HTR-10 (`nee_soon`)
 
