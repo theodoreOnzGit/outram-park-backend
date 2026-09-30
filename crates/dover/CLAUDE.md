@@ -59,10 +59,12 @@ direction above from "perhaps TOML" to TOML in fact.
 
 What landed:
 
-- `species` — five-species formation data (CH4, H2O(g), CO, CO2, H2). **The
+- `species` — five-species formation data (CH4, H2O(g), CO, CO2, H2). ~~**The
   NIST-JANAF cataloguing into `kovan-literature` that the workspace hard rule
-  requires is OUTSTANDING**: this container has no path to fetch the source.
-  Recorded in that module, not glossed over.
+  requires is OUTSTANDING**~~ **CORRECTED 2026-10-01:** that hard rule was
+  retired (pointer: `docs/claude-md/kovan-tooling.md`; the maintainer supplies
+  the corpus). The source's provenance record is still owed under
+  `DATA_POLICY.md`.
 - `smr` — two independent reactions (reforming + water-gas shift), `ΔH°`/`ΔS°`
   summed from the species table, `K(T)` by van 't Hoff, reverse rates forced
   to satisfy `k_f/k_r = Kc`. The only fitted inputs are the deck's forward
