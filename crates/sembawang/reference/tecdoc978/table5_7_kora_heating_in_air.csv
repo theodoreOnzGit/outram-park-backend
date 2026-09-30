@@ -1,0 +1,12 @@
+# IAEA, "Fuel performance and fission product behaviour in gas cooled reactors", IAEA-TECDOC-978, Vienna, 1997. Proprietary tier: cited, the PDF is not redistributed; the values are the maintainer's digitisation.
+# Table 5-7 (printed page 254).
+# Maintainer's digitisation in kovan: id table-5-7, method pdf_native, by teddy0 via kovan (gui, table grid, every value entered by hand), at 2026-09-30T02:19:32Z;
+# copied verbatim from ~/Documents/local-kovan-repo/papers/2002/2002iaeatecdoc978/ on 2026-09-30 (#453).
+Fuel Sample,No of Particles,Burnup [%FIMA],heatup (hrs),Max temp (C),Time (h),Kr-85 release First particle failed after,Kr-85 release No. of failed particles,KR-85 release Fraction of failed particles
+"92/29, 12",10,9.2,14,1400,400,397 h,1,0.1
+"73/8, 11",10,4.7,15,1500,25,8h,10,1
+"92/29, 13",10,9.2,15,1500,25,3h,10,1
+"92/29,11",10,9.2,28,1620,1,at 1613C,10,1
+AVR 89/12,"16,400",9.4,13,1300,410,258 h,4,2.4e-4
+AVR 92/22,"16,400",8.8,14,1400,140,1 h,20,1.2e-3
+AVR 89/14,"16,400",9.0,14,1400,70,2h,12,7.3e-4

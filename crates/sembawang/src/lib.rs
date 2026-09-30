@@ -23,6 +23,12 @@
 //! `examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose
 //! at distance through `buangkok`'s Gaussian plume and FGR coefficients. The
 //! dose arithmetic is `buangkok`'s, not this crate's.
+//! **UPDATED again 2026-09-30 (#452, #453):** [`lwr_comparison`] is library
+//! code that calls that same `buangkok` arithmetic, so that the HTR-10
+//! bounding air-ingress case and its LWR counterparts (NUREG-1465, RG 1.183,
+//! WASH-1400 PWR 8) reach the example and `htgr_sim_v1` from one function.
+//! ~~"The library computes no dose quantity"~~ no longer holds for that
+//! module; the dose there is research-grade and indicative only.
 //!
 //! # STATUS: partially implemented, and the unimplemented part is the larger one
 //!
@@ -109,9 +115,17 @@
 //!   ingrowth.
 //! - **Containment transport, pool scrubbing or iodine chemistry.** What leaves
 //!   the fuel is treated as what leaves the building.
-//! - **Any dose quantity in the library**, here or in [`changi`]. The library
+//! - ~~**Any dose quantity in the library**, here or in [`changi`]. The library
 //!   chain stops at activity in air and on the ground. Dose comes from
-//!   `buangkok`, and is used only by the `htr10_air_ingress_kora_bound` example.
+//!   `buangkok`, and is used only by the `htr10_air_ingress_kora_bound` example.~~
+//!   **CORRECTED 2026-09-30 (#452):** [`lwr_comparison::max_dose`] computes a
+//!   research-grade dose through `buangkok`'s plume and FGR coefficients, for
+//!   the `lwr_nureg1465_counterpart` example and `htgr_sim_v1` (#453). The
+//!   HTR-10 source-term chain itself still stops at activity.
+//!   [`lwr_comparison::rg1183_containment_leakage`] is a one-node LWR
+//!   containment leak for RG 1.183's method only, with no removal credit. It
+//!   is not HTR containment transport, which the entry above still says does
+//!   not exist.
 //!
 //! # Intended use, and what it will never be for
 //!
@@ -137,6 +151,7 @@ pub mod error;
 /// which inputs are HTR-10's own, which are stand-ins and which are estimates.
 pub mod htr10;
 pub mod inventory;
+pub mod lwr_comparison;
 pub mod scenario;
 pub mod units;
 

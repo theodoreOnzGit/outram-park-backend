@@ -1,4 +1,4 @@
-# Upstream TRISO-ATOPS de374c8 accident_case, Stoyer Case B, k_plate = 0.00075 1/s.
+# Upstream TRISO-ATOPS de374c8 accident_case, Stoyer Case B, k_plate = 0.00075 1/s; Fig. 5 as sparse digitised points (fig05_accident_temperature_c.csv).
 # total_<p> = accident_case's last value for the Fig. 5 curve <p>% applied to the whole core; eq29 = sum w_p total_p;
 # initial = circulating + x_liftoff x plate-out (t = 0 term, curve-independent);
 # final_as_paper = initial + (eq29 - initial)/10  (s.III.A.5: the x10 building reduction applies to releases AFTER the initial puff);

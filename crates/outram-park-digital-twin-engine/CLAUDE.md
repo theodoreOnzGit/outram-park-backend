@@ -72,7 +72,9 @@ example-only (re-checked against `Cargo.toml` 2026-09-29, after the merge into
 gh:#400), `changi` (Gaussian puff + activity layer, `gpu` feature),
 `buangkok` (the Map tab's INDICATIVE dose rate, `physics::dose_rate`),
 `teh-o-prke` (kinetics, decay heat) and `outram-park-fork-offbeat` (UO2 and SiC
-`c_p`). ~~`buangkok` (dose) is **not** a dependency: nothing in this crate
+`c_p`). **Added 2026-09-30 (#453):** `sembawang`, for the Map tab's
+Bounding air ingress comparison (`physics::bounding_air_ingress`, which calls
+`sembawang::lwr_comparison::bounding_comparison`). ~~`buangkok` (dose) is **not** a dependency: nothing in this crate
 converts a release to a dose (gh:#375).~~ **CORRECTED 2026-09-29**: the
 dose-rate map (b03e5cc33b) added it; the dose rate is research-grade and
 indicative only.

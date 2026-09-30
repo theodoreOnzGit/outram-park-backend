@@ -216,6 +216,16 @@ changi = { workspace = true, features = ["gpu"] }
 # emergency or regulatory use (RESPONSIBLE_USE.md, buangkok's CLAUDE.md).
 buangkok = { workspace = true }
 
+# htgr_sim_v1's map "Bounding air ingress" button (#453): the HTR-10 bounding
+# air-ingress case (1400 C / 140 h, KORA f_ox from IAEA-TECDOC-978 Table 5-7,
+# TRISO-ATOPS release with sembawang's venting, #446) and its LWR comparison
+# (RG 1.183 per unit leak rate, WASH-1400 PWR 8), from
+# `sembawang::lwr_comparison::bounding_comparison` -- the SAME function the
+# #452 example calls, so the map cannot drift from it. DEV-dependency,
+# example-only, like buangkok. Direction: sembawang -> boon-lay, changi,
+# buangkok, uom; nothing in sembawang depends on this crate, so no cycle.
+sembawang = { workspace = true }
+
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
 # as its intended real integration target, stepped by

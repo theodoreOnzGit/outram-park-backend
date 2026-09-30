@@ -715,16 +715,23 @@ impl DigitiseApp {
             }
         }
 
-        let configured_pdf = EntityConfig::load(&root.paper_dir(citekey))
+        let source = EntityConfig::load(&root.paper_dir(citekey))
             .ok()
-            .and_then(|cfg| cfg.source)
-            .and_then(|source| source.pdf)
-            .map(|rel| root.paper_dir(citekey).join(rel));
-        let pdf_path = configured_pdf
+            .and_then(|cfg| cfg.source);
+        let configured_pdf = source
             .as_ref()
-            .filter(|path| path.is_file())
-            .cloned();
-        let pdf_unavailable = configured_pdf.is_some() && pdf_path.is_none();
+            .and_then(|source| source.pdf.clone())
+            .map(|rel| root.paper_dir(citekey).join(rel));
+        // The recorded PDF, or, for a standard-corpus document's notes, its
+        // corpus file wherever the corpus is checked out (2026-09-30).
+        let pdf_path = crate::standard_corpus::paper_pdf(
+            &root,
+            &crate::standard_corpus::StandardCorpus::for_root(Some(&root)),
+            citekey,
+        );
+        let expects_pdf =
+            configured_pdf.is_some() || source.as_ref().is_some_and(|s| s.corpus.is_some());
+        let pdf_unavailable = expects_pdf && pdf_path.is_none();
 
         if let Some(pdf) = &pdf_path {
             self.pdf_reader.open(&pdf.to_string_lossy());
@@ -845,23 +852,116 @@ impl DigitiseApp {
             .as_ref()
             .is_none_or(|l| l.root != root.path())
         {
-            self.literature = Some(literature_list::LiteratureList::build(&root));
+            self.literature = Some(literature_list::LiteratureList::build(
+                &root,
+                &crate::standard_corpus::StandardCorpus::for_root(Some(&root)),
+            ));
         }
         let chosen = self
             .literature
             .as_ref()
             .and_then(|list| self.literature_finder.ui(ctx, list));
-        if let Some(path) = chosen {
-            self.open_document(&path);
+        if let Some(action) = chosen {
+            self.literature_action(action);
+        }
+    }
+
+    /// Carry out what the literature list or finder asked for.
+    fn literature_action(&mut self, action: literature_list::LiteratureAction) {
+        match action {
+            literature_list::LiteratureAction::Open(path) => self.open_document(&path),
+            literature_list::LiteratureAction::NotDownloaded(lit) => {
+                self.open_corpus_document(lit.id)
+            }
+            literature_list::LiteratureAction::Refresh => self.literature = None,
+            literature_list::LiteratureAction::Find => self.literature_finder.show(),
+        }
+    }
+
+    /// Open standard-corpus document `id` (2026-09-30): as its notes paper
+    /// ([`crate::standard_corpus::ensure_paper`]) when a folder is open, else
+    /// read-only in the reader. A document that is not downloaded is
+    /// reported with where to get it, not treated as an error.
+    fn open_corpus_document(&mut self, id: &str) {
+        let Some(lit) = crate::standard_corpus::entry(id) else {
+            self.set_error(format!("{id}: not a standard-corpus document"));
+            return;
+        };
+        let root = self.home.root().cloned();
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(root.as_ref());
+        let Some(pdf) = corpus.locate(lit) else {
+            self.set_status(format!(
+                "{id} is in the standard corpus but not downloaded here{}; pull the \
+                 corpus from Setup",
+                lit.source_url
+                    .map(|u| format!(" (source: {u})"))
+                    .unwrap_or_default()
+            ));
+            return;
+        };
+        match root {
+            Some(root) => match crate::standard_corpus::ensure_paper(&root, &corpus, lit) {
+                Ok(citekey) => {
+                    self.refresh_knowledge(&root);
+                    self.activate_paper_and_navigate(&citekey);
+                }
+                Err(e) => self.set_error(format!("{id}: {e}")),
+            },
+            None => {
+                self.active_paper = None;
+                self.view = View::PdfReader;
+                self.reader_path = Some(pdf.clone());
+                self.pdf_reader.open(&pdf.to_string_lossy());
+                self.set_status(format!(
+                    "opened {id} read-only; open a Kovan folder to keep notes on it"
+                ));
+            }
+        }
+    }
+
+    /// Start ingesting `path`, unless it is already in the library
+    /// ([`crate::ingest::find_existing`]): then say so and open the existing
+    /// entry instead of ingesting a duplicate (2026-09-30).
+    fn begin_ingest(&mut self, root: &crate::root::KovanRoot, path: &std::path::Path) {
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
+        let mut cache = crate::fingerprint::HashCache::load(&root.state_dir());
+        if let Some(existing) = crate::ingest::find_existing(root, &corpus, path, &mut cache) {
+            let message = format!("{existing}; opening it instead of ingesting a duplicate");
+            match &existing {
+                crate::ingest::ExistingEntry::StandardCorpus { id, .. } => {
+                    self.open_corpus_document(id)
+                }
+                crate::ingest::ExistingEntry::Paper { citekey, .. } => {
+                    self.activate_paper_and_navigate(citekey)
+                }
+            }
+            self.set_status(message);
+            return;
+        }
+        let wiki = self.wiki.get_or_insert_with(WikiState::new);
+        if let Err(e) = wiki.begin_ingest(root, path) {
+            self.set_error(e);
         }
     }
 
     /// Open `path` in the PDF reader: as its paper when one records it (so
     /// notes save into it), otherwise on its own with the ingest offer.
+    ///
+    /// A standard-corpus file opens as that document, never with the offer
+    /// (2026-09-30).
     fn open_document(&mut self, path: &std::path::Path) {
         self.reader_path = Some(path.to_path_buf());
+        let corpus_entry = || {
+            crate::standard_corpus::StandardCorpus::for_root(self.home.root())
+                .entry_for_path(path)
+        };
         match self.paper_owning_pdf(path) {
             Some(citekey) => self.activate_paper_and_navigate(&citekey),
+            None if corpus_entry().is_some() => {
+                if let Some(lit) = corpus_entry() {
+                    self.open_corpus_document(lit.id);
+                }
+            }
             None => {
                 // Not a paper's PDF: whatever paper was open no longer
                 // matches the reader, so notes must not go into it.
@@ -882,13 +982,18 @@ impl DigitiseApp {
     /// inside one said nothing; opening such a PDF offered no ingest and the
     /// reader showed the no-paper fallback ("Set a project root…"). This
     /// reads each paper's recorded PDF instead (a few files per paper).
+    ///
+    /// Since 2026-09-30 a standard-corpus document's notes paper owns its
+    /// corpus file even when `[source].pdf` does not record it
+    /// ([`crate::standard_corpus::paper_pdf`]).
     fn paper_owning_pdf(&self, path: &std::path::Path) -> Option<String> {
         let root = self.home.root()?;
         let target = path.canonicalize().ok()?;
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
         root.paper_dirs().into_iter().find_map(|dir| {
             let config = EntityConfig::load(&dir).ok()?;
-            let pdf = config.source?.pdf?;
-            (dir.join(pdf).canonicalize().ok()? == target).then_some(config.id)
+            let pdf = crate::standard_corpus::paper_pdf(root, &corpus, &config.id)?;
+            (pdf.canonicalize().ok()? == target).then_some(config.id)
         })
     }
 
@@ -906,10 +1011,7 @@ impl DigitiseApp {
             return;
         }
         if self.auto_ingest_opened_pdfs {
-            let wiki = self.wiki.get_or_insert_with(WikiState::new);
-            if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(path)) {
-                self.set_error(e);
-            }
+            self.begin_ingest(&root, std::path::Path::new(path));
         } else {
             self.pending_ingest_prompt = Some(path.to_string());
         }
@@ -928,6 +1030,7 @@ impl DigitiseApp {
             return;
         };
         let mut close = false;
+        let mut ingest = false;
         egui::Window::new("Ingest this PDF?")
             .collapsible(false)
             .resizable(false)
@@ -942,10 +1045,7 @@ impl DigitiseApp {
                 );
                 ui.horizontal(|ui| {
                     if ui.button("Ingest…").clicked() {
-                        let wiki = self.wiki.get_or_insert_with(WikiState::new);
-                        if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
-                            self.set_error(e);
-                        }
+                        ingest = true;
                         close = true;
                     }
                     if ui.button("Skip").clicked() {
@@ -955,6 +1055,9 @@ impl DigitiseApp {
             });
         if close {
             self.pending_ingest_prompt = None;
+        }
+        if ingest {
+            self.begin_ingest(&root, std::path::Path::new(&path));
         }
     }
 
@@ -2973,10 +3076,8 @@ impl DigitiseApp {
             }
             FileDialogTarget::SetupFolder => self.setup.folder = path,
             FileDialogTarget::PdfIngest => {
-                if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
-                    if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
-                        self.set_error(message);
-                    }
+                if let Some(root) = self.home.root().cloned() {
+                    self.begin_ingest(&root, std::path::Path::new(&path));
                 }
             }
             FileDialogTarget::KvimFile => match std::fs::read_to_string(&path) {
@@ -3293,6 +3394,7 @@ impl eframe::App for DigitiseApp {
             View::Wiki => {
                 let mut ingest_clicked = false;
                 let mut opened_paper = None;
+                let mut opened_corpus: Option<String> = None;
                 let mut knowledge_changed = false;
                 if let Some(root) = self.home.root().cloned() {
                     if self.workspace.is_none() {
@@ -3307,6 +3409,9 @@ impl eframe::App for DigitiseApp {
                                 Some(WikiAction::OpenPaper(citekey)) => {
                                     opened_paper = Some(citekey);
                                     knowledge_changed = true;
+                                }
+                                Some(WikiAction::OpenCorpusLiterature(id)) => {
+                                    opened_corpus = Some(id);
                                 }
                                 None => {}
                             }
@@ -3338,6 +3443,9 @@ impl eframe::App for DigitiseApp {
                 if let Some(citekey) = opened_paper {
                     self.activate_paper_and_navigate(&citekey);
                 }
+                if let Some(id) = opened_corpus {
+                    self.open_corpus_document(&id);
+                }
             }
             View::Mindmap => {
                 // The map needs no folder: without one it shows the built-in
@@ -3349,6 +3457,7 @@ impl eframe::App for DigitiseApp {
                     }
                 }
                 let mut opened_paper = None;
+                let mut opened_corpus: Option<String> = None;
                 let mut sort_paper = None;
                 let mut open_setup = false;
                 let mut knowledge_changed = false;
@@ -3362,6 +3471,7 @@ impl eframe::App for DigitiseApp {
                         .ui(ui, root.as_ref(), index, graph, self.recent.as_ref())
                     {
                         Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                        Some(MindmapAction::OpenCorpusLiterature(id)) => opened_corpus = Some(id),
                         Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
                         // No Kovan folder yet and the user asked for
                         // something that needs one: open setup rather than
@@ -3392,6 +3502,9 @@ impl eframe::App for DigitiseApp {
                     {
                         w.open_sort_flow(citekey, &workspace.index);
                     }
+                }
+                if let Some(id) = opened_corpus {
+                    self.open_corpus_document(&id);
                 }
                 if let Some(citekey) = opened_paper {
                     // op-sr4n.3: route through the same
@@ -3450,7 +3563,10 @@ impl eframe::App for DigitiseApp {
                         .as_ref()
                         .is_none_or(|l| l.root != root.path())
                     {
-                        self.literature = Some(literature_list::LiteratureList::build(root));
+                        self.literature = Some(literature_list::LiteratureList::build(
+                            root,
+                            &crate::standard_corpus::StandardCorpus::for_root(Some(root)),
+                        ));
                     }
                     let current = self.reader_path.clone();
                     let action = egui::Panel::left("pdf_literature")
@@ -3463,15 +3579,8 @@ impl eframe::App for DigitiseApp {
                                 .and_then(|l| l.ui(ui, current.as_deref()))
                         })
                         .inner;
-                    match action {
-                        Some(literature_list::LiteratureAction::Open(path)) => {
-                            self.open_document(&path)
-                        }
-                        Some(literature_list::LiteratureAction::Refresh) => self.literature = None,
-                        Some(literature_list::LiteratureAction::Find) => {
-                            self.literature_finder.show()
-                        }
-                        None => {}
+                    if let Some(action) = action {
+                        self.literature_action(action);
                     }
                 }
                 egui::CentralPanel::default().show(ui, |ui| {

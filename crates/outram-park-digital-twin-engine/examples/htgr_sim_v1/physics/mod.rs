@@ -176,6 +176,7 @@
 
 pub mod control_rods;
 pub mod atmospheric_dispersion;
+pub mod bounding_air_ingress;
 pub mod decay_heat_removal;
 pub mod depressurisation;
 pub mod dose_rate;

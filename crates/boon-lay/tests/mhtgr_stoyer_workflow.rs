@@ -70,6 +70,16 @@
 //!   figures) in both cases: graphite 40/40, circulating 64/64, plate-out
 //!   52/52, HPS 24/24, initial release 46/46.
 //!
+//! - **REPORTED (#413 check (b), rule fixed in advance): the dense PCHIP
+//!   0.1 h resampling of the digitised Fig. 5**
+//!   (`fig05_accident_temperature_c_pchip_0p1h.csv`, made by
+//!   `dev/mhtgr_stoyer_fig5_pchip.py`). Vent fractions 5 / 20 / 25 / 50 % are
+//!   0.416 / 0.465 / 0.534 / 0.610, against the exact ideal-gas 0.423 / 0.469 /
+//!   0.539 / 0.618. **Final / paper median 0.90 in both cases**: Case A
+//!   0.84-0.94 (volatiles 0.88, Cs 0.86, Sr 0.84, Ag 0.87, constant-D metals
+//!   0.91); Case B median 0.90 with outliers Cs-134 0.67, Kr-85 0.68, Ag-111
+//!   1.74 (printed `k_plate`). Per nuclide: `final_release_ratio_sparse_vs_pchip.csv`.
+//!   The results below are on the sparse points, kept for comparison:
 //! - **Accident path (re-digitised Fig. 5, 2026-09-30T01:50:02Z, kovan
 //!   066e691): port vs upstream worst relative difference 3.9e-11.**
 //! - **Final releases vs the paper: median 0.88** in both cases, at both
@@ -402,9 +412,9 @@ fn port_against_the_paper_tables_is_reported() {
 
 /// The Fig. 5 curves (the maintainer's digitisation), negative-time noise
 /// clamped to t = 0, keyed by the core percentage.
-fn fig5() -> Vec<(String, Vec<(f64, f64)>)> {
+fn fig5(file: &str) -> Vec<(String, Vec<(f64, f64)>)> {
     let mut curves: Vec<(String, Vec<(f64, f64)>)> = Vec::new();
-    for r in table("fig05_accident_temperature_c.csv") {
+    for r in table(file) {
         let p = r["core_fraction_percent"].clone();
         let pt = (f(&r, "time_h").max(0.0), f(&r, "temperature_c"));
         match curves.iter_mut().find(|(q, _)| *q == p) {
@@ -584,46 +594,60 @@ fn accident_final_releases_port_upstream_and_paper() {
     ];
     let weights = [("5", 0.05), ("20", 0.2), ("25", 0.25), ("50", 0.5)];
     let mut worst = (0.0f64, String::new());
-    for ((case, inv, dt), paper) in CASES.into_iter().zip(papers) {
-        for (kp, suffix) in [(None, ""), (Some(7.5e-4), "_diagnostic_kplate_7p5e-4")] {
-            let c = constants(case, kp);
-            let (pools, nodal) = port_case_nodal(case, inv, dt, kp);
-            let names: Vec<String> = table(inv).iter().map(|r| r["nuclide"].clone()).collect();
-            let up: HashMap<String, HashMap<String, String>> =
-                table(&format!("upstream_case_{case}{suffix}_accident.csv"))
-                    .into_iter()
-                    .map(|r| (r["nuclide"].clone(), r))
-                    .collect();
-            let mut eq29: HashMap<String, f64> = HashMap::new();
-            for (pct, curve) in fig5() {
-                let port = port_accident_curve(&names, &nodal, &curve, &c);
-                for (n, v) in &port {
-                    let u = f(&up[n], &format!("total_{pct}"));
-                    let r = rel(*v, u);
-                    if r > worst.0 {
-                        worst = (
-                            r,
-                            format!("case {case}{suffix} {pct}% {n}: port {v} upstream {u}"),
-                        );
+    for (curve_file, tag, label) in [
+        (
+            "fig05_accident_temperature_c.csv",
+            "",
+            "sparse digitised points",
+        ),
+        (
+            "fig05_accident_temperature_c_pchip_0p1h.csv",
+            "_pchip",
+            "PCHIP 0.1 h (REPORTED)",
+        ),
+    ] {
+        for ((case, inv, dt), paper) in CASES.into_iter().zip(papers) {
+            for (kp, suffix) in [(None, ""), (Some(7.5e-4), "_diagnostic_kplate_7p5e-4")] {
+                let c = constants(case, kp);
+                let (pools, nodal) = port_case_nodal(case, inv, dt, kp);
+                let names: Vec<String> = table(inv).iter().map(|r| r["nuclide"].clone()).collect();
+                let up: HashMap<String, HashMap<String, String>> =
+                    table(&format!("upstream_case_{case}{suffix}_accident{tag}.csv"))
+                        .into_iter()
+                        .map(|r| (r["nuclide"].clone(), r))
+                        .collect();
+                let mut eq29: HashMap<String, f64> = HashMap::new();
+                for (pct, curve) in fig5(curve_file) {
+                    let port = port_accident_curve(&names, &nodal, &curve, &c);
+                    for (n, v) in &port {
+                        let u = f(&up[n], &format!("total_{pct}"));
+                        let r = rel(*v, u);
+                        if r > worst.0 {
+                            worst = (
+                                r,
+                                format!(
+                                    "{label} case {case}{suffix} {pct}% {n}: port {v} upstream {u}"
+                                ),
+                            );
+                        }
+                        let w = weights.iter().find(|(p, _)| *p == pct).unwrap().1;
+                        *eq29.entry(n.clone()).or_insert(0.0) += w * v;
                     }
-                    let w = weights.iter().find(|(p, _)| *p == pct).unwrap().1;
-                    *eq29.entry(n.clone()).or_insert(0.0) += w * v;
                 }
-            }
-            let mut ratios = Vec::new();
-            for r in table(paper) {
-                let n = &r["nuclide"];
-                let initial = pools[n][4];
-                let final_as_paper = initial + (eq29[n] - initial) / 10.0;
-                ratios.push((
-                    n.clone(),
-                    final_as_paper / f(&r, "final_release_ci_as_printed"),
-                ));
-            }
-            let mut sorted: Vec<f64> = ratios.iter().map(|(_, x)| *x).collect();
-            sorted.sort_by(f64::total_cmp);
-            println!(
-                "case {}{suffix}: final / paper: median {:.3}, range [{:.3}, {:.3}], within 10 % {}/{}",
+                let mut ratios = Vec::new();
+                for r in table(paper) {
+                    let n = &r["nuclide"];
+                    let initial = pools[n][4];
+                    let final_as_paper = initial + (eq29[n] - initial) / 10.0;
+                    ratios.push((
+                        n.clone(),
+                        final_as_paper / f(&r, "final_release_ci_as_printed"),
+                    ));
+                }
+                let mut sorted: Vec<f64> = ratios.iter().map(|(_, x)| *x).collect();
+                sorted.sort_by(f64::total_cmp);
+                println!(
+                "[{label}] case {}{suffix}: final / paper: median {:.3}, range [{:.3}, {:.3}], within 10 % {}/{}",
                 case.to_uppercase(),
                 sorted[sorted.len() / 2],
                 sorted[0],
@@ -631,14 +655,15 @@ fn accident_final_releases_port_upstream_and_paper() {
                 sorted.iter().filter(|x| (0.9..1.1).contains(*x)).count(),
                 sorted.len()
             );
-            println!(
-                "   {}",
-                ratios
-                    .iter()
-                    .map(|(n, x)| format!("{n} {x:.3}"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
+                println!(
+                    "   {}",
+                    ratios
+                        .iter()
+                        .map(|(n, x)| format!("{n} {x:.3}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
         }
     }
     println!(

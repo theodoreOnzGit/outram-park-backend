@@ -1,0 +1,13 @@
+# WASH-1400 (NUREG-75/014, US NRC, October 1975), main report, Table 5-1 "Summary of accidents involving core", printed p. 78
+# (PDF p. 108 of ADAMS ML15334A199). Row PWR 8: gap release, containment NOT isolated, NO core melt. Fraction of core inventory
+# released TO THE ATMOSPHERE. Read from the rendered page by the literature agent (#451; the OCR layer is garbled).
+# Column groups (footnotes b, c): Xe-Kr; organic I; I; Cs-Rb; Te-Sb; Ba-Sr; Ru (+Mo, Rh, Tc, Co); La (+Nd, Y, Ce, Pr, Nb, Am, Cm, Pu, Np, Zr).
+column,fraction
+xe_kr,2e-3
+organic_i,5e-6
+i,1e-4
+cs_rb,5e-4
+te_sb,1e-6
+ba_sr,1e-8
+ru,0
+la,0

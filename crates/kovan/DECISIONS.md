@@ -1847,3 +1847,46 @@ column alignment, images (shown as links — no image loaders are installed).
   (3) The prefill note says values are kept while ranges are untouched and
   that markers off the curves mean the header does not describe the values.
   Tests: `src/app/edit_digitisation_tests.rs` (5).
+- **2026-09-30 — Standard-corpus documents are ingested literature;
+  duplicate PDFs are refused.** Maintainer: "kovan doesn't recognise
+  literature in the standard corpus as ingested. it should". Kovan listed
+  WASH-1400 as "not ingested yet", so it was ingested again as
+  `papers/2008/2008muffletwond`, byte-identical (SHA-256
+  `029dfd5bffa8a430...`) to `kovan-standard-open-corpus/nrc/ML15334A199.pdf`.
+  **Root cause:** "ingested" meant only "some paper's `kovan.toml` records
+  this PDF" (`paper_owning_pdf`, the literature list's `owners` map).
+  Nothing joined the compiled metadata (`corpus::LITERATURE`) to the pulled
+  corpus files, so no standard-corpus document was ever ingested; the reader
+  offered to ingest each one, and the ingest duplicate check covered only a
+  citekey collision (its doc called the content check "future work").
+  **Decisions.** (1) An entry is **ingested** when its `corpus_file` is
+  present in any checkout of the corpus repository
+  (`standard_corpus::StandardCorpus`: the folder's
+  `literature/standard-corpus/`, the folder's open corpus when it is the same
+  repository, the shared application-data clone; a future second repository
+  is one more checkout). Absent, it is **known, not downloaded**, shown with
+  its source URL, never hidden. The literature list's standard group is built
+  from `LITERATURE` and matches on id, title, authors and topics. (2) **A
+  corpus document's notes live in an ordinary paper keyed by the corpus
+  id**, filed the first time it is opened in a Kovan folder
+  (`standard_corpus::ensure_paper`): `papers/<year>/<corpus-id>/kovan.toml`
+  with `[source] corpus = "<corpus-id>"`, `access = "open"` and the corpus
+  topics; `<corpus-id>.md` for annotations and digitisations; a
+  `bibliography.bib` entry generated from the compiled metadata (an existing
+  entry with that key is kept). The PDF is never copied; `[source].pdf` is
+  recorded only when the corpus file is inside the folder, since `corpus`
+  finds it anywhere. Rejected: a separate note format (every paper-aware view
+  works on a `PaperSession`), and filing papers for every entry when a folder
+  opens (files the user never asked for). A paper that already records the
+  corpus PDF is reused; a different paper already using the corpus id is
+  refused, not merged. (3) **Duplicate guard** (`ingest::find_existing`): by
+  path, then by SHA-256 against every downloaded corpus file and every
+  paper's PDF, hashing only files of the same byte length, cached in
+  `.kovan/pdf-sha256.json` (`fingerprint::HashCache`). A match is refused
+  (`IngestError::Duplicate`) and the GUI opens the existing entry, saying
+  which. The same **file name** with different content is only a warning in
+  the ingest form (`IngestPreview::name_clash`): it may be another revision.
+  (4) A corpus citation's "Open" on the Mindmap and the Wiki is enabled and
+  opens the document the same way. Tests use synthetic PDFs in temporary
+  folders: `standard_corpus` (5), `ingest` (4 new), `fingerprint` (1),
+  `app::literature_list::standard_corpus_documents_are_listed_as_ingested`.
