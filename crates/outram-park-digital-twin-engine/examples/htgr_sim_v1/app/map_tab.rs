@@ -1854,37 +1854,39 @@ fn draw_bounding_toggle(ui: &mut Ui, state: &mut MapTabState) {
     });
 }
 
-/// Column headings of the comparison table: the design-basis pair first,
-/// then the beyond-design-basis bounding pair (maintainer decision,
-/// 2026-09-30, #450).
-const BOUNDING_HEADINGS: [&str; 7] = [
-    "Distance",
-    "Class (worst, 1 m/s)",
-    "DBA: HTR-10 depressurisation [mSv]",
-    "DBA: LWR MHA LOCA, no removal [mSv]",
-    "DBA: LWR MHA LOCA, natural deposition [mSv]",
-    "BDB bound: HTR-10 KORA [mSv]",
-    "BDB bound: WASH-1400 PWR 8 [mSv]",
-];
+/// Column headings of the comparison table: distance, class, then the
+/// library's seven dose columns in tier order
+/// (`sembawang::lwr_comparison::ARM_COLUMNS`; maintainer decision,
+/// 2026-09-30, #464), so the map cannot reorder or relabel them.
+fn bounding_headings() -> Vec<String> {
+    let mut h = vec!["Distance".to_string(), "Class (worst, 1 m/s)".to_string()];
+    h.extend(
+        sembawang::lwr_comparison::ARM_COLUMNS
+            .iter()
+            .map(|c| format!("{} [mSv]", c.heading)),
+    );
+    h
+}
 
-/// The comparison table's cells, one row per receptor distance. Pure, so a
-/// test can pin it. A pending column prints "pending literature", never 0.
-fn bounding_cells(c: &sembawang::lwr_comparison::BoundingComparison) -> Vec<[String; 7]> {
+/// The comparison table's cells, one row per receptor distance, from
+/// `ComparisonRow::arm_doses_sv`. Pure, so a test can pin it. A pending
+/// column prints "pending literature", never 0. The HTR-10 DLOFC column is
+/// printed in scientific notation (its doses are 1e-2 to 1e-5 mSv).
+fn bounding_cells(c: &sembawang::lwr_comparison::BoundingComparison) -> Vec<Vec<String>> {
     c.rows
         .iter()
         .map(|r| {
-            [
-                format!("{:.0} m", r.distance_m),
-                format!("{:?}", r.class),
-                format!("{:.3e}", 1e3 * r.htr10_dba_depressurisation_sv),
-                format!("{:.3}", 1e3 * r.lwr_dba_no_removal_sv),
-                r.lwr_dba_natural_deposition_sv
-                    .map_or("pending literature".to_string(), |v| {
-                        format!("{:.3}", 1e3 * v)
-                    }),
-                format!("{:.3}", 1e3 * r.htr10_bound_sv),
-                format!("{:.3}", 1e3 * r.wash1400_pwr8_sv),
-            ]
+            let mut row = vec![format!("{:.0} m", r.distance_m), format!("{:?}", r.class)];
+            row.extend(r.arm_doses_sv().iter().enumerate().map(|(i, v)| {
+                v.map_or("pending literature".to_string(), |s| {
+                    if i == 0 {
+                        format!("{:.3e}", 1e3 * s)
+                    } else {
+                        format!("{:.3}", 1e3 * s)
+                    }
+                })
+            }));
+            row
         })
         .collect()
 }
@@ -1892,12 +1894,16 @@ fn bounding_cells(c: &sembawang::lwr_comparison::BoundingComparison) -> Vec<[Str
 /// The comparison table (#453), shown while the toggle is on.
 fn draw_bounding_table(ui: &mut Ui) {
     use crate::physics::bounding_air_ingress as b;
+    use sembawang::lwr_comparison::Tier;
     ui.strong(format!(
-        "HTR-10 vs LWR at 10 MWth -- MAXIMUM dose [mSv] over the first {:.0} h. Primary: design \
-         basis vs design basis. Secondary: {}",
+        "HTR-10 vs LWR at 10 MWth -- MAXIMUM dose [mSv] over the first {:.0} h, paired by \
+         initiating event and severity. {} | {} | {}",
         b::WINDOW_H,
-        b::BDB_LABEL
+        Tier::DesignBasis.label(),
+        Tier::BeyondDesignBasis.label(),
+        Tier::Context.label()
     ));
+    ui.label(format!("Basis: {}", b::BASIS_LABEL));
     ui.colored_label(
         Color32::from_rgb(200, 60, 20),
         format!("KORA column: {}", b::CASE_LABEL),
@@ -1910,11 +1916,12 @@ fn draw_bounding_table(ui: &mut Ui) {
             );
         }
         Ok(c) => {
+            let headings = bounding_headings();
             egui::Grid::new("htgr_map_bounding_air_ingress")
-                .num_columns(BOUNDING_HEADINGS.len())
+                .num_columns(headings.len())
                 .striped(true)
                 .show(ui, |ui| {
-                    for h in BOUNDING_HEADINGS {
+                    for h in &headings {
                         ui.label(h);
                     }
                     ui.end_row();
@@ -1927,6 +1934,8 @@ fn draw_bounding_table(ui: &mut Ui) {
                 });
             ui.label(b::DBA_LABEL);
             ui.label(b::LWR_LABEL);
+            ui.label(b::SEVERE_LABEL);
+            ui.label(format!("Assumption: {}.", b::CONTAINED_LABEL));
             ui.label(format!("Natural deposition: {}.", b::DEPOSITION_LABEL));
             ui.label(b::WASH_LABEL);
             ui.label(b::f_ox_provenance());
@@ -1934,12 +1943,14 @@ fn draw_bounding_table(ui: &mut Ui) {
             ui.colored_label(
                 Color32::from_rgb(200, 120, 20),
                 format!(
-                    "FGR coverage: {:.1} % (HTR-10 DBA), {:.1} % (LWR DBA), {:.1} % (KORA bound), \
-                     {:.1} % (WASH-1400) of released Bq lack a coefficient on some pathway, which \
-                     counts ZERO -- those doses are LOWER BOUNDS (#456).",
+                    "FGR coverage: {:.1} % (HTR-10 DBA), {:.1} % (LWR DBA LOCA), {:.1} % (KORA \
+                     bound), {:.1} % (LWR LOCA + core melt), {:.1} % (WASH-1400) of released Bq \
+                     lack a coefficient on some pathway, which counts ZERO -- those doses are \
+                     LOWER BOUNDS (#456).",
                     100.0 * i.htr10_dba,
                     100.0 * i.lwr_dba,
                     100.0 * i.htr10_bound,
+                    100.0 * i.lwr_severe_loca,
                     100.0 * i.wash1400
                 ),
             );
@@ -2074,13 +2085,36 @@ mod tests {
         }
         let c = b::comparison().as_ref().unwrap();
         let cells = super::bounding_cells(c);
+        let headings = super::bounding_headings();
         assert_eq!(cells.len(), c.rows.len());
+        assert!(cells.iter().all(|r| r.len() == headings.len()));
         assert_eq!(cells.last().unwrap()[0], "1000 m");
-        // DBA pair first; the pending natural-deposition column never prints 0.
-        assert!(BOUNDING_HEADINGS[2].starts_with("DBA: HTR-10"));
-        assert!(BOUNDING_HEADINGS[3].starts_with("DBA: LWR"));
-        assert!(BOUNDING_HEADINGS[5].starts_with("BDB bound"));
-        assert!(cells.iter().all(|r| r[4] == "pending literature"));
+        // Tier order (#464): design basis, beyond design basis, context.
+        assert!(headings[2].starts_with("DB: HTR-10 DLOFC"));
+        assert!(headings[3].starts_with("DB: LWR LOCA"));
+        assert!(headings[5].starts_with("BDB: HTR-10 DLOFC + air ingress"));
+        assert!(headings[6].starts_with("BDB: LWR LOCA + core melt"));
+        assert!(headings[8].starts_with("Context: WASH-1400 PWR 8"));
+        // The pending natural-deposition columns never print 0.
+        assert!(cells
+            .iter()
+            .all(|r| r[4] == "pending literature" && r[7] == "pending literature"));
+        // The cells ARE the library's rows: each printed number parses back
+        // to the library's value within its printed precision.
+        for (row, r) in cells.iter().zip(&c.rows) {
+            for (cell, v) in row[2..].iter().zip(r.arm_doses_sv()) {
+                if let Some(sv) = v {
+                    let printed: f64 = cell.parse().unwrap();
+                    let msv = 1e3 * sv;
+                    assert!(
+                        (printed - msv).abs() <= 5e-4 * msv.max(1.0),
+                        "{cell} vs {msv}"
+                    );
+                }
+            }
+        }
+        assert!(b::SEVERE_LABEL.contains("Table 3.13") && b::SEVERE_LABEL.contains("INTACT"));
+        assert!(b::BASIS_LABEL.contains("pool"));
     }
 
     /// The NRC 2023 EPZ reference figure: `10e-3 Sv / 96 h` = 104.17 µSv/h,

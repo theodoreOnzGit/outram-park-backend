@@ -1,13 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0
 
-//! # HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453)
+//! # HTR-10 against an equivalent-power LWR (GitHub #450, #452, #453, #464)
 //!
-//! **Framing (maintainer decisions, 2026-09-30, #450).** PRIMARY:
-//! **design basis against design basis**, i.e. the HTR-10 depressurisation
-//! DBA ([`htr10_dba_release`], Liu & Cao Table 8) against the LWR MHA LOCA
-//! ([`nuscale_mha_loca`]). SECONDARY: the **beyond-design-basis bounding**
-//! pair, the KORA bound against WASH-1400 PWR 8. [`bounding_comparison`]
-//! returns both, DBA first.
+//! ~~**Framing (maintainer decisions, 2026-09-30, #450).** PRIMARY:
+//! **design basis against design basis** ... SECONDARY: the
+//! **beyond-design-basis bounding** pair, the KORA bound against WASH-1400
+//! PWR 8.~~ **CHANGED 2026-09-30 (maintainer decision, #464): paired by
+//! INITIATING EVENT and severity**, DLOFC (HTR) against LOCA (LWR), in two
+//! tiers ([`Tier`]):
+//!
+//! - **Design basis: DLOFC vs LOCA.** HTR-10 depressurisation
+//!   ([`htr10_dba_release`], Liu & Cao Table 8) against the LWR MHA LOCA
+//!   ([`nuscale_mha_loca`], RG 1.183 Rev. 1).
+//! - **Beyond design basis: DLOFC + air ingress (bounding) vs LOCA + core
+//!   melt.** The KORA bound ([`htr10_air_ingress_bound`]) against the LWR
+//!   LOCA with ECCS failure ([`nuscale_severe_loca`], NUREG-1465 Table 3.13,
+//!   all phases, into an **intact** containment leaking at `L_a`).
+//! - **Context:** WASH-1400 PWR 8, no-melt, uncontained; paired by
+//!   containment state, not initiator.
+//!
+//! [`bounding_comparison`] returns every arm, in tier order ([`ARM_COLUMNS`]).
+//!
+//! **Crediting basis (maintainer decision, 2026-09-30):** "The comparison
+//! neglects the pools because we are comparing technology at the reactor
+//! level, not what is surrounding the reactor. If NuScale gives pool credit,
+//! then HTGR can be submerged in a pool as well." Each side is credited
+//! **only with its reactor-level inherent barrier**: for the LWR, the
+//! containment vessel leaking at `L_a`; for the HTR, the TRISO particles.
+//! Nothing surrounding the reactor is credited on either side (NuScale's
+//! reactor pool, reactor building, sprays, filters; the HTR confinement or
+//! building, #409, or a hypothetical pool). Pool scrubbing is excluded **by
+//! design**, not pending literature. In-containment natural deposition is part
+//! of the containment barrier, so that arm stays (pending literature).
+//! [`REACTOR_LEVEL_BASIS`] carries this wherever the comparison is printed.
 //!
 //! > **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Nothing here
 //! > is a source term, a dose or a siting argument for HTR-10, NuScale or any
@@ -22,12 +47,16 @@
 //!
 //! | Arm | Function | Boundary | What it is |
 //! |---|---|---|---|
-//! | **HTR-10 DBA** | [`htr10_dba_release`] | to the environment | Liu & Cao (2002) Table 8, published (depressurisation; water ingress); cross-checked with [`htr10_dba_vs_table9`] |
-//! | **LWR DBA** | [`nuscale_mha_loca`] | to the environment via containment leakage | RG 1.183 Rev. 1 MHA LOCA, NuScale inventory, `L_a` = 0.20 %/day ([`NUSCALE_LA_PERCENT_PER_DAY`]); no removal, and natural deposition ([`NaturalDeposition`], pending literature) |
-//! | HTR-10 bounding air ingress | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
+//! | **DB: HTR-10 DLOFC** | [`htr10_dba_release`] | to the environment | Liu & Cao (2002) Table 8, published (depressurisation; water ingress); cross-checked with [`htr10_dba_vs_table9`] |
+//! | **DB: LWR LOCA** | [`nuscale_mha_loca`] | to the environment via containment leakage | RG 1.183 Rev. 1 MHA LOCA, NuScale inventory, `L_a` = 0.20 %/day ([`NUSCALE_LA_PERCENT_PER_DAY`]); no removal, and natural deposition ([`NaturalDeposition`], pending literature) |
+//! | **BDB: HTR-10 DLOFC + air ingress** | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
+//! | **BDB: LWR LOCA + core melt** | [`nuscale_severe_loca`] | to the environment via containment leakage | NUREG-1465 Table 3.13 PWR, all four phases, Table 3.6 timing ([`nureg1465_pwr_phases`]); intact containment at `L_a`; no removal, and natural deposition (pending literature). [`CONTAINED_CORE_MELT_ASSUMPTION`] |
+//! | Context: WASH-1400 PWR 8 | [`wash1400_pwr8_to_atmosphere`] | **to the atmosphere** | Table 5-1: gap release, containment not isolated, no core melt (#451) |
 //! | LWR, NUREG-1465 | [`nureg1465_pwr_into_containment`] | **into containment** | Table 3.13 (PWR), all four phases or gap + early in-vessel |
 //! | LWR, RG 1.183 Rev. 1 | [`rg1183_pwr_into_containment`], [`rg1183_containment_leakage`] | into containment; then **to the environment** at the TS leak rate `L_a` | Table 2 (MHA LOCA), Table 5 timing, Appendix A-2.7 leakage |
-//! | LWR, WASH-1400 PWR 8 | [`wash1400_pwr8_to_atmosphere`] | **to the atmosphere** | Table 5-1: gap release, containment not isolated, no core melt -- the closest analogue to the HTR-10 bound (#451) |
+//!
+//! Both LWR LOCA arms leak through one integrator, [`containment_leak`], and
+//! differ only in the phased source they feed it.
 //!
 //! The LWR inventory is NuScale's Table B-5 (one module) scaled by thermal
 //! power, [`pwr_inventory_scaled`]; the 160 MWt module power is the
@@ -452,6 +481,102 @@ fn removal_channels(n: &str, removal: Option<(f64, f64)>) -> Vec<(f64, f64)> {
     }
 }
 
+/// One phase of a release **into containment**: `fraction` of the core
+/// inventory, released **linearly** between `onset_s` and `end_s` \[s after
+/// the initiating event\].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReleasePhase {
+    /// Fraction of core inventory released in this phase.
+    pub fraction: f64,
+    /// Phase onset \[s\].
+    pub onset_s: f64,
+    /// Phase end \[s\].
+    pub end_s: f64,
+}
+
+/// RG 1.183 Rev. 1 Table 2 / Table 5 phases of a nuclide (gap, early
+/// in-vessel), or `None` if its element has no Table 6 group.
+fn rg1183_phases(n: &str) -> Option<Vec<ReleasePhase>> {
+    let g = rg1183_group(element(n))?;
+    let r = rows(RG1183_T2).find(|r| r[0] == g)?;
+    let f: Vec<f64> = r[1..].iter().map(|x| x.parse().unwrap()).collect();
+    let (t0, t1, t2) = (f[2] * 3600.0, f[3] * 3600.0, f[4] * 3600.0);
+    Some(vec![
+        ReleasePhase {
+            fraction: f[0],
+            onset_s: t0,
+            end_s: t1,
+        },
+        ReleasePhase {
+            fraction: f[1],
+            onset_s: t1,
+            end_s: t2,
+        },
+    ])
+}
+
+/// NUREG-1465 PWR release-phase timing, **Table 3.6** "Release Phase
+/// Durations for PWRs and BWRs" (printed p. 9, PDF p. 18) and s.3.3 (printed
+/// pp. 7-9), in hours.
+pub mod n1465_timing {
+    /// End of the coolant-activity phase = gap onset \[h\]: Table 3.6 gives
+    /// "10 to 30 seconds" for PWRs without leak-before-break approval; the
+    /// **30 s** end of that range is taken (it is also RG 1.183's 0.5 min).
+    pub const GAP_ONSET_H: f64 = 30.0 / 3600.0;
+    /// Gap-activity phase duration \[h\] (Table 3.6; = Table 3.13 header).
+    pub const GAP_H: f64 = 0.5;
+    /// Early in-vessel duration \[h\] (Table 3.6; = Table 3.13 header). It
+    /// ends at **vessel breach** (s.3.3, p. 8).
+    pub const EARLY_IN_VESSEL_H: f64 = 1.3;
+    /// Ex-vessel duration \[h\], from vessel breach (Table 3.6, s.3.3 p. 9).
+    pub const EX_VESSEL_H: f64 = 2.0;
+    /// Late in-vessel duration \[h\]. It "commences at vessel breach and
+    /// proceeds simultaneously with the occurrence of the ex-vessel phase"
+    /// (s.3.3, p. 9), so it starts with the ex-vessel phase, not after it.
+    pub const LATE_IN_VESSEL_H: f64 = 10.0;
+    /// Vessel breach \[h\]: gap onset + gap + early in-vessel = 1.808 h.
+    pub const VESSEL_BREACH_H: f64 = GAP_ONSET_H + GAP_H + EARLY_IN_VESSEL_H;
+}
+
+/// **NUREG-1465 Table 3.13 PWR, all four phases**, timed by Table 3.6
+/// ([`n1465_timing`]): gap (30 s -> 0.508 h), early in-vessel (-> vessel
+/// breach at 1.808 h), ex-vessel (1.808 -> 3.808 h) and late in-vessel
+/// (1.808 -> 11.808 h, concurrent with ex-vessel). Release is **linear
+/// within each phase**, an assumption: NUREG-1465 gives durations only, and
+/// linear is RG 1.183 Rev. 1's stated default for its own phases. `None` if
+/// the element has no Table 3.8 group (Table 3.8 grouping, as
+/// [`nureg1465_pwr_into_containment`]).
+pub fn nureg1465_pwr_phases(nuclide: &str) -> Option<[ReleasePhase; 4]> {
+    use n1465_timing::*;
+    let g = n1465_group(element(nuclide))?;
+    let r = rows(N1465_T313).find(|r| r[0] == g)?;
+    let f: Vec<f64> = r[1..].iter().map(|x| x.parse().unwrap()).collect();
+    let h = 3600.0;
+    let gap_end = GAP_ONSET_H + GAP_H;
+    Some([
+        ReleasePhase {
+            fraction: f[0],
+            onset_s: GAP_ONSET_H * h,
+            end_s: gap_end * h,
+        },
+        ReleasePhase {
+            fraction: f[1],
+            onset_s: gap_end * h,
+            end_s: VESSEL_BREACH_H * h,
+        },
+        ReleasePhase {
+            fraction: f[2],
+            onset_s: VESSEL_BREACH_H * h,
+            end_s: (VESSEL_BREACH_H + EX_VESSEL_H) * h,
+        },
+        ReleasePhase {
+            fraction: f[3],
+            onset_s: VESSEL_BREACH_H * h,
+            end_s: (VESSEL_BREACH_H + LATE_IN_VESSEL_H) * h,
+        },
+    ])
+}
+
 /// RG 1.183 containment -> environment at leak rate `l_percent` \[%/day\],
 /// with an optional first-order removal `(aerosol, elemental iodine)`
 /// \[1/s\] inside the containment (natural deposition). `None` is no
@@ -459,23 +584,51 @@ fn removal_channels(n: &str, removal: Option<(f64, f64)>) -> Vec<(f64, f64)> {
 /// phases, terminating at the end of early in-vessel (App. A-2.1); leak
 /// `L_a` for 24 h, then `L_a/2` (PWR, App. A-2.7); decay applied.
 ///
-/// Integrated by exact exponential steps of 60 s (`dA/dt = S - (lambda + L
-/// + lambda_removal) A`, released `= integral L A dt`).
+/// The integrator is [`containment_leak`] (shared with the severe-LOCA arm,
+/// [`nuscale_severe_loca`]).
 pub fn rg1183_leak(
     inventory: &Releases,
     l_percent: f64,
     window: Time,
     removal: Option<(f64, f64)>,
 ) -> Releases {
-    let table: Vec<Vec<&str>> = rows(RG1183_T2).collect();
+    containment_leak(inventory, rg1183_phases, l_percent, window, removal)
+}
+
+/// **Intact containment -> environment**, for any phased source: `phases`
+/// gives each nuclide's releases into a well-mixed containment ([`None`]
+/// drops the nuclide). Leak rate `l_percent` \[%/day\] for the first 24 h,
+/// then half (RG 1.183 Rev. 1 App. A-2.7, PWR); optional first-order removal
+/// `(aerosol, elemental iodine)` \[1/s\], split by the RG 1.183 App. A-1.1
+/// iodine species; radioactive decay applied. The containment is assumed to
+/// stay **intact** for the whole window (no failure, no bypass): the only
+/// path out is the leak.
+///
+/// Integrated by exact exponential steps of 60 s (`dA/dt = S - (lambda + L
+/// + lambda_removal) A`, released `= integral L A dt`). The source over a
+/// step is the phase's rate times its overlap with the step, so every phase
+/// delivers exactly its fraction. ~~Source evaluated at the step midpoint~~
+/// **CHANGED 2026-09-30 (#464):** the midpoint rule gave RG 1.183's gap phase
+/// (0.5 min -> 0.23 h = 798 s) 14 steps = 840 s, over-delivering it by 5.3 %
+/// and early in-vessel short by 0.08 %; found while adding the severe-LOCA
+/// arm; the DBA dose moved as recorded on #464.
+pub fn containment_leak<P, V>(
+    inventory: &Releases,
+    phases: P,
+    l_percent: f64,
+    window: Time,
+    removal: Option<(f64, f64)>,
+) -> Releases
+where
+    P: Fn(&str) -> Option<V>,
+    V: AsRef<[ReleasePhase]>,
+{
     let window_s = window.get::<uom::si::time::second>();
     let dt = 60.0;
     let steps = (window_s / dt).ceil() as usize;
     let run = |n: &str, bq: f64, removal_per_s: f64| -> Option<f64> {
-        let g = rg1183_group(element(n))?;
-        let r = table.iter().find(|r| r[0] == g)?;
-        let f: Vec<f64> = r[1..].iter().map(|x| x.parse().unwrap()).collect();
-        let (gap, early, t0, t1, t2) = (f[0], f[1], f[2] * 3600.0, f[3] * 3600.0, f[4] * 3600.0);
+        let ph = phases(n)?;
+        let ph = ph.as_ref();
         let lam = find_nuclide(n).map_or_else(
             || lambda_fallback(n),
             |x| x.decay_constant().get::<uom::si::frequency::hertz>(),
@@ -485,13 +638,16 @@ pub fn rg1183_leak(
         for k in 0..steps {
             let t = k as f64 * dt;
             let mid = t + 0.5 * dt;
-            let src = if (t0..t1).contains(&mid) {
-                gap * bq / (t1 - t0)
-            } else if (t1..t2).contains(&mid) {
-                early * bq / (t2 - t1)
-            } else {
-                0.0
-            };
+            // Step-averaged source: each phase contributes in proportion to
+            // its overlap with [t, t + dt], so every phase delivers exactly
+            // its fraction whatever its alignment with the 60 s grid.
+            let mut src = 0.0;
+            for p in ph {
+                let overlap = (t + dt).min(p.end_s) - t.max(p.onset_s);
+                if overlap > 0.0 {
+                    src += p.fraction * bq * overlap / ((p.end_s - p.onset_s) * dt);
+                }
+            }
             let l = if mid < 24.0 * 3600.0 {
                 l_full
             } else {
@@ -594,30 +750,100 @@ impl NaturalDeposition {
     }
 }
 
-/// The **LWR design-basis arm** (maintainer decision, 2026-09-30, #450):
-/// RG 1.183 Rev. 1 MHA LOCA with the NuScale inventory scaled to
-/// `thermal_power_mwth`, leaking at NuScale's `L_a` = 0.20 %/day (24 h, then
-/// half), released to the environment over `window`.
+/// An LWR arm released through the intact, leaking containment: the no-removal
+/// result and, when the rates are given, the natural-deposition result
+/// \[Bq per nuclide, to the environment\]. Used by both LWR LOCA arms,
+/// [`nuscale_mha_loca`] (design basis) and [`nuscale_severe_loca`] (beyond
+/// design basis, core melt).
 #[derive(Debug, Clone, PartialEq)]
-pub struct LwrDba {
+pub struct LwrContainedRelease {
     /// No removal credit.
     pub no_removal: Releases,
     /// Natural deposition only; `None` while pending literature.
     pub natural_deposition: Option<Releases>,
 }
 
-/// Build the [`LwrDba`].
+/// The design-basis arm's name for [`LwrContainedRelease`] (kept for callers).
+pub type LwrDba = LwrContainedRelease;
+
+/// The **LWR design-basis arm** (maintainer decision, 2026-09-30, #450):
+/// RG 1.183 Rev. 1 MHA LOCA with the NuScale inventory scaled to
+/// `thermal_power_mwth`, leaking at NuScale's `L_a` = 0.20 %/day (24 h, then
+/// half), released to the environment over `window`.
 pub fn nuscale_mha_loca(
     thermal_power_mwth: f64,
     window: Time,
     deposition: &NaturalDeposition,
-) -> LwrDba {
+) -> LwrContainedRelease {
     let inv = pwr_inventory_scaled(thermal_power_mwth);
-    LwrDba {
+    LwrContainedRelease {
         no_removal: rg1183_leak(&inv, NUSCALE_LA_PERCENT_PER_DAY, window, None),
         natural_deposition: deposition
             .at_power(thermal_power_mwth)
             .map(|r| rg1183_leak(&inv, NUSCALE_LA_PERCENT_PER_DAY, window, Some(r))),
+    }
+}
+
+/// What the severe-LOCA arm assumes about the containment, printed wherever
+/// the arm is shown (maintainer decision, 2026-09-30, #464).
+pub const CONTAINED_CORE_MELT_ASSUMPTION: &str = "contained core melt: the containment is \
+     ASSUMED to stay intact (no early failure, no bypass) and to leak only at L_a; WASH-1400 \
+     PWR 1-3 are the containment-failure categories, for context";
+
+/// The comparison's crediting basis (maintainer decision, 2026-09-30,
+/// #450/#464), printed wherever the comparison is shown: "The comparison
+/// neglects the pools because we are comparing technology at the reactor
+/// level, not what is surrounding the reactor. If NuScale gives pool credit,
+/// then HTGR can be submerged in a pool as well." **Each side is credited only
+/// with its reactor-level inherent barrier**: the containment vessel leaking
+/// at `L_a` (LWR), the TRISO particles (HTR). Nothing surrounding the reactor
+/// is credited on either side. Pool scrubbing is excluded **by design**, not
+/// pending literature; in-containment natural deposition is part of the
+/// containment barrier and stays (pending literature).
+pub const REACTOR_LEVEL_BASIS: &str = "reactor-level comparison (maintainer decision, \
+     2026-09-30): each side is credited only with its reactor-level inherent barrier -- the \
+     containment vessel leaking at L_a (LWR), the TRISO particles (HTR). Nothing surrounding the \
+     reactor is credited: not NuScale's reactor pool, reactor building, sprays or filters; not \
+     the HTR confinement/building (#409) or a hypothetical pool. Pool scrubbing is excluded by \
+     design, not pending literature. \"If NuScale gives pool credit, then HTGR can be submerged \
+     in a pool as well.\"";
+
+/// The **LWR beyond-design-basis arm: LOCA with ECCS failure -> core melt**
+/// (maintainer decision, 2026-09-30, #464). The NuScale inventory scaled to
+/// `thermal_power_mwth` (as [`nuscale_mha_loca`]) is released into the
+/// containment by **NUREG-1465 Table 3.13 PWR, all four phases**
+/// ([`nureg1465_pwr_phases`]: gap, early in-vessel, ex-vessel, late
+/// in-vessel, Table 3.6 timing). The containment is **intact** and leaks at
+/// NuScale's `L_a` = 0.20 %/day for 24 h, then half, with the RG 1.183 App.
+/// A-1.1 iodine species (95 % CsI, 4.85 % elemental, 0.15 % organic) for the
+/// removal arm; decay applied; to the environment over `window`. The
+/// integrator is the design-basis arm's ([`containment_leak`]).
+///
+/// **Assumption, stated** ([`CONTAINED_CORE_MELT_ASSUMPTION`]): this is a
+/// *contained* core melt. No early containment failure, no bypass, no
+/// basemat melt-through inside the window. NUREG-1465's ex-vessel phase
+/// (core-concrete interaction) is taken as releasing into the same intact
+/// atmosphere. WASH-1400 PWR 1-3 are the containment-failure categories.
+pub fn nuscale_severe_loca(
+    thermal_power_mwth: f64,
+    window: Time,
+    deposition: &NaturalDeposition,
+) -> LwrContainedRelease {
+    let inv = pwr_inventory_scaled(thermal_power_mwth);
+    let leak = |r| {
+        containment_leak(
+            &inv,
+            nureg1465_pwr_phases,
+            NUSCALE_LA_PERCENT_PER_DAY,
+            window,
+            r,
+        )
+    };
+    LwrContainedRelease {
+        no_removal: leak(None),
+        natural_deposition: deposition
+            .at_power(thermal_power_mwth)
+            .map(|r| leak(Some(r))),
     }
 }
 
@@ -911,15 +1137,101 @@ pub fn htr10_dba_vs_table9(case: AccidentCase) -> Vec<Table9Check> {
         .collect()
 }
 
+/// The comparison's tiers (maintainer decision, 2026-09-30, #450, #464):
+/// **paired by initiating event and severity**, DLOFC (HTR) against LOCA
+/// (LWR).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tier {
+    /// HTR-10 DLOFC (Liu & Cao Table 8) vs LWR design-basis LOCA (RG 1.183).
+    DesignBasis,
+    /// HTR-10 DLOFC + air ingress (KORA bound) vs LWR LOCA with ECCS failure
+    /// and core melt, in an intact containment.
+    BeyondDesignBasis,
+    /// WASH-1400 PWR 8: context only.
+    Context,
+}
+
+impl Tier {
+    /// The tier's heading, used by the #452 example, the map table and the
+    /// headless CSV.
+    pub fn label(self) -> &'static str {
+        match self {
+            Tier::DesignBasis => "Design basis: DLOFC vs LOCA",
+            Tier::BeyondDesignBasis => {
+                "Beyond design basis: DLOFC + air ingress (bounding) vs LOCA + core melt"
+            }
+            Tier::Context => {
+                "Context: WASH-1400 PWR 8 -- no-melt, uncontained; paired by containment \
+                 state, not initiator"
+            }
+        }
+    }
+}
+
+/// One dose column of the comparison: its tier, a heading and a CSV key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArmColumn {
+    /// Which tier the column belongs to.
+    pub tier: Tier,
+    /// Short heading (the unit, mSv, is the caller's to add).
+    pub heading: &'static str,
+    /// Column name for CSV output, in mSv.
+    pub csv_key: &'static str,
+}
+
+/// The seven dose columns, **ordered by tier**, in the order of
+/// [`ComparisonRow::arm_doses_sv`]. The map, the headless CSV and the #452
+/// example all read this, so they cannot disagree on order or labels.
+pub const ARM_COLUMNS: [ArmColumn; 7] = [
+    ArmColumn {
+        tier: Tier::DesignBasis,
+        heading: "DB: HTR-10 DLOFC (depressurisation, Liu & Cao T8)",
+        csv_key: "db_htr10_dlofc_msv",
+    },
+    ArmColumn {
+        tier: Tier::DesignBasis,
+        heading: "DB: LWR LOCA (RG 1.183), no removal",
+        csv_key: "db_lwr_loca_no_removal_msv",
+    },
+    ArmColumn {
+        tier: Tier::DesignBasis,
+        heading: "DB: LWR LOCA (RG 1.183), natural deposition",
+        csv_key: "db_lwr_loca_natural_deposition_msv",
+    },
+    ArmColumn {
+        tier: Tier::BeyondDesignBasis,
+        heading: "BDB: HTR-10 DLOFC + air ingress (KORA bound)",
+        csv_key: "bdb_htr10_dlofc_air_ingress_kora_msv",
+    },
+    ArmColumn {
+        tier: Tier::BeyondDesignBasis,
+        heading: "BDB: LWR LOCA + core melt (NUREG-1465 all phases), no removal",
+        csv_key: "bdb_lwr_loca_core_melt_no_removal_msv",
+    },
+    ArmColumn {
+        tier: Tier::BeyondDesignBasis,
+        heading: "BDB: LWR LOCA + core melt, natural deposition",
+        csv_key: "bdb_lwr_loca_core_melt_natural_deposition_msv",
+    },
+    ArmColumn {
+        tier: Tier::Context,
+        heading: "Context: WASH-1400 PWR 8 (no melt, uncontained)",
+        csv_key: "context_wash1400_pwr8_msv",
+    },
+];
+
 /// One distance of the HTR-10 / LWR comparison: the maximum 96 h dose of
 /// each arm \[Sv\], same site, weather, height and receptor (#452, #453).
 ///
-/// **Framing (maintainer decision, 2026-09-30, #450): design basis against
-/// design basis is the PRIMARY comparison**, paired by initiating event and
-/// design class: the HTR-10 depressurisation DBA against the LWR MHA LOCA.
-/// ~~Like-for-like in containment~~ is not the comparison: it is like-for-like
-/// in containment, not in response to LOFC or LOCA. The KORA bound against
-/// WASH-1400 PWR 8 is the SECONDARY, beyond-design-basis bounding comparison.
+/// ~~**Framing (maintainer decision, 2026-09-30, #450): design basis against
+/// design basis is the PRIMARY comparison** ... The KORA bound against
+/// WASH-1400 PWR 8 is the SECONDARY, beyond-design-basis bounding
+/// comparison.~~ **CHANGED 2026-09-30 (maintainer decision, #464): paired by
+/// initiating event and severity**, DLOFC against LOCA, in two tiers
+/// ([`Tier`]): design basis (HTR-10 DLOFC vs RG 1.183 LOCA) and beyond design
+/// basis (HTR-10 DLOFC + air-ingress bound vs LWR LOCA + core melt).
+/// WASH-1400 PWR 8 is context only: no melt, uncontained, paired by
+/// containment state rather than initiator. Fields are in tier order.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComparisonRow {
     /// Receptor distance \[m\].
@@ -927,18 +1239,43 @@ pub struct ComparisonRow {
     /// Worst stability class at 1 m/s. It depends on distance only, so it is
     /// the same for every arm.
     pub class: StabilityClass,
-    /// DBA: HTR-10 depressurisation, Liu & Cao Table 8 ([`htr10_dba_release`]).
+    /// Design basis: HTR-10 DLOFC (depressurisation), Liu & Cao Table 8
+    /// ([`htr10_dba_release`]).
     pub htr10_dba_depressurisation_sv: f64,
-    /// DBA: LWR MHA LOCA ([`nuscale_mha_loca`]), `L_a` 0.20 %/day, **no
-    /// removal credit**.
+    /// Design basis: LWR LOCA, RG 1.183 MHA ([`nuscale_mha_loca`]), `L_a`
+    /// 0.20 %/day, **no removal credit**.
     pub lwr_dba_no_removal_sv: f64,
-    /// DBA: the same with **natural deposition only**; `None` while pending
-    /// literature ([`NATURAL_DEPOSITION_PENDING`]).
+    /// Design basis: the same with **natural deposition only**; `None` while
+    /// pending literature ([`NATURAL_DEPOSITION_PENDING`]).
     pub lwr_dba_natural_deposition_sv: Option<f64>,
-    /// Beyond-design-basis bounding: HTR-10 KORA air-ingress bound.
+    /// Beyond design basis: HTR-10 DLOFC + air ingress, KORA bound
+    /// ([`htr10_air_ingress_bound`]).
     pub htr10_bound_sv: f64,
-    /// Beyond-design-basis bounding: WASH-1400 PWR 8, to the atmosphere.
+    /// Beyond design basis: LWR LOCA + core melt, NUREG-1465 Table 3.13 all
+    /// phases, intact containment at `L_a` ([`nuscale_severe_loca`]), **no
+    /// removal credit**.
+    pub lwr_severe_loca_no_removal_sv: f64,
+    /// Beyond design basis: the same with natural deposition only; `None`
+    /// while pending literature.
+    pub lwr_severe_loca_natural_deposition_sv: Option<f64>,
+    /// Context: WASH-1400 PWR 8, to the atmosphere.
     pub wash1400_pwr8_sv: f64,
+}
+
+impl ComparisonRow {
+    /// The seven doses \[Sv\] in the order of [`ARM_COLUMNS`]; `None` is a
+    /// pending arm (print "pending literature", never 0).
+    pub fn arm_doses_sv(&self) -> [Option<f64>; 7] {
+        [
+            Some(self.htr10_dba_depressurisation_sv),
+            Some(self.lwr_dba_no_removal_sv),
+            self.lwr_dba_natural_deposition_sv,
+            Some(self.htr10_bound_sv),
+            Some(self.lwr_severe_loca_no_removal_sv),
+            self.lwr_severe_loca_natural_deposition_sv,
+            Some(self.wash1400_pwr8_sv),
+        ]
+    }
 }
 
 /// Share of each arm's released Bq whose nuclide lacks an FGR coefficient on
@@ -952,6 +1289,8 @@ pub struct IncompleteShares {
     pub lwr_dba: f64,
     /// HTR-10 KORA bound.
     pub htr10_bound: f64,
+    /// LWR LOCA + core melt, no removal.
+    pub lwr_severe_loca: f64,
     /// WASH-1400 PWR 8.
     pub wash1400: f64,
 }
@@ -966,11 +1305,12 @@ pub struct BoundingComparison {
     pub incomplete: IncompleteShares,
 }
 
-/// Build the [`BoundingComparison`]: the DBA pair (HTR-10 depressurisation,
-/// [`htr10_dba_release`]; LWR MHA LOCA, [`nuscale_mha_loca`] with
-/// `deposition`) and the beyond-design-basis pair (HTR-10 bound,
-/// [`htr10_air_ingress_bound`]; WASH-1400 PWR 8), with the LWR inventory and
-/// containment scaled to `mwth`, through [`max_dose`] with
+/// Build the [`BoundingComparison`]: the design-basis tier (HTR-10 DLOFC,
+/// [`htr10_dba_release`]; LWR LOCA, [`nuscale_mha_loca`] with `deposition`),
+/// the beyond-design-basis tier (HTR-10 DLOFC + air-ingress bound,
+/// [`htr10_air_ingress_bound`]; LWR LOCA + core melt, [`nuscale_severe_loca`]
+/// with `deposition`) and the WASH-1400 PWR 8 context arm, with the LWR
+/// inventory and containment scaled to `mwth`, through [`max_dose`] with
 /// [`DoseAssumptions::bounding_example`].
 ///
 /// # Errors
@@ -985,8 +1325,10 @@ pub fn bounding_comparison(
     let dba = htr10_dba_release(AccidentCase::Depressurization);
     let lwr = nuscale_mha_loca(mwth, window, deposition);
     let htr = htr10_air_ingress_bound(geometry, window)?;
+    let severe = nuscale_severe_loca(mwth, window, deposition);
     let wash = wash1400_pwr8_to_atmosphere(&pwr_inventory_scaled(mwth));
     let a = DoseAssumptions::bounding_example();
+    let opt = |r: &Option<Releases>, x: f64| r.as_ref().map(|r| max_dose(r, x, a).total_sv);
     let rows: Vec<ComparisonRow> = distances_m
         .iter()
         .map(|&x| {
@@ -996,11 +1338,10 @@ pub fn bounding_comparison(
                 class: h.class,
                 htr10_dba_depressurisation_sv: max_dose(&dba, x, a).total_sv,
                 lwr_dba_no_removal_sv: max_dose(&lwr.no_removal, x, a).total_sv,
-                lwr_dba_natural_deposition_sv: lwr
-                    .natural_deposition
-                    .as_ref()
-                    .map(|r| max_dose(r, x, a).total_sv),
+                lwr_dba_natural_deposition_sv: opt(&lwr.natural_deposition, x),
                 htr10_bound_sv: h.total_sv,
+                lwr_severe_loca_no_removal_sv: max_dose(&severe.no_removal, x, a).total_sv,
+                lwr_severe_loca_natural_deposition_sv: opt(&severe.natural_deposition, x),
                 wash1400_pwr8_sv: max_dose(&wash, x, a).total_sv,
             }
         })
@@ -1011,6 +1352,7 @@ pub fn bounding_comparison(
             htr10_dba: incomplete_share(&dba),
             lwr_dba: incomplete_share(&lwr.no_removal),
             htr10_bound: incomplete_share(&htr),
+            lwr_severe_loca: incomplete_share(&severe.no_removal),
             wash1400: incomplete_share(&wash),
         },
     })
@@ -1173,5 +1515,262 @@ mod tests {
             assert!(*v >= 0.0, "{n}: {v}");
             assert!(*v <= bq * 4.0 / 100.0, "{n}: {v} > bound for {bq}");
         }
+    }
+
+    /// The severe-LOCA source is NUREG-1465 Table 3.13 (all four phases) on
+    /// Table 3.6 timing: for every nuclide of the scaled inventory the four
+    /// phase fractions sum to [`nureg1465_pwr_into_containment`]'s all-phase
+    /// fraction; the printed all-phase totals per group (noble gases 1.0,
+    /// halogens 0.75, alkali metals 0.75, Te 0.305, Ba/Sr 0.12, noble metals
+    /// 0.005, Ce 0.0055, La 0.0052); vessel breach at 30 s + 0.5 h + 1.3 h;
+    /// late in-vessel concurrent with ex-vessel; every phase a whole number of
+    /// 60 s steps long.
+    #[test]
+    fn severe_loca_phases_are_table_3_13_on_table_3_6_timing() {
+        let inv = pwr_inventory_scaled(10.0);
+        let all = nureg1465_pwr_into_containment(&inv, N1465Phases::All);
+        for ((n, bq), (m, rel)) in inv
+            .iter()
+            .filter(|(n, _)| n1465_group(element(n)).is_some())
+            .zip(&all)
+        {
+            assert_eq!(n, m);
+            let f: f64 = nureg1465_pwr_phases(n)
+                .unwrap()
+                .iter()
+                .map(|p| p.fraction)
+                .sum();
+            assert!((f * bq - rel).abs() <= 1e-12 * rel.max(1.0), "{n}");
+        }
+        let total = |n: &str| -> f64 {
+            nureg1465_pwr_phases(n)
+                .unwrap()
+                .iter()
+                .map(|p| p.fraction)
+                .sum()
+        };
+        for (n, t) in [
+            ("Xe-133", 1.0),
+            ("I-131", 0.75),
+            ("Cs-137", 0.75),
+            ("Te-132", 0.305),
+            ("Sr-90", 0.12),
+            ("Ru-106", 0.005),
+            ("Ce-144", 0.0055),
+            ("La-140", 0.0052),
+        ] {
+            assert!((total(n) - t).abs() < 1e-12, "{n}: {}", total(n));
+        }
+        let p = nureg1465_pwr_phases("I-131").unwrap();
+        let h = 3600.0;
+        assert!((p[0].onset_s - 30.0).abs() < 1e-9);
+        assert!((p[1].end_s - (30.0 + 1.8 * h)).abs() < 1e-9);
+        assert_eq!(p[2].onset_s, p[1].end_s);
+        assert_eq!(
+            p[3].onset_s, p[2].onset_s,
+            "late in-vessel starts at breach"
+        );
+        assert!((p[2].end_s - p[2].onset_s - 2.0 * h).abs() < 1e-9);
+        assert!((p[3].end_s - p[3].onset_s - 10.0 * h).abs() < 1e-9);
+        for q in p {
+            let steps = (q.end_s - q.onset_s) / 60.0;
+            assert!((steps - steps.round()).abs() < 1e-9, "{steps}");
+        }
+    }
+
+    /// Conservation of the phased source through [`containment_leak`]: for a
+    /// STABLE tracer of each group (a label with no decay data, so lambda =
+    /// 0) and a leak so fast that nothing stays in the containment, the
+    /// release to the environment equals the Table 3.13 all-phase total times
+    /// the inventory, to 1e-9. At `L_a` it is never more than the delivered
+    /// amount, and never negative.
+    #[test]
+    fn severe_loca_source_is_conserved_through_the_leak() {
+        let w = Time::new::<hour>(96.0);
+        let tracers: Releases = [
+            "Xe-999", "I-999", "Cs-999", "Te-999", "Sr-999", "Ru-999", "Ce-999", "La-999",
+        ]
+        .iter()
+        .map(|n| (n.to_string(), 1.0e15))
+        .collect();
+        let fast = containment_leak(&tracers, nureg1465_pwr_phases, 1.0e7, w, None);
+        let slow = containment_leak(
+            &tracers,
+            nureg1465_pwr_phases,
+            NUSCALE_LA_PERCENT_PER_DAY,
+            w,
+            None,
+        );
+        assert_eq!(fast.len(), tracers.len());
+        for ((n, f), (_, s)) in fast.iter().zip(&slow) {
+            let delivered: f64 = nureg1465_pwr_phases(n)
+                .unwrap()
+                .iter()
+                .map(|p| p.fraction)
+                .sum::<f64>()
+                * 1.0e15;
+            assert!(
+                (f - delivered).abs() <= 1e-9 * delivered,
+                "{n}: {f} vs {delivered}"
+            );
+            assert!(*s >= 0.0 && *s <= delivered, "{n}: {s}");
+        }
+    }
+
+    /// The same conservation ledger for the DESIGN-BASIS arm's source: stable
+    /// tracers of every RG 1.183 Table 6 group, leaked at once, release exactly
+    /// the Table 2 gap + early in-vessel fraction. Pins the 2026-09-30 defect
+    /// (#464): the midpoint rule gave the 798 s gap phase 840 s of source and
+    /// delivered 1.053x its fraction (noble gases 0.9632 for 0.962).
+    #[test]
+    fn dba_source_is_conserved_through_the_leak() {
+        let w = Time::new::<hour>(96.0);
+        let tracers: Releases = [
+            "Xe-999", "I-999", "Cs-999", "Te-999", "Sr-999", "Ru-999", "Ce-999", "La-999", "Mo-999",
+        ]
+        .iter()
+        .map(|n| (n.to_string(), 1.0e15))
+        .collect();
+        let fast = containment_leak(&tracers, rg1183_phases, 1.0e7, w, None);
+        let into = rg1183_pwr_into_containment(&tracers);
+        assert_eq!(fast.len(), into.len());
+        for ((n, f), (_, c)) in fast.iter().zip(&into) {
+            assert!((f - c).abs() <= 1e-9 * c.max(1.0), "{n}: {f} vs {c}");
+        }
+    }
+
+    /// Every nuclide of the severe-LOCA arm leaks a non-negative amount, and
+    /// never more than its all-phase release x (L_a x 4 days) -- the bound the
+    /// DBA arm is held to, with the Table 3.13 fraction in place of 1.
+    #[test]
+    fn severe_loca_leakage_is_non_negative_and_bounded() {
+        let inv = pwr_inventory_scaled(10.0);
+        let arm = nuscale_severe_loca(
+            10.0,
+            Time::new::<hour>(96.0),
+            &NaturalDeposition::PENDING_LITERATURE,
+        );
+        assert!(arm.natural_deposition.is_none(), "pending literature");
+        let into = nureg1465_pwr_into_containment(&inv, N1465Phases::All);
+        assert_eq!(arm.no_removal.len(), into.len());
+        for (n, v) in &arm.no_removal {
+            let c = into.iter().find(|(m, _)| m == n).unwrap().1;
+            assert!(*v >= 0.0, "{n}: {v}");
+            assert!(
+                *v <= c * NUSCALE_LA_PERCENT_PER_DAY * 4.0 / 100.0,
+                "{n}: {v} > {c}"
+            );
+        }
+    }
+
+    /// The prediction stated before the first run (#464): a LOCA with core
+    /// melt releases more into the same leaking containment than the RG 1.183
+    /// design-basis LOCA (Table 3.13 all phases vs Table 2 gap + early
+    /// in-vessel: halogens 0.75 vs 0.377, alkali metals 0.75 vs 0.235, Ba/Sr
+    /// 0.12 vs 0.0054), so its dose must be at least the DBA's at every
+    /// distance, and so must those three groups. Also: a zero removal rate
+    /// reproduces no-removal exactly.
+    #[test]
+    fn severe_loca_dose_is_at_least_the_rg1183_dba_dose() {
+        let w = Time::new::<hour>(96.0);
+        let a = DoseAssumptions::bounding_example();
+        let dba = nuscale_mha_loca(10.0, w, &NaturalDeposition::PENDING_LITERATURE);
+        let sev = nuscale_severe_loca(10.0, w, &NaturalDeposition::PENDING_LITERATURE);
+        for x in [400.0, 1000.0, 10_000.0] {
+            let (d, s) = (
+                max_dose(&dba.no_removal, x, a),
+                max_dose(&sev.no_removal, x, a),
+            );
+            assert!(
+                s.total_sv >= d.total_sv,
+                "{x}: {} < {}",
+                s.total_sv,
+                d.total_sv
+            );
+            for g in [Group::Halogens, Group::AlkaliMetals, Group::BariumStrontium] {
+                let get = |v: &Dose| v.by_group.iter().find(|(k, _)| *k == g).unwrap().1;
+                assert!(get(&s) >= get(&d), "{x} {g:?}");
+            }
+        }
+        let zero = NaturalDeposition {
+            aerosol_per_s: Some(0.0),
+            elemental_iodine_per_s: Some(0.0),
+        };
+        let z = nuscale_severe_loca(10.0, w, &zero);
+        assert_eq!(z.natural_deposition.as_ref().unwrap(), &z.no_removal);
+    }
+
+    /// [`ARM_COLUMNS`] is in tier order (design basis, beyond design basis,
+    /// context), carries the maintainer's tier labels, and matches
+    /// [`ComparisonRow::arm_doses_sv`] position for position.
+    #[test]
+    fn arm_columns_are_tier_ordered_and_match_the_row() {
+        let rank = |t: Tier| match t {
+            Tier::DesignBasis => 0,
+            Tier::BeyondDesignBasis => 1,
+            Tier::Context => 2,
+        };
+        assert!(ARM_COLUMNS
+            .windows(2)
+            .all(|w| rank(w[0].tier) <= rank(w[1].tier)));
+        assert_eq!(Tier::DesignBasis.label(), "Design basis: DLOFC vs LOCA");
+        assert_eq!(
+            Tier::BeyondDesignBasis.label(),
+            "Beyond design basis: DLOFC + air ingress (bounding) vs LOCA + core melt"
+        );
+        assert!(Tier::Context.label().contains("not initiator"));
+        let row = ComparisonRow {
+            distance_m: 1.0,
+            class: StabilityClass::ALL[0],
+            htr10_dba_depressurisation_sv: 1.0,
+            lwr_dba_no_removal_sv: 2.0,
+            lwr_dba_natural_deposition_sv: None,
+            htr10_bound_sv: 4.0,
+            lwr_severe_loca_no_removal_sv: 5.0,
+            lwr_severe_loca_natural_deposition_sv: None,
+            wash1400_pwr8_sv: 7.0,
+        };
+        assert_eq!(
+            row.arm_doses_sv(),
+            [
+                Some(1.0),
+                Some(2.0),
+                None,
+                Some(4.0),
+                Some(5.0),
+                None,
+                Some(7.0)
+            ]
+        );
+    }
+
+    /// [`bounding_comparison`] (what the map and the #452 example read) gives,
+    /// for the severe-LOCA column, exactly [`max_dose`] of
+    /// [`nuscale_severe_loca`], at or above the DBA LOCA column at every
+    /// distance, with the coverage share reported.
+    #[test]
+    fn bounding_comparison_carries_the_severe_loca_arm() {
+        let particle = tampines::pebble_bed::triso::TrisoParticle::htr10();
+        let pebble = tampines::pebble_bed::pebble::Pebble::htr10();
+        let geometry = Htr10Geometry {
+            kernel_radius: particle.kernel_radius,
+            sic_thickness: particle.silicon_carbide_outer_radius - particle.inner_pyc_outer_radius,
+            graphite_thickness: pebble.outer_radius - pebble.fuelled_zone_radius,
+        };
+        let w = Time::new::<hour>(96.0);
+        let dep = NaturalDeposition::PENDING_LITERATURE;
+        let xs = [400.0, 1000.0];
+        let c = bounding_comparison(geometry, w, 10.0, &xs, &dep).unwrap();
+        let sev = nuscale_severe_loca(10.0, w, &dep);
+        let a = DoseAssumptions::bounding_example();
+        for (row, x) in c.rows.iter().zip(xs) {
+            assert_eq!(
+                row.lwr_severe_loca_no_removal_sv,
+                max_dose(&sev.no_removal, x, a).total_sv
+            );
+            assert_eq!(row.lwr_severe_loca_natural_deposition_sv, None);
+            assert!(row.lwr_severe_loca_no_removal_sv >= row.lwr_dba_no_removal_sv);
+        }
+        assert!(c.incomplete.lwr_severe_loca > 0.0 && c.incomplete.lwr_severe_loca < 1.0);
     }
 }
