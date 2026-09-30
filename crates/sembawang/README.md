@@ -23,11 +23,19 @@ library module `lwr_comparison` now computes a research-grade dose through
 the same `buangkok` chain, comparing HTR-10 with an LWR at equal power
 (`examples/lwr_nureg1465_counterpart.rs`). ~~It places the HTR-10 bounding
 air-ingress case beside LWR counterparts (NUREG-1465, RG 1.183 per unit leak
-rate, WASH-1400 PWR 8).~~ **Reframed 2026-09-30 (maintainer decision, #450):**
-the primary comparison is design basis against design basis, i.e. the HTR-10
+rate, WASH-1400 PWR 8).~~ ~~**Reframed 2026-09-30 (maintainer decision, #450):**
+the primary comparison is design basis against design basis ... The HTR-10
+bounding air-ingress case against WASH-1400 PWR 8 is the secondary,
+beyond-design-basis bounding comparison.~~ **Reframed again 2026-09-30
+(maintainer decision, #464): paired by initiating event and severity**, DLOFC
+(HTR) against LOCA (LWR). *Design basis: DLOFC vs LOCA*: the HTR-10
 depressurisation (Liu & Cao Table 8) against the RG 1.183 MHA LOCA at NuScale's
-L_a. The HTR-10 bounding air-ingress case against WASH-1400 PWR 8 is the
-secondary, beyond-design-basis bounding comparison. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
+L_a. *Beyond design basis: DLOFC + air ingress (bounding) vs LOCA + core melt*:
+the KORA bound against NUREG-1465 Table 3.13 (all phases) in an intact
+containment leaking at L_a. WASH-1400 PWR 8 is context only (no melt,
+uncontained). Each side is credited only with its reactor-level barrier
+(containment vessel; TRISO particles), with no pool, building or filter credit
+on either side. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
 
 ## What exists, and what does not
 

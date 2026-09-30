@@ -287,11 +287,21 @@ pub fn run_and_print(cfg: &HeadlessConfig) {
 /// [`crate::physics::bounding_air_ingress::comparison`].
 pub fn print_bounding_air_ingress() {
     use crate::physics::bounding_air_ingress as b;
+    use sembawang::lwr_comparison::{Tier, ARM_COLUMNS};
     println!("# {}", b::CASE_LABEL);
-    println!("# {}", b::DBA_LABEL);
-    println!("# {}", b::LWR_LABEL);
-    println!("# natural deposition: {}", b::DEPOSITION_LABEL);
-    println!("# {}: KORA bound vs {}", b::BDB_LABEL, b::WASH_LABEL);
+    println!("# basis: {}", b::BASIS_LABEL);
+    println!("# tier 1, {}", Tier::DesignBasis.label());
+    println!("#   {}", b::DBA_LABEL);
+    println!("#   {}", b::LWR_LABEL);
+    println!("# tier 2, {}", Tier::BeyondDesignBasis.label());
+    println!("#   HTR-10 KORA bound ({})", b::CASE_LABEL);
+    println!("#   {}", b::SEVERE_LABEL);
+    println!("#   assumption: {}", b::CONTAINED_LABEL);
+    println!("# {}", b::WASH_LABEL);
+    println!(
+        "# natural deposition (both LWR LOCA arms): {}",
+        b::DEPOSITION_LABEL
+    );
     println!("# {}", b::f_ox_provenance());
     match b::comparison() {
         Err(e) => println!("# unavailable: {e}"),
@@ -299,25 +309,19 @@ pub fn print_bounding_air_ingress() {
             let i = c.incomplete;
             println!(
                 "# FGR-incomplete share of released Bq (dose is a LOWER BOUND where > 0, #456): \
-                 htr10_dba {:.4}, lwr_dba {:.4}, htr10_bound {:.4}, wash1400 {:.4}",
-                i.htr10_dba, i.lwr_dba, i.htr10_bound, i.wash1400
+                 htr10_dba {:.4}, lwr_dba {:.4}, htr10_bound {:.4}, lwr_severe_loca {:.4}, \
+                 wash1400 {:.4}",
+                i.htr10_dba, i.lwr_dba, i.htr10_bound, i.lwr_severe_loca, i.wash1400
             );
-            println!(
-                "distance_m,class,htr10_dba_depressurisation_msv,lwr_dba_no_removal_msv,\
-                 lwr_dba_natural_deposition_msv,htr10_kora_bound_msv,wash1400_pwr8_msv"
-            );
+            let keys: Vec<&str> = ARM_COLUMNS.iter().map(|k| k.csv_key).collect();
+            println!("distance_m,class,{}", keys.join(","));
             for r in &c.rows {
-                println!(
-                    "{:.0},{:?},{:.6e},{:.6e},{},{:.6e},{:.6e}",
-                    r.distance_m,
-                    r.class,
-                    1e3 * r.htr10_dba_depressurisation_sv,
-                    1e3 * r.lwr_dba_no_removal_sv,
-                    r.lwr_dba_natural_deposition_sv
-                        .map_or("pending".to_string(), |v| format!("{:.6e}", 1e3 * v)),
-                    1e3 * r.htr10_bound_sv,
-                    1e3 * r.wash1400_pwr8_sv
-                );
+                let cells: Vec<String> = r
+                    .arm_doses_sv()
+                    .iter()
+                    .map(|v| v.map_or("pending".to_string(), |s| format!("{:.6e}", 1e3 * s)))
+                    .collect();
+                println!("{:.0},{:?},{}", r.distance_m, r.class, cells.join(","));
             }
         }
     }
