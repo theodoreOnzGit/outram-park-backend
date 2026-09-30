@@ -8178,6 +8178,7 @@ name = "sembawang"
 version = "0.0.1"
 dependencies = [
  "boon-lay",
+ "buangkok",
  "changi",
  "tampines",
  "thiserror 2.0.18",
