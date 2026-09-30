@@ -110,6 +110,10 @@ pub enum MindmapAction {
     /// Research workspace (`op-9vo6.10`'s `PaperSession`), once that
     /// navigation exists.
     OpenPaper(String),
+    /// A standard-corpus citation's "Open" was chosen: the caller opens
+    /// that corpus document (its notes paper, filed on first open) by its
+    /// corpus id (2026-09-30).
+    OpenCorpusLiterature(String),
     /// "Sort into…" was chosen on a citation — the caller should open the
     /// shared sort-a-paper flow for this citekey (`op-j3ib`). The Mindmap
     /// does not own that dialog: the Wiki, the Mindmap and the PDF reader
@@ -827,6 +831,8 @@ impl CitationAction {
 pub(crate) enum CitationPick {
     /// Open the paper (a back/forward step).
     Open(String),
+    /// Open the standard-corpus document with this corpus id.
+    OpenCorpus(String),
     /// One of the view's extra actions, on this citekey.
     Action(CitationAction, String),
 }
@@ -862,9 +868,11 @@ pub(crate) fn citations_hover(ui: &mut egui::Ui, title: &str, citations: &[Citat
 const HOVER_CITATION_LIMIT: usize = 12;
 
 /// The actionable citation list in a concept's right-click menu: every
-/// citation as a sub-menu with "Open" and each of `actions`. Corpus
+/// citation as a sub-menu with "Open" and each of `actions`. ~~Corpus
 /// citations are listed but not yet actionable: they open through the source
-/// resolver (#253).
+/// resolver (#253).~~ **CORRECTED 2026-09-30**: a corpus citation's "Open"
+/// is enabled ([`CitationPick::OpenCorpus`]); its other actions stay
+/// disabled, since they act on a library paper.
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 pub(crate) fn citations_menu(
     ui: &mut egui::Ui,
@@ -884,13 +892,14 @@ pub(crate) fn citations_menu(
             for c in citations {
                 let actionable = c.namespace == crate::node_id::Namespace::Library;
                 ui.menu_button(format!("\u{1F4C4} {}", c.label()), |ui| {
-                    let not_yet = "Built-in corpus sources open with the source resolver (#253)";
-                    if ui
-                        .add_enabled(actionable, egui::Button::new("Open"))
-                        .on_disabled_hover_text(not_yet)
-                        .clicked()
-                    {
-                        pick = Some(CitationPick::Open(c.citekey.clone()));
+                    let not_yet = "Open the corpus document first; its notes paper is \
+                                   filed then";
+                    if ui.button("Open").clicked() {
+                        pick = Some(if actionable {
+                            CitationPick::Open(c.citekey.clone())
+                        } else {
+                            CitationPick::OpenCorpus(c.citekey.clone())
+                        });
                         ui.close();
                     }
                     for action in actions {
@@ -1440,6 +1449,7 @@ impl MindmapState {
         // A hyperlink the user asked to remove (#285).
         let mut remove_link: Option<crate::node_id::NodeId> = None;
         let mut opened_paper = None;
+        let mut opened_corpus: Option<String> = None;
         let mut literature_card_for = None;
         let mut reclassify_for = None;
         let mut newly_selected = None;
@@ -1728,6 +1738,7 @@ impl MindmapState {
                         &[CitationAction::LiteratureCard, CitationAction::Reclassify],
                     ) {
                         Some(CitationPick::Open(k)) => opened_paper = Some(k),
+                        Some(CitationPick::OpenCorpus(k)) => opened_corpus = Some(k),
                         Some(CitationPick::Action(CitationAction::LiteratureCard, k)) => {
                             literature_card_for = Some(k)
                         }
@@ -2003,6 +2014,9 @@ impl MindmapState {
         }
         if let Some(citekey) = opened_paper {
             action = Some(MindmapAction::OpenPaper(citekey));
+        }
+        if let Some(id) = opened_corpus {
+            action = Some(MindmapAction::OpenCorpusLiterature(id));
         }
         if let Some(citekey) = reclassify_for {
             action = Some(MindmapAction::SortPaper(citekey));

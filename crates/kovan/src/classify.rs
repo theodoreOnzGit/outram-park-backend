@@ -1905,13 +1905,13 @@ pub fn ensure_paper_header(
 /// and table digitisers wrote when no paper was active, as a plain Markdown
 /// heading plus a bare ```csv fence and no `[kovan]` block at all:
 ///
-/// ```text
+/// ````text
 /// ### Fig 1. — page 3, pixel bbox [38.6, 71.9, 1215.4, 797.4], 2026-09-02T02:31:04Z, unnamed
 ///
 /// ```csv
 /// …
 /// ```
-/// ```
+/// ````
 ///
 /// Because such a section carries no fenced TOML, [`parse_document`] does not
 /// see it as an artifact at all: it has no id, no kind and no `[source]`, so
