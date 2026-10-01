@@ -114,8 +114,14 @@ impl LiteratureSource {
     /// The access tier of this source, per `DATA_POLICY.md`.
     pub fn access_tier(&self) -> AccessTier {
         match self {
-            Self::IaeaHtgrBenchmark | Self::ChooXiao2024 => AccessTier::Open,
-            Self::Wang2014 | Self::Tantillo2020 => AccessTier::Proprietary,
+            // ~~`IaeaHtgrBenchmark` => Open~~ **CORRECTED 2026-10-01
+            // (maintainer):** IAEA-TECDOC-1382 is freely downloadable but
+            // proprietary, not open source (kovan-literature CATALOGUE.md,
+            // reclassified 2026-09-22). Free to read is not free to re-host.
+            Self::ChooXiao2024 => AccessTier::Open,
+            Self::IaeaHtgrBenchmark | Self::Wang2014 | Self::Tantillo2020 => {
+                AccessTier::Proprietary
+            }
         }
     }
 }
@@ -1960,9 +1966,12 @@ mod tests {
     /// **Methodology.** `DATA_POLICY.md` requires every constant to carry its
     /// citation and that source's access tier. The test walks all published
     /// value sets in this module, confirms each entry names a
-    /// [`LiteratureSource`], and confirms the tier mapping: the IAEA benchmark
+    /// [`LiteratureSource`], and confirms the tier mapping: ~~the IAEA benchmark
     /// document and Choo and Xiao (2024) are Open, Wang et al. (2014) and
-    /// Tantillo et al. (2020) are Proprietary. Pass criterion: exact tier
+    /// Tantillo et al. (2020) are Proprietary~~ **CORRECTED 2026-10-01
+    /// (maintainer):** Choo and Xiao (2024) is Open; the IAEA benchmark document
+    /// (freely downloadable, but proprietary), Wang et al. (2014) and Tantillo
+    /// et al. (2020) are Proprietary. Pass criterion: exact tier
     /// mapping for all four sources, and a non-empty value set for each.
     ///
     /// **Results (recorded 2026-08-11, this workspace).**
@@ -1976,7 +1985,7 @@ mod tests {
     fn every_published_value_carries_a_correctly_tiered_source() {
         assert_eq!(
             LiteratureSource::IaeaHtgrBenchmark.access_tier(),
-            AccessTier::Open
+            AccessTier::Proprietary
         );
         assert_eq!(
             LiteratureSource::ChooXiao2024.access_tier(),
