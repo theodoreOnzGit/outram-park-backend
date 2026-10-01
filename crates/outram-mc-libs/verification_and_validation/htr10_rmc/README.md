@@ -37,7 +37,10 @@ It is used as follows:
 - `assemble_explicit_triso`'s second argument is now N.
 
 Derivation and tests: `nee_soon::htr10_rmc::bed::SekerCell` / `SekerBed`. The
-two-ball cell below is the `OUTRAM_HTR10_TWO_BALL_CELL=1` ablation.
+two-ball cell below ~~is the `OUTRAM_HTR10_TWO_BALL_CELL=1` ablation~~ is
+**withdrawn (maintainer, 2026-10-01)**. It cuts pebbles at the side wall and
+the bed top, which is wrong physics, and it is not to be run, even as an
+ablation. Its numbers below stay as history.
 
 **Check against Şeker Table 3 (N = 12), nothing fitted:**
 

@@ -1673,7 +1673,9 @@ impl SekerBed {
 
 /// **The pebble bed an explicit-TRISO core was built on**: Şeker & Çolak's
 /// cell (the default since 2026-10-01, gh:#472) or the two-ball prism cell
-/// (the `OUTRAM_HTR10_TWO_BALL_CELL` ablation).
+/// (~~the `OUTRAM_HTR10_TWO_BALL_CELL` ablation~~ **withdrawn 2026-10-01**: it
+/// cuts pebbles, which is wrong physics, and must never be run, not even as an
+/// ablation; kept only as the record of earlier numbers).
 #[derive(Debug, Clone)]
 pub enum PebbleBed {
     /// [`SekerBed`], the default.

@@ -872,10 +872,15 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// Each tile gets the universe for its (fuel, presence) masks, built only once
 /// per distinct pair. Source and derivation: [`SekerCell`], [`SekerBed`].
 ///
-/// **Ablation:** `OUTRAM_HTR10_TWO_BALL_CELL=1` builds the two-ball bed below
-/// instead, with `n_axial = 2 N + 1` half-layers (the mapping it used for the
-/// same row). With it, `OUTRAM_HTR10_REJECT_SIDE_WALL=1` rejects wall-crossers
-/// there too.
+/// ~~**Ablation:** `OUTRAM_HTR10_TWO_BALL_CELL=1` builds the two-ball bed below
+/// instead, with `n_axial = 2 N + 1` half-layers. With it,
+/// `OUTRAM_HTR10_REJECT_SIDE_WALL=1` rejects wall-crossers there too.~~
+/// **WITHDRAWN 2026-10-01 (maintainer):** *"The cut pebble is wrong physics,
+/// never run it for ablation again."* The two-ball bed cuts pebbles: at the
+/// side wall by default, and at the bed-top plane always. A cut pebble is not
+/// a pebble, so an ablation against it measures nothing physical. The knob now
+/// panics. The code below is kept only as the record of what the earlier
+/// numbers were computed on.
 ///
 /// # The two-ball bed, the ablation (gh:#309 step 2, gh:#310)
 ///
@@ -949,8 +954,15 @@ pub fn assemble_explicit_triso(
     layers: usize,
     majorant_index: usize,
 ) -> AssembledCore {
-    // OUTRAM_HTR10_TWO_BALL_CELL=1 (ablation, gh:#472): the two-ball bed.
-    let two_ball = std::env::var("OUTRAM_HTR10_TWO_BALL_CELL").is_ok();
+    // The two-ball bed CUTS pebbles (side wall, bed top): wrong physics, never
+    // to be run, not even as an ablation (maintainer, 2026-10-01). Refuse the
+    // old knob loudly rather than ignore it silently.
+    assert!(
+        std::env::var("OUTRAM_HTR10_TWO_BALL_CELL").is_err(),
+        "OUTRAM_HTR10_TWO_BALL_CELL is withdrawn: the two-ball bed cuts pebbles, which is \
+         wrong physics (maintainer, 2026-10-01). Unset it; Şeker's bed keeps every ball whole."
+    );
+    let two_ball = false;
     let n_axial = 2 * layers + 1;
     // The argument changed meaning on 2026-10-01 (half-layers -> Şeker layers);
     // an old half-layer count (20 / 25 / 41) would build a bed taller than the
