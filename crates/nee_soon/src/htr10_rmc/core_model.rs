@@ -931,7 +931,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// panics. The code below is kept only as the record of what the earlier
 /// numbers were computed on.
 ///
-/// # The two-ball bed, the ablation (gh:#309 step 2, gh:#310)
+/// # The two-ball bed (gh:#309 step 2, gh:#310), WITHDRAWN 2026-10-01 (history)
 ///
 /// The hex lattice tile IS the paper's prism, [`HexBedCell::from_paper`]:
 /// pitch 6.6106 cm, height 9.798 cm = one A-B layer pair, two balls per tile,
@@ -968,18 +968,22 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 ///   uses; `usize::MAX` surface-tracks the bed.
 ///
 /// Universes: 0 root, [`TRISO_PARTICLE_UNIVERSE`], [`TRISO_MATRIX_UNIVERSE`],
-/// then one per bed-tile fuel mask in use (35 in all at 14 rings, all 32 masks
-/// occur). Tile cell ids encode their role, see [`tile_cell_role`].
+/// then one per distinct bed-tile (fuel, presence) mask pair. ~~(35 in all at 14
+/// rings, all 32 masks occur)~~ **CORRECTED 2026-10-01:** on Şeker's bed most
+/// tiles are unique, 1 502 universes at 14 x 12 (printed by
+/// `examples/htr10_geometry_images.rs`). Tile cell ids encode their role, see
+/// [`tile_cell_role`].
 ///
 /// ~~Four coordinate levels~~ **CORRECTED 2026-09-25 — three coordinate
-/// levels**: root → (bed hex lattice) → bed-tile universe (pieces of five
-/// pebbles since 2026-09-25; one pebble before) → (TRISO rect lattice, entered
+/// levels**: root → (bed hex lattice) → bed-tile universe (pieces of 23
+/// pebbles on Şeker's cell since 2026-10-01; five on the two-ball cell; one
+/// before that) → (TRISO rect lattice, entered
 /// through the fuel-zone cell's translation to its ball centre) → TRISO
 /// particle universe. A lattice selects the next level's universe but is not a
-/// level itself. Verified by locating a kernel in the assembled 14 x 25 core:
+/// level itself. Verified by locating a kernel in the assembled core:
 /// `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
 /// (`examples/htr10_geometry_images.rs` prints it; re-checked on the two-ball
-/// cell 2026-09-25). Depth-3 descent was gated
+/// cell 2026-09-25, and on Şeker's cell at 14 x 12 on 2026-10-01). Depth-3 descent was gated
 /// in `outram-mc-libs` `tests/nested_lattice_depth3.rs`, which also counts
 /// `levels.len()`; ~~this is depth 4~~ this is the **same** depth.
 ///
@@ -1521,9 +1525,10 @@ pub fn assemble_explicit_triso(
             // `Geometry::locate` calls `find_cell` (a CSG region test) BEFORE
             // descending into the lattice, so a point is only given a tile if
             // it is inside this region. The cone clips the pebble lattice
-            // exactly as `ins(7)` clips it to r < 90 cm. With Li's rejection
-            // (`DischargeTube`) no kept ball reaches the cone or the tube, so
-            // there the cut only ever passes through helium.
+            // exactly as `ins(7)` clips it to r < 90 cm. With the rejection rule
+            // (Şeker & Çolak 2003 p.267, which Li follows; `SekerBed` since
+            // 2026-10-01) no kept ball reaches the cone, the tube or the side
+            // wall, so there the cut only ever passes through helium.
             let conus = Rgn::ins(17).and(Rgn::ins(8)).and(Rgn::out(18));
             let r = cyl.or(conus);
             if explicit_tube {

@@ -18,6 +18,11 @@
 
 //! # HTR-10: Monte Carlo MGXS handed to GeN-Foam, on ONE shared geometry
 //!
+//! **BLOCKED since 2026-10-01 (gh:#475):** this example still builds the
+//! one-ball homogenised `core_model::assemble`, which was withdrawn because it
+//! cuts pebbles (wrong physics, gh:#472). It now panics at assembly, by
+//! design, until it is ported to `assemble_explicit_triso`.
+//!
 //! The coupling layer's whole purpose is that the stochastic and deterministic
 //! ends describe the *same* reactor. This example does that for the HTR-10:
 //! `nee_soon::htr10_rmc` builds the core once, `outram-mc` transports it and

@@ -35,7 +35,7 @@
 //! | `OUTRAM_POOL_SEED0` | `20260927` | first seed; the others follow consecutively |
 //! | `OUTRAM_POOL_DIR` | `verification_and_validation/local_perf/htr10_pooled` (gitignored) | log directory |
 //! | `OUTRAM_HTR10_HISTORIES` / `_INACTIVE` / `_ACTIVE` | `10000` / `40` / `100` | per run |
-//! | `OUTRAM_HTR10_LAYERS` | `25` | bed layers. ~~(25 = the 123.576 cm critical loading)~~ **CORRECTED 2026-10-01 (gh:#428): since gh:#472 this is Şeker layers N, and N = 12 is the 123.576 cm critical loading. The default `25` is now refused by `assemble_explicit_triso` (it asserts N ≤ 21), so every run fails unless `OUTRAM_HTR10_LAYERS=12` is set.** |
+//! | `OUTRAM_HTR10_LAYERS` | ~~`25`~~ `12` (fixed 2026-10-01) | bed layers. ~~(25 = the 123.576 cm critical loading)~~ **CORRECTED 2026-10-01 (gh:#428): since gh:#472 this is Şeker layers N, and N = 12 is the 123.576 cm critical loading. The default `25` was refused by `assemble_explicit_triso` (it asserts N ≤ 21); the default is now `12`.** |
 //!
 //! Every run also gets `OUTRAM_HTR10_RINGS=14`, `OUTRAM_HTR10_NI_AS_FE=1` and
 //! `OUTRAM_HTR10_FE57_AS_FE56=1`, the stated modelling assumptions of the
@@ -161,7 +161,7 @@ mod linux {
                         .env("OUTRAM_HTR10_GRAPHITE_TSL", arm)
                         .env("OUTRAM_HTR10_SEED", seed.to_string())
                         .env("OUTRAM_HTR10_RINGS", "14")
-                        .env("OUTRAM_HTR10_LAYERS", env_or("OUTRAM_HTR10_LAYERS", "25"))
+                        .env("OUTRAM_HTR10_LAYERS", env_or("OUTRAM_HTR10_LAYERS", "12"))
                         .env("OUTRAM_HTR10_HISTORIES", env_or("OUTRAM_HTR10_HISTORIES", "10000"))
                         .env("OUTRAM_HTR10_INACTIVE", env_or("OUTRAM_HTR10_INACTIVE", "40"))
                         .env("OUTRAM_HTR10_ACTIVE", env_or("OUTRAM_HTR10_ACTIVE", "100"))

@@ -71,17 +71,18 @@ use outram_mc_libs::geometry::surface::SurfaceKind;
 use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
 use outram_mc_libs::prelude::TrisoSpec;
 
-/// Rings and axial layers of the **reported** case, not the example's own
-/// cheap defaults (8 x 12). The V&V record's quoted results and the timed runs
-/// are both at ~~14 x 25~~ 14 rings x 25 half-layers, which is 14 x 12 in Şeker
-/// layers since 2026-10-01 (gh:#472), so that is what a manuscript table must
-/// describe. (This paragraph documents `REPORTED_RINGS` / `REPORTED_LAYERS`
-/// below; it is attached to `TEMP_K` by position. Noted 2026-10-01, gh:#428.)
 /// Temperature \[K\] every material is built at -- the same value
 /// `htr10_rmc_keff` uses.
 const TEMP_K: f64 = 300.15;
 
+/// Rings and axial layers of the **reported** case, not the example's own
+/// cheap defaults (8 x 12). The V&V record's quoted results and the timed runs
+/// are both at ~~14 x 25~~ 14 rings x 25 half-layers, which is 14 x 12 in Şeker
+/// layers since 2026-10-01 (gh:#472), so that is what a manuscript table must
+/// describe. (Moved here from above `TEMP_K`, where it had been attached by
+/// position, 2026-10-01, gh:#428.)
 const REPORTED_RINGS: usize = 14;
+/// See [`REPORTED_RINGS`].
 const REPORTED_LAYERS: usize = 12; // Şeker layers N since 2026-10-01 (gh:#472); was 25 half-layers
 
 fn env_usize(k: &str, d: usize) -> usize {
