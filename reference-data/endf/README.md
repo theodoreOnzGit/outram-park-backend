@@ -23,7 +23,9 @@ Sizes are as committed; ~89 MB total.
 
 | File | Nuclide / material | Library | MAT | Size | Source | Date accessed |
 |---|---|---|---|---|---|---|
-| `a-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 (neutron) | 228 | 8 KB | NNDC/IAEA | 2026-07-20 |
+| `a-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 ~~(neutron)~~ **(incident-alpha sublibrary, NSUB = 20040, AWI = 3.968; CORRECTED 2026-10-01)** | 228 | 8 KB | NNDC/IAEA | 2026-07-20 |
+| `n-002_He_003-ENDF8.0.endf` | He-3 | ENDF/B-VIII.0 (neutron) | 225 | 36 KB | NNDC (`ENDF-B-VIII.0.zip`, `neutrons/`), copied from the maintainer's local copy | 2026-10-01 |
+| `n-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 (neutron) | 228 | 198 KB | NNDC (`ENDF-B-VIII.0.zip`, `neutrons/`), copied from the maintainer's local copy | 2026-10-01 |
 | `n-001_H_002-ENDF8.0.endf` | H-2 (deuterium) | ENDF/B-VIII.0 (neutron) | 128 | 127 KB | NNDC/IAEA | 2026-07-20 |
 | `n-018_Ar_37-tendl2023.endf` | Ar-37 | TENDL-2023 (neutron) | 1828 | 3.7 MB | TENDL | 2026-07-20 |
 | `n-092_U_235-ENDF8.0.endf` | U-235 | ENDF/B-VIII.0 (neutron) | 9228 | 35 MB | NNDC/IAEA | 2026-07-20 |
