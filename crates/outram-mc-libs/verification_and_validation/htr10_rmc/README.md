@@ -27,6 +27,26 @@ particle. ~~gh:#309 and gh:#310 are directly visible there.~~ Regenerated
 13-ball bed, where the second argument of `assemble_explicit_triso` is now
 the layer count N, not half-layers.
 
+## Materials changed after every number on this page (2026-10-01, gh:#425, #426, #329)
+
+Three maintainer decisions of 2026-10-01 changed the **default** HTR-10
+materials. **Every eigenvalue on this page was measured before them**, with
+C-12-only carbon, a vacuum coolant and the simplified rod metal. None has been
+re-measured: no eigenvalue is run until the geometry and materials are complete
+(maintainer rule). The new defaults, built by `nee_soon::htr10_rmc::data`:
+
+| term | before 2026-10-01 | default since | ablation knob |
+|---|---|---|---|
+| carbon (VIII.0) | all C-12 at the natural-carbon density | natural carbon, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC), thermal law on both | `OUTRAM_HTR10_CARBON_AS_C12` |
+| coolant (`mat::HELIUM`) | empty material = exact vacuum | natural helium, ideal gas at 300.15 K and 101.33 kPa (pressure **assumed** atmospheric), 2.4452e-5 atoms/(b cm), He-3 1.343e-6 | `OUTRAM_HTR10_VACUUM_COOLANT` |
+| rod steel and joint iron | Ni -> Fe, Fe-57 -> Fe-56 (knobs) | real Ni-58..64 (ACE submodule) and Fe-54..58; **refused until gh:#339 is fixed** | `OUTRAM_HTR10_NI_AS_FE` + `OUTRAM_HTR10_FE57_AS_FE56` (= `examples/htr10_rod_metal_simplified.rs`) |
+
+The full and simplified rod-metal cases are the examples
+`htr10_rod_metal_full` and `htr10_rod_metal_simplified`. Predicted signs, not
+measured: C-13 removes ~0.7 % of carbon capture (gh:#425 estimates k up by 50
+to 150 pcm); helium at 1 atm is a few pcm at most (gh:#426); the rod metal is
+withdrawn, so its worth should be small.
+
 ## Şeker & Çolak (2003)'s 13-ball cell (2026-10-01, gh:#472) — CURRENT
 
 **Status:** geometry verified (built-geometry tests, sampling, images), with
@@ -626,8 +646,16 @@ Reachable as `OUTRAM_HTR10_ENDF7=1`.
 **Two evaluation differences that are part of the term, not bugs in it:**
 
 - **VII.0 carbon is ELEMENTAL natural carbon** (`6-C-0`, MAT 600); VIII.0 ships
-  C-12 separately. The VII.0 arm therefore carries 1.1 % C-13 and the VIII.0 arm
-  does not. Not separable without a third arm.
+  C-12 ~~separately~~ and C-13 separately. ~~The VII.0 arm therefore carries
+  1.1 % C-13 and the VIII.0 arm does not. Not separable without a third arm.~~
+  **CORRECTED 2026-10-01 (gh:#425):** that described the VIII.0 model, which
+  loaded only C-12, while `reference-data/endf/n-006_C_013-ENDF8.0.endf` was in
+  the checkout. Since 2026-10-01 the VIII.0 arm splits natural carbon into C-12
+  and C-13 (98.93 / 1.07 at.%) by default, so both arms carry natural carbon
+  and the C-13 term is no longer part of the library difference. It can be
+  priced directly with `OUTRAM_HTR10_CARBON_AS_C12=1`. The `+1644 pcm` library
+  term above was measured with C-12-only VIII.0 carbon and has not been
+  re-measured.
 - **The graphite thermal tape's MAT changed**: VIII.0 crystalline graphite is
   MAT 30 (ZA 130), VII.0 is MAT 31 (ZA 131). Passing the wrong one makes
   `ThermalScattering::from_endf_file` return `Err`, which turned the whole

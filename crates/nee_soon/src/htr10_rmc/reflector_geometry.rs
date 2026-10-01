@@ -530,7 +530,11 @@ pub(super) struct ReflectorOptions {
 /// never hard-codes an index into the material set.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct ReflectorMaterials {
-    /// Helium (near void).
+    /// The coolant slot (`mat::HELIUM`): ~~Helium (near void).~~ natural
+    /// helium at 300.15 K and 101.33 kPa since 2026-10-01 (gh:#426; it was an
+    /// empty material, i.e. exact vacuum), or vacuum under the
+    /// `OUTRAM_HTR10_VACUUM_COOLANT` ablation. Fills the empty rod, KLAK,
+    /// coolant and irradiation channels.
     pub helium: usize,
     /// B4C of the rod absorber rings.
     pub b4c: usize,

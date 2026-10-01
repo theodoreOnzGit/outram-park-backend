@@ -36,9 +36,27 @@
 //! That section gives no B4C isotopics: natural boron is this model's reading,
 //! consistent with MIT's homogenised rod in TECDOC Table 4-36 but not stated in
 //! the specification. IUPAC/CIAAW for atomic weights and isotopic compositions.
+//!
+//! # The nuclide slots come from a layout (2026-10-01)
+//!
+//! ~~[`htr10_material_set`] takes an `Htr10Nuclides` and a
+//! [`RodMetalNuclides`].~~ **CHANGED 2026-10-01:** it takes an
+//! [`Htr10NuclideLayout`] ([`super::data`]), the one object that says which
+//! nuclide sits in which slot. Three maintainer decisions of that date are
+//! carried through it:
+//! - **natural carbon** in every carbon-bearing material, C-12 / C-13 at
+//!   98.93 / 1.07 at.% on ENDF/B-VIII.0, elemental C-nat on VII.0 (gh:#425);
+//! - **helium coolant** in [`mat::HELIUM`], not vacuum (gh:#426);
+//! - **real nickel and iron** in the rod steel, or the simplified Ni -> Fe,
+//!   Fe-57 -> Fe-56 mapping when asked for (gh:#329, gh:#339).
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
-use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading};
+use uom::si::f64::{Pressure, ThermodynamicTemperature};
+use uom::si::pressure::pascal;
+use uom::si::thermodynamic_temperature::kelvin;
+
+use super::data::{CoolantNuclides, DataDir, Htr10NuclideLayout, Tape};
 
 use super::core_model::{mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION};
 use super::reflector::zone_composition;
@@ -161,13 +179,17 @@ impl Htr10MaterialConfig {
 }
 
 /// Indices, into the caller's nuclide array, of the nuclides the withdrawn
-/// control rods need beyond [`Htr10Nuclides`]: the sleeve steel and the iron
-/// joints.
+/// control rods need beyond the pebble's `Htr10Nuclides`: the sleeve steel
+/// and the iron joints.
 ///
-/// Silicon appears here AGAIN, as free gas: [`Htr10Nuclides`]'s silicon is
-/// bound in SiC with its own S(alpha, beta), which is wrong for silicon
-/// dissolved in steel. Carbon in steel and in B4C uses
-/// [`Htr10Nuclides::c_free`] for the same reason.
+/// Silicon appears here AGAIN, as free gas: the pebble's silicon is bound in
+/// SiC with its own S(alpha, beta), which is wrong for silicon dissolved in
+/// steel. Carbon in steel and in B4C uses the pebble table's free carbon
+/// (`Htr10Nuclides::c_free`, natural C-12 / C-13 since 2026-10-01) for the
+/// same reason.
+///
+/// Under the simplified rod-metal case the Ni (and Fe-57) fields point at Fe
+/// slots; see [`super::data::RodMetalTreatment`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct RodMetalNuclides {
@@ -235,37 +257,84 @@ impl RodMetalNuclides {
     }
 }
 
-/// ENDF/B-VIII.0 tapes (in `reference-data/endf/`) for the rod-metal
-/// nuclides, in [`RodMetalNuclides::contiguous`] order, as `(name, file)`.
+/// ENDF/B-VIII.0 tapes for the rod-metal nuclides, in
+/// [`RodMetalNuclides::contiguous`] order, as `(name, tape)`.
+///
+/// Every tape is in `reference-data/endf/` except the five **nickel** tapes,
+/// which are in the `reference-data/ace` submodule
+/// (`ace/endf/endf-b-viii.0/`, listed in its `MANIFEST.tsv`) since 2026-10-01:
+/// the maintainer decided on 2026-09-25 that no Ni data is committed to this
+/// repository (gh:#329, ~48 MB). ~~(in `reference-data/endf/`)~~
 ///
 /// The silicon tapes are the same files as the SiC slots'; they are loaded a
 /// second time WITHOUT a thermal law. There is no ENDF/B-VII.0 counterpart in
 /// the checkout for the metals, so a VII.0 run takes these VIII.0 tapes for
 /// the rod metal only, and must say so.
-pub const ROD_METAL_TAPES_ENDF8: [(&str, &str); RodMetalNuclides::COUNT] = [
-    ("Fe54", "n-026_Fe_054-ENDF8.0.endf"),
-    ("Fe56", "n-026_Fe_056-ENDF8.0.endf"),
-    ("Fe57", "n-026_Fe_057-ENDF8.0.endf"),
-    ("Fe58", "n-026_Fe_058-ENDF8.0.endf"),
-    ("Cr50", "n-024_Cr_050-ENDF8.0.endf"),
-    ("Cr52", "n-024_Cr_052-ENDF8.0.endf"),
-    ("Cr53", "n-024_Cr_053-ENDF8.0.endf"),
-    ("Cr54", "n-024_Cr_054-ENDF8.0.endf"),
-    ("Ni58", "n-028_Ni_058-ENDF8.0.endf"),
-    ("Ni60", "n-028_Ni_060-ENDF8.0.endf"),
-    ("Ni61", "n-028_Ni_061-ENDF8.0.endf"),
-    ("Ni62", "n-028_Ni_062-ENDF8.0.endf"),
-    ("Ni64", "n-028_Ni_064-ENDF8.0.endf"),
-    ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
-    ("Ti46", "n-022_Ti_046-ENDF8.0.endf"),
-    ("Ti47", "n-022_Ti_047-ENDF8.0.endf"),
-    ("Ti48", "n-022_Ti_048-ENDF8.0.endf"),
-    ("Ti49", "n-022_Ti_049-ENDF8.0.endf"),
-    ("Ti50", "n-022_Ti_050-ENDF8.0.endf"),
-    ("Si28", "n-014_Si_028-ENDF8.0.endf"),
-    ("Si29", "n-014_Si_029-ENDF8.0.endf"),
-    ("Si30", "n-014_Si_030-ENDF8.0.endf"),
+pub const ROD_METAL_TAPES_ENDF8: [(&str, Tape); RodMetalNuclides::COUNT] = [
+    ("Fe54", Tape::endf("n-026_Fe_054-ENDF8.0.endf")),
+    ("Fe56", Tape::endf("n-026_Fe_056-ENDF8.0.endf")),
+    ("Fe57", Tape::endf("n-026_Fe_057-ENDF8.0.endf")),
+    ("Fe58", Tape::endf("n-026_Fe_058-ENDF8.0.endf")),
+    ("Cr50", Tape::endf("n-024_Cr_050-ENDF8.0.endf")),
+    ("Cr52", Tape::endf("n-024_Cr_052-ENDF8.0.endf")),
+    ("Cr53", Tape::endf("n-024_Cr_053-ENDF8.0.endf")),
+    ("Cr54", Tape::endf("n-024_Cr_054-ENDF8.0.endf")),
+    ("Ni58", NI_TAPE[0]),
+    ("Ni60", NI_TAPE[1]),
+    ("Ni61", NI_TAPE[2]),
+    ("Ni62", NI_TAPE[3]),
+    ("Ni64", NI_TAPE[4]),
+    ("Mn55", Tape::endf("n-025_Mn_055-ENDF8.0.endf")),
+    ("Ti46", Tape::endf("n-022_Ti_046-ENDF8.0.endf")),
+    ("Ti47", Tape::endf("n-022_Ti_047-ENDF8.0.endf")),
+    ("Ti48", Tape::endf("n-022_Ti_048-ENDF8.0.endf")),
+    ("Ti49", Tape::endf("n-022_Ti_049-ENDF8.0.endf")),
+    ("Ti50", Tape::endf("n-022_Ti_050-ENDF8.0.endf")),
+    ("Si28", Tape::endf("n-014_Si_028-ENDF8.0.endf")),
+    ("Si29", Tape::endf("n-014_Si_029-ENDF8.0.endf")),
+    ("Si30", Tape::endf("n-014_Si_030-ENDF8.0.endf")),
 ];
+
+/// The five nickel tapes, ENDF/B-VIII.0, in the ACE submodule.
+const NI_TAPE: [Tape; 5] = [
+    Tape { dir: DataDir::AceSubmoduleEndfB8, file: "n-028_Ni_058-ENDF8.0.endf" },
+    Tape { dir: DataDir::AceSubmoduleEndfB8, file: "n-028_Ni_060-ENDF8.0.endf" },
+    Tape { dir: DataDir::AceSubmoduleEndfB8, file: "n-028_Ni_061-ENDF8.0.endf" },
+    Tape { dir: DataDir::AceSubmoduleEndfB8, file: "n-028_Ni_062-ENDF8.0.endf" },
+    Tape { dir: DataDir::AceSubmoduleEndfB8, file: "n-028_Ni_064-ENDF8.0.endf" },
+];
+
+/// He-3 atom fraction of natural (atmospheric) helium, 1.343e-6.
+///
+/// Source: IUPAC/CIAAW representative isotopic composition of helium,
+/// 0.000 001 343(13) He-3 / 0.999 998 657(13) He-4 (Meija et al., *Pure Appl.
+/// Chem.* 88 (2016) 293-306, Table 1). He-3's 5333 b thermal (n,p) makes it
+/// the only part of the coolant that absorbs at all; at this fraction it is
+/// ~3e-11 atoms/(b cm).
+pub const HE3_ATOM_FRACTION_OF_NATURAL_HE: f64 = 1.343e-6;
+
+/// Helium coolant pressure \[kPa\]: **101.33 kPa, an ASSUMPTION** (gh:#426).
+///
+/// Şeker & Çolak (2003), NED 222:263, p.267 states atmospheric pressure,
+/// 101.33 kPa, for its air case and gives no other pressure; the HTR-10
+/// first-criticality loading was at room temperature (27 °C, as Li and Şeker
+/// state), and neither paper states the helium pressure. The helium case is
+/// therefore taken as atmospheric, and this is stated rather than implied.
+pub const HELIUM_PRESSURE_KPA: f64 = 101.33;
+
+/// Boltzmann constant \[J/K\] (SI 2019, exact).
+const BOLTZMANN: f64 = 1.380_649e-23;
+
+/// Atom density of an ideal gas \[atoms/(b cm)\]: `N = p / (k_B T)`.
+///
+/// At 300.15 K and 101.33 kPa this is **2.4452e-5 atoms/(b cm)**. Helium at
+/// one atmosphere is ideal to ~5e-4 (second virial coefficient ~12 cm3/mol),
+/// far below anything an eigenvalue sees.
+#[must_use]
+pub fn ideal_gas_atom_density(temperature: ThermodynamicTemperature, pressure: Pressure) -> f64 {
+    // atoms/m3 -> atoms/(b cm): 1 b cm = 1e-24 cm3 = 1e-30 m3.
+    pressure.get::<pascal>() / (BOLTZMANN * temperature.get::<kelvin>()) * 1.0e-30
+}
 
 /// Avogadro constant \[1/mol\] (CODATA 2018, exact).
 const AVOGADRO: f64 = 6.022_140_76e23;
@@ -330,19 +399,23 @@ pub const ROD_JOINT_IRON_DENSITY: f64 = 0.04;
 /// **Signature changed 2026-09-25** to take [`RodMetalNuclides`]: the ten
 /// control rods are now explicit geometry at their withdrawn position, and
 /// their steel sleeves and iron joints need nuclides the pebble set has no
-/// slots for.
+/// slots for. **Changed again 2026-10-01** to take the whole
+/// [`Htr10NuclideLayout`] (pebble, coolant and rod-metal slots in one), so
+/// the carbon split, the coolant and the rod-metal treatment are decided once,
+/// where the nuclides are.
 ///
 /// # Panics
 ///
 /// If `reflector_zone` is not listed in TECDOC Table 4-3, or if the assembled
 /// length does not match the index table.
 #[must_use]
-pub fn htr10_material_set(
-    n: Htr10Nuclides,
-    metal: RodMetalNuclides,
-    cfg: Htr10MaterialConfig,
-) -> Vec<Material> {
+pub fn htr10_material_set(layout: &Htr10NuclideLayout, cfg: Htr10MaterialConfig) -> Vec<Material> {
+    let n = layout.pebble;
+    let metal = layout.metal;
     let t = cfg.temperature_k;
+    // Natural carbon at `total` atoms/(b cm) in graphite (C-12 + C-13 on
+    // VIII.0, C-nat on VII.0; gh:#425).
+    let graphite_c = |total: f64| n.c_graphite.components(total);
     let boron = cfg.boron;
     // B-10 density for a zone, honouring the `BoronReading::None` ablation.
     let b10 = |natural: f64| {
@@ -368,11 +441,39 @@ pub fn htr10_material_set(
     // index for both, so slot 6 is reused for helium.
     mats.truncate(6);
 
-    // 6: helium -- deliberately near-void, as the reference's own model omits it.
+    // 6: the coolant, in every coolant region of the model (`mat::HELIUM`).
+    // ~~helium -- deliberately near-void, as the reference's own model omits
+    // it.~~ CORRECTED 2026-10-01 (gh:#426): that misread Li, who says
+    // "Calculations are performed for vacuum and helium". The material was
+    // exact vacuum. Since the maintainer's decision of 2026-10-01 it is natural
+    // helium, an ideal gas at the material temperature and HELIUM_PRESSURE_KPA
+    // (assumed atmospheric); vacuum is the `Coolant::Vacuum` ablation.
+    let (coolant_name, coolant) = match layout.coolant {
+        CoolantNuclides::Helium { he3, he4 } => {
+            let n_he = ideal_gas_atom_density(
+                ThermodynamicTemperature::new::<kelvin>(t),
+                Pressure::new::<pascal>(HELIUM_PRESSURE_KPA * 1.0e3),
+            );
+            (
+                format!("helium ({HELIUM_PRESSURE_KPA} kPa, {t:.2} K)"),
+                vec![
+                    NuclideComponent {
+                        nuclide_idx: he3,
+                        atom_density: n_he * HE3_ATOM_FRACTION_OF_NATURAL_HE,
+                    },
+                    NuclideComponent {
+                        nuclide_idx: he4,
+                        atom_density: n_he * (1.0 - HE3_ATOM_FRACTION_OF_NATURAL_HE),
+                    },
+                ],
+            )
+        }
+        CoolantNuclides::Vacuum => ("vacuum (coolant ablation)".to_string(), vec![]),
+    };
     mats.push(Material {
         id: 70,
-        name: "helium".into(),
-        components: vec![],
+        name: coolant_name,
+        components: coolant,
         temperature: t,
     });
 
@@ -381,20 +482,19 @@ pub fn htr10_material_set(
     mats.push(Material {
         id: 71,
         name: format!("reflector graphite (TECDOC zone {})", cfg.reflector_zone),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: n.c_graphite,
-                atom_density: z.carbon * cfg.reflector_carbon_scale,
-            },
-            NuclideComponent {
-                nuclide_idx: n.b10,
-                atom_density: b10(z.natural_boron),
-            },
-            NuclideComponent {
-                nuclide_idx: n.b11,
-                atom_density: b11(z.natural_boron),
-            },
-        ],
+        components: graphite_c(z.carbon * cfg.reflector_carbon_scale)
+            .into_iter()
+            .chain([
+                NuclideComponent {
+                    nuclide_idx: n.b10,
+                    atom_density: b10(z.natural_boron),
+                },
+                NuclideComponent {
+                    nuclide_idx: n.b11,
+                    atom_density: b11(z.natural_boron),
+                },
+            ])
+            .collect(),
         temperature: t,
     });
 
@@ -404,20 +504,19 @@ pub fn htr10_material_set(
     mats.push(Material {
         id: 72,
         name: "boronated carbon brick (TECDOC zone 17)".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: n.c_graphite,
-                atom_density: zb.carbon,
-            },
-            NuclideComponent {
-                nuclide_idx: n.b10,
-                atom_density: b10(zb.natural_boron),
-            },
-            NuclideComponent {
-                nuclide_idx: n.b11,
-                atom_density: b11(zb.natural_boron),
-            },
-        ],
+        components: graphite_c(zb.carbon)
+            .into_iter()
+            .chain([
+                NuclideComponent {
+                    nuclide_idx: n.b10,
+                    atom_density: b10(zb.natural_boron),
+                },
+                NuclideComponent {
+                    nuclide_idx: n.b11,
+                    atom_density: b11(zb.natural_boron),
+                },
+            ])
+            .collect(),
         temperature: t,
     });
 
@@ -428,20 +527,19 @@ pub fn htr10_material_set(
     mats.push(Material {
         id: 73,
         name: "bored side reflector (TECDOC zones 31-40)".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: n.c_graphite,
-                atom_density: HTR10_BORED_CARBON,
-            },
-            NuclideComponent {
-                nuclide_idx: n.b10,
-                atom_density: b10(HTR10_BORED_BORON),
-            },
-            NuclideComponent {
-                nuclide_idx: n.b11,
-                atom_density: b11(HTR10_BORED_BORON),
-            },
-        ],
+        components: graphite_c(HTR10_BORED_CARBON)
+            .into_iter()
+            .chain([
+                NuclideComponent {
+                    nuclide_idx: n.b10,
+                    atom_density: b10(HTR10_BORED_BORON),
+                },
+                NuclideComponent {
+                    nuclide_idx: n.b11,
+                    atom_density: b11(HTR10_BORED_BORON),
+                },
+            ])
+            .collect(),
         temperature: t,
     });
 
@@ -474,10 +572,7 @@ pub fn htr10_material_set(
     assert_eq!(mats.len(), mat::ZONE_TABLE_FIRST);
     for (zone, factor) in mat::TABLE_4_3_ZONES {
         let z = zone_composition(zone).expect("every TABLE_4_3_ZONES entry is in Table 4-3");
-        let mut components = vec![NuclideComponent {
-            nuclide_idx: n.c_graphite,
-            atom_density: z.carbon * factor,
-        }];
+        let mut components = graphite_c(z.carbon * factor);
         if z.natural_boron > 0.0 {
             components.push(NuclideComponent {
                 nuclide_idx: n.b10,
@@ -504,12 +599,13 @@ pub fn htr10_material_set(
     // CORRECTED 2026-10-01, gh:#428) with natural boron. ~~(TECDOC § 4.1.2)~~
     // The specification gives no isotopics: natural boron is this model's
     // reading, consistent with MIT's TECDOC Table 4-36, not stated by § 4.1.1.5.
-    // Its carbon is NOT graphite, so it takes the free-gas carbon slot.
+    // Its carbon is NOT graphite, so it takes the free-gas carbon slot
+    // (natural C-12 / C-13 on VIII.0 since 2026-10-01, gh:#425).
     let n_b4c = super::control_rod::b4c_molecular_density();
     mats.push(Material {
         id: 90,
         name: "control-rod B4C (1.7 g/cm3)".into(),
-        components: vec![
+        components: [
             NuclideComponent {
                 nuclide_idx: n.b10,
                 atom_density: b10(4.0 * n_b4c),
@@ -518,11 +614,10 @@ pub fn htr10_material_set(
                 nuclide_idx: n.b11,
                 atom_density: b11(4.0 * n_b4c),
             },
-            NuclideComponent {
-                nuclide_idx: n.c_free,
-                atom_density: n_b4c,
-            },
-        ],
+        ]
+        .into_iter()
+        .chain(n.c_free.components(n_b4c))
+        .collect(),
         temperature: t,
     });
 
@@ -576,7 +671,10 @@ pub fn htr10_material_set(
         ],
     );
     split(n_elem(wt("Mn"), atomic_weight::MN), &[metal.mn55], &[1.0]);
-    split(n_elem(wt("C"), atomic_weight::C), &[n.c_free], &[1.0]);
+    // Steel carbon: natural carbon, free gas (gh:#425).
+    for (i, d) in n.c_free.split(n_elem(wt("C"), atomic_weight::C)) {
+        split(d, &[i], &[1.0]);
+    }
     mats.push(Material {
         id: 91,
         name: "control-rod sleeve steel (7.9 g/cm3)".into(),
@@ -609,26 +707,12 @@ pub fn htr10_material_set(
 
 /// Human-readable name for each nuclide slot, for reporting.
 ///
-/// [`Htr10Nuclides`] is a table of *indices into the caller's nuclide array*,
-/// so a material component carries an index and nothing else. Anything that
-/// reports a composition needs this to turn that index back into a name.
+/// A material component carries an index and nothing else, so anything that
+/// reports a composition needs this to turn the index back into a name.
+/// ~~Took `Htr10Nuclides` and named only the eleven pebble slots.~~
+/// **CHANGED 2026-10-01:** reads the layout, so it names every slot (C-13,
+/// helium, rod metals) with the thermal law the layout binds to it.
 #[must_use]
-pub fn nuclide_name(n: Htr10Nuclides, idx: usize) -> &'static str {
-    match idx {
-        // The thermal law named is the one `htr10_rmc_keff` binds to the slot
-        // in its default (ENDF/B-VIII.0) arm. The VII.0 arm leaves the SiC
-        // slots free gas: VII.0 ships no SiC evaluation.
-        i if i == n.u235 => "U-235 (U-in-UO2 S(a,b))",
-        i if i == n.u238 => "U-238 (U-in-UO2 S(a,b))",
-        i if i == n.o16 => "O-16 (O-in-UO2 S(a,b))",
-        i if i == n.c_free => "C (free gas)",
-        i if i == n.c_graphite => "C (graphite S(a,b))",
-        i if i == n.c_sic => "C (C-in-SiC S(a,b))",
-        i if i == n.si28 => "Si-28 (Si-in-SiC S(a,b))",
-        i if i == n.si29 => "Si-29 (Si-in-SiC S(a,b))",
-        i if i == n.si30 => "Si-30 (Si-in-SiC S(a,b))",
-        i if i == n.b10 => "B-10",
-        i if i == n.b11 => "B-11",
-        _ => "unknown",
-    }
+pub fn nuclide_name(layout: &Htr10NuclideLayout, idx: usize) -> String {
+    layout.nuclide_name(idx)
 }

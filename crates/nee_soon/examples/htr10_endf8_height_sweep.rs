@@ -43,11 +43,21 @@
 //! see exactly what differs between them. Nothing is read from the
 //! environment.
 //!
-//! The nuclide set is built in this file rather than shared with
+//! ~~The nuclide set is built in this file rather than shared with
 //! `htr10_rmc_keff::nuclides`, because that one branches on the ablation knobs
 //! this example exists to be free of. The two must not drift: if a tape name
-//! or a thermal law changes there, change it here. The physics they build is
-//! intended to be identical when `htr10_rmc_keff` is run with no knobs set.
+//! or a thermal law changes there, change it here.~~ **CHANGED 2026-10-01:**
+//! both now call `nee_soon::htr10_rmc::data` (`Htr10NuclideLayout::plan` +
+//! `load_htr10_nuclides`). This example passes
+//! `Htr10DataConfig::default()` as a literal and reads nothing from the
+//! environment, so the two cannot drift: with no knobs set, `htr10_rmc_keff`
+//! builds the identical set.
+//!
+//! **Blocked on gh:#339 as of 2026-10-01.** The default rod metal is the FULL
+//! case (real Ni and Fe-57), and Fe-57 cannot yet be reconstructed, so every
+//! case here prints `REFUSED` until #339 is fixed. (Before 2026-10-01 it
+//! printed `SKIP`: the Ni tapes were not in the checkout.) Use
+//! `htr10_rod_metal_simplified` for a runnable case meanwhile.
 //!
 //! ## What every case holds fixed
 //!
@@ -58,6 +68,9 @@
 //! | SiC S(a,b) | C-in-SiC MAT 44, Si-in-SiC MAT 43 | SiC is a crystal; free gas is wrong |
 //! | UO2 S(a,b) | U-in-UO2 MAT 48, O-in-UO2 MAT 75 | generated in-process from LEAPR decks |
 //! | silicon | natural Si-28/29/30 | splits a correct total, does not change it |
+//! | carbon | natural, C-12 / C-13 98.93 / 1.07 at.% (since 2026-10-01, gh:#425) | ENDF/B-VIII.0 ships the isotopes separately |
+//! | coolant | natural helium, 300.15 K, 101.33 kPa (pressure assumed; since 2026-10-01, gh:#426) | was exact vacuum until 2026-10-01 |
+//! | rod metal | FULL: real Ni-58..64, Fe-54..58 (since 2026-10-01, gh:#329) | blocked by gh:#339 |
 //! | cavity | fixed core cavity | the only treatment there is — see below |
 //! | rings | 14 | radial tiling of the bed |
 //! | bed | Şeker & Çolak (2003) 13-ball cell, N = 9 … 20 layers | every ball whole (gh:#472) |
@@ -114,21 +127,20 @@
 
 use std::time::Instant;
 
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat, HTR10_CORE_CAVITY_CM};
-use nee_soon::htr10_rmc::materials::{
-    GraphiteLaw,
-    htr10_material_set, Htr10MaterialConfig, RodMetalNuclides, ROD_METAL_TAPES_ENDF8,
+use nee_soon::htr10_rmc::data::{
+    load_htr10_nuclides, Htr10DataConfig, Htr10DataError, Htr10NuclideLayout,
 };
+use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
 use nee_soon::htr10_rmc::reflector::zone_composition;
-use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
-use outram_mc_libs::pebble_beds::htr10::{BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::BoronReading;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
-use outram_mc_libs::run_diagnostics::{DataSource, RunDiagnostics};
+use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::tally::mesh::RegularMesh;
 
 const TEMP_K: f64 = 300.15;
@@ -136,20 +148,6 @@ const TEMP_K: f64 = 300.15;
 /// RMC's value at its 123.576 cm headline loading. Kept only so the printed
 /// output can show how far the headline is from the height actually modelled.
 const RMC_HEADLINE_KEFF: f64 = 1.004288;
-
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
 
 /// Everything one case is. No field has a default and nothing is read from the
 /// environment: this struct IS the run.
@@ -273,136 +271,14 @@ fn rmc_at_height(h_cm: f64) -> Option<f64> {
     None
 }
 
-/// The ENDF/B-VIII.0 nuclide set, with every bound thermal law this model has.
-///
-/// All four law families are applied unconditionally, per the workspace rule
-/// that correct physics is the default and not an opt-in. There is no ablation
-/// path here on purpose — `htr10_rmc_keff` is where ablations live.
-fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
-    let base =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-
-    macro_rules! load {
-        ($diag:expr, $n:expr, $f:expr) => {{
-            let p = base.join($f);
-            eprint!("  {:<6} ", $n);
-            let t = Instant::now();
-            let r = $diag.time_data(
-                format!("{} cross sections", $n),
-                DataSource::File(p.clone()),
-                format!("{:.2} K, tol 1.0e-3", TEMP_K),
-                || {
-                    p.exists().then_some(())?;
-                    Nuclide::from_endf_file(&p, $n, TEMP_K, 1.0e-3).ok()
-                },
-            );
-            eprintln!("{:.1?}", t.elapsed());
-            r
-        }};
+/// The ENDF/B-VIII.0 data configuration: the correct-physics default, every
+/// field stated so the source is the specification of the run. No ablation
+/// path here on purpose -- `htr10_rmc_keff` is where ablations live.
+fn data_config_endf8() -> Htr10DataConfig {
+    Htr10DataConfig {
+        temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
+        ..Htr10DataConfig::default()
     }
-
-    // Graphite law: `GraphiteLaw::default()`, 30 %-porosity reactor graphite
-    // (MAT 32) since 2026-09-27; crystalline (MAT 30) before. See
-    // `nee_soon::htr10_rmc::materials::GraphiteLaw`.
-    let law = GraphiteLaw::default();
-    let sab = diag.time_data(
-        "graphite S(a,b)",
-        DataSource::File(base.join(law.tape())),
-        format!("MAT {}, {TEMP_K:.2} K", law.mat()),
-        || {
-            let p = base.join(law.tape());
-            if !p.exists() {
-                eprintln!("  graphite S(a,b): tape not in this checkout");
-                return None;
-            }
-            ThermalScattering::from_endf_file(p.to_str()?, law.mat(), TEMP_K, "graphite")
-                .map_err(|e| eprintln!("  graphite S(a,b) load FAILED: {e}"))
-                .ok()
-        },
-    )?;
-
-    let sic_sab = |diag: &mut RunDiagnostics, mat_no: i32, file: &str, name: &'static str| {
-        let p = base.join(file);
-        diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::File(p.clone()),
-            format!("MAT {mat_no}, {TEMP_K:.2} K"),
-            || {
-                if !p.exists() {
-                    eprintln!("  {name}: {file} not in this checkout -- falling back to free gas");
-                    return None;
-                }
-                ThermalScattering::from_endf_file(p.to_str()?, mat_no, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} S(a,b) load FAILED: {e}"))
-                    .ok()
-            },
-        )
-    };
-    let c_in_sic = sic_sab(diag, 44, "tsl-CinSiC.endf", "c_SiC");
-    let si_in_sic = sic_sab(diag, 43, "tsl-SiinSiC.endf", "Si_SiC");
-
-    // No UO2 tape ships in reference-data/endf; both laws are GENERATED from
-    // the LEAPR decks committed in njoy-outram-park-fork. Reproducible from a
-    // deck that can be read, with no new binary tapes. Costs ~10 s and ~15 s.
-    let uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
-        eprint!("  {name:<8} LEAPR ");
-        let t = Instant::now();
-        let out = diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::GeneratedFromLeaprDeck(material.base().to_string()),
-            format!(
-                "MAT {}, {TEMP_K:.2} K, generated in-process",
-                material.mat()
-            ),
-            || {
-                ThermalScattering::from_leapr(material, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} LEAPR generation FAILED: {e}"))
-                    .ok()
-            },
-        );
-        eprintln!("{:.1?}", t.elapsed());
-        out
-    };
-    let u_in_uo2 = uo2_sab(diag, SabMaterial::UInUO2, "U_UO2");
-    let o_in_uo2 = uo2_sab(diag, SabMaterial::OInUO2, "O_UO2");
-
-    let bind = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
-
-    let mut v = vec![
-        bind(load!(diag, "U235", "n-092_U_235-ENDF8.0.endf")?, &u_in_uo2),
-        bind(load!(diag, "U238", "n-092_U_238.endf")?, &u_in_uo2),
-        bind(load!(diag, "O16", "n-008_O_016-ENDF8.0.endf")?, &o_in_uo2),
-        // 3: free-gas carbon. Unused by this example's materials, but slot 3
-        // must stay occupied or every later index repoints.
-        load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?,
-        // 4: graphite-bound carbon.
-        load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        // 5, 8, 9: natural silicon, bound in SiC.
-        bind(
-            load!(diag, "Si28", "n-014_Si_028-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        load!(diag, "B10", "n-005_B_010-ENDF8.0.endf")?,
-        // 7: carbon bound in SiC.
-        bind(load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-        bind(
-            load!(diag, "Si29", "n-014_Si_029-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        bind(
-            load!(diag, "Si30", "n-014_Si_030-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        load!(diag, "B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
-    ];
-    // 11..: the withdrawn control rods' steel and iron (2026-09-25), free gas.
-    for (name, file) in ROD_METAL_TAPES_ENDF8 {
-        v.push(load!(diag, name, file)?);
-    }
-    Some(v)
 }
 
 fn run_case(spec: &CaseSpec) {
@@ -425,9 +301,19 @@ fn run_case(spec: &CaseSpec) {
         "{} particles x [{} inactive + {} active], {} rings x {} layers, fixed core cavity",
         spec.particles, spec.inactive, spec.active, spec.n_rings, spec.n_axial
     ));
-    let Some(nucs) = nuclides_endf8(&mut diag) else {
-        println!("SKIP: reference-data/endf/ not in this checkout.");
-        return;
+    let data_cfg = data_config_endf8();
+    let layout = Htr10NuclideLayout::plan(&data_cfg).expect("the default data configuration is valid");
+    println!("  rod metal: {}", data_cfg.rod_metal.label());
+    let nucs = match load_htr10_nuclides(&data_cfg, &layout, &mut diag) {
+        Ok(v) => v,
+        Err(e @ Htr10DataError::BlockedByGh339) => {
+            println!("REFUSED: {e}");
+            return;
+        }
+        Err(e) => {
+            println!("SKIP: {e}");
+            return;
+        }
     };
 
     let z = zone_composition(spec.reflector_zone).expect("zone is listed");
@@ -436,8 +322,7 @@ fn run_case(spec: &CaseSpec) {
         spec.reflector_zone, z.carbon, spec.reflector_carbon_scale, z.natural_boron
     );
     let mats = htr10_material_set(
-        NUC,
-        RodMetalNuclides::contiguous(11),
+        &layout,
         Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron: spec.boron,

@@ -2497,11 +2497,31 @@ explicit reflector (PR #327). On it (fast single-seed runs, 2000 x
 the residual at the critical loading is ~~`-2365` pcm on ENDF/B-VIII.0 and
 `-922` pcm on VII.0~~ **`-2726` pcm on ENDF/B-VIII.0 and `-1283` pcm on
 VII.0** (CORRECTED 2026-09-27, gh:#333: matched on the paper's whole-ball
-height; `n_axial = 25` IS the paper's 123.576 cm loading), roughly -4000 pcm
+height; ~~`n_axial = 25` IS the paper's 123.576 cm loading~~), roughly -4000 pcm
 from the numbers above; the drift is still there (~~`+10.2`~~ `+13.2 +/- 4.0`
-pcm/cm on VIII.0). Every "height-matched" residual in this section (and in
-#218) used the volume-equivalent height and is low by 165-480 pcm. Record:
+pcm/cm on VIII.0). ~~Every "height-matched" residual in this section (and in
+#218) used the volume-equivalent height and is low by 165-480 pcm.~~
+**CORRECTED 2026-10-01 from Şeker & Çolak (2003) Table 3 (gh:#333):** the
+reference rows hold `1346 N + 733` balls, which at 0.61 is **H − 0.55 cm**
+of volume-equivalent bed (0.58 cm at N = 9, 0.48 cm at N = 20), not
+H − 6 cm. `n_axial = 2N + 1` holds `(2N+1) x 4.899` cm, which is
+**0.52–0.63 cm (≈ 60–75 balls) less** than the row it was matched to. So:
+- the whole-ball-height residuals above are **low**;
+- the earlier volume-equivalent ones were **high**;
+- in both cases by roughly **70–250 pcm**. That magnitude is estimated from
+  the reference's own slope, not measured, and it assumes Li's RMC model
+  has Şeker's inventory.
+
+The correct match is by **ball count**. Record:
 `crates/outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`.
+
+**Note 2026-10-01 (gh:#428).** Every residual in this section was computed
+on a bed that is now **withdrawn**: the one-ball `core_model::assemble`,
+then the two-ball `bed::TwoBallBed`. Both cut pebbles, and both now panic
+if asked for. The default bed is Şeker & Çolak (2003)'s 13-ball cell
+(`bed::SekerBed`, gh:#472), and it is compared to RMC at equal ball count
+([`rmc_keff_at_ball_count`]). None of the numbers above was re-measured on
+it for this note, so none of them describes the current default.
 
 **Model defects, production path (`assemble_explicit_triso`):**
 - ~~gh:#309 — one ball per hex tile clips the pebble shell: 4.76 % of all
@@ -2511,6 +2531,11 @@ pcm/cm on VIII.0). Every "height-matched" residual in this section (and in
   0.6096-0.6097, graphite restored (envelope graphite 0.4990 -> 0.5244 at
   122.47 cm), kernel fraction 0.998-1.000 of the paper-implied value.
   Worth `+2231` to `+2413` pcm (3-seed means, 98-201 cm): **k goes UP**.
+  **SUPERSEDED 2026-10-01 (gh:#472):** the two-ball cell still cut the
+  balls crossing the side wall and the bed top, and it is withdrawn
+  (`OUTRAM_HTR10_TWO_BALL_CELL` now panics in `assemble_explicit_triso`).
+  The default is `bed::SekerBed`, in which every ball is whole and is
+  rejected at the side wall, the cone and the tube.
 - ~~gh:#310 — the lattice drops the A-B layer offset, so axially adjacent
   pebbles touch and their fuel zones meet~~ **FIXED 2026-09-25**, same
   change: A-B stacking restored, minimum centre distance of the BUILT bed
@@ -2575,8 +2600,11 @@ It is still an AI-drafted model awaiting human review.
 
 **Other paths and plumbing:**
 - gh:#308 — `assemble` (homogenised fuel) lacks the cavity, conus, bricks and
-  annulus of the production path; do not use it for a `k` comparison. It
-  feeds `htr10_mgxs_genfoam`.
+  annulus of the production path; do not use it for a `k` comparison. ~~It
+  feeds `htr10_mgxs_genfoam`.~~ **CORRECTED 2026-10-01:** `assemble` is
+  withdrawn and panics on entry (it cuts pebbles). `htr10_mgxs_genfoam`
+  still calls it (checked: `examples/htr10_mgxs_genfoam.rs`), so that
+  example now panics too.
 - gh:#313 — `Cell::temperature` is never read by transport and every cell
   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.
 - gh:#312 — the control-rod smeared composition drops the steel sections
@@ -2624,14 +2652,35 @@ Tables 3 and 4 are **both captioned "(vacuum)"**, while the text says
 *"Calculations are performed for vacuum and helium."* Checking them row by
 row:
 
-- the **RMC** column is byte-identical in **11 of 11** shared rows;
-- the **MCNP** column differs in **0 of 11** — that is, in every row.
+- the **RMC** column is byte-identical in ~~**11 of 11**~~ **12 of 12**
+  shared rows;
+- the **MCNP** column ~~differs in **0 of 11** — that is, in every row~~
+  **differs in 12 of 12** rows.
+
+**CORRECTED 2026-10-01 (gh:#428):** Tables 3 and 4 have twelve rows, not
+eleven (`the_reference_curve_is_monotonic_and_brackets_criticality` asserts
+12), and "0 of 11" inverted the count. Checked against the stored
+[`MCNP_TABLE3_KEFF_VS_HEIGHT`] and [`MCNP_TABLE4_KEFF_VS_HEIGHT`]: no row
+is equal.
 
 So the paper reports **one** RMC dataset against **two** MCNP results, and
 one of the two captions is wrong. Consequence for anyone verifying against
 it: there is a single RMC curve, not a vacuum/helium pair, and an attempt to
 reproduce two would be chasing an artefact. [`RMC_KEFF_VS_HEIGHT`] carries
 that single curve.
+
+**RESOLVED 2026-10-01 from Şeker & Çolak (2003), NED 222:263, Table 3**
+(the MCNP paper Li cites): Li's Table 3 MCNP column equals Şeker's
+**vacuum** column and Li's Table 4 MCNP column equals Şeker's **helium**
+column, in all 12 rows to 5 d.p. (checked by eye against the stored
+constants). So Table 4's "(vacuum)" caption is the wrong one. Which medium
+Li's single RMC curve was run in is still not stated (gh:#333).
+
+**This model's coolant is helium by default since 2026-10-01**
+(maintainer, gh:#426: "use helium, I think it is more accurate"): natural
+helium at 300.15 K and an assumed 101.33 kPa in every coolant region.
+Until then `mat::HELIUM` was an empty material, i.e. vacuum, which is now
+the `OUTRAM_HTR10_VACUUM_COOLANT` ablation (`data::Coolant::Vacuum`).
 
 ## How close is close, for this reference
 
@@ -2658,14 +2707,27 @@ The paper describes the core as hexagonal prism unit cells but **never states
 the pitch**. Its prose —
 
 > *"There are seven balls at these faces; one at the center of the basal
-> plane and six surrounding spheres ... The intermediate section of each
-> hexagonal prism contains three full balls as well as partial contributions
-> from the neighboring hexagonal prism cells from all six sides."*
+> plane and six surrounding spheres. These six spheres are not centered at
+> the corners of the hexagons, but rather, hexagonal prism side surfaces
+> surround these balls. The intermediate section of each hexagonal prism
+> contains three full balls as well as partial contributions from the
+> neighboring hexagonal prism cells from all six sides."*
 
-— does not determine a cell: it describes sharing between neighbours without
-saying how much, and the figures carry no extractable dimensions. So the cell
-is derived from the invariants the paper **does** state, and then checked
-against one it states that was *not* used in the derivation.
+**CORRECTED 2026-10-01 (gh:#429):** the quotation above was previously
+elided (`...`) exactly across the "not centered at the corners" sentence,
+which is restored. The text is Li, Yu & Wei (2014) p.3, and it is
+**verbatim from Şeker & Çolak (2003), p.266**, the MCNP model Li follows:
+Şeker, V., Çolak, Ü. (2003), *HTR-10 full core first criticality analysis
+with MCNP*, Nucl. Eng. Des. 222, 263–270, doi:10.1016/S0029-5493(03)00031-1.
+Şeker is therefore the primary source for the cell; see "What Şeker & Çolak
+(2003) settles" below.
+
+— ~~does not determine a cell: it describes sharing between neighbours
+without saying how much, and the figures carry no extractable dimensions.~~
+**CORRECTED 2026-10-01:** the prose alone does not determine a cell, but the
+figures do carry dimensions (the 6 cm ball is a built-in scale bar, gh:#429),
+and Şeker's Table 3 ball counts constrain the cell independently (below).
+The cell here is derived from the invariants the paper **does** state.
 
 # The decode
 
@@ -2679,13 +2741,19 @@ paper's 61 %: ordered close packing would be 74.05 %, so the balls do not
 touch. Expanding the pitch from the touching value `d` by
 `sqrt(0.7405/0.61)` gives 6.6106 cm.
 
-# The check that makes it evidence
+# ~~The check that makes it evidence~~ A consistency check, not evidence
 
 The cell above was fitted to **two** stated quantities — layer height and
 filling fraction. Tiling it through the stated core (180 cm diameter,
 197 cm high) predicts **~27 038 balls** against the paper's stated **27 000**,
-a 0.14 % difference. Nothing was tuned to hit that, which is what makes the
-reconstruction evidence rather than a fit.
+a 0.14 % difference. ~~Nothing was tuned to hit that, which is what makes the
+reconstruction evidence rather than a fit.~~ **CORRECTED 2026-10-01
+(gh:#430):** [`HexBedCell::balls_in_core`] reduces to
+`V_core × 0.61 / V_ball` for **any** pitch and height, so the 27 038 follows
+from the 0.61 put in and cannot fail. It checks arithmetic, not the cell.
+The 27 000 is also the **equilibrium** (all-fuel) core, not the 57:43
+initial core. The independent count the check lacked is Şeker & Çolak
+(2003) Table 3 (below).
 
 # What this is not
 
@@ -2693,7 +2761,76 @@ It reproduces the paper's stated *invariants*. It does **not** claim to be
 their exact unit-cell tiling, which their text does not determine. Any
 write-up must say so.
 
+# What Şeker & Çolak (2003) settles (read 2026-10-01)
+
+Şeker & Çolak (2003), NED 222:263–270 (full citation above), is the MCNP
+model whose cell text Li (2014) reproduces. What it adds, and where **this
+module departs from it**:
+
+**1. An independent ball count (Table 3).** For N = 9…20 layers, every row
+satisfies, exactly (checked arithmetically on all 12 rows):
+
+| quantity | Şeker Table 3 |
+|---|---|
+| loading height | `9.798 N + 6.0` cm |
+| total balls | `1346 N + 733` |
+| fuel balls | `767 N + 418` (0.570 of the total) |
+
+1346 balls per 9.798 cm layer in the r = 90 cm core is a filling fraction
+of **0.6106**, Şeker's *"61%"*, measured **after** the wall rejection in
+item 3. The constant 733 is one extra **basal** plane: both the top and the
+bottom basal planes are whole balls. At the critical row (N = 12) the model
+holds 16 885 balls against the experiment's 16 890 at 123.06 cm.
+
+**2. The cell is clustered, not uniformly diluted (gh:#429).** The counts
+split each layer into **733 balls in the basal plane and 613 in the central
+plane**: areal fractions through the ball centres of **0.814 / 0.681** over
+the whole bed. **This module's ~~cell~~ [`HexBedCell`] is uniform:
+0.747 / 0.747.** A
+reconstruction consistent with the text, the counts and Li's Fig. 3 (~~an
+inference, medium confidence, not built~~ **built 2026-10-01 as
+[`SekerCell`], gh:#472**): **13 balls per prism**, i.e. the 7
+touching basal balls (7:6 = 1.167 against the counted 733:613 = 1.196) plus
+3 full + 6 half central balls, with a hexagon circumradius ≈ 9.4–9.7 cm.
+Fuel is assigned **per layer** to 0.57:0.43 (p.267), not as a fixed per-cell
+pattern.
+
+**3. Wall-crossing balls are rejected everywhere (gh:#331).** p.267:
+*"Outer boundary of the array is the inner surface of the side reflector. If
+any ball intersects with the reflector surface, it is rejected."* The same
+applies at the cone and the discharge tube. ~~**This module cuts balls at the
+side wall by default** and rejects them only at the cone and tube; see
+[`TwoBallBed::rejecting_side_wall_crossers`].~~ **CORRECTED 2026-10-01
+(gh:#428):** that was [`TwoBallBed`], now withdrawn. The default
+[`SekerBed`] rejects at the side wall, the cone and the tube, so every kept
+ball is whole.
+
+**4. The top layer is whole.** p.267: *"The top layer is formed by adding
+half spheres to each ball present in this layer."* The count (+733) says
+the bottom plane is whole too. ~~**This module clips the top layer** at the
+bed plane (gh:#429 item 3; see [`TwoBallBed`], "Axial layout").~~
+**CORRECTED 2026-10-01 (gh:#428):** only the withdrawn [`TwoBallBed`]
+clips it. [`SekerBed`]'s top and bottom basal planes are whole balls (see
+its "Axial layout").
+
+**5. The cone and discharge tube hold graphite balls only**, hexagonally
+arranged and rejected at the surfaces (p.267), which is what
+~~[`TwoBallBed`]~~ [`SekerBed`] builds (as the withdrawn [`TwoBallBed`]
+did).
+
+**6. The heights (gh:#333).** Şeker's height runs from the bottom of the
+lowest ball to the top of the highest, but the same balls at 0.61 fill
+**H − 0.55 cm** of volume-equivalent bed (0.58 cm at N = 9, 0.48 cm at
+N = 20), not H − 6 cm. Matching a model to a row is therefore done
+correctly by **ball count**. See [`super::RMC_KEFF_VS_HEIGHT`].
+
 # Where it is built (2026-09-25)
+
+**SUPERSEDED 2026-10-01 (gh:#472, noted gh:#428):** the transported bed is
+now [`SekerBed`] on [`SekerCell`]. [`TwoBallBed`] is withdrawn (it cuts
+pebbles; its environment knob panics), and [`HexBedCell`] survives for the
+geometry closures (`super::geometry_closures`). The rest of this section is
+the record.
 
 [`TwoBallBed`] builds this cell as the transported bed of
 `core_model::assemble_explicit_triso`: the hex tile IS the cell (two whole
@@ -2701,7 +2838,8 @@ balls per tile, A-B stacked), with fuel/dummy assigned per ball (gh:#309
 step 2, gh:#310). Until then the lattice held one ball per half-height tile,
 which dropped the A-B offset and made the pebbles interpenetrate.
 [`bed_tile_levels`] (one identity per TILE) remains only for the
-homogenised `core_model::assemble`.
+homogenised `core_model::assemble`, itself withdrawn 2026-10-01 (it cuts
+pebbles, which is wrong physics).
 
 ```rust
 pub mod bed { /* ... */ }
@@ -3598,6 +3736,11 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
 **The HTR-10 bed as the paper's two-ball prism cell**, with a fuel/dummy
 identity for every BALL (gh:#309 step 2, gh:#310).
 
+**WITHDRAWN 2026-10-01 (maintainer, gh:#472):** it cuts pebbles at the side
+wall and the bed top, which is wrong physics, and it must not be run, not
+even as an ablation. [`SekerBed`] is the bed. Kept as the record of what
+the numbers of 2026-09-25 to 2026-09-30 were computed on.
+
 NEW WORK, not a port.
 
 # Axial layout
@@ -3623,6 +3766,12 @@ ball that has volume in the bed or the conus is present — including the
 layer centred 2.449 cm above the bed top, whose lower 0.55 cm is inside the
 bed and replaces the top layer's upper 0.55 cm, which the bed plane clips
 off. (Without it the top slab would be under-packed.)
+
+**A departure from the source, stated 2026-10-01 (gh:#429 item 3):** Şeker
+& Çolak (2003) p.267 build the top layer from whole balls (*"formed by
+adding half spheres to each ball present in this layer"*), and their Table 3
+count (`1346 N + 733`) implies a whole bottom basal plane as well. The clip
+here is volume-equivalent, not ball-for-ball.
 
 # Fuel/dummy identity
 
@@ -3877,7 +4026,9 @@ or removed. Those keep the CSG cut (the treatment before this), and the
 finished core's filling fraction is 61 %; the cut bed measures 0.6089, while
 rejecting wall-crossers ([`TwoBallBed::rejecting_side_wall_crossers`], kept
 as an ablation) drops it to 0.5737. *"Packing fraction wrong already changes
-too much."*
+too much."* **SUPERSEDED 2026-10-01 (maintainer, gh:#331/#472):** the cut
+is wrong physics. The default [`SekerBed`] rejects at the side wall too, and
+the two-ball bed this paragraph describes is withdrawn.
 
 `None` in [`TwoBallBed::new_with_tube`] (the `OUTRAM_HTR10_HOMOG_TUBE`
 ablation) builds no tube balls and applies no rejection: the cone then cuts
@@ -3955,6 +4106,1306 @@ pub struct DischargeTube {
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &DischargeTube) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SekerCell`
+
+**Şeker & Çolak (2003)'s hexagonal-prism unit cell**, the default HTR-10 bed
+cell since 2026-10-01 (gh:#472).
+
+NEW WORK, not a port. The cell is reconstructed from the source's text and
+Fig. 3; no dimension is fitted. Source: Şeker, V., Çolak, Ü. (2003), *HTR-10
+full core first criticality analysis with MCNP*, Nucl. Eng. Des. 222,
+263–270, doi:10.1016/S0029-5493(03)00031-1, pp. 266–267. Li, Yu & Wei
+(2014) reproduce its text verbatim.
+
+# What the source states
+
+> *"The height of a layer is 9.798 cm. Top and bottom planes of hexagonal
+> prisms are flat and contain half spheres. There are seven balls at these
+> faces; one at the center of the basal plane and six surrounding spheres.
+> These six spheres are not centered at the corners of the hexagons, but
+> rather, hexagonal prism side surfaces surround these balls. The
+> intermediate section of each hexagonal prism contains three full balls as
+> well as partial contributions from the neighboring hexagonal prism cells
+> from all six sides."*
+
+# What Fig. 3 adds (read at 600 dpi, 2026-10-01, the 6 cm ball as scale)
+
+Both panels show the same flat-topped hexagon (vertices at 0°, 60°, …; the
+`HexOrientation::Y` convention), with circumradius ≈ 9.3–9.5 cm.
+- **Basal plane:** a flower of 7 **touching** balls. The six outer balls
+  point at the vertices and are tangent to the two side faces beside
+  them. Neighbouring flowers touch.
+- **Central plane:** a touching 6-ball triangle:
+  - 3 balls at `d/√3` (90°, 210°, 330°), in the flower's hollows;
+  - 3 at `2d/√3` (270°, 30°, 150°), each crossing a side face into the
+    neighbouring cell;
+  - through the other three faces, the neighbours' corner balls enter.
+
+# What follows, with no free parameter
+
+- apothem = `d cos 30° + d/2` = **8.196 cm** (3√3 + 3), pitch (flat to
+  flat) **16.392 cm**;
+- height = two close-packed layer spacings, `2 d sqrt(2/3)` = 9.798 cm, which
+  is the stated layer;
+- every contact is exactly `d`: the central balls sit `d/√3` from their
+  three supporting balls laterally and `d sqrt(2/3)` vertically;
+- **13 balls per cell** (7 basal + 6 central), filling fraction **0.6448**,
+  areal fractions through the ball centres **0.851 basal / 0.729 central**.
+
+The 0.6448 is the interior value. Şeker's *"61%"* is measured after the wall
+rejection (see [`SekerBed`]).
+
+```rust
+pub struct SekerCell {
+    pub apothem: f64,
+    pub height: f64,
+    pub ball_diameter: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `apothem` | `f64` | Hexagon apothem (centre to side face) \[cm\]. |
+| `height` | `f64` | Cell height \[cm\]: one basal-to-basal layer. |
+| `ball_diameter` | `f64` | Ball diameter \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_paper() -> Self { /* ... */ }
+  ```
+  The cell from Şeker & Çolak (2003) text and Fig. 3, for 6 cm balls. See
+
+- ```rust
+  pub fn pitch(self: &Self) -> f64 { /* ... */ }
+  ```
+  Flat-to-flat pitch \[cm\], the lattice pitch: `2 * apothem`.
+
+- ```rust
+  pub fn balls_per_cell(self: &Self) -> f64 { /* ... */ }
+  ```
+  Balls per cell: 7 basal (2 x 7 halves) + 6 central (3 whole, 3 x 2
+
+- ```rust
+  pub fn area(self: &Self) -> f64 { /* ... */ }
+  ```
+  Hexagon area \[cm^2\], `2 sqrt(3) apothem^2`.
+
+- ```rust
+  pub fn packing_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  Ball volume fraction of the (interior) cell \[-\]: 0.6448.
+
+- ```rust
+  pub fn site_centre(self: &Self, site: SekerSite) -> [f64; 3] { /* ... */ }
+  ```
+  Tile-local centre \[cm\] of `site`. See [`SekerSite`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SekerCell { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SekerCell) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SekerSite`
+
+One of the 23 ball sites a Şeker tile holds a piece of. See [`SekerCell`].
+
+| site | tile-local centre | shared with |
+|---|---|---|
+| `BottomFlower(k)` | flower ball `k` at `z = -h/2` | the tile below (half each) |
+| `TopFlower(k)` | flower ball `k` at `z = +h/2` | the tile above (half each) |
+| `Inner(k)` | `d/√3` at `90° + 120° k`, `z = 0` | nobody: wholly inside |
+| `Outer(k)` | `2d/√3` at `270° + 120° k`, `z = 0` | the neighbour it crosses into |
+| `Entering(k)` | `pitch - 2d/√3` at `90° + 120° k`, `z = 0` | the neighbour at `90° + 120° k`, whose `Outer(k)` it is |
+
+Flower ball `k = 0` is the centre; `k = 1..=6` lie at `d` and angle
+`60° (k - 1)`, pointing at the vertices.
+
+```rust
+pub enum SekerSite {
+    BottomFlower(u8),
+    TopFlower(u8),
+    Inner(u8),
+    Outer(u8),
+    Entering(u8),
+}
+```
+
+##### Variants
+
+###### `BottomFlower`
+
+Basal flower ball `k` (0..7) on the tile's bottom face.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `TopFlower`
+
+Basal flower ball `k` (0..7) on the tile's top face.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `Inner`
+
+Central-plane ball `k` (0..3) in the flower's hollows.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `Outer`
+
+Central-plane corner ball `k` (0..3) of this tile's triangle.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `Entering`
+
+A neighbour's central corner ball `k` (0..3) entering this tile.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SekerSite { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &SekerSite) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SekerSite) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &SekerSite) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SekerBallId`
+
+A ball of the Şeker bed, named by the tile that owns it. Every piece of one
+ball, in every tile that holds a piece of it, resolves to the same id.
+
+```rust
+pub enum SekerBallId {
+    Flower {
+        a: i32,
+        b: i32,
+        face: i32,
+        k: u8,
+    },
+    Central {
+        a: i32,
+        b: i32,
+        level: i32,
+        k: u8,
+    },
+}
+```
+
+##### Variants
+
+###### `Flower`
+
+Basal flower ball `k` of column `(a, b)` on lattice face `face` (the
+bottom face of level `face`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `i32` | Skewed hex coordinate. |
+| `b` | `i32` | Skewed hex coordinate. |
+| `face` | `i32` | Lattice face index. |
+| `k` | `u8` | Flower ball, 0..7. |
+
+###### `Central`
+
+Central-plane ball `k` of tile `(a, b, level)`: 0..3 `Inner`, 3..6
+`Outer`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `i32` | Skewed hex coordinate. |
+| `b` | `i32` | Skewed hex coordinate. |
+| `level` | `i32` | Lattice level. |
+| `k` | `u8` | 0..6. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SekerBallId { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &SekerBallId) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SekerBallId) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &SekerBallId) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SekerBed`
+
+**The HTR-10 bed as Şeker & Çolak (2003) build it** (gh:#472): the
+[`SekerCell`] lattice, every ball whole, rejected wherever it would cross a
+boundary, and a fuel/dummy identity per ball.
+
+NEW WORK, not a port.
+
+# Axial layout: the loading height is Şeker's
+
+A loading of `n_layers` = N holds basal planes `0..=N` and central planes
+`0..N`. The lowest basal plane's balls sit **on** the bed floor (the top of
+the conus) and the highest's top is the bed top. So the bed is
+`9.798 N + 6.0` cm tall, **exactly Şeker's and Li's tabulated height**, and
+the top and bottom layers are whole balls, as Şeker p.267 says (*"The top
+layer is formed by adding half spheres to each ball present in this
+layer"*). Şeker's Table 3 count (`1346 N + 733`) is one extra basal plane,
+which is this layout.
+
+Below the bed floor the same lattice continues through the conus and the
+discharge tube. Şeker p.267: *"The cone region and discharge tube are
+formed by only graphite balls ... also made by balls arranged in hexagonal
+geometry"*.
+
+# Rejection: every kept ball is whole
+
+Şeker p.267: *"If any ball intersects with the reflector surface, it is
+rejected"*, and *"Balls intersect with cone or discharge tube surface are
+rejected."* A ball is kept only if it lies wholly inside the container, i.e.
+the solid of revolution of the meridional profile:
+- the bed top (`z = bed_top`, `rho < bed_radius`);
+- the side wall;
+- the cone from `(bed_radius, bed_bottom)` to `(tube_radius, conus_floor)`;
+- the tube wall and the tube bottom.
+
+That includes the **side wall** (gh:#331, decided by the maintainer
+2026-10-01), where the two-ball bed cuts.
+
+# Fuel/dummy identity
+
+As [`TwoBallBed`]:
+- the balls centred above the bed floor take the 57:43 split, by the
+  low-discrepancy rule in layer order from the floor up (Şeker p.267:
+  *"Fuel and moderator balls are selected in each layer such that 0.57:0.43
+  ratio is established"*);
+- the conus and the tube are all dummy.
+
+# Checked against Şeker's own counts
+
+`the_seker_bed_reproduces_table_3_per_plane_counts` compares the kept balls
+per basal and per central plane with Şeker Table 3 (733 and 613).
+
+```rust
+pub struct SekerBed {
+    pub cell: SekerCell,
+    pub n_rings: usize,
+    pub n_layers: usize,
+    pub n_levels: usize,
+    pub z_bottom: f64,
+    pub floor_face: i32,
+    pub bed_radius: f64,
+    pub bed_bottom: f64,
+    pub bed_top: f64,
+    pub conus_floor: f64,
+    pub tube_radius: f64,
+    pub container_bottom: f64,
+    pub assignment: FuelAssignment,
+    pub eligible_balls: usize,
+    pub fuel_balls: usize,
+    pub rejected_balls: usize,
+    pub boundary_rejected: usize,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `SekerCell` | The unit cell. |
+| `n_rings` | `usize` | Hex rings in the lattice (including the central tile). |
+| `n_layers` | `usize` | Loading in Şeker layers N: bed height `cell.height * N + ball_diameter`. |
+| `n_levels` | `usize` | Axial lattice levels. |
+| `z_bottom` | `f64` | z \[cm\] of the bottom face of lattice level 0. |
+| `floor_face` | `i32` | Lattice face index of the lowest bed basal plane (the one on the floor). |
+| `bed_radius` | `f64` | Bed cylinder radius \[cm\]. |
+| `bed_bottom` | `f64` | Bed floor \[cm\] (= top of the conus). |
+| `bed_top` | `f64` | Bed top \[cm\] (= top of the highest ball). |
+| `conus_floor` | `f64` | Conus floor \[cm\]. |
+| `tube_radius` | `f64` | Discharge-tube radius \[cm\]. |
+| `container_bottom` | `f64` | Bottom of the container \[cm\]: the tube bottom, or the conus floor when<br>the tube is not built (the `OUTRAM_HTR10_HOMOG_TUBE` ablation). |
+| `assignment` | `FuelAssignment` | The rule the identities were assigned by. |
+| `eligible_balls` | `usize` | Balls that took part in the 57:43 split. |
+| `fuel_balls` | `usize` | Of which fuelled. |
+| `rejected_balls` | `usize` | Lattice balls rejected (not wholly inside the container). |
+| `boundary_rejected` | `usize` | Of [`Self::rejected_balls`], those whose centre is inside the container<br>but which cross its boundary: the balls Şeker's rule actually removes. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(cell: SekerCell, n_rings: usize, n_layers: usize, conus_height: f64, bed_radius: f64, tube_radius: f64, tube_depth: Option<f64>, assignment: FuelAssignment) -> Self { /* ... */ }
+  ```
+  Build the bed.
+
+- ```rust
+  pub fn lattice_centre_z(self: &Self) -> f64 { /* ... */ }
+  ```
+  z \[cm\] of the lattice centre, to pass to `HexLattice::from_rings_3d`.
+
+- ```rust
+  pub fn centre(self: &Self, id: SekerBallId) -> [f64; 3] { /* ... */ }
+  ```
+  Global centre \[cm\] of ball `id`.
+
+- ```rust
+  pub fn is_present(self: &Self, id: SekerBallId) -> bool { /* ... */ }
+  ```
+  Whether ball `id` is kept. Balls outside the lattice's range are absent.
+
+- ```rust
+  pub fn is_fuel(self: &Self, id: SekerBallId) -> bool { /* ... */ }
+  ```
+  Whether ball `id` is fuelled.
+
+- ```rust
+  pub fn tile_balls(self: &Self, a: i32, b: i32, level: i32) -> [SekerBallId; 23] { /* ... */ }
+  ```
+  The 23 balls tile `(a, b, level)` holds pieces of, in
+
+- ```rust
+  pub fn tile_masks(self: &Self, a: i32, b: i32, level: i32) -> (u32, u32) { /* ... */ }
+  ```
+  `(fuel, present)` masks of tile `(a, b, level)`: bit `i` for the ball at
+
+- ```rust
+  pub fn all_balls(self: &Self) -> Vec<SekerBallId> { /* ... */ }
+  ```
+  Every ball owned by a tile within the lattice's rings, deterministic
+
+- ```rust
+  pub fn plane_counts(self: &Self) -> (Vec<usize>, Vec<usize>) { /* ... */ }
+  ```
+  Kept balls in the bed (centre above the floor) per plane: `(basal
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SekerBed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PebbleBed`
+
+**The pebble bed an explicit-TRISO core was built on**: Şeker & Çolak's
+cell (the default since 2026-10-01, gh:#472) or the two-ball prism cell
+(~~the `OUTRAM_HTR10_TWO_BALL_CELL` ablation~~ **withdrawn 2026-10-01**: it
+cuts pebbles, which is wrong physics, and must never be run, not even as an
+ablation; kept only as the record of earlier numbers).
+
+```rust
+pub enum PebbleBed {
+    Seker(SekerBed),
+    TwoBall(TwoBallBed),
+}
+```
+
+##### Variants
+
+###### `Seker`
+
+[`SekerBed`], the default.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SekerBed` |  |
+
+###### `TwoBall`
+
+[`TwoBallBed`], ~~an ablation~~ withdrawn 2026-10-01 (it cuts pebbles);
+never built by the default path, and its knob panics.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TwoBallBed` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn bed_bottom(self: &Self) -> f64 { /* ... */ }
+  ```
+  Bed floor \[cm\] (= top of the conus).
+
+- ```rust
+  pub fn bed_top(self: &Self) -> f64 { /* ... */ }
+  ```
+  Bed top \[cm\].
+
+- ```rust
+  pub fn conus_floor(self: &Self) -> f64 { /* ... */ }
+  ```
+  Conus floor \[cm\].
+
+- ```rust
+  pub fn bed_radius(self: &Self) -> f64 { /* ... */ }
+  ```
+  Bed cylinder radius \[cm\].
+
+- ```rust
+  pub fn n_rings(self: &Self) -> usize { /* ... */ }
+  ```
+  Hex rings of the lattice.
+
+- ```rust
+  pub fn n_levels(self: &Self) -> usize { /* ... */ }
+  ```
+  Axial lattice levels.
+
+- ```rust
+  pub fn z_bottom(self: &Self) -> f64 { /* ... */ }
+  ```
+  z \[cm\] of the bottom face of lattice level 0.
+
+- ```rust
+  pub fn lattice_centre_z(self: &Self) -> f64 { /* ... */ }
+  ```
+  z \[cm\] of the lattice centre.
+
+- ```rust
+  pub fn tile_pitch_and_height(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  Lattice pitch (flat to flat) and tile height \[cm\].
+
+- ```rust
+  pub fn ball_diameter(self: &Self) -> f64 { /* ... */ }
+  ```
+  Ball diameter \[cm\].
+
+- ```rust
+  pub fn site_centres(self: &Self) -> Vec<[f64; 3]> { /* ... */ }
+  ```
+  Tile-local centres \[cm\] of the ball sites, in tile-mask bit order.
+
+- ```rust
+  pub fn tile_masks(self: &Self, a: i32, b: i32, level: i32) -> (u32, u32) { /* ... */ }
+  ```
+  `(fuel, present)` masks of tile `(a, b, level)`, bit `i` for site `i` of
+
+- ```rust
+  pub fn all_balls(self: &Self) -> Vec<BedBall> { /* ... */ }
+  ```
+  Every ball of the lattice.
+
+- ```rust
+  pub fn centre(self: &Self, ball: BedBall) -> [f64; 3] { /* ... */ }
+  ```
+  Global centre \[cm\] of `ball`.
+
+- ```rust
+  pub fn is_fuel(self: &Self, ball: BedBall) -> bool { /* ... */ }
+  ```
+  Whether `ball` is fuelled (see [`Self::centre`] for the panic).
+
+- ```rust
+  pub fn is_present(self: &Self, ball: BedBall) -> bool { /* ... */ }
+  ```
+  Whether `ball` is kept (see [`Self::centre`] for the panic).
+
+- ```rust
+  pub fn eligible_and_fuel_balls(self: &Self) -> (usize, usize) { /* ... */ }
+  ```
+  Balls that took part in the 57:43 split, and of which fuelled.
+
+- ```rust
+  pub fn tube_radius_and_bottom(self: &Self) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  The discharge tube below the conus as `(radius, bottom z)` \[cm\], or
+
+- ```rust
+  pub fn core_balls(self: &Self) -> Option<usize> { /* ... */ }
+  ```
+  The bed's ball inventory: kept balls centred above the bed floor (the
+
+- ```rust
+  pub fn rejected_balls(self: &Self) -> usize { /* ... */ }
+  ```
+  Balls removed by a rejection rule.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PebbleBed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `BedBall`
+
+A ball of a [`PebbleBed`].
+
+```rust
+pub enum BedBall {
+    Seker(SekerBallId),
+    TwoBall(BallId),
+}
+```
+
+##### Variants
+
+###### `Seker`
+
+A ball of a [`SekerBed`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SekerBallId` |  |
+
+###### `TwoBall`
+
+A ball of a [`TwoBallBed`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `BallId` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BedBall { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &BedBall) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BedBall) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &BedBall) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **Pointable**
@@ -4130,6 +5581,23 @@ Count `(fuel, moderator)` tiles in an assignment from [`bed_tile_levels`].
 
 ```rust
 pub fn count_tiles(levels: &[Vec<Vec<usize>>], fuel_universe: usize) -> (usize, usize) { /* ... */ }
+```
+
+#### Function `seker_tile_ball`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The ball at `site` of Şeker tile `(a, b, level)`.
+
+`Entering(k)` is the `Outer(k)` ball of the neighbour at `90° + 120° k`:
+in the `HexOrientation::Y` skewed coordinates of [`tile_xy`] those are
+`(a, b+1)`, `(a-1, b)` and `(a+1, b-1)`. Checked numerically by
+`every_seker_tile_resolves_a_shared_ball_to_one_position`.
+
+```rust
+pub fn seker_tile_ball(a: i32, b: i32, level: i32, site: SekerSite) -> SekerBallId { /* ... */ }
 ```
 
 ## Module `reflector`
@@ -4413,6 +5881,31 @@ rods, 3 irradiation and 7 KLAK channels is likewise a convention. It
 matters for the one-rod worth problems (B32, B42), not for B1.
 **ACCEPTED 2026-09-27 (maintainer, gh:#330): "18 degree pitch is
 acceptable"**, so this convention is the model.
+
+**SUPERSEDED 2026-10-01 by data (gh:#330).** Şeker & Çolak (2003), NED
+222:263, Fig. 4 draws every channel. It was read at 600 dpi, at a scale of
+3.0 px/cm.
+- **Inner ring:** 20 positions on an 18° pitch. The control rods sit at
+  every other position, evenly spaced at 36°, as the text says (*"placed
+  symmetrically in the side reflector"*, p.268). The KLAK slots and the
+  irradiation channels fill the positions between them (the figure's 18°,
+  54°, 90°, 126°, 198°, 270°, 306° and 162°, 234°, 342°).
+- **Coolant ring:** at the **same** azimuths as the inner ring.
+
+The earlier convention had the rods uneven (two adjacent pairs) and the
+coolant offset by 9°.
+
+The figure's pattern is used here, rotated by −171° so that the hot gas
+duct (kept on +x) lies in the gap between an irradiation channel and a rod.
+Both of those stop above the duct (`z_T` ≤ 450 cm against the duct's 465–495).
+Both rings then sit at 9° + 18° k. Two things remain conventions:
+- the duct's absolute azimuth relative to the channels, which no source
+  gives;
+- the figure's handedness (viewed from above or below is not stated). A
+  mirror image does not change B1.
+
+`the_channel_layout_is_sekers_fig_4` and
+`the_hot_gas_duct_clears_every_channel_at_its_height` pin both.
 
 **Contents.** B1 is defined with no rod inserted (p. 242), and the rods'
 withdrawn position is given (lower end at 119.2 cm), so the rods ARE in
@@ -4969,6 +6462,8 @@ pub const COOLANT_ZT_CM: (f64, f64) = _;
 #### Constant `ROD_CHANNEL_RADIUS_CM`
 
 Control-rod and irradiation channel radius \[cm\]: 130 mm diameter (p. 242).
+Corroborated by Şeker & Çolak (2003), NED 222:263, p.268: *"Each hole
+housing control rods are 13 cm in diameter."*
 
 ```rust
 pub const ROD_CHANNEL_RADIUS_CM: f64 = 6.5;
@@ -4977,6 +6472,10 @@ pub const ROD_CHANNEL_RADIUS_CM: f64 = 6.5;
 #### Constant `ROD_CHANNEL_CENTRE_RADIUS_CM`
 
 Control-rod and irradiation channel centre radius \[cm\]: 1021 mm (p. 242).
+Corroborated by Şeker & Çolak (2003) p.268: ten rods *"placed symmetrically
+in the side reflector and 102.1 cm away from the center"*, each *"five B4C
+ring segments enclosed in stainless steel sleeves"*. Their channel azimuths
+are drawn (Fig. 4) but not stated (gh:#330).
 
 ```rust
 pub const ROD_CHANNEL_CENTRE_RADIUS_CM: f64 = 102.1;
@@ -5077,27 +6576,31 @@ pub const HOT_GAS_DUCT_RHO_CM: (f64, f64) = _;
 #### Constant `INNER_RING_PITCH_DEG`
 
 Angular pitch \[deg\] of the 20 inner-ring borings (10 rods + 3
-irradiation + 7 KLAK). **A convention, not data**: see the module docs.
+irradiation + 7 KLAK). Şeker & Çolak (2003) Fig. 4 (module docs).
 
 ```rust
 pub const INNER_RING_PITCH_DEG: f64 = 18.0;
 ```
 
-#### Constant `COOLANT_OFFSET_DEG`
+#### Constant `RING_OFFSET_DEG`
 
-Azimuthal offset \[deg\] of the coolant ring against the inner ring, so no
-coolant channel meets the hot gas duct. **A convention, not data.**
+Azimuth \[deg\] of inner-ring position 0, and of coolant channel 0: the
+two rings are aligned (Şeker Fig. 4). The 9° itself places the hot gas duct
+(on +x) in the gap between irradiation position 19 and rod position 0;
+that part is a convention (module docs).
+~~`COOLANT_OFFSET_DEG = 9.0`, with the inner ring at 0°: coolant offset
+against the inner ring.~~ **CHANGED 2026-10-01 (gh:#330).**
 
 ```rust
-pub const COOLANT_OFFSET_DEG: f64 = 9.0;
+pub const RING_OFFSET_DEG: f64 = 9.0;
 ```
 
 #### Constant `KLAK_POSITIONS`
 
-Inner-ring positions holding a KLAK channel. **A convention, not data.**
-Spread as evenly as 7 in 20 allows, and never position 0, which is on the
-hot gas duct's azimuth: a KLAK channel reaches the duct's height, a rod
-channel stops above it.
+Inner-ring positions holding a KLAK channel: Şeker Fig. 4 (18°, 54°, 90°,
+126°, 198°, 270°, 306°) rotated by −171°.
+~~`[1, 4, 7, 10, 12, 15, 18]`, a convention~~ **CHANGED 2026-10-01
+(gh:#330).**
 
 ```rust
 pub const KLAK_POSITIONS: [usize; 7] = _;
@@ -5105,8 +6608,9 @@ pub const KLAK_POSITIONS: [usize; 7] = _;
 
 #### Constant `IRRADIATION_POSITIONS`
 
-Inner-ring positions holding an irradiation channel. **A convention, not
-data.**
+Inner-ring positions holding an irradiation channel: Şeker Fig. 4 (162°,
+234°, 342°) rotated by −171°. ~~`[3, 9, 16]`, a convention~~ **CHANGED
+2026-10-01 (gh:#330).** The rods are the ten even positions.
 
 ```rust
 pub const IRRADIATION_POSITIONS: [usize; 3] = _;
@@ -5153,11 +6657,18 @@ lets the cost be extrapolated rather than guessed — which is what
 
 # What this is NOT
 
-Not yet a benchmark model. The pebbles here carry a **homogenised** fuel
+~~Not yet a benchmark model. The pebbles here carry a **homogenised** fuel
 sphere rather than an explicit TRISO lattice, so the double heterogeneity is
 absent and `k` from this is not comparable to the paper. That is deliberate:
 this exists to measure the cost of the BED, which is the part at unprecedented
-scale. The TRISO nesting multiplies on top and is priced separately.
+scale. The TRISO nesting multiplies on top and is priced separately.~~
+**CORRECTED 2026-10-01 (gh:#428):** that described [`assemble`], which is
+withdrawn and panics (its one-ball tile cuts pebbles). The production path
+is [`assemble_explicit_triso`]: an explicit TRISO lattice in every fuel
+pebble, Şeker & Çolak (2003)'s 13-ball bed (every ball whole, gh:#472), the
+explicit TECDOC-1382 reflector (PR #327) and the withdrawn rods. It is the
+model compared against RMC. It is still AI-drafted and awaiting human
+review, so its results are tentative (see the parent module docs).
 
 ```rust
 pub mod core_model { /* ... */ }
@@ -5277,7 +6788,11 @@ pub const GRAPHITE: usize = 5;
 
 #### Constant `HELIUM`
 
-Helium between pebbles.
+The coolant: between pebbles, in the core cavity, the empty channels
+and between the discharge-tube balls. Natural helium (ideal gas at
+300.15 K and 101.33 kPa) since 2026-10-01 (gh:#426); until then an empty
+material, i.e. exact vacuum, which is now the
+`OUTRAM_HTR10_VACUUM_COOLANT` ablation (`htr10_rmc::data::Coolant`).
 
 ```rust
 pub const HELIUM: usize = 6;
@@ -5321,9 +6836,10 @@ fraction.
 ~~What the discharge tube actually contains.~~ **CORRECTED 2026-09-25:**
 the tube contains whole graphite balls, and since then
 [`super::assemble_explicit_triso`] places them explicitly (Li, Yu & Wei
-2014: the cone region and discharge tube are formed by graphite balls
-in hexagonal geometry, and balls intersecting the cone or tube surface
-are rejected). This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
+2014, following Şeker & Çolak 2003 p.267: *"The cone region and
+discharge tube are formed by only graphite balls"*, arranged in
+hexagonal geometry, and balls intersecting the cone or tube surface are
+rejected). This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
 ablation now.
 
 ```rust
@@ -5332,7 +6848,8 @@ pub const HOMOG_DUMMY: usize = 10;
 
 #### Constant `FUEL`
 
-Homogenised fuel zone, used only by [`super::assemble`].
+Homogenised fuel zone, used only by [`super::assemble`] (withdrawn
+2026-10-01; it panics).
 
 ```rust
 pub const FUEL: usize = KERNEL;
@@ -5374,8 +6891,10 @@ pub const TABLE_4_3_ZONES: [(usize, f64); 24] = _;
 
 #### Constant `ROD_B4C`
 
-B4C of the control-rod absorber rings (TECDOC § 4.1.2: 1.7 g/cm³,
-natural boron).
+B4C of the control-rod absorber rings (TECDOC ~~§ 4.1.2~~ § 4.1.1.5
+"Control of HTR-10", pp. 235-236: 1.7 g/cm³; CORRECTED 2026-10-01,
+gh:#428). ~~natural boron~~ The section gives no isotopics: natural
+boron is this model's reading (consistent with MIT's TECDOC Table 4-36).
 
 ```rust
 pub const ROD_B4C: usize = _;
@@ -5383,8 +6902,9 @@ pub const ROD_B4C: usize = _;
 
 #### Constant `ROD_STEEL`
 
-Stainless steel of the control-rod sleeves (TECDOC § 4.1.2: 7.9 g/cm³,
-Cr 18 / Fe 68.1 / Ni 10 / Si 1 / Mn 2 / C 0.1 / Ti 0.8 wt%).
+Stainless steel of the control-rod sleeves (TECDOC ~~§ 4.1.2~~
+§ 4.1.1.5, pp. 235-236: 7.9 g/cm³, Cr 18 / Fe 68.1 / Ni 10 / Si 1 /
+Mn 2 / C 0.1 / Ti 0.8 wt%; section CORRECTED 2026-10-01, gh:#428).
 
 ```rust
 pub const ROD_STEEL: usize = _;
@@ -5392,8 +6912,9 @@ pub const ROD_STEEL: usize = _;
 
 #### Constant `ROD_IRON`
 
-Iron of the control-rod joints and ends (TECDOC § 4.1.2: Fe only,
-0.04 atoms/(b cm), for 27.5 mm < R < 55 mm).
+Iron of the control-rod joints and ends (TECDOC ~~§ 4.1.2~~ § 4.1.1.5,
+pp. 235-236: Fe only, 0.04 atoms/(b cm), for 27.5 mm < R < 55 mm;
+section CORRECTED 2026-10-01, gh:#428).
 
 ```rust
 pub const ROD_IRON: usize = _;
@@ -5427,7 +6948,7 @@ pub struct AssembledCore {
     pub cavity_top: f64,
     pub refl_top: f64,
     pub refl_bottom: f64,
-    pub bed: Option<super::bed::TwoBallBed>,
+    pub bed: Option<super::bed::PebbleBed>,
 }
 ```
 
@@ -5441,13 +6962,13 @@ pub struct AssembledCore {
 | `universes` | `usize` | Universes in the geometry. |
 | `bed_radius` | `f64` | Bed cylinder radius \[cm\]. |
 | `bed_half_height` | `f64` | Bed half-height \[cm\]. |
-| `lat_pitch` | `f64` | Hex pitch \[cm\] of the bed lattice. [`assemble_explicit_triso`]: the<br>paper's two-ball prism, 6.6106 cm ([`HexBedCell::from_paper`]).<br>[`assemble`]: ~~solved from the fuel-zone target~~ still solved so its<br>axially clipped one-ball tile realises the paper's fuel-zone fraction,<br>6.6086 cm (gh:#308: that path keeps the one-ball construction). |
-| `lat_height` | `f64` | Axial tile height \[cm\]. [`assemble_explicit_triso`]: 9.798 cm, one A-B<br>layer pair holding two balls. [`assemble`]: 4.899 cm, one ball. In both<br>the bed is `n_axial x 4.899` cm tall, i.e. `2 * bed_half_height`, NOT<br>`n_axial * lat_height`. |
+| `lat_pitch` | `f64` | Hex pitch \[cm\] of the bed lattice. [`assemble_explicit_triso`]:<br>Şeker's 13-ball prism, 16.392 cm ([`SekerCell::from_paper`], since<br>2026-10-01); the two-ball ~~ablation's~~ cell's 6.6106 cm<br>([`HexBedCell::from_paper`]; withdrawn 2026-10-01).<br>[`assemble`] (withdrawn 2026-10-01, it panics): ~~solved from the<br>fuel-zone target~~ was solved so its axially clipped one-ball tile<br>realised the paper's fuel-zone fraction, 6.6086 cm (gh:#308). |
+| `lat_height` | `f64` | Axial tile height \[cm\]. [`assemble_explicit_triso`]: 9.798 cm, one<br>Şeker layer (or, in the withdrawn two-ball cell, one A-B pair).<br>[`assemble`] (withdrawn): 4.899 cm, one ball. The bed height is `2 * bed_half_height`: `9.798 N +<br>6` cm for Şeker's bed, `n_axial x 4.899` cm for the others. |
 | `conus_floor` | `f64` | Bottom of the conus \[cm\] — the deepest fuelled z. Equal to<br>`-bed_half_height` when no conus is modelled. |
 | `cavity_top` | `f64` | Top of the empty core cavity \[cm\], i.e. where the axial reflector<br>begins. Equals `bed_half_height` when no reflector is built. |
 | `refl_top` | `f64` | Top of the whole assembled model \[cm\]: cavity top + the 130 cm axial<br>reflector. Equals `bed_half_height` when no reflector is built. |
 | `refl_bottom` | `f64` | Bottom of the whole assembled model \[cm\] (negative): conus floor less<br>the fixed [`HTR10_BOTTOM_REFLECTOR_CM`]. Equals `-bed_half_height` when<br>no reflector is built.<br><br>The model is **not** symmetric about `z = 0` (the bed mid-height): see<br>[`HTR10_BOTTOM_REFLECTOR_CM`] for why the old mirrored bottom was wrong.<br>With a reflector, `refl_top - refl_bottom` is [`HTR10_MODEL_HEIGHT_CM`]<br>at every loading. |
-| `bed` | `Option<super::bed::TwoBallBed>` | The ball-level description of the bed (every ball's centre, identity and<br>presence) that [`assemble_explicit_triso`] built its lattice from;<br>`None` for the one-ball [`assemble`]. Added 2026-09-26 so plots can cut<br>through ball centres chosen from the built bed rather than from constants. |
+| `bed` | `Option<super::bed::PebbleBed>` | The ball-level description of the bed (every ball's centre, identity and<br>presence) that [`assemble_explicit_triso`] built its lattice from;<br>`None` for the one-ball [`assemble`]. Added 2026-09-26 so plots can cut<br>through ball centres chosen from the built bed rather than from constants.<br>~~`Option<TwoBallBed>`~~ **CHANGED 2026-10-01 (gh:#472):** a<br>[`PebbleBed`], Şeker's cell by default. |
 
 ##### Implementations
 
@@ -5709,7 +7230,10 @@ the bed does not occupy.
 ~~The model applied a constant 98.758 cm of void at every loading, behind
 an `OUTRAM_HTR10_FIXED_CAVITY=1` opt-in, "so no committed result moves
 silently".~~ **REMOVED 2026-09-24 (maintainer direction).** That constant
-is the void at **one** loading — the benchmark's 123.06 cm, where
+is the void at **one** loading — ~~the benchmark's~~ the **experimental**
+first-criticality loading of 123.06 cm (CORRECTED 2026-10-01, gh:#428:
+IAEA-TECDOC-1382 p. 251, 16 890 balls in 15 °C air with as-built materials;
+RMC's tabulated benchmark row is 123.576 cm), where
 `221.818 - 123.06 = 98.758` — and applying it everywhere silently grows the
 whole cavity with the bed.
 
@@ -5738,7 +7262,18 @@ pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 { /* ... */ }
 
 #### Function `assemble`
 
+**Attributes:**
+
+- `Other("#[allow(unreachable_code, unused_variables)]")`
+
 **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
+
+**WITHDRAWN 2026-10-01 (maintainer): this function panics.** Its one-ball
+tile clips every pebble at the tile faces, so its pebbles are cut, and
+*"the cut pebble is wrong physics, never run it for ablation again"*. It
+is not to be run as a diagnostic or an ablation. Use
+[`assemble_explicit_triso`], whose balls are all whole. The body is kept
+only as the record of what earlier numbers were computed on.
 
 # NOT a benchmark model, and not only because the fuel is homogenised
 
@@ -5785,7 +7320,35 @@ closed and B-11 is placed (`materials::htr10_material_set`, the `b11`
 closure). Results from it are tentative — see the module docs,
 "Verification status".
 
-# The bed: two balls per tile (gh:#309 step 2, gh:#310)
+# The bed: Şeker & Çolak (2003)'s 13-ball cell (default since 2026-10-01, gh:#472)
+
+The hex lattice tile is [`SekerCell::from_paper`]:
+- pitch 16.392 cm, height 9.798 cm;
+- per tile, 7 basal balls (a flower at each face, half each) and 6 central
+  balls (a 6-ball triangle, 3 of them crossing into neighbours);
+- every tile universe holds pieces of **23** balls ([`super::bed::SekerSite`]).
+
+The bed is a [`SekerBed`]:
+- `layers` Şeker layers, `9.798 N + 6` cm from the bottom of the lowest ball
+  to the top of the highest, i.e. Şeker's and Li's own height axis;
+- every ball whole, rejected wherever it would cross the side wall, the
+  cone or the tube;
+- the conus and tube hold graphite balls of the same lattice.
+
+Each tile gets the universe for its (fuel, presence) masks, built only once
+per distinct pair. Source and derivation: [`SekerCell`], [`SekerBed`].
+
+~~**Ablation:** `OUTRAM_HTR10_TWO_BALL_CELL=1` builds the two-ball bed below
+instead, with `n_axial = 2 N + 1` half-layers. With it,
+`OUTRAM_HTR10_REJECT_SIDE_WALL=1` rejects wall-crossers there too.~~
+**WITHDRAWN 2026-10-01 (maintainer):** *"The cut pebble is wrong physics,
+never run it for ablation again."* The two-ball bed cuts pebbles: at the
+side wall by default, and at the bed-top plane always. A cut pebble is not
+a pebble, so an ablation against it measures nothing physical. The knob now
+panics. The code below is kept only as the record of what the earlier
+numbers were computed on.
+
+# The two-ball bed (gh:#309 step 2, gh:#310), WITHDRAWN 2026-10-01 (history)
 
 The hex lattice tile IS the paper's prism, [`HexBedCell::from_paper`]:
 pitch 6.6106 cm, height 9.798 cm = one A-B layer pair, two balls per tile,
@@ -5812,28 +7375,32 @@ built geometry.
 # Parameters
 - `n_rings` — a FLOOR on the lattice ring count (the bed radius is the
   physical 90 cm and the lattice is sized to tile it).
-- `n_axial` — the fuel LOADING HEIGHT in half-layers of 4.899 cm (one ball
-  layer each), so the bed is `n_axial x 4.899` cm: 20 / 25 / 41 give
-  97.980 / 122.474 / 200.858 cm, the same heights as before the two-ball
-  change. The A-B stacking is anchored at the bed floor (layer 0 is an A
-  layer), so an odd `n_axial` simply ends on an A layer and an even one on
-  a B layer; see [`super::bed::TwoBallBed`].
+- `layers` — the fuel loading in **Şeker layers N** (since 2026-10-01): the
+  bed is `9.798 N + 6` cm, so N = 9 … 20 are exactly the rows of
+  [`super::RMC_KEFF_VS_HEIGHT`] (N = 12 is the critical 123.576 cm).
+  ~~`n_axial`, the loading height in half-layers of 4.899 cm (20 / 25 / 41
+  gave 97.980 / 122.474 / 200.858 cm)~~: that is now only the two-ball
+  ablation's internal `2 N + 1`.
 - `majorant_index` — which entry of the caller's majorant table the bed
   uses; `usize::MAX` surface-tracks the bed.
 
 Universes: 0 root, [`TRISO_PARTICLE_UNIVERSE`], [`TRISO_MATRIX_UNIVERSE`],
-then one per bed-tile fuel mask in use (35 in all at 14 rings, all 32 masks
-occur). Tile cell ids encode their role, see [`tile_cell_role`].
+then one per distinct bed-tile (fuel, presence) mask pair. ~~(35 in all at 14
+rings, all 32 masks occur)~~ **CORRECTED 2026-10-01:** on Şeker's bed most
+tiles are unique, 1 502 universes at 14 x 12 (printed by
+`examples/htr10_geometry_images.rs`). Tile cell ids encode their role, see
+[`tile_cell_role`].
 
 ~~Four coordinate levels~~ **CORRECTED 2026-09-25 — three coordinate
-levels**: root → (bed hex lattice) → bed-tile universe (pieces of five
-pebbles since 2026-09-25; one pebble before) → (TRISO rect lattice, entered
+levels**: root → (bed hex lattice) → bed-tile universe (pieces of 23
+pebbles on Şeker's cell since 2026-10-01; five on the two-ball cell; one
+before that) → (TRISO rect lattice, entered
 through the fuel-zone cell's translation to its ball centre) → TRISO
 particle universe. A lattice selects the next level's universe but is not a
-level itself. Verified by locating a kernel in the assembled 14 x 25 core:
+level itself. Verified by locating a kernel in the assembled core:
 `path.levels.len() == 3`, lattices `[None, Some(0), Some(1)]`
 (`examples/htr10_geometry_images.rs` prints it; re-checked on the two-ball
-cell 2026-09-25). Depth-3 descent was gated
+cell 2026-09-25, and on Şeker's cell at 14 x 12 on 2026-10-01). Depth-3 descent was gated
 in `outram-mc-libs` `tests/nested_lattice_depth3.rs`, which also counts
 `levels.len()`; ~~this is depth 4~~ this is the **same** depth.
 
@@ -5844,12 +7411,20 @@ A cubic array clipped to the fuel zone, keeping only whole particles, per
 particle universe or matrix graphite, with `outer` = matrix so anything
 beyond the array's extent is graphite.
 
-The realised particle count is **8340**, not the paper's stated 8335 — see
-`cubic_array_in_ball`'s docs for why 8335 is unattainable (the count moves in
-symmetry shells). That is +0.060 % in fuel volume.
+~~The realised particle count is **8340**, not the paper's stated 8335.~~
+**CHANGED 2026-10-01 (gh:#430):** the realised count is the stated
+**8335**, through a generic lattice offset (see `TRISO_OFFSET` in the body).
+The struck history follows.
+~~See `cubic_array_in_ball`'s docs for why 8335 is unattainable (the count
+moves in symmetry shells).~~ **CORRECTED 2026-10-01 (gh:#430):** 8335 **is**
+attainable: a generic lattice offset gives exactly 8335, and Şeker & Çolak
+(2003) p.266 build the same whole-particle cubic lattice and state that
+*"the number of full fuel particles inside a fuel ball is verified to be
+8335"*. Only the symmetric offsets tried here miss it. That is +0.060 % in
+fuel volume, < 5 pcm.
 
 ```rust
-pub fn assemble_explicit_triso(n_rings: usize, n_axial: usize, majorant_index: usize) -> AssembledCore { /* ... */ }
+pub fn assemble_explicit_triso(n_rings: usize, layers: usize, majorant_index: usize) -> AssembledCore { /* ... */ }
 ```
 
 #### Function `tile_cell_role`
@@ -5875,11 +7450,18 @@ The first five mirror `DhUniverse::pebble`'s TRISO layer order so
 Pebble-bed filling fraction stated by Li, Yu & Wei (2014) for the HTR-10
 core — the fraction of bed volume occupied by pebbles. Sets the fuel per
 unit volume. ~~so the assembled geometry is solved to realise it~~
-**CORRECTED 2026-09-25:** [`assemble_explicit_triso`] realises it by
+~~**CORRECTED 2026-09-25:** [`assemble_explicit_triso`] realises it by
 construction (the paper's two-ball cell, [`HexBedCell::from_paper`], whose
-pitch is derived from it); only [`assemble`] still solves its pitch for it.
-Also the discharge-tube smear (`mat::HOMOG_DUMMY`), which since the
-two-ball cell agrees with the bed it homogenises (sampled 0.6096-0.6097).
+pitch is derived from it); only [`assemble`] still solves its pitch for it.~~
+**CORRECTED 2026-10-01 (gh:#428):** neither builder uses it for the bed any
+more. [`assemble`] is withdrawn, and [`assemble_explicit_triso`] builds
+Şeker's 13-ball cell, which is not built to a filling fraction (its
+interior is 0.6448; whole-ball rejection at the wall brings the bed to
+about 0.60). This constant still sets the discharge-tube smear
+(`mat::HOMOG_DUMMY`), which is only the `OUTRAM_HTR10_HOMOG_TUBE` ablation,
+~~which since the two-ball cell agrees with the bed it homogenises (sampled
+0.6096-0.6097)~~ and it is the stated value the geometry closures compare
+against.
 
 ```rust
 pub const PAPER_FILLING_FRACTION: f64 = 0.61;
@@ -5985,8 +7567,16 @@ Height \[cm\] of the **conus** — the sloping bottom of the pebble bed,
 tapering from the core radius to the discharge tube.
 
 Terry (2005) Fig. 2: z = 351.818 (conus top, "zero core height") to
-z = 388.764, corroborated against TECDOC-1382 Table 2's stated 36.946.
-**It is full of pebbles**, so omitting it omits fuel.
+z = 388.764, corroborated against ~~TECDOC-1382 Table 2's~~ **Terry (2005)
+Table 2's** stated 36.946 (CORRECTED 2026-10-01, gh:#428: the TECDOC text
+carries no 36.946; checked by search of its chapter 4 text. Whether its
+Fig. 4.10 labels give it is Not re-checked: the figure has no text layer).
+~~**It is full of pebbles**, so omitting it omits fuel.~~ **CORRECTED
+2026-10-01 (gh:#428):** it is full of **dummy** pebbles only, so omitting it
+omits graphite, not fuel: TECDOC-1382 p. 235 (*"dummy balls ... will be
+firstly placed into the discharge tube and the bottom conus region"*),
+Şeker & Çolak (2003) p. 267, and the code (the conus balls are all dummy,
+`tests::the_built_bed_is_57_percent_fuel_balls_and_the_conus_none`).
 
 ```rust
 pub const HTR10_CONUS_HEIGHT_CM: f64 = 36.946;
@@ -6038,6 +7628,12 @@ Modelling that band as solid zone-22 graphite (as this did) over-reflects
 and over-moderates in the reflector band *nearest the core*, which is the
 highest-leverage place in the whole reflector to get wrong.
 
+**Not placed by [`assemble_explicit_triso`] since 2026-09-25** (noted
+2026-10-01, gh:#428): the borings are explicit there, so this smear only
+fills the unused `mat::BORED_GRAPHITE` slot and is read by the
+`htr10_deterministic_vs_mc` and `htr10_mgxs_genfoam` examples. It duplicates zones 31-40 of
+[`super::reflector::zone_composition`] (they agree today; a drift risk).
+
 ```rust
 pub const HTR10_BORED_CARBON: f64 = 0.634459E-01;
 ```
@@ -6072,18 +7668,24 @@ pub const TRISO_MATRIX_UNIVERSE: usize = 2;
 #### Constant `TILE_FUEL_ZONE_CELL_ID`
 
 Cell-id bases of the pebble cells inside a bed tile universe of
-[`assemble_explicit_triso`]. A tile cell's id is `base + 10*v + site`
-(`site` the index in [`BallSite::ALL`], `v` the ordinal of the tile's
-universe variant -- its (fuel mask, presence mask) pair, see
-`TwoBallBed::tile_present_mask`), or `base + 10*v` for the helium cell.
-Read back with [`tile_cell_role`].
+[`assemble_explicit_triso`]. A tile cell's id is
+`base + TILE_SITE_STRIDE*v + site` (`site` the index in the bed's site list,
+[`super::bed::SekerSite::ALL`] or [`super::bed::BallSite::ALL`]; `v` the ordinal of the tile's
+universe variant, i.e. its (fuel mask, presence mask) pair, see
+[`PebbleBed::tile_masks`]), or `base + TILE_SITE_STRIDE*v` for the helium
+cell. Read back with [`tile_cell_role`].
 
 ~~`base + 10*mask`, bases 1000-4000~~ **CHANGED 2026-09-25**: a variant
 is now a pair of 5-bit masks (up to 1024 combinations), so the bases moved
 to 10 000-40 000 and `v` counts the variants actually built.
+~~`base + 10*v`, bases 10 000-40 000~~ **CHANGED 2026-10-01 (gh:#472)**:
+Şeker's tile holds 23 sites and the bed needs thousands of variants (most
+tiles are unique), so the stride is 100 and the bases 1 000 000-4 000 000,
+clear of the reflector's ids (from
+[`super::reflector_geometry::REFLECTOR_CELL_ID_BASE`]).
 
 ```rust
-pub const TILE_FUEL_ZONE_CELL_ID: i32 = 10_000;
+pub const TILE_FUEL_ZONE_CELL_ID: i32 = 1_000_000;
 ```
 
 #### Constant `TILE_FUEL_SHELL_CELL_ID`
@@ -6091,7 +7693,7 @@ pub const TILE_FUEL_ZONE_CELL_ID: i32 = 10_000;
 See [`TILE_FUEL_ZONE_CELL_ID`].
 
 ```rust
-pub const TILE_FUEL_SHELL_CELL_ID: i32 = 20_000;
+pub const TILE_FUEL_SHELL_CELL_ID: i32 = 2_000_000;
 ```
 
 #### Constant `TILE_DUMMY_BALL_CELL_ID`
@@ -6099,7 +7701,7 @@ pub const TILE_FUEL_SHELL_CELL_ID: i32 = 20_000;
 See [`TILE_FUEL_ZONE_CELL_ID`].
 
 ```rust
-pub const TILE_DUMMY_BALL_CELL_ID: i32 = 30_000;
+pub const TILE_DUMMY_BALL_CELL_ID: i32 = 3_000_000;
 ```
 
 #### Constant `TILE_HELIUM_CELL_ID`
@@ -6107,29 +7709,62 @@ pub const TILE_DUMMY_BALL_CELL_ID: i32 = 30_000;
 See [`TILE_FUEL_ZONE_CELL_ID`].
 
 ```rust
-pub const TILE_HELIUM_CELL_ID: i32 = 40_000;
+pub const TILE_HELIUM_CELL_ID: i32 = 4_000_000;
+```
+
+#### Constant `TILE_SITE_STRIDE`
+
+Id stride between tile-universe variants (more than the 23 sites).
+
+```rust
+pub const TILE_SITE_STRIDE: i32 = 100;
+```
+
+#### Constant `TILE_VARIANTS_MAX`
+
+Variants the id scheme can hold: `1_000_000 / TILE_SITE_STRIDE`.
+
+```rust
+pub const TILE_VARIANTS_MAX: usize = 10_000;
 ```
 
 ## Module `control_rod`
 
-HTR-10 control rods — smeared composition of the side-reflector boring band.
+HTR-10 control rods — the published rod geometry, and a smeared composition
+of the side-reflector boring band.
 
 # What this is for
 
-The HTR-10 core model in [`super::core_model`] carries the ten control-rod
+~~The HTR-10 core model in [`super::core_model`] carries the ten control-rod
 borings as a single homogenised annulus (`mat::BORED_GRAPHITE`, TECDOC zones
 31-40, r 95.6-108.6 cm) at **28 % less carbon** than solid reflector
 graphite. That band represents the borings as *empty*: there is no absorber
 anywhere in the model, so it can only ever represent rods **fully
-withdrawn**, and control-rod worth cannot be computed from it at all.
+withdrawn**, and control-rod worth cannot be computed from it at all.~~
 
-This module supplies the missing half — what the band contains when rods are
-in it — derived from the published rod geometry and B4C density, with
-nothing fitted.
+**CORRECTED 2026-10-01 (gh:#428, related gh:#312).** That described the core
+model before 2026-09-25. Today:
+- The Monte Carlo production path,
+  [`assemble_explicit_triso`](super::core_model::assemble_explicit_triso),
+  never places `mat::BORED_GRAPHITE`. Its ten rods are **explicit**
+  geometry in their own channels (the rod universe of
+  [`super::reflector_geometry`]): B4C rings, steel sleeves and iron joints,
+  at the withdrawn position by default. They are built from this module's
+  [`AXIAL_SECTIONS_CM`], [`AXIAL_IS_B4C`], [`LOWER_END_WITHDRAWN_CM`] and
+  [`N_CONTROL_RODS`] (checked by search of `reflector_geometry.rs`).
+- The smeared composition below is the absorber the band would carry with
+  the rods in it, derived from the published rod geometry and B4C density
+  with nothing fitted. Its one consumer is `crate::rod_insertion`, which
+  adds it to multigroup constants for deterministic rod sweeps. It is not
+  used by the Monte Carlo model.
 
 # Source
 
-IAEA-TECDOC-1382 § 4.1.2, transcribed with its benchmark values in
+IAEA-TECDOC-1382 ~~§ 4.1.2~~ **§ 4.1.1.5 "Control of HTR-10" (printed
+pp. 235-236; CORRECTED 2026-10-01, gh:#428)**: ring radii, axial sequence,
+B4C density 1.7 g/cm³, withdrawn and inserted lower-end positions. That
+section gives no B4C isotopics; natural boron is this model's reading
+(consistent with MIT's homogenised rod, TECDOC Table 4-36). Transcribed in
 `crates/kovan-literature/derived/tecdoc1382-htr10-control-rods.md`. Read that
 record before changing any constant here.
 
@@ -6436,6 +8071,2468 @@ Axial coordinate of the rod lower end when **fully inserted** \[cm\].
 pub const LOWER_END_INSERTED_CM: f64 = 394.2;
 ```
 
+## Module `data`
+
+**The HTR-10 nuclear-data set, in one place: which nuclides, from which
+tapes, with which thermal laws, at which slots.**
+
+# Why this module exists (2026-10-01)
+
+Until 2026-10-01 every HTR-10 driver built its own nuclide array:
+`htr10_rmc_keff::nuclides`, `htr10_endf8_height_sweep::nuclides_endf8`, and
+a private `const NUC: Htr10Nuclides` in half a dozen other examples. The
+sweep's own docs said *"the two must not drift: if a tape name or a thermal
+law changes there, change it here"*, which is the drift this workspace
+forbids, stated as an instruction. Three maintainer decisions of 2026-10-01
+changed the nuclide set at once (natural carbon, gh:#425; helium coolant,
+gh:#426; real nickel, gh:#329), so the set is built here and every driver
+asks for it.
+
+# Two steps, so the composition can be checked without loading anything
+
+1. [`Htr10NuclideLayout::plan`] is **pure**: from an [`Htr10DataConfig`]
+   it decides every slot (name, tape, thermal law) and the index tables
+   the materials use ([`Htr10Nuclides`], [`CoolantNuclides`],
+   [`RodMetalNuclides`]). Unit tests build the material set from a plan and
+   check compositions with no nuclear data on disk.
+2. [`load_htr10_nuclides`] reads the tapes the plan names, binds the
+   thermal laws, and records every item in a [`RunDiagnostics`].
+
+# The default is the correct physics (workspace hard rule)
+
+[`Htr10DataConfig::default`] is ENDF/B-VIII.0 with:
+- **natural carbon**, C-12 / C-13 at 98.93 / 1.07 at.% (gh:#425);
+- **helium coolant** at 300.15 K and 101.33 kPa (gh:#426);
+- **real nickel and iron** in the rod steel, Ni-58/60/61/62/64 and
+  Fe-54/56/57/58 (gh:#329), which cannot be loaded until gh:#339 is fixed
+  (see [`FE57_RECONSTRUCTION_FIXED`]);
+- every bound thermal law: graphite (30P), C-in-SiC, Si-in-SiC, U-in-UO2,
+  O-in-UO2.
+
+Every other choice is a named ablation on one field of the config. The
+pin is `tests/htr10_correct_physics_is_default.rs`.
+
+```rust
+pub mod data { /* ... */ }
+```
+
+### Types
+
+#### Enum `NuclearDataLibrary`
+
+Which evaluated library the nuclides come from.
+
+```rust
+pub enum NuclearDataLibrary {
+    EndfB8,
+    EndfB7,
+}
+```
+
+##### Variants
+
+###### `EndfB8`
+
+ENDF/B-VIII.0. **Default.**
+
+###### `EndfB7`
+
+ENDF/B-VII.0, the library Li, Yu & Wei (2014) state for RMC
+(`OUTRAM_HTR10_ENDF7`). Carbon is elemental C-nat (MAT 600); there is no
+SiC thermal law; the rod metals and helium come from VIII.0 because the
+checkout has no VII.0 tapes for them (a mixed-library arm, stated in the
+diagnostics).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NuclearDataLibrary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> NuclearDataLibrary { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NuclearDataLibrary) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CarbonTreatment`
+
+How natural carbon is represented on the ENDF/B-VIII.0 path.
+
+The VII.0 arm ignores this: its evaluation is elemental C-nat, which is
+natural carbon already.
+
+```rust
+pub enum CarbonTreatment {
+    Natural,
+    AllC12,
+}
+```
+
+##### Variants
+
+###### `Natural`
+
+**Default (maintainer decision 2026-10-01, gh:#425):** natural carbon,
+C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC), each kind of carbon two
+nuclides with the same thermal law bound to both.
+
+###### `AllC12`
+
+ABLATION (`OUTRAM_HTR10_CARBON_AS_C12`): all carbon loaded as C-12 at
+the natural-carbon atom density. This was the VIII.0 model until
+2026-10-01; kept so the C-13 term can be priced.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CarbonTreatment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> CarbonTreatment { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CarbonTreatment) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Coolant`
+
+What fills the coolant regions (`mat::HELIUM`: between the pebbles, the
+core cavity, the discharge tube between balls, the empty control-rod,
+KLAK, coolant and irradiation channels).
+
+```rust
+pub enum Coolant {
+    Helium,
+    Vacuum,
+}
+```
+
+##### Variants
+
+###### `Helium`
+
+**Default (maintainer decision 2026-10-01, gh:#426, "use helium, I
+think it is more accurate"):** natural helium, ideal gas at the
+material temperature and [`super::materials::HELIUM_PRESSURE_KPA`].
+
+###### `Vacuum`
+
+ABLATION (`OUTRAM_HTR10_VACUUM_COOLANT`): an empty material, i.e. exact
+vacuum. Kept because Li, Yu & Wei (2014) report *"Calculations are
+performed for vacuum and helium"*, and this was the model until
+2026-10-01.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Coolant { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Coolant { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Coolant) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RodMetalTreatment`
+
+How the withdrawn control rods' sleeve steel and joint iron are
+represented (TECDOC-1382 § 4.1.1.5).
+
+```rust
+pub enum RodMetalTreatment {
+    Full,
+    Simplified,
+    NiAsFeOnly,
+    Fe57AsFe56Only,
+    NotModelled,
+}
+```
+
+##### Variants
+
+###### `Full`
+
+**Default, the FULL case (maintainer decision 2026-10-01, gh:#329):**
+real Ni-58/60/61/62/64 (tapes from the `reference-data/ace` submodule)
+and real Fe-54/56/57/58. **Cannot be loaded until gh:#339 is fixed**
+([`FE57_RECONSTRUCTION_FIXED`]); the loader refuses it rather than
+swapping Fe-57.
+
+###### `Simplified`
+
+The SIMPLIFIED case: Ni replaced atom for atom by Fe (Ni-58/60 -> Fe-56,
+Ni-61 -> Fe-57 -> Fe-56, Ni-62 -> Fe-54, Ni-64 -> Fe-58) and Fe-57 taken
+as Fe-56. Both are stated modelling assumptions (maintainer 2026-09-26),
+equivalent to `OUTRAM_HTR10_NI_AS_FE=1 OUTRAM_HTR10_FE57_AS_FE56=1`.
+
+###### `NiAsFeOnly`
+
+`OUTRAM_HTR10_NI_AS_FE` alone: Ni -> Fe, real Fe-57 (so also blocked
+by gh:#339).
+
+###### `Fe57AsFe56Only`
+
+`OUTRAM_HTR10_FE57_AS_FE56` alone: real Ni, Fe-57 -> Fe-56.
+
+###### `NotModelled`
+
+`OUTRAM_HTR10_NO_WITHDRAWN_RODS`: the rod channels are empty helium and
+no rod-metal tape is loaded. The rod materials are still built; the
+caller strips their unloaded components and proves no cell uses them.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn ni_as_fe(self: Self) -> bool { /* ... */ }
+  ```
+  Whether Ni is replaced by Fe.
+
+- ```rust
+  pub fn fe57_as_fe56(self: Self) -> bool { /* ... */ }
+  ```
+  Whether Fe-57 is replaced by Fe-56.
+
+- ```rust
+  pub fn loads_rod_metal(self: Self) -> bool { /* ... */ }
+  ```
+  Whether any rod-metal tape is loaded.
+
+- ```rust
+  pub fn from_knobs(ni_as_fe: bool, fe57_as_fe56: bool, no_withdrawn_rods: bool) -> Self { /* ... */ }
+  ```
+  The treatment the three legacy environment knobs select.
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  One line for logs and diagnostics.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RodMetalTreatment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> RodMetalTreatment { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RodMetalTreatment) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ThermalScatteringTreatment`
+
+Whether the bound thermal scattering laws are applied.
+
+```rust
+pub enum ThermalScatteringTreatment {
+    Bound,
+    FreeGas,
+}
+```
+
+##### Variants
+
+###### `Bound`
+
+**Default:** every bound law the library provides (graphite, C-in-SiC,
+Si-in-SiC) plus the UO2 laws.
+
+###### `FreeGas`
+
+ABLATION (`OUTRAM_HTR10_NO_SAB`): every nuclide a free gas. A harness
+check: in a graphite-moderated core this must be worth a large,
+resolved amount.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ThermalScatteringTreatment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ThermalScatteringTreatment { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ThermalScatteringTreatment) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `U238Evaluation`
+
+Which U-238 evaluation the VIII.0 arm uses.
+
+```rust
+pub enum U238Evaluation {
+    Library,
+    Jendl33,
+}
+```
+
+##### Variants
+
+###### `Library`
+
+The library's own. **Default.** (VIII.0 tape `n-092_U_238.endf`.)
+
+###### `Jendl33`
+
+ABLATION (`OUTRAM_HTR10_U238_JENDL`): JENDL-3.3. A different-library
+bound on the dominant absorber, never the VII.0 offset.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> U238Evaluation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> U238Evaluation { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &U238Evaluation) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Uo2Laws`
+
+Where the UO2 thermal laws come from.
+
+```rust
+pub enum Uo2Laws {
+    GeneratedFromLeapr,
+    Tapes(std::path::PathBuf),
+}
+```
+
+##### Variants
+
+###### `GeneratedFromLeapr`
+
+**Default:** generated in-process from the LEAPR decks committed in
+`njoy-outram-park-fork` (the VIII.0 evaluation).
+
+###### `Tapes`
+
+Tabulated tapes `tsl-UinUO2.endf` (MAT 76) and `tsl-OinUO2.endf`
+(MAT 75) in this directory (`OUTRAM_HTR10_UO2_TAPE_DIR`); how the VII.0
+arm gets its own UO2 laws. A tape that fails to load is an error.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::path::PathBuf` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Uo2Laws { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Uo2Laws { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Uo2Laws) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10DataConfig`
+
+Everything the nuclide set depends on.
+
+```rust
+pub struct Htr10DataConfig {
+    pub library: NuclearDataLibrary,
+    pub graphite_law: super::materials::GraphiteLaw,
+    pub carbon: CarbonTreatment,
+    pub coolant: Coolant,
+    pub rod_metal: RodMetalTreatment,
+    pub thermal: ThermalScatteringTreatment,
+    pub u238: U238Evaluation,
+    pub uo2_laws: Uo2Laws,
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `library` | `NuclearDataLibrary` | Evaluated library. |
+| `graphite_law` | `super::materials::GraphiteLaw` | Graphite S(a,b) on the VIII.0 path. Ignored by VII.0 (one law only). |
+| `carbon` | `CarbonTreatment` | Carbon representation on the VIII.0 path. |
+| `coolant` | `Coolant` | Coolant regions: helium or vacuum. |
+| `rod_metal` | `RodMetalTreatment` | Rod steel and joint iron. |
+| `thermal` | `ThermalScatteringTreatment` | Bound thermal laws on or off. |
+| `u238` | `U238Evaluation` | U-238 evaluation (VIII.0 only). |
+| `uo2_laws` | `Uo2Laws` | Source of the UO2 thermal laws. |
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | Temperature every nuclide is reconstructed and broadened at. 300.15 K<br>(27 °C) is the temperature Li, Yu & Wei (2014) and Şeker & Çolak (2003)<br>state. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10DataConfig { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The correct-physics default: see the module docs.
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Htr10DataConfig) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `DataDir`
+
+A directory of evaluated tapes.
+
+```rust
+pub enum DataDir {
+    Endf,
+    AceSubmoduleEndfB8,
+}
+```
+
+##### Variants
+
+###### `Endf`
+
+`reference-data/endf/`, tracked in this repository.
+
+###### `AceSubmoduleEndfB8`
+
+`reference-data/ace/endf/endf-b-viii.0/`, in the `ace_and_other_data`
+submodule (the nickel tapes since 2026-10-01; MANIFEST.tsv one level
+up). `git submodule update --init reference-data/ace`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn path(self: Self) -> PathBuf { /* ... */ }
+  ```
+  Absolute directory, honouring `OUTRAM_PARK_REFERENCE_DATA_DIR`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DataDir { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DataDir) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Tape`
+
+One evaluated tape: directory and file name.
+
+```rust
+pub struct Tape {
+    pub dir: DataDir,
+    pub file: &'static str,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dir` | `DataDir` | Directory. |
+| `file` | `&'static str` | File name. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn endf(file: &'static str) -> Self { /* ... */ }
+  ```
+  A tape in `reference-data/endf/`.
+
+- ```rust
+  pub fn path(self: &Self) -> PathBuf { /* ... */ }
+  ```
+  Absolute path.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Tape { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Tape) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ThermalLaw`
+
+A bound thermal scattering law a slot is to carry.
+
+```rust
+pub enum ThermalLaw {
+    Graphite {
+        file: &'static str,
+        mat: i32,
+    },
+    CInSiC,
+    SiInSiC,
+    UInUO2,
+    OInUO2,
+}
+```
+
+##### Variants
+
+###### `Graphite`
+
+Graphite S(a,b) from a tape: VIII.0 `GraphiteLaw` (MAT 30/31/32) or the
+VII.0 `tsl-graphite-ENDF7.0.endf` (MAT 31).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `file` | `&'static str` | Tape file in `reference-data/endf/`. |
+| `mat` | `i32` | MAT in the tape's control columns. |
+
+###### `CInSiC`
+
+C-in-SiC, VIII.0 `tsl-CinSiC.endf`, MAT 44.
+
+###### `SiInSiC`
+
+Si-in-SiC, VIII.0 `tsl-SiinSiC.endf`, MAT 43.
+
+###### `UInUO2`
+
+U-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
+
+###### `OInUO2`
+
+O-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short label for slot names.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ThermalLaw { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ThermalLaw) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NuclideSlot`
+
+One slot of the nuclide array.
+
+```rust
+pub struct NuclideSlot {
+    pub name: &'static str,
+    pub tape: Tape,
+    pub thermal: Option<ThermalLaw>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` | Nuclide name passed to the reconstruction (e.g. `"C13"`). |
+| `tape` | `Tape` | Tape it is read from. |
+| `thermal` | `Option<ThermalLaw>` | Thermal law bound to it, if any (already `None` under the free-gas<br>ablation and for VII.0 SiC). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: &Self) -> String { /* ... */ }
+  ```
+  Human-readable label: name and thermal treatment.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NuclideSlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NuclideSlot) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CoolantNuclides`
+
+Where the coolant's nuclides sit, or that there are none.
+
+```rust
+pub enum CoolantNuclides {
+    Helium {
+        he3: usize,
+        he4: usize,
+    },
+    Vacuum,
+}
+```
+
+##### Variants
+
+###### `Helium`
+
+Natural helium: He-3 and He-4 slots.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `he3` | `usize` | He-3 slot. |
+| `he4` | `usize` | He-4 slot. |
+
+###### `Vacuum`
+
+The vacuum ablation: no coolant nuclides.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CoolantNuclides { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CoolantNuclides) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10NuclideLayout`
+
+The complete nuclide plan: every slot in order, and the index tables the
+material set reads.
+
+```rust
+pub struct Htr10NuclideLayout {
+    pub pebble: outram_mc_libs::pebble_beds::htr10::Htr10Nuclides,
+    pub coolant: CoolantNuclides,
+    pub metal: super::materials::RodMetalNuclides,
+    pub rod_metal: RodMetalTreatment,
+    pub slots: Vec<NuclideSlot>,
+    pub notes: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pebble` | `outram_mc_libs::pebble_beds::htr10::Htr10Nuclides` | Pebble, reflector and B4C slots (carbon as [`CarbonSlot`]s). |
+| `coolant` | `CoolantNuclides` | Coolant slots. |
+| `metal` | `super::materials::RodMetalNuclides` | Rod-metal slots. Under [`RodMetalTreatment::Simplified`] the Ni (and<br>Fe-57) fields point at Fe slots; under<br>[`RodMetalTreatment::NotModelled`] they point past [`Self::len`]. |
+| `rod_metal` | `RodMetalTreatment` | The rod-metal treatment this layout realises. |
+| `slots` | `Vec<NuclideSlot>` | The slots, in array order. |
+| `notes` | `Vec<String>` | Modelling statements a run must record (mixed-library arms,<br>substitutions, ablations), one line each. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn plan(cfg: &Htr10DataConfig) -> Result<Self, Htr10DataError> { /* ... */ }
+  ```
+  Decide every slot for `cfg`. Pure: reads nothing from disk.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of slots, i.e. the length of the nuclide array.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the layout has no slots (never, for a planned layout).
+
+- ```rust
+  pub fn loads_fe57(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the plan loads the Fe-57 tape (blocked by gh:#339 while
+
+- ```rust
+  pub fn nuclide_name(self: &Self, idx: usize) -> String { /* ... */ }
+  ```
+  Label of slot `idx`, or `"unknown"`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10NuclideLayout { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Htr10DataError`
+
+Why the nuclide set could not be built.
+
+```rust
+pub enum Htr10DataError {
+    BlockedByGh339,
+    InvalidConfig(String),
+    MissingTape {
+        name: String,
+        path: std::path::PathBuf,
+    },
+    LoadFailed {
+        name: String,
+        path: std::path::PathBuf,
+    },
+}
+```
+
+##### Variants
+
+###### `BlockedByGh339`
+
+The layout loads Fe-57 and gh:#339 is not fixed.
+
+###### `InvalidConfig`
+
+A configuration that does not exist (e.g. a VIII.0-only ablation on
+the VII.0 arm).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `MissingTape`
+
+A tape is not on disk.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Slot or law name. |
+| `path` | `std::path::PathBuf` | Path tried. |
+
+###### `LoadFailed`
+
+A tape is present but did not load.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Slot or law name. |
+| `path` | `std::path::PathBuf` | Path tried. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `load_htr10_nuclides`
+
+Read every tape `layout` names at `cfg.temperature`, bind the thermal
+laws, and record each item (path, timing, success) in `diag`, together with
+the layout's modelling notes.
+
+Reconstruction tolerance is NJOY's 1e-3. Each slot is reconstructed
+separately, as before (a nuclide carrying a thermal law is a distinct
+object).
+
+# Errors
+
+- [`Htr10DataError::BlockedByGh339`] before anything is read, if the layout
+  loads Fe-57 and [`FE57_RECONSTRUCTION_FIXED`] is `false`;
+- [`Htr10DataError::MissingTape`] / [`Htr10DataError::LoadFailed`] for a
+  nuclide or graphite law that is absent or fails. A missing SiC law falls
+  back to free gas with a note, as it always has; a UO2 tape that fails is
+  an error.
+
+```rust
+pub fn load_htr10_nuclides(cfg: &Htr10DataConfig, layout: &Htr10NuclideLayout, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, Htr10DataError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `FE57_RECONSTRUCTION_FIXED`
+
+**Whether ENDF/B-VIII.0 Fe-57 can be reconstructed on this code base.**
+
+`false` until gh:#339 is fixed: reconstructing `n-026_Fe_057-ENDF8.0.endf`
+(LRU=1, LRF=7, three particle pairs) exhausted 13.4 GB and was OOM-killed
+on 2026-09-26, which can take the whole session down on a 15 GB desktop.
+While it is `false`, [`load_htr10_nuclides`] **refuses** any layout that
+loads the Fe-57 tape, with [`Htr10DataError::BlockedByGh339`], before it
+reads a single tape. It does not swap Fe-57 for anything: the simplified
+treatment that does ([`RodMetalTreatment::Simplified`]) must be asked for
+by name.
+
+Whoever fixes gh:#339 flips this to `true` in the same change, after
+measuring the reconstruction's peak memory.
+
+```rust
+pub const FE57_RECONSTRUCTION_FIXED: bool = false;
+```
+
 ## Module `materials`
 
 **The HTR-10 material set, in one place.**
@@ -6469,8 +10566,25 @@ length is asserted against `mat::COUNT` for that reason.
 Compositions: Li et al. (2014) Table 2 for the pebble (via
 [`outram_mc_libs::pebble_beds::htr10::fuel_pebble_materials`]);
 IAEA-TECDOC-1382 Table 4-3 for every reflector zone, with its p. 242
-corrections; TECDOC § 4.1.2 for the control-rod B4C, steel and iron;
-IUPAC/CIAAW for atomic weights and isotopic compositions.
+corrections; TECDOC ~~§ 4.1.2~~ **§ 4.1.1.5 "Control of HTR-10" (printed
+pp. 235-236; CORRECTED 2026-10-01, gh:#428 — § 4.1.2 is the benchmark
+problem descriptions)** for the control-rod B4C density, steel and iron.
+That section gives no B4C isotopics: natural boron is this model's reading,
+consistent with MIT's homogenised rod in TECDOC Table 4-36 but not stated in
+the specification. IUPAC/CIAAW for atomic weights and isotopic compositions.
+
+# The nuclide slots come from a layout (2026-10-01)
+
+~~[`htr10_material_set`] takes an `Htr10Nuclides` and a
+[`RodMetalNuclides`].~~ **CHANGED 2026-10-01:** it takes an
+[`Htr10NuclideLayout`] ([`super::data`]), the one object that says which
+nuclide sits in which slot. Three maintainer decisions of that date are
+carried through it:
+- **natural carbon** in every carbon-bearing material, C-12 / C-13 at
+  98.93 / 1.07 at.% on ENDF/B-VIII.0, elemental C-nat on VII.0 (gh:#425);
+- **helium coolant** in [`mat::HELIUM`], not vacuum (gh:#426);
+- **real nickel and iron** in the rod steel, or the simplified Ni -> Fe,
+  Fe-57 -> Fe-56 mapping when asked for (gh:#329, gh:#339).
 
 ```rust
 pub mod materials { /* ... */ }
@@ -6624,7 +10738,10 @@ graphite law is crystalline. Against RMC this default therefore carries a
 TSL term as well as the VII-vs-VIII library term. The fast single-seed
 worth at n = 25 was +947 ± 483 pcm against crystalline
 (`outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`).
-A pooled re-measurement is in progress. [`GraphiteLaw::Crystalline`] is the
+~~A pooled re-measurement is in progress.~~ **CORRECTED 2026-10-01
+(gh:#428):** the pooled re-measurement is complete and recorded in the same
+file: **30P − crystalline = +705 ± 86 pcm** (8.2σ; 4 seeds × 1.0 M active
+histories per arm, two-ball bed). [`GraphiteLaw::Crystalline`] is the
 explicit ablation.
 
 ```rust
@@ -6815,7 +10932,7 @@ pub struct Htr10MaterialConfig {
 |------|------|---------------|
 | `temperature_k` | `f64` | Temperature \[K\] every material is built at. |
 | `boron` | `outram_mc_libs::pebble_beds::htr10::BoronReading` | How the two "ppm natural boron" rows of Table 2 are read. |
-| `reflector_zone` | `usize` | Which TECDOC Table 4-3 zone stands in for the whole reflector.<br>22 is the default and the OPTIMISTIC bound (cleanest graphite). |
+| `reflector_zone` | `usize` | Which TECDOC Table 4-3 zone's composition fills material slot<br>[`mat::REFLECTOR`].<br><br>~~Stands in for the whole reflector; 22 is the default and the<br>OPTIMISTIC bound (cleanest graphite).~~ **CORRECTED 2026-10-01<br>(gh:#428):** since the explicit reflector and the Fig. 4.10 zone map,<br>`mat::REFLECTOR` fills only the zones TECDOC p. 242 says take zone 22's<br>density once the borings are explicit (the zone-22 list of<br>[`mat::for_zone_mc`]). Every other<br>zone has its own slot. (Under the `OUTRAM_HTR10_NO_ZONE_MAP` ablation it<br>fills every zone but the boronated bricks.) 22 is therefore the model,<br>not a bound; any other value is a sensitivity on those zones only. |
 | `reflector_carbon_scale` | `f64` | Multiplier on the reflector's carbon density. `1.0` is unmodified.<br>A sensitivity bound, not a model. |
 
 ##### Implementations
@@ -6939,13 +11056,17 @@ pub struct Htr10MaterialConfig {
 - `Other("#[allow(missing_docs)]")`
 
 Indices, into the caller's nuclide array, of the nuclides the withdrawn
-control rods need beyond [`Htr10Nuclides`]: the sleeve steel and the iron
-joints.
+control rods need beyond the pebble's `Htr10Nuclides`: the sleeve steel
+and the iron joints.
 
-Silicon appears here AGAIN, as free gas: [`Htr10Nuclides`]'s silicon is
-bound in SiC with its own S(alpha, beta), which is wrong for silicon
-dissolved in steel. Carbon in steel and in B4C uses
-[`Htr10Nuclides::c_free`] for the same reason.
+Silicon appears here AGAIN, as free gas: the pebble's silicon is bound in
+SiC with its own S(alpha, beta), which is wrong for silicon dissolved in
+steel. Carbon in steel and in B4C uses the pebble table's free carbon
+(`Htr10Nuclides::c_free`, natural C-12 / C-13 since 2026-10-01) for the
+same reason.
+
+Under the simplified rod-metal case the Ni (and Fe-57) fields point at Fe
+slots; see [`super::data::RodMetalTreatment`].
 
 ```rust
 pub struct RodMetalNuclides {
@@ -7133,6 +11254,22 @@ pub struct RodMetalNuclides {
 - **WasmNotSync**
 ### Functions
 
+#### Function `ideal_gas_atom_density`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Atom density of an ideal gas \[atoms/(b cm)\]: `N = p / (k_B T)`.
+
+At 300.15 K and 101.33 kPa this is **2.4452e-5 atoms/(b cm)**. Helium at
+one atmosphere is ideal to ~5e-4 (second virial coefficient ~12 cm3/mol),
+far below anything an eigenvalue sees.
+
+```rust
+pub fn ideal_gas_atom_density(temperature: uom::si::f64::ThermodynamicTemperature, pressure: uom::si::f64::Pressure) -> f64 { /* ... */ }
+```
+
 #### Function `htr10_material_set`
 
 **Attributes:**
@@ -7144,7 +11281,10 @@ Build the material set, indexed by [`mat`] (`mat::COUNT` materials).
 **Signature changed 2026-09-25** to take [`RodMetalNuclides`]: the ten
 control rods are now explicit geometry at their withdrawn position, and
 their steel sleeves and iron joints need nuclides the pebble set has no
-slots for.
+slots for. **Changed again 2026-10-01** to take the whole
+[`Htr10NuclideLayout`] (pebble, coolant and rod-metal slots in one), so
+the carbon split, the coolant and the rod-metal treatment are decided once,
+where the nuclides are.
 
 # Panics
 
@@ -7152,7 +11292,7 @@ If `reflector_zone` is not listed in TECDOC Table 4-3, or if the assembled
 length does not match the index table.
 
 ```rust
-pub fn htr10_material_set(n: outram_mc_libs::pebble_beds::htr10::Htr10Nuclides, metal: RodMetalNuclides, cfg: Htr10MaterialConfig) -> Vec<outram_mc_libs::material::material::Material> { /* ... */ }
+pub fn htr10_material_set(layout: &super::data::Htr10NuclideLayout, cfg: Htr10MaterialConfig) -> Vec<outram_mc_libs::material::material::Material> { /* ... */ }
 ```
 
 #### Function `nuclide_name`
@@ -7163,12 +11303,14 @@ pub fn htr10_material_set(n: outram_mc_libs::pebble_beds::htr10::Htr10Nuclides, 
 
 Human-readable name for each nuclide slot, for reporting.
 
-[`Htr10Nuclides`] is a table of *indices into the caller's nuclide array*,
-so a material component carries an index and nothing else. Anything that
-reports a composition needs this to turn that index back into a name.
+A material component carries an index and nothing else, so anything that
+reports a composition needs this to turn the index back into a name.
+~~Took `Htr10Nuclides` and named only the eleven pebble slots.~~
+**CHANGED 2026-10-01:** reads the layout, so it names every slot (C-13,
+helium, rod metals) with the thermal law the layout binds to it.
 
 ```rust
-pub fn nuclide_name(n: outram_mc_libs::pebble_beds::htr10::Htr10Nuclides, idx: usize) -> &'static str { /* ... */ }
+pub fn nuclide_name(layout: &super::data::Htr10NuclideLayout, idx: usize) -> String { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -7185,8 +11327,14 @@ pub const B10_OF_NATURAL: f64 = 0.199;
 
 #### Constant `ROD_METAL_TAPES_ENDF8`
 
-ENDF/B-VIII.0 tapes (in `reference-data/endf/`) for the rod-metal
-nuclides, in [`RodMetalNuclides::contiguous`] order, as `(name, file)`.
+ENDF/B-VIII.0 tapes for the rod-metal nuclides, in
+[`RodMetalNuclides::contiguous`] order, as `(name, tape)`.
+
+Every tape is in `reference-data/endf/` except the five **nickel** tapes,
+which are in the `reference-data/ace` submodule
+(`ace/endf/endf-b-viii.0/`, listed in its `MANIFEST.tsv`) since 2026-10-01:
+the maintainer decided on 2026-09-25 that no Ni data is committed to this
+repository (gh:#329, ~48 MB). ~~(in `reference-data/endf/`)~~
 
 The silicon tapes are the same files as the SiC slots'; they are loaded a
 second time WITHOUT a thermal law. There is no ENDF/B-VII.0 counterpart in
@@ -7194,12 +11342,41 @@ the checkout for the metals, so a VII.0 run takes these VIII.0 tapes for
 the rod metal only, and must say so.
 
 ```rust
-pub const ROD_METAL_TAPES_ENDF8: [(&str, &str); 22] = _;
+pub const ROD_METAL_TAPES_ENDF8: [(&str, super::data::Tape); 22] = _;
+```
+
+#### Constant `HE3_ATOM_FRACTION_OF_NATURAL_HE`
+
+He-3 atom fraction of natural (atmospheric) helium, 1.343e-6.
+
+Source: IUPAC/CIAAW representative isotopic composition of helium,
+0.000 001 343(13) He-3 / 0.999 998 657(13) He-4 (Meija et al., *Pure Appl.
+Chem.* 88 (2016) 293-306, Table 1). He-3's 5333 b thermal (n,p) makes it
+the only part of the coolant that absorbs at all; at this fraction it is
+~3e-11 atoms/(b cm).
+
+```rust
+pub const HE3_ATOM_FRACTION_OF_NATURAL_HE: f64 = 1.343e-6;
+```
+
+#### Constant `HELIUM_PRESSURE_KPA`
+
+Helium coolant pressure \[kPa\]: **101.33 kPa, an ASSUMPTION** (gh:#426).
+
+Şeker & Çolak (2003), NED 222:263, p.267 states atmospheric pressure,
+101.33 kPa, for its air case and gives no other pressure; the HTR-10
+first-criticality loading was at room temperature (27 °C, as Li and Şeker
+state), and neither paper states the helium pressure. The helium case is
+therefore taken as atmospheric, and this is stated rather than implied.
+
+```rust
+pub const HELIUM_PRESSURE_KPA: f64 = 101.33;
 ```
 
 #### Constant `ROD_STEEL_DENSITY`
 
-Rod sleeve steel density \[g/cm³\], TECDOC § 4.1.2.
+Rod sleeve steel density \[g/cm³\], TECDOC ~~§ 4.1.2~~ § 4.1.1.5, pp. 235-236
+(CORRECTED 2026-10-01, gh:#428; *"a density of 7.9g/cm3 is assumed"*).
 
 ```rust
 pub const ROD_STEEL_DENSITY: f64 = 7.9;
@@ -7207,7 +11384,8 @@ pub const ROD_STEEL_DENSITY: f64 = 7.9;
 
 #### Constant `ROD_STEEL_WT`
 
-Rod sleeve steel composition \[weight fraction\], TECDOC § 4.1.2:
+Rod sleeve steel composition \[weight fraction\], TECDOC ~~§ 4.1.2~~
+§ 4.1.1.5, pp. 235-236 (CORRECTED 2026-10-01, gh:#428):
 Cr 18, Fe 68.1, Ni 10, Si 1, Mn 2, C 0.1, Ti 0.8 (sums to 100 %).
 
 ```rust
@@ -7217,7 +11395,8 @@ pub const ROD_STEEL_WT: [(&str, f64); 7] = _;
 #### Constant `ROD_JOINT_IRON_DENSITY`
 
 Iron atom density of the rod joints and ends \[atoms/(b cm)\], TECDOC
-§ 4.1.2: iron alone, filling 27.5 mm < R < 55 mm.
+~~§ 4.1.2~~ § 4.1.1.5, pp. 235-236 (CORRECTED 2026-10-01, gh:#428): iron alone,
+filling 27.5 mm < R < 55 mm.
 
 ```rust
 pub const ROD_JOINT_IRON_DENSITY: f64 = 0.04;
@@ -7236,7 +11415,7 @@ actually contains.
 
 **Every cut is chosen from the BUILT bed, not from constants.** The planes
 that "cut across the pebbles" are picked from
-[`TwoBallBed`](super::bed::TwoBallBed)'s ball centres — the same
+[`PebbleBed`](super::bed::PebbleBed)'s ball centres — the same
 description the lattice was assembled from — and each [`PlotJob`] records
 how many ball centres lie on its plane, so a reader can check the claim:
 
@@ -7567,8 +11746,6 @@ pub fn palette() -> Vec<(outram_mc_libs::geometry::plot::Rgb, &'static str)> { /
 
 ## Module `table1`
 
-Design characteristics from the paper's **Table 1**.
-
 ```rust
 pub mod table1 { /* ... */ }
 ```
@@ -7795,6 +11972,53 @@ pub struct GeometryClosure {
 - **WasmNotSync**
 ### Functions
 
+#### Function `seker_height_for_balls`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**The reference loading height \[cm\] that holds `balls` balls** in Şeker &
+Çolak (2003)'s model: `9.798 (balls - 733) / 1346 + 6.0`. It is exact at
+the tabulated rows and linear between them.
+
+# Why a model is matched to the reference by ball count (gh:#472, 2026-10-01)
+
+Our Şeker bed keeps every ball whole. It holds 721 + 609 balls per layer;
+Şeker's table implies 733 + 613. The difference was chased down: it is
+exactly the next shells out, 12 basal balls centred at ρ = 87.209 cm and 6
+central balls at ρ = 87.080 cm, which would cross the r = 90 cm reflector
+by 0.21 and 0.08 cm. Keeping them reproduces Şeker's basal count exactly
+(733) and the central one to +2 (615). No lattice offset does it under the
+whole-ball rule. So the reference keeps balls that cross the wall: cut by
+the core cylinder in MCNP, or kept by a tolerance.
+
+Cut pebbles are wrong physics (maintainer, 2026-10-01), so they are not
+added. Instead the maintainer chose to compare **at the same ball
+inventory**: the reference at the height where its model holds as many
+balls as ours. At N = 12 ours holds 16 681 balls, which in Şeker's model is
+122.09 cm, 1.49 cm below the 123.576 cm row.
+
+```rust
+pub fn seker_height_for_balls(balls: usize) -> f64 { /* ... */ }
+```
+
+#### Function `rmc_keff_at_ball_count`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+RMC's `k_eff` (Li, Yu & Wei 2014) for a bed of `balls` balls: the
+reference curve [`RMC_KEFF_VS_HEIGHT`] read at [`seker_height_for_balls`],
+linear between rows. `None` outside the tabulated range (no
+extrapolation). This is the comparison point for a whole-ball model; see
+[`seker_height_for_balls`] for why.
+
+```rust
+pub fn rmc_keff_at_ball_count(balls: usize) -> Option<f64> { /* ... */ }
+```
+
 #### Function `geometry_closures`
 
 **Attributes:**
@@ -7839,6 +12063,16 @@ now carried separately, in [`MCNP_TABLE3_KEFF_VS_HEIGHT`] and
 Heights are the paper's convention: bottom of the lowest ball to top of the
 highest, `9.798 N + 6.0` cm (gh:#333).
 
+**The inventory behind each height (2026-10-01).** These are exactly the
+heights of Şeker & Çolak (2003), NED 222:263, Table 3 (the MCNP model Li
+follows), which also gives the ball counts: `1346 N + 733` balls, of which
+`767 N + 418` are fuel, for N = 9…20. At a 0.61 filling fraction that is
+**H − 0.55 cm** of volume-equivalent bed (0.58 cm at N = 9, 0.48 cm at
+N = 20). Match a model to a row **by ball count**, not by height. The
+experiment's first criticality was 16 890 balls at 123.06 cm; Şeker's
+N = 12 row holds 16 885. Whether Li's RMC model holds the same count is not
+stated.
+
 ```rust
 pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = _;
 ```
@@ -7857,10 +12091,20 @@ how much agreement with RMC alone can mean: the paper's own RMC-MCNP
 differences reach 0.95 %. Do not fit to them and do not replace RMC with
 them.
 
+**Their data library (2026-10-01, gh:#428).** Li's abstract says RMC and
+MCNP both used *"continuous energy cross section based on ENDF/B-7.0"*. The
+MCNP numbers are not Li's own runs, though. They equal Şeker & Çolak
+(2003)'s Table 3 (see the module docs), and Şeker p.265 states:
+*"ENDF/B-VI continuous energy cross sections are used in calculations for
+all materials except graphite. Cross sections for graphite are taken from
+TMCCS library."* So these MCNP columns are **ENDF/B-VI**, with TMCCS
+graphite, and not VII.0. Only RMC's library is the VII.0 Li states.
+
 Both Tables 3 and 4 are captioned "(vacuum)" while the text says the
-calculations were for vacuum *and* helium, so one caption is wrong and it
-is not known which table is which (see the module docs). They are kept
-under their table numbers for that reason. Transcribed 2026-09-27;
+calculations were for vacuum *and* helium, so one caption is wrong ~~and it
+is not known which table is which~~ **CORRECTED 2026-10-01**: Şeker &
+Çolak (2003) Table 3 shows Table 3 is vacuum and Table 4 is **helium**
+(see the module docs). They are kept under their table numbers. Transcribed 2026-09-27;
 `the_mcnp_columns_reproduce_the_papers_relative_differences` re-derives the
 paper's "Re-diff" column from them.
 
@@ -7876,6 +12120,30 @@ and are not).
 
 ```rust
 pub const MCNP_TABLE4_KEFF_VS_HEIGHT: &[(f64, f64)] = _;
+```
+
+#### Constant `SEKER_BALLS_PER_LAYER`
+
+Design characteristics from the paper's **Table 1**.
+Balls per 9.798 cm layer in Şeker & Çolak (2003)'s HTR-10 model, Table 3:
+every row holds `1346 N + 733` balls (gh:#333, gh:#472).
+
+Source: Şeker, V., Çolak, Ü. (2003), *HTR-10 full core first criticality
+analysis with MCNP*, Nucl. Eng. Des. 222, 263–270,
+doi:10.1016/S0029-5493(03)00031-1, Table 3. Li, Yu & Wei (2014) tabulate
+RMC at exactly these heights.
+
+```rust
+pub const SEKER_BALLS_PER_LAYER: usize = 1346;
+```
+
+#### Constant `SEKER_BALLS_EXTRA_PLANE`
+
+The constant in Şeker's `1346 N + 733`: one extra basal plane. See
+[`SEKER_BALLS_PER_LAYER`].
+
+```rust
+pub const SEKER_BALLS_EXTRA_PLANE: usize = 733;
 ```
 
 ## Module `mgxs`

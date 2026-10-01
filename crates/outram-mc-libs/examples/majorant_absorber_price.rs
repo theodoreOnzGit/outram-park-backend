@@ -101,19 +101,7 @@ use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Ht
 const TEMP_K: f64 = 300.15;
 
 /// Index of each nuclide in the slice below.
-const NUCLIDES: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
+const NUCLIDES: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 // NOTE: there is deliberately NO B-11. `reference-data/endf/` carries only
 // `n-005_B_010`, because B-11's ~5 mb capture against B-10's 3840 b is
 // negligible — four parts in a million of natural boron's absorption. So the
@@ -163,7 +151,7 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
         bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7, 8, 9: the slots `Htr10Nuclides` names. Filling the struct
@@ -175,6 +163,12 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
         // 10: B-11 (gh:#311).
         load("B11", "n-005_B_011-ENDF8.0.endf")?,
+        // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
+        // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
+        // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+        load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
+        bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
     ])
 }
 
@@ -199,16 +193,14 @@ fn b4c_rod(id: i32) -> Material {
     Material {
         id,
         name: "B4C control rod (illustrative)".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: NUCLIDES.b10,
-                atom_density: n_boron * B10_ATOM_FRACTION,
-            },
-            NuclideComponent {
-                nuclide_idx: NUCLIDES.c_free,
-                atom_density: N_B4C,
-            },
-        ],
+        // Natural carbon, C-12 / C-13 (gh:#425, 2026-10-01).
+        components: [NuclideComponent {
+            nuclide_idx: NUCLIDES.b10,
+            atom_density: n_boron * B10_ATOM_FRACTION,
+        }]
+        .into_iter()
+        .chain(NUCLIDES.c_free.components(N_B4C))
+        .collect(),
         temperature: TEMP_K,
     }
 }

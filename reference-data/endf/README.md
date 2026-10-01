@@ -407,8 +407,14 @@ ablation chain: `crates/outram-mc-libs/verification_and_validation/htr10_rmc/REA
 ### Two differences that are part of the physics, not transcription details
 
 - **VII.0 carbon is ELEMENTAL natural carbon** (`6-C-0`, MAT 600). VIII.0 ships
-  C-12 separately. The VII.0 arm therefore carries the 1.1 % C-13 and the
-  VIII.0 arm does not; the two are not separable without a third arm.
+  C-12 ~~separately~~ and C-13 (`n-006_C_013-ENDF8.0.endf`, in this folder)
+  separately. ~~The VII.0 arm therefore carries the 1.1 % C-13 and the VIII.0
+  arm does not; the two are not separable without a third arm.~~ **CORRECTED
+  2026-10-01 (gh:#425):** the VIII.0 arm loaded only C-12 although the C-13
+  tape was here. Since 2026-10-01 it splits natural carbon C-12 / C-13 at
+  98.93 / 1.07 at.% by default (`nee_soon::htr10_rmc::data`), so both arms
+  carry natural carbon; `OUTRAM_HTR10_CARBON_AS_C12=1` is the C-12-only
+  ablation that prices the C-13 term.
 - **The graphite thermal tape's MAT changed between releases**: VIII.0
   crystalline graphite is MAT 30 (ZA 130), VII.0 is MAT 31 (ZA 131). Passing
   the wrong one makes `ThermalScattering::from_endf_file` return `Err`.

@@ -4,21 +4,7 @@ use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
 
 const T: f64 = 300.15;
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    // Appended 2026-09-23: slots 0..=6 keep their indices so no
-    // existing material silently repoints at a different nuclide.
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
+const NUC: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn main() {
     let base =
@@ -57,7 +43,7 @@ fn main() {
             ld("U238", "n-092_U_238.endf")?,
             ld("O16", "n-008_O_016-ENDF8.0.endf")?,
             ld("C12", "n-006_C_012-ENDF8.0.endf")?,
-            ld("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
+            ld("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
             bind_sic(ld("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
             ld("B10", "n-005_B_010-ENDF8.0.endf")?,
             // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
@@ -67,6 +53,12 @@ fn main() {
             bind_sic(ld("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
             bind_sic(ld("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
             ld("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
+            // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
+            // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
+            // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
+            ld("C13", "n-006_C_013-ENDF8.0.endf")?,
+            ld("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
+            bind_sic(ld("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
         ])
     })() else {
         println!("SKIP");

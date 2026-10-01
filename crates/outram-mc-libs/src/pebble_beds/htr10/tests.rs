@@ -31,20 +31,9 @@ use std::f64::consts::PI;
 const KERNELS_PER_BALL: f64 = 8335.0;
 const FUEL_ZONE_RADIUS: f64 = 2.5;
 
+/// The default (ENDF/B-VIII.0) layout: natural carbon split C-12 / C-13.
 fn nuclides() -> Htr10Nuclides {
-    Htr10Nuclides {
-        u235: 0,
-        u238: 1,
-        o16: 2,
-        c_free: 3,
-        c_graphite: 4,
-        si28: 5,
-        b10: 6,
-        c_sic: 7,
-        si29: 8,
-        si30: 9,
-        b11: 10,
-    }
+    Htr10Nuclides::NATURAL_CARBON
 }
 
 fn b10_inventory(n: Htr10Nuclides, r: BoronReading) -> f64 {
@@ -244,9 +233,12 @@ fn the_atom_densities_match_values_computed_independently_from_table_2() {
     close(density(0, n.b10), 1.849_637e-8, "kernel B-10");
 
     // coatings
-    close(density(1, n.c_graphite), 5.515_24e-2, "buffer C (rho 1.1)");
-    close(density(2, n.c_graphite), 9.526_32e-2, "IPyC C (rho 1.9)");
-    close(density(4, n.c_graphite), 9.526_32e-2, "OPyC C (rho 1.9)");
+    // Carbon is natural carbon split C-12 / C-13 since 2026-10-01 (gh:#425):
+    // the TOTAL over both isotopes is what Table 2 pins down.
+    let carbon = |mat: usize, slot: CarbonSlot| slot.total_in(&mats[mat]);
+    close(carbon(1, n.c_graphite), 5.515_24e-2, "buffer C (rho 1.1)");
+    close(carbon(2, n.c_graphite), 9.526_32e-2, "IPyC C (rho 1.9)");
+    close(carbon(4, n.c_graphite), 9.526_32e-2, "OPyC C (rho 1.9)");
     // SiC. Silicon is split over its three natural isotopes as of
     // 2026-09-23, so the TOTAL is what Table 2 pins down -- checking the
     // Si-28 slot alone against the total would now fail for the right
@@ -276,16 +268,16 @@ fn the_atom_densities_match_values_computed_independently_from_table_2() {
     );
     // The carbon moved from the free-gas slot to the SiC-bound one; the
     // density is unchanged, only which nuclide slot carries it.
-    close(density(3, n.c_sic), 4.776_08e-2, "SiC C (rho 3.18)");
+    close(carbon(3, n.c_sic), 4.776_08e-2, "SiC C (rho 3.18)");
     assert_eq!(
-        density(3, n.c_free),
+        carbon(3, n.c_free),
         0.0,
         "SiC carbon must no longer sit in the free-gas slot"
     );
 
     // graphite matrix and shell, 1.3 ppm natural B
-    close(density(5, n.c_graphite), 8.673_97e-2, "matrix C (rho 1.73)");
-    close(density(6, n.c_graphite), 8.673_97e-2, "shell C (rho 1.73)");
+    close(carbon(5, n.c_graphite), 8.673_97e-2, "matrix C (rho 1.73)");
+    close(carbon(6, n.c_graphite), 8.673_97e-2, "shell C (rho 1.73)");
     // Atom ppm since 2026-10-01 (gh:#424): MIT Table 4-38's value. ~~2.493_03e-8~~
     close(density(5, n.b10), 2.244_010e-8, "matrix B-10");
     // 1.3e-6 x 0.199 x 5.51524e-2 (atom ppm, gh:#424). ~~1.585_16e-8~~
@@ -310,4 +302,58 @@ fn the_graphite_boron_matches_mits_atom_ppm_table() {
     println!("matrix B-10 {b10:.6e} (MIT 2.244010e-8), B-11 {b11:.6e} (MIT 9.032424e-8)");
     assert!((b10 / 2.244_010e-8 - 1.0).abs() < 1.0e-3);
     assert!((b11 / 9.032_424e-8 - 1.0).abs() < 1.0e-3);
+}
+
+/// **Natural carbon is split C-12 / C-13 at 98.93 / 1.07 at.% in every carbon
+/// of the pebble, and the split conserves carbon** (gh:#425, maintainer
+/// decision 2026-10-01).
+///
+/// Methodology: build the seven pebble materials on the default
+/// [`Htr10Nuclides::NATURAL_CARBON`] layout and, for every material that
+/// carries carbon, check (a) the C-12 + C-13 sum equals the elemental-layout
+/// carbon to 1e-12 relative, and (b) C-13 / (C-12 + C-13) = 0.0107 (IUPAC).
+/// The elemental layout must place the same total in ONE slot, with no C-13
+/// placeholder.
+///
+/// Result (2026-10-01): passes; six carbon-bearing materials (buffer, IPyC,
+/// SiC, OPyC, matrix, shell), each conserving carbon exactly.
+#[test]
+fn natural_carbon_is_split_c12_c13_and_conserved() {
+    let iso = fuel_pebble_materials(Htr10Nuclides::NATURAL_CARBON, BoronReading::Natural, 300.15);
+    let ele = fuel_pebble_materials(Htr10Nuclides::ELEMENTAL_CARBON, BoronReading::Natural, 300.15);
+    let n = Htr10Nuclides::NATURAL_CARBON;
+    let e = Htr10Nuclides::ELEMENTAL_CARBON;
+    let mut checked = 0;
+    for (i, (m, me)) in iso.iter().zip(&ele).enumerate() {
+        for (slot, eslot) in [(n.c_graphite, e.c_graphite), (n.c_sic, e.c_sic), (n.c_free, e.c_free)] {
+            let total = slot.total_in(m);
+            let want = eslot.total_in(me);
+            assert!(
+                (total - want).abs() <= 1e-12 * want.max(1e-300),
+                "material {i} ({}): split carbon {total:e} != elemental {want:e}",
+                m.name
+            );
+            if total == 0.0 {
+                continue;
+            }
+            let CarbonSlot::Natural { c12, c13 } = slot else {
+                panic!("default layout must be isotopic");
+            };
+            let get = |idx: usize| -> f64 {
+                m.components.iter().filter(|c| c.nuclide_idx == idx).map(|c| c.atom_density).sum()
+            };
+            let f13 = get(c13) / (get(c12) + get(c13));
+            assert!((f13 - C13_ATOM_FRACTION_OF_NATURAL_C).abs() < 1e-12, "C-13 fraction {f13}");
+            // The elemental layout has exactly one carbon component.
+            let CarbonSlot::Elemental(ce) = eslot else {
+                panic!("elemental layout must be elemental");
+            };
+            assert_eq!(me.components.iter().filter(|c| c.nuclide_idx == ce).count(), 1);
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 6, "buffer, IPyC, SiC, OPyC, matrix, shell carry carbon");
+    assert!((C12_ATOM_FRACTION_OF_NATURAL_C + C13_ATOM_FRACTION_OF_NATURAL_C - 1.0).abs() < 1e-15);
+    assert_eq!(Htr10Nuclides::NATURAL_CARBON.slot_count(), 14);
+    assert_eq!(Htr10Nuclides::ELEMENTAL_CARBON.slot_count(), 11);
 }

@@ -34,6 +34,10 @@
 1. **Rod-steel Ni → Fe**, atom for atom: Ni-58/60→Fe-56, Ni-61→Fe-57, Ni-62→Fe-54, Ni-64→Fe-58
    (`OUTRAM_HTR10_NI_AS_FE=1`). No Ni evaluation is in `reference-data/endf/`,
    and the IAEA/NNDC hosts are unreachable from the remote session.
+   **Update 2026-10-01 (gh:#329):** the five Ni ENDF/B-VIII.0 tapes are now in
+   the `reference-data/ace` submodule (`ace/endf/endf-b-viii.0/`), real Ni is
+   the default, and this substitution is the simplified case
+   (`examples/htr10_rod_metal_simplified.rs`). Still not in `reference-data/endf/`.
 2. **Rod-steel Fe-57 → Fe-56** (`OUTRAM_HTR10_FE57_AS_FE56=1`). Reconstructing Fe-57
    (LRF=7, 3 particle pairs) was OOM-killed at 13.4 GB (gh:#339).
 3. Channel azimuths, channel contents, side-wall clipping and homogenised zones

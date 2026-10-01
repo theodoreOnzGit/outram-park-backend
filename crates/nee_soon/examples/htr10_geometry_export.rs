@@ -56,6 +56,8 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
 use nee_soon::htr10_rmc::bed::HexBedCell;
 use nee_soon::htr10_rmc::core_model::{
     assemble_explicit_triso, HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM,
@@ -64,11 +66,11 @@ use nee_soon::htr10_rmc::core_model::{
     PAPER_FILLING_FRACTION,
 };
 use nee_soon::htr10_rmc::materials::{
-    htr10_material_set, nuclide_name, Htr10MaterialConfig, RodMetalNuclides, ROD_METAL_TAPES_ENDF8,
+    htr10_material_set, nuclide_name, Htr10MaterialConfig,
 };
 use nee_soon::htr10_rmc::{geometry_closures, heavy_metal_per_ball, table1};
 use outram_mc_libs::geometry::surface::SurfaceKind;
-use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
+use nee_soon::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout};
 use outram_mc_libs::prelude::TrisoSpec;
 
 /// Temperature \[K\] every material is built at -- the same value
@@ -597,30 +599,24 @@ fn main() {
     // Built through `htr10_material_set`, the SAME call the eigenvalue example
     // makes, so this table cannot describe a different material set from the
     // one k_eff was computed with. Atom densities are atoms/barn-cm.
-    let nuclides = Htr10Nuclides {
-        u235: 0,
-        u238: 1,
-        o16: 2,
-        c_free: 3,
-        c_graphite: 4,
-        si28: 5,
-        b10: 6,
-        // Appended 2026-09-23: slots 0..=6 keep their indices.
-        c_sic: 7,
-        si29: 8,
-        si30: 9,
-        b11: 10,
-    };
+    // The default (correct-physics) nuclide layout, the one `htr10_rmc_keff`
+    // loads with no knobs set (since 2026-10-01: natural C-12/C-13, helium,
+    // real Ni and Fe). Planning reads no nuclear data.
+    let layout = Htr10NuclideLayout::plan(&Htr10DataConfig {
+        temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
+        ..Htr10DataConfig::default()
+    })
+    .expect("the default data configuration is valid");
     let cfg = Htr10MaterialConfig::benchmark_default(TEMP_K);
-    // The rod metal is appended after slot 10, as `htr10_rmc_keff` loads it.
-    let metal_first = 11;
-    let mats = htr10_material_set(nuclides, RodMetalNuclides::contiguous(metal_first), cfg);
+    let mats = htr10_material_set(&layout, cfg);
     let mut materials = String::from("matindex,matid,material,nuclide,atomdensity,temperaturek\n");
     for (idx, m) in mats.iter().enumerate() {
         if m.components.is_empty() {
-            // Helium is deliberately modelled as a void, as the reference's
-            // own model omits it. A blank row is the honest record -- dropping
-            // the material entirely would hide a modelling choice.
+            // ~~Helium is deliberately modelled as a void, as the reference's
+            // own model omits it.~~ CORRECTED 2026-10-01 (gh:#426): the coolant
+            // is real helium by default; only the `Coolant::Vacuum` ablation
+            // leaves it empty. A blank row is the honest record of that arm --
+            // dropping the material entirely would hide a modelling choice.
             materials.push_str(&row(&[
                 &format!("{idx}"),
                 &format!("{}", m.id),
@@ -637,11 +633,7 @@ fn main() {
                 &format!("{idx}"),
                 &format!("{}", m.id),
                 &m.name,
-                if c.nuclide_idx >= metal_first {
-                    ROD_METAL_TAPES_ENDF8[c.nuclide_idx - metal_first].0
-                } else {
-                    nuclide_name(nuclides, c.nuclide_idx)
-                },
+                &nuclide_name(&layout, c.nuclide_idx),
                 &format!("{:.6e}", c.atom_density),
                 &format!("{:.2}", m.temperature),
             ]));

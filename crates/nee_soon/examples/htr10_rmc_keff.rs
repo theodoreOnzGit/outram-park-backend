@@ -154,15 +154,19 @@
 
 use std::time::Instant;
 
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
+use nee_soon::htr10_rmc::data::{
+    load_htr10_nuclides, CarbonTreatment, Coolant, Htr10DataConfig, Htr10DataError,
+    Htr10NuclideLayout, NuclearDataLibrary, RodMetalTreatment, ThermalScatteringTreatment,
+    U238Evaluation, Uo2Laws,
+};
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::htr10_rmc::materials::GraphiteLaw;
-use outram_mc_libs::material::nuclide::Nuclide;
-use njoy_outram_park_fork::leapr::decks::SabMaterial;
-use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::run_diagnostics::{DataSource, RunDiagnostics};
+use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
-use outram_mc_libs::pebble_beds::htr10::{BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::BoronReading;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
 use outram_mc_libs::geometry::position::Position;
@@ -249,23 +253,6 @@ fn rmc_at_height(h_cm: f64) -> Option<f64> {
     }
     None
 }
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    // Appended rather than inserted: slots 0..6 keep their indices so no
-    // existing material silently repoints at a different nuclide.
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    // 10: B-11, the rest of natural boron (gh:#311).
-    b11: 10,
-};
-
 fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k)
         .ok()
@@ -273,464 +260,94 @@ fn env_usize(k: &str, d: usize) -> usize {
         .unwrap_or(d)
 }
 
-/// Ablation knobs over the NUCLEAR DATA rather than the geometry.
+/// Ablation knobs over the NUCLEAR DATA rather than the geometry, read into
+/// the shared [`Htr10DataConfig`].
 ///
-/// Both exist because the V&V record names ENDF/B-VIII.0-vs-VII.0 as a known,
-/// uncorrected systematic "worth hundreds of pcm" that had never actually been
-/// priced. ~~No VII.0 tape is available locally, so the library term cannot be
+/// **Since 2026-10-01 the nuclide set is built by
+/// `nee_soon::htr10_rmc::data`**, which this example and
+/// `htr10_endf8_height_sweep`, `htr10_rod_metal_full` and
+/// `htr10_rod_metal_simplified` all call. ~~`fn nuclides` and `fn
+/// rod_metal_plan` here built it inline~~ (moved verbatim in logic; the
+/// comments that explained each tape now live in that module). With no knob
+/// set, the config is [`Htr10DataConfig::default`]: ENDF/B-VIII.0, natural
+/// carbon (C-12 / C-13, gh:#425), helium coolant (gh:#426), real Ni and Fe in
+/// the rod steel (gh:#329; **refused until gh:#339 is fixed**, so set
+/// `OUTRAM_HTR10_NI_AS_FE=1 OUTRAM_HTR10_FE57_AS_FE56=1` for the simplified
+/// case meanwhile), every bound thermal law.
+///
+/// ~~No VII.0 tape is available locally, so the library term cannot be
 /// reproduced exactly; what CAN be done is to bound library sensitivity on the
 /// nuclide that carries most of it.~~ **CORRECTED 2026-10-01 (gh:#428):** the
 /// VII.0 tapes were downloaded on 2026-09-18 and `OUTRAM_HTR10_ENDF7=1` runs
-/// the whole nuclide set from them (see the comment in the body). The JENDL
-/// knob below predates that and remains a different-library bound.
+/// the whole nuclide set from them. The JENDL knob below predates that and
+/// remains a different-library bound.
 ///
+/// - `OUTRAM_HTR10_ENDF7=1` runs every nuclide from ENDF/B-VII.0, the library
+///   Li, Yu & Wei (2014) state for RMC. VII.0 carbon is elemental C-nat, which
+///   is natural carbon (so ~~the VIII.0 arm does not carry the C-13 and the
+///   difference is "not separable without a third arm"~~ **CORRECTED
+///   2026-10-01, gh:#425:** both arms now carry natural carbon). No SiC law;
+///   helium and the rod metals from VIII.0 (stated in the diagnostics).
+/// - `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P` (VIII.0 only; default 30P).
 /// - `OUTRAM_HTR10_U238_JENDL=1` swaps U-238 to the JENDL-3.3 evaluation.
-///   **This is not the VII.0 offset** and must never be quoted as one. It is a
-///   different-library bound on the dominant absorber.
-/// - `OUTRAM_HTR10_NO_SAB=1` drops the graphite S(alpha,beta) (30P by default
-///   since 2026-09-27, crystalline before; `OUTRAM_HTR10_GRAPHITE_TSL`) and
-///   leaves carbon as a free gas. Primarily a HARNESS check: in a
-///   graphite-moderated system this must be worth a large, resolved amount. If
-///   it came back near zero, the thermal scattering law would not be engaged
-///   at all, and every thermal result here would be resting on nothing.
-fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
-    let base =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-    let u238_file = if std::env::var("OUTRAM_HTR10_U238_JENDL").is_ok() {
-        eprintln!("  ABLATION: U-238 from JENDL-3.3 (NOT the VII.0 offset -- a library bound)");
-        "n-092_U_238-JENDL3.3.endf"
-    } else {
-        "n-092_U_238.endf"
-    };
-    let no_sab = std::env::var("OUTRAM_HTR10_NO_SAB").is_ok();
-    if no_sab {
-        eprintln!("  ABLATION: graphite S(alpha,beta) DISABLED -- carbon as free gas");
-    }
-    // `OUTRAM_HTR10_ENDF7=1` runs the WHOLE nuclide set from ENDF/B-VII.0 --
-    // ~~the library RMC, MCNP, Serpent and HCP all used~~ the library Li, Yu &
-    // Wei (2014) state for RMC. CORRECTED 2026-10-01 (gh:#428): their MCNP
-    // columns are Şeker & Çolak (2003)'s, run on ENDF/B-VI with TMCCS graphite
-    // (Şeker p.265); Serpent and HCP are not in Li's paper. This is the offset the
-    // V&V record has named as "worth hundreds of pcm" and never priced.
-    //
-    // Downloaded 2026-09-18 from the IAEA NDS `download-endf` tree
-    // (https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/), which is
-    // the same pinned host `njoy-outram-park-fork::acquire` uses. Open,
-    // publicly released evaluated nuclear data.
-    //
-    // **One genuine evaluation difference, not a version relabel:** VII.0's
-    // carbon is ELEMENTAL natural carbon (`6-C-0`, MAT 600), where VIII.0 ships
-    // C-12 separately. So the VII.0 arm carries the 1.1 % C-13 in its carbon and
-    // the VIII.0 arm does not. That is part of what "the library difference"
-    // physically IS here, and it is not separable without a third arm.
-    let endf7 = std::env::var("OUTRAM_HTR10_ENDF7").is_ok();
-    if endf7 {
-        eprintln!("  ABLATION: ENDF/B-VII.0 for ALL nuclides (the library the references used)");
-        eprintln!("            note: VII.0 carbon is elemental C-nat, not C-12");
-    }
-    // Every tape is recorded, with its path, whether or not it loaded. A
-    // thermal law that fails to load falls back to free gas and the
-    // eigenvalue simply comes out somewhere else -- the diagnostics file is
-    // what turns that from an invisible substitution into a line of text.
-    macro_rules! load {
-        ($diag:expr, $n:expr, $f:expr) => {{
-            let p = base.join($f);
-            eprint!("  {:<6} ", $n);
-            let t = Instant::now();
-            let r = $diag.time_data(
-                format!("{} cross sections", $n),
-                DataSource::File(p.clone()),
-                format!("{:.2} K, tol 1.0e-3", TEMP_K),
-                || {
-                    p.exists().then_some(())?;
-                    Nuclide::from_endf_file(&p, $n, TEMP_K, 1.0e-3).ok()
-                },
-            );
-            eprintln!("{:.1?}", t.elapsed());
-            r
-        }};
-    }
-    // Si-29 and Si-30 from the SAME library as Si-28. Until 2026-09-25 they
-    // were hardcoded to the VIII.0 tapes, so the VII.0 arm carried 7.7 % of
-    // its silicon from the other evaluation. VII.0 does evaluate both (IAEA
-    // NDS n_1428_14-Si-29, n_1431_14-Si-30; the Si-28 from that tree is
-    // byte-identical to the committed VII.0 tape).
-    let (f_si29, f_si30) = if endf7 {
-        ("n-014_Si_029-ENDF7.0.endf", "n-014_Si_030-ENDF7.0.endf")
-    } else {
-        ("n-014_Si_029-ENDF8.0.endf", "n-014_Si_030-ENDF8.0.endf")
-    };
-    // B-11 from the selected library too (gh:#311). VII.0 tape: IAEA NDS
-    // n_0528_5-B-11; the B-10 from that tree is byte-identical to the committed
-    // VII.0 tape.
-    let f_b11 = if endf7 {
-        "n-005_B_011-ENDF7.0.endf"
-    } else {
-        "n-005_B_011-ENDF8.0.endf"
-    };
-    let (f_u235, f_u238, f_o16, f_c, f_si28, f_b10, f_tsl) = if endf7 {
-        (
-            "n-092_U_235-ENDF7.0.endf",
-            "n-092_U_238-ENDF7.0.endf",
-            "n-008_O_016-ENDF7.0.endf",
-            "n-006_C_000-ENDF7.0.endf",
-            "n-014_Si_028-ENDF7.0.endf",
-            "n-005_B_010-ENDF7.0.endf",
-            "tsl-graphite-ENDF7.0.endf",
-        )
-    } else {
-        (
-            "n-092_U_235-ENDF8.0.endf",
-            u238_file,
-            "n-008_O_016-ENDF8.0.endf",
-            "n-006_C_012-ENDF8.0.endf",
-            "n-014_Si_028-ENDF8.0.endf",
-            "n-005_B_010-ENDF8.0.endf",
-            "tsl-crystalline-graphite.endf",
-        )
-    };
-    // `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P` (VIII.0 only). The
-    // DEFAULT is 30P, Hawari's 30 %-porosity reactor graphite (maintainer
-    // decision 2026-09-27, on density: HTR-10 graphite at 1.76 g/cm3 is ~22 %
-    // porous, and 30P is the nearer tabulated law). Before that date the
-    // default was crystalline, and every earlier VIII.0 number in the V&V
-    // record was measured with crystalline graphite. `crystalline` is the
-    // explicit ablation, and the like-for-like law for Li's VII.0 reference.
-    // See `nee_soon::htr10_rmc::materials::GraphiteLaw`.
+///   **This is not the VII.0 offset** and must never be quoted as one.
+/// - `OUTRAM_HTR10_NO_SAB=1` drops every S(alpha,beta) and leaves every
+///   nuclide a free gas. Primarily a HARNESS check: in a graphite-moderated
+///   system this must be worth a large, resolved amount.
+/// - `OUTRAM_HTR10_CARBON_AS_C12=1` (VIII.0 only, new 2026-10-01): all carbon
+///   as C-12, the pre-2026-10-01 model, to price the C-13 term.
+/// - `OUTRAM_HTR10_VACUUM_COOLANT=1` (new 2026-10-01): the coolant regions
+///   are exact vacuum, the pre-2026-10-01 model; Li reports both.
+/// - `OUTRAM_HTR10_NI_AS_FE=1`, `OUTRAM_HTR10_FE57_AS_FE56=1` (both = the
+///   SIMPLIFIED rod metal), `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1`.
+/// - `OUTRAM_HTR10_UO2_TAPE_DIR=<dir>` reads the UO2 laws from tabulated tapes.
+fn data_config() -> Htr10DataConfig {
+    let on = |k: &str| std::env::var(k).is_ok();
     let graphite_choice = std::env::var("OUTRAM_HTR10_GRAPHITE_TSL").ok();
-    let law = match graphite_choice.as_deref() {
+    let graphite_law = match graphite_choice.as_deref() {
         None => GraphiteLaw::default(),
         Some(v) => GraphiteLaw::from_name(v).unwrap_or_else(|| {
             panic!("OUTRAM_HTR10_GRAPHITE_TSL must be crystalline, 10P or 30P, got {v}")
         }),
     };
-    if endf7 && graphite_choice.is_some() {
-        panic!("OUTRAM_HTR10_GRAPHITE_TSL applies to ENDF/B-VIII.0 only");
-    }
-    let (f_tsl, tsl_mat_viii) = if endf7 {
-        (f_tsl, 0)
-    } else {
-        (law.tape(), law.mat())
-    };
-    if !endf7 {
-        diag.note(format!("graphite S(a,b): {f_tsl} (MAT {tsl_mat_viii})"));
-        eprintln!("  graphite S(a,b): {f_tsl} (MAT {tsl_mat_viii})");
-    }
-    // The graphite thermal tape's MAT differs between releases: VIII.0's
-    // crystalline graphite is MAT 30 (ZA 130), VII.0's is MAT 31 (ZA 131).
-    // Passing the wrong one makes `from_endf_file` return Err and the whole
-    // nuclide set silently become `None`, which surfaces as the misleading
-    // "reference-data/endf/ not in this checkout" -- so it is selected here
-    // rather than hardcoded.
-    let tsl_mat = if endf7 { 31 } else { tsl_mat_viii };
-    let sab = diag.time_data(
-        "graphite S(a,b)",
-        DataSource::File(base.join(f_tsl)),
-        format!("MAT {tsl_mat}, {TEMP_K:.2} K, c_Graphite"),
-        || {
-            ThermalScattering::from_endf_file(
-                base.join(f_tsl).to_str()?,
-                tsl_mat,
-                TEMP_K,
-                "c_Graphite",
-            )
-            .map_err(|e| eprintln!("  thermal scattering load FAILED (mat {tsl_mat}): {e}"))
-            .ok()
+    Htr10DataConfig {
+        library: if on("OUTRAM_HTR10_ENDF7") {
+            NuclearDataLibrary::EndfB7
+        } else {
+            NuclearDataLibrary::EndfB8
         },
-    )?;
-    // SiC HAS ITS OWN BOUND THERMAL LAWS, and until 2026-09-23 the model used
-    // neither: its carbon was free gas and its silicon was bare Si-28.
-    // ENDF/B-VIII.0 ships `tsl-CinSiC` (MAT 44) and `tsl-SiinSiC` (MAT 43)
-    // precisely so a SiC coating need not be approximated as a gas.
-    //
-    // These are NOT loaded for the ENDF/B-VII.0 arm: VII.0 has no SiC
-    // thermal evaluation, so that arm keeps free-gas SiC. That is a real
-    // difference between the two libraries rather than an inconsistency, and
-    // it is one more term bundled into the "library" number -- see the
-    // carbon-evaluation note above.
-    let sic_sab = |diag: &mut RunDiagnostics, mat: i32, name: &'static str| {
-        let f = if mat == 44 {
-            "tsl-CinSiC.endf"
+        graphite_law,
+        carbon: if on("OUTRAM_HTR10_CARBON_AS_C12") {
+            CarbonTreatment::AllC12
         } else {
-            "tsl-SiinSiC.endf"
-        };
-        if endf7 || no_sab {
-            diag.note(format!(
-                "{name} S(a,b) deliberately NOT applied ({}) -- SiC carbon and \
-                 silicon are free gas in this arm",
-                if endf7 {
-                    "ENDF/B-VII.0 has no SiC thermal evaluation"
-                } else {
-                    "NO_SAB ablation"
-                }
-            ));
-            return None;
-        }
-        let p = base.join(f);
-        diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::File(p.clone()),
-            format!("MAT {mat}, {TEMP_K:.2} K"),
-            || {
-                if !p.exists() {
-                    eprintln!("  {name}: {f} not in this checkout -- falling back to free gas");
-                    return None;
-                }
-                ThermalScattering::from_endf_file(p.to_str()?, mat, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} S(a,b) load FAILED (mat {mat}): {e}"))
-                    .ok()
-            },
-        )
-    };
-    let c_in_sic = sic_sab(diag, 44, "c_SiC");
-    let si_in_sic = sic_sab(diag, 43, "Si_SiC");
-
-    // UO2 HAS BOUND THERMAL LAWS TOO, and the kernel had none at all -- the
-    // fuel was scattering as a free gas, in the one place the thermal flux
-    // and the absorption actually meet. No UO2 tape ships in
-    // `reference-data/endf/`, but both LEAPR decks are committed in
-    // `njoy-outram-park-fork`, so these are GENERATED rather than downloaded:
-    // reproducible from a deck that can be read, with no new binary tapes.
-    //
-    // Generation is not free. That is exactly why this run now separates
-    // nuclear-data time from transport time.
-    //
-    // APPLIED TO BOTH LIBRARY ARMS, unlike the SiC laws above. Until
-    // 2026-09-24 these were withheld from the `OUTRAM_HTR10_ENDF7=1` arm
-    // alongside SiC, but the two cases are not alike: SiC is withheld because
-    // ENDF/B-VII.0 ships no SiC thermal evaluation, whereas these are
-    // GENERATED from LEAPR decks that do not depend on the library version at
-    // all. Withholding them therefore put a difference into the measured
-    // "library term" that is not a library difference -- an artefact of which
-    // arm the code chose to run them in. Both arms now carry them, so the
-    // term prices evaluation differences and the genuinely-absent SiC law,
-    // and nothing else.
-    // `OUTRAM_HTR10_UO2_TAPE_DIR=<dir>` reads the UO2 laws from TABULATED
-    // tapes in <dir> (`tsl-UinUO2.endf`, `tsl-OinUO2.endf`) instead of
-    // generating them from the committed decks. The decks are the VIII.0
-    // evaluation, so this is how the VII.0 arm gets its OWN UO2 laws (VII.0
-    // ships them: U-in-UO2 MAT 76, O-in-UO2 MAT 75). A tape that fails to load
-    // aborts the run rather than falling back to free gas.
-    let uo2_tape_dir = std::env::var("OUTRAM_HTR10_UO2_TAPE_DIR").ok();
-    let uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
-        if no_sab {
-            diag.note(format!(
-                "{name} S(a,b) deliberately NOT applied (NO_SAB ablation)"
-            ));
-            return None;
-        }
-        if let Some(dir) = &uo2_tape_dir {
-            let (f, mat) = match material {
-                SabMaterial::UInUO2 => ("tsl-UinUO2.endf", 76),
-                SabMaterial::OInUO2 => ("tsl-OinUO2.endf", 75),
-                _ => unreachable!("only the two UO2 laws come through here"),
-            };
-            let p = std::path::Path::new(dir).join(f);
-            eprint!("  {name:<8} TAPE  ");
-            let t = Instant::now();
-            let out = diag.time_data(
-                format!("{name} S(a,b)"),
-                DataSource::File(p.clone()),
-                format!("MAT {mat}, {TEMP_K:.2} K, tabulated tape"),
-                || {
-                    Some(
-                        ThermalScattering::from_endf_file(p.to_str()?, mat, TEMP_K, name)
-                            .unwrap_or_else(|e| {
-                                panic!("{name} tape {} (MAT {mat}) FAILED: {e}", p.display())
-                            }),
-                    )
-                },
-            );
-            eprintln!("{:.1?}", t.elapsed());
-            return Some(out.expect("UO2 tape path is not valid UTF-8"));
-        }
-        eprint!("  {name:<8} LEAPR ");
-        let t = Instant::now();
-        let out = diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::GeneratedFromLeaprDeck(material.base().to_string()),
-            format!(
-                "MAT {}, {TEMP_K:.2} K, generated in-process",
-                material.mat()
-            ),
-            || {
-                ThermalScattering::from_leapr(material, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} LEAPR generation FAILED: {e}"))
-                    .ok()
-            },
-        );
-        eprintln!("{:.1?}", t.elapsed());
-        out
-    };
-    let u_in_uo2 = uo2_sab(diag, SabMaterial::UInUO2, "U_UO2");
-    let o_in_uo2 = uo2_sab(diag, SabMaterial::OInUO2, "O_UO2");
-    let bind = |n: Nuclide, sab: &Option<ThermalScattering>| match sab {
-        Some(s) => n.with_thermal_scattering(s.clone()),
-        None => n,
-    };
-
-    let mut v = vec![
-        bind(load!(diag, "U235", f_u235)?, &u_in_uo2),
-        bind(load!(diag, "U238", f_u238)?, &u_in_uo2),
-        bind(load!(diag, "O16", f_o16)?, &o_in_uo2),
-        // 3: free-gas carbon, retained for the NO_SAB ablation arm only.
-        load!(diag, "C12", f_c)?,
-        // 4: graphite-bound carbon.
-        if no_sab {
-            load!(diag, "C12", f_c)?
-        } else {
-            load!(diag, "C12", f_c)?.with_thermal_scattering(sab)
+            CarbonTreatment::Natural
         },
-        // 5, 8, 9: silicon, split over its three natural isotopes and bound
-        // in SiC. The atom density was always built from silicon's natural
-        // molar mass, so this splits a correct total rather than changing it.
-        bind(load!(diag, "Si28", f_si28)?, &si_in_sic),
-        load!(diag, "B10", f_b10)?,
-        // 7: carbon bound in SiC.
-        bind(load!(diag, "C12", f_c)?, &c_in_sic),
-        bind(load!(diag, "Si29", f_si29)?, &si_in_sic),
-        bind(load!(diag, "Si30", f_si30)?, &si_in_sic),
-        // 10: B-11 (gh:#311). No thermal law: a trace scatterer in graphite.
-        load!(diag, "B11", f_b11)?,
-    ];
-    // 11..: the withdrawn control rods' sleeve steel and joint iron
-    // (2026-09-25), free gas, in `RodMetalNuclides::contiguous(11)` order.
-    //
-    // ENDF/B-VIII.0 only: the checkout has no VII.0 tapes for Fe, Cr, Ni, Mn
-    // or Ti. So the VII.0 arm takes these from VIII.0 -- for the rod metal
-    // alone, a few grams of steel 11 cm above the cavity -- and says so. That
-    // is a mixed-library arm, recorded here rather than hidden.
-    if endf7 {
-        diag.note(
-            "rod-metal nuclides (Fe, Cr, Ni, Mn, Ti, free Si) are ENDF/B-VIII.0 in \
-             this ENDF/B-VII.0 arm: no VII.0 tapes for them in reference-data/endf"
-                .to_string(),
-        );
-        eprintln!("  NOTE: rod-metal nuclides from ENDF/B-VIII.0 in the VII.0 arm");
-    }
-    // MODELLING ASSUMPTION (maintainer direction 2026-09-26, "state as a
-    // modelling assumption"): with `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1` the rod
-    // channels are empty helium, so no cell is filled with rod steel, joint
-    // iron or B4C and the rod-metal tapes are not loaded at all. This is what
-    // lets the model run on a checkout without the Ni ENDF/B-VIII.0 tapes
-    // (PR #327: not committed; their IAEA host is unreachable from the remote
-    // session). `main` strips the unused rod-metal components and asserts that
-    // no cell uses those materials.
-    if std::env::var("OUTRAM_HTR10_NO_WITHDRAWN_RODS").is_ok() {
-        diag.note(
-            "MODELLING ASSUMPTION: withdrawn control rods NOT modelled -- rod \
-             channels empty (helium); rod-metal tapes (Fe, Cr, Ni, Mn, Ti) not loaded"
-                .to_string(),
-        );
-        eprintln!("  ASSUMPTION: no withdrawn rods -- rod-metal tapes not loaded");
-        return Some(v);
-    }
-    // MODELLING ASSUMPTION (maintainer direction 2026-09-26, "just ignore it
-    // and replace w iron"): `OUTRAM_HTR10_NI_AS_FE=1` skips the five Ni tapes
-    // (absent from reference-data/endf/) and `rod_metal_slots` points each Ni
-    // isotope at an Fe isotope, atom for atom: Ni-58/60 -> Fe-56, Ni-61 ->
-    // Fe-57, Ni-62 -> Fe-54, Ni-64 -> Fe-58 (which puts the replaced atoms
-    // close to natural Fe's isotopics). Ni is ~9 % of the sleeve steel's atoms.
-    let ni_as_fe = std::env::var("OUTRAM_HTR10_NI_AS_FE").is_ok();
-    if ni_as_fe {
-        diag.note(
-            "MODELLING ASSUMPTION: rod-steel Ni replaced atom-for-atom by Fe \
-             (Ni-58/60->Fe-56, Ni-61->Fe-57, Ni-62->Fe-54, Ni-64->Fe-58); no Ni tapes"
-                .to_string(),
-        );
-        eprintln!("  ASSUMPTION: rod-steel Ni replaced by Fe (no Ni tapes loaded)");
-    }
-    // MODELLING ASSUMPTION (2026-09-26): `OUTRAM_HTR10_FE57_AS_FE56=1` takes
-    // the rod steel's Fe-57 (~2 % of natural Fe) as Fe-56. Reconstructing the
-    // ENDF/B-VIII.0 Fe-57 tape (LRF=7, three particle pairs) exhausted 13 GB
-    // and was OOM-killed; that is a reconstruction defect, filed separately,
-    // not a data gap.
-    if std::env::var("OUTRAM_HTR10_FE57_AS_FE56").is_ok() {
-        diag.note("MODELLING ASSUMPTION: rod-steel Fe-57 taken as Fe-56 (Fe-57 reconstruction OOM)".to_string());
-        eprintln!("  ASSUMPTION: rod-steel Fe-57 taken as Fe-56");
-    }
-    let (tapes, _) = rod_metal_plan();
-    for (name, file) in tapes {
-        v.push(load!(diag, name, file)?);
-    }
-    Some(v)
-}
-
-/// Which rod-metal tapes to load, and the slot table pointing into them.
-/// Plain: every tape of [`ROD_METAL_TAPES_ENDF8`] from slot 11. Under
-/// `OUTRAM_HTR10_NI_AS_FE` the Ni tapes are skipped and each Ni isotope is
-/// pointed at an Fe isotope (Ni-58/60 -> Fe-56, Ni-61 -> Fe-57, Ni-62 ->
-/// Fe-54, Ni-64 -> Fe-58); under `OUTRAM_HTR10_FE57_AS_FE56` the Fe-57 tape
-/// is skipped and everything that pointed at Fe-57 points at Fe-56. Slots of
-/// the tapes still loaded are assigned in table order, so no index is guessed.
-///
-/// [`ROD_METAL_TAPES_ENDF8`]: nee_soon::htr10_rmc::materials::ROD_METAL_TAPES_ENDF8
-fn rod_metal_plan() -> (
-    Vec<(&'static str, &'static str)>,
-    nee_soon::htr10_rmc::materials::RodMetalNuclides,
-) {
-    use nee_soon::htr10_rmc::materials::{RodMetalNuclides, ROD_METAL_TAPES_ENDF8};
-    let ni_as_fe = std::env::var("OUTRAM_HTR10_NI_AS_FE").is_ok();
-    let fe57_as_fe56 = std::env::var("OUTRAM_HTR10_FE57_AS_FE56").is_ok();
-    let replace = |name: &str| -> Option<&'static str> {
-        let r = match name {
-            "Ni58" | "Ni60" if ni_as_fe => "Fe56",
-            "Ni61" if ni_as_fe => "Fe57",
-            "Ni62" if ni_as_fe => "Fe54",
-            "Ni64" if ni_as_fe => "Fe58",
-            _ => return None,
-        };
-        Some(r)
-    };
-    let resolve = |name: &'static str| -> &'static str {
-        let n = replace(name).unwrap_or(name);
-        if fe57_as_fe56 && n == "Fe57" {
-            "Fe56"
+        coolant: if on("OUTRAM_HTR10_VACUUM_COOLANT") {
+            Coolant::Vacuum
         } else {
-            n
-        }
-    };
-    let loaded: Vec<(&'static str, &'static str)> = ROD_METAL_TAPES_ENDF8
-        .iter()
-        .copied()
-        .filter(|(n, _)| resolve(n) == *n)
-        .collect();
-    let slot = |name: &'static str| -> usize {
-        let target = resolve(name);
-        11 + loaded
-            .iter()
-            .position(|(n, _)| *n == target)
-            .expect("replacement tape is loaded")
-    };
-    let t = RodMetalNuclides {
-        fe54: slot("Fe54"),
-        fe56: slot("Fe56"),
-        fe57: slot("Fe57"),
-        fe58: slot("Fe58"),
-        cr50: slot("Cr50"),
-        cr52: slot("Cr52"),
-        cr53: slot("Cr53"),
-        cr54: slot("Cr54"),
-        ni58: slot("Ni58"),
-        ni60: slot("Ni60"),
-        ni61: slot("Ni61"),
-        ni62: slot("Ni62"),
-        ni64: slot("Ni64"),
-        mn55: slot("Mn55"),
-        ti46: slot("Ti46"),
-        ti47: slot("Ti47"),
-        ti48: slot("Ti48"),
-        ti49: slot("Ti49"),
-        ti50: slot("Ti50"),
-        si28: slot("Si28"),
-        si29: slot("Si29"),
-        si30: slot("Si30"),
-    };
-    debug_assert!(!ni_as_fe && !fe57_as_fe56 || loaded.len() < RodMetalNuclides::COUNT);
-    if !ni_as_fe && !fe57_as_fe56 {
-        assert_eq!(t, RodMetalNuclides::contiguous(11), "plain plan must be contiguous");
+            Coolant::Helium
+        },
+        rod_metal: RodMetalTreatment::from_knobs(
+            on("OUTRAM_HTR10_NI_AS_FE"),
+            on("OUTRAM_HTR10_FE57_AS_FE56"),
+            on("OUTRAM_HTR10_NO_WITHDRAWN_RODS"),
+        ),
+        thermal: if on("OUTRAM_HTR10_NO_SAB") {
+            ThermalScatteringTreatment::FreeGas
+        } else {
+            ThermalScatteringTreatment::Bound
+        },
+        u238: if on("OUTRAM_HTR10_U238_JENDL") {
+            U238Evaluation::Jendl33
+        } else {
+            U238Evaluation::Library
+        },
+        uo2_laws: match std::env::var("OUTRAM_HTR10_UO2_TAPE_DIR") {
+            Ok(dir) => Uo2Laws::Tapes(dir.into()),
+            Err(_) => Uo2Laws::GeneratedFromLeapr,
+        },
+        temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
     }
-    (loaded, t)
 }
 
 fn main() {
@@ -768,9 +385,25 @@ fn main() {
         env_usize("OUTRAM_HTR10_INACTIVE", 30),
         env_usize("OUTRAM_HTR10_ACTIVE", 70)
     ));
-    let Some(nucs) = nuclides(&mut diag) else {
-        println!("SKIP: reference-data/endf/ not in this checkout.");
-        return;
+    let data_cfg = data_config();
+    let layout = match Htr10NuclideLayout::plan(&data_cfg) {
+        Ok(l) => l,
+        Err(e) => {
+            println!("REFUSED: {e}");
+            return;
+        }
+    };
+    println!("  rod metal: {}", data_cfg.rod_metal.label());
+    let nucs = match load_htr10_nuclides(&data_cfg, &layout, &mut diag) {
+        Ok(v) => v,
+        Err(e @ Htr10DataError::BlockedByGh339) => {
+            println!("REFUSED: {e}");
+            return;
+        }
+        Err(e) => {
+            println!("SKIP: {e}");
+            return;
+        }
     };
 
     // Pebble materials, slots 0..5 in DhUniverse::pebble order.
@@ -801,8 +434,7 @@ fn main() {
         z_report.carbon, z_report.natural_boron
     );
     let mut mats = nee_soon::htr10_rmc::materials::htr10_material_set(
-        NUC,
-        rod_metal_plan().1,
+        &layout,
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron,
@@ -823,10 +455,11 @@ fn main() {
     );
     let maj_idx = if surface_only { usize::MAX } else { 0 };
     let core = assemble_explicit_triso(rings, layers, maj_idx);
-    // The no-withdrawn-rods modelling assumption (see `nuclides`): the rod
-    // metals were not loaded, so drop their components, and PROVE that no
-    // cell is filled with a material that lost them.
-    if nucs.len() == 11 {
+    // The no-withdrawn-rods modelling assumption (`RodMetalTreatment::
+    // NotModelled`): the rod metals were not loaded (they are the last slots),
+    // so drop their components, and PROVE that no cell is filled with a
+    // material that lost them.
+    if !layout.rod_metal.loads_rod_metal() {
         let mut stripped = Vec::new();
         for (i, m) in mats.iter_mut().enumerate() {
             let before = m.components.len();

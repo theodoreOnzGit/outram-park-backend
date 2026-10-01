@@ -233,7 +233,11 @@ pub mod mat {
     pub const OPYC: usize = 4;
     /// Matrix graphite inside the fuel zone, and the pebble shell.
     pub const GRAPHITE: usize = 5;
-    /// Helium between pebbles.
+    /// The coolant: between pebbles, in the core cavity, the empty channels
+    /// and between the discharge-tube balls. Natural helium (ideal gas at
+    /// 300.15 K and 101.33 kPa) since 2026-10-01 (gh:#426); until then an empty
+    /// material, i.e. exact vacuum, which is now the
+    /// `OUTRAM_HTR10_VACUUM_COOLANT` ablation (`htr10_rmc::data::Coolant`).
     pub const HELIUM: usize = 6;
     /// Reflector graphite (TECDOC Table 4-3).
     pub const REFLECTOR: usize = 7;

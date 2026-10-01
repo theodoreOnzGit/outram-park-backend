@@ -238,6 +238,12 @@
 //! constants). So Table 4's "(vacuum)" caption is the wrong one. Which medium
 //! Li's single RMC curve was run in is still not stated (gh:#333).
 //!
+//! **This model's coolant is helium by default since 2026-10-01**
+//! (maintainer, gh:#426: "use helium, I think it is more accurate"): natural
+//! helium at 300.15 K and an assumed 101.33 kPa in every coolant region.
+//! Until then `mat::HELIUM` was an empty material, i.e. vacuum, which is now
+//! the `OUTRAM_HTR10_VACUUM_COOLANT` ablation (`data::Coolant::Vacuum`).
+//!
 //! ## How close is close, for this reference
 //!
 //! The paper's own RMC-vs-MCNP relative differences reach ~0.9 %, and it states
@@ -254,6 +260,7 @@ pub mod reflector;
 pub mod reflector_geometry;
 pub mod core_model;
 pub mod control_rod;
+pub mod data;
 pub mod materials;
 pub mod plots;
 

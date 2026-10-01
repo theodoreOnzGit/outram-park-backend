@@ -37,11 +37,11 @@ use outram_mc_libs::geometry::plot::{
 };
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::material::Material;
-use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
 
 use super::bed::BedBall;
 use super::core_model::{mat, AssembledCore, HTR10_REFLECTOR_OUTER_CM};
-use super::materials::{htr10_material_set, Htr10MaterialConfig, RodMetalNuclides};
+use super::data::{Htr10DataConfig, Htr10NuclideLayout};
+use super::materials::{htr10_material_set, Htr10MaterialConfig};
 use super::reflector_geometry::HOT_GAS_DUCT_AXIS_ZT_CM;
 
 /// Lower end of a withdrawn rod, `z_T` \[cm\] (TECDOC-1382 § 4.1.2), as
@@ -132,24 +132,11 @@ impl Htr10Plotter {
             core.bed.is_some(),
             "Htr10Plotter needs assemble_explicit_triso's ball description"
         );
-        let nuclides = Htr10Nuclides {
-            u235: 0,
-            u238: 1,
-            o16: 2,
-            c_free: 3,
-            c_graphite: 4,
-            si28: 5,
-            b10: 6,
-            c_sic: 7,
-            si29: 8,
-            si30: 9,
-            b11: 10,
-        };
-        let materials = htr10_material_set(
-            nuclides,
-            RodMetalNuclides::contiguous(11),
-            Htr10MaterialConfig::benchmark_default(293.6),
-        );
+        // The default (correct-physics) layout; planning reads no data.
+        let layout = Htr10NuclideLayout::plan(&Htr10DataConfig::default())
+            .expect("the default data configuration is valid");
+        let materials =
+            htr10_material_set(&layout, Htr10MaterialConfig::benchmark_default(293.6));
         Self { core, materials }
     }
 

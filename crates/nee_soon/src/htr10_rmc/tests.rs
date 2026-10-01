@@ -275,27 +275,12 @@ fn the_axial_stack_matches_terry_at_every_loading() {
 /// ATOM basis, so this also checks the two bases agree.
 #[test]
 fn every_boron_bearing_material_carries_natural_b11() {
-    use crate::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig, RodMetalNuclides};
-    use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
-    let n = Htr10Nuclides {
-        u235: 0,
-        u238: 1,
-        o16: 2,
-        c_free: 3,
-        c_graphite: 4,
-        si28: 5,
-        b10: 6,
-        c_sic: 7,
-        si29: 8,
-        si30: 9,
-        b11: 10,
-    };
+    use crate::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout};
+    use crate::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+    let layout = Htr10NuclideLayout::plan(&Htr10DataConfig::default()).expect("valid");
+    let n = layout.pebble;
     let want = 0.801 / 0.199;
-    let mats = htr10_material_set(
-        n,
-        RodMetalNuclides::contiguous(11),
-        Htr10MaterialConfig::benchmark_default(300.15),
-    );
+    let mats = htr10_material_set(&layout, Htr10MaterialConfig::benchmark_default(300.15));
     let mut with_boron = 0;
     for m in &mats {
         let sum = |i: usize| -> f64 {

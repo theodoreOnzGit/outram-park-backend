@@ -262,11 +262,121 @@ impl BoronReading {
     }
 }
 
+/// C-12 **atom** fraction of natural carbon, 98.93 at.%.
+///
+/// Source: IUPAC/CIAAW representative isotopic composition, 0.9893(8) C-12 /
+/// 0.0107(8) C-13 (Meija et al., *Pure Appl. Chem.* 88 (2016) 293-306,
+/// Table 1). Every carbon atom density in this module is built from natural
+/// carbon's molar mass (12.011 g/mol), so the split divides a total that is
+/// already correct rather than changing it.
+pub const C12_ATOM_FRACTION_OF_NATURAL_C: f64 = 0.9893;
+/// C-13 atom fraction of natural carbon, 1.07 at.%. See
+/// [`C12_ATOM_FRACTION_OF_NATURAL_C`].
+pub const C13_ATOM_FRACTION_OF_NATURAL_C: f64 = 0.0107;
+
+/// Where one **kind of carbon** (free gas, graphite-bound, SiC-bound) sits in
+/// the caller's nuclide array.
+///
+/// **Natural carbon is the model (maintainer decision 2026-10-01, gh:#425,
+/// "use natural carbon, to follow the ENDF7 convention or MCNP convention").**
+/// The two library arms realise it differently, and this enum says which,
+/// so neither needs a zero-density placeholder slot:
+///
+/// - ENDF/B-VII.0 ships **elemental** natural carbon (`6-C-0`, MAT 600): one
+///   nuclide carries all of it, [`Self::Elemental`].
+/// - ENDF/B-VIII.0 ships C-12 and C-13 separately: natural carbon is split
+///   98.93 / 1.07 at.% ([`C12_ATOM_FRACTION_OF_NATURAL_C`]) over two nuclides,
+///   [`Self::Natural`]. **The default on that path.**
+///
+/// ~~On VIII.0 every carbon was loaded as C-12 at the natural-carbon atom
+/// density, and the C-13 term was said to be "not separable without a third
+/// arm".~~ **CORRECTED 2026-10-01 (gh:#425):** the C-13 tape
+/// (`reference-data/endf/n-006_C_013-ENDF8.0.endf`) is in the checkout; the
+/// C-12-only treatment survives only as an explicit ablation, expressed as
+/// [`Self::Elemental`] pointing at a C-12 nuclide.
+///
+/// A thermal law, where there is one, binds to **every** nuclide of the slot
+/// (graphite S(a,b) on C-12 and C-13 alike), as OpenMC binds `c_Graphite` to
+/// `C12`, `C13` and `C0`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CarbonSlot {
+    /// One nuclide carries all of the carbon: ENDF/B-VII.0 elemental C-nat,
+    /// or (on VIII.0) the "all carbon as C-12" ablation.
+    Elemental(usize),
+    /// Natural carbon split over C-12 and C-13 at the IUPAC abundances.
+    Natural {
+        /// Slot of the C-12 nuclide.
+        c12: usize,
+        /// Slot of the C-13 nuclide.
+        c13: usize,
+    },
+}
+
+impl CarbonSlot {
+    /// `(slot, atom density)` pairs that place `total` atoms/(b cm) of natural
+    /// carbon in this slot: one pair for [`Self::Elemental`], two (98.93 /
+    /// 1.07 at.%) for [`Self::Natural`]. The densities sum to `total`.
+    #[must_use]
+    pub fn split(self, total: f64) -> Vec<(usize, f64)> {
+        match self {
+            Self::Elemental(i) => vec![(i, total)],
+            Self::Natural { c12, c13 } => vec![
+                (c12, total * C12_ATOM_FRACTION_OF_NATURAL_C),
+                (c13, total * C13_ATOM_FRACTION_OF_NATURAL_C),
+            ],
+        }
+    }
+
+    /// [`Self::split`] as material components.
+    #[must_use]
+    pub fn components(self, total: f64) -> Vec<NuclideComponent> {
+        self.split(total)
+            .into_iter()
+            .map(|(nuclide_idx, atom_density)| NuclideComponent {
+                nuclide_idx,
+                atom_density,
+            })
+            .collect()
+    }
+
+    /// The nuclide slots this carbon occupies.
+    #[must_use]
+    pub fn slots(self) -> Vec<usize> {
+        match self {
+            Self::Elemental(i) => vec![i],
+            Self::Natural { c12, c13 } => vec![c12, c13],
+        }
+    }
+
+    /// Whether nuclide slot `idx` belongs to this carbon.
+    #[must_use]
+    pub fn contains(self, idx: usize) -> bool {
+        self.slots().contains(&idx)
+    }
+
+    /// Total carbon \[atoms/(b cm)\] this slot carries in `material`, summed
+    /// over its nuclides.
+    #[must_use]
+    pub fn total_in(self, material: &Material) -> f64 {
+        material
+            .components
+            .iter()
+            .filter(|c| self.contains(c.nuclide_idx))
+            .map(|c| c.atom_density)
+            .sum()
+    }
+}
+
 /// Where each nuclide sits in the slice handed to the transport driver.
 ///
 /// Indices, not names, because that is the convention
 /// [`Material`] already uses — see
 /// [`DhUniverse::material_at`](crate::dh_universe::DhUniverse::material_at).
+///
+/// **Carbon is a [`CarbonSlot`] since 2026-10-01 (gh:#425)**, not a single
+/// index: on ENDF/B-VIII.0 each kind of carbon is two nuclides, C-12 and C-13.
+/// The two standard layouts are [`Self::NATURAL_CARBON`] (VIII.0, the default)
+/// and [`Self::ELEMENTAL_CARBON`] (VII.0 C-nat).
 #[derive(Debug, Clone, Copy)]
 pub struct Htr10Nuclides {
     /// U-235.
@@ -275,18 +385,22 @@ pub struct Htr10Nuclides {
     pub u238: usize,
     /// O-16.
     pub o16: usize,
-    /// Free-gas carbon — the **ablation arm only**.
+    /// Free-gas carbon: the carbon of the control-rod B4C and sleeve steel in
+    /// `nee_soon` (neither graphite nor SiC).
     ///
     /// Was the SiC layer's carbon until 2026-09-23. It is not that any more:
-    /// SiC has its own bound thermal law and [`Self::c_sic`] carries it. This
-    /// slot survives so `OUTRAM_HTR10_NO_SAB` can still strip every S(alpha,
-    /// beta) and measure what they are worth.
-    pub c_free: usize,
+    /// SiC has its own bound thermal law and [`Self::c_sic`] carries it.
+    /// ~~This slot survives so `OUTRAM_HTR10_NO_SAB` can still strip every
+    /// S(alpha, beta)~~ **CORRECTED 2026-10-01:** the pebble places no free
+    /// carbon; `nee_soon`'s rod B4C and steel do, and the `NO_SAB` ablation
+    /// unbinds the thermal laws from the other slots rather than moving their
+    /// carbon here.
+    pub c_free: CarbonSlot,
     /// Graphite-bound carbon (with S(alpha,beta)) — buffer, PyC, matrix, shell.
     ///
     /// Using free-gas carbon here would misrepresent the thermal spectrum a
     /// graphite-moderated pebble lives in. The distinction is not cosmetic.
-    pub c_graphite: usize,
+    pub c_graphite: CarbonSlot,
     /// Si-28, bound in SiC (with S(alpha,beta)).
     pub si28: usize,
     /// B-10 — the impurity absorber.
@@ -297,7 +411,7 @@ pub struct Htr10Nuclides {
     /// is the same error the doc on [`Self::c_graphite`] warns about one
     /// layer out: SiC is a crystal, its carbon is bound, and ENDF/B-VIII.0
     /// ships `tsl-CinSiC` (MAT 44) precisely so it need not be approximated.
-    pub c_sic: usize,
+    pub c_sic: CarbonSlot,
     /// Si-29, bound in SiC.
     ///
     /// Added 2026-09-23. Natural silicon is 92.223 % Si-28, **4.685 % Si-29
@@ -313,6 +427,62 @@ pub struct Htr10Nuclides {
     /// boronated carbon brick (TECDOC zone 17) was ~3.5 % short on scattering
     /// atoms. A scattering correction, not an absorption one.
     pub b11: usize,
+}
+
+impl Htr10Nuclides {
+    /// **The default layout (ENDF/B-VIII.0): natural carbon split C-12 / C-13**
+    /// (gh:#425). Slots 0..=10 are the historical layout with C-12 where
+    /// carbon was; the three C-13 nuclides are APPENDED at 11 (free), 12
+    /// (graphite) and 13 (SiC), so no earlier slot repoints.
+    /// [`Self::slot_count`] = 14.
+    pub const NATURAL_CARBON: Self = Self {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        c_free: CarbonSlot::Natural { c12: 3, c13: 11 },
+        c_graphite: CarbonSlot::Natural { c12: 4, c13: 12 },
+        si28: 5,
+        b10: 6,
+        c_sic: CarbonSlot::Natural { c12: 7, c13: 13 },
+        si29: 8,
+        si30: 9,
+        b11: 10,
+    };
+
+    /// One nuclide per kind of carbon: ENDF/B-VII.0 elemental C-nat, or the
+    /// VIII.0 "all carbon as C-12" ablation. [`Self::slot_count`] = 11.
+    pub const ELEMENTAL_CARBON: Self = Self {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        c_free: CarbonSlot::Elemental(3),
+        c_graphite: CarbonSlot::Elemental(4),
+        si28: 5,
+        b10: 6,
+        c_sic: CarbonSlot::Elemental(7),
+        si29: 8,
+        si30: 9,
+        b11: 10,
+    };
+
+    /// Every slot this table names, in no particular order.
+    #[must_use]
+    pub fn all_slots(&self) -> Vec<usize> {
+        let mut v = vec![
+            self.u235, self.u238, self.o16, self.si28, self.b10, self.si29, self.si30, self.b11,
+        ];
+        v.extend(self.c_free.slots());
+        v.extend(self.c_graphite.slots());
+        v.extend(self.c_sic.slots());
+        v
+    }
+
+    /// One past the highest slot this table names: the length of nuclide
+    /// array the pebble needs, and the first free slot after it.
+    #[must_use]
+    pub fn slot_count(&self) -> usize {
+        self.all_slots().into_iter().max().map_or(0, |m| m + 1)
+    }
 }
 
 /// Natural silicon isotopic abundances, atom fractions (IUPAC).
@@ -408,14 +578,14 @@ pub fn fuel_pebble_materials(
     let n_b11_kernel = b11_atom_density(uranium, boron.kernel_ppm(), boron);
     let gr_b11 = |rho: f64| b11_atom_density(carbon(rho), boron.graphite_ppm(), boron);
 
-    let mat = |id: i32, name: &str, comps: &[(usize, f64)]| Material {
+    let mat = |id: i32, name: &str, comps: Vec<(usize, f64)>| Material {
         id,
         name: name.into(),
         temperature: temperature_k,
         components: comps
-            .iter()
-            .filter(|&&(_, density)| density > 0.0)
-            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
+            .into_iter()
+            .filter(|&(_, density)| density > 0.0)
+            .map(|(nuclide_idx, atom_density)| NuclideComponent {
                 nuclide_idx,
                 atom_density,
             })
@@ -423,23 +593,18 @@ pub fn fuel_pebble_materials(
     };
 
     let n_sic = atom_density(RHO_SIC, M_SI + M_C);
+    // Natural carbon, split C-12 / C-13 on the VIII.0 layout (gh:#425).
     let graphite = |id, name, rho: f64| {
-        mat(
-            id,
-            name,
-            &[
-                (n.c_graphite, atom_density(rho, M_C)),
-                (n.b10, gr_b10(rho)),
-                (n.b11, gr_b11(rho)),
-            ],
-        )
+        let mut c = n.c_graphite.split(atom_density(rho, M_C));
+        c.extend([(n.b10, gr_b10(rho)), (n.b11, gr_b11(rho))]);
+        mat(id, name, c)
     };
 
     vec![
         mat(
             0,
             "UO2 kernel",
-            &[
+            vec![
                 (n.u235, x5 * n_uo2),
                 (n.u238, (1.0 - x5) * n_uo2),
                 (n.o16, 2.0 * n_uo2),
@@ -455,12 +620,14 @@ pub fn fuel_pebble_materials(
         mat(
             3,
             "SiC",
-            &[
+            [
                 (n.si28, SI28_ATOM_FRACTION * n_sic),
                 (n.si29, SI29_ATOM_FRACTION * n_sic),
                 (n.si30, SI30_ATOM_FRACTION * n_sic),
-                (n.c_sic, n_sic),
-            ],
+            ]
+            .into_iter()
+            .chain(n.c_sic.split(n_sic))
+            .collect(),
         ),
         graphite(4, "OPyC", RHO_PYC),
         graphite(5, "matrix graphite", RHO_GRAPHITE),
