@@ -11,6 +11,7 @@
 
 mod advanced_git_view;
 mod bibliography;
+mod box_handles;
 mod csv_preview;
 mod gfm_preview;
 mod home;
@@ -2744,24 +2745,8 @@ impl DigitiseApp {
             // Parallelogram corner hit test (op-vyb9) — nearest of the 4
             // free corners within `corner_tol`, mirroring `hit_ref_corner`'s
             // tolerance but over independent points rather than line
-            // intersections.
-            fn hit_para_corner(
-                corners: &[Option<(f64, f64)>; 4],
-                tol: f64,
-                px: f64,
-                py: f64,
-            ) -> Option<usize> {
-                let mut best: Option<(usize, f64)> = None;
-                for (i, c) in corners.iter().enumerate() {
-                    if let Some((cx, cy)) = c {
-                        let d = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
-                        if d < tol && best.is_none_or(|(_, bd)| d < bd) {
-                            best = Some((i, d));
-                        }
-                    }
-                }
-                best.map(|(i, _)| i)
-            }
+            // intersections. Shared with the PDF reader's annotation-box
+            // corner drag (`box_handles::nearest_handle`, 2026-10-01).
 
             // Reference-line/corner dragging (op-zfnh/op-vyb9) takes priority
             // over marker dragging when a drag starts on top of one — it is
@@ -2784,8 +2769,12 @@ impl DigitiseApp {
                             self.ref_dragging_corner.is_some() || self.ref_dragging.is_some()
                         }
                         CalibrationShape::Parallelogram => {
-                            self.para_dragging =
-                                hit_para_corner(&self.para_corners, corner_tol, px, py);
+                            self.para_dragging = box_handles::nearest_handle(
+                                &self.para_corners,
+                                corner_tol,
+                                px,
+                                py,
+                            );
                             self.para_dragging.is_some()
                         }
                     };
@@ -2884,22 +2873,8 @@ impl DigitiseApp {
                         let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
                             continue;
                         };
-                        let pos = to_screen(x, y);
                         let active = self.ref_dragging_corner == Some((xi, yi));
-                        painter.circle_filled(
-                            pos,
-                            if active { 6.0 } else { 4.0 },
-                            if active {
-                                Color32::from_rgb(255, 210, 60)
-                            } else {
-                                Color32::from_rgb(60, 120, 255)
-                            },
-                        );
-                        painter.circle_stroke(
-                            pos,
-                            if active { 6.0 } else { 4.0 },
-                            Stroke::new(1.0_f32, Color32::WHITE),
-                        );
+                        box_handles::paint_handle(&painter, to_screen(x, y), active);
                     }
                 }
                 CalibrationShape::Parallelogram => {
@@ -2933,21 +2908,7 @@ impl DigitiseApp {
                             break;
                         }
                         let Some(pos) = sc else { continue };
-                        let active = self.para_dragging == Some(i);
-                        painter.circle_filled(
-                            *pos,
-                            if active { 6.0 } else { 4.0 },
-                            if active {
-                                Color32::from_rgb(255, 210, 60)
-                            } else {
-                                Color32::from_rgb(60, 120, 255)
-                            },
-                        );
-                        painter.circle_stroke(
-                            *pos,
-                            if active { 6.0 } else { 4.0 },
-                            Stroke::new(1.0_f32, Color32::WHITE),
-                        );
+                        box_handles::paint_handle(&painter, *pos, self.para_dragging == Some(i));
                     }
                 }
             }

@@ -1699,6 +1699,11 @@ pub struct Region {
   This rectangle in normalised page fractions, from a pixel rectangle
 
 - ```rust
+  pub fn from_corners(a: (f64, f64), b: (f64, f64)) -> Option<Self> { /* ... */ }
+  ```
+  This rectangle from two opposite corners **already in normalised page
+
+- ```rust
   pub fn is_valid(self: &Self) -> bool { /* ... */ }
   ```
   Whether every coordinate is in `0.0..=1.0` and the rectangle is
@@ -4177,6 +4182,8 @@ place:
 - [`save_digitised_csv`] — from either digitiser tab's "save into notes".
 - [`replace_artifact_body`] — the page-context panel's inline block
   editor (body only, metadata kept verbatim).
+- [`replace_artifact_region`] — the PDF reader's drag-a-corner box
+  correction (`[source] region` only, body and other metadata kept).
 - [`replace_digitisation`] — a re-digitise replacing its block in place,
   body **and** `[extraction]` (CORRECTED 2026-09-28: this used to go
   through [`replace_artifact_body`] and kept the stale extraction).
@@ -4216,8 +4223,8 @@ punctuation).
 
 ###### `UnknownId`
 
-[`replace_artifact_body`] was asked for an id no artifact in the
-document has.
+[`replace_artifact_body`] (or [`replace_artifact_region`]) was asked
+for an id no artifact in the document has.
 
 Fields:
 
@@ -5108,6 +5115,30 @@ fails.
 
 ```rust
 pub fn replace_artifact_body(session: &mut crate::session::PaperSession, id: &str, new_body: &str) -> Result<crate::artifact::Artifact, ClassifyError> { /* ... */ }
+```
+
+#### Function `replace_artifact_region`
+
+Move the `[source] region` box of the artifact with stable id `id` to
+`region` — the PDF reader's drag-a-corner correction (maintainer,
+2026-10-01: "when i edit annotations, i should be able to drag the
+corners of the boxes to correct them").
+
+The same re-render path as [`replace_artifact_body`]: the block is
+rendered back through [`render_artifact_block`] with its **existing**
+body, `[kovan] modified` is bumped, and nothing else changes — `id`,
+`kind`, `created`, `[source] page`, classification, relation, connections
+and extraction are all kept, as is every other line of the document.
+
+# Errors
+
+[`ClassifyError::UnknownId`] if no artifact has that id;
+[`ClassifyError::BadAnchor`] if it has no `[source]` anchor or the new
+anchor fails `SourceAnchor::validate` (no `page`, or an invalid region);
+[`ClassifyError::Render`] if re-serialising its metadata fails.
+
+```rust
+pub fn replace_artifact_region(session: &mut crate::session::PaperSession, id: &str, region: crate::artifact::Region) -> Result<crate::artifact::Artifact, ClassifyError> { /* ... */ }
 ```
 
 #### Function `replace_digitisation`
