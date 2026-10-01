@@ -77,6 +77,14 @@
 //! The correct match is by **ball count**. Record:
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`.
 //!
+//! **Note 2026-10-01 (gh:#428).** Every residual in this section was computed
+//! on a bed that is now **withdrawn**: the one-ball `core_model::assemble`,
+//! then the two-ball `bed::TwoBallBed`. Both cut pebbles, and both now panic
+//! if asked for. The default bed is Şeker & Çolak (2003)'s 13-ball cell
+//! (`bed::SekerBed`, gh:#472), and it is compared to RMC at equal ball count
+//! ([`rmc_keff_at_ball_count`]). None of the numbers above was re-measured on
+//! it for this note, so none of them describes the current default.
+//!
 //! **Model defects, production path (`assemble_explicit_triso`):**
 //! - ~~gh:#309 — one ball per hex tile clips the pebble shell: 4.76 % of all
 //!   core carbon is missing while the heavy metal is exact (C/U low). Sign on
@@ -85,6 +93,11 @@
 //!   0.6096-0.6097, graphite restored (envelope graphite 0.4990 -> 0.5244 at
 //!   122.47 cm), kernel fraction 0.998-1.000 of the paper-implied value.
 //!   Worth `+2231` to `+2413` pcm (3-seed means, 98-201 cm): **k goes UP**.
+//!   **SUPERSEDED 2026-10-01 (gh:#472):** the two-ball cell still cut the
+//!   balls crossing the side wall and the bed top, and it is withdrawn
+//!   (`OUTRAM_HTR10_TWO_BALL_CELL` now panics in `assemble_explicit_triso`).
+//!   The default is `bed::SekerBed`, in which every ball is whole and is
+//!   rejected at the side wall, the cone and the tube.
 //! - ~~gh:#310 — the lattice drops the A-B layer offset, so axially adjacent
 //!   pebbles touch and their fuel zones meet~~ **FIXED 2026-09-25**, same
 //!   change: A-B stacking restored, minimum centre distance of the BUILT bed
@@ -149,8 +162,11 @@
 //!
 //! **Other paths and plumbing:**
 //! - gh:#308 — `assemble` (homogenised fuel) lacks the cavity, conus, bricks and
-//!   annulus of the production path; do not use it for a `k` comparison. It
-//!   feeds `htr10_mgxs_genfoam`.
+//!   annulus of the production path; do not use it for a `k` comparison. ~~It
+//!   feeds `htr10_mgxs_genfoam`.~~ **CORRECTED 2026-10-01:** `assemble` is
+//!   withdrawn and panics on entry (it cuts pebbles). `htr10_mgxs_genfoam`
+//!   still calls it (checked: `examples/htr10_mgxs_genfoam.rs`), so that
+//!   example now panics too.
 //! - gh:#313 — `Cell::temperature` is never read by transport and every cell
 //!   hardcodes 293.6 K; the material temperature (300.15 K) is what is used.
 //! - gh:#312 — the control-rod smeared composition drops the steel sections
@@ -198,8 +214,16 @@
 //! *"Calculations are performed for vacuum and helium."* Checking them row by
 //! row:
 //!
-//! - the **RMC** column is byte-identical in **11 of 11** shared rows;
-//! - the **MCNP** column differs in **0 of 11** — that is, in every row.
+//! - the **RMC** column is byte-identical in ~~**11 of 11**~~ **12 of 12**
+//!   shared rows;
+//! - the **MCNP** column ~~differs in **0 of 11** — that is, in every row~~
+//!   **differs in 12 of 12** rows.
+//!
+//! **CORRECTED 2026-10-01 (gh:#428):** Tables 3 and 4 have twelve rows, not
+//! eleven (`the_reference_curve_is_monotonic_and_brackets_criticality` asserts
+//! 12), and "0 of 11" inverted the count. Checked against the stored
+//! [`MCNP_TABLE3_KEFF_VS_HEIGHT`] and [`MCNP_TABLE4_KEFF_VS_HEIGHT`]: no row
+//! is equal.
 //!
 //! So the paper reports **one** RMC dataset against **two** MCNP results, and
 //! one of the two captions is wrong. Consequence for anyone verifying against
@@ -282,6 +306,15 @@ pub const RMC_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
 /// how much agreement with RMC alone can mean: the paper's own RMC-MCNP
 /// differences reach 0.95 %. Do not fit to them and do not replace RMC with
 /// them.
+///
+/// **Their data library (2026-10-01, gh:#428).** Li's abstract says RMC and
+/// MCNP both used *"continuous energy cross section based on ENDF/B-7.0"*. The
+/// MCNP numbers are not Li's own runs, though. They equal Şeker & Çolak
+/// (2003)'s Table 3 (see the module docs), and Şeker p.265 states:
+/// *"ENDF/B-VI continuous energy cross sections are used in calculations for
+/// all materials except graphite. Cross sections for graphite are taken from
+/// TMCCS library."* So these MCNP columns are **ENDF/B-VI**, with TMCCS
+/// graphite, and not VII.0. Only RMC's library is the VII.0 Li states.
 ///
 /// Both Tables 3 and 4 are captioned "(vacuum)" while the text says the
 /// calculations were for vacuum *and* helium, so one caption is wrong ~~and it

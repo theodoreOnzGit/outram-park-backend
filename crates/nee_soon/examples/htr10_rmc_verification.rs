@@ -19,6 +19,10 @@ fn main() {
 
     let cell = bed::HexBedCell::from_paper();
     println!("\nRECONSTRUCTED HEX BED CELL (the paper never states a pitch)");
+    // Since 2026-10-01 (gh:#472) this uniform two-ball cell is used for the
+    // closures below only. The transported bed is Şeker & Çolak (2003)'s
+    // 13-ball cell (`bed::SekerCell`); the two-ball bed is withdrawn.
+    println!("  (closure cell only; the transported bed is Seker's 13-ball cell, gh:#472)");
     println!("  pitch                 {:.4} cm", cell.pitch);
     println!(
         "  height                {:.4} cm   (= 2 x {:.4} close-packed layer spacing)",
@@ -95,16 +99,23 @@ fn main() {
         "  crosses k = 1 between {h0} and {h1} cm -> critical height {hc:.2} cm (interpolated)"
     );
 
-    println!("\nNOT VERIFIED, AND WHY");
-    println!("  The k_eff curve above is NOT reproduced here. The paper defers the reflector:");
-    println!("    \"Modeling details of reflector and structural material are referred to");
-    println!("     paper released by IAEA which is listed in reference.\"  [IAEA-TECDOC-1382]");
-    println!("  A 180 cm core inside ~1 m of graphite reflector cannot be modelled without it,");
-    println!("  and the reflector houses the control rods and absorber-ball channels too.");
+    // CORRECTED 2026-10-01 (gh:#428): this used to print that the curve could
+    // not be reproduced because the reflector was missing. The TECDOC-1382
+    // reflector is now modelled explicitly (PR #327); the curve is computed by
+    // `htr10_rmc_keff`, not by this example, because it needs hours of
+    // transport.
+    println!("\nNOT VERIFIED HERE, AND WHY");
+    println!("  The k_eff curve above is NOT reproduced by this example: it needs a transport");
+    println!("  solve. `htr10_rmc_keff` computes it on the explicit TECDOC-1382 reflector");
+    println!("  (the paper defers the reflector to that TECDOC), and the results are in");
+    println!("  crates/outram-mc-libs/verification_and_validation/htr10_rmc/.");
     println!("\n  Reference quality: the paper's own RMC-vs-MCNP relative differences reach");
     println!("  ~0.9 %, and it states the model was \"constructed relatively independently\".");
     println!("  Treat ~500 pcm as success here; 50 pcm would be suspicious.");
     println!("\n  Also: its Tables 3 and 4 are both captioned \"(vacuum)\" but share a");
-    println!("  byte-identical RMC column (11/11 rows) with differing MCNP columns (0/11).");
-    println!("  There is ONE RMC curve, not a vacuum/helium pair.");
+    // CORRECTED 2026-10-01 (gh:#428): the tables have 12 rows, and the MCNP
+    // columns differ in all 12 (this printed "11/11" and "0/11").
+    println!("  byte-identical RMC column (12/12 rows) with MCNP columns that differ in 12/12.");
+    println!("  There is ONE RMC curve, not a vacuum/helium pair. The MCNP columns are");
+    println!("  Seker and Colak (2003)'s vacuum (Table 3) and helium (Table 4) results.");
 }

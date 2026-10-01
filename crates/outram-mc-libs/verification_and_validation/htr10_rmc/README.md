@@ -11,6 +11,11 @@ height dependence, the separated data/transport timings, the P-core vs E-core
 sweep and the constant-cavity ablation. **This page remains the authority for
 how the model was built and corrected**; that one is the authority for how it
 performs across the loading range.
+**CORRECTED 2026-10-01 (gh:#428):** that suite was measured on the one-ball
+bed with the R-Z zone-22 reflector, and is superseded as a statement of
+performance (see the marker at its top). For the current model (Şeker's
+13-ball bed, explicit reflector, withdrawn rods, 30P graphite), the authority
+is the section below. The twelve-row sweep has not been re-run on it.
 
 **Images of the built geometry (2026-09-25):**
 [`crates/nee_soon/verification_and_validation/htr10_geometry_images/`](../../../nee_soon/verification_and_validation/htr10_geometry_images/README.md)
@@ -18,6 +23,9 @@ performs across the loading range.
 with the OpenMC-parity plotter, from the whole R-Z model down to one TRISO
 particle. ~~gh:#309 and gh:#310 are directly visible there.~~ Regenerated
 2026-09-25 for the two-ball cell, which fixes both — see the next section.
+**CORRECTED 2026-10-01:** regenerated again on 2026-10-01 for Şeker's
+13-ball bed, where the second argument of `assemble_explicit_triso` is now
+the layer count N, not half-layers.
 
 ## Şeker & Çolak (2003)'s 13-ball cell (2026-10-01, gh:#472) — CURRENT
 
@@ -73,7 +81,7 @@ regenerated 2026-10-01.
 |---|---|
 | k_eff | **0.987043 ± 0.003022** |
 | residual vs RMC at the 123.576 cm row | ~~−1724 ± 302 pcm~~ superseded by the line below |
-| **residual vs RMC at equal ball count** (gh:#472) | **−1238 ± 302 pcm**: 16 681 balls, which is 122.091 cm in Şeker's model, where RMC = 0.999419 (VIII.0; the references used VII.0, and that offset is not corrected) |
+| **residual vs RMC at equal ball count** (gh:#472) | **−1238 ± 302 pcm**: 16 681 balls, which is 122.091 cm in Şeker's model, where RMC = 0.999419 (VIII.0; ~~the references used VII.0~~ **CORRECTED 2026-10-01:** RMC used ENDF/B-VII.0 (Li 2014), Şeker's MCNP used ENDF/B-VI + TMCCS graphite (Şeker p.265); that offset is not corrected) |
 | MCNP gauge (Şeker's own model) | 1.003298 vacuum (−1625 pcm), 1.004788 helium (−1774 pcm) |
 | geometry | 22 974 tiles, 43 445 cells, 1 502 universes |
 | locate | 0 lost, 0 stuck, 0 negative distances |
@@ -218,7 +226,13 @@ What was and was not checked is in that folder's README.
 B-11 placed, 8340 TRISO, fixed cavity, Terry bottom reflector; 10 000
 histories x [5 inactive + 135 active], 14 rings; seeds 20260917, +2, +3
 (`OUTRAM_BENCH_SEEDS=3`); height-matched against RMC interpolated to the bed
-height. Binary SHA-256 `e74e556f...e214c9`, built from the tree committed as
+height. **CORRECTED 2026-10-01 (gh:#333, gh:#472):** the bed heights here
+(97.980 / 122.474 / 200.858 cm) are volume-equivalent, while RMC's heights
+are whole-ball extents, `9.798 N + 6` cm. So this "height match" compared
+unequal beds, and the residuals below read high (see the gh:#333 note in the
+last section of this page). The current model is matched to the reference
+by ball count (`htr10_rmc::rmc_keff_at_ball_count`). The numbers below are
+kept as they were run. Binary SHA-256 `e74e556f...e214c9`, built from the tree committed as
 `1b8c95704f` (later commits on the branch change docs and tests only). Compared
 against develop (`fe975296a2`-equivalent geometry) at the same settings, 3-seed
 means: n20 0.903261, n25 0.993947, n41 1.157860.
@@ -268,6 +282,14 @@ on 32 threads.
    at -1572 +/- 425 pcm, is off because its core-height composition is
    unrecorded). The library term is a further ~+1100 pcm (VII.0 above VIII.0)
    on the reference's own library.
+   **CORRECTED 2026-10-01 (gh:#428):** those three simplifications describe
+   the model as run on 2026-09-25 and no longer hold. Since PR #327 the
+   reflector is the full TECDOC Fig. 4.10 zone map (with the p.242
+   corrections) and every channel is explicit geometry, following Şeker
+   Fig. 4 since gh:#330 (`nee_soon::htr10_rmc::reflector_geometry`). The ten
+   rods are explicit and sit at the withdrawn position. The smeared band and
+   its `OUTRAM_HTR10_BORINGS` knob are gone (verified in `core_model.rs`:
+   `BORED_GRAPHITE` is no longer placed).
 
 ### NOT done: the twelve-height single-seed curve (cut short)
 
@@ -394,6 +416,12 @@ Neither is the reactor. It is now **pebble graphite at the bed's 0.61 filling
 fraction**, which sits between them.
 
 ### The control-rod boring band — measured, but NOT enabled
+
+> **SUPERSEDED (noted 2026-10-01, gh:#428).** This section describes the
+> R-Z reflector of 2026-09-18. Since PR #327 every reflector zone follows the
+> TECDOC zone map and the rod borings are explicit channels holding explicit
+> withdrawn rods. The smeared band and `OUTRAM_HTR10_BORINGS` no longer exist.
+> The −1572 ± 425 pcm below is kept as the measurement it was.
 
 TECDOC zone 22 is used for every reflector region in this model, and it is
 **rank 1 of 40 distinct carbon densities in Table 4-3** — the densest graphite
@@ -535,8 +563,13 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   already splits it correctly — **gh:#311**.
 - **Every cell hardcodes 293.6 K** while the material temperature is what
   transport reads, so `Cell::temperature` is inert here — **gh:#313**.
-- **`core_model::assemble` (the homogenised-fuel path) has none of the above
-  fixed.** No cavity (solid graphite there), no boronated brick, no coolant
+- **WITHDRAWN 2026-10-01 (maintainer), noted here for gh:#428:**
+  `core_model::assemble` now panics, and `OUTRAM_HTR10_HOMOG=1` is refused by
+  `htr10_rmc_keff`. Its one-ball tile cuts pebbles, which is wrong physics.
+  The item below is the record of why it was never comparable.
+  ~~**`core_model::assemble` (the homogenised-fuel path) has none of the above
+  fixed.**~~ **`core_model::assemble` (the homogenised-fuel path) had none of
+  the above fixed.** No cavity (solid graphite there), no boronated brick, no coolant
   annulus, no conus, no discharge tube: roughly **+15 500 pcm** in terms this
   page already prices individually. It carries `assemble_explicit_triso`'s
   comments without its geometry, and it feeds `examples/htr10_mgxs_genfoam.rs`.
@@ -545,8 +578,15 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 
 ## THE RESIDUAL WAS THE DATA LIBRARY — measured 2026-09-18
 
-The model was run on **ENDF/B-VII.0**, the library RMC, MCNP, Serpent and HCP
-all used, against the ENDF/B-VIII.0 it had always used. Same geometry, same
+The model was run on **ENDF/B-VII.0**, ~~the library RMC, MCNP, Serpent and
+HCP all used~~ **CORRECTED 2026-10-01 (gh:#428):** the library RMC used (Li
+2014: *"continuous energy cross section based on ENDF/B-7.0"*). It is not the
+library behind the MCNP column. Li's MCNP values are Şeker & Çolak (2003)'s
+(vacuum = Şeker Table 3, helium = Table 4), computed with ENDF/B-VI plus TMCCS
+graphite (Şeker p.265). Li's abstract says MCNP also used ENDF/B-7.0, which
+contradicts the paper its numbers come from. Serpent and HCP (Choo and Xiao
+2024) are not part of this reference; their library is Not re-checked here.
+It was run against the ENDF/B-VIII.0 the model had always used. Same geometry, same
 seed, same settings (3000 histories x [20 + 60], 14 rings x 25 layers, bed
 122.474 cm), compared against RMC interpolated to the height actually modelled.
 
@@ -605,7 +645,11 @@ Reachable as `OUTRAM_HTR10_ENDF7=1`.
 - The cavity defect (below) is ~zero at this loading, so it does not contaminate
   this point. It is still a real defect at every other loading.
 - One loading height, one temperature, rods out, no control rods or absorber
-  balls, R-Z homogenised reflector. Unchanged.
+  balls, R-Z homogenised reflector. ~~Unchanged.~~ **CORRECTED 2026-10-01:**
+  that was the model of 2026-09-18. Since PR #327 the reflector and its
+  channels are explicit and the rods are explicit at the withdrawn position;
+  the absorber-ball (KLAK) channels are empty by maintainer decision
+  (gh:#330).
 
 ## THE CHAIN CLOSES — two routes to the answer agree (2026-09-18)
 
@@ -870,7 +914,14 @@ with RMC Code*, HTR 2014 Weihai, paper HTR2014-51207. Catalogued **proprietary**
 Critical loading height **123.576 cm**: RMC **k = 1.004288**, MCNP **1.0033**.
 
 **The reference quotes no uncertainty on any of its 12 values.** At its stated
-1.35 M active histories the implied σ is ~60–100 pcm, but it is never printed,
+1.35 M active histories ~~the implied σ is ~60–100 pcm~~ **CORRECTED
+2026-10-01 (gh:#428):** the σ is not stated anywhere. "~60–100 pcm" was our
+estimate, not a source. Our own runs at the identical 10 000 × [5 + 135]
+gave a within-run σ of 86–117 pcm across the twelve heights
+(`docs/htr10-rmc-verification-suite.md` §2). Three-seed spreads on the
+two-ball bed at the same settings were 57–108 pcm (computed from the seed
+values in "Eigenvalue — results" above). So the 60 pcm lower bound is
+unsupported, and ~100 pcm is the better guess. It is never printed,
 so "agreement to 100 pcm" against it is not a well-posed claim. The gate is
 **500–1000 pcm** (maintainer decision), which matches the existing bar recorded
 in `nee_soon::htr10_rmc` — *"~500 pcm would be success, 50 pcm would be
@@ -912,20 +963,42 @@ suspicious."*
 
 ## What is NOT done, and must not be implied
 
-- **No eigenvalue has been computed for HTR-10.** The assembled core carries a
+> **Re-checked 2026-10-01 (gh:#428).** This list was written on 2026-09-17,
+> before any eigenvalue. Four of its five items no longer hold, and each is
+> struck through below with what replaced it.
+
+- ~~**No eigenvalue has been computed for HTR-10.** The assembled core carries a
   **homogenised** fuel zone, not an explicit TRISO lattice, so the double
-  heterogeneity is absent and its `k` is not comparable to the reference.
-- **The data library differs from every reference.** RMC, MCNP, Serpent and HCP
-  all used **ENDF/B-VII.0**; this workspace has **VIII.0**. On a
-  graphite-moderated LEU system that is worth hundreds of pcm, so a
-  disagreement could not be attributed to transport.
-- **The reflector densities are homogenised in R-Z.** TECDOC says explicitly
+  heterogeneity is absent and its `k` is not comparable to the reference.~~
+  **CORRECTED 2026-10-01:** eigenvalues have been computed on the explicit
+  TRISO lattice since 2026-09-17 (this page, from "The two-ball prism cell"
+  down). The current one is 0.987043 ± 0.003022 on Şeker's 13-ball bed (top
+  of this page). The homogenised-fuel `core_model::assemble` is withdrawn and
+  panics.
+- ~~**The data library differs from every reference.** RMC, MCNP, Serpent and HCP
+  all used **ENDF/B-VII.0**; this workspace has **VIII.0**.~~ **CORRECTED
+  2026-10-01:** RMC used ENDF/B-VII.0 (Li 2014). The MCNP column is Şeker &
+  Çolak (2003)'s, on ENDF/B-VI + TMCCS graphite (Şeker p.265). Serpent and
+  HCP are not part of this reference (library Not re-checked). This model
+  runs **VIII.0** by default, and VII.0 is available as an ablation
+  (`OUTRAM_HTR10_ENDF7=1`; see "THE RESIDUAL WAS THE DATA LIBRARY"). On a
+  graphite-moderated LEU system the library is worth hundreds of pcm, so a
+  disagreement cannot be attributed to transport without that ablation.
+- ~~**The reflector densities are homogenised in R-Z.** TECDOC says explicitly
   that a 3-D model must correct them for the boring geometries; using them
-  unadjusted smears the control-rod and helium-flow channels uniformly.
+  unadjusted smears the control-rod and helium-flow channels uniformly.~~
+  **CORRECTED 2026-10-01:** since PR #327 the channels are explicit geometry
+  inside the TECDOC zone map, so nothing is smeared in the default model.
+  Their positions follow Şeker Fig. 4 since gh:#330
+  (`nee_soon::htr10_rmc::reflector_geometry`).
 - **This crate's thermal accuracy floor is ~200–400 pcm**, not 100 — LCT-008
   sits at +87 to +237 pcm against ICSBEP with a ~69 pcm spectral residual still
   open (`op-os8x`, gh #206).
-- **No control rods or absorber balls** are modelled.
+- ~~**No control rods or absorber balls** are modelled.~~ **CORRECTED
+  2026-10-01:** the ten control rods are explicit (B4C, steel sleeves, iron
+  joints) at the withdrawn position (since PR #327). The absorber-ball channels
+  are explicit but empty (gh:#330). No inserted-rod (B3/B4) result is
+  recorded on this page.
 
 ## The fuel deficit — real, but NOT the cause of `k = 0`
 

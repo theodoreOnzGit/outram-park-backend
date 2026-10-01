@@ -38,6 +38,12 @@ that set showed.
 - `htr10_xz_pebbles.png`: the basal (z = 0, ±9.8) and central (±4.9) planes
   stack. The small circles are off-centre cuts.
 
+- **Re-drawn 2026-10-01 after the channel-layout fix (gh:#330):** in
+  `htr10_xy_bed_mid.png` the coolant and inner rings are now aligned radially
+  (both at 9° + 18° k). The 13 round channels are the 10 rods and 3
+  irradiation channels, empty at this height; the 7 tangential slots are KLAK.
+  The pattern is Şeker Fig. 4 rotated by −171°.
+
 **Not checked by eye:** whether each fuel/dummy identity agrees across tiles.
 `every_piece_of_a_built_ball_has_one_identity` checks that on the built
 geometry: 0 inconsistent of 16 692 at N = 9.

@@ -30,8 +30,12 @@
 //! Compositions: Li et al. (2014) Table 2 for the pebble (via
 //! [`outram_mc_libs::pebble_beds::htr10::fuel_pebble_materials`]);
 //! IAEA-TECDOC-1382 Table 4-3 for every reflector zone, with its p. 242
-//! corrections; TECDOC § 4.1.2 for the control-rod B4C, steel and iron;
-//! IUPAC/CIAAW for atomic weights and isotopic compositions.
+//! corrections; TECDOC ~~§ 4.1.2~~ **§ 4.1.1.5 "Control of HTR-10" (printed
+//! pp. 235-236; CORRECTED 2026-10-01, gh:#428 — § 4.1.2 is the benchmark
+//! problem descriptions)** for the control-rod B4C density, steel and iron.
+//! That section gives no B4C isotopics: natural boron is this model's reading,
+//! consistent with MIT's homogenised rod in TECDOC Table 4-36 but not stated in
+//! the specification. IUPAC/CIAAW for atomic weights and isotopic compositions.
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
@@ -67,7 +71,10 @@ pub const B10_OF_NATURAL: f64 = 0.199;
 /// TSL term as well as the VII-vs-VIII library term. The fast single-seed
 /// worth at n = 25 was +947 ± 483 pcm against crystalline
 /// (`outram-mc-libs/verification_and_validation/htr10_rmc/fast_ablation_2026_09_26.md`).
-/// A pooled re-measurement is in progress. [`GraphiteLaw::Crystalline`] is the
+/// ~~A pooled re-measurement is in progress.~~ **CORRECTED 2026-10-01
+/// (gh:#428):** the pooled re-measurement is complete and recorded in the same
+/// file: **30P − crystalline = +705 ± 86 pcm** (8.2σ; 4 seeds × 1.0 M active
+/// histories per arm, two-ball bed). [`GraphiteLaw::Crystalline`] is the
 /// explicit ablation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GraphiteLaw {
@@ -122,8 +129,18 @@ pub struct Htr10MaterialConfig {
     pub temperature_k: f64,
     /// How the two "ppm natural boron" rows of Table 2 are read.
     pub boron: BoronReading,
-    /// Which TECDOC Table 4-3 zone stands in for the whole reflector.
-    /// 22 is the default and the OPTIMISTIC bound (cleanest graphite).
+    /// Which TECDOC Table 4-3 zone's composition fills material slot
+    /// [`mat::REFLECTOR`].
+    ///
+    /// ~~Stands in for the whole reflector; 22 is the default and the
+    /// OPTIMISTIC bound (cleanest graphite).~~ **CORRECTED 2026-10-01
+    /// (gh:#428):** since the explicit reflector and the Fig. 4.10 zone map,
+    /// `mat::REFLECTOR` fills only the zones TECDOC p. 242 says take zone 22's
+    /// density once the borings are explicit (the zone-22 list of
+    /// [`mat::for_zone_mc`]). Every other
+    /// zone has its own slot. (Under the `OUTRAM_HTR10_NO_ZONE_MAP` ablation it
+    /// fills every zone but the boronated bricks.) 22 is therefore the model,
+    /// not a bound; any other value is a sensitivity on those zones only.
     pub reflector_zone: usize,
     /// Multiplier on the reflector's carbon density. `1.0` is unmodified.
     /// A sensitivity bound, not a model.
@@ -288,9 +305,11 @@ pub mod abundance {
     pub const TI: [f64; 5] = [0.0825, 0.0744, 0.7372, 0.0541, 0.0518];
 }
 
-/// Rod sleeve steel density \[g/cm³\], TECDOC § 4.1.2.
+/// Rod sleeve steel density \[g/cm³\], TECDOC ~~§ 4.1.2~~ § 4.1.1.5, pp. 235-236
+/// (CORRECTED 2026-10-01, gh:#428; *"a density of 7.9g/cm3 is assumed"*).
 pub const ROD_STEEL_DENSITY: f64 = 7.9;
-/// Rod sleeve steel composition \[weight fraction\], TECDOC § 4.1.2:
+/// Rod sleeve steel composition \[weight fraction\], TECDOC ~~§ 4.1.2~~
+/// § 4.1.1.5, pp. 235-236 (CORRECTED 2026-10-01, gh:#428):
 /// Cr 18, Fe 68.1, Ni 10, Si 1, Mn 2, C 0.1, Ti 0.8 (sums to 100 %).
 pub const ROD_STEEL_WT: [(&str, f64); 7] = [
     ("Cr", 0.18),
@@ -302,7 +321,8 @@ pub const ROD_STEEL_WT: [(&str, f64); 7] = [
     ("Ti", 0.008),
 ];
 /// Iron atom density of the rod joints and ends \[atoms/(b cm)\], TECDOC
-/// § 4.1.2: iron alone, filling 27.5 mm < R < 55 mm.
+/// ~~§ 4.1.2~~ § 4.1.1.5, pp. 235-236 (CORRECTED 2026-10-01, gh:#428): iron alone,
+/// filling 27.5 mm < R < 55 mm.
 pub const ROD_JOINT_IRON_DENSITY: f64 = 0.04;
 
 /// Build the material set, indexed by [`mat`] (`mat::COUNT` materials).
@@ -402,7 +422,9 @@ pub fn htr10_material_set(
     });
 
     // 9: side reflector homogenised with its control-rod borings, TECDOC
-    // zones 31-40 -- 28.1 % less carbon than zone 22.
+    // zones 31-40 -- 28.1 % less carbon than zone 22. Built but NOT placed by
+    // `assemble_explicit_triso` since 2026-09-25 (the borings are explicit);
+    // the slot keeps later indices fixed (see `mat::BORED_GRAPHITE`).
     mats.push(Material {
         id: 73,
         name: "bored side reflector (TECDOC zones 31-40)".into(),
@@ -424,8 +446,12 @@ pub fn htr10_material_set(
     });
 
     // 10: homogenised dummy pebbles = pebble graphite scaled to the bed's
-    // filling fraction. What the discharge tube actually contains (Terry 2005
-    // section 2), between the bounds of solid graphite and pure helium.
+    // filling fraction. ~~What the discharge tube actually contains (Terry 2005
+    // section 2), between the bounds of solid graphite and pure helium.~~
+    // CORRECTED 2026-10-01 (gh:#428; already struck at `mat::HOMOG_DUMMY` on
+    // 2026-09-25): the tube holds whole graphite balls, which the default model
+    // places explicitly. This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
+    // ablation.
     let dummy = mats[mat::GRAPHITE].clone();
     mats.push(Material {
         id: 74,
@@ -474,7 +500,10 @@ pub fn htr10_material_set(
         });
     }
 
-    // Control-rod B4C: 1.7 g/cm3 of B4C with natural boron (TECDOC § 4.1.2).
+    // Control-rod B4C: 1.7 g/cm3 of B4C (TECDOC ~~§ 4.1.2~~ § 4.1.1.5, pp. 235-236;
+    // CORRECTED 2026-10-01, gh:#428) with natural boron. ~~(TECDOC § 4.1.2)~~
+    // The specification gives no isotopics: natural boron is this model's
+    // reading, consistent with MIT's TECDOC Table 4-36, not stated by § 4.1.1.5.
     // Its carbon is NOT graphite, so it takes the free-gas carbon slot.
     let n_b4c = super::control_rod::b4c_molecular_density();
     mats.push(Material {
@@ -497,7 +526,8 @@ pub fn htr10_material_set(
         temperature: t,
     });
 
-    // Control-rod sleeve steel, 7.9 g/cm3 (TECDOC § 4.1.2), split into
+    // Control-rod sleeve steel, 7.9 g/cm3 (TECDOC § 4.1.1.5, pp. 235-236; was
+    // cited as § 4.1.2, CORRECTED 2026-10-01, gh:#428), split into
     // natural isotopes. N_e = rho w_e N_A / M_e.
     let n_elem = |w: f64, m: f64| ROD_STEEL_DENSITY * w * AVOGADRO / m * 1.0e-24;
     let wt = |e: &str| {

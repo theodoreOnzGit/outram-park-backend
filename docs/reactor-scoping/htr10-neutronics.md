@@ -76,7 +76,8 @@ Both constraints point the same way, which is a good sign the shape is right.
 
 ## 2. The benchmark problems, and the trap in B1
 
-All four are defined in IAEA-TECDOC-1382 Chapter 4 (Open tier;
+All four are defined in IAEA-TECDOC-1382 Chapter 4 (~~Open tier;~~
+**CORRECTED 2026-10-01 (gh:#428):** proprietary tier;
 `iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 
 > **Source deduplication (resolved 2026-08-11).** An earlier ingest of the
@@ -170,10 +171,18 @@ published values, each carrying its source and that source's access tier:
 
 | Set | Count | Source | Tier |
 |---|---|---|---|
-| INET VSOP/MCNP B1 loading curves (4 tables, original + deviated) | 31 points | IAEA-TECDOC-1382 | Open |
-| INET B2 full-core k_eff, both variants | 7 | IAEA-TECDOC-1382 | Open |
-| INET B3/B4 rod worths + the B42 differential curve | 14 + 7 | IAEA-TECDOC-1382 | Open |
+| INET VSOP/MCNP B1 loading curves (4 tables, original + deviated) | 31 points | IAEA-TECDOC-1382 | ~~Open~~ **Proprietary** |
+| INET B2 full-core k_eff, both variants | 7 | IAEA-TECDOC-1382 | ~~Open~~ **Proprietary** |
+| INET B3/B4 rod worths + the B42 differential curve | 14 + 7 | IAEA-TECDOC-1382 | ~~Open~~ **Proprietary** |
 | Choo and Xiao (2024) Serpent 2 and HCP, B1 + B2, both variants | 16 | Choo and Xiao 2024 | Open |
+
+**CORRECTED 2026-10-01 (gh:#428):** the three IAEA-TECDOC-1382 rows were
+"Open". `crates/kovan-literature/CATALOGUE.md` records the TECDOC as
+*"RECLASSIFIED 2026-09-22 → proprietary (maintainer decision: no verified
+reuse licence)"*. The code has not followed: `LiteratureSource::access_tier` in
+`crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs` still returns
+`AccessTier::Open` for `IaeaHtgrBenchmark`, although that file's own module
+table says Proprietary. That code inconsistency is outside this doc fix.
 | Wang et al. (2014) continuous-energy MCNP5 and SCALE6 | 6 | Wang 2014 | **Proprietary** |
 | Wang et al. (2014) unit-cell homogenisation biases | 6 | Wang 2014 | **Proprietary** |
 | Tantillo et al. (2020) infinite-pebble-bed k_inf | 2 | Tantillo 2020 | **Proprietary** |
@@ -952,7 +961,8 @@ result, and it is not an HTR-10 criticality result.**
 An infinite medium of the *fuelled zone* of an HTR-10 fuel pebble, run twice:
 once with the UO2 kernels resolved explicitly as randomly packed spheres, and
 once with exactly the same nuclide inventory homogenised into one medium. Atom
-densities come straight from IAEA-TECDOC-1382 Table 4-38 (Open tier, part 2
+densities come straight from IAEA-TECDOC-1382 Table 4-38 (~~Open tier~~
+proprietary since 2026-09-22, corrected 2026-10-01; part 2
 line 1101) — kernel U-235 3.992067E-03, U-238 1.924449E-02, O 4.647329E-02,
 B-10 1.849637E-08, B-11 7.445022E-08; matrix graphite C 8.674169E-02 (which is
 exactly 1.73 g/cm^3 of carbon), B-10 2.244010E-08, B-11 9.032424E-08. The
@@ -1070,7 +1080,12 @@ copyrightable; the restriction attaches to reproducing the document, not to
 measurements of a reactor. Terry §1 further states that all descriptive data
 "were obtained from published documents, mainly two IAEA TECDOC reports" — both
 of which this workspace already holds in the **open** tier. So these values have
-an open provenance path.
+an open provenance path. **CORRECTED 2026-10-01 (gh:#428):** IAEA-TECDOC-1382
+was reclassified proprietary on 2026-09-22 (`CATALOGUE.md`), so ~~"holds in
+the open tier"~~ no longer holds for it, and the "open provenance path"
+argument is Not re-checked: whether facts transcribed from a proprietary
+document may be recorded is a maintainer decision, which `CATALOGUE.md`
+answers only for the derived control-rod record.
 
 **Citation caution.** The no-citation-without-permission clause is a
 publication-ethics constraint. For any publication, cite the underlying IRPhEP

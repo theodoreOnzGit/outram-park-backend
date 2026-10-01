@@ -1,21 +1,38 @@
-//! HTR-10 control rods — smeared composition of the side-reflector boring band.
+//! HTR-10 control rods — the published rod geometry, and a smeared composition
+//! of the side-reflector boring band.
 //!
 //! # What this is for
 //!
-//! The HTR-10 core model in [`super::core_model`] carries the ten control-rod
+//! ~~The HTR-10 core model in [`super::core_model`] carries the ten control-rod
 //! borings as a single homogenised annulus (`mat::BORED_GRAPHITE`, TECDOC zones
 //! 31-40, r 95.6-108.6 cm) at **28 % less carbon** than solid reflector
 //! graphite. That band represents the borings as *empty*: there is no absorber
 //! anywhere in the model, so it can only ever represent rods **fully
-//! withdrawn**, and control-rod worth cannot be computed from it at all.
+//! withdrawn**, and control-rod worth cannot be computed from it at all.~~
 //!
-//! This module supplies the missing half — what the band contains when rods are
-//! in it — derived from the published rod geometry and B4C density, with
-//! nothing fitted.
+//! **CORRECTED 2026-10-01 (gh:#428, related gh:#312).** That described the core
+//! model before 2026-09-25. Today:
+//! - The Monte Carlo production path,
+//!   [`assemble_explicit_triso`](super::core_model::assemble_explicit_triso),
+//!   never places `mat::BORED_GRAPHITE`. Its ten rods are **explicit**
+//!   geometry in their own channels (the rod universe of
+//!   [`super::reflector_geometry`]): B4C rings, steel sleeves and iron joints,
+//!   at the withdrawn position by default. They are built from this module's
+//!   [`AXIAL_SECTIONS_CM`], [`AXIAL_IS_B4C`], [`LOWER_END_WITHDRAWN_CM`] and
+//!   [`N_CONTROL_RODS`] (checked by search of `reflector_geometry.rs`).
+//! - The smeared composition below is the absorber the band would carry with
+//!   the rods in it, derived from the published rod geometry and B4C density
+//!   with nothing fitted. Its one consumer is `crate::rod_insertion`, which
+//!   adds it to multigroup constants for deterministic rod sweeps. It is not
+//!   used by the Monte Carlo model.
 //!
 //! # Source
 //!
-//! IAEA-TECDOC-1382 § 4.1.2, transcribed with its benchmark values in
+//! IAEA-TECDOC-1382 ~~§ 4.1.2~~ **§ 4.1.1.5 "Control of HTR-10" (printed
+//! pp. 235-236; CORRECTED 2026-10-01, gh:#428)**: ring radii, axial sequence,
+//! B4C density 1.7 g/cm³, withdrawn and inserted lower-end positions. That
+//! section gives no B4C isotopics; natural boron is this model's reading
+//! (consistent with MIT's homogenised rod, TECDOC Table 4-36). Transcribed in
 //! `crates/kovan-literature/derived/tecdoc1382-htr10-control-rods.md`. Read that
 //! record before changing any constant here.
 //!
@@ -160,7 +177,8 @@ mod tests {
     ///
     /// # Methodology
     ///
-    /// Every input is transcribed from IAEA-TECDOC-1382 § 4.1.2 (see the
+    /// Every input is transcribed from IAEA-TECDOC-1382 ~~§ 4.1.2~~ § 4.1.1.5
+    /// (CORRECTED 2026-10-01, gh:#428; see the
     /// derived-data record named in the module docs): B4C ring radii 3.0 /
     /// 5.25 cm, ten rods, band radii 95.6 / 108.6 cm from
     /// [`super::super::core_model`], axial sequence

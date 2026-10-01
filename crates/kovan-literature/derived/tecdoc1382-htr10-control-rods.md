@@ -2,11 +2,17 @@
 
 The control-rod specification and the B3/B4 reactivity-worth benchmark results
 for the HTR-10, extracted from **IAEA-TECDOC-1382**. This is the input needed to
-model control rod position at all — the existing core model
+model control rod position at all — ~~the existing core model
 (`crates/nee_soon/src/htr10_rmc/core_model.rs`) carries the *borings* as a
 homogenised reduced-density graphite band (TECDOC zones 31-40) and contains **no
 absorber whatsoever**, i.e. it represents rods fully withdrawn and cannot
-represent any other position.
+represent any other position.~~ **CORRECTED 2026-10-01 (gh:#428):** since
+PR #327 the core model's borings are explicit channels, and the ten rods are
+explicit B4C, steel sleeves and iron joints from this specification
+(`crates/nee_soon/src/htr10_rmc/reflector_geometry.rs`, rod universe;
+dimensions in `control_rod.rs`). The smeared band is no longer placed. The rods
+are still fixed at the withdrawn position (lower end 119.2 cm), so no other
+position is represented yet.
 
 **All dimensions are recorded in the units the source uses** (mm for the rod
 internals, cm for axial coordinates and channel radius). No conversion has been
@@ -19,9 +25,9 @@ applied here, so the numbers stay byte-comparable against the document.
 | Field | Value |
 |---|---|
 | Source | IAEA-TECDOC-1382, *Evaluation of high temperature gas cooled reactor performance* |
-| Sections | § 4.1.2 (specification), § 4.1.2.4 (problem B4), Tables 4-7, 4-8, 4-9, 4-13, 4-14, 4-15, and the consolidated comparison table |
-| Catalogued copy | `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md` |
-| Access tier | **Open** — already catalogued under `open/` |
+| Sections | ~~§ 4.1.2 (specification)~~ **CORRECTED 2026-10-01:** the rod specification is "Control of HTR-10" under § 4.1.1.5 *Core configuration* (printed p.236, re-read from the PDF 2026-10-01); § 4.1.2.4 (problem B4), Tables 4-7, 4-8, 4-9, 4-13, 4-14, 4-15, 4-35, and the consolidated comparison table |
+| Catalogued copy | ~~`crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`~~ **CORRECTED 2026-10-01:** no longer in this repository. It moved to the maintainer's private literature repository when the document was reclassified (`CATALOGUE.md`, entry `iaea2003tecdoc1382part2`). |
+| Access tier | ~~**Open** — already catalogued under `open/`~~ **CORRECTED 2026-10-01: proprietary.** `CATALOGUE.md` records it as *"RECLASSIFIED 2026-09-22 → proprietary (maintainer decision: no verified reuse licence)"*. This derived record of facts stays committed, as that entry states. |
 | Processing step | **Read from the catalogued Markdown conversion**, 2026-09-20. No digitisation, no figure reading: every number below is transcribed from body text or a table in that file. |
 | Figure NOT used | Fig. 4.9 (*Simplified structure of the HTR-10 control rod*) was **not** digitised; all geometry here comes from the text beside it. |
 
@@ -73,8 +79,12 @@ Axial sequence from lower to upper end (mm), five B4C segments:
 ```
 
 So the absorber is **not** a continuous column: 5 × 487 mm of B4C separated by
-36 mm steel joints, total absorber length **2435 mm** over a **2608 mm** span.
-A model that smears a single 2608 mm absorber column will over-predict worth.
+36 mm steel joints, total absorber length **2435 mm** over a ~~**2608 mm**~~
+span. **CORRECTED 2026-10-01 (gh:#428):** the span is **2647 mm**: 45 + 5 × 487
++ 4 × 36 + 23 = 45 + 2435 + 144 + 23 = 2647. This is TECDOC Table 4-35's
+"Length of control rod 264.7 cm", and `nee_soon::htr10_rmc::control_rod`
+asserts 264.7 cm.
+A model that smears a single ~~2608 mm~~ 2647 mm absorber column will over-predict worth.
 
 ## 3. Axial travel
 
@@ -157,12 +167,19 @@ Worth values, as listed in Table 4-9 (original benchmark) and Table 4-15
 ## 5. What this record does NOT establish
 
 - **No model has been run against any of these numbers.** They are targets, not
-  results.
-- The homogenised band currently in `core_model.rs` is a *withdrawn-rod* model.
-  Worth cannot be computed from it at all until absorber material exists.
+  results. (Re-checked 2026-10-01: no rod-worth result was found in `nee_soon`
+  or in the `outram-mc-libs` HTR-10 V&V record.)
+- ~~The homogenised band currently in `core_model.rs` is a *withdrawn-rod* model.
+  Worth cannot be computed from it at all until absorber material exists.~~
+  **CORRECTED 2026-10-01:** the absorber exists. The rods are explicit B4C
+  (since PR #327), but only at the withdrawn position, so a worth still needs
+  an inserted-rod geometry.
 - TECDOC's own guidance is that Table 4-3's densities are **spatially
   homogenised**, and "if one is to consider three-dimensional effects, the
   homogenized densities are to be corrected by taking into consideration of the
   boring geometries". A 10-rod azimuthal array is intrinsically 3-D; an
   axisymmetric r-z model smears all ten into an annulus and cannot represent
   the *one-rod* problems (B32, B42) without an explicit correction.
+  (Noted 2026-10-01: the `nee_soon` Monte Carlo model is no longer r-z in the
+  reflector. Each rod is in its own channel, so this applies only to r-z
+  models.)

@@ -17,8 +17,10 @@
 //!
 //! - bed slab (`|z| <= bed half-height`): pebbles at the paper's 0.61, 57 % of
 //!   them fuelled; a fuel pebble is a 2.5 cm fuel zone holding the TRISO
-//!   (`8340` built, not the paper's 8335, see `cubic_array_in_ball`) in a
-//!   3.0 cm ball of graphite.
+//!   (~~`8340` built, not the paper's 8335~~ 8335 built since 2026-10-01,
+//!   gh:#430) in a 3.0 cm ball of graphite. ~~At the paper's 0.61~~ Since
+//!   2026-10-01 the expectation comes from Şeker's bed's own ball list
+//!   (gh:#472).
 //! - conus band (bed floor to conus floor): only the frustum inside the cone
 //!   is bed, holding DUMMY pebbles at 0.61 (Terry 2005 s2); the rest of the
 //!   band is reflector.
@@ -36,10 +38,28 @@
 //! count. Every quantity shares one sample set, so ratios between them are
 //! correlated; the quoted errors are per-quantity.
 //!
-//! # Results (2026-09-25, two-ball cell, 14 rings)
+//! # Results (2026-10-01, Şeker's cell, 14 rings x N = 12, 4 M samples)
 //!
-//! Recorded in `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`,
-//! section "The two-ball cell".
+//! `OUTRAM_HTR10_SAMPLES=4000000`, 16 threads, at the commit that set the TRISO
+//! offset to [0.13, 0.37, 0.71] (8335 per pebble). Measured against the ball
+//! list:
+//!
+//! | material | measured | expected | ratio |
+//! |---|---|---|---|
+//! | kernel | 0.001287 ± 0.000018 | 0.001270 | 1.013 ± 0.014 |
+//! | SiC | 0.001347 ± 0.000018 | 0.001349 | 0.999 ± 0.014 |
+//! | graphite | 0.511037 ± 0.000250 | 0.510947 | 1.0002 ± 0.0005 |
+//! | helium | 0.354924 ± 0.000239 | 0.355187 | 0.9993 ± 0.0007 |
+//! | reflector (zone 0 band) | 0.126383 ± 0.000166 | 0.126210 | 1.0014 ± 0.0013 |
+//!
+//! Bed slab: filling 0.601892 ± 0.000279 (ball list 0.601642), fuel-ball
+//! volume fraction 0.568806 ± 0.000364 (the conus caps in the slab are
+//! dummies). 0 samples in no tile cell. Every ratio is within 1.1 sigma: the
+//! built geometry holds what the bed and the TRISO count say.
+//!
+//! *(2026-09-25, two-ball cell, withdrawn:* recorded in
+//! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`,
+//! section "The two-ball cell".)
 use nee_soon::htr10_rmc::core_model::{
     assemble_explicit_triso, mat, tile_cell_role, TileCellRole, HTR10_CONUS_HEIGHT_CM,
     HTR10_CORE_RADIUS_CM, HTR10_DISCHARGE_TUBE_RADIUS_CM,
@@ -183,27 +203,47 @@ fn main() {
     let v_bed = PI * r_max * r_max * bed_h;
     let (r1, r2) = (HTR10_CORE_RADIUS_CM, HTR10_DISCHARGE_TUBE_RADIUS_CM);
     let v_cone = PI * HTR10_CONUS_HEIGHT_CM / 3.0 * (r1 * r1 + r1 * r2 + r2 * r2);
-    let pack = 0.61_f64;
-    let f_fuel = 0.57_f64;
-    let zone = (2.5_f64 / 3.0).powi(3);
-    // TRISO: radii as `core_model`, count as BUILT (8340).
+    // ~~`pack = 0.61`, `f_fuel = 0.57` applied to the bed slab and the cone~~
+    // **CHANGED 2026-10-01 (gh:#472):** Şeker's bed is not built to a filling
+    // fraction, so the expectation is taken from its BALL LIST. Every kept
+    // ball, clipped to the envelope's z range (kept balls never cross the
+    // container laterally); fuel balls are whole inside it.
+    let bed = core.bed.as_ref().expect("the explicit core carries its bed");
+    let (r_ball, r_zone) = (3.0_f64, 2.5_f64);
+    let cap = |h: f64| PI * h * h * (3.0 * r_ball - h) / 3.0;
+    let (mut v_balls, mut v_balls_bed, mut n_fuel) = (0.0_f64, 0.0_f64, 0usize);
+    for id in bed.all_balls() {
+        if !bed.is_present(id) {
+            continue;
+        }
+        let z = bed.centre(id)[2];
+        let above = |plane: f64| cap((z + r_ball - plane).clamp(0.0, 2.0 * r_ball));
+        v_balls += above(z_lo) - above(z_hi);
+        v_balls_bed += above(-core.bed_half_height) - above(z_hi);
+        n_fuel += usize::from(bed.is_fuel(id));
+    }
+    let v_ball = 4.0 / 3.0 * PI * r_ball.powi(3);
+    let v_fuel_zone = n_fuel as f64 * 4.0 / 3.0 * PI * r_zone.powi(3);
+    // TRISO: radii and lattice as `core_model` (offset [0.13, 0.37, 0.71] since
+    // 2026-10-01, gh:#430: 8335 built). ~~count as BUILT (8340)~~
     let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
-    let (_, n_part) = cubic_pitch_for_count(tr[4], 2.5, 8335, [0.5, 0.5, 0.0]);
+    let (_, n_part) = cubic_pitch_for_count(tr[4], 2.5, 8335, [0.13, 0.37, 0.71]);
     let v_zone = 4.0 / 3.0 * PI * 2.5_f64.powi(3);
     let shell_frac = |i: usize| {
         let lo = if i == 0 { 0.0 } else { tr[i - 1] };
         n_part as f64 * 4.0 / 3.0 * PI * (tr[i].powi(3) - lo.powi(3)) / v_zone
     };
     let part_frac: f64 = (0..5).map(shell_frac).sum();
-    let bed_zone = pack * f_fuel * zone; // fuel-zone fraction of the bed slab
     // Expected fraction of the envelope for each material slot.
     let mut expect = [0.0_f64; 8];
     for (i, e) in expect.iter_mut().enumerate().take(5) {
-        *e = bed_zone * shell_frac(i) * v_bed / v_env;
+        *e = v_fuel_zone * shell_frac(i) / v_env;
     }
-    let bed_graphite = pack * (1.0 - f_fuel) + pack * f_fuel * (1.0 - zone) + bed_zone * (1.0 - part_frac);
-    expect[mat::GRAPHITE] = (bed_graphite * v_bed + pack * v_cone) / v_env;
-    expect[mat::HELIUM] = ((1.0 - pack) * (v_bed + v_cone)) / v_env;
+    let graphite = v_balls - n_fuel as f64 * v_ball // dummy balls
+        + n_fuel as f64 * v_ball - v_fuel_zone // fuel-ball shells
+        + v_fuel_zone * (1.0 - part_frac); // matrix inside the fuel zones
+    expect[mat::GRAPHITE] = graphite / v_env;
+    expect[mat::HELIUM] = (v_bed + v_cone - v_balls) / v_env;
     expect[7] = (PI * r_max * r_max * band_h - v_cone) / v_env;
 
     println!(
@@ -268,17 +308,23 @@ fn main() {
     let (he, hee) = fr(t.bed_helium, t.bed);
     println!();
     println!("bed slab only (|z| <= {:.3} cm), {} samples:", core.bed_half_height, t.bed);
-    println!("  pebble filling fraction   : {pk:.6} +/- {pke:.6}   (paper 0.61)");
-    println!("  helium fraction           : {he:.6} +/- {hee:.6}   (paper 0.39)");
+    println!(
+        "  pebble filling fraction   : {pk:.6} +/- {pke:.6}   (ball list {:.6}; ~~paper 0.61~~)",
+        v_balls_bed / v_bed
+    );
+    println!("  helium fraction           : {he:.6} +/- {hee:.6}");
     println!("  fuel-BALL volume fraction : {fb:.6} +/- {fbe:.6}   (paper 0.57)");
     println!("  samples in no tile cell   : {}", t.bed_unclassified);
 
     // ------------------------------------------------------------ headline
     let (k, ke) = fr(t.counts[mat::KERNEL], n);
     println!();
-    println!("paper-implied KERNEL fraction of the BED     : {:.6e}", bed_zone * shell_frac(0) * 8335.0 / n_part as f64);
-    println!("  x {n_part}/8335 (built particles)            : {:.6e}", bed_zone * shell_frac(0));
-    println!("  x bed/(bed+band) (dummy-only conus)        : {:.6e}", expect[mat::KERNEL]);
+    // ~~paper-implied 0.61 x 0.57 bed slab~~ (2026-10-01, gh:#472): the
+    // expectation is the ball list's fuel-zone volume over the envelope.
+    println!(
+        "expected KERNEL fraction (ball list: {n_fuel} fuel balls, {n_part} TRISO each): {:.6e}",
+        expect[mat::KERNEL]
+    );
     println!("measured kernel fraction of the envelope     : {k:.6e} +/- {ke:.2e}");
     println!(
         "RATIO measured / expected                    : {:.4} +/- {:.4}",

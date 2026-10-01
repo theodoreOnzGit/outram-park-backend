@@ -32,7 +32,10 @@
 //! largest single reactivity term turned out to be a missing **void** — 98.758
 //! cm of helium core cavity above the bed that had been modelled as graphite.
 //!
-//! **Current result** (14 rings x 25 layers, 10000 histories x [40 inactive +
+//! ~~**Current result**~~ **Result of 2026-09-18, superseded** (gh:#428: every
+//! number in this STATUS section predates the explicit reflector, the 30P
+//! graphite law and Şeker's bed; see the note at the end of the section)
+//! (14 rings x 25 layers, 10000 histories x [40 inactive +
 //! 120 active], surface tracking, ENDF/B-VIII.0):
 //!
 //! ```text
@@ -75,20 +78,24 @@
 //!
 //! The conus is part of the bed hex lattice, and `bed_tile_levels` applied the
 //! core's 57:43 fuel:dummy split to every level. (Since 2026-09-25 the
-//! explicit-TRISO bed assigns fuel per BALL through `bed::TwoBallBed`, with
-//! the conus all-dummy by construction.) Extending the lattice to the
+//! explicit-TRISO bed assigns fuel per BALL, ~~through `bed::TwoBallBed`~~
+//! since 2026-10-01 through `bed::SekerBed` (gh:#472; the two-ball bed is
+//! withdrawn), with the conus all-dummy by construction.) Extending the lattice to the
 //! conus floor therefore filled it with fuel. The geometry was right; the
 //! contents were not. Correcting it is worth **-5177 +/- 420 pcm (12 sigma)**.
 //!
 //! The same sentence covers the DISCHARGE TUBE, which was solid reflector
-//! graphite (over-reflecting the conus tip) — now pebble graphite at the
-//! bed's 0.61 filling fraction, between that bound and the pure-helium one.
+//! graphite (over-reflecting the conus tip) — ~~now pebble graphite at the
+//! bed's 0.61 filling fraction, between that bound and the pure-helium one~~
+//! then a 0.61 smear of pebble graphite; **since 2026-09-25 explicit whole
+//! graphite balls**, rejected at the cone and tube (CORRECTED 2026-10-01,
+//! gh:#428; the smear is only the `OUTRAM_HTR10_HOMOG_TUBE` ablation).
 //!
 //! **The "two offsetting errors" reading is withdrawn.** The flat-bottomed
 //! model was not missing fuel; it was missing the conus's *dummy* pebbles and
 //! had reflector graphite there instead, worth only about -680 pcm.
 //!
-//! Current physical model, 3000 histories x [20 + 60]:
+//! ~~Current~~ The 2026-09-18 physical model, 3000 histories x [20 + 60]:
 //!
 //! ```text
 //! single seed : k_eff = 0.991372 +/- 0.003002   ->  -1292 +/- 300 pcm
@@ -103,6 +110,15 @@
 //! Full ablation chain, methodology and results:
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`.
 //!
+//! **Note 2026-10-01 (gh:#428).** None of the numbers above describes the
+//! current default. Since they were taken: the reflector became explicit
+//! 3-D geometry with withdrawn rods (PR #327), graphite took the 30P law
+//! (2026-09-27), the reference is matched on the paper's whole-ball height and
+//! then by ball count (gh:#333, gh:#472), and the bed became Şeker & Çolak
+//! (2003)'s 13-ball cell (gh:#472). The later records are in
+//! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/` (e.g.
+//! `fast_ablation_2026_09_26.md`).
+//!
 //! # Read this before quoting any number it prints
 //!
 //! - ~~**ENDF/B-VIII.0**; RMC, MCNP, Serpent and HCP all used **VII.0**. On a
@@ -115,13 +131,26 @@
 //!   against `-1259 pcm` on VIII.0. The warning was right that a disagreement
 //!   could not be attributed to transport; it understated the size by 5x.
 //!   Single seed — pool before quoting.
+//!   **CORRECTED 2026-10-01 (gh:#428) on who used VII.0:** Li, Yu & Wei
+//!   (2014) state ENDF/B-7.0 for RMC (abstract and § III). Their MCNP columns
+//!   are Şeker & Çolak (2003)'s results (`htr10_rmc` module docs), and Şeker
+//!   p.265 used **ENDF/B-VI**, with TMCCS graphite. Serpent and HCP are not in
+//!   Li's paper: Not re-checked, no source for their library was found.
 //! - The reference quotes **no uncertainty** on any of its twelve values.
-//! - The reflector densities are **R-Z homogenised**; TECDOC says a 3-D model
+//! - ~~The reflector densities are **R-Z homogenised**; TECDOC says a 3-D model
 //!   must correct them for the boring geometries. Unadjusted, they smear the
-//!   control-rod and helium-flow channels uniformly.
-//! - **No control rods or absorber balls** are modelled.
-//! - The realised TRISO count is **8340**, not 8335 — unattainable, see
-//!   `cubic_array_in_ball`.
+//!   control-rod and helium-flow channels uniformly.~~ **CORRECTED 2026-10-01
+//!   (gh:#428):** since PR #327 the borings are explicit 3-D geometry and the
+//!   zone densities carry TECDOC p. 242's corrections
+//!   (`htr10_rmc::reflector_geometry`, `core_model::mat::for_zone_mc`).
+//! - ~~**No control rods or absorber balls** are modelled.~~ **CORRECTED
+//!   2026-10-01 (gh:#428):** the ten rods are explicit at their withdrawn
+//!   position (B4C, steel, iron; `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1` empties
+//!   them). The absorber-ball (KLAK) and irradiation channels are empty
+//!   (maintainer, gh:#330); no absorber balls are modelled.
+//! - ~~The realised TRISO count is **8340**, not 8335 — unattainable, see
+//!   `cubic_array_in_ball`.~~ **CORRECTED 2026-10-01 (gh:#430):** 8335, as
+//!   stated (Şeker & Çolak 2003 p.266), through a generic lattice offset.
 
 use std::time::Instant;
 
@@ -143,14 +172,30 @@ const TEMP_K: f64 = 300.15;
 /// RMC's value at the **123.576 cm** loading height.
 ///
 /// Kept as the historical comparison point, but **do not compare against it
-/// blind** -- see [`rmc_at_height`]. The bed this example builds is
-/// `n_axial x 4.899` cm tall (`2 * bed_half_height`; ~~`lat_height *
-/// n_axial`~~, which stopped being true on 2026-09-25 when the tile became the
+/// blind** -- see [`rmc_at_height`]. ~~The bed this example builds is
+/// `n_axial x 4.899` cm tall (`2 * bed_half_height`; not `lat_height *
+/// n_axial`, which stopped being true on 2026-09-25 when the tile became the
 /// two-ball 9.798 cm prism), which at the default layer count is NOT
-/// 123.576 cm, and RMC's own curve is steep enough (~270 pcm/cm near this
-/// point) that the mismatch is a real systematic rather than a rounding
-/// detail.
+/// 123.576 cm,~~ **CORRECTED 2026-10-01 (gh:#428):** the bed is Şeker's,
+/// `9.798 N + 6` cm, so the default N = 12 IS 123.576 cm tall; but it holds
+/// 1.2 % fewer balls than Şeker's model at that height, so the reference is
+/// read at the equal-ball-count height (122.091 cm at N = 12, gh:#472). RMC's
+/// own curve is steep enough (~270 pcm/cm near this point) that the mismatch
+/// is a real systematic rather than a rounding detail.
 const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
+
+/// The paper's loading height for a bed built with `n_axial` ball layers:
+/// whole-ball extent, `(n_axial - 1)` layer pitches of 4.899 cm plus one ball
+/// diameter (gh:#333, see [`rmc_at_height`]).
+///
+/// **Since 2026-10-01 (gh:#472) a fallback only.** `main` uses it only when
+/// the bed reports no ball count, and Şeker's bed (the only bed that can be
+/// built) always reports one. (This doc block and [`rmc_at_height`]'s were
+/// attached to the wrong functions until 2026-10-01, gh:#428.)
+fn paper_height(bed_height_cm: f64) -> f64 {
+    let pitch = nee_soon::htr10_rmc::table1::LAYER_HEIGHT_CM / 2.0;
+    bed_height_cm - pitch + nee_soon::htr10_rmc::table1::BALL_DIAMETER_CM
+}
 
 /// RMC's `k_eff` interpolated to an arbitrary fuel-loading height \[cm\], from
 /// the paper's own twelve-point curve.
@@ -173,7 +218,8 @@ const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
 /// mid-planes), whose whole-ball extent is `(2N) x 4.899 + 6.0` cm. The paper's
 /// height is therefore **bottom of the lowest ball to top of the highest**.
 ///
-/// Measured on the built two-ball bed (2026-09-27): `n_axial` = 25 gives 25
+/// Measured on the built two-ball bed (2026-09-27; that bed is withdrawn
+/// since 2026-10-01, and `layers` now counts Şeker layers N): `n_axial` = 25 gives 25
 /// whole fuelled ball layers whose extent is **123.576 cm** -- exactly the
 /// paper's critical loading, so the right reference is the tabulated
 /// **1.004288**, not an interpolation at the volume-equivalent 122.474 cm. In
@@ -186,14 +232,10 @@ const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
 /// Returns `None` outside the tabulated range \[94.182, 201.960\] cm rather
 /// than extrapolating: past the ends the curve flattens and a linear
 /// extension would invent reactivity.
-/// The paper's loading height for a bed built with `n_axial` ball layers:
-/// whole-ball extent, `(n_axial - 1)` layer pitches of 4.899 cm plus one ball
-/// diameter (gh:#333, see [`rmc_at_height`]).
-fn paper_height(bed_height_cm: f64) -> f64 {
-    let pitch = nee_soon::htr10_rmc::table1::LAYER_HEIGHT_CM / 2.0;
-    bed_height_cm - pitch + nee_soon::htr10_rmc::table1::BALL_DIAMETER_CM
-}
-
+///
+/// **Since 2026-10-01 (gh:#472)** `main` calls it at the height where Şeker's
+/// model holds as many balls as the built bed
+/// (`htr10_rmc::seker_height_for_balls`), not at the built height.
 fn rmc_at_height(h_cm: f64) -> Option<f64> {
     let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
     if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
@@ -235,9 +277,12 @@ fn env_usize(k: &str, d: usize) -> usize {
 ///
 /// Both exist because the V&V record names ENDF/B-VIII.0-vs-VII.0 as a known,
 /// uncorrected systematic "worth hundreds of pcm" that had never actually been
-/// priced. No VII.0 tape is available locally, so the library term cannot be
+/// priced. ~~No VII.0 tape is available locally, so the library term cannot be
 /// reproduced exactly; what CAN be done is to bound library sensitivity on the
-/// nuclide that carries most of it.
+/// nuclide that carries most of it.~~ **CORRECTED 2026-10-01 (gh:#428):** the
+/// VII.0 tapes were downloaded on 2026-09-18 and `OUTRAM_HTR10_ENDF7=1` runs
+/// the whole nuclide set from them (see the comment in the body). The JENDL
+/// knob below predates that and remains a different-library bound.
 ///
 /// - `OUTRAM_HTR10_U238_JENDL=1` swaps U-238 to the JENDL-3.3 evaluation.
 ///   **This is not the VII.0 offset** and must never be quoted as one. It is a
@@ -262,7 +307,10 @@ fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
         eprintln!("  ABLATION: graphite S(alpha,beta) DISABLED -- carbon as free gas");
     }
     // `OUTRAM_HTR10_ENDF7=1` runs the WHOLE nuclide set from ENDF/B-VII.0 --
-    // the library RMC, MCNP, Serpent and HCP all used. This is the offset the
+    // ~~the library RMC, MCNP, Serpent and HCP all used~~ the library Li, Yu &
+    // Wei (2014) state for RMC. CORRECTED 2026-10-01 (gh:#428): their MCNP
+    // columns are Şeker & Çolak (2003)'s, run on ENDF/B-VI with TMCCS graphite
+    // (Şeker p.265); Serpent and HCP are not in Li's paper. This is the offset the
     // V&V record has named as "worth hundreds of pcm" and never priced.
     //
     // Downloaded 2026-09-18 from the IAEA NDS `download-endf` tree
@@ -700,9 +748,11 @@ fn main() {
     // run announced itself as VIII.0 at the top of its own transcript -- the
     // one place a reader looks to find out which arm a saved log came from.
     if std::env::var("OUTRAM_HTR10_ENDF7").is_ok() {
-        println!("  ENDF/B-VII.0 (the library RMC, MCNP, Serpent and HCP used)");
+        // CORRECTED 2026-10-01 (gh:#428): "the library RMC, MCNP, Serpent and
+        // HCP used" -- Li's MCNP columns are Şeker's ENDF/B-VI runs.
+        println!("  ENDF/B-VII.0 (the library Li, Yu & Wei state for RMC)");
     } else {
-        println!("  ENDF/B-VIII.0 (references used VII.0 -- offset NOT corrected)");
+        println!("  ENDF/B-VIII.0 (RMC used VII.0 -- offset NOT corrected)");
     }
     println!("  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector\n");
 
@@ -974,8 +1024,10 @@ fn main() {
     // extent, not the volume-equivalent height.
     //
     // Since 2026-10-01 (gh:#472) Şeker's bed IS built on the paper's height
-    // axis (`9.798 N + 6` cm, every ball whole), so no mapping is applied; the
-    // two-ball and one-ball beds keep the gh:#333 mapping.
+    // axis (`9.798 N + 6` cm, every ball whole), so no mapping is applied; ~~the
+    // two-ball and one-ball beds keep the gh:#333 mapping~~ (CORRECTED
+    // 2026-10-01, gh:#428: both are withdrawn and panic, so `paper_height`
+    // below is a fallback the default path never reaches).
     let volume_height_cm = core.bed_half_height * 2.0;
     //
     // ~~Şeker's bed is compared at its built height~~ **CHANGED 2026-10-01
@@ -998,8 +1050,12 @@ fn main() {
     let rmc_here = rmc_at_height(bed_height_cm);
     match rmc_here {
         Some(k) => println!(
-            "\n  HEIGHT-MATCHED: bed {volume_height_cm:.3} cm (volume) = {bed_height_cm:.3} cm \
-             ball extent (paper's convention, gh:#333) -> RMC(interp) = {k:.6}\n  \
+            // CORRECTED 2026-10-01 (gh:#428): this printed "(volume) = ... ball
+            // extent (paper's convention, gh:#333)", which is not what
+            // `bed_height_cm` is for Şeker's bed. `htr10_pooled_study` parses
+            // the `HEIGHT-MATCHED` and `RMC(interp) =` tokens; keep both.
+            "\n  HEIGHT-MATCHED: bed {volume_height_cm:.3} cm built; reference read at \
+             {bed_height_cm:.3} cm (equal ball count, gh:#472) -> RMC(interp) = {k:.6}\n  \
              (the {RMC_KEFF:.6} headline is RMC at 123.576 cm; difference {:+.0} pcm \
              is comparison point, NOT model)",
             (RMC_KEFF - k) * 1.0e5
@@ -1121,11 +1177,15 @@ fn main() {
     // CORRECTED 2026-09-27: this used to say every run was "a REDUCED core,
     // not the 123.576 cm loading". Both halves were false: the bed radius is
     // always the physical 90 cm (`rings` is only a floor, see
-    // `core_model::assemble`), and `layers = 25` IS the 123.576 cm loading
-    // in the paper's whole-ball-extent convention (gh:#333).
+    // `core_model::assemble`), and ~~`layers = 25` IS the 123.576 cm loading
+    // in the paper's whole-ball-extent convention (gh:#333)~~ CORRECTED
+    // 2026-10-01 (gh:#428): `layers` is Şeker layers N since gh:#472, and
+    // N = 12 is the 123.576 cm loading. The printout said "{layers} layers =
+    // {bed_height_cm} cm", but `bed_height_cm` is the equal-ball-count
+    // reference height, not the bed's.
     println!(
-        "\n  Gate is 500-1000 pcm. Full-radius bed, {layers} layers = {bed_height_cm:.3} cm \
-         (paper's convention); VIII.0 runs carry the VIII.0-vs-VII.0 offset."
+        "\n  Gate is 500-1000 pcm. Full-radius bed, {layers} Seker layers = {volume_height_cm:.3} cm \
+         built, reference read at {bed_height_cm:.3} cm; VIII.0 runs carry the VIII.0-vs-VII.0 offset."
     );
 
     // Data-processing time and transport time, reported separately, and the

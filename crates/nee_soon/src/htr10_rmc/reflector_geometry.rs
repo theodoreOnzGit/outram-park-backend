@@ -50,6 +50,31 @@
 //! **ACCEPTED 2026-09-27 (maintainer, gh:#330): "18 degree pitch is
 //! acceptable"**, so this convention is the model.
 //!
+//! **SUPERSEDED 2026-10-01 by data (gh:#330).** Şeker & Çolak (2003), NED
+//! 222:263, Fig. 4 draws every channel. It was read at 600 dpi, at a scale of
+//! 3.0 px/cm.
+//! - **Inner ring:** 20 positions on an 18° pitch. The control rods sit at
+//!   every other position, evenly spaced at 36°, as the text says (*"placed
+//!   symmetrically in the side reflector"*, p.268). The KLAK slots and the
+//!   irradiation channels fill the positions between them (the figure's 18°,
+//!   54°, 90°, 126°, 198°, 270°, 306° and 162°, 234°, 342°).
+//! - **Coolant ring:** at the **same** azimuths as the inner ring.
+//!
+//! The earlier convention had the rods uneven (two adjacent pairs) and the
+//! coolant offset by 9°.
+//!
+//! The figure's pattern is used here, rotated by −171° so that the hot gas
+//! duct (kept on +x) lies in the gap between an irradiation channel and a rod.
+//! Both of those stop above the duct (`z_T` ≤ 450 cm against the duct's 465–495).
+//! Both rings then sit at 9° + 18° k. Two things remain conventions:
+//! - the duct's absolute azimuth relative to the channels, which no source
+//!   gives;
+//! - the figure's handedness (viewed from above or below is not stated). A
+//!   mirror image does not change B1.
+//!
+//! `the_channel_layout_is_sekers_fig_4` and
+//! `the_hot_gas_duct_clears_every_channel_at_its_height` pin both.
+//!
 //! **Contents.** B1 is defined with no rod inserted (p. 242), and the rods'
 //! withdrawn position is given (lower end at 119.2 cm), so the rods ARE in
 //! their channels, in the top reflector, with their B4C, steel sleeves and
@@ -141,19 +166,24 @@ pub const HOT_GAS_DUCT_AXIS_ZT_CM: f64 = 480.0;
 pub const HOT_GAS_DUCT_RHO_CM: (f64, f64) = (90.0, 190.0);
 
 /// Angular pitch \[deg\] of the 20 inner-ring borings (10 rods + 3
-/// irradiation + 7 KLAK). **A convention, not data**: see the module docs.
+/// irradiation + 7 KLAK). Şeker & Çolak (2003) Fig. 4 (module docs).
 pub const INNER_RING_PITCH_DEG: f64 = 18.0;
-/// Azimuthal offset \[deg\] of the coolant ring against the inner ring, so no
-/// coolant channel meets the hot gas duct. **A convention, not data.**
-pub const COOLANT_OFFSET_DEG: f64 = 9.0;
-/// Inner-ring positions holding a KLAK channel. **A convention, not data.**
-/// Spread as evenly as 7 in 20 allows, and never position 0, which is on the
-/// hot gas duct's azimuth: a KLAK channel reaches the duct's height, a rod
-/// channel stops above it.
-pub const KLAK_POSITIONS: [usize; N_KLAK_CHANNELS] = [1, 4, 7, 10, 12, 15, 18];
-/// Inner-ring positions holding an irradiation channel. **A convention, not
-/// data.**
-pub const IRRADIATION_POSITIONS: [usize; N_IRRADIATION_CHANNELS] = [3, 9, 16];
+/// Azimuth \[deg\] of inner-ring position 0, and of coolant channel 0: the
+/// two rings are aligned (Şeker Fig. 4). The 9° itself places the hot gas duct
+/// (on +x) in the gap between irradiation position 19 and rod position 0;
+/// that part is a convention (module docs).
+/// ~~`COOLANT_OFFSET_DEG = 9.0`, with the inner ring at 0°: coolant offset
+/// against the inner ring.~~ **CHANGED 2026-10-01 (gh:#330).**
+pub const RING_OFFSET_DEG: f64 = 9.0;
+/// Inner-ring positions holding a KLAK channel: Şeker Fig. 4 (18°, 54°, 90°,
+/// 126°, 198°, 270°, 306°) rotated by −171°.
+/// ~~`[1, 4, 7, 10, 12, 15, 18]`, a convention~~ **CHANGED 2026-10-01
+/// (gh:#330).**
+pub const KLAK_POSITIONS: [usize; N_KLAK_CHANNELS] = [1, 5, 7, 11, 13, 15, 17];
+/// Inner-ring positions holding an irradiation channel: Şeker Fig. 4 (162°,
+/// 234°, 342°) rotated by −171°. ~~`[3, 9, 16]`, a convention~~ **CHANGED
+/// 2026-10-01 (gh:#330).** The rods are the ten even positions.
+pub const IRRADIATION_POSITIONS: [usize; N_IRRADIATION_CHANNELS] = [3, 9, 19];
 
 /// What a reflector channel is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -242,7 +272,7 @@ pub fn reflector_channels() -> Vec<ReflectorChannel> {
     for k in 0..N_COOLANT_CHANNELS {
         v.push(ReflectorChannel {
             kind: ChannelKind::Coolant,
-            azimuth_deg: COOLANT_OFFSET_DEG + INNER_RING_PITCH_DEG * k as f64,
+            azimuth_deg: RING_OFFSET_DEG + INNER_RING_PITCH_DEG * k as f64,
         });
     }
     let n_inner = N_CONTROL_RODS + N_IRRADIATION_CHANNELS + N_KLAK_CHANNELS;
@@ -256,7 +286,7 @@ pub fn reflector_channels() -> Vec<ReflectorChannel> {
         };
         v.push(ReflectorChannel {
             kind,
-            azimuth_deg: INNER_RING_PITCH_DEG * k as f64,
+            azimuth_deg: RING_OFFSET_DEG + INNER_RING_PITCH_DEG * k as f64,
         });
     }
     v
@@ -809,4 +839,83 @@ pub(super) fn build_reflector(
         root.push(push(cells, Cell::material(new_id(), reg.0, m, 293.6)));
     }
     root
+}
+
+#[cfg(test)]
+mod channel_layout_tests {
+    use super::*;
+
+    /// **The channel layout is Şeker & Çolak (2003) Fig. 4** (gh:#330). Read
+    /// from the figure: rods at 0°, 36°, …; KLAK at 18°, 54°, 90°, 126°, 198°,
+    /// 270°, 306°; irradiation at 162°, 234°, 342°; coolant at the inner
+    /// ring's azimuths. The model rotates that by a single angle; this checks
+    /// that one rotation maps every channel onto the figure's kind at the
+    /// figure's angle, and that the rods are evenly spaced.
+    #[test]
+    fn the_channel_layout_is_sekers_fig_4() {
+        let fig_klak = [18.0, 54.0, 90.0, 126.0, 198.0, 270.0, 306.0];
+        let fig_irr = [162.0, 234.0, 342.0];
+        let rot = 171.0; // model azimuth + 171 = figure azimuth
+        let norm = |a: f64| a.rem_euclid(360.0);
+        let near = |a: f64, b: f64| (norm(a - b + 180.0) - 180.0).abs() < 1e-9;
+        let ch = reflector_channels();
+        let mut rods = Vec::new();
+        for c in &ch {
+            let fig = norm(c.azimuth_deg + rot);
+            match c.kind {
+                ChannelKind::ControlRod => {
+                    assert!(near(fig % 36.0, 0.0) || near(fig % 36.0, 36.0), "rod at fig {fig}");
+                    rods.push(c.azimuth_deg);
+                }
+                ChannelKind::AbsorberBall => {
+                    assert!(fig_klak.iter().any(|&f| near(f, fig)), "KLAK at fig {fig}")
+                }
+                ChannelKind::Irradiation => {
+                    assert!(fig_irr.iter().any(|&f| near(f, fig)), "irradiation at fig {fig}")
+                }
+                ChannelKind::Coolant => {
+                    assert!(near((fig / 18.0).round() * 18.0, fig), "coolant at fig {fig}")
+                }
+            }
+        }
+        assert_eq!(rods.len(), N_CONTROL_RODS);
+        rods.sort_by(f64::total_cmp);
+        for w in rods.windows(2) {
+            assert!((w[1] - w[0] - 36.0).abs() < 1e-9, "rods not evenly spaced: {rods:?}");
+        }
+    }
+
+    /// **The hot gas duct (on +x, `z_T` 465–495, ρ 90–190 cm, r = 15 cm)
+    /// overlaps no channel that reaches its height** (gh:#330). TECDOC's zone
+    /// 44/62 densities are exactly additive in the duct and channel voids, so
+    /// none may overlap. Checked by the lateral distance from each channel's
+    /// centre to the duct axis, less both radii (the KLAK is round at that
+    /// height).
+    ///
+    /// **Result (2026-10-01):** the closest are the coolant channels at ±9°,
+    /// with 3.62 cm clearance, and the KLAK at 27°, with 26.8 cm.
+    #[test]
+    fn the_hot_gas_duct_clears_every_channel_at_its_height() {
+        let duct_zt = (
+            HOT_GAS_DUCT_AXIS_ZT_CM - HOT_GAS_DUCT_RADIUS_CM,
+            HOT_GAS_DUCT_AXIS_ZT_CM + HOT_GAS_DUCT_RADIUS_CM,
+        );
+        let mut min_gap = f64::INFINITY;
+        for c in reflector_channels() {
+            let (z0, z1) = c.zt_range();
+            if z1 <= duct_zt.0 || z0 >= duct_zt.1 {
+                continue; // stops above (rods, irradiation) or starts below
+            }
+            let [x, y] = c.centre_xy();
+            let (rmin, rmax) = c.radial_extent_cm(HOT_GAS_DUCT_AXIS_ZT_CM);
+            let r_ch = 0.5 * (rmax - rmin);
+            // Lateral distance to the duct axis (the +x half-line).
+            let lateral = if x > 0.0 { y.abs() } else { x.hypot(y) };
+            let gap = lateral - r_ch - HOT_GAS_DUCT_RADIUS_CM;
+            println!("{:?} at {:.1} deg: gap {gap:.3} cm", c.kind, c.azimuth_deg);
+            min_gap = min_gap.min(gap);
+            assert!(gap > 0.0, "{:?} at {} deg overlaps the duct by {:.3} cm", c.kind, c.azimuth_deg, -gap);
+        }
+        assert!(min_gap.is_finite());
+    }
 }
