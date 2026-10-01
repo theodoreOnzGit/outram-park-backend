@@ -188,6 +188,8 @@ pub mod protection;
 pub mod reactor_model;
 pub mod secondary_loop;
 pub mod steam_generator;
+// Indicative accumulated dose at the receptors (gh:#470, 2026-10-01).
+pub mod tede_accumulator;
 /// Steady Gaussian-plume (buangkok/pyDOSEIA) chi/Q overlay for the Map tab (gh:#470).
 pub mod steady_plume_overlay;
 /// Remedies for a steam-generator temperature cross -- see the module docs for
@@ -1119,6 +1121,10 @@ pub struct HtgrPlant {
     /// 2026-09-29 its output feeds the indicative dose rate in [`dose_rate`],
     /// never a dose to any real person) applies to everything it produces.
     pub dispersion: atmospheric_dispersion::AtmosphericDispersionChannel,
+    /// Indicative dose integrated at the dispersion receptors since plant
+    /// start (gh:#470, 2026-10-01) -- see [`tede_accumulator`], whose scope
+    /// limit (research/education only, not a dose to any real person) binds.
+    pub tede: tede_accumulator::TedeAccumulator,
     /// Sim time at which the current scenario was first commanded, `None`
     /// under [`Scenario::Normal`]. Drives the protection system's
     /// secondary-isolation delay.
@@ -1173,6 +1179,7 @@ impl HtgrPlant {
             decay_heat_path,
             release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
             dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
+            tede: tede_accumulator::TedeAccumulator::new(),
             scenario_started_at: None,
             water_ingress: None,
             depressurisation: None,
@@ -1865,6 +1872,13 @@ impl HtgrPlant {
         }
         self.dispersion
             .update(self.sim_time.get::<second>(), &self.release);
+
+        // 8. Indicative dose at the receptors (gh:#470): the rate just
+        // published, held over this step. A pure consumer, like 7.
+        self.tede.accumulate(
+            dt.get::<second>(),
+            self.dispersion.latest().map(|r| r.receptors.as_slice()),
+        );
     }
 
     /// The primary gas's `sum V_i / T_i` \[m^3/K\] over its four volumes: the
@@ -1991,6 +2005,9 @@ impl HtgrPlant {
             // both and says which is which; see `MapFieldRequest`.
             s.dispersion_grid_time_s = result.grid.plume_time_s;
         }
+
+        // Indicative accumulated dose (gh:#470) -- see `tede_accumulator`.
+        self.tede.write_snapshot(s);
 
         for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {
             slot.name = release.name;

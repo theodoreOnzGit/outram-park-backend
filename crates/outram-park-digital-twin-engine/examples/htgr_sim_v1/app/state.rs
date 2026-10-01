@@ -390,6 +390,12 @@ pub struct HtgrSnapshot {
     /// One entry per receptor, ordered distance-major then compass sector.
     /// All-zero before the first dispersion evaluation.
     pub receptors: [ReceptorSnapshot; DISPERSION_RECEPTORS],
+    /// INDICATIVE dose integrated at each receptor since plant start, in the
+    /// same order as [`Self::receptors`] (gh:#470, 2026-10-01). Research and
+    /// education only, not a dose to any real person -- see
+    /// [`crate::physics::tede_accumulator`] for the pathways it does and does
+    /// not include.
+    pub tede: crate::physics::tede_accumulator::TedeSnapshot,
     /// The evaluated field the Map tab paints, per cell, row-major and
     /// **north-up** so it can be drawn straight down the screen, **in the
     /// basis [`Self::dispersion_grid_weighting`] names** (gh:#400; ~~always
@@ -879,6 +885,7 @@ impl Default for HtgrSnapshot {
             pebble_centre_k: f64::NAN,
             particle_sic_k: f64::NAN,
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
+            tede: crate::physics::tede_accumulator::TedeSnapshot::default(),
             dispersion_grid: Vec::new(),
             dispersion_grid_weighting: Default::default(),
             dispersion_grid_cells: 0,

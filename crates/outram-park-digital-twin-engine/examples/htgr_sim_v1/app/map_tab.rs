@@ -2243,6 +2243,202 @@ fn draw_bounding_table(ui: &mut Ui) {
     ui.add_space(6.0);
 }
 
+/// One point of the plume-centreline TEDE graph (gh:#470, 2026-10-01).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct TedeCentrelinePoint {
+    /// Receptor ring distance \[m\].
+    distance_m: f64,
+    /// The **maximum over the ring's sectors** of the accumulated dose since
+    /// plant start \[Sv\].
+    since_start_sv: f64,
+    /// Bearing of the sector that holds that maximum \[deg\].
+    bearing_deg: f64,
+    /// The maximum over the ring's sectors of the trailing 95–96 h dose
+    /// \[Sv\] (taken independently of `since_start_sv`).
+    trailing_96h_sv: f64,
+}
+
+/// The **plume centreline** of the accumulated dose: at each receptor ring,
+/// the maximum over its sectors. Under a wind that shifts, the plume's
+/// centreline moves between sectors, so the sector maximum per distance is the
+/// centreline the receptors can resolve -- 8 sectors, 45 degrees apart, so a
+/// plume narrower than a sector between two spokes is under-sampled. Points
+/// only at the three receptor distances; nothing is interpolated.
+fn tede_centreline(s: &HtgrSnapshot) -> Vec<TedeCentrelinePoint> {
+    let mut out: Vec<TedeCentrelinePoint> = Vec::new();
+    for (i, r) in s.receptors.iter().enumerate() {
+        if !(r.distance_m > 0.0) {
+            continue;
+        }
+        let total = s.tede.since_start_sv(i);
+        let window = s.tede.trailing_96h_sv[i];
+        match out
+            .iter_mut()
+            .find(|p| (p.distance_m - r.distance_m).abs() < 1e-9)
+        {
+            Some(p) => {
+                if total > p.since_start_sv {
+                    p.since_start_sv = total;
+                    p.bearing_deg = r.bearing_deg;
+                }
+                p.trailing_96h_sv = p.trailing_96h_sv.max(window);
+            }
+            None => out.push(TedeCentrelinePoint {
+                distance_m: r.distance_m,
+                since_start_sv: total,
+                bearing_deg: r.bearing_deg,
+                trailing_96h_sv: window,
+            }),
+        }
+    }
+    out.sort_by(|a, b| a.distance_m.total_cmp(&b.distance_m));
+    out
+}
+
+/// The title the TEDE graph carries: the centreline definition, the pathways
+/// in and out, and the window. Pinned by a test so it cannot be edited away.
+const TEDE_PLOT_TITLE: &str = "Plume-centreline accumulated dose (TEDE, partial) vs downwind \
+     distance -- INDICATIVE, research/education only.\nCentreline = at each receptor ring, the \
+     MAXIMUM over its 8 sectors (follows a shifting wind). Integrated over plant time from plant \
+     start (t = 0).\nIncluded: cloud submersion + ground shine (external) + inhalation \
+     (committed, FGR-11; no Kr-85/Xe-133 coefficient). MISSING: ingestion, resuspension, skin.";
+
+/// Steady-plume centreline projection \[mSv\] at `x_m` downwind: the overlay's
+/// `chi/Q` x the current air-pathway dose rate per unit `chi/Q` x the elapsed
+/// plant time -- a steady ground release at TODAY's rate held for the whole
+/// elapsed time. Air pathways only (no ground shine). `None` when the overlay
+/// has no class/grid yet or the factor is unavailable.
+fn steady_plume_projection_msv(s: &HtgrSnapshot, x_m: f64) -> Option<f64> {
+    let key = MapTabState::plume_key(s)?;
+    let factor = MapBasis::DoseRate.factor(s);
+    if !(factor.is_finite() && factor > 0.0) {
+        return None;
+    }
+    let chi =
+        crate::physics::steady_plume_overlay::chi_over_q_at(key.class, key.speed_m_per_s, x_m, 0.0);
+    // µSv/h x h = µSv; x 1e-3 = mSv.
+    Some(chi * factor * (s.tede.elapsed_s / 3600.0) * 1.0e-3)
+}
+
+/// The plume-centreline TEDE graph, to the right of the map (gh:#470).
+/// Log-y in mSv (`egui_plot` 0.37 has no log axis, so `log10(mSv)` is plotted
+/// and the ticks are labelled as powers of ten), distance in m.
+fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &MapTabState, side: f32) {
+    use egui_plot::{HLine, HoverPosition, Legend, Line, LineStyle, Plot, PlotPoints, Points};
+    ui.vertical(|ui| {
+        ui.small(TEDE_PLOT_TITLE);
+        let points = tede_centreline(s);
+        let log_pts = |f: fn(&TedeCentrelinePoint) -> f64| -> Vec<[f64; 2]> {
+            points
+                .iter()
+                .filter(|p| f(p) > 0.0)
+                .map(|p| [p.distance_m, (f(p) * 1.0e3).log10()])
+                .collect()
+        };
+        let total = log_pts(|p| p.since_start_sv);
+        let show_window = s.tede.elapsed_s > 95.0 * 3600.0;
+        let window = log_pts(|p| p.trailing_96h_sv);
+        let mut status = format!(
+            "Accumulated over {} of plant time.",
+            clock_text(s.tede.elapsed_s)
+        );
+        if s.tede.unavailable_s > 0.0 {
+            status.push_str(&format!(
+                " PARTIAL: a receptor's rate was unavailable for {:.0} s (not counted).",
+                s.tede.unavailable_s
+            ));
+        }
+        if total.is_empty() {
+            status.push_str(" No accumulated dose yet (no dispersion run, or zero release).");
+        }
+        if !show_window {
+            status.push_str(" Trailing-96 h window = since start until 95 h have run.");
+        }
+        ui.small(status);
+        let projection: Vec<[f64; 2]> = if state.plume_overlay {
+            let far = points.last().map_or(0.0, |p| p.distance_m);
+            (1..=40)
+                .map(|k| far * k as f64 / 40.0)
+                .filter_map(|x| {
+                    steady_plume_projection_msv(s, x)
+                        .filter(|v| *v > 0.0)
+                        .map(|v| [x, v.log10()])
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let width = ui.available_width().clamp(280.0, (1.2 * side).max(280.0));
+        let used = ui.min_rect().height();
+        let height = (side - used).max(200.0);
+        let reference_log = (NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3).log10();
+        Plot::new("htgr_tede_centreline_plot")
+            .legend(Legend::default())
+            .width(width)
+            .height(height)
+            .x_axis_label("downwind distance [m]")
+            .y_axis_label("accumulated dose [mSv] (log)")
+            .y_axis_formatter(|mark, _| format!("1e{:.0}", mark.value))
+            .include_x(0.0)
+            .include_y(reference_log)
+            .label_formatter(|pos| match pos {
+                HoverPosition::NearDataPoint {
+                    plot_name,
+                    position,
+                    ..
+                } if !plot_name.is_empty() => Some(format!(
+                    "{plot_name}\n{:.0} m: {:.3e} mSv\n(centreline = max over the ring's sectors)",
+                    position.x,
+                    10f64.powf(position.y)
+                )),
+                HoverPosition::NearDataPoint { position, .. }
+                | HoverPosition::Elsewhere { position } => Some(format!(
+                    "{:.0} m, {:.2e} mSv",
+                    position.x,
+                    10f64.powf(position.y)
+                )),
+            })
+            .show(ui, |plot_ui| {
+                plot_ui.hline(
+                    HLine::new(
+                        "NRC 2023: 10 mSv TEDE / 96 h -- reference figure, not a threshold here",
+                        reference_log,
+                    )
+                    .color(Color32::from_rgb(200, 40, 40))
+                    .style(LineStyle::dashed_dense()),
+                );
+                if !total.is_empty() {
+                    plot_ui.line(
+                        Line::new("since plant start (sector max)", PlotPoints::from(total.clone()))
+                            .color(Color32::from_rgb(30, 90, 200)),
+                    );
+                    plot_ui.points(
+                        Points::new("since plant start (sector max)", PlotPoints::from(total))
+                            .color(Color32::from_rgb(30, 90, 200))
+                            .radius(3.5),
+                    );
+                }
+                if show_window && !window.is_empty() {
+                    plot_ui.line(
+                        Line::new("trailing 95-96 h (sector max)", PlotPoints::from(window))
+                            .color(Color32::from_rgb(20, 150, 80)),
+                    );
+                }
+                if !projection.is_empty() {
+                    plot_ui.line(
+                        Line::new(
+                            "steady-plume projection (ground release, air pathways, today's \
+                             rate x elapsed)",
+                            PlotPoints::from(projection),
+                        )
+                        .color(PLUME_COLOUR)
+                        .style(LineStyle::dashed_loose()),
+                    );
+                }
+            });
+    });
+}
+
 /// Draw the whole Map tab: the Gaussian puff dispersion widgets.
 ///
 /// `view` is the tab's viewport, measured by the caller **outside** the scroll
@@ -2316,7 +2512,15 @@ pub fn draw_map(
     ui.add_space(4.0);
 
     let side = (view.y * MAP_HEIGHT_FRACTION).max(MAP_MIN_SIDE);
-    let painted = draw_dispersion_rose(ui, s, state, side, basis, scale);
+    // The map with the plume-centreline TEDE graph to its RIGHT (gh:#470,
+    // maintainer request 2026-10-01).
+    let painted = ui
+        .horizontal_top(|ui| {
+            let painted = draw_dispersion_rose(ui, s, state, side, basis, scale);
+            draw_tede_plot(ui, s, state, side);
+            painted
+        })
+        .inner;
 
     // Tell the physics what resolution this map can show. A control input,
     // written the same way the wind is -- see `HtgrSnapshot::
@@ -2343,6 +2547,48 @@ pub fn draw_map(
 
 #[cfg(test)]
 mod tests {
+    /// gh:#470 (2026-10-01): the TEDE centreline is the per-ring MAXIMUM over
+    /// sectors, one point per receptor distance, sorted by distance, with the
+    /// bearing of the maximum; rings at distance 0 (before the first
+    /// dispersion run) are skipped. The title states the definition, the
+    /// pathways and the missing ingestion term.
+    #[test]
+    fn the_tede_centreline_is_the_sector_maximum_per_ring() {
+        let mut s = super::HtgrSnapshot::default();
+        assert!(super::tede_centreline(&s).is_empty());
+        for (i, r) in s.receptors.iter_mut().enumerate() {
+            r.distance_m = [100.0, 500.0, 1000.0][i / 8];
+            r.bearing_deg = 45.0 * (i % 8) as f64;
+        }
+        for i in 0..s.receptors.len() {
+            // Sector 3 (135 deg) holds the most, falling with distance.
+            let d = if i % 8 == 3 { 1.0e-6 } else { 1.0e-8 } / (1 + i / 8) as f64;
+            s.tede.since_start_sv_by_pathway[i] = [0.5 * d, 0.25 * d, 0.25 * d];
+            s.tede.trailing_96h_sv[i] = d;
+        }
+        let c = super::tede_centreline(&s);
+        assert_eq!(c.len(), 3);
+        for (k, p) in c.iter().enumerate() {
+            assert_eq!(p.distance_m, [100.0, 500.0, 1000.0][k]);
+            assert_eq!(p.bearing_deg, 135.0);
+            let want = 1.0e-6 / (1 + k) as f64;
+            assert!((p.since_start_sv - want).abs() < 1e-18);
+            assert!((p.trailing_96h_sv - want).abs() < 1e-18);
+        }
+        for needle in [
+            "MAXIMUM over its 8 sectors",
+            "INDICATIVE",
+            "research/education only",
+            "submersion",
+            "ground shine",
+            "inhalation",
+            "MISSING: ingestion",
+            "from plant start",
+        ] {
+            assert!(super::TEDE_PLOT_TITLE.contains(needle), "{needle}");
+        }
+    }
+
     /// gh:#470: the plume toggle's label names the model, says steady-state,
     /// and carries the live puff's class and wind; the contour pixels mark
     /// decade boundaries only, and nothing at or below the floor.
