@@ -11,7 +11,7 @@
 //!
 //! **Every cut is chosen from the BUILT bed, not from constants.** The planes
 //! that "cut across the pebbles" are picked from
-//! [`TwoBallBed`](super::bed::TwoBallBed)'s ball centres — the same
+//! [`PebbleBed`](super::bed::PebbleBed)'s ball centres — the same
 //! description the lattice was assembled from — and each [`PlotJob`] records
 //! how many ball centres lie on its plane, so a reader can check the claim:
 //!
@@ -39,7 +39,7 @@ use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
 
-use super::bed::BallId;
+use super::bed::BedBall;
 use super::core_model::{mat, AssembledCore, HTR10_REFLECTOR_OUTER_CM};
 use super::materials::{htr10_material_set, Htr10MaterialConfig, RodMetalNuclides};
 use super::reflector_geometry::HOT_GAS_DUCT_AXIS_ZT_CM;
@@ -159,7 +159,7 @@ impl Htr10Plotter {
         bed.all_balls()
             .into_iter()
             .filter(|&id| bed.is_present(id) && self.inside_column(bed.centre(id)))
-            .map(|id: BallId| (bed.centre(id), bed.is_fuel(id)))
+            .map(|id: BedBall| (bed.centre(id), bed.is_fuel(id)))
             .collect()
     }
 
@@ -171,24 +171,24 @@ impl Htr10Plotter {
     fn inside_column(&self, c: [f64; 3]) -> bool {
         let bed = self.core.bed.as_ref().expect("checked in new");
         let (r, z) = (c[0].hypot(c[1]), c[2]);
-        if z > bed.bed_top {
+        if z > bed.bed_top() {
             return false;
         }
-        if z >= bed.bed_bottom {
-            return r <= bed.bed_radius;
+        if z >= bed.bed_bottom() {
+            return r <= bed.bed_radius();
         }
-        let Some(t) = bed.tube else {
+        let Some((t_radius, t_bottom)) = bed.tube_radius_and_bottom() else {
             return false;
         };
-        if z < bed.conus_floor - t.depth {
+        if z < t_bottom {
             return false;
         }
-        let allowed = if z >= bed.conus_floor {
-            t.radius
-                + (bed.bed_radius - t.radius) * (z - bed.conus_floor)
-                    / (bed.bed_bottom - bed.conus_floor)
+        let allowed = if z >= bed.conus_floor() {
+            t_radius
+                + (bed.bed_radius() - t_radius) * (z - bed.conus_floor())
+                    / (bed.bed_bottom() - bed.conus_floor())
         } else {
-            t.radius
+            t_radius
         };
         r <= allowed
     }
@@ -320,8 +320,8 @@ impl Htr10Plotter {
     pub fn rz_lower_column(&self, cm_per_px: f64) -> PlotJob {
         let (y0, n) = self.pebble_plane_y();
         let bed = self.core.bed.as_ref().expect("checked");
-        let top = bed.bed_bottom + 40.0;
-        let bottom = bed.conus_floor - 60.0;
+        let top = bed.bed_bottom() + 40.0;
+        let bottom = bed.conus_floor() - 60.0;
         let p = self.base(PlotBasis::Xz, [0.0, y0, 0.5 * (top + bottom)], [230.0, top - bottom], cm_per_px);
         Self::job(
             "htr10_rz_conus_and_chute",
@@ -397,12 +397,12 @@ impl Htr10Plotter {
         v.extend(self.pebble_cross_section(false, 0.005));
         v.push(self.rz_through_pebbles(0.3));
         v.push(self.rz_lower_column(0.1));
-        v.push(self.r_theta_at("htr10_xy_bed_top", "top of the pebble bed", bed.bed_top - 8.0, 0.25));
+        v.push(self.r_theta_at("htr10_xy_bed_top", "top of the pebble bed", bed.bed_top() - 8.0, 0.25));
         v.push(self.r_theta_at("htr10_xy_bed_mid", "bed mid-height", 0.0, 0.25));
-        v.push(self.r_theta_at("htr10_xy_bed_bottom", "bottom of the pebble bed", bed.bed_bottom + 8.0, 0.25));
-        v.push(self.r_theta_at("htr10_xy_conus", "conus (dummy balls)", 0.5 * (bed.bed_bottom + bed.conus_floor), 0.25));
-        v.push(self.r_theta_at("htr10_xy_defuel_chute", "defuelling chute (dummy balls)", bed.conus_floor - 40.0, 0.25));
-        v.push(self.r_theta_at("htr10_xy_cavity", "empty core cavity above the bed", 0.5 * (bed.bed_top + c.cavity_top), 0.25));
+        v.push(self.r_theta_at("htr10_xy_bed_bottom", "bottom of the pebble bed", bed.bed_bottom() + 8.0, 0.25));
+        v.push(self.r_theta_at("htr10_xy_conus", "conus (dummy balls)", 0.5 * (bed.bed_bottom() + bed.conus_floor()), 0.25));
+        v.push(self.r_theta_at("htr10_xy_defuel_chute", "defuelling chute (dummy balls)", bed.conus_floor() - 40.0, 0.25));
+        v.push(self.r_theta_at("htr10_xy_cavity", "empty core cavity above the bed", 0.5 * (bed.bed_top() + c.cavity_top), 0.25));
         v.push(self.r_theta_at("htr10_xy_top_reflector_rods", "top reflector, through the withdrawn rods", zt(0.5 * ROD_LOWER_END_ZT_CM + 0.5 * 20.0), 0.25));
         v.push(self.r_theta_at("htr10_xy_hot_gas_duct", "hot-gas duct", zt(HOT_GAS_DUCT_AXIS_ZT_CM), 0.25));
         v

@@ -64,7 +64,7 @@ use outram_mc_libs::prelude::TrisoSpec;
 const TEMP_K: f64 = 300.15;
 
 const REPORTED_RINGS: usize = 14;
-const REPORTED_LAYERS: usize = 25;
+const REPORTED_LAYERS: usize = 12; // Şeker layers N since 2026-10-01 (gh:#472); was 25 half-layers
 
 fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k)

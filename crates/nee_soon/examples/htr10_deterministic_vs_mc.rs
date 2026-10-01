@@ -292,7 +292,7 @@ fn materials() -> Vec<Material> {
 fn main() {
     let histories = env_usize("OUTRAM_HTR10_HISTORIES", 2000);
     let rings = env_usize("OUTRAM_HTR10_RINGS", 6);
-    let layers = env_usize("OUTRAM_HTR10_LAYERS", 8);
+    let layers = env_usize("OUTRAM_HTR10_LAYERS", 4); // Şeker layers N (gh:#472); was 8 half-layers
     let n_groups = env_usize("OUTRAM_HTR10_GROUPS", 8);
 
     // A NORMAL, leakage-terminated run -- vacuum boundary, reflector present.

@@ -688,6 +688,9 @@ fn rod_metal_plan() -> (
 fn main() {
     let histories = env_usize("OUTRAM_HTR10_HISTORIES", 2000);
     let rings = env_usize("OUTRAM_HTR10_RINGS", 8);
+    // Şeker layers N since 2026-10-01 (gh:#472): the bed is 9.798 N + 6 cm, a
+    // row of Li's table for N = 9..20. ~~Half-layers of 4.899 cm~~ (the
+    // two-ball / one-ball `2 N + 1`). The default 12 is the critical row.
     let layers = env_usize("OUTRAM_HTR10_LAYERS", 12);
 
     println!("HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC {RMC_KEFF}");
@@ -767,7 +770,7 @@ fn main() {
     let homog = std::env::var("OUTRAM_HTR10_HOMOG").is_ok();
     let maj_idx = if surface_only { usize::MAX } else { 0 };
     let core = if homog {
-        nee_soon::htr10_rmc::core_model::assemble(rings, layers, maj_idx)
+        nee_soon::htr10_rmc::core_model::assemble(rings, 2 * layers + 1, maj_idx)
     } else {
         assemble_explicit_triso(rings, layers, maj_idx)
     };
@@ -977,8 +980,15 @@ fn main() {
     // does not occupy imports a systematic worth ~270 pcm per cm of mismatch.
     // CORRECTED 2026-09-27 (gh:#333): matched on the paper's whole-ball
     // extent, not the volume-equivalent height.
+    //
+    // Since 2026-10-01 (gh:#472) Şeker's bed IS built on the paper's height
+    // axis (`9.798 N + 6` cm, every ball whole), so no mapping is applied; the
+    // two-ball and one-ball beds keep the gh:#333 mapping.
     let volume_height_cm = core.bed_half_height * 2.0;
-    let bed_height_cm = paper_height(volume_height_cm);
+    let bed_height_cm = match core.bed {
+        Some(nee_soon::htr10_rmc::bed::PebbleBed::Seker(_)) => volume_height_cm,
+        _ => paper_height(volume_height_cm),
+    };
     let rmc_here = rmc_at_height(bed_height_cm);
     match rmc_here {
         Some(k) => println!(

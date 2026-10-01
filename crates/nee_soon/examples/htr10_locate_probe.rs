@@ -31,7 +31,7 @@ use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::position::{Direction, Position};
 
 fn main() {
-    let core = assemble_explicit_triso(8, 12, 0);
+    let core = assemble_explicit_triso(8, 6, 0);
     let u = Direction::new(0.0, 0.0, 1.0);
     println!(
         "tiles {}, cells {}, universes {}",

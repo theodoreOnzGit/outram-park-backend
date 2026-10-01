@@ -77,7 +77,7 @@ const NB: usize = 18;
 
 fn main() {
     let rings = env_usize("OUTRAM_HTR10_RINGS", 14);
-    let layers = env_usize("OUTRAM_HTR10_LAYERS", 25);
+    let layers = env_usize("OUTRAM_HTR10_LAYERS", 12); // Şeker layers N (gh:#472); 12 = 123.576 cm
     let n = env_usize("OUTRAM_HTR10_SAMPLES", 400_000) as u64;
     let threads = env_usize("OUTRAM_HTR10_THREADS", 16).max(1) as u64;
     let core = assemble_explicit_triso(rings, layers, usize::MAX);

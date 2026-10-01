@@ -101,7 +101,7 @@ fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)
 
 fn main() {
     let rings = env_usize("OUTRAM_HTR10_RINGS", 14);
-    let layers = env_usize("OUTRAM_HTR10_LAYERS", 25);
+    let layers = env_usize("OUTRAM_HTR10_LAYERS", 12); // Şeker layers N (gh:#472); 12 = 123.576 cm
     let out = std::env::var("OUTRAM_HTR10_IMG_OUT").map_or_else(
         |_| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))

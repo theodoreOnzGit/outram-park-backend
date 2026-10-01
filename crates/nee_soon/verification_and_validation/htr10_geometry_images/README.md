@@ -4,10 +4,51 @@ Images required by the geometry-drawing HARD RULE in `crates/nee_soon/CLAUDE.md`
 an axial (R-Z) slice of the whole model, radial slices at the heights that
 matter, and zooms at every level of nesting down to the TRISO particle.
 
-**Regenerated 2026-09-25 for the two-ball prism cell (gh:#309 step 2,
-gh:#310).** The previous set showed the one-ball-per-tile bed, whose pebbles
-interpenetrated along each column; that set is in the git history of this
-folder, and "What changed" below says what it showed.
+**Regenerated 2026-10-01 for Şeker & Çolak (2003)'s 13-ball cell (gh:#472),
+now the default bed.** The two-ball set described from "How they were made"
+down is in this folder's git history. It stays below as the record of what
+that set showed.
+
+## The 2026-10-01 set: Şeker's cell
+
+- **Model:** `assemble_explicit_triso(14, 12, 0)`, i.e. N = 12 Şeker layers,
+  the critical 123.576 cm row. Branch `claude/htr10-geometry-verification-gsg8jx`.
+- **Sizes printed by the run:**
+  - 22 974 tiles, 43 445 cells, 1 502 universes (one per distinct
+    fuel/presence pattern);
+  - bed r 90.000 cm, bed half-height 61.7878 cm, so the bed is 123.576 cm;
+  - hex pitch 16.3923 cm, tile height 9.7980 cm;
+  - model z −319.970 … 290.030 cm, conus floor −98.734, cavity top 160.030.
+  - A kernel locates at depth 3, lattices `[None, Some(0), Some(1)]`.
+
+**What was checked by eye (the assistant, 2026-10-01):**
+- `htr10_xy_bed_mid.png` (z = 0, a basal plane): 7-ball flowers of touching
+  balls tile the bed, and the helium gap at the wall is where wall-crossing
+  balls were rejected, as Şeker p.267 says.
+- `htr10_xy_b_layer.png` (z = 4.899, the central plane): 6-ball triangles,
+  with corner balls crossing the tile faces. Fuel and dummy are mixed.
+- `htr10_xy_bed_wall.png`: no ball crosses r = 90 cm; every ball is whole.
+- `htr10_xz_conus_wall.png`: no ball crosses the cone; the gap along the
+  slope is rejection.
+- `htr10_rz_full.png`:
+  - flat top made of whole balls, the bed top at +61.79 cm;
+  - the conus and the discharge tube are filled with graphite balls of the
+    same lattice, rejected at their surfaces;
+  - the reflector is unchanged.
+- `htr10_xz_pebbles.png`: the basal (z = 0, ±9.8) and central (±4.9) planes
+  stack. The small circles are off-centre cuts.
+
+**Not checked by eye:** whether each fuel/dummy identity agrees across tiles.
+`every_piece_of_a_built_ball_has_one_identity` checks that on the built
+geometry: 0 inconsistent of 16 692 at N = 9.
+
+---
+
+*(The two-ball set, 2026-09-25:)* **Regenerated 2026-09-25 for the two-ball
+prism cell (gh:#309 step 2, gh:#310).** The previous set showed the
+one-ball-per-tile bed, whose pebbles interpenetrated along each column; that
+set is in the git history of this folder, and "What changed" below says what
+it showed.
 
 ## How they were made
 

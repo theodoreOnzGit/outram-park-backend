@@ -35,7 +35,7 @@ fn env_usize(k: &str, d: usize) -> usize {
 
 fn main() {
     let rings = env_usize("OUTRAM_HTR10_RINGS", 14);
-    let layers = env_usize("OUTRAM_HTR10_LAYERS", 25);
+    let layers = env_usize("OUTRAM_HTR10_LAYERS", 12); // Şeker layers N (gh:#472); 12 = 123.576 cm
     let out = std::env::var("OUTRAM_HTR10_IMG_OUT").map_or_else(
         |_| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -61,9 +61,10 @@ fn main() {
     );
 
     if let Some(bed) = c.bed.as_ref() {
+        let (eligible, fuel) = bed.eligible_and_fuel_balls();
         println!(
-            "balls: {} eligible, {} fuelled, {} rejected ({} at the side wall)",
-            bed.eligible_balls, bed.fuel_balls, bed.rejected_balls, bed.side_wall_rejected
+            "balls: {eligible} eligible, {fuel} fuelled, {} rejected at a boundary",
+            bed.rejected_balls()
         );
     }
 

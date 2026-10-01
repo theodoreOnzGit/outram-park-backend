@@ -993,6 +993,890 @@ pub fn count_tiles(levels: &[Vec<Vec<usize>>], fuel_universe: usize) -> (usize, 
     (fuel, total - fuel)
 }
 
+// ---------------------------------------------------------------------------
+// ŞEKER & ÇOLAK (2003)'S 13-BALL PRISM CELL (gh:#429, gh:#472)
+// ---------------------------------------------------------------------------
+
+/// **Şeker & Çolak (2003)'s hexagonal-prism unit cell**, the default HTR-10 bed
+/// cell since 2026-10-01 (gh:#472).
+///
+/// NEW WORK, not a port. The cell is reconstructed from the source's text and
+/// Fig. 3; no dimension is fitted. Source: Şeker, V., Çolak, Ü. (2003), *HTR-10
+/// full core first criticality analysis with MCNP*, Nucl. Eng. Des. 222,
+/// 263–270, doi:10.1016/S0029-5493(03)00031-1, pp. 266–267. Li, Yu & Wei
+/// (2014) reproduce its text verbatim.
+///
+/// # What the source states
+///
+/// > *"The height of a layer is 9.798 cm. Top and bottom planes of hexagonal
+/// > prisms are flat and contain half spheres. There are seven balls at these
+/// > faces; one at the center of the basal plane and six surrounding spheres.
+/// > These six spheres are not centered at the corners of the hexagons, but
+/// > rather, hexagonal prism side surfaces surround these balls. The
+/// > intermediate section of each hexagonal prism contains three full balls as
+/// > well as partial contributions from the neighboring hexagonal prism cells
+/// > from all six sides."*
+///
+/// # What Fig. 3 adds (read at 600 dpi, 2026-10-01, the 6 cm ball as scale)
+///
+/// Both panels show the same flat-topped hexagon (vertices at 0°, 60°, …; the
+/// `HexOrientation::Y` convention), with circumradius ≈ 9.3–9.5 cm.
+/// - **Basal plane:** a flower of 7 **touching** balls. The six outer balls
+///   point at the vertices and are tangent to the two side faces beside
+///   them. Neighbouring flowers touch.
+/// - **Central plane:** a touching 6-ball triangle:
+///   - 3 balls at `d/√3` (90°, 210°, 330°), in the flower's hollows;
+///   - 3 at `2d/√3` (270°, 30°, 150°), each crossing a side face into the
+///     neighbouring cell;
+///   - through the other three faces, the neighbours' corner balls enter.
+///
+/// # What follows, with no free parameter
+///
+/// - apothem = `d cos 30° + d/2` = **8.196 cm** (3√3 + 3), pitch (flat to
+///   flat) **16.392 cm**;
+/// - height = two close-packed layer spacings, `2 d sqrt(2/3)` = 9.798 cm, which
+///   is the stated layer;
+/// - every contact is exactly `d`: the central balls sit `d/√3` from their
+///   three supporting balls laterally and `d sqrt(2/3)` vertically;
+/// - **13 balls per cell** (7 basal + 6 central), filling fraction **0.6448**,
+///   areal fractions through the ball centres **0.851 basal / 0.729 central**.
+///
+/// The 0.6448 is the interior value. Şeker's *"61%"* is measured after the wall
+/// rejection (see [`SekerBed`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SekerCell {
+    /// Hexagon apothem (centre to side face) \[cm\].
+    pub apothem: f64,
+    /// Cell height \[cm\]: one basal-to-basal layer.
+    pub height: f64,
+    /// Ball diameter \[cm\].
+    pub ball_diameter: f64,
+}
+
+/// One of the 23 ball sites a Şeker tile holds a piece of. See [`SekerCell`].
+///
+/// | site | tile-local centre | shared with |
+/// |---|---|---|
+/// | `BottomFlower(k)` | flower ball `k` at `z = -h/2` | the tile below (half each) |
+/// | `TopFlower(k)` | flower ball `k` at `z = +h/2` | the tile above (half each) |
+/// | `Inner(k)` | `d/√3` at `90° + 120° k`, `z = 0` | nobody: wholly inside |
+/// | `Outer(k)` | `2d/√3` at `270° + 120° k`, `z = 0` | the neighbour it crosses into |
+/// | `Entering(k)` | `pitch - 2d/√3` at `90° + 120° k`, `z = 0` | the neighbour at `90° + 120° k`, whose `Outer(k)` it is |
+///
+/// Flower ball `k = 0` is the centre; `k = 1..=6` lie at `d` and angle
+/// `60° (k - 1)`, pointing at the vertices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SekerSite {
+    /// Basal flower ball `k` (0..7) on the tile's bottom face.
+    BottomFlower(u8),
+    /// Basal flower ball `k` (0..7) on the tile's top face.
+    TopFlower(u8),
+    /// Central-plane ball `k` (0..3) in the flower's hollows.
+    Inner(u8),
+    /// Central-plane corner ball `k` (0..3) of this tile's triangle.
+    Outer(u8),
+    /// A neighbour's central corner ball `k` (0..3) entering this tile.
+    Entering(u8),
+}
+
+impl SekerSite {
+    /// The 23 sites, in the bit order of [`SekerBed::tile_masks`].
+    pub const ALL: [SekerSite; 23] = [
+        SekerSite::BottomFlower(0),
+        SekerSite::BottomFlower(1),
+        SekerSite::BottomFlower(2),
+        SekerSite::BottomFlower(3),
+        SekerSite::BottomFlower(4),
+        SekerSite::BottomFlower(5),
+        SekerSite::BottomFlower(6),
+        SekerSite::TopFlower(0),
+        SekerSite::TopFlower(1),
+        SekerSite::TopFlower(2),
+        SekerSite::TopFlower(3),
+        SekerSite::TopFlower(4),
+        SekerSite::TopFlower(5),
+        SekerSite::TopFlower(6),
+        SekerSite::Inner(0),
+        SekerSite::Inner(1),
+        SekerSite::Inner(2),
+        SekerSite::Outer(0),
+        SekerSite::Outer(1),
+        SekerSite::Outer(2),
+        SekerSite::Entering(0),
+        SekerSite::Entering(1),
+        SekerSite::Entering(2),
+    ];
+}
+
+impl SekerCell {
+    /// The cell from Şeker & Çolak (2003) text and Fig. 3, for 6 cm balls. See
+    /// the type docs; nothing here is fitted.
+    #[must_use]
+    pub fn from_paper() -> Self {
+        let d = 6.0;
+        Self {
+            apothem: d * (PI / 6.0).cos() + 0.5 * d,
+            height: 2.0 * close_packed_layer_spacing(d),
+            ball_diameter: d,
+        }
+    }
+
+    /// Flat-to-flat pitch \[cm\], the lattice pitch: `2 * apothem`.
+    #[must_use]
+    pub fn pitch(&self) -> f64 {
+        2.0 * self.apothem
+    }
+
+    /// Balls per cell: 7 basal (2 x 7 halves) + 6 central (3 whole, 3 x 2
+    /// pieces shared with neighbours) = 13.
+    #[must_use]
+    pub fn balls_per_cell(&self) -> f64 {
+        13.0
+    }
+
+    /// Hexagon area \[cm^2\], `2 sqrt(3) apothem^2`.
+    #[must_use]
+    pub fn area(&self) -> f64 {
+        2.0 * 3.0_f64.sqrt() * self.apothem * self.apothem
+    }
+
+    /// Ball volume fraction of the (interior) cell \[-\]: 0.6448.
+    #[must_use]
+    pub fn packing_fraction(&self) -> f64 {
+        let r = 0.5 * self.ball_diameter;
+        self.balls_per_cell() * (4.0 / 3.0 * PI * r.powi(3)) / (self.area() * self.height)
+    }
+
+    /// Tile-local centre \[cm\] of `site`. See [`SekerSite`].
+    #[must_use]
+    pub fn site_centre(&self, site: SekerSite) -> [f64; 3] {
+        let d = self.ball_diameter;
+        let h = self.height;
+        let polar = |rho: f64, deg: f64, z: f64| {
+            let t = deg.to_radians();
+            [rho * t.cos(), rho * t.sin(), z]
+        };
+        let flower = |k: u8, z: f64| {
+            if k == 0 {
+                [0.0, 0.0, z]
+            } else {
+                polar(d, 60.0 * f64::from(k - 1), z)
+            }
+        };
+        let s3 = 3.0_f64.sqrt();
+        match site {
+            SekerSite::BottomFlower(k) => flower(k, -0.5 * h),
+            SekerSite::TopFlower(k) => flower(k, 0.5 * h),
+            SekerSite::Inner(k) => polar(d / s3, 90.0 + 120.0 * f64::from(k), 0.0),
+            SekerSite::Outer(k) => polar(2.0 * d / s3, 270.0 + 120.0 * f64::from(k), 0.0),
+            SekerSite::Entering(k) => {
+                polar(self.pitch() - 2.0 * d / s3, 90.0 + 120.0 * f64::from(k), 0.0)
+            }
+        }
+    }
+}
+
+/// A ball of the Şeker bed, named by the tile that owns it. Every piece of one
+/// ball, in every tile that holds a piece of it, resolves to the same id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SekerBallId {
+    /// Basal flower ball `k` of column `(a, b)` on lattice face `face` (the
+    /// bottom face of level `face`).
+    Flower {
+        /// Skewed hex coordinate.
+        a: i32,
+        /// Skewed hex coordinate.
+        b: i32,
+        /// Lattice face index.
+        face: i32,
+        /// Flower ball, 0..7.
+        k: u8,
+    },
+    /// Central-plane ball `k` of tile `(a, b, level)`: 0..3 `Inner`, 3..6
+    /// `Outer`.
+    Central {
+        /// Skewed hex coordinate.
+        a: i32,
+        /// Skewed hex coordinate.
+        b: i32,
+        /// Lattice level.
+        level: i32,
+        /// 0..6.
+        k: u8,
+    },
+}
+
+/// The ball at `site` of Şeker tile `(a, b, level)`.
+///
+/// `Entering(k)` is the `Outer(k)` ball of the neighbour at `90° + 120° k`:
+/// in the `HexOrientation::Y` skewed coordinates of [`tile_xy`] those are
+/// `(a, b+1)`, `(a-1, b)` and `(a+1, b-1)`. Checked numerically by
+/// `every_seker_tile_resolves_a_shared_ball_to_one_position`.
+#[must_use]
+pub fn seker_tile_ball(a: i32, b: i32, level: i32, site: SekerSite) -> SekerBallId {
+    match site {
+        SekerSite::BottomFlower(k) => SekerBallId::Flower { a, b, face: level, k },
+        SekerSite::TopFlower(k) => SekerBallId::Flower {
+            a,
+            b,
+            face: level + 1,
+            k,
+        },
+        SekerSite::Inner(k) => SekerBallId::Central { a, b, level, k },
+        SekerSite::Outer(k) => SekerBallId::Central {
+            a,
+            b,
+            level,
+            k: 3 + k,
+        },
+        SekerSite::Entering(k) => {
+            let (da, db) = [(0, 1), (-1, 0), (1, -1)][usize::from(k)];
+            SekerBallId::Central {
+                a: a + da,
+                b: b + db,
+                level,
+                k: 3 + k,
+            }
+        }
+    }
+}
+
+/// **The HTR-10 bed as Şeker & Çolak (2003) build it** (gh:#472): the
+/// [`SekerCell`] lattice, every ball whole, rejected wherever it would cross a
+/// boundary, and a fuel/dummy identity per ball.
+///
+/// NEW WORK, not a port.
+///
+/// # Axial layout: the loading height is Şeker's
+///
+/// A loading of `n_layers` = N holds basal planes `0..=N` and central planes
+/// `0..N`. The lowest basal plane's balls sit **on** the bed floor (the top of
+/// the conus) and the highest's top is the bed top. So the bed is
+/// `9.798 N + 6.0` cm tall, **exactly Şeker's and Li's tabulated height**, and
+/// the top and bottom layers are whole balls, as Şeker p.267 says (*"The top
+/// layer is formed by adding half spheres to each ball present in this
+/// layer"*). Şeker's Table 3 count (`1346 N + 733`) is one extra basal plane,
+/// which is this layout.
+///
+/// Below the bed floor the same lattice continues through the conus and the
+/// discharge tube. Şeker p.267: *"The cone region and discharge tube are
+/// formed by only graphite balls ... also made by balls arranged in hexagonal
+/// geometry"*.
+///
+/// # Rejection: every kept ball is whole
+///
+/// Şeker p.267: *"If any ball intersects with the reflector surface, it is
+/// rejected"*, and *"Balls intersect with cone or discharge tube surface are
+/// rejected."* A ball is kept only if it lies wholly inside the container, i.e.
+/// the solid of revolution of the meridional profile:
+/// - the bed top (`z = bed_top`, `rho < bed_radius`);
+/// - the side wall;
+/// - the cone from `(bed_radius, bed_bottom)` to `(tube_radius, conus_floor)`;
+/// - the tube wall and the tube bottom.
+///
+/// That includes the **side wall** (gh:#331, decided by the maintainer
+/// 2026-10-01), where the two-ball bed cuts.
+///
+/// # Fuel/dummy identity
+///
+/// As [`TwoBallBed`]:
+/// - the balls centred above the bed floor take the 57:43 split, by the
+///   low-discrepancy rule in layer order from the floor up (Şeker p.267:
+///   *"Fuel and moderator balls are selected in each layer such that 0.57:0.43
+///   ratio is established"*);
+/// - the conus and the tube are all dummy.
+///
+/// # Checked against Şeker's own counts
+///
+/// `the_seker_bed_reproduces_table_3_per_plane_counts` compares the kept balls
+/// per basal and per central plane with Şeker Table 3 (733 and 613).
+#[derive(Debug, Clone)]
+pub struct SekerBed {
+    /// The unit cell.
+    pub cell: SekerCell,
+    /// Hex rings in the lattice (including the central tile).
+    pub n_rings: usize,
+    /// Loading in Şeker layers N: bed height `cell.height * N + ball_diameter`.
+    pub n_layers: usize,
+    /// Axial lattice levels.
+    pub n_levels: usize,
+    /// z \[cm\] of the bottom face of lattice level 0.
+    pub z_bottom: f64,
+    /// Lattice face index of the lowest bed basal plane (the one on the floor).
+    pub floor_face: i32,
+    /// Bed cylinder radius \[cm\].
+    pub bed_radius: f64,
+    /// Bed floor \[cm\] (= top of the conus).
+    pub bed_bottom: f64,
+    /// Bed top \[cm\] (= top of the highest ball).
+    pub bed_top: f64,
+    /// Conus floor \[cm\].
+    pub conus_floor: f64,
+    /// Discharge-tube radius \[cm\].
+    pub tube_radius: f64,
+    /// Bottom of the container \[cm\]: the tube bottom, or the conus floor when
+    /// the tube is not built (the `OUTRAM_HTR10_HOMOG_TUBE` ablation).
+    pub container_bottom: f64,
+    /// The rule the identities were assigned by.
+    pub assignment: FuelAssignment,
+    /// Balls that took part in the 57:43 split.
+    pub eligible_balls: usize,
+    /// Of which fuelled.
+    pub fuel_balls: usize,
+    /// Lattice balls rejected (not wholly inside the container).
+    pub rejected_balls: usize,
+    /// Of [`Self::rejected_balls`], those whose centre is inside the container
+    /// but which cross its boundary: the balls Şeker's rule actually removes.
+    pub boundary_rejected: usize,
+    flower_fuel: Vec<bool>,
+    central_fuel: Vec<bool>,
+    flower_present: Vec<bool>,
+    central_present: Vec<bool>,
+}
+
+impl SekerBed {
+    /// Build the bed.
+    ///
+    /// # Parameters
+    /// - `cell` — normally [`SekerCell::from_paper`].
+    /// - `n_rings` — hex rings of the lattice; must tile `bed_radius`.
+    /// - `n_layers` — Şeker layers N; the bed is `cell.height * N +
+    ///   ball_diameter` tall, centred on z = 0.
+    /// - `conus_height` — depth \[cm\] of the conus below the bed floor.
+    /// - `bed_radius`, `tube_radius` — \[cm\].
+    /// - `tube_depth` — depth \[cm\] of the discharge tube below the conus
+    ///   floor, or `None` to end the container at the conus floor.
+    /// - `assignment` — see [`FuelAssignment`].
+    #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        cell: SekerCell,
+        n_rings: usize,
+        n_layers: usize,
+        conus_height: f64,
+        bed_radius: f64,
+        tube_radius: f64,
+        tube_depth: Option<f64>,
+        assignment: FuelAssignment,
+    ) -> Self {
+        let h = cell.height;
+        let r = 0.5 * cell.ball_diameter;
+        let bed_top = 0.5 * (h * n_layers as f64 + cell.ball_diameter);
+        let bed_bottom = -bed_top;
+        let conus_floor = bed_bottom - conus_height;
+        let container_bottom = conus_floor - tube_depth.unwrap_or(0.0);
+        // Basal planes at bed_bottom + r + m h, m = 0..=N in the bed. One
+        // margin level below the container bottom and one above the top plane.
+        let face0 = bed_bottom + r;
+        let m_lo = ((container_bottom - face0) / h).floor() as i32 - 1;
+        let m_hi = n_layers as i32 + 2;
+        let n_levels = (m_hi - m_lo) as usize;
+        let w = 2 * n_rings + 3;
+        let mut bed = Self {
+            cell,
+            n_rings,
+            n_layers,
+            n_levels,
+            z_bottom: face0 + f64::from(m_lo) * h,
+            floor_face: -m_lo,
+            bed_radius,
+            bed_bottom,
+            bed_top,
+            conus_floor,
+            tube_radius,
+            container_bottom,
+            assignment,
+            eligible_balls: 0,
+            fuel_balls: 0,
+            rejected_balls: 0,
+            boundary_rejected: 0,
+            flower_fuel: vec![false; w * w * (n_levels + 1) * 7],
+            central_fuel: vec![false; w * w * n_levels * 6],
+            flower_present: vec![true; w * w * (n_levels + 1) * 7],
+            central_present: vec![true; w * w * n_levels * 6],
+        };
+        bed.reject();
+        bed.assign();
+        bed
+    }
+
+    /// z \[cm\] of the lattice centre, to pass to `HexLattice::from_rings_3d`.
+    #[must_use]
+    pub fn lattice_centre_z(&self) -> f64 {
+        self.z_bottom + 0.5 * self.n_levels as f64 * self.cell.height
+    }
+
+    fn slot(&self, id: SekerBallId) -> Option<(bool, usize)> {
+        // The slot range reaches one ring beyond the lattice, where the owners
+        // of entering balls can sit.
+        let nr = self.n_rings as i32 + 1;
+        let w = (2 * nr + 1) as usize;
+        let (a, b, k_ax, is_flower, n_ax, k, per) = match id {
+            SekerBallId::Flower { a, b, face, k } => (a, b, face, true, self.n_levels + 1, k, 7),
+            SekerBallId::Central { a, b, level, k } => (a, b, level, false, self.n_levels, k, 6),
+        };
+        if a < -nr || a > nr || b < -nr || b > nr || k_ax < 0 || k_ax as usize >= n_ax {
+            return None;
+        }
+        let col = ((k_ax as usize) * w + (b + nr) as usize) * w + (a + nr) as usize;
+        Some((is_flower, col * per + usize::from(k)))
+    }
+
+    /// Global centre \[cm\] of ball `id`.
+    #[must_use]
+    pub fn centre(&self, id: SekerBallId) -> [f64; 3] {
+        let (a, b, zc, site) = match id {
+            SekerBallId::Flower { a, b, face, k } => (
+                a,
+                b,
+                self.z_bottom + f64::from(face) * self.cell.height,
+                SekerSite::BottomFlower(k),
+            ),
+            SekerBallId::Central { a, b, level, k } => (
+                a,
+                b,
+                self.z_bottom + (f64::from(level) + 0.5) * self.cell.height,
+                if k < 3 {
+                    SekerSite::Inner(k)
+                } else {
+                    SekerSite::Outer(k - 3)
+                },
+            ),
+        };
+        let [tx, ty] = tile_xy(a, b, self.cell.pitch());
+        let [lx, ly, _] = self.cell.site_centre(site);
+        [tx + lx, ty + ly, zc]
+    }
+
+    /// Whether ball `id` is kept. Balls outside the lattice's range are absent.
+    #[must_use]
+    pub fn is_present(&self, id: SekerBallId) -> bool {
+        match self.slot(id) {
+            Some((true, i)) => self.flower_present[i],
+            Some((false, i)) => self.central_present[i],
+            None => false,
+        }
+    }
+
+    /// Whether ball `id` is fuelled.
+    #[must_use]
+    pub fn is_fuel(&self, id: SekerBallId) -> bool {
+        match self.slot(id) {
+            Some((true, i)) => self.flower_fuel[i],
+            Some((false, i)) => self.central_fuel[i],
+            None => false,
+        }
+    }
+
+    /// The 23 balls tile `(a, b, level)` holds pieces of, in
+    /// [`SekerSite::ALL`] order.
+    #[must_use]
+    pub fn tile_balls(&self, a: i32, b: i32, level: i32) -> [SekerBallId; 23] {
+        SekerSite::ALL.map(|s| seker_tile_ball(a, b, level, s))
+    }
+
+    /// `(fuel, present)` masks of tile `(a, b, level)`: bit `i` for the ball at
+    /// `SekerSite::ALL[i]`. Selects the tile's universe.
+    #[must_use]
+    pub fn tile_masks(&self, a: i32, b: i32, level: i32) -> (u32, u32) {
+        self.tile_balls(a, b, level)
+            .iter()
+            .enumerate()
+            .fold((0, 0), |(f, p), (i, id)| {
+                (
+                    f | (u32::from(self.is_fuel(*id)) << i),
+                    p | (u32::from(self.is_present(*id)) << i),
+                )
+            })
+    }
+
+    /// Every ball owned by a tile within the lattice's rings, deterministic
+    /// order (flowers by face, then centrals by level).
+    #[must_use]
+    pub fn all_balls(&self) -> Vec<SekerBallId> {
+        let nr = self.n_rings as i32;
+        let mut cols = Vec::new();
+        for a in -(nr - 1)..=(nr - 1) {
+            for b in -(nr - 1)..=(nr - 1) {
+                if hex_ring(a, b) <= self.n_rings - 1 {
+                    cols.push((a, b));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        for face in 0..=self.n_levels as i32 {
+            for &(a, b) in &cols {
+                out.extend((0..7).map(|k| SekerBallId::Flower { a, b, face, k }));
+            }
+        }
+        for level in 0..self.n_levels as i32 {
+            for &(a, b) in &cols {
+                out.extend((0..6).map(|k| SekerBallId::Central { a, b, level, k }));
+            }
+        }
+        out
+    }
+
+    /// The container's meridional profile, a closed polyline `(rho, z)` from the
+    /// axis at the top round to the axis at the bottom.
+    fn profile(&self) -> Vec<[f64; 2]> {
+        let mut p = vec![
+            [0.0, self.bed_top],
+            [self.bed_radius, self.bed_top],
+            [self.bed_radius, self.bed_bottom],
+            [self.tube_radius, self.conus_floor],
+        ];
+        if self.container_bottom < self.conus_floor {
+            p.push([self.tube_radius, self.container_bottom]);
+        }
+        p.push([0.0, self.container_bottom]);
+        p
+    }
+
+    /// Whether the ball centred at `c` lies wholly inside the container, and
+    /// whether its centre does. A sphere lies inside a solid of revolution
+    /// exactly when its meridional disk lies inside the profile (the argument in
+    /// [`TwoBallBed::container_boundary_distance`]).
+    fn containment(&self, c: [f64; 3]) -> (bool, bool) {
+        let (rho, z) = (c[0].hypot(c[1]), c[2]);
+        let p = self.profile();
+        // The profile, closed along the axis, is a simple polygon.
+        let mut inside = false;
+        let mut dmin = f64::INFINITY;
+        for i in 0..p.len() {
+            let (u, v) = (p[i], p[(i + 1) % p.len()]);
+            if (u[1] > z) != (v[1] > z) && rho < u[0] + (z - u[1]) / (v[1] - u[1]) * (v[0] - u[0]) {
+                inside = !inside;
+            }
+            // The closing segment is the axis, which is not a boundary.
+            if i + 1 < p.len() {
+                dmin = dmin.min(segment_distance(rho, z, u, v));
+            }
+        }
+        let r = 0.5 * self.cell.ball_diameter;
+        (inside && dmin >= r - 1e-9, inside)
+    }
+
+    fn reject(&mut self) {
+        let mut n = 0;
+        let mut nb = 0;
+        for id in self.all_balls() {
+            let (whole, centre_in) = self.containment(self.centre(id));
+            if !whole {
+                n += 1;
+                nb += usize::from(centre_in);
+                match self.slot(id) {
+                    Some((true, i)) => self.flower_present[i] = false,
+                    Some((false, i)) => self.central_present[i] = false,
+                    None => unreachable!("every enumerated ball has a slot"),
+                }
+            }
+        }
+        // Balls owned by tiles one ring out (entering pieces) are outside
+        // `all_balls`; they lie beyond the bed cylinder, so reject them too.
+        let nr = self.n_rings as i32 + 1;
+        for level in 0..self.n_levels as i32 {
+            for a in -nr..=nr {
+                for b in -nr..=nr {
+                    if hex_ring(a, b) != self.n_rings {
+                        continue;
+                    }
+                    for k in 3..6 {
+                        let id = SekerBallId::Central { a, b, level, k };
+                        if !self.containment(self.centre(id)).0 {
+                            if let Some((false, i)) = self.slot(id) {
+                                self.central_present[i] = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.rejected_balls = n;
+        self.boundary_rejected = nb;
+    }
+
+    /// Half-layer index of a ball from lattice face 0 (basal even, central odd).
+    fn layer(id: SekerBallId) -> i32 {
+        match id {
+            SekerBallId::Flower { face, .. } => 2 * face,
+            SekerBallId::Central { level, .. } => 2 * level + 1,
+        }
+    }
+
+    fn assign(&mut self) {
+        let f = super::table1::FUEL_BALL_FRACTION;
+        let mut eligible: Vec<(i32, f64, f64, SekerBallId)> = Vec::new();
+        for id in self.all_balls() {
+            let [x, y, z] = self.centre(id);
+            let ok = match self.assignment {
+                FuelAssignment::AllFuel => true,
+                FuelAssignment::Paper => z > self.bed_bottom,
+                FuelAssignment::FuelledConus => true,
+            };
+            if ok && self.is_present(id) {
+                eligible.push((Self::layer(id), x * x + y * y, y.atan2(x), id));
+            }
+        }
+        eligible.sort_by(|p, q| {
+            p.0.cmp(&q.0)
+                .then(p.1.total_cmp(&q.1))
+                .then(p.2.total_cmp(&q.2))
+                .then(p.3.cmp(&q.3))
+        });
+        self.eligible_balls = eligible.len();
+        self.fuel_balls = 0;
+        for (n, &(_, _, _, id)) in eligible.iter().enumerate() {
+            let fuel = self.assignment == FuelAssignment::AllFuel
+                || ((n + 1) as f64 * f).floor() > (n as f64 * f).floor();
+            if fuel {
+                self.fuel_balls += 1;
+                match self.slot(id) {
+                    Some((true, i)) => self.flower_fuel[i] = true,
+                    Some((false, i)) => self.central_fuel[i] = true,
+                    None => unreachable!("every enumerated ball has a slot"),
+                }
+            }
+        }
+    }
+
+    /// Kept balls in the bed (centre above the floor) per plane: `(basal
+    /// counts for bed planes 0..=N, central counts for planes 0..N)`. Compare
+    /// with Şeker Table 3: 733 per basal and 613 per central plane.
+    #[must_use]
+    pub fn plane_counts(&self) -> (Vec<usize>, Vec<usize>) {
+        let n = self.n_layers;
+        let mut basal = vec![0usize; n + 1];
+        let mut central = vec![0usize; n];
+        for id in self.all_balls() {
+            if !self.is_present(id) {
+                continue;
+            }
+            match id {
+                SekerBallId::Flower { face, .. } => {
+                    let j = face - self.floor_face;
+                    if (0..=n as i32).contains(&j) {
+                        basal[j as usize] += 1;
+                    }
+                }
+                SekerBallId::Central { level, .. } => {
+                    let j = level - self.floor_face;
+                    if (0..n as i32).contains(&j) {
+                        central[j as usize] += 1;
+                    }
+                }
+            }
+        }
+        (basal, central)
+    }
+}
+
+/// **The pebble bed an explicit-TRISO core was built on**: Şeker & Çolak's
+/// cell (the default since 2026-10-01, gh:#472) or the two-ball prism cell
+/// (the `OUTRAM_HTR10_TWO_BALL_CELL` ablation).
+#[derive(Debug, Clone)]
+pub enum PebbleBed {
+    /// [`SekerBed`], the default.
+    Seker(SekerBed),
+    /// [`TwoBallBed`], an ablation.
+    TwoBall(TwoBallBed),
+}
+
+/// A ball of a [`PebbleBed`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum BedBall {
+    /// A ball of a [`SekerBed`].
+    Seker(SekerBallId),
+    /// A ball of a [`TwoBallBed`].
+    TwoBall(BallId),
+}
+
+impl PebbleBed {
+    /// Bed floor \[cm\] (= top of the conus).
+    #[must_use]
+    pub fn bed_bottom(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.bed_bottom,
+            Self::TwoBall(b) => b.bed_bottom,
+        }
+    }
+
+    /// Bed top \[cm\].
+    #[must_use]
+    pub fn bed_top(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.bed_top,
+            Self::TwoBall(b) => b.bed_top,
+        }
+    }
+
+    /// Conus floor \[cm\].
+    #[must_use]
+    pub fn conus_floor(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.conus_floor,
+            Self::TwoBall(b) => b.conus_floor,
+        }
+    }
+
+    /// Bed cylinder radius \[cm\].
+    #[must_use]
+    pub fn bed_radius(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.bed_radius,
+            Self::TwoBall(b) => b.bed_radius,
+        }
+    }
+
+    /// Hex rings of the lattice.
+    #[must_use]
+    pub fn n_rings(&self) -> usize {
+        match self {
+            Self::Seker(b) => b.n_rings,
+            Self::TwoBall(b) => b.n_rings,
+        }
+    }
+
+    /// Axial lattice levels.
+    #[must_use]
+    pub fn n_levels(&self) -> usize {
+        match self {
+            Self::Seker(b) => b.n_levels,
+            Self::TwoBall(b) => b.n_levels,
+        }
+    }
+
+    /// z \[cm\] of the bottom face of lattice level 0.
+    #[must_use]
+    pub fn z_bottom(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.z_bottom,
+            Self::TwoBall(b) => b.z_bottom,
+        }
+    }
+
+    /// z \[cm\] of the lattice centre.
+    #[must_use]
+    pub fn lattice_centre_z(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.lattice_centre_z(),
+            Self::TwoBall(b) => b.lattice_centre_z(),
+        }
+    }
+
+    /// Lattice pitch (flat to flat) and tile height \[cm\].
+    #[must_use]
+    pub fn tile_pitch_and_height(&self) -> (f64, f64) {
+        match self {
+            Self::Seker(b) => (b.cell.pitch(), b.cell.height),
+            Self::TwoBall(b) => (b.cell.pitch, b.cell.height),
+        }
+    }
+
+    /// Ball diameter \[cm\].
+    #[must_use]
+    pub fn ball_diameter(&self) -> f64 {
+        match self {
+            Self::Seker(b) => b.cell.ball_diameter,
+            Self::TwoBall(b) => b.cell.ball_diameter,
+        }
+    }
+
+    /// Tile-local centres \[cm\] of the ball sites, in tile-mask bit order.
+    #[must_use]
+    pub fn site_centres(&self) -> Vec<[f64; 3]> {
+        match self {
+            Self::Seker(b) => SekerSite::ALL.iter().map(|&s| b.cell.site_centre(s)).collect(),
+            Self::TwoBall(b) => BallSite::ALL.iter().map(|&s| b.cell.site_centre(s)).collect(),
+        }
+    }
+
+    /// `(fuel, present)` masks of tile `(a, b, level)`, bit `i` for site `i` of
+    /// [`Self::site_centres`].
+    #[must_use]
+    pub fn tile_masks(&self, a: i32, b: i32, level: i32) -> (u32, u32) {
+        match self {
+            Self::Seker(s) => s.tile_masks(a, b, level),
+            Self::TwoBall(t) => (
+                u32::from(t.tile_mask(a, b, level)),
+                u32::from(t.tile_present_mask(a, b, level)),
+            ),
+        }
+    }
+
+    /// Every ball of the lattice.
+    #[must_use]
+    pub fn all_balls(&self) -> Vec<BedBall> {
+        match self {
+            Self::Seker(b) => b.all_balls().into_iter().map(BedBall::Seker).collect(),
+            Self::TwoBall(b) => b.all_balls().into_iter().map(BedBall::TwoBall).collect(),
+        }
+    }
+
+    /// Global centre \[cm\] of `ball`.
+    ///
+    /// # Panics
+    /// If `ball` belongs to the other kind of bed.
+    #[must_use]
+    pub fn centre(&self, ball: BedBall) -> [f64; 3] {
+        match (self, ball) {
+            (Self::Seker(b), BedBall::Seker(id)) => b.centre(id),
+            (Self::TwoBall(b), BedBall::TwoBall(id)) => b.centre(id),
+            _ => panic!("a {ball:?} is not a ball of this bed"),
+        }
+    }
+
+    /// Whether `ball` is fuelled (see [`Self::centre`] for the panic).
+    #[must_use]
+    pub fn is_fuel(&self, ball: BedBall) -> bool {
+        match (self, ball) {
+            (Self::Seker(b), BedBall::Seker(id)) => b.is_fuel(id),
+            (Self::TwoBall(b), BedBall::TwoBall(id)) => b.is_fuel(id),
+            _ => panic!("a {ball:?} is not a ball of this bed"),
+        }
+    }
+
+    /// Whether `ball` is kept (see [`Self::centre`] for the panic).
+    #[must_use]
+    pub fn is_present(&self, ball: BedBall) -> bool {
+        match (self, ball) {
+            (Self::Seker(b), BedBall::Seker(id)) => b.is_present(id),
+            (Self::TwoBall(b), BedBall::TwoBall(id)) => b.is_present(id),
+            _ => panic!("a {ball:?} is not a ball of this bed"),
+        }
+    }
+
+    /// Balls that took part in the 57:43 split, and of which fuelled.
+    #[must_use]
+    pub fn eligible_and_fuel_balls(&self) -> (usize, usize) {
+        match self {
+            Self::Seker(b) => (b.eligible_balls, b.fuel_balls),
+            Self::TwoBall(b) => (b.eligible_balls, b.fuel_balls),
+        }
+    }
+
+    /// The discharge tube below the conus as `(radius, bottom z)` \[cm\], or
+    /// `None` when it is not built with balls (the `OUTRAM_HTR10_HOMOG_TUBE`
+    /// ablation).
+    #[must_use]
+    pub fn tube_radius_and_bottom(&self) -> Option<(f64, f64)> {
+        match self {
+            Self::Seker(b) => (b.container_bottom < b.conus_floor)
+                .then_some((b.tube_radius, b.container_bottom)),
+            Self::TwoBall(b) => b.tube.map(|t| (t.radius, b.conus_floor - t.depth)),
+        }
+    }
+
+    /// Balls removed by a rejection rule.
+    #[must_use]
+    pub fn rejected_balls(&self) -> usize {
+        match self {
+            Self::Seker(b) => b.boundary_rejected,
+            Self::TwoBall(b) => b.rejected_balls,
+        }
+    }
+}
+
 #[cfg(test)]
 mod hex_lattice_tests {
     use super::*;
@@ -1154,5 +2038,255 @@ mod hex_lattice_tests {
             }
         }
         assert!(compared > 100);
+    }
+}
+
+#[cfg(test)]
+mod seker_cell_tests {
+    //! **V&V of Şeker & Çolak (2003)'s cell and bed (gh:#472).**
+    //!
+    //! Methodology: the cell is built from the source's text and Fig. 3 with no
+    //! fitted dimension (see [`SekerCell`]). These tests check that it is a
+    //! valid packing (no overlaps, the contacts the figure shows), that the tile
+    //! bookkeeping is complete and consistent, and, the one comparison that can
+    //! fail on the physics, that the kept balls per plane match Şeker Table 3.
+    //! Results are in each test's doc comment.
+    use super::super::core_model::{
+        HTR10_BOTTOM_REFLECTOR_CM, HTR10_CONUS_HEIGHT_CM, HTR10_CORE_RADIUS_CM,
+        HTR10_DISCHARGE_TUBE_RADIUS_CM,
+    };
+    use super::*;
+
+    fn htr10_bed(n_layers: usize) -> SekerBed {
+        let cell = SekerCell::from_paper();
+        let reach = 0.5 * 3.0_f64.sqrt() * cell.pitch();
+        let n_rings = (HTR10_CORE_RADIUS_CM / reach).ceil() as usize + 1;
+        SekerBed::new(
+            cell,
+            n_rings,
+            n_layers,
+            HTR10_CONUS_HEIGHT_CM,
+            HTR10_CORE_RADIUS_CM,
+            HTR10_DISCHARGE_TUBE_RADIUS_CM,
+            Some(HTR10_BOTTOM_REFLECTOR_CM),
+            FuelAssignment::Paper,
+        )
+    }
+
+    /// The derived dimensions. **Results (2026-10-01):** apothem 8.196152 cm,
+    /// pitch 16.392305 cm, height 9.797959 cm (Şeker: 9.798), interior filling
+    /// fraction 0.644834.
+    #[test]
+    fn the_seker_cell_has_the_derived_dimensions() {
+        let c = SekerCell::from_paper();
+        println!(
+            "apothem {:.6}, pitch {:.6}, height {:.6}, packing {:.6}",
+            c.apothem,
+            c.pitch(),
+            c.height,
+            c.packing_fraction()
+        );
+        assert!((c.apothem - (3.0 * 3.0_f64.sqrt() + 3.0)).abs() < 1e-12);
+        assert!((c.height - 9.798).abs() < 5e-4, "the stated layer is 9.798 cm");
+        assert!((c.packing_fraction() - 0.6448).abs() < 1e-4);
+    }
+
+    /// **No two balls overlap, and the contacts Fig. 3 shows are there.** Every
+    /// pair of lattice balls (present or not) in a small bed is at least one
+    /// diameter apart. The number of pairs exactly in contact is printed.
+    /// **Result (2026-10-01):** minimum centre distance 6.000000 cm.
+    #[test]
+    fn seker_balls_never_overlap_and_touch_where_the_figure_shows() {
+        let cell = SekerCell::from_paper();
+        let bed = SekerBed::new(cell, 3, 2, 5.0, 1.0e3, 900.0, None, FuelAssignment::Paper);
+        let c: Vec<[f64; 3]> = bed
+            .all_balls()
+            .into_iter()
+            .map(|id| bed.centre(id))
+            .filter(|p| p[0].hypot(p[1]) < 20.0)
+            .collect();
+        let (mut dmin, mut contacts) = (f64::INFINITY, 0);
+        for i in 0..c.len() {
+            for j in i + 1..c.len() {
+                let d = ((c[i][0] - c[j][0]).powi(2)
+                    + (c[i][1] - c[j][1]).powi(2)
+                    + (c[i][2] - c[j][2]).powi(2))
+                .sqrt();
+                dmin = dmin.min(d);
+                contacts += usize::from((d - 6.0).abs() < 1e-9);
+            }
+        }
+        println!("{} balls, min distance {dmin:.9} cm, {contacts} contacts", c.len());
+        assert!(dmin > 6.0 - 1e-9, "balls overlap: {dmin}");
+        assert!(contacts > c.len(), "the packing should be held by contacts");
+    }
+
+    /// Every piece of a shared ball resolves to the same global position (the
+    /// `Entering` ownership rule is geometry, not bookkeeping).
+    #[test]
+    fn every_seker_tile_resolves_a_shared_ball_to_one_position() {
+        let cell = SekerCell::from_paper();
+        let bed = SekerBed::new(cell, 3, 2, 5.0, 40.0, 10.0, None, FuelAssignment::Paper);
+        let mut checked = 0;
+        for level in 0..bed.n_levels as i32 {
+            for a in -2..=2 {
+                for b in -2..=2 {
+                    if hex_ring(a, b) > 2 {
+                        continue;
+                    }
+                    let [tx, ty] = tile_xy(a, b, cell.pitch());
+                    let tz = bed.z_bottom + (f64::from(level) + 0.5) * cell.height;
+                    for s in SekerSite::ALL {
+                        let l = cell.site_centre(s);
+                        let g = bed.centre(seker_tile_ball(a, b, level, s));
+                        let d = (tx + l[0] - g[0]).hypot(ty + l[1] - g[1]).hypot(tz + l[2] - g[2]);
+                        assert!(d < 1e-9, "tile ({a},{b},{level}) site {s:?} is {d} cm off");
+                        checked += 1;
+                    }
+                }
+            }
+        }
+        assert!(checked > 500);
+    }
+
+    /// Distance \[cm\] from a point to the hexagonal prism of the tile centred
+    /// at the origin (`HexOrientation::Y`: vertices at 0°, 60°, ...).
+    fn distance_to_tile(p: [f64; 3], cell: &SekerCell) -> f64 {
+        let rv = cell.pitch() / 3.0_f64.sqrt();
+        let v: Vec<[f64; 2]> = (0..6)
+            .map(|i| {
+                let t = (60.0 * f64::from(i)).to_radians();
+                [rv * t.cos(), rv * t.sin()]
+            })
+            .collect();
+        let inside = (0..6).all(|i| {
+            let t = (30.0 + 60.0 * f64::from(i)).to_radians();
+            p[0] * t.cos() + p[1] * t.sin() <= cell.apothem
+        });
+        let lateral = if inside {
+            0.0
+        } else {
+            (0..6)
+                .map(|i| segment_distance(p[0], p[1], v[i], v[(i + 1) % 6]))
+                .fold(f64::INFINITY, f64::min)
+        };
+        let vertical = (p[2].abs() - 0.5 * cell.height).max(0.0);
+        lateral.hypot(vertical)
+    }
+
+    /// **The 23 sites are complete**: every lattice ball that reaches into a
+    /// tile's prism is one of that tile's 23 sites, and every site reaches in.
+    /// A missing site would leave a piece of a ball as helium.
+    #[test]
+    fn the_23_sites_are_every_ball_that_reaches_into_a_tile() {
+        let cell = SekerCell::from_paper();
+        let bed = SekerBed::new(cell, 4, 3, 5.0, 1.0e3, 900.0, None, FuelAssignment::Paper);
+        let level = 2;
+        let tz = bed.z_bottom + (f64::from(level) + 0.5) * cell.height;
+        let mine: std::collections::BTreeSet<SekerBallId> =
+            bed.tile_balls(0, 0, level).into_iter().collect();
+        assert_eq!(mine.len(), 23, "23 distinct balls");
+        for id in bed.all_balls() {
+            let [x, y, z] = bed.centre(id);
+            let d = distance_to_tile([x, y, z - tz], &cell);
+            let reaches = d < 3.0 - 1e-9;
+            assert_eq!(reaches, mine.contains(&id), "{id:?} at {d:.6} cm from the tile");
+        }
+    }
+
+    /// **The bed's height axis is Şeker's, by construction.** For every row of
+    /// Li's (= Şeker's) table, N layers give a bed exactly as tall as the
+    /// tabulated loading height.
+    #[test]
+    fn a_seker_bed_of_n_layers_is_as_tall_as_the_tabulated_height() {
+        for (i, &(h, _)) in super::super::RMC_KEFF_VS_HEIGHT.iter().enumerate() {
+            let n = 9 + i;
+            let cell = SekerCell::from_paper();
+            let built = cell.height * n as f64 + cell.ball_diameter;
+            assert!((built - h).abs() < 2.5e-3, "N = {n}: {built:.4} cm against {h} cm");
+        }
+    }
+
+    /// **Kept balls per plane against Şeker & Çolak (2003) Table 3**, the
+    /// independent check (gh:#430, gh:#472).
+    ///
+    /// Methodology: the full HTR-10 bed (r = 90 cm, conus 36.946 cm, tube r = 25
+    /// cm) at N = 12, every ball wholly inside the container kept (Şeker's
+    /// rejection rule). Şeker's rows imply 733 balls per basal plane and 613 per
+    /// central plane (total `1346 N + 733`).
+    ///
+    /// Pass criterion: set **before** building, from the prediction of a
+    /// Python replica of this cell over 34 lattice offsets (2026-10-01, gh:#429:
+    /// basal 710–721, central 609–619). Central within 1 % of 613 and basal
+    /// within 4 % of 733. The criterion checks the cell, not a fit: nothing
+    /// is tuned.
+    ///
+    /// **Results (2026-10-01), N = 12, lattice centred on the axis:**
+    ///
+    /// | quantity | this bed | Şeker Table 3 | diff |
+    /// |---|---|---|---|
+    /// | balls per basal plane | 721 (every plane) | 733 | −1.6 % |
+    /// | balls per central plane | 609 (every plane) | 613 | −0.7 % |
+    /// | total | 16 681 | 16 885 | −1.2 % |
+    /// | filling over the 123.576 cm bed | 0.5999 | 0.6073 | −1.2 % |
+    /// | fuel | 9508 of 16 681 | 9622 of 16 885 | |
+    ///
+    /// Inside the predicted ranges. The ~12 + 4 balls per layer that Şeker
+    /// keeps and this bed does not are a real, unexplained miss (gh:#472). The
+    /// candidates are Şeker's lattice offset or the exact rejection test.
+    /// Reported, not tuned.
+    #[test]
+    fn the_seker_bed_reproduces_table_3_per_plane_counts() {
+        let bed = htr10_bed(12);
+        let (basal, central) = bed.plane_counts();
+        let mean = |v: &[usize]| v.iter().sum::<usize>() as f64 / v.len() as f64;
+        let (mb, mc) = (mean(&basal), mean(&central));
+        let total: usize = basal.iter().sum::<usize>() + central.iter().sum::<usize>();
+        let v_ball = 4.0 / 3.0 * PI * 27.0;
+        let height = bed.bed_top - bed.bed_bottom;
+        let ff = total as f64 * v_ball / (PI * 90.0 * 90.0 * height);
+        println!("basal per plane {basal:?}, mean {mb:.1} (Seker 733)");
+        println!("central per plane {central:?}, mean {mc:.1} (Seker 613)");
+        println!(
+            "total {total} (Seker 1346 x 12 + 733 = 16885), bed {height:.3} cm, filling {ff:.4} \
+             (Seker's 16885 balls in the same bed: 0.6073)"
+        );
+        println!("fuel {} of {} eligible", bed.fuel_balls, bed.eligible_balls);
+        assert!((mc - 613.0).abs() / 613.0 < 0.01, "central {mc}");
+        assert!((mb - 733.0).abs() / 733.0 < 0.04, "basal {mb}");
+        // Every bed ball is eligible, and the split is 57:43 within one ball.
+        assert_eq!(bed.eligible_balls, total);
+        let f = super::super::table1::FUEL_BALL_FRACTION;
+        assert!((bed.fuel_balls as f64 - f * total as f64).abs() <= 1.0);
+    }
+
+    /// Every kept ball lies wholly inside the container, re-checked here
+    /// without the profile polygon (the bed cylinder above the floor; below
+    /// it, inside the cone or the tube).
+    #[test]
+    fn every_kept_seker_ball_is_whole() {
+        let bed = htr10_bed(10);
+        let slope = (90.0 - 25.0) / HTR10_CONUS_HEIGHT_CM;
+        let mut kept = 0;
+        for id in bed.all_balls() {
+            if !bed.is_present(id) {
+                continue;
+            }
+            kept += 1;
+            let [x, y, z] = bed.centre(id);
+            let rho = x.hypot(y);
+            assert!(z + 3.0 <= bed.bed_top + 1e-9, "{id:?} above the bed top");
+            if z + 3.0 > bed.bed_bottom {
+                assert!(rho + 3.0 <= 90.0 + 1e-9, "{id:?} crosses the side wall");
+            }
+            if z < bed.bed_bottom && z > bed.conus_floor {
+                let r_cone = 25.0 + slope * (z - bed.conus_floor);
+                assert!(rho < r_cone, "{id:?} centred outside the cone");
+            }
+            if z < bed.conus_floor {
+                assert!(rho + 3.0 <= 25.0 + 1e-9, "{id:?} crosses the tube wall");
+            }
+        }
+        assert!(kept > 15_000);
     }
 }

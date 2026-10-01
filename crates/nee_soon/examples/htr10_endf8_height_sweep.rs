@@ -23,7 +23,7 @@
 //!
 //! ```bash
 //! cargo build --release -p nee_soon --example htr10_endf8_height_sweep
-//! taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep n20
+//! taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep l12
 //! ./target/release/examples/htr10_endf8_height_sweep --list
 //! ```
 //!
@@ -150,7 +150,8 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
 struct CaseSpec {
     /// Case name, as typed on the command line.
     name: &'static str,
-    /// Axial tile count. The bed height follows from it.
+    /// Şeker layers N (since 2026-10-01, gh:#472). The bed height follows
+    /// from it: `9.798 N + 6` cm.
     n_axial: usize,
     /// Radial ring count.
     n_rings: usize,
@@ -195,48 +196,53 @@ macro_rules! case {
 // so each case has a reference point that needs no extrapolation.
 // ---------------------------------------------------------------------------
 
-fn case_n20() -> CaseSpec {
-    case!("n20", 20, 97.980)
+// ~~n20 … n41: half-layer counts 2N+1, built volume-equivalent~~ **CHANGED
+// 2026-10-01 (gh:#472):** one case per Şeker layer count N = 9..20. Şeker's
+// bed is built on the paper's own height axis (9.798 N + 6 cm, every ball
+// whole), so each case IS a tabulated row and needs no conversion or
+// interpolation (closes the gh:#427 driver defects for this bed).
+fn case_l09() -> CaseSpec {
+    case!("l09", 9, 94.182)
 }
-fn case_n21() -> CaseSpec {
-    case!("n21", 21, 102.879)
+fn case_l10() -> CaseSpec {
+    case!("l10", 10, 103.980)
 }
-fn case_n23() -> CaseSpec {
-    case!("n23", 23, 112.677)
+fn case_l11() -> CaseSpec {
+    case!("l11", 11, 113.778)
 }
-fn case_n25() -> CaseSpec {
-    case!("n25", 25, 122.475)
+fn case_l12() -> CaseSpec {
+    case!("l12", 12, 123.576)
 }
-fn case_n27() -> CaseSpec {
-    case!("n27", 27, 132.273)
+fn case_l13() -> CaseSpec {
+    case!("l13", 13, 133.374)
 }
-fn case_n29() -> CaseSpec {
-    case!("n29", 29, 142.071)
+fn case_l14() -> CaseSpec {
+    case!("l14", 14, 143.172)
 }
-fn case_n31() -> CaseSpec {
-    case!("n31", 31, 151.869)
+fn case_l15() -> CaseSpec {
+    case!("l15", 15, 152.970)
 }
-fn case_n33() -> CaseSpec {
-    case!("n33", 33, 161.667)
+fn case_l16() -> CaseSpec {
+    case!("l16", 16, 162.768)
 }
-fn case_n35() -> CaseSpec {
-    case!("n35", 35, 171.465)
+fn case_l17() -> CaseSpec {
+    case!("l17", 17, 172.566)
 }
-fn case_n37() -> CaseSpec {
-    case!("n37", 37, 181.263)
+fn case_l18() -> CaseSpec {
+    case!("l18", 18, 182.364)
 }
-fn case_n39() -> CaseSpec {
-    case!("n39", 39, 191.061)
+fn case_l19() -> CaseSpec {
+    case!("l19", 19, 192.162)
 }
-fn case_n41() -> CaseSpec {
-    case!("n41", 41, 200.859)
+fn case_l20() -> CaseSpec {
+    case!("l20", 20, 201.960)
 }
 
 /// Every case, in loading order.
 fn all_cases() -> Vec<fn() -> CaseSpec> {
     vec![
-        case_n20, case_n21, case_n23, case_n25, case_n27, case_n29, case_n31, case_n33, case_n35,
-        case_n37, case_n39, case_n41,
+        case_l09, case_l10, case_l11, case_l12, case_l13, case_l14, case_l15, case_l16, case_l17,
+        case_l18, case_l19, case_l20,
     ]
 }
 
@@ -602,7 +608,7 @@ fn main() {
             );
         }
         println!("\nRun one case per process, pinned to its own core:");
-        println!("  taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep n20");
+        println!("  taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep l12");
         return;
     }
 
