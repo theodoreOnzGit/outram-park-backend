@@ -74,9 +74,10 @@ fn palette() -> Vec<(Rgb, &'static str)> {
 /// centre, so the pebble centre is the tile offset PLUS the translation of
 /// the fuel-zone fill cell the point was found in.
 fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)> {
-    // A 2-D scan: the TRISO lattice puts particle centres at HALF-pitch
-    // offsets in x and y (`TRISO_OFFSET = [0.5, 0.5, 0.0]` in `core_model`), so
-    // a single line through a pebble centre can miss every kernel.
+    // A 2-D scan: the TRISO lattice puts particle centres at fractional-pitch
+    // offsets (`TRISO_OFFSET` in `core_model`; [0.13, 0.37, 0.71] since
+    // 2026-10-01), so a single line through a pebble centre can miss every
+    // kernel.
     let u = Direction::new(0.0, 0.0, 1.0);
     for j in 0..40 {
         for i in 0..4000 {

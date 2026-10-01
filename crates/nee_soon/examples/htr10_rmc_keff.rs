@@ -120,8 +120,9 @@
 //!   must correct them for the boring geometries. Unadjusted, they smear the
 //!   control-rod and helium-flow channels uniformly.
 //! - **No control rods or absorber balls** are modelled.
-//! - The realised TRISO count is **8340**, not 8335 — unattainable, see
-//!   `cubic_array_in_ball`.
+//! - ~~The realised TRISO count is **8340**, not 8335 — unattainable, see
+//!   `cubic_array_in_ball`.~~ **CORRECTED 2026-10-01 (gh:#430):** 8335, as
+//!   stated (Şeker & Çolak 2003 p.266), through a generic lattice offset.
 
 use std::time::Instant;
 

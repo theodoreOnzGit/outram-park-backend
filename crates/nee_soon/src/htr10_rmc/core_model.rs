@@ -953,7 +953,10 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 /// particle universe or matrix graphite, with `outer` = matrix so anything
 /// beyond the array's extent is graphite.
 ///
-/// The realised particle count is **8340**, not the paper's stated 8335.
+/// ~~The realised particle count is **8340**, not the paper's stated 8335.~~
+/// **CHANGED 2026-10-01 (gh:#430):** the realised count is the stated
+/// **8335**, through a generic lattice offset (see `TRISO_OFFSET` in the body).
+/// The struck history follows.
 /// ~~See `cubic_array_in_ball`'s docs for why 8335 is unattainable (the count
 /// moves in symmetry shells).~~ **CORRECTED 2026-10-01 (gh:#430):** 8335 **is**
 /// attainable: a generic lattice offset gives exactly 8335, and Şeker & Çolak
@@ -1034,7 +1037,17 @@ pub fn assemble_explicit_triso(
     // pebble carried 1.2 % less heavy metal than reported; sampling the built
     // core measured 0.9875 +/- 0.0014 of the paper-implied kernel fraction,
     // against 8240/8340 = 0.9880.
-    const TRISO_OFFSET: [f64; 3] = [0.5, 0.5, 0.0];
+    //
+    // ~~`[0.5, 0.5, 0.0]`, 8340 particles (+0.06 %)~~ **CHANGED 2026-10-01
+    // (gh:#430):** a generic offset reaches the stated 8335 exactly. Şeker &
+    // Çolak (2003) p.266 build the same whole-particle cubic lattice and state
+    // that the count *"is verified to be 8335"*. The symmetric offsets tried
+    // before can only move the count in symmetry shells; this one breaks the
+    // symmetry, and the pitch search finds 8335 at 0.1951235 cm. That is the
+    // source's specification realised, not a comparison tuned: 8335 is an
+    // INPUT (Li Table 2, Şeker p.266), and the `assert_eq!` below checks the
+    // built lattice holds exactly the counted number.
+    const TRISO_OFFSET: [f64; 3] = [0.13, 0.37, 0.71];
     let (pitch_triso, n_particles) = cubic_pitch_for_count(r_part, r_fuel_zone, 8335, TRISO_OFFSET);
     // A cubic lattice spanning the fuel zone; tiles outside it fall through to
     // `outer` = matrix graphite, which is exactly the "not occupied is filled
