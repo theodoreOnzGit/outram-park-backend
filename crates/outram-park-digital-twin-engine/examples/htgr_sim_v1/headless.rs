@@ -439,6 +439,8 @@ mod tests {
     /// (gh:#319), the single beta (gh:#387) and the uncredited building
     /// (gh:#409)
     ///
+    /// Also not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
     /// The fixture is stale against all four; per the maintainer's
     /// 2026-09-29 direction it is **not re-measured; pending validation
     /// work**. Expect this ignored test to fail until then.

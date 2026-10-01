@@ -5101,6 +5101,8 @@ mod tests {
     /// | **riser leg (2026-09-29, gh:#397)** | 16.1377 MW | **NOT REACHED** | -- | 1343.5 K | 1.6886 MW / 1320.8 K / 1318.4 K |
     /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | 16.1277 MW | **NOT REACHED** | -- | 1344.2 K | 1.8491 MW / 1320.9 K / 1318.3 K |
     ///
+    /// Table not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
     /// **gh:#403:** fission at 600 s rose 9.5 % (1.6886 -> 1.8491 MW). The
     /// cold-return CV now holds ~194 kg of helium, 20x more, so after the trip
     /// the core inlet follows the steam generator ~20x more slowly. The outcome
@@ -5422,6 +5424,8 @@ mod tests {
     /// | **passive path in the bed's implicit solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | **16.0693 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
     /// | **riser leg (2026-09-29, gh:#397)** | **15.8803 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
     /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | **15.8813 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
+    ///
+    /// Table not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
     ///
     /// **Riser leg:** -1.18 % in power. The side reflector now hands about
     /// 0.33 MW to the helium rising through its channels, which re-enters the
