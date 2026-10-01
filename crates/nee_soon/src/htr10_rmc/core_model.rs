@@ -396,6 +396,13 @@ pub struct AssembledCore {
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
 ///
+/// **WITHDRAWN 2026-10-01 (maintainer): this function panics.** Its one-ball
+/// tile clips every pebble at the tile faces, so its pebbles are cut, and
+/// *"the cut pebble is wrong physics, never run it for ablation again"*. It
+/// is not to be run as a diagnostic or an ablation. Use
+/// [`assemble_explicit_triso`], whose balls are all whole. The body is kept
+/// only as the record of what earlier numbers were computed on.
+///
 /// # NOT a benchmark model, and not only because the fuel is homogenised
 ///
 /// **This is a COST INSTRUMENT.** Beyond the homogenised fuel zone its
@@ -422,7 +429,12 @@ pub struct AssembledCore {
 ///   completely, so this cannot shrink the core; it can only over-tile.
 /// - `n_axial` — axial layers, each [`HexBedCell::height`]/2 tall.
 /// - `majorant_index` — which entry of the caller's majorant table the bed uses.
+#[allow(unreachable_code, unused_variables)]
 pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> AssembledCore {
+    panic!(
+        "core_model::assemble is withdrawn (2026-10-01): its one-ball tile cuts pebbles, which \
+         is wrong physics. Use assemble_explicit_triso."
+    );
     let cell = HexBedCell::from_paper();
     let r_pebble = cell.ball_diameter * 0.5;
     let r_fuel_zone = 2.5;

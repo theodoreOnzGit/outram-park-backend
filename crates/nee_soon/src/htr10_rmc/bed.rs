@@ -126,7 +126,8 @@
 //! step 2, gh:#310). Until then the lattice held one ball per half-height tile,
 //! which dropped the A-B offset and made the pebbles interpenetrate.
 //! [`bed_tile_levels`] (one identity per TILE) remains only for the
-//! homogenised `core_model::assemble`.
+//! homogenised `core_model::assemble`, itself withdrawn 2026-10-01 (it cuts
+//! pebbles, which is wrong physics).
 
 use std::f64::consts::PI;
 

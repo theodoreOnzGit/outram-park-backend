@@ -763,17 +763,16 @@ fn main() {
 
     // OUTRAM_HTR10_SURFACE=1 runs the SAME geometry with surface tracking only.
     let surface_only = std::env::var("OUTRAM_HTR10_SURFACE").is_ok();
-    // OUTRAM_HTR10_HOMOG=1 drops the nested TRISO lattice for a homogenised
-    // fuel zone. Not physical (the zone becomes pure kernel material) but it
-    // DISCRIMINATES: if this fissions and the explicit model does not, the TRISO
-    // lattice is the culprit.
-    let homog = std::env::var("OUTRAM_HTR10_HOMOG").is_ok();
+    // ~~OUTRAM_HTR10_HOMOG=1 drops the nested TRISO lattice for a homogenised
+    // fuel zone (the one-ball `core_model::assemble`).~~ WITHDRAWN 2026-10-01
+    // (maintainer): that model cuts pebbles at its tile faces, which is wrong
+    // physics, and it is never to be run, not even as a diagnostic.
+    assert!(
+        std::env::var("OUTRAM_HTR10_HOMOG").is_err(),
+        "OUTRAM_HTR10_HOMOG is withdrawn: the one-ball model cuts pebbles (wrong physics)"
+    );
     let maj_idx = if surface_only { usize::MAX } else { 0 };
-    let core = if homog {
-        nee_soon::htr10_rmc::core_model::assemble(rings, 2 * layers + 1, maj_idx)
-    } else {
-        assemble_explicit_triso(rings, layers, maj_idx)
-    };
+    let core = assemble_explicit_triso(rings, layers, maj_idx);
     // The no-withdrawn-rods modelling assumption (see `nuclides`): the rod
     // metals were not loaded, so drop their components, and PROVE that no
     // cell is filled with a material that lost them.
@@ -814,14 +813,7 @@ fn main() {
             );
         }
     }
-    println!(
-        "  fuel zone: {}",
-        if homog {
-            "HOMOGENISED"
-        } else {
-            "explicit TRISO lattice"
-        }
-    );
+    println!("  fuel zone: explicit TRISO lattice");
     println!(
         "  tracking: {}",
         if surface_only {

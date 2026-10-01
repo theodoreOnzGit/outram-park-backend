@@ -125,7 +125,7 @@ pub struct Htr10Plotter {
 
 impl Htr10Plotter {
     /// Wrap an assembled core. Panics if the core has no ball description
-    /// (the one-ball [`super::core_model::assemble`] path).
+    /// (the one-ball [`super::core_model::assemble`] path, withdrawn 2026-10-01).
     #[must_use]
     pub fn new(core: AssembledCore) -> Self {
         assert!(

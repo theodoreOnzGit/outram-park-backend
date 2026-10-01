@@ -195,7 +195,9 @@ fn the_reference_curve_implies_a_critical_height() {
 ///
 /// Since 2026-10-01 (gh:#472) the explicit model is loaded in Şeker layers
 /// (N = 9, 12, 20: the lowest, critical and tallest rows) and the homogenised
-/// one in the equivalent `2N + 1` half-layers.
+/// one in the equivalent `2N + 1` half-layers. ~~The homogenised one-ball
+/// model was checked alongside.~~ It was withdrawn on 2026-10-01 because it cuts
+/// pebbles, so it is no longer built here.
 ///
 /// Two construction defects of exactly this class have shipped: a constant
 /// void that grew the cavity with the bed, and a bottom boundary MIRRORED from
@@ -206,7 +208,7 @@ fn the_reference_curve_implies_a_critical_height() {
 /// reported fields.
 #[test]
 fn the_axial_stack_matches_terry_at_every_loading() {
-    use crate::htr10_rmc::core_model::{assemble, assemble_explicit_triso};
+    use crate::htr10_rmc::core_model::assemble_explicit_triso;
     use outram_mc_libs::geometry::surface::SurfaceKind;
     let z_of = |s: &SurfaceKind| match s {
         SurfaceKind::ZPlane(p) => p.z0,
@@ -247,28 +249,6 @@ fn the_axial_stack_matches_terry_at_every_loading() {
             z_of(&c.geometry.surfaces[12]),
             c.refl_top,
             "top vacuum plane",
-            n,
-        );
-
-        // The homogenised diagnostic model has the same outer extent
-        // (surfaces 6/7), with reflector graphite where the conus would be.
-        let h = assemble(14, 2 * n + 1, 0);
-        close(
-            h.refl_top - h.refl_bottom,
-            610.0,
-            "homogenised: whole model",
-            n,
-        );
-        close(
-            z_of(&h.geometry.surfaces[6]),
-            h.refl_bottom,
-            "homogenised: bottom plane",
-            n,
-        );
-        close(
-            z_of(&h.geometry.surfaces[7]),
-            h.refl_top,
-            "homogenised: top plane",
             n,
         );
     }
