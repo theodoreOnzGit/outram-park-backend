@@ -82,6 +82,61 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-10-02 — re-measured on current `develop` (`63460359d8`)
+
+725 commits since the 09-14 entry, including URR/DBRC default-on and the
+2026-09-30 OpenMC-parity audit (#460, #313, #461, #463), and nothing had
+re-measured this record. Re-run at the maintainer's request to regenerate the
+double-heterogeneity paper's figures. Same driver, seed and statistics as the
+09-14 entry; logs in `logs_2026_10_02/`.
+
+**Predicted before the run:** `RPT − explicit` stays consistent with zero
+(every change acts on both arms); absolute k may move by a few hundred pcm,
+sign not predicted.
+
+**Run:** `examples/fhr_ring_rpt_endf.rs`, 4000 × [30 inactive + 80 active],
+reflective sphere r = 3, seed 20260910, ENDF/B-VIII.0 + `c_Graphite`,
+`ComputeType::CpuMultiThread` pinned to 15 cores (`taskset -c 0-14`),
+i9-13900K.
+
+| case | tracking | `outram-mc-libs` | OpenMC | Δ |
+|---|---|---|---|---|
+| explicit TRISO | delta | **1.36383 ± 0.00184** | 1.36510 ± 0.00063 | **−127 pcm (0.65σ)** |
+| ring-RPT | delta | **1.36586 ± 0.00245** | 1.36479 ± 0.00067 | **+107 pcm (0.42σ)** |
+| ring-RPT | CSG | **1.36324 ± 0.00209** | 1.36479 ± 0.00067 | −155 pcm (0.71σ) |
+| naive homogenised | delta | **1.33080 ± 0.00217** | — | — |
+
+| gate | 10-02 | 09-14 |
+|---|---|---|
+| RPT − explicit | **+203 ± 307 pcm (0.66σ)** | +260 ± 303 |
+| naive − explicit | **−3303 ± 284 pcm (11.6σ)** | −3405 ± 294 |
+| CSG − delta-tracked | **−262 ± 322 pcm (0.81σ)** | +441 ± 310 |
+| explicit vs OpenMC | **−127 pcm** | −460 |
+| ring-RPT vs OpenMC | **+107 pcm** | −168 |
+
+The prediction held. Cross-code RPT equivalence holds: +203 ± 307 against
+OpenMC's −31 ± 92, a difference of 0.73σ. Both absolute values moved by about
++300 pcm towards OpenMC. At one seed per arm and ~270 pcm combined σ, that is
+**not resolved** as a code effect (gh:#196 pooling still open). The
+`CSG − delta` gate swung sign again (+441 → −262), still inside 1σ on both
+draws.
+
+**The treatment comparison was re-run too** (`examples/dh_keff_vv.rs`,
+`OUTRAM_DH_VV_HISTORIES=7200`, 15 + 40 cycles, `CpuSingleThread`, one process
+per arm via `OUTRAM_DH_ONLY`, the three run concurrently):
+
+| treatment | k | time | speed-up | Δ vs exact |
+|---|---|---|---|---|
+| delta tracking | 1.38155 ± 0.00222 | 45.3 s | 1.00× | — |
+| naive homogenisation | 1.34019 ± 0.00280 | 29.9 s | 1.52× | −4136 pcm (11.6σ) |
+| ring-RPT | 1.38394 ± 0.00204 | 27.2 s | 1.67× | +239 pcm (0.8σ) |
+
+The 09-14 record (2.1 GHz cloud Xeon) had 841.7 / 480.8 / 394.9 s and
+1.75× / 2.13×. The absolute times fell ~18× and the speed-up ratios fell too;
+neither change was investigated. CLS/SCLS were not re-run.
+
+Not a validated result — an AI-assisted code-to-code check, no human V&V.
+
 ## 2026-09-14 — re-extraction: the MF=6 state measured with absolutes
 
 The 2026-09-13 (later) entry below recorded the MF=6 change as **pcm deltas

@@ -74,6 +74,15 @@
 //! number, while our delta arm **is** comparable to the published explicit one.
 //! `examples/fhr_ring_rpt_endf.rs` matches the deck instead, deliberately.
 //!
+//! # Results — re-measured 2026-10-02 (delta, naive, ring-RPT only)
+//!
+//! At `develop` `63460359d8`, i9-13900K, one single-threaded process per arm:
+//! delta `1.38155 ± 0.00222` (45.3 s), naive `1.34019 ± 0.00280` (29.9 s,
+//! 1.52×, −4136 pcm, 11.6σ), ring-RPT `1.38394 ± 0.00204` (27.2 s, 1.67×,
+//! +239 pcm, 0.8σ). Full entry and logs:
+//! `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md` (2026-10-02).
+//! The 2026-09-14 table below is the previous state, kept as the record.
+//!
 //! # Results — measured 2026-09-14
 //!
 //! 7200 histories x [15 inactive + 40 active], single-threaded
