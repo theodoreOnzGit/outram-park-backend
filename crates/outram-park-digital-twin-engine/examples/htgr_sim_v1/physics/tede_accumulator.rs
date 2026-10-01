@@ -165,10 +165,11 @@ impl TedeAccumulator {
 
     /// Zero every integral and the clock.
     ///
-    /// The simulator has no "reset plant" control: **Restart simulation**
-    /// builds a fresh `HtgrPlant`, whose accumulator starts at zero through
-    /// [`Self::new`]. This is the in-place equivalent, for a future reset
-    /// control and for the tests.
+    /// ~~The simulator has no "reset plant" control~~ **CORRECTED 2026-10-01**:
+    /// the Map tab's **Reset plant** button (`MapAction::ResetPlant`) and the
+    /// crash modal's restart both go through `HtgrSimApp::restart_simulation`,
+    /// which builds a fresh `HtgrPlant`, whose accumulator starts at zero
+    /// through [`Self::new`]. This is the in-place equivalent, for the tests.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn reset(&mut self) {
         *self = Self::new();
