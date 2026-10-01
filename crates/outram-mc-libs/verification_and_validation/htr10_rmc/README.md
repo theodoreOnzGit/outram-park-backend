@@ -19,7 +19,38 @@ with the OpenMC-parity plotter, from the whole R-Z model down to one TRISO
 particle. ~~gh:#309 and gh:#310 are directly visible there.~~ Regenerated
 2026-09-25 for the two-ball cell, which fixes both — see the next section.
 
-## The two-ball prism cell (2026-09-25, gh:#309 step 2, gh:#310) — CURRENT
+## Şeker & Çolak (2003)'s 13-ball cell (2026-10-01, gh:#472) — CURRENT
+
+**Status:** geometry verified (built-geometry tests, sampling, images), with
+an uncalibrated check against the source's own ball counts. The eigenvalue is
+being re-measured. AI-assisted, not yet reviewed by the maintainer.
+
+**What changed.** The cell is now Şeker & Çolak's, reconstructed from their
+text and Fig. 3 with no free parameter:
+- apothem 8.196 cm, pitch 16.392 cm, height 9.798 cm;
+- a 7-ball touching flower on each face and a 6-ball triangle at mid-height,
+  13 balls per prism.
+
+It is used as follows:
+- every ball is whole, rejected at the side wall, cone and tube (Şeker p.267);
+- the bed is `9.798 N + 6` cm, the reference's own height axis;
+- `assemble_explicit_triso`'s second argument is now N.
+
+Derivation and tests: `nee_soon::htr10_rmc::bed::SekerCell` / `SekerBed`. The
+two-ball cell below is the `OUTRAM_HTR10_TWO_BALL_CELL=1` ablation.
+
+**Check against Şeker Table 3 (N = 12), nothing fitted:**
+
+| quantity | this model | Şeker Table 3 |
+|---|---|---|
+| balls per basal plane | 721 | 733 (−1.6 %) |
+| balls per central plane | 609 | 613 (−0.7 %) |
+| balls in total | 16 681 | 16 885 (−1.2 %) |
+
+**Images:** `crates/nee_soon/verification_and_validation/htr10_geometry_images/`,
+regenerated 2026-10-01.
+
+## ~~The two-ball prism cell (2026-09-25, gh:#309 step 2, gh:#310) — CURRENT~~ The two-ball prism cell (2026-09-25), superseded as default 2026-10-01
 
 **Status: geometry verified (sampling, built-geometry tests, images); the
 eigenvalue residual it produces is an open question.** Branch
