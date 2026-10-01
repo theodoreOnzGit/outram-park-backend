@@ -53,6 +53,43 @@ ablation. Its numbers below stay as history.
 **Images:** `crates/nee_soon/verification_and_validation/htr10_geometry_images/`,
 regenerated 2026-10-01.
 
+### First eigenvalue on Şeker's cell (2026-10-01, fast statistics, single seed: tentative)
+
+**Methodology.**
+- **Command:** `htr10_rmc_keff` with `OUTRAM_HTR10_RINGS=14
+  OUTRAM_HTR10_LAYERS=12 OUTRAM_HTR10_NI_AS_FE=1 OUTRAM_HTR10_FE57_AS_FE56=1
+  OUTRAM_HTR10_THREADS=6`, at commit `348eec9305` (geometry) / `f51a581f5b`.
+- **Model:** N = 12 is the critical row, 123.576 cm, built on the reference's
+  own height axis, so no height mapping and no interpolation.
+- **Data:** ENDF/B-VIII.0, 30P reactor graphite S(α,β), 300.15 K.
+- **Statistics:** 2000 histories × [30 inactive + 70 active], seed 20260917,
+  hybrid delta/surface tracking.
+- **Assumptions:** rod steel Ni → Fe and Fe-57 → Fe-56, as stated in the log.
+- **Reference:** Li, Yu & Wei (2014) RMC, 1.004288 at this row.
+
+**Results.**
+
+| quantity | value |
+|---|---|
+| k_eff | **0.987043 ± 0.003022** |
+| residual vs RMC | **−1724 ± 302 pcm** (VIII.0; the references used VII.0, and that offset is not corrected) |
+| MCNP gauge (Şeker's own model) | 1.003298 vacuum (−1625 pcm), 1.004788 helium (−1774 pcm) |
+| geometry | 22 974 tiles, 43 445 cells, 1 502 universes |
+| locate | 0 lost, 0 stuck, 0 negative distances |
+| entropy | 5.548 → 5.514 bits |
+| run | data 175.8 s, transport 543.6 s, on an AMD Ryzen 5 5600 (6 threads, 15.5 GiB) |
+
+**Interpretation.** This is the first k on a bed whose every pebble is whole,
+built on the reference's own heights. It is **not** a paired measurement of
+the cell change:
+- The last two-ball number at this row (0.977026, −2726 pcm, 2026-09-26)
+  predates the #459 thermal-data and OpenMC-parity changes on `develop`.
+- The two-ball bed is withdrawn (it cuts pebbles) and is not re-run.
+
+So the +1000 pcm between the two numbers is **not attributed** to the cell.
+Single seed, one height: the drift (gh:#218/#336) needs the twelve-row sweep
+(`htr10_endf8_height_sweep l09 … l20`).
+
 ## ~~The two-ball prism cell (2026-09-25, gh:#309 step 2, gh:#310) — CURRENT~~ The two-ball prism cell (2026-09-25), superseded as default 2026-10-01
 
 **Status: geometry verified (sampling, built-geometry tests, images); the
