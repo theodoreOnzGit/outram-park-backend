@@ -23,13 +23,9 @@
 //! cargo run --release -p nee_soon --example htr10_rod_metal_full
 //! ```
 //!
-//! **BLOCKED on gh:#339 (2026-10-01).** This case loads ENDF/B-VIII.0 Fe-57,
-//! whose reconstruction (LRF=7, three particle pairs) exhausted 13.4 GB and was
-//! OOM-killed. Until #339 is fixed the shared loader refuses the case before it
-//! reads any tape and this example prints `REFUSED: BLOCKED on gh:#339 ...`.
-//! It does **not** fall back to Fe-56: that is the simplified case, which is a
-//! separate example ([`htr10_rod_metal_simplified`](../htr10_rod_metal_simplified/index.html)).
-//! Whoever fixes #339 flips `nee_soon::htr10_rmc::data::FE57_RECONSTRUCTION_FIXED`.
+//! ~~**BLOCKED on gh:#339 (2026-10-01).** This case loads ENDF/B-VIII.0 Fe-57, whose reconstruction (LRF=7, three particle pairs) exhausted 13.4 GB and was OOM-killed. Until #339 is fixed the shared loader refuses the case before it reads any tape and this example prints `REFUSED: BLOCKED on gh:#339 ...`. It does **not** fall back to Fe-56: that is the simplified case, which is a separate example ([`htr10_rod_metal_simplified`](../htr10_rod_metal_simplified/index.html)). Whoever fixes #339 flips `nee_soon::htr10_rmc::data::FE57_RECONSTRUCTION_FIXED`.~~
+//! **UNBLOCKED 2026-10-01:** gh:#339 is fixed (Fe-57 reconstructs in 0.10 s,
+//! word for word NJOY2016) and `FE57_RECONSTRUCTION_FIXED` is `true`.
 //!
 //! ## Treatment (maintainer decision 2026-10-01, gh:#329)
 //!

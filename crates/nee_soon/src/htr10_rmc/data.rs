@@ -30,8 +30,8 @@
 //! - **natural carbon**, C-12 / C-13 at 98.93 / 1.07 at.% (gh:#425);
 //! - **helium coolant** at 300.15 K and 101.33 kPa (gh:#426);
 //! - **real nickel and iron** in the rod steel, Ni-58/60/61/62/64 and
-//!   Fe-54/56/57/58 (gh:#329), which cannot be loaded until gh:#339 is fixed
-//!   (see [`FE57_RECONSTRUCTION_FIXED`]);
+//!   Fe-54/56/57/58 (gh:#329). ~~which cannot be loaded until gh:#339 is
+//!   fixed~~ #339 is fixed (2026-10-01; see [`FE57_RECONSTRUCTION_FIXED`]);
 //! - every bound thermal law: graphite (30P), C-in-SiC, Si-in-SiC, U-in-UO2,
 //!   O-in-UO2.
 //!
@@ -65,7 +65,15 @@ use super::materials::{GraphiteLaw, RodMetalNuclides, ROD_METAL_TAPES_ENDF8};
 ///
 /// Whoever fixes gh:#339 flips this to `true` in the same change, after
 /// measuring the reconstruction's peak memory.
-pub const FE57_RECONSTRUCTION_FIXED: bool = false;
+///
+/// **FLIPPED to `true` 2026-10-01 (gh:#339 fixed in `njoy-outram-park-fork`).**
+/// The cause was a wrong operand in the ported LINPACK `xdot` (upstream
+/// `samm.f90:6189, 6201-6204`), which mis-inverted every spin group with four
+/// or more coupled channels, plus the missing non-negativity guard of upstream
+/// `reconr.f90:2641-2645`. Fe-57 now reconstructs in 0.10 s at 24 MB peak RSS,
+/// word for word NJOY2016's PENDF
+/// (`njoy-outram-park-fork/tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`).
+pub const FE57_RECONSTRUCTION_FIXED: bool = true;
 
 /// Which evaluated library the nuclides come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
