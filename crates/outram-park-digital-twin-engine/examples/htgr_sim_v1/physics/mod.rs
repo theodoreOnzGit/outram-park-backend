@@ -188,6 +188,8 @@ pub mod protection;
 pub mod reactor_model;
 pub mod secondary_loop;
 pub mod steam_generator;
+/// Steady Gaussian-plume (buangkok/pyDOSEIA) chi/Q overlay for the Map tab (gh:#470).
+pub mod steady_plume_overlay;
 /// Remedies for a steam-generator temperature cross -- see the module docs for
 /// why they exist and why the default does nothing.
 pub mod temperature_cross;

@@ -214,6 +214,9 @@ changi = { workspace = true, features = ["gpu"] }
 # no_std), so Android and wasm stay clean.
 # SCOPE: research/education only -- never a dose to any real person, never for
 # emergency or regulatory use (RESPONSIBLE_USE.md, buangkok's CLAUDE.md).
+# Also the map's optional steady Gaussian-plume overlay (gh:#470,
+# `physics::steady_plume_overlay`): buangkok's pyDOSEIA single-plume master
+# equation evaluated per grid cell.
 buangkok = { workspace = true }
 
 # htgr_sim_v1's map "Bounding air ingress" button (#453): the HTR-10 bounding

@@ -579,9 +579,176 @@ pub struct MapTabState {
     /// Whether the **Bounding air ingress** comparison is shown (#453). A
     /// display toggle, not a scenario: it starts nothing in the plant.
     bounding_air_ingress: bool,
+    /// Whether the **steady Gaussian plume** overlay (buangkok/pyDOSEIA,
+    /// gh:#470) is drawn over the live puff field. Off by default; a display
+    /// toggle only.
+    plume_overlay: bool,
+    /// The cached steady-plume `chi/Q` field \[s/m^3\] and what it was
+    /// evaluated for. Re-evaluated only when the wind, the class or the grid
+    /// changes -- unlike the puff, the steady plume has no clock.
+    plume_chi: Option<(PlumeFieldKey, Vec<f64>)>,
+    /// The uploaded plume overlay and what it was built from.
+    plume_texture: Option<TextureHandle>,
+    plume_built_for: Option<PlumeTextureKey>,
+}
+
+/// What the steady-plume `chi/Q` field depends on -- all of it, so this one
+/// IS a content key (the steady plume has no history).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PlumeFieldKey {
+    cells: usize,
+    half_width_m: f64,
+    wind_from_deg: f64,
+    speed_m_per_s: f64,
+    class: buangkok::pydoseia::dispersion::StabilityClass,
+}
+
+/// What the plume overlay texture was built from: the field plus the factor
+/// and contour range that turn it into lines.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PlumeTextureKey {
+    field: PlumeFieldKey,
+    factor: f64,
+    lo: f64,
+    hi: f64,
+}
+
+/// The steady plume's value in the painted basis: `chi/Q x` the basis's
+/// CURRENT factor (release rate \[Bq/s\], per-Ci rate, 1, or dose rate per
+/// unit `chi/Q`) -- a steady release at today's rate, which is what a steady
+/// plume is. Returns the factor and whether it is the painted basis (`false`
+/// = the factor is unavailable and the overlay falls back to `chi/Q`).
+fn plume_factor(basis: MapBasis, s: &HtgrSnapshot) -> (f64, bool) {
+    let f = basis.factor(s);
+    if f.is_finite() && f > 0.0 {
+        (f, true)
+    } else {
+        (1.0, false)
+    }
+}
+
+/// Contour range used when the overlay has fallen back to `chi/Q` on a
+/// non-`chi/Q` basis \[s/m^3\]: a drawing range, not physics.
+const PLUME_FALLBACK_CHI_RANGE: (f64, f64) = (1.0e-9, 1.0e-2);
+
+/// Colour of the steady-plume contour lines.
+const PLUME_COLOUR: Color32 = Color32::from_rgb(200, 0, 200);
+
+/// The contour band of `v` on decades within `(lo, hi]`: `None` at or below
+/// `lo`, else `floor(log10 v)` clamped to the top decade.
+fn plume_band(v: f64, lo: f64, hi: f64) -> Option<i32> {
+    if !(v > lo) || !v.is_finite() {
+        return None;
+    }
+    Some(v.min(hi).log10().floor() as i32)
+}
+
+/// The overlay's pixels: a cell is painted [`PLUME_COLOUR`] where its decade
+/// band differs from a 4-neighbour's (an iso-line at every decade of the
+/// painted unit between `lo` and `hi`), transparent elsewhere. Every band is
+/// decided from that cell's own evaluation.
+fn plume_contour_pixels(
+    values: &[f64],
+    cells: usize,
+    factor: f64,
+    lo: f64,
+    hi: f64,
+) -> Vec<Color32> {
+    let band = |i: usize| plume_band(values[i] * factor, lo, hi);
+    let mut px = vec![Color32::TRANSPARENT; cells * cells];
+    for row in 0..cells {
+        for column in 0..cells {
+            let i = row * cells + column;
+            let b = band(i);
+            if b.is_none() {
+                continue;
+            }
+            let mut edge = false;
+            if column + 1 < cells && band(i + 1) != b {
+                edge = true;
+            }
+            if column > 0 && band(i - 1) != b {
+                edge = true;
+            }
+            if row + 1 < cells && band(i + cells) != b {
+                edge = true;
+            }
+            if row > 0 && band(i - cells) != b {
+                edge = true;
+            }
+            if edge {
+                px[i] = PLUME_COLOUR;
+            }
+        }
+    }
+    px
 }
 
 impl MapTabState {
+    /// The steady-plume field key for this snapshot, `None` when the live
+    /// puff has no class yet (before the first dispersion run) or no grid.
+    fn plume_key(s: &HtgrSnapshot) -> Option<PlumeFieldKey> {
+        let class = crate::physics::steady_plume_overlay::class_from_letter(s.stability_class)?;
+        if s.dispersion_grid_cells == 0 || !(s.dispersion_grid_half_width_m > 0.0) {
+            return None;
+        }
+        Some(PlumeFieldKey {
+            cells: s.dispersion_grid_cells,
+            half_width_m: s.dispersion_grid_half_width_m,
+            wind_from_deg: s.wind_from_deg,
+            speed_m_per_s: s.wind_speed_m_per_s,
+            class,
+        })
+    }
+
+    /// The overlay texture for this snapshot, re-evaluating the plume only
+    /// when its key changed and re-uploading only when the lines changed.
+    fn plume_texture(
+        &mut self,
+        ui: &Ui,
+        s: &HtgrSnapshot,
+        factor: f64,
+        lo: f64,
+        hi: f64,
+    ) -> Option<&TextureHandle> {
+        let key = Self::plume_key(s)?;
+        if self.plume_chi.as_ref().map(|(k, _)| *k) != Some(key) {
+            let field = crate::physics::steady_plume_overlay::chi_over_q_field(
+                key.cells,
+                key.half_width_m,
+                key.wind_from_deg,
+                key.speed_m_per_s,
+                key.class,
+            );
+            self.plume_chi = Some((key, field));
+        }
+        let tkey = PlumeTextureKey {
+            field: key,
+            factor,
+            lo,
+            hi,
+        };
+        if self.plume_built_for != Some(tkey) || self.plume_texture.is_none() {
+            let (_, values) = self.plume_chi.as_ref().expect("evaluated above");
+            let image = ColorImage::new(
+                [key.cells, key.cells],
+                plume_contour_pixels(values, key.cells, factor, lo, hi),
+            );
+            match &mut self.plume_texture {
+                Some(handle) => handle.set(image, TextureOptions::NEAREST),
+                None => {
+                    self.plume_texture = Some(ui.ctx().load_texture(
+                        "htgr_steady_plume_overlay",
+                        image,
+                        TextureOptions::NEAREST,
+                    ))
+                }
+            }
+            self.plume_built_for = Some(tkey);
+        }
+        self.plume_texture.as_ref()
+    }
+
     /// The scale in force for `basis`.
     fn scale_for(&self, basis: MapBasis, s: &HtgrSnapshot, field_peak: f64) -> ColourScale {
         self.scales[basis.index()].unwrap_or_else(|| default_scale(basis, s, field_peak))
@@ -802,9 +969,15 @@ fn draw_dose_scale_ramp_with_reference(ui: &mut Ui, scale: ColourScale) {
 ///
 /// # Why a rose and not a contour plot
 ///
-/// A contour plot of a Gaussian plume looks authoritative and would be, here,
+/// ~~A contour plot of a Gaussian plume looks authoritative and would be, here,
 /// an interpolation between 24 evaluated points -- a picture of a plume rather
-/// than a readout of one, which this crate's rule forbids. The rose draws
+/// than a readout of one, which this crate's rule forbids.~~ **SUPERSEDED
+/// 2026-10-01 (gh:#470):** the optional steady Gaussian-plume overlay
+/// ([`crate::physics::steady_plume_overlay`]) draws decade contours of a
+/// plume evaluated at **every grid cell** (buangkok's pyDOSEIA master
+/// equation at each cell centre), so its lines are a readout, not an
+/// interpolation between 24 points. The objection still holds for anything
+/// drawn from the receptor ring alone. The rose draws
 /// exactly the points that were computed and nothing between them. It also
 /// makes the sector structure visible, so nobody mistakes the resolution for
 /// finer than it is.
@@ -885,6 +1058,77 @@ fn draw_dispersion_rose(
             Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
             Color32::WHITE,
         );
+    }
+    // --- the steady Gaussian plume overlay (gh:#470), over the puff ---
+    //
+    // Decade contour lines in magenta on the SAME grid as the puff field, so
+    // the instantaneous puff (colours) and the steady plume (lines) read as
+    // two different things. In the painted basis when its factor is
+    // available, otherwise chi/Q with the fallback said on the map.
+    if state.plume_overlay {
+        let (factor, in_basis) = plume_factor(basis, s);
+        let (lo, hi, unit) = if in_basis {
+            (scale.floor, scale.top(), basis.unit())
+        } else {
+            (
+                PLUME_FALLBACK_CHI_RANGE.0,
+                PLUME_FALLBACK_CHI_RANGE.1,
+                MapBasis::ChiOverQ.unit(),
+            )
+        };
+        let half_width = s.dispersion_grid_half_width_m;
+        if let Some(texture) = state.plume_texture(ui, s, factor, lo, hi) {
+            let field_rect = Rect::from_center_size(centre, Vec2::splat(2.0 * grid_px));
+            painter.image(
+                texture.id(),
+                field_rect,
+                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                Color32::WHITE,
+            );
+            let at_400 = MapTabState::plume_key(s).map(|k| {
+                crate::physics::steady_plume_overlay::chi_over_q_at(
+                    k.class,
+                    k.speed_m_per_s,
+                    400.0,
+                    0.0,
+                )
+            });
+            let mut note = format!(
+                "MAGENTA LINES = STEADY plume (buangkok/pyDOSEIA, ground release), decade \
+                 contours of {unit} from {lo:.1e} to {hi:.1e}; colours = INSTANTANEOUS puff \
+                 (40 m stack). Grid +/-{half_width:.0} m."
+            );
+            if let Some(chi) = at_400 {
+                note.push_str(&format!(
+                    "\nPlume at 400 m centreline: chi/Q {chi:.3e} s/m^3 = {:.3e} {unit}.",
+                    chi * factor
+                ));
+            }
+            if !in_basis {
+                note.push_str(
+                    "\nPlume shown as chi/Q ONLY: no current release factor on this basis.",
+                );
+            } else if basis != MapBasis::ChiOverQ {
+                note.push_str(
+                    "\nPlume value = chi/Q x the CURRENT release factor (steady release).",
+                );
+            }
+            painter.text(
+                Pos2::new(rect.left() + 4.0, rect.top() + 4.0),
+                Align2::LEFT_TOP,
+                note,
+                FontId::proportional(9.0),
+                PLUME_COLOUR,
+            );
+        } else {
+            painter.text(
+                Pos2::new(rect.left() + 4.0, rect.top() + 4.0),
+                Align2::LEFT_TOP,
+                "Steady plume overlay: no stability class or grid yet (no dispersion run).",
+                FontId::proportional(9.0),
+                PLUME_COLOUR,
+            );
+        }
     }
 
     drawn.sort_by(|a, b| a.partial_cmp(b).expect("finite distances"));
@@ -1854,6 +2098,39 @@ fn draw_bounding_toggle(ui: &mut Ui, state: &mut MapTabState) {
     });
 }
 
+/// The toggle's label: names the model, that it is steady, and the class and
+/// wind it uses (both from the live puff's snapshot fields).
+fn plume_toggle_label(s: &HtgrSnapshot) -> String {
+    let class = if s.stability_class.is_empty() {
+        "class: none yet (no dispersion run)".to_string()
+    } else {
+        format!("class {} from the live puff", s.stability_class)
+    };
+    format!(
+        "Gaussian plume overlay (buangkok/pyDOSEIA, steady-state, {class}, wind {:.1} m/s \
+         from {:.0} deg as the puff, ground release as the audited example)",
+        s.wind_speed_m_per_s, s.wind_from_deg
+    )
+}
+
+/// The steady Gaussian plume overlay toggle (gh:#470). A display toggle: it
+/// changes nothing in the plant or the puff model.
+fn draw_plume_toggle(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Overlay:");
+        ui.toggle_value(&mut state.plume_overlay, plume_toggle_label(s))
+            .on_hover_text(
+                "Steady single-plume chi/Q from buangkok's pyDOSEIA port (the model the \
+                 audited HTR-10 air-ingress example uses for its 400 m dose), evaluated at \
+                 every grid cell of the puff field and drawn as magenta decade contours. \
+                 Same class letter and wind as the live puff, but buangkok's BARC/AERB sigmas \
+                 and a ground-level release (the puff uses changi's sigmas and the 40 m \
+                 stack), so the two are not expected to agree near the stack. \
+                 Research and education only.",
+            );
+    });
+}
+
 /// Column headings of the comparison table: distance, class, then the
 /// library's seven dose columns in tier order
 /// (`sembawang::lwr_comparison::ARM_COLUMNS`; maintainer decision,
@@ -1987,6 +2264,7 @@ pub fn draw_map(
     ui.heading("Atmospheric dispersion -- Gaussian puff");
     let action = draw_scenario_buttons(ui);
     draw_bounding_toggle(ui, state);
+    draw_plume_toggle(ui, s, state);
     if s.dlofc_triggered {
         ui.colored_label(
             Color32::from_rgb(200, 120, 20),
@@ -2065,6 +2343,34 @@ pub fn draw_map(
 
 #[cfg(test)]
 mod tests {
+    /// gh:#470: the plume toggle's label names the model, says steady-state,
+    /// and carries the live puff's class and wind; the contour pixels mark
+    /// decade boundaries only, and nothing at or below the floor.
+    #[test]
+    fn the_plume_overlay_is_labelled_and_contoured_per_cell() {
+        let mut s = super::HtgrSnapshot::default();
+        s.stability_class = "B";
+        s.wind_speed_m_per_s = 1.5;
+        s.wind_from_deg = 90.0;
+        let label = super::plume_toggle_label(&s);
+        for needle in [
+            "buangkok/pyDOSEIA",
+            "steady-state",
+            "class B",
+            "1.5 m/s",
+            "from 90 deg",
+        ] {
+            assert!(label.contains(needle), "{needle} not in {label}");
+        }
+        // 2 x 2 grid, row-major: 0 (below floor), 5e-3, 2e-3 (same decade), 5e-2.
+        let values = [0.0, 5e-3, 2e-3, 5e-2];
+        let px = super::plume_contour_pixels(&values, 2, 1.0, 1e-4, 1.0);
+        // 2x2: (0,0)=0 none; (1,0)=5e-3 band -3; (0,1)=2e-3 band -3; (1,1)=5e-2 band -2.
+        assert_eq!(px[0], egui::Color32::TRANSPARENT);
+        assert_eq!(px[1], super::PLUME_COLOUR);
+        assert_eq!(px[3], super::PLUME_COLOUR);
+    }
+
     /// The bounding toggle starts off, and the table carries the labels the
     /// maintainer asked for (#453): the case is a bound, not a transient
     /// (#420); the LWR column names NUREG-1465, 10 MWth, different accident
@@ -2073,6 +2379,8 @@ mod tests {
     fn the_bounding_table_is_off_by_default_and_labelled() {
         use crate::physics::bounding_air_ingress as b;
         assert!(!super::MapTabState::default().bounding_air_ingress);
+        // gh:#470: the steady-plume overlay starts off too.
+        assert!(!super::MapTabState::default().plume_overlay);
         assert!(b::CASE_LABEL.contains("not a transient") && b::CASE_LABEL.contains("#420"));
         for needle in [
             "NUREG-1465",
