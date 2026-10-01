@@ -783,3 +783,28 @@ fn the_default_graphite_law_is_30p_reactor_graphite() {
     let mat: i32 = line[66..70].trim().parse().expect("MAT field");
     assert_eq!(mat, law.mat(), "MAT in {} is {mat}", law.tape());
 }
+
+/// **Ball-count matching against the reference (gh:#472, 2026-10-01).**
+///
+/// [`super::seker_height_for_balls`] must return every tabulated height
+/// exactly for Şeker's own count `1346 N + 733`, and the whole-ball bed at
+/// N = 12 must map to its inventory's height. **Results (2026-10-01):** our
+/// N = 12 bed holds 16 681 balls, which is 122.091 cm in Şeker's model, where
+/// RMC reads 0.999419 (against 1.004288 at the 123.576 cm row).
+#[test]
+fn the_reference_is_matched_to_the_bed_by_ball_count() {
+    use super::{rmc_keff_at_ball_count, seker_height_for_balls, RMC_KEFF_VS_HEIGHT};
+    for (i, &(h, k)) in RMC_KEFF_VS_HEIGHT.iter().enumerate() {
+        let n = 9 + i;
+        let balls = 1346 * n + 733;
+        assert!((seker_height_for_balls(balls) - h).abs() < 1e-9, "row N = {n}");
+        assert!((rmc_keff_at_ball_count(balls).unwrap() - k).abs() < 1e-12, "row N = {n}");
+    }
+    let c = crate::htr10_rmc::core_model::assemble_explicit_triso(14, 12, 0);
+    let balls = c.bed.as_ref().and_then(|b| b.core_balls()).expect("a Şeker bed");
+    let h = seker_height_for_balls(balls);
+    let k = rmc_keff_at_ball_count(balls).expect("inside the table");
+    println!("N = 12: {balls} balls -> Seker height {h:.3} cm -> RMC {k:.6}");
+    assert_eq!(balls, 16_681);
+    assert!(h < 123.576 && h > 113.778);
+}

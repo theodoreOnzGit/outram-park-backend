@@ -498,6 +498,15 @@ fn run_case(spec: &CaseSpec) {
     let secs = t.elapsed().as_secs_f64();
 
     let bed_height_cm = core.bed_half_height * 2.0;
+    // The reference is read at equal BALL COUNT, not equal height (gh:#472,
+    // 2026-10-01): Şeker's model kept wall-crossing balls, ours keeps every
+    // ball whole, so at the same height it holds 1.2 % fewer.
+    let ref_height_cm = core
+        .bed
+        .as_ref()
+        .and_then(|b| b.core_balls())
+        .map_or(bed_height_cm, nee_soon::htr10_rmc::seker_height_for_balls);
+    println!("  reference read at {ref_height_cm:.3} cm (equal ball count)");
     // The nominal height in the case function is documentation; the geometry is
     // the truth. If they disagree the case is mislabelled, and a mislabelled
     // height silently compares against the wrong RMC point.
@@ -512,7 +521,7 @@ fn run_case(spec: &CaseSpec) {
     let sigma_pcm = res.k_std * 1.0e5;
     println!("\n  bed height   = {bed_height_cm:.3} cm");
     println!("  k_eff        = {:.6} +/- {:.6}", res.k_mean, res.k_std);
-    match rmc_at_height(bed_height_cm) {
+    match rmc_at_height(ref_height_cm) {
         Some(k) => {
             let dk = (res.k_mean - k) * 1.0e5;
             println!(
@@ -527,7 +536,7 @@ fn run_case(spec: &CaseSpec) {
             );
         }
         None => println!(
-            "  RMC(interp)  = NONE -- {bed_height_cm:.3} cm is outside the tabulated range, \
+            "  RMC(interp)  = NONE -- {ref_height_cm:.3} cm (equal ball count) is outside the tabulated range, \
              so there is no like-for-like reference and no CSV line is emitted."
         ),
     }

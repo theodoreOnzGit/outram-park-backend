@@ -1870,6 +1870,21 @@ impl PebbleBed {
         }
     }
 
+    /// The bed's ball inventory: kept balls centred above the bed floor (the
+    /// count Şeker's Table 3 tabulates). The reference is matched to a model
+    /// by this, through [`super::rmc_keff_at_ball_count`]. `None` for the
+    /// withdrawn two-ball bed.
+    #[must_use]
+    pub fn core_balls(&self) -> Option<usize> {
+        match self {
+            Self::Seker(b) => {
+                let (basal, central) = b.plane_counts();
+                Some(basal.iter().sum::<usize>() + central.iter().sum::<usize>())
+            }
+            Self::TwoBall(_) => None,
+        }
+    }
+
     /// Balls removed by a rejection rule.
     #[must_use]
     pub fn rejected_balls(&self) -> usize {
@@ -2234,10 +2249,18 @@ mod seker_cell_tests {
     /// | filling over the 123.576 cm bed | 0.5999 | 0.6073 | −1.2 % |
     /// | fuel | 9508 of 16 681 | 9622 of 16 885 | |
     ///
-    /// Inside the predicted ranges. The ~12 + 4 balls per layer that Şeker
-    /// keeps and this bed does not are a real, unexplained miss (gh:#472). The
-    /// candidates are Şeker's lattice offset or the exact rejection test.
-    /// Reported, not tuned.
+    /// Inside the predicted ranges.
+    ///
+    /// **Explained 2026-10-01 (gh:#472):** the missing 12 + 4 balls per layer
+    /// are the next shells out:
+    /// - 12 basal balls centred at ρ = 87.209 cm, which cross the r = 90 cm
+    ///   reflector by 0.21 cm;
+    /// - 6 central balls at ρ = 87.080 cm, which cross it by 0.08 cm.
+    ///
+    /// Keeping them gives 733 (exact) and 615 (+2). Şeker therefore kept
+    /// wall-crossing balls, cut in MCNP or kept by a tolerance. Cut pebbles
+    /// are wrong physics, so they are not added. The model is compared to the
+    /// reference at equal ball count instead ([`super::super::rmc_keff_at_ball_count`]).
     #[test]
     fn the_seker_bed_reproduces_table_3_per_plane_counts() {
         let bed = htr10_bed(12);

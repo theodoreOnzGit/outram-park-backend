@@ -977,9 +977,23 @@ fn main() {
     // axis (`9.798 N + 6` cm, every ball whole), so no mapping is applied; the
     // two-ball and one-ball beds keep the gh:#333 mapping.
     let volume_height_cm = core.bed_half_height * 2.0;
-    let bed_height_cm = match core.bed {
-        Some(nee_soon::htr10_rmc::bed::PebbleBed::Seker(_)) => volume_height_cm,
-        _ => paper_height(volume_height_cm),
+    //
+    // ~~Şeker's bed is compared at its built height~~ **CHANGED 2026-10-01
+    // (gh:#472, maintainer: "match by ball count"):** our whole-ball bed holds
+    // 1.2 % fewer balls than Şeker's model at the same height (Şeker kept balls
+    // crossing the wall by up to 0.21 cm). So the reference is read at the
+    // height where Şeker's model holds OUR inventory,
+    // `htr10_rmc::seker_height_for_balls`.
+    let bed_height_cm = match core.bed.as_ref().and_then(|b| b.core_balls()) {
+        Some(balls) => {
+            let h = nee_soon::htr10_rmc::seker_height_for_balls(balls);
+            println!(
+                "\n  BALL-COUNT MATCH (gh:#472): {balls} balls in a {volume_height_cm:.3} cm bed; \
+                 Şeker's model holds that many at {h:.3} cm"
+            );
+            h
+        }
+        None => paper_height(volume_height_cm),
     };
     let rmc_here = rmc_at_height(bed_height_cm);
     match rmc_here {

@@ -324,6 +324,66 @@ pub const MCNP_TABLE4_KEFF_VS_HEIGHT: &[(f64, f64)] = &[
 ];
 
 /// Design characteristics from the paper's **Table 1**.
+/// Balls per 9.798 cm layer in Şeker & Çolak (2003)'s HTR-10 model, Table 3:
+/// every row holds `1346 N + 733` balls (gh:#333, gh:#472).
+///
+/// Source: Şeker, V., Çolak, Ü. (2003), *HTR-10 full core first criticality
+/// analysis with MCNP*, Nucl. Eng. Des. 222, 263–270,
+/// doi:10.1016/S0029-5493(03)00031-1, Table 3. Li, Yu & Wei (2014) tabulate
+/// RMC at exactly these heights.
+pub const SEKER_BALLS_PER_LAYER: usize = 1346;
+
+/// The constant in Şeker's `1346 N + 733`: one extra basal plane. See
+/// [`SEKER_BALLS_PER_LAYER`].
+pub const SEKER_BALLS_EXTRA_PLANE: usize = 733;
+
+/// **The reference loading height \[cm\] that holds `balls` balls** in Şeker &
+/// Çolak (2003)'s model: `9.798 (balls - 733) / 1346 + 6.0`. It is exact at
+/// the tabulated rows and linear between them.
+///
+/// # Why a model is matched to the reference by ball count (gh:#472, 2026-10-01)
+///
+/// Our Şeker bed keeps every ball whole. It holds 721 + 609 balls per layer;
+/// Şeker's table implies 733 + 613. The difference was chased down: it is
+/// exactly the next shells out, 12 basal balls centred at ρ = 87.209 cm and 6
+/// central balls at ρ = 87.080 cm, which would cross the r = 90 cm reflector
+/// by 0.21 and 0.08 cm. Keeping them reproduces Şeker's basal count exactly
+/// (733) and the central one to +2 (615). No lattice offset does it under the
+/// whole-ball rule. So the reference keeps balls that cross the wall: cut by
+/// the core cylinder in MCNP, or kept by a tolerance.
+///
+/// Cut pebbles are wrong physics (maintainer, 2026-10-01), so they are not
+/// added. Instead the maintainer chose to compare **at the same ball
+/// inventory**: the reference at the height where its model holds as many
+/// balls as ours. At N = 12 ours holds 16 681 balls, which in Şeker's model is
+/// 122.09 cm, 1.49 cm below the 123.576 cm row.
+#[must_use]
+pub fn seker_height_for_balls(balls: usize) -> f64 {
+    table1::LAYER_HEIGHT_CM * (balls as f64 - SEKER_BALLS_EXTRA_PLANE as f64)
+        / SEKER_BALLS_PER_LAYER as f64
+        + table1::BALL_DIAMETER_CM
+}
+
+/// RMC's `k_eff` (Li, Yu & Wei 2014) for a bed of `balls` balls: the
+/// reference curve [`RMC_KEFF_VS_HEIGHT`] read at [`seker_height_for_balls`],
+/// linear between rows. `None` outside the tabulated range (no
+/// extrapolation). This is the comparison point for a whole-ball model; see
+/// [`seker_height_for_balls`] for why.
+#[must_use]
+pub fn rmc_keff_at_ball_count(balls: usize) -> Option<f64> {
+    let h = seker_height_for_balls(balls);
+    let c = RMC_KEFF_VS_HEIGHT;
+    if h < c[0].0 - 1e-6 || h > c[c.len() - 1].0 + 1e-6 {
+        return None;
+    }
+    c.windows(2).find_map(|w| {
+        let ((h0, k0), (h1, k1)) = (w[0], w[1]);
+        (h0 - 1e-6..=h1 + 1e-6)
+            .contains(&h)
+            .then(|| k0 + (h - h0) / (h1 - h0) * (k1 - k0))
+    })
+}
+
 pub mod table1 {
     /// Thermal power \[MW\].
     pub const THERMAL_POWER_MW: f64 = 10.0;

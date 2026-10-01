@@ -72,12 +72,24 @@ regenerated 2026-10-01.
 | quantity | value |
 |---|---|
 | k_eff | **0.987043 ± 0.003022** |
-| residual vs RMC | **−1724 ± 302 pcm** (VIII.0; the references used VII.0, and that offset is not corrected) |
+| residual vs RMC at the 123.576 cm row | ~~−1724 ± 302 pcm~~ superseded by the line below |
+| **residual vs RMC at equal ball count** (gh:#472) | **−1238 ± 302 pcm**: 16 681 balls, which is 122.091 cm in Şeker's model, where RMC = 0.999419 (VIII.0; the references used VII.0, and that offset is not corrected) |
 | MCNP gauge (Şeker's own model) | 1.003298 vacuum (−1625 pcm), 1.004788 helium (−1774 pcm) |
 | geometry | 22 974 tiles, 43 445 cells, 1 502 universes |
 | locate | 0 lost, 0 stuck, 0 negative distances |
 | entropy | 5.548 → 5.514 bits |
 | run | data 175.8 s, transport 543.6 s, on an AMD Ryzen 5 5600 (6 threads, 15.5 GiB) |
+
+**Why equal ball count (2026-10-01, maintainer's choice).** At the same
+height our whole-ball bed holds 1.2 % fewer balls than Şeker's model. The
+missing ones are exactly the shells centred at ρ = 87.08 and 87.21 cm, which
+cross the r = 90 cm reflector by 0.08–0.21 cm. Keeping them reproduces
+Şeker's basal count exactly. The reference therefore holds wall-crossing
+(cut) balls. Cut pebbles are wrong physics, so they are not added, and the
+reference is read where its model holds our inventory
+(`htr10_rmc::rmc_keff_at_ball_count`). A side effect: at N = 9 our 12 691
+balls map to 93.06 cm, below the lowest row, so that point has no reference
+(no extrapolation).
 
 **Interpretation.** This is the first k on a bed whose every pebble is whole,
 built on the reference's own heights. It is **not** a paired measurement of
