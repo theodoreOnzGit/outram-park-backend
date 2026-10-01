@@ -187,8 +187,9 @@ pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
             s.wind_speed_m_per_s,
             s.wind_from_deg,
         ),
-        // What the Map tab wants of the dispersion field: one cell per screen
-        // pixel of the map square, and the operator's plume-clock
+        // What the Map tab wants of the dispersion field: ~~one cell per screen
+        // pixel of the map square~~ a fixed cell count since 2026-10-01
+        // (`map_tab::MAP_REQUESTED_CELLS`), and the operator's plume-clock
         // fast-forward. Travels as a command for the same reason the wind
         // does -- see `MapFieldRequest`. Nothing is clamped here; the
         // dispersion channel bounds the resolution to what this host can
@@ -1108,7 +1109,9 @@ mod tests {
     /// from 2026-09-27, is back at **1.29 kg/s** by maintainer direction (the
     /// HTR-10 test's experimental flow). The test now also asserts that value
     /// directly, since matching the two sides alone cannot catch both moving
-    /// together.
+    /// together. Also 2026-10-01: the Map tab opens on the dose-rate basis,
+    /// so both sides now carry `map_field.weighting = DoseRateUsvPerH` (this
+    /// test failed until `PlantCommands::default()` was moved with it).
     ///
     /// **Interpretation.** The opening frame commands the plant's current
     /// default, and the mode boolean is read in the right direction. Note what

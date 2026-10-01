@@ -429,16 +429,20 @@ pub struct HtgrSnapshot {
     pub dispersion_grid_time_s: f64,
     /// Cells per side the Map tab is asking the dispersion field for.
     ///
-    /// A **control input**: the GUI writes the map square's width in physical
+    /// A **control input**: ~~the GUI writes the map square's width in physical
     /// screen pixels, so the field is evaluated once per pixel and the map is
     /// a readout everywhere it paints rather than a mosaic of interpolated
-    /// boxes (maintainer, 2026-09-25). The physics clamps it to what this
+    /// boxes (maintainer, 2026-09-25).~~ **CHANGED 2026-10-01 (maintainer: a
+    /// bigger map must not do more physics):** the GUI writes the fixed
+    /// `map_tab::MAP_REQUESTED_CELLS`, and each cell is drawn as a crisp
+    /// block however large the map is. The physics clamps it to what this
     /// host can afford -- see
     /// [`crate::physics::atmospheric_dispersion::max_grid_cells`] -- so an
     /// oversized request costs a coarser map, never a missed tick.
     pub map_field_cells_requested: usize,
     /// The basis the Map tab shows, so the physics sums the field in it with
-    /// each puff at its emission's rate (gh:#400). A control input.
+    /// each puff at its emission's rate (gh:#400). A control input. Opens
+    /// on `DoseRateUsvPerH`, matching the tab's default basis (2026-10-01).
     pub map_field_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// How far ahead of the plant clock the operator has run the **plume**
     /// clock \[s\] -- the Map tab's fast-forward.
@@ -928,7 +932,12 @@ impl Default for HtgrSnapshot {
             dispersion_grid_half_width_m: 0.0,
             dispersion_grid_time_s: f64::NAN,
             map_field_cells_requested: crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
-            map_field_weighting: Default::default(),
+            // The Map tab opens on the dose-rate basis (maintainer,
+            // 2026-10-01), so the field is summed in its weighting from the
+            // first frame; `FieldWeighting::default()` (ChiOverQ) stays the
+            // channel's own default.
+            map_field_weighting:
+                crate::physics::atmospheric_dispersion::FieldWeighting::DoseRateUsvPerH,
             plume_clock_offset_s: 0.0,
             // The map regime's representative speed (inter-monsoon, 1 m/s;
             // `map_puff_model`, maintainer 2026-09-29).

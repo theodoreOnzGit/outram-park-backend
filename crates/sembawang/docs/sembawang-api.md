@@ -1661,6 +1661,497 @@ pub use release::Venting;
 pub use venting::VentingWindow;
 ```
 
+## Module `ap1000_ted`
+
+AP1000 severe-accident plume-centreline TED digitised from Dadda et al.
+(2024) Fig. 7: a published comparison curve for `htgr_sim_v1` (#473).
+# AP1000 severe-accident plume-centreline TED (Dadda et al. 2024, Fig. 7)
+
+A **published LWR dose curve**, loaded as a comparison overlay for
+`htgr_sim_v1`'s centreline TEDE graph (maintainer request, 2026-10-01,
+#473). Nothing here is computed by this crate's own source-term chain: it
+is the maintainer's digitisation of a figure, summed and scaled.
+
+**Source.** A. Dadda et al., "Source term analysis and impact study during
+a hypothetical accident in Haiyang nuclear power plant", *Radiation Physics
+and Chemistry* 218 (2024) 111542, Fig. 7, the April–August period
+(Pasquill class B, 4.44 m/s). Data and full provenance (digitisation date,
+log-log axis calibration, licence basis) in the header of
+`reference/lwr/dadda2024_fig7_ap1000_centreline_ted_apr_aug.csv`, loaded
+with `include_str!` (no runtime file I/O; wasm/Android safe).
+
+**Their model, not ours.** HotSpot 3.1; AP1000 at 3400 MWt; RG 1.183
+group release fractions (an unmitigated core melt, no containment leak
+rate stated); 100 m stack; 2 h release interval; TED = inhalation CEDE +
+submersion + ground shine + **resuspension** (their Eq. 7). Every one of
+those differs from `htgr_sim_v1`'s accumulated dose ([`MISMATCHES`]).
+
+**Summing the groups.** The eight groups were digitised at different x
+points, so [`total_ted`] interpolates each group **linearly in
+`(log x, log TED)`** (the axes it was read off) and sums. Outside a
+group's own digitised x range that group contributes **0 and is listed in
+[`TotalTed::groups_outside`]** -- nothing is extrapolated. (Ce, Ba/Sr and
+the alkali metals start at ~0.2 km, the others at ~0.1 km.)
+
+**Power scaling** ([`total_ted_scaled`]): `x P / 3400 MWt`, the #450
+convention (dose ∝ released activity ∝ thermal power) that
+[`crate::lwr_comparison::pwr_inventory_scaled`] applies to the NuScale
+inventory. That helper scales an inventory table, not a dose, so the same
+linear ratio is applied here directly ([`scale_to_power`]).
+
+Distances are km and doses Sv as plain `f64`, following the sibling
+[`crate::lwr_comparison`] (`x_m`, `total_sv`); the suffix carries the unit.
+
+> **Research, education and V&V only** (`RESPONSIBLE_USE.md`). Not a dose
+> assessment for AP1000, Haiyang, HTR-10 or any plant.
+
+## V&V: digitisation gate against Table 3
+
+**Methodology.** Table 3 of the paper prints each group's maximum TED, all
+at 0.6 km: noble gases 1.5, halogens 27, alkali metals 4.1, Te 0.443,
+Ba/Sr 0.393, noble metals 0.072, Ce 2.2, La 9.51e-3 Sv (sum 35.7 Sv). The
+gate compares each group's **largest digitised point** with its Table 3
+value, and the sum of those eight peaks with 35.7 Sv, as
+`|log10(digitised / table)|`.
+
+**Tolerance, derived before the comparison was run:** one pixel of the
+digitiser's y calibration. The y axis spans 1e-16 .. 1e3 Sv (19 decades)
+over 233.489 - 27.670 = 205.819 px, i.e. **0.09231 decades/px** (one px =
+a factor 1.237). A hand-placed marker on a curve cannot be placed more
+finely than the pixel it lands on, so a reading off this axis is uncertain
+by about ±1 px; a deviation larger than that is a placement error rather
+than quantisation. The total's log deviation is bounded by the largest
+per-group one (a weighted mean of ratios), so the same tolerance applies.
+[`GATE_TOLERANCE_DECADES`].
+
+**Results (2026-10-01, digitisation of 2026-10-01T01:53:51Z):**
+
+| Group | Digitised peak \[Sv\] at \[km\] | Table 3 \[Sv\] | Deviation | In px |
+|---|---|---|---|---|
+| noble gases | 1.547 at 0.626 | 1.5 | +3.1 % | +0.14 |
+| halogens | 31.08 at 0.592 | 27 | +15.1 % | +0.66 |
+| alkali metals | 3.741 at 0.496 | 4.1 | −8.8 % | −0.43 |
+| Te | 0.4344 at 0.593 | 0.443 | −1.9 % | −0.09 |
+| Ba/Sr | 0.3721 at 0.597 | 0.393 | −5.3 % | −0.26 |
+| noble metals | 0.08086 at 0.510 | 0.072 | +12.3 % | +0.55 |
+| Ce | 2.107 at 0.598 | 2.2 | −4.2 % | −0.20 |
+| La | 0.01073 at 0.575 | 9.51e-3 | +12.9 % | +0.57 |
+| **sum of peaks** | **39.38** | **35.7** | **+10.3 %** | **+0.46** |
+
+**All eight groups and the total pass the ±1 px (±0.0923 decade, ×/÷1.237)
+gate**; the worst is halogens at 0.66 px. **Interpretation:** the
+digitisation reproduces the published peaks to within the axis's own
+resolution, and no better -- the overlay carries a ~10–15 % reading
+uncertainty near the peak, larger than any curve-shape detail it could be
+used to argue from. The halogens (76 % of the total) dominate both the
+total and its +10 % excess. The peak of the *summed, interpolated* curve
+(≈ 39.1 Sv near 0.59 km, see the test) is slightly below the sum of
+peaks, because the groups peak at different digitised x.
+
+Pinned by `tests::digitised_peaks_match_table_3_within_one_pixel`.
+
+```rust
+pub mod ap1000_ted { /* ... */ }
+```
+
+### Types
+
+#### Struct `GroupCurve`
+
+One group's digitised curve.
+
+```rust
+pub struct GroupCurve {
+    pub group: String,
+    pub points: Vec<(f64, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `group` | `String` | NUREG-1465 group name, as in the CSV. |
+| `points` | `Vec<(f64, f64)>` | `(distance_km, ted_sv)`, in digitised (increasing-x) order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at(self: &Self, x_km: f64) -> Option<f64> { /* ... */ }
+  ```
+  The group's TED \[Sv\] at `x_km`, interpolated linearly in
+
+- ```rust
+  pub fn peak(self: &Self) -> (f64, f64) { /* ... */ }
+  ```
+  The largest digitised point `(distance_km, ted_sv)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GroupCurve { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GroupCurve) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TotalTed`
+
+The summed TED at one distance.
+
+```rust
+pub struct TotalTed {
+    pub distance_km: f64,
+    pub total_sv: f64,
+    pub groups_outside: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance_km` | `f64` | Downwind distance \[km\]. |
+| `total_sv` | `f64` | Sum over the groups whose digitised range covers `distance_km` \[Sv\]. |
+| `groups_outside` | `Vec<String>` | Groups outside their digitised range here, counted as **0** (not<br>extrapolated). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TotalTed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TotalTed) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `group_curves`
+
+The eight digitised group curves, in CSV order.
+
+```rust
+pub fn group_curves() -> Vec<GroupCurve> { /* ... */ }
+```
+
+#### Function `digitised_range_km`
+
+The x range any group covers \[km\]: (smallest first point, largest last
+point).
+
+```rust
+pub fn digitised_range_km() -> (f64, f64) { /* ... */ }
+```
+
+#### Function `total_ted`
+
+The eight groups summed at each of `x_km` (the common grid), as published
+(3400 MWt). See the module docs for the interpolation and the zero
+outside each group's range.
+
+```rust
+pub fn total_ted(x_km: &[f64]) -> Vec<TotalTed> { /* ... */ }
+```
+
+#### Function `scale_to_power`
+
+A dose \[Sv\] published for 3400 MWt, scaled to `thermal_power_mwth`
+(#450: ∝ power).
+
+```rust
+pub fn scale_to_power(sv_at_3400_mwth: f64, thermal_power_mwth: f64) -> f64 { /* ... */ }
+```
+
+#### Function `total_ted_scaled`
+
+[`total_ted`] scaled to `thermal_power_mwth` by [`scale_to_power`]
+(10 MWt for HTR-10).
+
+```rust
+pub fn total_ted_scaled(x_km: &[f64], thermal_power_mwth: f64) -> Vec<TotalTed> { /* ... */ }
+```
+
+#### Function `log_grid_km`
+
+A log-spaced grid of `n >= 2` points over `[lo_km, hi_km]`.
+
+```rust
+pub fn log_grid_km(lo_km: f64, hi_km: f64, n: usize) -> Vec<f64> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `AP1000_MWTH`
+
+AP1000 thermal power the paper models \[MWt\].
+
+```rust
+pub const AP1000_MWTH: f64 = 3400.0;
+```
+
+#### Constant `CITATION`
+
+The citation, for labels.
+
+```rust
+pub const CITATION: &str = "A. Dadda et al., Radiation Physics and Chemistry 218 (2024) 111542, \
+     Fig. 7, April-August (class B, 4.44 m/s); maintainer's log-log digitisation, 2026-10-01";
+```
+
+#### Constant `MISMATCHES`
+
+What the overlay is NOT, against `htgr_sim_v1`'s accumulated dose. Shown
+wherever the curve is drawn.
+
+```rust
+pub const MISMATCHES: &str = "AP1000 BDB: unmitigated core melt, RG 1.183 releases, no \
+     containment credit stated | 2 h release interval (vs the NRC 96 h reference) | 100 m stack \
+     (vs the HTR-10 ground release) | TED includes resuspension (the HTR-10 side does not) | \
+     stability class B at 4.44 m/s (vs the simulator's own met) | a different code (HotSpot 3.1) \
+     | compare against the HTR-10 beyond-design-basis core burn (DLOFC + air ingress, KORA) | \
+     research/education only";
+```
+
+#### Constant `TABLE_3_DISTANCE_KM`
+
+Distance of Table 3's maxima \[km\].
+
+```rust
+pub const TABLE_3_DISTANCE_KM: f64 = 0.6;
+```
+
+#### Constant `TABLE_3_MAX_TED_SV`
+
+Table 3: maximum TED per group \[Sv\], at [`TABLE_3_DISTANCE_KM`].
+
+```rust
+pub const TABLE_3_MAX_TED_SV: [(&str, f64); 8] = _;
+```
+
+#### Constant `TABLE_3_TOTAL_SV`
+
+Table 3's sum \[Sv\], as printed.
+
+```rust
+pub const TABLE_3_TOTAL_SV: f64 = 35.7;
+```
+
+#### Constant `GATE_TOLERANCE_DECADES`
+
+The digitisation gate's tolerance \[decades\]: one y pixel of the
+calibration, `19 / (233.48883 - 27.67020)` (module docs: derived before
+the comparison was run).
+
+```rust
+pub const GATE_TOLERANCE_DECADES: f64 = _;
+```
+
 ## Module `chain`
 
 Hand a released source term to `changi` for dispersion and deposition.
@@ -2829,8 +3320,35 @@ Assemble [`PlantParameters`] for an HTR-10 DLOFC.
   - fuel and graphite temperatures: **the 776 °C stand-in**
     [`STAND_IN_IRRADIATION_CELSIUS`], uniform (#297).
 
+The pools and the lift-off fraction are the named
+[`primary_circuit_pools`] and [`X_LIFTOFF_NP_MHTGR_STAND_IN`] (#469), so
+`htgr_sim_v1` reads the same source rather than a second set of literals.
+
 ```rust
 pub fn plant_parameters(geometry: Htr10Geometry, fractions: boon_lay::triso_atops_fork::accident::AccidentFractions) -> crate::accident::release::PlantParameters { /* ... */ }
+```
+
+#### Function `primary_circuit_pools`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The HTR-10 **primary-circuit pools** an accident starts from:
+[`PrimaryCircuitPools::FromNormalOperation`] over
+
+- `run_time` [`OPERATING_HISTORY_S`] (20 y, Liu & Cao 2002);
+- `irradiation_time` **1080 FPD**,
+  `boon_lay::fuel_failure::htr10::RESIDENCE_FULL_POWER_DAYS`;
+- `k_plate`, `k_clean`, `a_grain`: **NP-MHTGR stand-ins**
+  ([`NormalOperation::np_mhtgr_reference`]);
+- fuel and graphite at the **776 °C stand-in**
+  [`STAND_IN_IRRADIATION_CELSIUS`], uniform (#297).
+
+The named constructor #469 item 3 asks for; [`plant_parameters`] uses it.
+
+```rust
+pub fn primary_circuit_pools() -> crate::accident::release::PrimaryCircuitPools { /* ... */ }
 ```
 
 #### Function `stand_in_irradiation_temperature`
@@ -2960,6 +3478,63 @@ silently altering the physics.
 
 ```rust
 pub const ESTIMATED_LATE_TIME_CELSIUS: f64 = 900.0;
+```
+
+#### Constant `LIU_CAO_DESIGN_FREE_URANIUM`
+
+HTR-10 design **as-manufactured free uranium**, `< 3·10⁻⁴`: Liu & Cao
+2002 §2.1 (p.82), a design specification, not a measurement
+(`crates/kovan-literature/derived/liu-cao2002-htr10-source-term-assumptions.md` §1).
+TRISO-ATOPS's `f_hm` in the bounding case and the audited example.
+
+```rust
+pub const LIU_CAO_DESIGN_FREE_URANIUM: f64 = 3.0e-4;
+```
+
+#### Constant `LIU_CAO_DESIGN_IRRADIATION_FAILURE`
+
+HTR-10 design **particle failure fraction from irradiation**, `5·10⁻⁴`:
+Liu & Cao 2002 §2.1 (p.82), a design specification. TRISO-ATOPS's `f_inc`,
+the in-service failure that accumulates as the fuel is irradiated
+(#469 item 1).
+
+**Why this value (maintainer-accepted 2026-10-01, #471).** It is the
+published HTR-10 design figure for irradiation-induced failure; with the
+free uranium above it makes up Liu & Cao's total `< 8·10⁻⁴` at **maximum
+design burnup**. Applying it to the whole core is therefore conservative:
+the simulator's fuel sits at the 1080 FPD mean residence, not at the
+discharge burnup. It is not the `5·10⁻³` Liu & Cao used for their Table 3
+helium activity, which they call *"somewhat arbitrarily set"*. Source:
+`crates/kovan-literature/derived/liu-cao2002-htr10-source-term-assumptions.md`.
+
+Read by `htgr_sim_v1` and by
+[`crate::lwr_comparison::bound::F_INC`].
+
+```rust
+pub const LIU_CAO_DESIGN_IRRADIATION_FAILURE: f64 = 5.0e-4;
+```
+
+#### Constant `X_LIFTOFF_NP_MHTGR_STAND_IN`
+
+Plate-out lift-off fraction `x_liftoff`, **0.05, an NP-MHTGR stand-in**
+(Stoyer, Raichart & Petti, Nucl. Technol. 2026, Case A, Table 3). No HTR-10
+value is in the corpus; Liu & Cao 2002 §4.1.1.2 instead assume desorption
+of 2.4 × the coolant activity, which `htgr_sim_v1`'s live DLOFC applies.
+
+```rust
+pub const X_LIFTOFF_NP_MHTGR_STAND_IN: f64 = 0.05;
+```
+
+#### Constant `OPERATING_HISTORY_S`
+
+Full-power operating history the primary-circuit pools have accumulated
+over \[s\]: **20 years** of 365 d, Liu & Cao 2002's circulating-activity
+basis ("at the end of 20 years of full-power operation", Table 3). One copy:
+[`primary_circuit_pools`] and `htgr_sim_v1`'s live-pool opening history both
+read it (#469).
+
+```rust
+pub const OPERATING_HISTORY_S: f64 = _;
 ```
 
 ## Module `inventory`
@@ -3345,7 +3920,7 @@ and `htgr_sim_v1`'s map read the same numbers (maintainer direction,
 |---|---|---|---|
 | **DB: HTR-10 DLOFC** | [`htr10_dba_release`] | to the environment | Liu & Cao (2002) Table 8, published (depressurisation; water ingress); cross-checked with [`htr10_dba_vs_table9`] |
 | **DB: LWR LOCA** | [`nuscale_mha_loca`] | to the environment via containment leakage | RG 1.183 Rev. 1 MHA LOCA, NuScale inventory, `L_a` = 0.20 %/day ([`NUSCALE_LA_PERCENT_PER_DAY`]); no removal, and natural deposition ([`NaturalDeposition`], pending literature) |
-| **BDB: HTR-10 DLOFC + air ingress** | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, + Liu & Cao circulating at 100 % |
+| **BDB: HTR-10 DLOFC + air ingress** | [`htr10_air_ingress_bound`] | to the environment (no building credit, #409) | 1400 °C / 140 h failure fractions, KORA f_ox, TRISO-ATOPS release over the dose window, vented full flow-through ([`AIR_INGRESS_VENTING`], #469), + Liu & Cao circulating at 100 % |
 | **BDB: LWR LOCA + core melt** | [`nuscale_severe_loca`] | to the environment via containment leakage | NUREG-1465 Table 3.13 PWR, all four phases, Table 3.6 timing ([`nureg1465_pwr_phases`]); intact containment at `L_a`; no removal, and natural deposition (pending literature). [`CONTAINED_CORE_MELT_ASSUMPTION`] |
 | Context: WASH-1400 PWR 8 | [`wash1400_pwr8_to_atmosphere`] | **to the atmosphere** | Table 5-1: gap release, containment not isolated, no core melt (#451) |
 | LWR, NUREG-1465 | [`nureg1465_pwr_into_containment`] | **into containment** | Table 3.13 (PWR), all four phases or gap + early in-vessel |
@@ -3417,18 +3992,20 @@ pub const HOLD_HOURS: f64 = 140.0;
 
 #### Constant `F_HM`
 
-f_hm, Liu & Cao 2002 s.2.1 (HTR-10 design free uranium).
+f_hm, Liu & Cao 2002 s.2.1 (HTR-10 design free uranium); read from
+[`crate::htr10::LIU_CAO_DESIGN_FREE_URANIUM`], one copy (#469).
 
 ```rust
-pub const F_HM: f64 = 3.0e-4;
+pub const F_HM: f64 = crate::htr10::LIU_CAO_DESIGN_FREE_URANIUM;
 ```
 
 #### Constant `F_INC`
 
-f_inc, Liu & Cao 2002 s.2.1 (design irradiation failure).
+f_inc, Liu & Cao 2002 s.2.1 (design irradiation failure); read from
+[`crate::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE`], one copy (#469).
 
 ```rust
-pub const F_INC: f64 = 5.0e-4;
+pub const F_INC: f64 = crate::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE;
 ```
 
 #### Constant `F_SIC_STAND_IN`
@@ -5747,6 +6324,7 @@ The HTR-10 bounding air-ingress release over `window` \[Bq per nuclide\]:
 boon-lay fuel failure at 1400 °C/140 h plus KORA f_ox as the accident
 increment, TRISO-ATOPS release (real normal-operation pools, #448) of the
 Liu & Cao Table 1 inventory under a flat 1400 °C hold over the window,
+vented by [`AIR_INGRESS_VENTING`] (full flow-through, stated since #469),
 **plus** Liu & Cao Table 3's circulating activity released at 100 %
 (conservative; it double-counts the model's own circuit term, as the
 example states). The chain of `examples/htr10_air_ingress_kora_bound.rs`.
@@ -5992,6 +6570,27 @@ pub fn incomplete_share(rel: &Releases) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
+
+#### Constant `AIR_INGRESS_VENTING`
+
+How the bounding air ingress carries the release out of the core:
+**[`Venting::FullFlowThrough`]**, `frac = 1` at every sample — the
+conservative limit of [`Venting::Prescribed`], and the assumption of the
+#435 bound ("every particle exposed", no primary-circuit retention).
+
+**Why not [`Venting::Upstream`] (#469 item 4).** Upstream TRISO-ATOPS is a
+depressurisation model: its only transport is gas expansion while the core
+heats. It gives `frac = 1` on an *exactly* uniform, constant hold (#446),
+but a hold drifting by 0.1 K takes its `coolant_release` branch and vents
+`≈ 1 − T0/T`, so the bound fell from 1.69e13 Bq to 4.94e10 Bq
+(`tests::a_near_isothermal_air_ingress_still_vents`, measured 2026-09-30).
+Air ingress convects the release out whatever the temperature does, so the
+transport is stated explicitly. On the exact hold the two agree, so the
+recorded bounding numbers do not move.
+
+```rust
+pub const AIR_INGRESS_VENTING: crate::accident::release::Venting = Venting::FullFlowThrough;
+```
 
 #### Constant `NUSCALE_MODULE_MWTH`
 

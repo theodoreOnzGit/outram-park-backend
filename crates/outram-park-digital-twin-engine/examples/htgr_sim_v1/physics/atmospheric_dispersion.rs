@@ -276,8 +276,9 @@ pub const GRID_HALF_WIDTH_M: f64 = 1250.0;
 /// same one-way path rather than the GUI reaching into the channel.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MapFieldRequest {
-    /// Cells per side the map wants -- **one per screen pixel** of the map
-    /// square. Clamped to `[MIN_GRID_CELLS, max_grid_cells()]` before use;
+    /// Cells per side the map wants -- ~~**one per screen pixel** of the map
+    /// square~~ a fixed count from the GUI since 2026-10-01
+    /// (`map_tab::MAP_REQUESTED_CELLS`; doc-only correction). Clamped to `[MIN_GRID_CELLS, max_grid_cells()]` before use;
     /// the request is what the map can show, the clamp is what the host can
     /// afford.
     pub cells: usize,

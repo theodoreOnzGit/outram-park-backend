@@ -9,14 +9,18 @@
 //! beside two LWR source terms at 10 MWth. See
 //! [`crate::physics::bounding_air_ingress`]. It does not use the live plume.
 //!
-//! # The picture is a live plume, evaluated once per screen pixel
+//! # The picture is a live plume, ~~evaluated once per screen pixel~~ on a fixed grid
 //!
 //! Two maintainer directions, both 2026-09-25, shape what this draws:
 //!
-//! - *"fill the map with single pixels, not the big boxes"* -- the field is
+//! - *"fill the map with single pixels, not the big boxes"* -- ~~the field is
 //!   requested at the map square's own width in **physical screen pixels**,
 //!   so every pixel painted is a separate evaluation of the puff model at that
-//!   pixel's coordinates. It is uploaded as one texture rather than as tens of
+//!   pixel's coordinates.~~ **CHANGED 2026-10-01 (maintainer): a bigger map
+//!   must not do more physics** -- the field is requested at a fixed
+//!   [`MAP_REQUESTED_CELLS`] (then clamped by the host), and each cell is
+//!   drawn as a crisp NEAREST-filtered block over however many pixels the
+//!   square has. It is uploaded as one texture rather than as tens of
 //!   thousands of filled rectangles, which is a rendering choice and changes
 //!   no value.
 //! - *"timestep according to real-time, I want to see a real-time plume"* --
@@ -53,11 +57,11 @@
 //!
 //! | Basis | Painted quantity | Unit |
 //! |---|---|---|
-//! | **Absolute** (default) | instantaneous air concentration, 5 tracked nuclides | Bq/m^3 |
+//! | **Absolute** (~~default~~; not since 2026-10-01) | instantaneous air concentration, 5 tracked nuclides | Bq/m^3 |
 //! | Per Ci | the same, per curie of core inventory | Bq/m^3 per Ci |
 //! | `chi/Q` | the source-independent dilution factor (the pre-2026-09-28 map) | s/m^3 |
 //!
-//! | **Dose rate** (since 2026-09-29) | INDICATIVE effective dose rate, air pathways | µSv/h |
+//! | **Dose rate** (since 2026-09-29; **the default since 2026-10-01**, maintainer) | INDICATIVE effective dose rate, air pathways | µSv/h |
 //!
 //! Absolute falls back to per-Ci when the release channel has no absolute arm.
 //! Dose rate never falls back: without the absolute arm it is unavailable and
@@ -110,7 +114,11 @@ use crate::physics::dose_rate::{self, Pathway};
 use crate::physics::atmospheric_dispersion::FieldWeighting;
 use crate::physics::fission_product_release::TRACKED_NUCLIDES;
 
-/// Fraction of the tab's height the map square takes.
+/// ~~Fraction of the tab's height the map square takes.~~ **Since
+/// 2026-10-01 a FLOOR** on the map square's side as a fraction of the tab's
+/// height: the map and the TEDE graph now fill the height left under the
+/// collapsible sections ([`graph_layout`], maintainer: "the graphs should
+/// take most of the real-estate").
 ///
 /// **Maintainer direction, 2026-09-25: "make the map fill like 60% of the
 /// height"**, with the dispersion table below it rather than beside it. A
@@ -120,6 +128,9 @@ use crate::physics::fission_product_release::TRACKED_NUCLIDES;
 const MAP_HEIGHT_FRACTION: f32 = 0.60;
 
 /// Floor on the map square's side \[points\].
+///
+/// Also the narrow-window threshold: below `2 x` this width the map and the
+/// TEDE graph stack ([`graph_layout`]).
 ///
 /// A window short enough that 60 % of it is smaller than this gets a map that
 /// overflows into the tab's two-way scroll area instead of collapsing to an
@@ -283,8 +294,9 @@ pub fn dose_rate_anchor_scale() -> ColourScale {
 /// Which quantity the map paints. See the module doc's table.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MapBasis {
-    /// Instantaneous air concentration \[Bq/m^3\], absolute basis. Default.
-    #[default]
+    /// Instantaneous air concentration \[Bq/m^3\], absolute basis.
+    /// ~~Default.~~ **CHANGED 2026-10-01 (maintainer): no longer the
+    /// default; [`MapBasis::DoseRate`] is.**
     Absolute,
     /// Instantaneous air concentration per curie of core inventory
     /// \[Bq/m^3 per Ci\].
@@ -297,6 +309,11 @@ pub enum MapBasis {
     /// INDICATIVE effective dose rate \[µSv/h\] from the air pathways
     /// (submersion + committed inhalation), through `buangkok`; see
     /// [`crate::physics::dose_rate`]. Not a dose to any real person.
+    /// **The default since 2026-10-01 (maintainer: the map tab opens on the
+    /// dose-rate basis)**; the snapshot's `map_field_weighting` defaults to
+    /// the matching `DoseRateUsvPerH`, so the first frame's field is already
+    /// summed in it.
+    #[default]
     DoseRate,
 }
 
@@ -570,7 +587,8 @@ pub struct MapTabState {
     /// because each of those changes the painted colours without moving the
     /// clock.
     built_for: Option<TextureKey>,
-    /// The basis the operator asked for (default Absolute).
+    /// The basis the operator asked for (~~default Absolute~~ **default
+    /// DoseRate since 2026-10-01**, maintainer).
     basis: MapBasis,
     /// Operator-set colour scale per basis, indexed by [`MapBasis::index`].
     /// `None` until a slider is touched: the default then tracks
@@ -590,6 +608,147 @@ pub struct MapTabState {
     /// The uploaded plume overlay and what it was built from.
     plume_texture: Option<TextureHandle>,
     plume_built_for: Option<PlumeTextureKey>,
+    /// Which comparison curves the TEDE graph overlays (#473): the published
+    /// AP1000 curve and the bounding-table arms. Default none; display only.
+    tede_overlays: TedeOverlays,
+}
+
+/// The TEDE graph's overlay selection, a multi-select (maintainer,
+/// 2026-10-01): any of the AP1000 curves and any computed bounding arm.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TedeOverlays {
+    /// [`Ap1000Overlay::ScaledTo10Mwt`], [`Ap1000Overlay::AsPublished`].
+    ap1000: [bool; 2],
+    /// One per `sembawang::lwr_comparison::ARM_COLUMNS` column.
+    arms: [bool; 7],
+}
+
+impl TedeOverlays {
+    /// The AP1000 curves switched on, in menu order.
+    fn ap1000_on(&self) -> impl Iterator<Item = Ap1000Overlay> + '_ {
+        [Ap1000Overlay::ScaledTo10Mwt, Ap1000Overlay::AsPublished]
+            .into_iter()
+            .zip(self.ap1000)
+            .filter_map(|(o, on)| on.then_some(o))
+    }
+
+    /// Whether anything is overlaid.
+    fn any(&self) -> bool {
+        self.ap1000.iter().chain(&self.arms).any(|b| *b)
+    }
+}
+
+/// The AP1000 severe-accident TED overlay on the centreline TEDE graph
+/// (maintainer request 2026-10-01, #473): Dadda et al. (2024) Fig. 7, the
+/// eight groups summed (`sembawang::ap1000_ted`). Default none; since the
+/// overlay menu became a multi-select (2026-10-01) `None` is its "clear all"
+/// entry and the other two are checkboxes ([`TedeOverlays`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Ap1000Overlay {
+    /// No overlay.
+    #[default]
+    None,
+    /// Scaled to HTR-10's 10 MWt by `x 10 / 3400` (#450 convention).
+    ScaledTo10Mwt,
+    /// As published, 3400 MWt.
+    AsPublished,
+}
+
+impl Ap1000Overlay {
+    /// The dropdown order.
+    const ALL: [Ap1000Overlay; 3] = [
+        Ap1000Overlay::None,
+        Ap1000Overlay::ScaledTo10Mwt,
+        Ap1000Overlay::AsPublished,
+    ];
+
+    /// The dropdown entry.
+    fn label(self) -> &'static str {
+        match self {
+            Ap1000Overlay::None => "None",
+            Ap1000Overlay::ScaledTo10Mwt => {
+                "AP1000 severe accident (Dadda 2024, class B) \u{2014} scaled to 10 MWt"
+            }
+            Ap1000Overlay::AsPublished => {
+                "AP1000 severe accident (Dadda 2024, class B) \u{2014} as published, 3400 MWt"
+            }
+        }
+    }
+
+    /// The short legend name.
+    fn legend_name(self) -> &'static str {
+        match self {
+            Ap1000Overlay::None => "",
+            Ap1000Overlay::ScaledTo10Mwt => "AP1000 Dadda 2024 (\u{d7}10/3400)",
+            Ap1000Overlay::AsPublished => "AP1000 Dadda 2024 (3400 MWt)",
+        }
+    }
+
+    /// The thermal power the curve is drawn at \[MWt\], `None` for no overlay.
+    fn mwth(self) -> Option<f64> {
+        match self {
+            Ap1000Overlay::None => None,
+            Ap1000Overlay::ScaledTo10Mwt => Some(crate::physics::bounding_air_ingress::HTR10_MWTH),
+            Ap1000Overlay::AsPublished => Some(sembawang::ap1000_ted::AP1000_MWTH),
+        }
+    }
+}
+
+/// The AP1000 overlay's caveats, shown under the graph (not in the legend):
+/// the entry, the comparison pairing and every mismatch
+/// (`sembawang::ap1000_ted::MISMATCHES`). Pinned by a test.
+fn ap1000_overlay_caveats(o: Ap1000Overlay) -> String {
+    format!(
+        "{} -- pair with HTR-10 BDB core burn (DLOFC + air ingress, KORA).\n{}",
+        o.label(),
+        sembawang::ap1000_ted::MISMATCHES.replace(" | ", "\n")
+    )
+}
+
+/// The AP1000 overlay's curve on the TEDE graph's axes, `[m, mSv]`, clipped
+/// to `[digitised start, clip_m]`, plus a note: groups counted as zero
+/// outside their digitised range, and whether the clip hides the peak. Empty
+/// for [`Ap1000Overlay::None`].
+fn ap1000_overlay_curve(o: Ap1000Overlay, clip_m: f64) -> (Vec<[f64; 2]>, String) {
+    use sembawang::ap1000_ted as a;
+    let Some(mwth) = o.mwth() else {
+        return (Vec::new(), String::new());
+    };
+    let (lo_km, hi_km) = a::digitised_range_km();
+    let end_km = (clip_m / 1.0e3).min(hi_km);
+    if !(end_km > lo_km) {
+        return (
+            Vec::new(),
+            "AP1000 overlay: graph range ends before the digitised curve.".into(),
+        );
+    }
+    let tot = a::total_ted_scaled(&a::log_grid_km(lo_km, end_km, 120), mwth);
+    let pts: Vec<[f64; 2]> = tot
+        .iter()
+        .map(|t| [t.distance_km * 1.0e3, t.total_sv * 1.0e3])
+        .collect();
+    let partial_to_m = tot
+        .iter()
+        .filter(|t| !t.groups_outside.is_empty())
+        .map(|t| t.distance_km * 1.0e3)
+        .fold(0.0, f64::max);
+    let mut note = format!(
+        "AP1000 overlay ({}): eight groups summed in log-log; below {:.0} m some groups lie \
+         outside their digitised range and count as 0 (not extrapolated).",
+        a::CITATION,
+        partial_to_m
+    );
+    if end_km < a::TABLE_3_DISTANCE_KM {
+        note.push_str(
+            " CLIPPED: the graph ends before the published 0.6 km peak, which is hidden.",
+        );
+    } else {
+        note.push_str(&format!(
+            " Clipped at {:.0} m; the 0.6 km peak is inside.",
+            end_km * 1.0e3
+        ));
+    }
+    (pts, note)
 }
 
 /// What the steady-plume `chi/Q` field depends on -- all of it, so this one
@@ -785,8 +944,9 @@ impl MapTabState {
                 .collect();
             let image = ColorImage::new([cells, cells], pixels);
             match &mut self.texture {
-                // NEAREST, not LINEAR: at one texel per screen pixel there is
-                // nothing to interpolate, and filtering would blur evaluated
+                // NEAREST, not LINEAR: ~~at one texel per screen pixel there is
+                // nothing to interpolate~~ (since 2026-10-01 a texel spans
+                // several pixels, drawn as a crisp block), and filtering would blur evaluated
                 // values into each other -- which is exactly the "picture of a
                 // plume rather than a readout of one" the rose's docs reject.
                 Some(handle) => handle.set(image, TextureOptions::NEAREST),
@@ -983,11 +1143,15 @@ fn draw_dose_scale_ramp_with_reference(ui: &mut Ui, scale: ColourScale) {
 /// finer than it is.
 ///
 /// The field underneath it is subject to the same rule and satisfies it the
-/// other way: at one cell per screen pixel there is no gap left to
-/// interpolate across, so nothing on it is drawn that was not evaluated.
+/// other way: ~~at one cell per screen pixel there is no gap left to
+/// interpolate across~~ each cell is drawn as a NEAREST-filtered block
+/// (since 2026-10-01 a cell spans several pixels), never blended with its
+/// neighbours, so nothing on it is drawn that was not evaluated.
 ///
-/// Returns the side of the map square actually painted \[points\], which is
-/// what the caller turns into the next frame's resolution request.
+/// Returns the side of the map square actually painted \[points\].
+/// ~~which is what the caller turns into the next frame's resolution
+/// request~~ -- since 2026-10-01 the request is the fixed
+/// [`MAP_REQUESTED_CELLS`].
 fn draw_dispersion_rose(
     ui: &mut Ui,
     s: &HtgrSnapshot,
@@ -1964,20 +2128,27 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
     );
 }
 
-/// Cells per side to ask the dispersion field for, given the map square's side
-/// in points and the display's points-to-pixels ratio.
+/// Cells per side the map asks the dispersion field for -- **fixed**,
+/// whatever size the map is drawn at.
 ///
-/// **One evaluation per physical screen pixel** -- the whole point of the
-/// 2026-09-25 direction. On a HiDPI display a point is more than a pixel, so
-/// asking in points would still paint every cell across two or more pixels,
-/// which is the "big box" being replaced, only smaller.
+/// ~~**One evaluation per physical screen pixel** -- the whole point of the
+/// 2026-09-25 direction (`requested_cells(side_points, pixels_per_point)`).~~
+/// **CHANGED 2026-10-01 (maintainer): "a bigger map must NOT request more
+/// grid cells or do more physics. Use more pixels per cell instead"**, and
+/// "don't change the physics calcs". The request no longer follows the
+/// painted rect; the NEAREST-filtered texture stretches each cell over as
+/// many pixels as the (now larger) square needs, as crisp blocks.
 ///
-/// The physics clamps this to what the host can afford
-/// ([`crate::physics::atmospheric_dispersion::max_grid_cells`]), so an
-/// oversized request costs a coarser map, never a missed physics tick.
-fn requested_cells(side_points: f32, pixels_per_point: f32) -> usize {
-    (side_points * pixels_per_point).round().max(1.0) as usize
-}
+/// **Why 512.** At the old default layout (map side = 60 % of the tab's
+/// height, in physical pixels) any viewport taller than 512 / 0.6 = 854 px
+/// asked for at least 512, and the physics clamps every request to the
+/// host's ceiling ([`crate::physics::atmospheric_dispersion::max_grid_cells`]:
+/// 512 with a GPU, 256 on the CPU pool). So on such a window the physics
+/// evaluated `max_grid_cells()` before this change and evaluates exactly that
+/// after it: no difference on the physics thread. (On a viewport shorter
+/// than 854 px the old request was smaller; on a CPU host it was still
+/// clamped to 256 above 427 px.) The clamp itself is untouched.
+const MAP_REQUESTED_CELLS: usize = 512;
 
 /// Whether a new resolution request is worth sending.
 ///
@@ -2243,6 +2414,117 @@ fn draw_bounding_table(ui: &mut Ui) {
     ui.add_space(6.0);
 }
 
+/// Short legend names of the bounding arms, in `ARM_COLUMNS` order
+/// (maintainer, 2026-10-01). The full headings and labels go in the notes.
+const ARM_LEGEND_NAMES: [&str; 7] = [
+    "DB: HTR-10 DLOFC",
+    "DB: NuScale LOCA",
+    "DB: NuScale LOCA, nat. dep.",
+    "BDB: HTR-10 DLOFC + air ingress",
+    "BDB: NuScale LOCA + core melt",
+    "BDB: NuScale LOCA + core melt, nat. dep.",
+    "Context: WASH-1400 PWR 8",
+];
+
+/// The release-basis label of each arm (`bounding_air_ingress`'s constants,
+/// the same text the bounding table prints).
+fn arm_basis_label(k: usize) -> &'static str {
+    use crate::physics::bounding_air_ingress as b;
+    match k {
+        0 => b::DBA_LABEL,
+        1 | 2 => b::LWR_LABEL,
+        3 => b::CASE_LABEL,
+        4 | 5 => b::SEVERE_LABEL,
+        _ => b::WASH_LABEL,
+    }
+}
+
+/// Where a TEDE-graph series comes from, which alone sets its line style
+/// (maintainer rule, 2026-10-01). Every series is built through
+/// [`tede_line`] / [`tede_hline`], which take one, so a new series cannot be
+/// added without choosing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Provenance {
+    /// A curve published by someone else and digitised (the AP1000 curve,
+    /// Dadda 2024; future digitised literature curves): THICK SOLID.
+    Literature,
+    /// This project's own calculation -- the maintainer's "guesses": every
+    /// bounding arm (WASH-1400's fractions are literature, the dose is ours),
+    /// the live HTR-10 centreline and the steady-plume projection: SMALL
+    /// DOTTED.
+    OurCalculation,
+    /// A regulatory reference figure, not a dose curve (the NRC 10 mSv /
+    /// 96 h line): dashed, so it reads as neither of the above.
+    Reference,
+}
+
+impl Provenance {
+    /// `(line style, width [points])`.
+    fn stroke(self) -> (egui_plot::LineStyle, f32) {
+        use egui_plot::LineStyle;
+        match self {
+            Provenance::Literature => (LineStyle::Solid, 3.0),
+            Provenance::OurCalculation => (LineStyle::dotted_dense(), 1.5),
+            Provenance::Reference => (LineStyle::dashed_dense(), 1.5),
+        }
+    }
+}
+
+/// The one-line key under the plot.
+const PROVENANCE_KEY: &str =
+    "Line key: thick solid = published literature; dotted = this project's calculations (not validated).";
+
+/// A TEDE-graph line, styled by its [`Provenance`].
+fn tede_line(
+    name: &str,
+    pts: Vec<[f64; 2]>,
+    colour: Color32,
+    p: Provenance,
+) -> egui_plot::Line<'static> {
+    let (style, width) = p.stroke();
+    egui_plot::Line::new(name.to_string(), egui_plot::PlotPoints::from(pts))
+        .color(colour)
+        .style(style)
+        .width(width)
+}
+
+/// A TEDE-graph horizontal line, styled by its [`Provenance`].
+fn tede_hline(name: &str, y: f64, colour: Color32, p: Provenance) -> egui_plot::HLine {
+    let (style, width) = p.stroke();
+    egui_plot::HLine::new(name.to_string(), y)
+        .color(colour)
+        .style(style)
+        .width(width)
+}
+
+/// Colour and marker of arm `k`. Line style is provenance (all arms are our
+/// calculation: dotted), so the pairing is shown by COLOUR FAMILY per tier
+/// (DB teal, BDB orange, context grey; HTR-10 the darker shade) and MARKER
+/// per reactor (HTR-10 circle, LWR square, WASH-1400 cross).
+fn arm_colour_marker(k: usize) -> (Color32, egui_plot::MarkerShape) {
+    use egui_plot::MarkerShape;
+    match k {
+        0 => (Color32::from_rgb(0, 110, 110), MarkerShape::Circle),
+        1 | 2 => (Color32::from_rgb(60, 180, 170), MarkerShape::Square),
+        3 => (Color32::from_rgb(190, 90, 0), MarkerShape::Circle),
+        4 | 5 => (Color32::from_rgb(245, 160, 60), MarkerShape::Square),
+        _ => (Color32::from_gray(120), MarkerShape::Cross),
+    }
+}
+
+/// Arm `k` of the bounding comparison as `[m, mSv]` points, straight from
+/// `ComparisonRow::arm_doses_sv` (no recomputation). `None` when any row is
+/// pending (`None` in the table): a pending arm is never plotted as zero.
+fn arm_overlay_points(
+    c: &sembawang::lwr_comparison::BoundingComparison,
+    k: usize,
+) -> Option<Vec<[f64; 2]>> {
+    c.rows
+        .iter()
+        .map(|r| r.arm_doses_sv()[k].map(|sv| [r.distance_m, sv * 1.0e3]))
+        .collect()
+}
+
 /// One point of the plume-centreline TEDE graph (gh:#470, 2026-10-01).
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct TedeCentrelinePoint {
@@ -2321,23 +2603,33 @@ fn steady_plume_projection_msv(s: &HtgrSnapshot, x_m: f64) -> Option<f64> {
 }
 
 /// The plume-centreline TEDE graph, to the right of the map (gh:#470).
-/// Log-y in mSv (`egui_plot` 0.37 has no log axis, so `log10(mSv)` is plotted
-/// and the ticks are labelled as powers of ten), distance in m.
-fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &MapTabState, side: f32) {
-    use egui_plot::{HLine, HoverPosition, Legend, Line, LineStyle, Plot, PlotPoints, Points};
+/// ~~Log-y in mSv (`egui_plot` 0.37 has no log axis, so `log10(mSv)` is
+/// plotted and the ticks are labelled as powers of ten), distance in m.~~
+/// **CHANGED 2026-10-01 (maintainer: "i want linear-linear", #473):**
+/// linear dose in mSv against linear distance in m, ticks every 200 m and
+/// evenly spaced mSv ticks; no log tick formatter. The overlays
+/// ([`TedeOverlays`], default none) are drawn on the same linear axes: the
+/// AP1000 curve as published (3400 MWt, ~39 Sv peak) or a 100 m LWR arm
+/// flattens the HTR-10 curve, which is expected and NOT switched to log.
+///
+/// `width` x `height` is the column this graph fills (title, plot, then the
+/// overlay menu and notes BELOW the plot so they do not shrink it).
+fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width: f32, height: f32) {
+    use egui_plot::{HoverPosition, Legend, Plot, PlotPoints, Points};
     ui.vertical(|ui| {
+        ui.set_max_width(width);
         ui.small(TEDE_PLOT_TITLE);
         let points = tede_centreline(s);
-        let log_pts = |f: fn(&TedeCentrelinePoint) -> f64| -> Vec<[f64; 2]> {
+        let msv_pts = |f: fn(&TedeCentrelinePoint) -> f64| -> Vec<[f64; 2]> {
             points
                 .iter()
                 .filter(|p| f(p) > 0.0)
-                .map(|p| [p.distance_m, (f(p) * 1.0e3).log10()])
+                .map(|p| [p.distance_m, f(p) * 1.0e3])
                 .collect()
         };
-        let total = log_pts(|p| p.since_start_sv);
+        let total = msv_pts(|p| p.since_start_sv);
         let show_window = s.tede.elapsed_s > 95.0 * 3600.0;
-        let window = log_pts(|p| p.trailing_96h_sv);
+        let window = msv_pts(|p| p.trailing_96h_sv);
         let mut status = format!(
             "Accumulated over {} of plant time.",
             clock_text(s.tede.elapsed_s)
@@ -2362,105 +2654,405 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &MapTabState, side: f32)
                 .filter_map(|x| {
                     steady_plume_projection_msv(s, x)
                         .filter(|v| *v > 0.0)
-                        .map(|v| [x, v.log10()])
+                        .map(|v| [x, v])
                 })
                 .collect()
         } else {
             Vec::new()
         };
-        let width = ui.available_width().clamp(280.0, (1.2 * side).max(280.0));
+        let overlays = state.tede_overlays;
+        // The bounding arms, straight from the table's rows (computed once
+        // per process, and only once an arm is picked).
+        let comparison = overlays
+            .arms
+            .iter()
+            .any(|b| *b)
+            .then(crate::physics::bounding_air_ingress::comparison);
+        let arms: Vec<(usize, Vec<[f64; 2]>)> = match comparison {
+            Some(Ok(c)) => (0..7)
+                .filter(|k| overlays.arms[*k])
+                .filter_map(|k| arm_overlay_points(c, k).map(|p| (k, p)))
+                .collect(),
+            _ => Vec::new(),
+        };
+        // The x range ends at the outermost receptor (1000 m before the first
+        // dispersion run), grown to the furthest arm row if one lies beyond.
+        let clip_m = arms
+            .iter()
+            .flat_map(|(_, p)| p.iter().map(|q| q[0]))
+            .fold(points.last().map_or(1000.0, |p| p.distance_m), f64::max);
+        let ap1000: Vec<(Ap1000Overlay, Vec<[f64; 2]>, String)> = overlays
+            .ap1000_on()
+            .map(|o| {
+                let (p, note) = ap1000_overlay_curve(o, clip_m);
+                (o, p, note)
+            })
+            .collect();
+        // Plot height from the content ABOVE the plot only (title + status);
+        // the menu and the notes go below so the graph does not shrink
+        // (maintainer, 2026-10-01).
         let used = ui.min_rect().height();
-        let height = (side - used).max(200.0);
-        let reference_log = (NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3).log10();
+        let plot_h = (height - used).max(200.0);
+        let reference_msv = NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3;
+        let y_top = tede_plot_y_top(
+            reference_msv,
+            [&total, &window, &projection]
+                .into_iter()
+                .chain(arms.iter().map(|(_, p)| p))
+                .chain(ap1000.iter().map(|(_, p, _)| p))
+                .flat_map(|v| v.iter().map(|p| p[1])),
+        );
         Plot::new("htgr_tede_centreline_plot")
-            .legend(Legend::default())
+            .legend(
+                Legend::default()
+                    .position(TEDE_LEGEND_CORNER)
+                    .background_alpha(0.6)
+                    .text_style(egui::TextStyle::Small),
+            )
             .width(width)
-            .height(height)
+            .height(plot_h)
             .x_axis_label("downwind distance [m]")
-            .y_axis_label("accumulated dose [mSv] (log)")
-            .y_axis_formatter(|mark, _| format!("1e{:.0}", mark.value))
+            .y_axis_label("accumulated dose [mSv]")
+            .x_grid_spacer(|g| tede_x_marks(g.bounds))
+            .x_axis_formatter(|mark, _| tede_x_label(mark.value))
+            .y_grid_spacer(|g| tede_y_marks(g.bounds))
+            .y_axis_formatter(|mark, range| tede_y_label(mark.value, range))
             .include_x(0.0)
-            .include_y(reference_log)
+            .include_x(clip_m)
+            .include_y(0.0)
+            .include_y(y_top)
             .label_formatter(|pos| match pos {
                 HoverPosition::NearDataPoint {
                     plot_name,
                     position,
                     ..
-                } if !plot_name.is_empty() => Some(format!(
-                    "{plot_name}\n{:.0} m: {:.3e} mSv\n(centreline = max over the ring's sectors)",
-                    position.x,
-                    10f64.powf(position.y)
-                )),
+                } if !plot_name.is_empty() => {
+                    let what = if plot_name.starts_with("HTR-10 centreline") {
+                        "\n(centreline = max over the ring's sectors)"
+                    } else if plot_name.starts_with("AP1000")
+                        || plot_name.starts_with("DB:")
+                        || plot_name.starts_with("BDB:")
+                        || plot_name.starts_with("Context:")
+                    {
+                        "\n(caveats: see the notes below the graph)"
+                    } else {
+                        ""
+                    };
+                    Some(format!(
+                        "{plot_name}\n{:.0} m: {:.3e} mSv{what}",
+                        position.x, position.y
+                    ))
+                }
                 HoverPosition::NearDataPoint { position, .. }
-                | HoverPosition::Elsewhere { position } => Some(format!(
-                    "{:.0} m, {:.2e} mSv",
-                    position.x,
-                    10f64.powf(position.y)
-                )),
+                | HoverPosition::Elsewhere { position } => {
+                    Some(format!("{:.0} m, {:.3e} mSv", position.x, position.y))
+                }
             })
             .show(ui, |plot_ui| {
-                plot_ui.hline(
-                    HLine::new(
-                        "NRC 2023: 10 mSv TEDE / 96 h -- reference figure, not a threshold here",
-                        reference_log,
-                    )
-                    .color(Color32::from_rgb(200, 40, 40))
-                    .style(LineStyle::dashed_dense()),
-                );
+                plot_ui.hline(tede_hline(
+                    TEDE_LEGEND_NRC,
+                    reference_msv,
+                    Color32::from_rgb(200, 40, 40),
+                    Provenance::Reference,
+                ));
+                let ours = Provenance::OurCalculation;
                 if !total.is_empty() {
-                    plot_ui.line(
-                        Line::new("since plant start (sector max)", PlotPoints::from(total.clone()))
-                            .color(Color32::from_rgb(30, 90, 200)),
-                    );
+                    let blue = Color32::from_rgb(30, 90, 200);
+                    plot_ui.line(tede_line(TEDE_LEGEND_TOTAL, total.clone(), blue, ours));
                     plot_ui.points(
-                        Points::new("since plant start (sector max)", PlotPoints::from(total))
-                            .color(Color32::from_rgb(30, 90, 200))
+                        Points::new(TEDE_LEGEND_TOTAL, PlotPoints::from(total))
+                            .color(blue)
                             .radius(3.5),
                     );
                 }
                 if show_window && !window.is_empty() {
-                    plot_ui.line(
-                        Line::new("trailing 95-96 h (sector max)", PlotPoints::from(window))
-                            .color(Color32::from_rgb(20, 150, 80)),
-                    );
+                    let green = Color32::from_rgb(20, 150, 80);
+                    plot_ui.line(tede_line(TEDE_LEGEND_WINDOW, window, green, ours));
                 }
                 if !projection.is_empty() {
-                    plot_ui.line(
-                        Line::new(
-                            "steady-plume projection (ground release, air pathways, today's \
-                             rate x elapsed)",
-                            PlotPoints::from(projection),
-                        )
-                        .color(PLUME_COLOUR)
-                        .style(LineStyle::dashed_loose()),
+                    plot_ui.line(tede_line(
+                        TEDE_LEGEND_PROJECTION,
+                        projection,
+                        PLUME_COLOUR,
+                        ours,
+                    ));
+                }
+                for (k, pts) in &arms {
+                    let (colour, marker) = arm_colour_marker(*k);
+                    plot_ui.line(tede_line(ARM_LEGEND_NAMES[*k], pts.clone(), colour, ours));
+                    plot_ui.points(
+                        Points::new(ARM_LEGEND_NAMES[*k], PlotPoints::from(pts.clone()))
+                            .color(colour)
+                            .shape(marker)
+                            .radius(4.0),
                     );
                 }
+                for (o, pts, _) in &ap1000 {
+                    if !pts.is_empty() {
+                        let colour = match o {
+                            Ap1000Overlay::AsPublished => Color32::from_rgb(90, 30, 120),
+                            _ => Color32::from_rgb(140, 60, 170),
+                        };
+                        plot_ui.line(tede_line(
+                            o.legend_name(),
+                            pts.clone(),
+                            colour,
+                            Provenance::Literature,
+                        ));
+                    }
+                }
             });
+        // Below the plot: the overlay menu, then the long text that used to
+        // sit in the legend.
+        draw_tede_overlay_menu(ui, &mut state.tede_overlays);
+        ui.small(PROVENANCE_KEY);
+        ui.add(egui::Label::new(egui::RichText::new(TEDE_PLOT_NOTES).small()).wrap());
+        if !ap1000.is_empty() {
+            // Only exists while an AP1000 curve is selected, so
+            // `default_open` opens it whenever one is picked.
+            egui::CollapsingHeader::new("AP1000 overlay caveats")
+                .id_salt("htgr_tede_ap1000_caveats")
+                .default_open(true)
+                .show(ui, |ui| {
+                    for (o, _, note) in &ap1000 {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(format!(
+                                    "{}\n{note}",
+                                    ap1000_overlay_caveats(*o)
+                                ))
+                                .small(),
+                            )
+                            .wrap(),
+                        );
+                    }
+                });
+        }
+        if overlays.arms.iter().any(|b| *b) {
+            egui::CollapsingHeader::new("Bounding-case notes")
+                .id_salt("htgr_tede_arm_notes")
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::Label::new(egui::RichText::new(arm_notes(&overlays)).small()).wrap(),
+                    );
+                    if let Some(Err(e)) = comparison {
+                        ui.colored_label(
+                            Color32::from_rgb(200, 60, 20),
+                            format!("Comparison unavailable: {e}"),
+                        );
+                    }
+                });
+        }
     });
 }
 
-/// Draw the whole Map tab: the Gaussian puff dispersion widgets.
-///
-/// `view` is the tab's viewport, measured by the caller **outside** the scroll
-/// area -- inside one, the available height is the content's own budget rather
-/// than the window's, so a panel that sized itself from in there would grow
-/// every frame it filled.
-///
-/// Layout is the map square above the table, not beside it (maintainer,
-/// 2026-09-25), with the map at [`MAP_HEIGHT_FRACTION`] of the viewport
-/// height. The combination overflows the viewport by construction, which is
-/// what the caller's two-way scroll area is for.
-pub fn draw_map(
-    ui: &mut Ui,
-    physics: &SharedState<HtgrSnapshot>,
-    s: &HtgrSnapshot,
-    state: &mut MapTabState,
-    view: Vec2,
-) -> MapAction {
-    ui.heading("Atmospheric dispersion -- Gaussian puff");
-    let action = draw_scenario_buttons(ui);
-    draw_bounding_toggle(ui, state);
-    draw_plume_toggle(ui, s, state);
+/// The notes under the graph for the selected bounding arms: per arm its
+/// tier, the dose window, the release basis and the full table heading, then
+/// the reactor-level crediting basis once.
+fn arm_notes(overlays: &TedeOverlays) -> String {
+    use crate::physics::bounding_air_ingress as b;
+    use sembawang::lwr_comparison::ARM_COLUMNS;
+    let mut out = String::new();
+    for k in (0..7).filter(|k| overlays.arms[*k]) {
+        let col = ARM_COLUMNS[k];
+        out.push_str(&format!(
+            "{}: {} [{}]. Maximum dose over the first {:.0} h, worst class at 1 m/s, the \
+             bounding table's rows at the receptor distances. {}\n",
+            ARM_LEGEND_NAMES[k],
+            col.heading,
+            col.tier.label(),
+            b::WINDOW_H,
+            arm_basis_label(k)
+        ));
+    }
+    out.push_str(&format!(
+        "Pools and building not credited -- reactor-level comparison: {}",
+        b::BASIS_LABEL
+    ));
+    out
+}
+
+/// The overlay multi-select under the graph: "None" clears everything, then
+/// one checkbox per AP1000 curve and per bounding arm. A pending arm (any
+/// row `None`, "pending literature" in the table) is shown disabled and is
+/// never plotted.
+fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays) {
+    let selected = [Ap1000Overlay::ScaledTo10Mwt, Ap1000Overlay::AsPublished]
+        .into_iter()
+        .zip(o.ap1000)
+        .filter(|(_, on)| *on)
+        .map(|(a, _)| a.legend_name())
+        .chain((0..7).filter(|k| o.arms[*k]).map(|k| ARM_LEGEND_NAMES[k]))
+        .collect::<Vec<_>>();
+    let summary = if selected.is_empty() {
+        "None".to_string()
+    } else {
+        selected.join(", ")
+    };
+    ui.horizontal_wrapped(|ui| {
+        ui.small("Overlays:");
+        egui::ComboBox::from_id_salt("htgr_tede_overlays")
+            .selected_text(summary)
+            .show_ui(ui, |ui| {
+                if ui
+                    .selectable_label(!o.any(), Ap1000Overlay::None.label())
+                    .clicked()
+                {
+                    *o = TedeOverlays::default();
+                }
+                ui.separator();
+                // `ALL[0]` is None, the clear-all entry above.
+                for (i, a) in Ap1000Overlay::ALL[1..].iter().enumerate() {
+                    ui.checkbox(&mut o.ap1000[i], a.label());
+                }
+                ui.separator();
+                // Whether an arm is pending is read from the table itself
+                // (computed on first open of this menu).
+                let c = crate::physics::bounding_air_ingress::comparison();
+                for k in 0..7 {
+                    let pending = match c {
+                        Ok(c) => arm_overlay_points(c, k).is_none(),
+                        Err(_) => true,
+                    };
+                    if pending {
+                        o.arms[k] = false;
+                        ui.add_enabled(
+                            false,
+                            egui::Checkbox::new(
+                                &mut false,
+                                format!(
+                                    "{} (pending literature -- not plotted)",
+                                    ARM_LEGEND_NAMES[k]
+                                ),
+                            ),
+                        );
+                    } else {
+                        ui.checkbox(&mut o.arms[k], ARM_LEGEND_NAMES[k]);
+                    }
+                }
+            })
+            .response
+            .on_hover_text(
+                "Comparison curves. AP1000: Dadda et al. 2024, Fig. 7, published; pair with the \
+                 HTR-10 beyond-design-basis core burn (DLOFC + air ingress, KORA). DB/BDB/\
+                 Context: the bounding table's arms (sembawang::lwr_comparison), same rows.",
+            );
+    });
+}
+
+/// Short legend names (maintainer, 2026-10-01: the long caveats covered the
+/// curves; they are now in [`TEDE_PLOT_NOTES`] below the plot).
+const TEDE_LEGEND_TOTAL: &str = "HTR-10 centreline (accumulated)";
+const TEDE_LEGEND_WINDOW: &str = "HTR-10 centreline (trailing 96 h)";
+const TEDE_LEGEND_PROJECTION: &str = "steady-plume projection";
+const TEDE_LEGEND_NRC: &str = "NRC 10 mSv / 96 h";
+
+/// The long text that used to be legend names, as a wrapped label under the
+/// plot. Pinned by a test.
+const TEDE_PLOT_NOTES: &str = "Notes: HTR-10 centreline = sector maximum per receptor ring, since \
+     plant start; trailing 96 h = the trailing 95-96 h window (sector max). Steady-plume \
+     projection = ground release, air pathways only, today's rate x elapsed time. NRC 2023: 10 \
+     mSv TEDE / 96 h -- a reference figure, not a threshold here. Click a legend entry to hide \
+     that curve.";
+
+/// Legend corner, with its justification. The y range is padded by
+/// [`TEDE_HEADROOM`] above the highest plotted value (data or the NRC line),
+/// so the top ~44 % of the plot holds no data at all and any top corner is
+/// empty. Of the two, RIGHT: every HTR-10 curve (centreline, trailing window,
+/// steady-plume projection) falls with distance from the source, so the
+/// right side is the lower side even when the plot is panned or zoomed out
+/// of the padded range; the AP1000 curve peaks at 0.6 km, mid-graph.
+const TEDE_LEGEND_CORNER: egui_plot::Corner = egui_plot::Corner::RightTop;
+
+/// y headroom factor: the top of the auto range is `1.8 x` the largest
+/// plotted value, leaving `1 - 1/1.8` = 44 % of the height above the data
+/// for the legend (at most five Small-text entries, ~90 px, against the
+/// 200 px minimum plot height).
+const TEDE_HEADROOM: f64 = 1.8;
+
+/// The top of the TEDE graph's auto y range \[mSv\]: [`TEDE_HEADROOM`] x the
+/// largest of the NRC reference and every plotted value.
+fn tede_plot_y_top(reference_msv: f64, values: impl Iterator<Item = f64>) -> f64 {
+    TEDE_HEADROOM
+        * values
+            .filter(|v| v.is_finite())
+            .fold(reference_msv, f64::max)
+}
+
+/// The x tick step \[m\] (maintainer, 2026-10-01: ticks every 200 m, kept
+/// past 1000 m).
+const TEDE_X_STEP_M: f64 = 200.0;
+
+/// x grid marks every [`TEDE_X_STEP_M`] across `bounds`.
+fn tede_x_marks(bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
+    uniform_marks(TEDE_X_STEP_M, bounds)
+}
+
+/// "N m" for a multiple of [`TEDE_X_STEP_M`], blank otherwise.
+fn tede_x_label(x: f64) -> String {
+    let k = (x / TEDE_X_STEP_M).round();
+    if (x - k * TEDE_X_STEP_M).abs() < 1e-6 * TEDE_X_STEP_M {
+        format!("{:.0} m", k * TEDE_X_STEP_M)
+    } else {
+        String::new()
+    }
+}
+
+/// A "nice" linear step (1, 2 or 5 x 10^k) giving about five intervals over
+/// `span`.
+fn nice_step(span: f64) -> f64 {
+    if !(span.is_finite() && span > 0.0) {
+        return 1.0;
+    }
+    let raw = span / 5.0;
+    let p = 10f64.powf(raw.log10().floor());
+    let m = raw / p;
+    p * if m <= 1.0 {
+        1.0
+    } else if m <= 2.0 {
+        2.0
+    } else if m <= 5.0 {
+        5.0
+    } else {
+        10.0
+    }
+}
+
+/// Evenly spaced linear y marks across `bounds`, step [`nice_step`].
+fn tede_y_marks(bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
+    uniform_marks(nice_step(bounds.1 - bounds.0), bounds)
+}
+
+/// "V mSv", with as many decimals as the step needs.
+fn tede_y_label(y: f64, range: &std::ops::RangeInclusive<f64>) -> String {
+    let step = nice_step(range.end() - range.start());
+    let decimals = (-step.log10().floor()).max(0.0) as usize;
+    let v = if y.abs() < 1e-9 * step { 0.0 } else { y };
+    format!("{v:.decimals$} mSv")
+}
+
+/// Marks at every multiple of `step` inside `bounds`, all one thickness.
+fn uniform_marks(step: f64, bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
+    if !(step > 0.0 && bounds.1 > bounds.0) || (bounds.1 - bounds.0) / step > 1000.0 {
+        return Vec::new();
+    }
+    let first = (bounds.0 / step).ceil() as i64;
+    let last = (bounds.1 / step).floor() as i64;
+    (first..=last)
+        .map(|k| egui_plot::GridMark {
+            value: k as f64 * step,
+            step_size: step,
+        })
+        .collect()
+}
+
+/// The running-accident banners (DLOFC, water ingress, the hydrolysis
+/// warning), or a line saying none is running.
+fn draw_accident_status(ui: &mut Ui, s: &HtgrSnapshot) {
+    if !(s.dlofc_triggered || s.water_ingress_triggered) {
+        ui.small("No accident scenario running.");
+    }
     if s.dlofc_triggered {
         ui.colored_label(
             Color32::from_rgb(200, 120, 20),
@@ -2502,32 +3094,172 @@ pub fn draw_map(
             );
         }
     }
-    // The one puff-model configuration every basis and table below uses
-    // (maintainer direction 2026-09-29; `map_puff_model`, gh:#384).
-    ui.label(crate::physics::map_puff_model::regime_label());
-    draw_plume_clock(ui, physics, s);
-    ui.add_space(4.0);
+}
 
-    let (basis, scale) = draw_scale_controls(ui, s, state);
-    ui.add_space(4.0);
+/// The `(basis, scale)` [`draw_scale_controls`] returns, without drawing it:
+/// what the map paints while the scale section is collapsed.
+fn current_basis_and_scale(s: &HtgrSnapshot, state: &MapTabState) -> (MapBasis, ColourScale) {
+    let peak_chi = field_value(field_peak_sample(s), MapBasis::ChiOverQ, s);
+    let basis = effective_basis(state.basis, s);
+    let scale = state.scale_for(basis, s, peak_chi);
+    (basis, ColourScale::clamped(scale.floor, scale.span_decades))
+}
 
-    let side = (view.y * MAP_HEIGHT_FRACTION).max(MAP_MIN_SIDE);
-    // The map with the plume-centreline TEDE graph to its RIGHT (gh:#470,
-    // maintainer request 2026-10-01).
-    let painted = ui
-        .horizontal_top(|ui| {
-            let painted = draw_dispersion_rose(ui, s, state, side, basis, scale);
-            draw_tede_plot(ui, s, state, side);
-            painted
+/// Gap between the map and the TEDE graph \[points\].
+const GRAPH_GAP: f32 = 8.0;
+
+/// Smallest TEDE plot width \[points\].
+const TEDE_MIN_WIDTH: f32 = 280.0;
+
+/// Where the map square and the TEDE graph go.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct GraphLayout {
+    /// The map square's side, also the TEDE column's height \[points\].
+    side: f32,
+    /// The TEDE graph's width \[points\].
+    plot_width: f32,
+    /// Map above the graph instead of beside it.
+    stacked: bool,
+}
+
+/// Size the map and the TEDE graph to the space left (maintainer,
+/// 2026-10-01: "the graphs should take most of the real-estate").
+///
+/// Side by side, the map is square with side `min(half the width, the
+/// height left)`, floored at [`MAP_MIN_SIDE`] and at
+/// [`MAP_HEIGHT_FRACTION`] of the viewport (the 2026-09-25 direction, kept
+/// as a floor), and never wider than half the width; the graph takes the
+/// rest of the width at the same height. Narrower than `2 x MAP_MIN_SIDE`:
+/// stacked, each the full width.
+fn graph_layout(width: f32, height_left: f32, view_height: f32) -> GraphLayout {
+    let height = height_left.max(view_height * MAP_HEIGHT_FRACTION);
+    if width < 2.0 * MAP_MIN_SIDE {
+        let side = width.min(height).max(MAP_MIN_SIDE);
+        return GraphLayout {
+            side,
+            plot_width: width.max(TEDE_MIN_WIDTH),
+            stacked: true,
+        };
+    }
+    let half = 0.5 * (width - GRAPH_GAP);
+    let side = half.min(height).max(MAP_MIN_SIDE);
+    GraphLayout {
+        side,
+        plot_width: (width - side - GRAPH_GAP).max(TEDE_MIN_WIDTH),
+        stacked: false,
+    }
+}
+
+/// Draw the whole Map tab: the Gaussian puff dispersion widgets.
+///
+/// `view` is the tab's viewport, measured by the caller **outside** the scroll
+/// area -- inside one, the available height is the content's own budget rather
+/// than the window's, so a panel that sized itself from in there would grow
+/// every frame it filled.
+///
+/// Layout is the map square above the table, not beside it (maintainer,
+/// 2026-09-25), ~~with the map at [`MAP_HEIGHT_FRACTION`] of the viewport
+/// height~~ **since 2026-10-01** with the controls in collapsing sections
+/// and the map + TEDE graph filling the space left ([`graph_layout`]);
+/// [`MAP_HEIGHT_FRACTION`] is now a floor. The combination overflows the viewport by construction, which is
+/// what the caller's two-way scroll area is for.
+pub fn draw_map(
+    ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
+    s: &HtgrSnapshot,
+    state: &mut MapTabState,
+    view: Vec2,
+) -> MapAction {
+    ui.heading("Atmospheric dispersion -- Gaussian puff");
+    // Everything above the map is in collapsing sections (maintainer,
+    // 2026-10-01), Scenarios open and the rest collapsed, so the map and the
+    // TEDE graph fit without scrolling. Every section's RESULT is produced
+    // whether or not it is open.
+    let action = egui::CollapsingHeader::new("Scenarios")
+        .id_salt("htgr_map_section_scenarios")
+        .default_open(true)
+        .show(ui, |ui| {
+            let action = draw_scenario_buttons(ui);
+            draw_bounding_toggle(ui, state);
+            action
         })
-        .inner;
+        .body_returned
+        .unwrap_or(MapAction::None);
+    let accident = s.dlofc_triggered || s.water_ingress_triggered;
+    // Forced open while an accident runs, so a live warning is never hidden;
+    // otherwise free to collapse.
+    let mut status = egui::CollapsingHeader::new(if accident {
+        "Running-accident status -- ACCIDENT RUNNING"
+    } else {
+        "Running-accident status"
+    })
+    .id_salt("htgr_map_section_accident")
+    .default_open(false);
+    if accident {
+        status = status.open(Some(true));
+    }
+    status.show(ui, |ui| draw_accident_status(ui, s));
+    egui::CollapsingHeader::new("Puff model and plume clock")
+        .id_salt("htgr_map_section_clock")
+        .default_open(false)
+        .show(ui, |ui| {
+            // The one puff-model configuration every basis and table below
+            // uses (maintainer direction 2026-09-29; `map_puff_model`,
+            // gh:#384).
+            ui.label(crate::physics::map_puff_model::regime_label());
+            draw_plume_clock(ui, physics, s);
+        });
+    egui::CollapsingHeader::new("Overlay toggles")
+        .id_salt("htgr_map_section_overlays")
+        .default_open(false)
+        .show(ui, |ui| {
+            draw_plume_toggle(ui, s, state);
+            ui.small(
+                "The TEDE graph's overlays (AP1000, bounding arms) are in its menu, under it.",
+            );
+        });
+    let (basis, scale) = egui::CollapsingHeader::new(format!(
+        "Scale controls -- showing {}",
+        effective_basis(state.basis, s).label()
+    ))
+    .id_salt("htgr_map_section_scale")
+    .default_open(false)
+    .show(ui, |ui| draw_scale_controls(ui, s, state))
+    .body_returned
+    // Collapsed: the same (basis, scale) the controls would return.
+    .unwrap_or_else(|| current_basis_and_scale(s, state));
+    ui.add_space(4.0);
 
-    // Tell the physics what resolution this map can show. A control input,
-    // written the same way the wind is -- see `HtgrSnapshot::
-    // map_field_cells_requested`.
-    let wanted = requested_cells(painted, ui.ctx().pixels_per_point());
-    if resolution_request_changed(s.map_field_cells_requested, wanted) {
-        physics.update(|state| state.map_field_cells_requested = wanted);
+    // The graphs take most of the real estate (maintainer, 2026-10-01): the
+    // map square and the TEDE graph fill the width, at the height left under
+    // the sections.
+    let width = if ui.available_width().is_finite() {
+        ui.available_width().min(view.x)
+    } else {
+        view.x
+    };
+    let height_left = view.y - ui.min_rect().height() - 8.0;
+    let layout = graph_layout(width, height_left, view.y);
+    // The map with the plume-centreline TEDE graph to its RIGHT (gh:#470,
+    // maintainer request 2026-10-01), or below it on a narrow window.
+    if layout.stacked {
+        draw_dispersion_rose(ui, s, state, layout.side, basis, scale);
+        draw_tede_plot(ui, s, state, layout.plot_width, layout.side);
+    } else {
+        ui.horizontal_top(|ui| {
+            draw_dispersion_rose(ui, s, state, layout.side, basis, scale);
+            draw_tede_plot(ui, s, state, layout.plot_width, layout.side);
+        });
+    }
+
+    // Tell the physics what resolution to evaluate. A control input, written
+    // the same way the wind is -- see `HtgrSnapshot::
+    // map_field_cells_requested`. ~~One cell per physical pixel of the
+    // painted square~~ **CHANGED 2026-10-01 (maintainer: a bigger map must
+    // not do more physics):** a fixed [`MAP_REQUESTED_CELLS`], whatever the
+    // size; the texture stretches over more pixels per cell.
+    if resolution_request_changed(s.map_field_cells_requested, MAP_REQUESTED_CELLS) {
+        physics.update(|state| state.map_field_cells_requested = MAP_REQUESTED_CELLS);
     }
     // And which basis to sum the field in (gh:#400), the same way.
     let weighting = basis.weighting();
@@ -2586,6 +3318,198 @@ mod tests {
             "from plant start",
         ] {
             assert!(super::TEDE_PLOT_TITLE.contains(needle), "{needle}");
+        }
+    }
+
+    /// Maintainer, 2026-10-01: each bounding-arm overlay IS the bounding
+    /// table's column -- point for point `arm_doses_sv` x 1e3 at the row
+    /// distances -- so the curve cannot drift from the table; pending arms
+    /// (natural deposition, "pending literature") are not plotted at all,
+    /// never as zero; the default selection is empty.
+    #[test]
+    fn the_bounding_overlays_are_the_tables_columns() {
+        use super::{arm_overlay_points, arm_notes, TedeOverlays, ARM_LEGEND_NAMES};
+        use sembawang::lwr_comparison::ARM_COLUMNS;
+        assert!(!TedeOverlays::default().any());
+        let c = crate::physics::bounding_air_ingress::comparison()
+            .as_ref()
+            .expect("bounding chain runs");
+        let mut plotted = 0;
+        for k in 0..7 {
+            let pending = c.rows.iter().any(|r| r.arm_doses_sv()[k].is_none());
+            match arm_overlay_points(c, k) {
+                None => assert!(pending, "{}", ARM_COLUMNS[k].heading),
+                Some(pts) => {
+                    plotted += 1;
+                    assert_eq!(pts.len(), c.rows.len());
+                    for (p, r) in pts.iter().zip(&c.rows) {
+                        assert_eq!(p[0], r.distance_m);
+                        assert_eq!(p[1], r.arm_doses_sv()[k].unwrap() * 1.0e3);
+                    }
+                }
+            }
+        }
+        // DB HTR-10, DB LWR, BDB HTR-10, BDB LWR, WASH-1400: five computed.
+        assert_eq!(plotted, 5);
+        for k in [2, 5] {
+            assert!(arm_overlay_points(c, k).is_none());
+        }
+        // The legend names are short; the long text is in the notes.
+        assert!(ARM_LEGEND_NAMES.iter().all(|n| n.len() <= 42));
+        let all = TedeOverlays {
+            ap1000: [false; 2],
+            arms: [true; 7],
+        };
+        let notes = arm_notes(&all);
+        for needle in [
+            "Pools and building not credited -- reactor-level comparison",
+            "96 h",
+            "Design basis: DLOFC vs LOCA",
+            "Beyond design basis",
+            "L_a 0.20 %/day",
+            "Bounding case, not a transient",
+        ] {
+            assert!(notes.contains(needle), "{needle}");
+        }
+    }
+
+    /// Maintainer, 2026-10-01: linear axes with ticks every 200 m (kept past
+    /// 1000 m) labelled "N m", evenly spaced mSv ticks; the legend sits in a
+    /// headroom band above every plotted value.
+    #[test]
+    fn the_tede_axes_are_linear_with_200_m_ticks() {
+        use super::{
+            nice_step, tede_plot_y_top, tede_x_label, tede_x_marks, tede_y_label, tede_y_marks,
+        };
+        let v: Vec<f64> = tede_x_marks((-30.0, 1040.0))
+            .iter()
+            .map(|m| m.value)
+            .collect();
+        assert_eq!(v, [0.0, 200.0, 400.0, 600.0, 800.0, 1000.0]);
+        let v: Vec<f64> = tede_x_marks((0.0, 1500.0))
+            .iter()
+            .map(|m| m.value)
+            .collect();
+        assert_eq!(v.last(), Some(&1400.0));
+        assert!(v.windows(2).all(|w| w[1] - w[0] == 200.0));
+        assert_eq!(tede_x_label(600.0), "600 m");
+        assert_eq!(tede_x_label(650.0), "");
+        assert_eq!(nice_step(18.0), 5.0);
+        assert_eq!(nice_step(200.0), 50.0);
+        assert_eq!(nice_step(0.004), 0.001);
+        let y: Vec<f64> = tede_y_marks((0.0, 18.0)).iter().map(|m| m.value).collect();
+        assert_eq!(y, [0.0, 5.0, 10.0, 15.0]);
+        assert_eq!(tede_y_label(10.0, &(0.0..=18.0)), "10 mSv");
+        assert_eq!(tede_y_label(0.002, &(0.0..=0.004)), "0.002 mSv");
+        // Line style is provenance alone: literature thick solid, ours
+        // dotted and thinner, the regulatory line dashed.
+        use super::Provenance;
+        use egui_plot::LineStyle;
+        assert_eq!(Provenance::Literature.stroke(), (LineStyle::Solid, 3.0));
+        let (ours, w) = Provenance::OurCalculation.stroke();
+        assert_eq!(ours, LineStyle::dotted_dense());
+        assert!(w < 3.0);
+        assert!(super::PROVENANCE_KEY.contains("thick solid = published literature"));
+        assert!(super::PROVENANCE_KEY.contains("dotted = this project's calculations"));
+        // Headroom: 1.8 x the larger of the NRC line and the data.
+        assert_eq!(tede_plot_y_top(10.0, [1.0, 2.0].into_iter()), 18.0);
+        assert_eq!(
+            tede_plot_y_top(10.0, [115.0, f64::NAN].into_iter()),
+            1.8 * 115.0
+        );
+    }
+
+    /// Maintainer, 2026-10-01: the map (square) and the TEDE graph fill the
+    /// width at the height left, floored at MAP_MIN_SIDE and at 60 % of the
+    /// viewport; narrower than 2 x MAP_MIN_SIDE they stack.
+    #[test]
+    fn the_graphs_fill_the_space_left() {
+        use super::{graph_layout, GRAPH_GAP, MAP_MIN_SIDE};
+        // Wide and tall: the map is half the width, capped by the height.
+        let l = graph_layout(1900.0, 900.0, 1000.0);
+        assert!(!l.stacked);
+        assert_eq!(l.side, 900.0);
+        assert_eq!(l.plot_width, 1900.0 - 900.0 - GRAPH_GAP);
+        // Wide, height-limited by the 60 % floor rather than the space left.
+        let l = graph_layout(1900.0, 300.0, 1000.0);
+        assert_eq!(l.side, 600.0);
+        // Width-limited: half the width.
+        let l = graph_layout(1000.0, 900.0, 1000.0);
+        assert_eq!(l.side, 0.5 * (1000.0 - GRAPH_GAP));
+        // Narrow: stacked, never below the floor.
+        let l = graph_layout(500.0, 900.0, 1000.0);
+        assert!(l.stacked);
+        assert_eq!(l.side, 500.0);
+        let l = graph_layout(200.0, 100.0, 100.0);
+        assert_eq!(l.side, MAP_MIN_SIDE);
+    }
+
+    /// Maintainer, 2026-10-01: the map tab opens on the dose-rate basis, and
+    /// the snapshot asks the physics for the matching field weighting from
+    /// the first frame (no basis/weighting mismatch on frame one).
+    #[test]
+    fn the_map_opens_on_the_dose_rate_basis() {
+        assert_eq!(MapBasis::default(), MapBasis::DoseRate);
+        let state = MapTabState::default();
+        assert_eq!(state.basis, MapBasis::DoseRate);
+        let s = HtgrSnapshot::default();
+        assert_eq!(effective_basis(state.basis, &s), MapBasis::DoseRate);
+        assert_eq!(s.map_field_weighting, MapBasis::DoseRate.weighting());
+        assert_eq!(
+            state.scale_for(MapBasis::DoseRate, &s, 1.0e-5),
+            default_scale(MapBasis::DoseRate, &s, 1.0e-5)
+        );
+    }
+
+    /// #473 (2026-10-01): the AP1000 overlay defaults to none; its entries
+    /// are the maintainer's three; the scaled curve is the published sum
+    /// x 10/3400 in mSv against m, peaking near 0.59 km (~115 mSv) inside the
+    /// 1000 m clip; the legend carries the pairing and every mismatch.
+    #[test]
+    fn the_ap1000_overlay_is_optional_scaled_and_labelled() {
+        use super::{ap1000_overlay_caveats, ap1000_overlay_curve, Ap1000Overlay};
+        assert_eq!(Ap1000Overlay::default(), Ap1000Overlay::None);
+        assert_eq!(
+            Ap1000Overlay::ALL.map(|o| o.label()),
+            [
+                "None",
+                "AP1000 severe accident (Dadda 2024, class B) \u{2014} scaled to 10 MWt",
+                "AP1000 severe accident (Dadda 2024, class B) \u{2014} as published, 3400 MWt",
+            ]
+        );
+        assert!(ap1000_overlay_curve(Ap1000Overlay::None, 1000.0)
+            .0
+            .is_empty());
+        let (scaled, note) = ap1000_overlay_curve(Ap1000Overlay::ScaledTo10Mwt, 1000.0);
+        let (full, _) = ap1000_overlay_curve(Ap1000Overlay::AsPublished, 1000.0);
+        assert!(note.contains("peak is inside") && note.contains("not extrapolated"));
+        assert!(scaled.iter().all(|p| p[0] >= 98.0 && p[0] <= 1000.0 + 1e-9));
+        let pk = scaled
+            .iter()
+            .copied()
+            .fold([0.0, 0.0], |a, b| if b[1] > a[1] { b } else { a });
+        assert!((pk[0] - 593.0).abs() < 30.0, "{pk:?}");
+        assert!((pk[1] - 115.0).abs() < 2.0, "{pk:?}");
+        for (a, b) in scaled.iter().zip(&full) {
+            assert!((a[1] - b[1] * 10.0 / 3400.0).abs() <= 1e-12 * b[1].max(1.0));
+        }
+        let (_, clipped) = ap1000_overlay_curve(Ap1000Overlay::ScaledTo10Mwt, 400.0);
+        assert!(clipped.contains("CLIPPED"));
+        let legend = ap1000_overlay_caveats(Ap1000Overlay::ScaledTo10Mwt);
+        for needle in [
+            "DLOFC + air ingress, KORA",
+            "unmitigated core melt",
+            "no containment credit",
+            "2 h release interval",
+            "96 h",
+            "100 m stack",
+            "ground release",
+            "resuspension",
+            "class B at 4.44 m/s",
+            "HotSpot",
+            "research/education only",
+        ] {
+            assert!(legend.contains(needle), "{needle}");
         }
     }
 
@@ -2818,11 +3742,12 @@ mod tests {
         );
         assert!((a.top() / one_sievert_anchor() - 1.0).abs() < 1e-12);
 
-        // The Absolute basis defaults to it, and a fresh tab state is on Absolute.
+        // The Absolute basis defaults to it. ~~A fresh tab state is on
+        // Absolute~~ -- since 2026-10-01 a fresh tab is on DoseRate (pinned by
+        // `the_map_opens_on_the_dose_rate_basis`).
         let s = HtgrSnapshot::default();
         assert_eq!(default_scale(MapBasis::Absolute, &s, 1.0e-5), a);
         let state = MapTabState::default();
-        assert_eq!(state.basis, MapBasis::Absolute);
         assert_eq!(state.scale_for(MapBasis::Absolute, &s, 1.0e-5), a);
         // Anchors sit inside the slider ranges, so the defaults are reachable.
         assert_eq!(ColourScale::clamped(a.floor, a.span_decades), a);
@@ -3073,28 +3998,26 @@ mod tests {
         assert!((angular_distance(359.0, 1.0) - 2.0).abs() < 1e-12);
     }
 
-    /// The resolution request must be in PHYSICAL PIXELS, and must not
-    /// re-fire on every pixel of a window drag.
-    ///
-    /// Both halves have teeth. Asking in points on a 2x display would paint
-    /// every evaluated cell across four pixels -- the "big box" the
-    /// single-pixel direction replaces, only smaller and harder to notice.
-    /// And a request that changed on every intermediate width would
-    /// invalidate the field cache on every frame of a resize, turning a drag
-    /// into a sustained recomputation.
+    /// ~~The resolution request must be in PHYSICAL PIXELS~~ **CHANGED
+    /// 2026-10-01 (maintainer: a bigger map must not do more physics):** the
+    /// request is the fixed [`MAP_REQUESTED_CELLS`] = 512, at or above both
+    /// host ceilings, so the physics' own clamp sets the grid exactly as it
+    /// did at the old default size; and it must not re-fire on every pixel of
+    /// a window drag (the dead band, still used for the one-off change from
+    /// the snapshot's opening 64).
     #[test]
-    fn the_resolution_request_is_in_pixels_and_has_a_dead_band() {
-        assert_eq!(requested_cells(320.0, 1.0), 320);
-        assert_eq!(
-            requested_cells(320.0, 2.0),
-            640,
-            "HiDPI must ask for real pixels"
-        );
-        assert_eq!(
-            requested_cells(0.0, 1.0),
-            1,
-            "a degenerate size must not be zero"
-        );
+    fn the_resolution_request_is_fixed_and_has_a_dead_band() {
+        assert_eq!(MAP_REQUESTED_CELLS, 512);
+        assert!(MAP_REQUESTED_CELLS >= crate::physics::atmospheric_dispersion::MAX_GRID_CELLS_GPU);
+        assert!(MAP_REQUESTED_CELLS >= crate::physics::atmospheric_dispersion::MAX_GRID_CELLS_CPU);
+        assert!(resolution_request_changed(
+            crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
+            MAP_REQUESTED_CELLS
+        ));
+        assert!(!resolution_request_changed(
+            MAP_REQUESTED_CELLS,
+            MAP_REQUESTED_CELLS
+        ));
 
         // A one-pixel wobble on a 500-cell map is inside the dead band; a
         // real resize is not.

@@ -540,8 +540,9 @@ pub struct PlantCommands {
     /// poked into the dispersion channel directly, so a headless run and the
     /// GUI drive it identically.
     pub meteorology: atmospheric_dispersion::Meteorology,
-    /// What the Map tab wants of the dispersion **field**: a resolution (one
-    /// cell per screen pixel) and a plume-clock offset (the fast-forward).
+    /// What the Map tab wants of the dispersion **field**: a resolution (~~one
+    /// cell per screen pixel~~ a fixed count from the GUI since 2026-10-01)
+    /// and a plume-clock offset (the fast-forward).
     ///
     /// A command, for the same reason the meteorology is one: it reaches the
     /// plant through the single one-way path every other operator input takes,
@@ -670,7 +671,15 @@ impl Default for PlantCommands {
                 map_puff_model::default_speed_m_per_s(),
                 0.0,
             ),
-            map_field: atmospheric_dispersion::MapFieldRequest::default(),
+            // The Map tab opens on the dose-rate basis (maintainer,
+            // 2026-10-01), so the plant's default command and the GUI's
+            // opening command sum the field in the same weighting. Display
+            // only: the receptor doses do not read the field's weighting.
+            // `MapFieldRequest::default()` stays the channel's own default.
+            map_field: atmospheric_dispersion::MapFieldRequest {
+                weighting: atmospheric_dispersion::FieldWeighting::DoseRateUsvPerH,
+                ..atmospheric_dispersion::MapFieldRequest::default()
+            },
             scenario: Scenario::Normal,
         }
     }

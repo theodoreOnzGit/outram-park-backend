@@ -144,6 +144,9 @@
 #![forbid(unsafe_code)]
 
 pub mod accident;
+/// AP1000 severe-accident plume-centreline TED digitised from Dadda et al.
+/// (2024) Fig. 7: a published comparison curve for `htgr_sim_v1` (#473).
+pub mod ap1000_ted;
 pub mod chain;
 pub mod error;
 /// The HTR-10 depressurised-loss-of-forced-cooling case: PANAMA-I failure
