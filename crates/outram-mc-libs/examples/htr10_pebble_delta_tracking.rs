@@ -64,8 +64,11 @@
 //! 2. **No density is given for the fuel ball's own graphite.** Table 2 gives
 //!    1.73 g/cm3 only for the *moderator* ball. The matrix and shell are taken
 //!    at that same 1.73 g/cm3.
-//! 3. **"ppm" has no stated basis.** Taken as **by weight**, and as *natural*
-//!    boron — so only the 18.43 wt% that is B-10 absorbs. See the sensitivity
+//! 3. **"ppm" has no stated basis.** ~~Taken as **by weight**, and as *natural*
+//!    boron — so only the 18.43 wt% that is B-10 absorbs.~~ **CHANGED
+//!    2026-10-01 (gh:#424):** taken as **atom** ppm of natural boron (19.9
+//!    at.% B-10), as TECDOC's MIT and BATAN tables do; the weight reading is
+//!    the `NaturalWeightPpm` arm. Results recorded below predate the change. See the sensitivity
 //!    study below, which exists because this one is easy to get wrong.
 //!
 //! ## The boron sensitivity, and why it is here

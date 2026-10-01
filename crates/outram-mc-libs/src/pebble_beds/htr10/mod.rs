@@ -59,7 +59,9 @@
 //!    fuel ball's matrix and outer shell.
 //! 3. **The "ppm" basis.** TECDOC-1382 Table 4-2 is silent on this too: it
 //!    says "equivalent natural boron content" with no weight or atom basis
-//!    (checked 2026-10-01). Taken as by weight, of *natural* boron — see
+//!    (checked 2026-10-01). ~~Taken as by weight~~ **Taken as ATOM ppm**
+//!    (maintainer, 2026-10-01, gh:#424, as TECDOC's MIT and BATAN tables
+//!    do), of *natural* boron — see
 //!    [`BoronReading`], which exists because this one is both easy to get wrong
 //!    and expensive when you do.
 
@@ -104,10 +106,22 @@ pub const RHO_SIC: f64 = 3.18;
 /// IAEA-TECDOC-1382 Table 4-2 states (*"Density of graphite in matrix and outer
 /// shell 1.73 g/cm3"*; corrected 2026-10-01, gh:#428). See the module docs.
 pub const RHO_GRAPHITE: f64 = 1.73;
-/// Natural boron in the uranium \[ppm by weight\] (Table 2).
+/// Natural boron in the uranium \[ppm\] (Table 2): boron atoms per 10^6
+/// uranium atoms since 2026-10-01 (see [`BoronReading::Natural`]).
+/// ~~\[ppm by weight\]~~
 pub const B_PPM_URANIUM: f64 = 4.0;
-/// Natural boron in the graphite and moderator \[ppm by weight\] (Table 2).
+/// Natural boron in the graphite and moderator \[ppm\] (Table 2): boron
+/// atoms per 10^6 carbon atoms since 2026-10-01. ~~\[ppm by weight\]~~
 pub const B_PPM_GRAPHITE: f64 = 1.3;
+
+/// B-10 **atom** fraction of natural boron, 19.9 at.% (B-11 is the other
+/// 80.1 at.%).
+///
+/// Source: IUPAC representative isotopic composition of boron, 0.199(7) B-10.
+/// IAEA-TECDOC-1382's MIT section (p.~284) uses the same nominal 19.9 % and
+/// notes that measured natural boron spans 19.1–20.3 %. That range is
+/// unablated (gh:#424).
+pub const B10_ATOM_FRACTION_OF_NATURAL_B: f64 = 0.199;
 
 /// B-10 **weight** fraction of natural boron (19.9 at% B-10 / 80.1 at% B-11).
 ///
@@ -120,17 +134,45 @@ pub const B10_WEIGHT_FRACTION_OF_NATURAL_B: f64 = 0.184_3;
 
 /// How the two "ppm" rows of Table 2 are read.
 ///
+/// **The ppm basis (maintainer decision, 2026-10-01, gh:#424).** Neither Li
+/// (2014) Table 2, TECDOC-1382 Table 4-2 nor Şeker & Çolak (2003) Table 2 says
+/// whether "ppm" is by weight or by atom. TECDOC's two participants who
+/// tabulated number densities read it as **atom** ppm:
+/// - MIT, Table 4-38: B-10 = 0.199 x 1.3e-6 x N_C in graphite, and
+///   0.199 x 4e-6 x N_U in the kernel;
+/// - BATAN, Table 4-18: the same.
+///
+/// The maintainer chose atom ppm of natural boron. So [`Self::Natural`] now
+/// means:
+/// - boron atoms = ppm x 10^-6 x the host's atoms (carbon in graphite,
+///   uranium in the kernel);
+/// - split 19.9 / 80.1 at.% B-10 / B-11.
+///
+/// The weight reading the code used until then is kept as the
+/// [`Self::NaturalWeightPpm`] ablation. It holds +11.1 % graphite boron and
+/// ~22x the kernel boron.
+///
 /// This is an **ablation knob**, not a modelling preference. Table 2 says
 /// "natural boron content", and taking that as *elemental B-10* instead
-/// over-absorbs by `1/0.1843` = 5.43x — a mistake the table's wording does
-/// nothing to prevent. The arms exist so the cost is measured rather than
-/// asserted; `examples/htr10_pebble_delta_tracking.rs` runs all four and
-/// `tests/htr10_boron_ablation_control.rs` gates that they actually differ.
+/// over-absorbs by ~~`1/0.1843` = 5.43x~~ `1/0.199` = 5.03x (atom basis since
+/// 2026-10-01) — a mistake the table's wording does nothing to prevent. The
+/// arms exist so the cost is measured rather than asserted;
+/// `examples/htr10_pebble_delta_tracking.rs` runs ~~all four~~ every arm and
+/// ~~`tests/htr10_boron_ablation_control.rs`~~ **CORRECTED 2026-10-01: no such
+/// file exists;** the unit test
+/// `the_boron_readings_are_genuinely_different_compositions` (in this module's
+/// `tests.rs`) gates that they actually differ.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoronReading {
-    /// Table 2 read as written: ppm by weight of **natural** boron, so only
-    /// [`B10_WEIGHT_FRACTION_OF_NATURAL_B`] of it absorbs. The correct reading.
+    /// **The default:** ppm as **atoms** of **natural** boron per host atom
+    /// (carbon in graphite, uranium in the kernel), 19.9 at.% of it B-10
+    /// ([`B10_ATOM_FRACTION_OF_NATURAL_B`]). ~~ppm by weight of natural boron~~
+    /// **CHANGED 2026-10-01 (maintainer, gh:#424):** see the type docs.
     Natural,
+    /// ABLATION: ppm by **weight** of natural boron, so only
+    /// [`B10_WEIGHT_FRACTION_OF_NATURAL_B`] of the mass is B-10. This was the
+    /// default until 2026-10-01.
+    NaturalWeightPpm,
     /// Both impurity rows dropped — the "does boron matter at all" arm.
     None,
     /// Graphite's 1.3 ppm kept, the uranium's 4 ppm dropped.
@@ -149,30 +191,42 @@ impl BoronReading {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Natural => "natural B (as specified)",
+            Self::Natural => "natural B, atom ppm (as specified)",
+            Self::NaturalWeightPpm => "natural B, weight ppm (ablation)",
             Self::None => "no boron at all",
             Self::GraphiteOnly => "graphite boron only",
             Self::AsElementalB10 => "ppm read as elemental B-10",
         }
     }
 
-    /// The B-10 weight fraction applied to the stated ppm under this reading.
+    /// Whether this reading takes the ppm by **weight** (only
+    /// [`Self::NaturalWeightPpm`]); every other reading is by atom.
+    #[must_use]
+    pub fn is_weight_basis(self) -> bool {
+        matches!(self, Self::NaturalWeightPpm)
+    }
+
+    /// The B-10 fraction of the stated boron under this reading: an **atom**
+    /// fraction, or a **weight** fraction under [`Self::is_weight_basis`].
     #[must_use]
     pub fn b10_fraction(self) -> f64 {
         match self {
-            Self::Natural | Self::GraphiteOnly => B10_WEIGHT_FRACTION_OF_NATURAL_B,
+            Self::Natural | Self::GraphiteOnly => B10_ATOM_FRACTION_OF_NATURAL_B,
+            Self::NaturalWeightPpm => B10_WEIGHT_FRACTION_OF_NATURAL_B,
             Self::None => 0.0,
             Self::AsElementalB10 => 1.0,
         }
     }
 
-    /// The B-11 weight fraction applied to the stated ppm under this reading:
-    /// the remainder of natural boron, or nothing when the ppm is read as
+    /// The B-11 fraction (atom or weight, as [`Self::b10_fraction`]): the
+    /// remainder of natural boron, or nothing when the ppm is read as
     /// elemental B-10 (that arm puts ALL of it in B-10) or dropped.
     #[must_use]
     pub fn b11_fraction(self) -> f64 {
         match self {
-            Self::Natural | Self::GraphiteOnly => 1.0 - B10_WEIGHT_FRACTION_OF_NATURAL_B,
+            Self::Natural | Self::GraphiteOnly | Self::NaturalWeightPpm => {
+                1.0 - self.b10_fraction()
+            }
             Self::None | Self::AsElementalB10 => 0.0,
         }
     }
@@ -197,9 +251,10 @@ impl BoronReading {
 
     /// Every arm, for iterating an ablation study.
     #[must_use]
-    pub fn all() -> [Self; 4] {
+    pub fn all() -> [Self; 5] {
         [
             Self::Natural,
+            Self::NaturalWeightPpm,
             Self::None,
             Self::GraphiteOnly,
             Self::AsElementalB10,
@@ -283,18 +338,40 @@ pub fn u235_atom_fraction() -> f64 {
     (w / M_U235) / ((w / M_U235) + ((1.0 - w) / M_U238))
 }
 
-/// B-10 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron in a
-/// host of density `rho` \[g/cm3\], under the given reading.
-#[must_use]
-pub fn b10_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 {
-    atom_density(rho_host * ppm * 1.0e-6 * reading.b10_fraction(), M_B10)
+/// The host a boron impurity is quoted against: its element's **mass** density
+/// \[g/cm3\] (for a weight reading) and **atom** density \[atoms/b-cm\] (for an
+/// atom reading). For the kernel the host is the uranium in it; for graphite,
+/// the carbon.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoronHost {
+    /// Mass density of the host element \[g/cm3\].
+    pub mass_density: f64,
+    /// Atom density of the host element \[atoms/b-cm\].
+    pub atom_density: f64,
 }
 
-/// B-11 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron, the
-/// companion of [`b10_atom_density`]. Zero under readings that place none.
+/// B-10 atom density \[atoms/b-cm\] for `ppm` of natural boron in `host`,
+/// under the given reading:
+/// - atom basis: `ppm e-6 x N_host x f_B10(at)`;
+/// - weight basis: `ppm e-6 x rho_host x f_B10(wt) x N_A / M_B10`.
 #[must_use]
-pub fn b11_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 {
-    atom_density(rho_host * ppm * 1.0e-6 * reading.b11_fraction(), M_B11)
+pub fn b10_atom_density(host: BoronHost, ppm: f64, reading: BoronReading) -> f64 {
+    if reading.is_weight_basis() {
+        atom_density(host.mass_density * ppm * 1.0e-6 * reading.b10_fraction(), M_B10)
+    } else {
+        host.atom_density * ppm * 1.0e-6 * reading.b10_fraction()
+    }
+}
+
+/// B-11 atom density \[atoms/b-cm\], the companion of [`b10_atom_density`].
+/// Zero under readings that place none.
+#[must_use]
+pub fn b11_atom_density(host: BoronHost, ppm: f64, reading: BoronReading) -> f64 {
+    if reading.is_weight_basis() {
+        atom_density(host.mass_density * ppm * 1.0e-6 * reading.b11_fraction(), M_B11)
+    } else {
+        host.atom_density * ppm * 1.0e-6 * reading.b11_fraction()
+    }
 }
 
 /// The seven-material table for an HTR-10 fuel pebble, in the order
@@ -316,12 +393,20 @@ pub fn fuel_pebble_materials(
     let n_uo2 = atom_density(RHO_UO2, m_uo2);
 
     // Table 2 quotes the kernel's boron "of uranium", so it rides on the URANIUM
-    // mass density inside the kernel, not the UO2 density.
-    let rho_u = RHO_UO2 * m_u / m_uo2;
-    let n_b10_kernel = b10_atom_density(rho_u, boron.kernel_ppm(), boron);
-    let gr_b10 = |rho: f64| b10_atom_density(rho, boron.graphite_ppm(), boron);
-    let n_b11_kernel = b11_atom_density(rho_u, boron.kernel_ppm(), boron);
-    let gr_b11 = |rho: f64| b11_atom_density(rho, boron.graphite_ppm(), boron);
+    // inside the kernel (its mass density for a weight reading, its atom
+    // density, one per UO2 molecule, for an atom reading), not on the UO2.
+    let uranium = BoronHost {
+        mass_density: RHO_UO2 * m_u / m_uo2,
+        atom_density: n_uo2,
+    };
+    let carbon = |rho: f64| BoronHost {
+        mass_density: rho,
+        atom_density: atom_density(rho, M_C),
+    };
+    let n_b10_kernel = b10_atom_density(uranium, boron.kernel_ppm(), boron);
+    let gr_b10 = |rho: f64| b10_atom_density(carbon(rho), boron.graphite_ppm(), boron);
+    let n_b11_kernel = b11_atom_density(uranium, boron.kernel_ppm(), boron);
+    let gr_b11 = |rho: f64| b11_atom_density(carbon(rho), boron.graphite_ppm(), boron);
 
     let mat = |id: i32, name: &str, comps: &[(usize, f64)]| Material {
         id,

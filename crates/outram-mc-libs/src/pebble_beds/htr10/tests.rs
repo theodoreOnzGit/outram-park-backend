@@ -100,7 +100,7 @@ fn the_stored_packing_fraction_is_what_the_geometry_implies() {
 /// materially different B-10 inventories *before* trusting any eigenvalue
 /// difference between them.
 #[test]
-fn the_four_boron_readings_are_genuinely_different_compositions() {
+fn the_boron_readings_are_genuinely_different_compositions() {
     let n = nuclides();
     let natural = b10_inventory(n, BoronReading::Natural);
     let none = b10_inventory(n, BoronReading::None);
@@ -115,17 +115,25 @@ fn the_four_boron_readings_are_genuinely_different_compositions() {
          the graphite's, so it must sit strictly below `Natural` ({natural:e})"
     );
 
+    // Since 2026-10-01 (gh:#424) `Natural` is ATOM ppm: elemental B-10 puts
+    // every boron atom in B-10, 1/0.199 = 5.03x. ~~1/0.1843 = 5.43x by weight~~
     let ratio = elemental / natural;
     assert!(
-        (ratio - 1.0 / B10_WEIGHT_FRACTION_OF_NATURAL_B).abs() < 0.01,
+        (ratio - 1.0 / B10_ATOM_FRACTION_OF_NATURAL_B).abs() < 0.01,
         "reading ppm as elemental B-10 should raise the B-10 inventory by \
-         1/{B10_WEIGHT_FRACTION_OF_NATURAL_B} = 5.43x, got {ratio:.3}x"
+         1/{B10_ATOM_FRACTION_OF_NATURAL_B} = 5.03x, got {ratio:.3}x"
     );
+    // The weight-ppm ablation carries more boron than atom ppm: +11.1 % in
+    // graphite (M_B / M_C x N_C ...), ~22x in the kernel.
+    let weight = b10_inventory(n, BoronReading::NaturalWeightPpm);
+    assert!(weight > natural, "weight ppm {weight:e} vs atom ppm {natural:e}");
 }
 
-/// The kernel's boron rides on the **uranium** mass density, not the UO2
-/// density, because Table 2 quotes it "of uranium". Getting that wrong
-/// over-states it by `m_UO2/m_U` = 1.135x.
+/// The kernel's boron is quoted "of uranium" (Table 2), so it rides on the
+/// **uranium**. ~~mass density, not the UO2 density; getting that wrong
+/// over-states it by `m_UO2/m_U` = 1.135x~~ **CHANGED 2026-10-01 (gh:#424):**
+/// atom ppm, so 4 boron atoms per 10^6 uranium atoms, against TECDOC Table
+/// 4-38's (MIT) `1.849637e-8` B-10, which this reproduces (printed).
 #[test]
 fn the_kernel_boron_is_quoted_relative_to_uranium_not_uo2() {
     let n = nuclides();
@@ -137,16 +145,22 @@ fn the_kernel_boron_is_quoted_relative_to_uranium_not_uo2() {
         .map(|c| c.atom_density)
         .sum();
 
+    // Atom ppm (gh:#424, 2026-10-01): 4e-6 x 0.199 x N_U, with N_U the
+    // uranium atom density = the UO2 molecule density.
     let x5 = u235_atom_fraction();
     let m_u = x5 * 235.043_930 + (1.0 - x5) * 238.050_788;
-    let rho_u = RHO_UO2 * m_u / (m_u + 2.0 * 15.994_914_6);
-    let expected = b10_atom_density(rho_u, B_PPM_URANIUM, BoronReading::Natural);
+    let n_u = RHO_UO2 * 6.022_140_76e23 / (m_u + 2.0 * 15.994_914_6) * 1.0e-24;
+    let expected = 4.0e-6 * 0.199 * n_u;
 
     assert!(
         (kernel_b10 - expected).abs() / expected < 1.0e-12,
-        "kernel B-10 {kernel_b10:e} should be {expected:e} — computed against the \
-         uranium density {rho_u:.4} g/cm3, not the 10.4 g/cm3 UO2 density"
+        "kernel B-10 {kernel_b10:e} should be {expected:e} — 0.199 x 4e-6 x the \
+         uranium atoms ({n_u:.6e}/b-cm), at 4 atom ppm"
     );
+    // Independent: TECDOC-1382 Table 4-38 (MIT) tabulates exactly this
+    // reading, 1.849637e-8 kernel B-10 (gh:#424).
+    println!("kernel B-10 {kernel_b10:.6e}, TECDOC Table 4-38 (MIT) 1.849637e-8");
+    assert!((kernel_b10 / 1.849_637e-8 - 1.0).abs() < 1.0e-3);
 }
 
 /// The table is the seven `DhUniverse::pebble` requires, in order, at the
@@ -225,7 +239,9 @@ fn the_atom_densities_match_values_computed_independently_from_table_2() {
     close(density(0, n.u235), 3.992_20e-3, "kernel U-235");
     close(density(0, n.u238), 1.924_52e-2, "kernel U-238");
     close(density(0, n.o16), 4.647_47e-2, "kernel O-16");
-    close(density(0, n.b10), 4.064_05e-7, "kernel B-10");
+    // ~~4.064_05e-7, weight ppm~~ CHANGED 2026-10-01 (gh:#424): atom ppm, the
+    // value TECDOC-1382 Table 4-38 (MIT) tabulates.
+    close(density(0, n.b10), 1.849_637e-8, "kernel B-10");
 
     // coatings
     close(density(1, n.c_graphite), 5.515_24e-2, "buffer C (rho 1.1)");
@@ -270,9 +286,28 @@ fn the_atom_densities_match_values_computed_independently_from_table_2() {
     // graphite matrix and shell, 1.3 ppm natural B
     close(density(5, n.c_graphite), 8.673_97e-2, "matrix C (rho 1.73)");
     close(density(6, n.c_graphite), 8.673_97e-2, "shell C (rho 1.73)");
-    close(density(5, n.b10), 2.493_03e-8, "matrix B-10");
-    close(density(1, n.b10), 1.585_16e-8, "buffer B-10 (rho 1.1)");
+    // Atom ppm since 2026-10-01 (gh:#424): MIT Table 4-38's value. ~~2.493_03e-8~~
+    close(density(5, n.b10), 2.244_010e-8, "matrix B-10");
+    // 1.3e-6 x 0.199 x 5.51524e-2 (atom ppm, gh:#424). ~~1.585_16e-8~~
+    close(density(1, n.b10), 1.426_77e-8, "buffer B-10 (rho 1.1)");
 
     // SiC carries no boron — Table 2 gives an impurity for graphite, not SiC.
     assert_eq!(density(3, n.b10), 0.0, "SiC should carry no boron");
+}
+
+/// **Graphite boron against TECDOC-1382 Table 4-38 (MIT)**, which tabulates the
+/// atom-ppm reading the maintainer chose (gh:#424, 2026-10-01): B-10
+/// 2.244010e-8 and B-11 9.032424e-8 in 1.73 g/cm3 graphite at 1.3 ppm.
+#[test]
+fn the_graphite_boron_matches_mits_atom_ppm_table() {
+    let n = nuclides();
+    let mats = fuel_pebble_materials(n, BoronReading::Natural, 300.15);
+    let matrix = &mats[5];
+    let get = |i: usize| -> f64 {
+        matrix.components.iter().filter(|c| c.nuclide_idx == i).map(|c| c.atom_density).sum()
+    };
+    let (b10, b11) = (get(n.b10), get(n.b11));
+    println!("matrix B-10 {b10:.6e} (MIT 2.244010e-8), B-11 {b11:.6e} (MIT 9.032424e-8)");
+    assert!((b10 / 2.244_010e-8 - 1.0).abs() < 1.0e-3);
+    assert!((b11 / 9.032_424e-8 - 1.0).abs() < 1.0e-3);
 }
