@@ -41,8 +41,12 @@ pub struct HeadlessConfig {
     pub sample_every: usize,
     /// Operator controls, held constant for the whole run.
     ///
-    /// `PlantCommands::default()` is the published operating point with the
-    /// rods at their critical insertion.
+    /// ~~`PlantCommands::default()` is the published operating point with the
+    /// rods at their critical insertion.~~ **CORRECTED 2026-10-01**: it is the
+    /// simulator's opening state -- rods at `GUI_INITIAL_ROD_INSERTION` (0.45,
+    /// shallower than cold-clean critical 0.6045) and helium at 1.29 kg/s (30 %
+    /// of rated). The 2026-09-06 measurement below predates both and is not
+    /// re-measured; pending validation work.
     ///
     /// Its docstring in `physics` claims this starts *"near steady state
     /// rather than on a prompt excursion"*. **Measured 2026-09-06, it does
@@ -440,6 +444,11 @@ mod tests {
     /// (gh:#409)
     ///
     /// Also not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
+    /// Nor since the default helium flow moved from 4.3 to 1.29 kg/s
+    /// (2026-10-01, maintainer direction): the fixture was captured at the
+    /// old default commands and the run now starts from a different state.
+    /// Pending validation work.
     ///
     /// The fixture is stale against all four; per the maintainer's
     /// 2026-09-29 direction it is **not re-measured; pending validation

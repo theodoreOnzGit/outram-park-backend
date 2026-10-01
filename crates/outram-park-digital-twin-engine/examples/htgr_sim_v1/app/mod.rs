@@ -1076,9 +1076,10 @@ mod tests {
     /// | helium flow | 4.3 kg/s | **1.29 kg/s** |
     /// | feedwater demand | 4.0 kg/s | **10.0 kg/s** |
     ///
-    /// Neither drift was harmless. `GUI_INITIAL_HELIUM_FLOW_KG_PER_S` is a
-    /// *fraction* of rated (0.30, despite the `KG_PER_S` suffix its own doc
-    /// comment apologises for), so the physics opened at **part load** while
+    /// Neither drift was harmless. `GUI_INITIAL_HELIUM_FLOW_FRACTION` (then
+    /// named `GUI_INITIAL_HELIUM_FLOW_KG_PER_S`; renamed 2026-10-01) is a
+    /// *fraction* of rated (0.30, despite the `KG_PER_S` suffix its doc
+    /// comment then apologised for), so the physics opened at **part load** while
     /// the GUI opened at **rated** — and that constant's doc says in terms
     /// that [`crate::physics::GUI_INITIAL_ROD_INSERTION`] "was bisected
     /// against settled power AT this flow. The two are a matched pair and must
@@ -1103,6 +1104,12 @@ mod tests {
     /// `feedwater_manual` to `false` yields
     /// `Auto { target_steam_temperature: 713.15 K }`.
     ///
+    /// **2026-10-01:** rods are 0.45 now, and the helium flow, rated 4.3 kg/s
+    /// from 2026-09-27, is back at **1.29 kg/s** by maintainer direction (the
+    /// HTR-10 test's experimental flow). The test now also asserts that value
+    /// directly, since matching the two sides alone cannot catch both moving
+    /// together.
+    ///
     /// **Interpretation.** The opening frame commands the plant's current
     /// default, and the mode boolean is read in the right direction. Note what
     /// this test bought by comparing the *whole struct* with `PartialEq`: it
@@ -1117,6 +1124,14 @@ mod tests {
             commands,
             PlantCommands::default(),
             "the GUI's opening state must be the plant's default command set"
+        );
+
+        // The opening flow is the HTR-10 test's experimental 1.29 kg/s
+        // (0.30 of the rated 4.3 kg/s; maintainer direction 2026-10-01).
+        assert!(
+            (commands.helium_flow_setpoint.get::<kilogram_per_second>() - 1.29).abs() < 1e-9,
+            "the plant must open at the experimental 1.29 kg/s, got {} kg/s",
+            commands.helium_flow_setpoint.get::<kilogram_per_second>()
         );
 
         // The scalars really did survive their unit conversions.

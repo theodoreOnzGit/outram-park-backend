@@ -327,7 +327,9 @@ use turbine_generator::TurbineGeneratorShaft;
 /// # maintainer's call, not a defect
 ///
 /// **CORRECTED 2026-09-22, again 2026-09-27.** The table below measured
-/// **0.780927**. The constant is now **0.30**, set by the maintainer so the
+/// **0.780927**. The constant is now ~~**0.30**~~ **0.45** (**CORRECTED
+/// 2026-10-01**: 0.45 since `76a83ca98a`, 2026-09-27; this sentence had
+/// still read 0.30), set by the maintainer so the
 /// simulator opens with enough bank withdrawn to demonstrate shutdown on an
 /// ATWS after a DLOFC or LOFC. (On 2026-09-22 it was 0.50, confirmed intended
 /// then; the commit that introduced it carried a note reading "i want 0.55"
@@ -346,14 +348,18 @@ use turbine_generator::TurbineGeneratorShaft;
 /// | ~~external reactivity~~ | ~~**-5.5186 $**~~ |
 /// | ~~helium flow~~ | ~~**1.290 kg/s** (30 % of rated)~~ -- the bisection above belongs to THIS flow |
 ///
-/// **And the flow it was bisected at is no longer the opening flow.**
-/// [`GUI_INITIAL_HELIUM_FLOW_KG_PER_S`] became `1.00` on 2026-09-27, so the
-/// plant opens at **4.300 kg/s**. Every number in the struck table, including
-/// the 3.0428 MW, belongs to 1.290 kg/s and **does not transfer to rated
-/// flow**. Re-running the bisection is a ~34-minute job and was deliberately
-/// not done here.
+/// ~~**And the flow it was bisected at is no longer the opening flow.**
+/// [`GUI_INITIAL_HELIUM_FLOW_FRACTION`] became `1.00` on 2026-09-27, so the
+/// plant opens at **4.300 kg/s**.~~ **CORRECTED 2026-10-01**: the opening
+/// flow is back at **1.290 kg/s** (maintainer direction), the flow this
+/// bisection was run at. The struck numbers still do not apply, because the
+/// insertion itself has moved (0.780927 -> 0.45), not because of the flow.
+/// Re-running the bisection is a ~34-minute job and was deliberately not
+/// done here.
 ///
 /// **The settled power at 0.30 is NOT 3 MW, and is not yet measured here.**
+/// (The same holds at the shipped 0.45 and the 1.29 kg/s opening flow of
+/// 2026-10-01: not measured; pending validation work.)
 /// Less insertion is more reactivity, so it settles higher; by how much
 /// depends on feedback and takes a long settle to find, which is why the
 /// commit introducing it said "awaiting steady state (it takes very long)".
@@ -382,19 +388,47 @@ use turbine_generator::TurbineGeneratorShaft;
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 
 /// Fraction of rated helium flow the simulator opens at:
-/// ~~0.30~~ **1.00** **CHANGED 2026-09-27**.
+/// ~~0.30~~ ~~**1.00** **CHANGED 2026-09-27**~~ **0.30** **CHANGED BACK
+/// 2026-10-01**, i.e. **1.29 kg/s**.
 ///
-/// **Maintainer direction, 2026-09-27: the circulator default is the full
+/// **Maintainer direction, 2026-10-01: open at the experimental 1.2-1.3 kg/s
+/// of the HTR-10 test.** Rated-flow tracers were "a bit dizzying" to watch,
+/// and the experiment's own circulator flow is what the maintainer wants on
+/// screen. `0.30 * 4.3 = 1.29 kg/s`, the 15 October 2003 LOFC/ATWS test's
+/// part-load flow already recorded in this doc's history below.
+///
+/// - **[`GUI_INITIAL_ROD_INSERTION`] (0.45) was NOT re-bisected at this
+///   flow.** It holds no particular power here; the settled power at the
+///   opening state is unmeasured.
+/// - **Headless check, 2026-10-01** (`--headless 12000 250`, default
+///   commands: rods 0.45, 1.29 kg/s, feedwater MANUAL 10.0 kg/s, RPS off).
+///   A harness check, not validation: it ran clean to 1200 s, no panic, no
+///   IF97 273 K floor. Power peaks ~1.5 GW in the first 0.3 s (the +7 $
+///   opening), falls to 2.19 MW at 200 s and reads **6.078 MW** at 1000 s,
+///   still creeping up (6.084 MW at 1200 s). At 1000 s: core outlet
+///   1213.99 K, core inlet 402.80 K, bed 1279.32 K, SG helium outlet
+///   316.45 K, SG steam outlet 454.34 K at 4.0 MPa (below saturation:
+///   10 kg/s of feed for ~6 MW leaves it wet), turbine exhaust quality
+///   0.213, feedwater 168.7 kJ/kg (~40 degC). The published test began at
+///   3 MW with a 250 degC inlet, so neither the power nor the inlet matches;
+///   not a reproduction.
+/// - **The opening state is still a demonstration, not a validated
+///   reproduction of the test's initial condition.** Restoring the flow is
+///   half of the pair the validation run needs; the rod position is the
+///   other half and stays the maintainer's call.
+///
+/// ~~**Maintainer direction, 2026-09-27: the circulator default is the full
 /// published 4.3 kg/s.** Because this constant is a *fraction* (see below),
-/// that is expressed as **1.00**, not as 4.3.
+/// that is expressed as **1.00**, not as 4.3.~~ **SUPERSEDED 2026-10-01**
+/// (above).
 ///
-/// **The name lies about the units and the call site cannot tell.** This is a
-/// dimensionless *fraction*, not kg/s: it is consumed as
-/// `GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow()`, and
-/// [`nominal_helium_flow`] is the published 4.3 kg/s. At the old 0.30 the
-/// plant opened at **1.290 kg/s**, not 0.30 kg/s; at **1.00** it opens at the
-/// full **4.300 kg/s**. Left named as-is rather than renamed in a change about
-/// something else; read the multiplication, not the suffix.
+/// **It is a dimensionless fraction, not kg/s.** It is consumed as
+/// `GUI_INITIAL_HELIUM_FLOW_FRACTION * nominal_helium_flow()`, and
+/// [`nominal_helium_flow`] is the published 4.3 kg/s. ~~The name lies about
+/// the units and the call site cannot tell ... Left named as-is rather than
+/// renamed in a change about something else; read the multiplication, not
+/// the suffix.~~ **RENAMED 2026-10-01** from `GUI_INITIAL_HELIUM_FLOW_KG_PER_S`
+/// to `GUI_INITIAL_HELIUM_FLOW_FRACTION`, so the name now says what it is.
 ///
 /// # What the opening state is FOR has changed, and the pairing is no longer the binding constraint
 ///
@@ -422,23 +456,30 @@ pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 ///
 /// # Limitation, stated as a limitation
 ///
-/// - The opening state is a **rated-flow demonstration starting point, not the
-///   published LOFC initial condition.** Do not quote it as the latter.
-/// - A validation run reproducing the 2003 test **will need the part-load pair
-///   restored** -- this constant back to `0.30`, and
+/// - ~~The opening state is a **rated-flow demonstration starting point, not
+///   the published LOFC initial condition.**~~ **CORRECTED 2026-10-01**: the
+///   opening state is a **demonstration starting point at the test's 1.29
+///   kg/s flow**, still **not the published LOFC initial condition** (the rod
+///   position was not re-derived for it). Do not quote it as the latter.
+/// - A validation run reproducing the 2003 test ~~**will need the part-load
+///   pair restored** -- this constant back to `0.30`, and~~ has the flow
+///   (0.30, restored 2026-10-01) and **still needs**
 ///   [`GUI_INITIAL_ROD_INSERTION`] re-bisected at that flow.
-/// - [`GUI_INITIAL_ROD_INSERTION`] was bisected at the *old* 30 % flow, so it
-///   **no longer holds any particular power**; it was also independently moved
-///   to 0.30, a deliberately shallow, super-prompt opening state (maintainer's
-///   call, gh:#318). The settled power at the opening state is therefore
-///   unmeasured on both counts.
-/// - The direction of this change is the one the demonstration wants: more
+/// - [`GUI_INITIAL_ROD_INSERTION`] was bisected at the 30 % flow when it was
+///   0.780927, then independently moved (0.30, gh:#318; now 0.45) by the
+///   maintainer, so it **holds no particular power**. The settled power at
+///   the opening state is unmeasured.
+/// - ~~The direction of this change is the one the demonstration wants: more
 ///   helium mass flow removes more heat from the bed for a given power, so the
-///   core is better able to reject the heat the shallow bank admits.
+///   core is better able to reject the heat the shallow bank admits.~~
+///   **SUPERSEDED 2026-10-01**: the move back to 1.29 kg/s goes the other
+///   way -- less helium mass flow removes less heat from the bed for a given
+///   power, so the bed runs hotter and the temperature feedback settles the
+///   plant at a lower power for the same bank.
 ///
-/// Both values are the maintainer's call. Do not "restore the pair" on your
-/// own initiative -- restore it when the validation run is the task.
-pub const GUI_INITIAL_HELIUM_FLOW_KG_PER_S: f64 = 1.00;
+/// Both values are the maintainer's call. Do not change either on your own
+/// initiative.
+pub const GUI_INITIAL_HELIUM_FLOW_FRACTION: f64 = 0.30;
 
 /// **Every operator input the plant accepts, in one value.**
 ///
@@ -596,7 +637,7 @@ impl Default for PlantCommands {
     /// design 7 kPa.
     ///
     /// The rod position is [`GUI_INITIAL_ROD_INSERTION`] and the flow is
-    /// [`GUI_INITIAL_HELIUM_FLOW_KG_PER_S`] of rated.
+    /// [`GUI_INITIAL_HELIUM_FLOW_FRACTION`] of rated.
     ///
     /// ~~The flow is 30 % of rated, the pair that holds the plant at the
     /// HTR-10 test's **3 MWth** initial condition. They are a PAIR: the
@@ -607,12 +648,18 @@ impl Default for PlantCommands {
     /// **demonstration starting point for LOFC self-shutdown**, not the HTR-10
     /// 3 MWth initial condition; the published initial condition is a deferred
     /// validation goal and the settled power here is unmeasured.
+    /// **CORRECTED 2026-10-01**: ~~100 % of rated (4.3 kg/s)~~ the flow is
+    /// back at **30 % of rated, 1.29 kg/s** -- the HTR-10 test's experimental
+    /// flow, by maintainer direction -- and the insertion is 0.45. The rod
+    /// was not re-bisected at this flow, so this is still a demonstration
+    /// starting point, not the test's initial condition.
     fn default() -> Self {
         Self {
             control_rod_insertion_fraction: GUI_INITIAL_ROD_INSERTION,
-            // A FRACTION of the published 4.3 kg/s, not kg/s: 1.00 since
-            // 2026-09-27 (maintainer direction), i.e. full rated flow.
-            helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
+            // A FRACTION of the published 4.3 kg/s, not kg/s: 0.30 since
+            // 2026-10-01 (maintainer direction), i.e. the HTR-10 test's
+            // experimental 1.29 kg/s (it was 1.00, rated, from 2026-09-27).
+            helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_FRACTION * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
             // The MAP's one puff-model configuration (maintainer direction
             // 2026-09-29; `map_puff_model`, gh:#384), so the plant's default
@@ -5103,6 +5150,11 @@ mod tests {
     ///
     /// Table not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
     ///
+    /// Every row starts from `PlantCommands::default()` at 4.3 kg/s. The
+    /// default flow became 1.29 kg/s on 2026-10-01 (maintainer direction), so
+    /// this run now starts from a different state: not re-measured since that
+    /// change; pending validation work.
+    ///
     /// **gh:#403:** fission at 600 s rose 9.5 % (1.6886 -> 1.8491 MW). The
     /// cold-return CV now holds ~194 kg of helium, 20x more, so after the trip
     /// the core inlet follows the steam generator ~20x more slowly. The outcome
@@ -5404,8 +5456,9 @@ mod tests {
     /// (949.95 K), but [`GUI_INITIAL_ROD_INSERTION`] holds 3 MWth at 30 %
     /// flow, which sits far cooler.~~ **CORRECTED 2026-09-27**: the opening
     /// state is no longer the 3 MWth one. `GUI_INITIAL_ROD_INSERTION` is 0.30
-    /// (gh:#318) and [`GUI_INITIAL_HELIUM_FLOW_KG_PER_S`] is 1.00, i.e. full
-    /// 4.3 kg/s; neither was bisected against the other, so the settled power
+    /// (gh:#318) and [`GUI_INITIAL_HELIUM_FLOW_FRACTION`] is ~~1.00, i.e. full
+    /// 4.3 kg/s~~ 0.30, i.e. 1.29 kg/s (**CORRECTED 2026-10-01**, maintainer
+    /// direction; the rod is 0.45); neither was bisected against the other, so the settled power
     /// and bed temperature here are **unmeasured** and this test is the way to
     /// measure them. The seeding argument below still applies whichever
     /// direction the mismatch runs. Starting 300 K too hot makes the temperature feedback shut
@@ -5426,6 +5479,11 @@ mod tests {
     /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | **15.8813 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
     ///
     /// Table not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
+    /// **Every row is at 4.3 kg/s.** The opening flow moved to 1.29 kg/s on
+    /// 2026-10-01 (maintainer direction), so this table no longer describes
+    /// the opening condition at all: not re-measured since that change;
+    /// pending validation work.
     ///
     /// **Riser leg:** -1.18 % in power. The side reflector now hands about
     /// 0.33 MW to the helium rising through its channels, which re-enters the
@@ -5449,7 +5507,7 @@ mod tests {
     #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn report_the_steady_state_bed_temperature_at_the_opening_condition() {
         let flow =
-            GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow().get::<kilogram_per_second>();
+            GUI_INITIAL_HELIUM_FLOW_FRACTION * nominal_helium_flow().get::<kilogram_per_second>();
         println!(
             "\n=== settling at insertion {GUI_INITIAL_ROD_INSERTION}, flow {flow:.3} kg/s ==="
         );

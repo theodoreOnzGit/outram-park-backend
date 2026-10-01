@@ -892,14 +892,15 @@ impl Default for HtgrSnapshot {
             trip_reason: None,
             scram_insertion_fraction: 0.0,
             external_reactivity_dollars: 0.0,
-            // Derived, not restated: `GUI_INITIAL_HELIUM_FLOW_KG_PER_S` is a
-            // dimensionless FRACTION of rated despite its name (its own doc
-            // comment says so), so the opening flow is 0.30 * 4.3 = 1.29 kg/s.
+            // Derived, not restated: `GUI_INITIAL_HELIUM_FLOW_FRACTION` is a
+            // dimensionless FRACTION of rated (renamed from `..._KG_PER_S`
+            // 2026-10-01), so the opening flow is 0.30 * 4.3 = 1.29 kg/s
+            // (rated 4.3 kg/s from 2026-09-27 to 2026-10-01).
             // This field held a bare 4.3 until 2026-09-22, which opened the
             // GUI at RATED flow while the physics defaulted to part load --
             // and `GUI_INITIAL_ROD_INSERTION` was bisected at part load, so
             // the two were a matched pair that had come apart.
-            helium_flow_setpoint_kg_per_s: (crate::physics::GUI_INITIAL_HELIUM_FLOW_KG_PER_S
+            helium_flow_setpoint_kg_per_s: (crate::physics::GUI_INITIAL_HELIUM_FLOW_FRACTION
                 * crate::physics::nominal_helium_flow())
             .get::<uom::si::mass_rate::kilogram_per_second>(),
             reactor_power_mw: 10.0,
