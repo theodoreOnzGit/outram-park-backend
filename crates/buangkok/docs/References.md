@@ -94,11 +94,19 @@ assessment into `changi`'s current scope (see `crates/changi/CLAUDE.md`).
 
 `reference/htr10_accident_individual_dose_by_distance.csv`, exposed by
 `buangkok::published::accident_dose_by_distance`. Added 2026-09-28.
-**Reference data only: nothing in this crate or in `htgr_sim_v1` consumes it,
+~~**Reference data only: nothing in this crate or in `htgr_sim_v1` consumes it,
 and `changi` computes no dose.** Parked in `changi` next to Table 7 at the
 maintainer's direction (2026-09-28), pending their decision on where dose data
 lives; the placeholder crate `buangkok` is the named future home, and nothing
-has been added there.
+has been added there.~~ **CORRECTED 2026-10-01:** the CSV
+(`crates/buangkok/reference/`) and its loader
+(`crates/buangkok/src/published/accident_dose_by_distance.rs`) live in
+`buangkok`, not `changi`. **Reference data only; nothing uses it as a model
+input.** Verified readers: `htgr_sim_v1` reads it **for display only**, as two
+literature overlays on the Map tab's TEDE graph (whole-body column, as
+published, #473); `sembawang::lwr_comparison::htr10_dba_vs_table9` (and two
+sembawang examples) and `buangkok/tests/liu_cao_external_dose_cross_check.rs`
+read it as a comparison reference. `changi` computes no dose.
 
 | Field | Value |
 |---|---|

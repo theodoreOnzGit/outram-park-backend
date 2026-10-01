@@ -796,6 +796,15 @@ impl eframe::App for HtgrSimApp {
             // budget rather than the window's, so a panel that sized itself
             // from in there would grow every frame it filled.
             let view = ui.available_size();
+            // The Map tab is wider than the window at its minimum sizes (map
+            // + graph, the wide tables), so its scroll bars are SOLID there:
+            // always drawn when the content overflows, rather than egui's
+            // default floating bars that appear only on hover and read as "it
+            // does not scroll sideways" (maintainer, 2026-10-01). The tables
+            // inside inherit the style for their own horizontal scrolls.
+            if self.open_panel == Panel::Map {
+                ui.style_mut().spacing.scroll = egui::style::ScrollStyle::solid();
+            }
             egui::ScrollArea::both()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| match self.open_panel {

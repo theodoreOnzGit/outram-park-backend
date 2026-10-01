@@ -167,13 +167,20 @@ workspace.
 
 # What this is NOT
 
-- **Not computed here, and not wired into any model.** Nothing in this
-  crate or in `htgr_sim_v1` reads it. `changi` still computes no dose
-  quantity (see `changi::activity`).
-- **Parked here, not settled here.** Dose is to live in the placeholder
+- **Not computed here, and not wired into any model.** ~~Nothing in this
+  crate or in `htgr_sim_v1` reads it.~~ **CORRECTED 2026-10-01:** nothing
+  uses it as a model input. `htgr_sim_v1` reads it **for display only**,
+  as two literature overlays (whole-body, as published) on the Map tab's
+  TEDE graph (#473); `sembawang::lwr_comparison::htr10_dba_vs_table9` and
+  this crate's `tests/liu_cao_external_dose_cross_check.rs` read it as a
+  comparison reference. `changi` still computes no dose quantity (see
+  `changi::activity`).
+- ~~**Parked here, not settled here.** Dose is to live in the placeholder
   crate `buangkok` eventually, but the maintainer (2026-09-28) has asked
-  for the dose tables to stay in `changi` until they decide. Do not move
-  it, and do not build dose computation around it, unasked.
+  for the dose tables to stay in `changi` until they decide.~~
+  **CORRECTED 2026-10-01:** it lives in `buangkok` (this file and
+  `reference/htr10_accident_individual_dose_by_distance.csv`), not
+  `changi`. Do not build dose computation around it, unasked.
 - **Not a basis for emergency planning, emergency-zone sizing, siting,
   licensing or any safety decision**, for HTR-10 or any other plant.
   `RESPONSIBLE_USE.md` applies in full. This workspace uses it for

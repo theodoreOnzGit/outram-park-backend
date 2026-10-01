@@ -611,6 +611,206 @@ pub struct MapTabState {
     /// Which comparison curves the TEDE graph overlays (#473): the published
     /// AP1000 curve and the bounding-table arms. Default none; display only.
     tede_overlays: TedeOverlays,
+    /// The map's zoom and pan (maintainer, 2026-10-01). GUI only: it
+    /// magnifies the uploaded texture and the overlays drawn on it, and never
+    /// reaches the physics (the cell request stays [`MAP_REQUESTED_CELLS`]).
+    /// Not reset by Reset plant.
+    map_view: MapView,
+    /// The TEDE graph's view bookkeeping (zoom buttons, the x range the
+    /// overlays are clipped to).
+    tede_view: TedeView,
+}
+
+/// The map's zoom and pan: GUI only (maintainer, 2026-10-01: "don't change
+/// the physics calcs", "the map shouldn't have extra physics and grid
+/// cells"). One view transform ([`MapTransform`]) places the texture's UV
+/// sub-rect, the rings, the spokes and the stack, so they cannot disagree.
+/// Zoomed cells get blockier, because the texture is NEAREST-filtered and the
+/// grid is unchanged.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MapView {
+    /// Magnification, `1` = the whole outer ring in view (the pre-zoom map).
+    zoom: f64,
+    /// The ground point at the centre of the square, metres east and north
+    /// of the stack.
+    centre_m: [f64; 2],
+}
+
+impl Default for MapView {
+    fn default() -> Self {
+        MapView {
+            zoom: 1.0,
+            centre_m: [0.0, 0.0],
+        }
+    }
+}
+
+/// Factor per Zoom in / Zoom out press.
+const MAP_ZOOM_STEP: f64 = 1.5;
+
+/// Largest map zoom. At 16x a 512-cell grid spans 32 cells across the
+/// square, already very blocky; more shows nothing new.
+const MAP_ZOOM_MAX: f64 = 16.0;
+
+/// The zoom-1 square's half-width as a multiple of the outermost ring
+/// radius (the ring is drawn at 0.40 of the side).
+const MAP_FRAME_OVER_OUTER: f64 = 1.25;
+
+impl MapView {
+    /// Zoom by `factor` keeping the ground point `about_m` where it is on
+    /// screen, clamped to `[1, MAP_ZOOM_MAX]` and to the zoom-1 frame of
+    /// half-width `MAP_FRAME_OVER_OUTER x outermost_m`.
+    fn zoomed(self, factor: f64, about_m: [f64; 2], outermost_m: f64) -> Self {
+        let zoom = (self.zoom * factor).clamp(1.0, MAP_ZOOM_MAX);
+        let f = zoom / self.zoom;
+        let centre_m = [
+            about_m[0] - (about_m[0] - self.centre_m[0]) / f,
+            about_m[1] - (about_m[1] - self.centre_m[1]) / f,
+        ];
+        MapView { zoom, centre_m }.clamped(outermost_m)
+    }
+
+    /// Move the view centre by `delta_m` ground metres, clamped.
+    fn panned(self, delta_m: [f64; 2], outermost_m: f64) -> Self {
+        MapView {
+            zoom: self.zoom,
+            centre_m: [self.centre_m[0] + delta_m[0], self.centre_m[1] + delta_m[1]],
+        }
+        .clamped(outermost_m)
+    }
+
+    /// Keep the visible square inside the zoom-1 frame: at zoom 1 the centre
+    /// is pinned to the stack, at zoom `z` it may move
+    /// `frame x (1 - 1/z)` either way.
+    fn clamped(self, outermost_m: f64) -> Self {
+        let lim = (MAP_FRAME_OVER_OUTER * outermost_m * (1.0 - 1.0 / self.zoom)).max(0.0);
+        MapView {
+            zoom: self.zoom,
+            centre_m: [
+                self.centre_m[0].clamp(-lim, lim),
+                self.centre_m[1].clamp(-lim, lim),
+            ],
+        }
+    }
+}
+
+/// Ground metres (east, north of the stack) to screen points and back, for
+/// one frame of the map. The ONE transform everything on the map is placed
+/// with.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct MapTransform {
+    /// The square's centre on screen.
+    centre_px: Pos2,
+    /// Screen points per ground metre, zoom included.
+    px_per_m: f64,
+    /// The ground point drawn at `centre_px`.
+    view_centre_m: [f64; 2],
+}
+
+impl MapTransform {
+    /// `base_px_per_m` is the zoom-1 scale (outer ring radius / its distance).
+    fn new(centre_px: Pos2, base_px_per_m: f64, view: MapView) -> Self {
+        MapTransform {
+            centre_px,
+            px_per_m: base_px_per_m * view.zoom,
+            view_centre_m: view.centre_m,
+        }
+    }
+
+    /// Screen position of a ground point (y up on the ground, down on screen).
+    fn to_screen(&self, east_m: f64, north_m: f64) -> Pos2 {
+        Pos2::new(
+            self.centre_px.x + ((east_m - self.view_centre_m[0]) * self.px_per_m) as f32,
+            self.centre_px.y - ((north_m - self.view_centre_m[1]) * self.px_per_m) as f32,
+        )
+    }
+
+    /// Ground point under a screen position.
+    fn to_ground(&self, p: Pos2) -> [f64; 2] {
+        [
+            self.view_centre_m[0] + f64::from(p.x - self.centre_px.x) / self.px_per_m,
+            self.view_centre_m[1] - f64::from(p.y - self.centre_px.y) / self.px_per_m,
+        ]
+    }
+
+    /// A ground distance in screen points.
+    fn radius_px(&self, d_m: f64) -> f32 {
+        (d_m * self.px_per_m) as f32
+    }
+}
+
+/// Where the field texture goes for a field square `field_rect` (in screen
+/// points, possibly far larger than the map when zoomed) seen through
+/// `clip`: the visible screen rect and the matching UV sub-rect of the
+/// texture. `None` when none of the field is visible. Painting only the
+/// sub-rect is the zoom: the texture is the same 512-cell upload.
+fn field_uv(field_rect: Rect, clip: Rect) -> Option<(Rect, Rect)> {
+    let shown = field_rect.intersect(clip);
+    if !(shown.width() > 0.0 && shown.height() > 0.0) {
+        return None;
+    }
+    let to_uv = |p: Pos2| {
+        Pos2::new(
+            (p.x - field_rect.min.x) / field_rect.width(),
+            (p.y - field_rect.min.y) / field_rect.height(),
+        )
+    };
+    Some((
+        shown,
+        Rect::from_min_max(to_uv(shown.min), to_uv(shown.max)),
+    ))
+}
+
+/// Where to put a ring's distance label so it stays on screen at any zoom:
+/// the first point of the ring, going round from due east in 15-degree
+/// steps, that lies inside `inside`. `None` when the ring misses the view.
+/// The label's font size is fixed, so it is equally legible at every zoom.
+fn ring_label_anchor(t: &MapTransform, distance_m: f64, inside: Rect) -> Option<Pos2> {
+    (0..24).find_map(|k| {
+        let a = (15.0 * k as f64).to_radians();
+        let p = t.to_screen(distance_m * a.cos(), distance_m * a.sin());
+        inside.contains(p).then_some(p)
+    })
+}
+
+/// The TEDE graph's view bookkeeping (maintainer, 2026-10-01).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TedeView {
+    /// Whether the x axis had left the default view last frame (zoomed,
+    /// panned or Full range; false in the default view, after Reset or a
+    /// double click).
+    zoomed_x: bool,
+    /// The x range shown last frame \[m\].
+    last_x: (f64, f64),
+    /// Whether the plot has been drawn once (the first frame puts it in the
+    /// default view).
+    started: bool,
+}
+
+/// The TEDE graph's zoom buttons.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GraphZoom {
+    In,
+    Out,
+    Reset,
+    /// Show every series' full data, to [`TEDE_X_CAP_M`].
+    Full,
+}
+
+/// Factor per TEDE-graph Zoom in / Zoom out press.
+const TEDE_ZOOM_STEP: f32 = 1.5;
+
+/// The x range the literature curves are LOADED to \[m\]: `cap_m`
+/// ([`TEDE_X_CAP_M`], 20 km) whatever the view, so zooming out or Full range
+/// shows them; further when the view was zoomed out past the cap. Data never
+/// moves the x range (the default view is fixed by `default_x_bounds`), so
+/// loading beyond the view cannot make the bounds creep.
+fn tede_overlay_x_max(view: &TedeView, cap_m: f64) -> f64 {
+    if view.zoomed_x && view.last_x.1.is_finite() {
+        view.last_x.1.max(cap_m)
+    } else {
+        cap_m
+    }
 }
 
 /// The TEDE graph's overlay selection, a multi-select (maintainer,
@@ -621,6 +821,8 @@ pub struct TedeOverlays {
     ap1000: [bool; 2],
     /// One per `sembawang::lwr_comparison::ARM_COLUMNS` column.
     arms: [bool; 7],
+    /// [`LiuCaoOverlay::Depressurization`], [`LiuCaoOverlay::WaterIngress`].
+    liu_cao: [bool; 2],
 }
 
 impl TedeOverlays {
@@ -634,8 +836,118 @@ impl TedeOverlays {
 
     /// Whether anything is overlaid.
     fn any(&self) -> bool {
-        self.ap1000.iter().chain(&self.arms).any(|b| *b)
+        self.ap1000
+            .iter()
+            .chain(&self.arms)
+            .chain(&self.liu_cao)
+            .any(|b| *b)
     }
+
+    /// The Liu & Cao curves switched on, in menu order.
+    fn liu_cao_on(&self) -> impl Iterator<Item = LiuCaoOverlay> + '_ {
+        LiuCaoOverlay::ALL
+            .into_iter()
+            .zip(self.liu_cao)
+            .filter_map(|(o, on)| on.then_some(o))
+    }
+}
+
+/// Liu & Cao (2002) Table 9, the HTR-10 design-basis accident doses, as
+/// literature overlays on the TEDE graph (maintainer, 2026-10-01, #473).
+///
+/// Read straight from
+/// `buangkok::published::accident_dose_by_distance::htr10_accident_dose_by_distance`
+/// (not re-digitised). **Whole-body only**: thyroid is an organ dose and is
+/// not plotted. Plotted as published -- mSv per accident, STOERNEU, 40 m
+/// stack -- with no normalisation. Pinned by
+/// `tests::the_liu_cao_overlays_are_table_9_whole_body`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LiuCaoOverlay {
+    /// The depressurization DBA. Published counterpart of our dotted
+    /// "DB: HTR-10 DLOFC" arm.
+    Depressurization,
+    /// The water-ingress DBA.
+    WaterIngress,
+}
+
+impl LiuCaoOverlay {
+    /// Menu order.
+    const ALL: [LiuCaoOverlay; 2] = [LiuCaoOverlay::Depressurization, LiuCaoOverlay::WaterIngress];
+
+    /// The menu entry.
+    fn label(self) -> &'static str {
+        match self {
+            LiuCaoOverlay::Depressurization => {
+                "HTR-10 depressurization DBA (Liu & Cao 2002, Table 9, whole-body)"
+            }
+            LiuCaoOverlay::WaterIngress => {
+                "HTR-10 water-ingress DBA (Liu & Cao 2002, Table 9, whole-body)"
+            }
+        }
+    }
+
+    /// The short legend name.
+    fn legend_name(self) -> &'static str {
+        match self {
+            LiuCaoOverlay::Depressurization => "HTR-10 depressurization DBA (Liu & Cao 2002)",
+            LiuCaoOverlay::WaterIngress => "HTR-10 water-ingress DBA (Liu & Cao 2002)",
+        }
+    }
+
+    /// Where the curve comes from: a published table.
+    fn provenance(self) -> Provenance {
+        Provenance::Literature
+    }
+
+    /// The table column.
+    fn case(self) -> buangkok::published::accident_dose_by_distance::AccidentCase {
+        use buangkok::published::accident_dose_by_distance::AccidentCase;
+        match self {
+            LiuCaoOverlay::Depressurization => AccidentCase::Depressurization,
+            LiuCaoOverlay::WaterIngress => AccidentCase::WaterIngress,
+        }
+    }
+
+    /// Line colour: the DB arms' teal family, the depressurization case the
+    /// darker shade beside its "DB: HTR-10 DLOFC" counterpart.
+    fn colour(self) -> Color32 {
+        match self {
+            LiuCaoOverlay::Depressurization => Color32::from_rgb(0, 70, 90),
+            LiuCaoOverlay::WaterIngress => Color32::from_rgb(30, 120, 200),
+        }
+    }
+}
+
+/// The notes under the graph while a Liu & Cao curve is selected
+/// (maintainer's wording, 2026-10-01), the maintainer's 96 h assumption
+/// first. Pinned by a test.
+const LIU_CAO_NOTES: &str = "Assumption (maintainer, 2026-10-01): the published dose is taken as \
+     delivered entirely within 4 days (96 h), so it is plotted unscaled against the NRC 10 mSv / \
+     96 h reference. The source states no integration period.\n\
+     Liu & Cao (2002), Nucl. Eng. Des. 218, 81-90, Table 9: individual \
+     dose per HTR-10 design-basis accident, whole-body column only (thyroid is an organ dose and \
+     is not plotted), computed by the authors with STOERNEU for a 40 m stack; plotted as \
+     published, no normalisation.\n\
+     Dose per accident; the source states no integration period. Pathways include ground shine \
+     and ingestion, normally integrated well beyond 96 h, so against the NRC 96 h line this \
+     leans high.\n\
+     Whether 'whole-body' is effective dose is not stated.\n\
+     Design-basis: no coated-particle release.\n\
+     Liu & Cao's circulating activity uses a 5e-3 defective fraction, which they call \
+     'somewhat arbitrarily set \u{2026} very conservative'.\n\
+     Pairing: the depressurization case is the published counterpart of our dotted \
+     \"DB: HTR-10 DLOFC\" arm.";
+
+/// One Liu & Cao curve on the TEDE graph's axes, `[m, mSv]`: Table 9's
+/// whole-body column as published, every row at or inside `x_max_m`
+/// (the first row is 0.25 km; a wider view shows more rows).
+fn liu_cao_points(o: LiuCaoOverlay, x_max_m: f64) -> Vec<[f64; 2]> {
+    use uom::si::length::meter;
+    buangkok::published::accident_dose_by_distance::htr10_accident_dose_by_distance()
+        .iter()
+        .map(|r| [r.distance.get::<meter>(), r.doses(o.case()).whole_body_msv])
+        .filter(|p| p[0] <= x_max_m * (1.0 + 1e-12))
+        .collect()
 }
 
 /// The AP1000 severe-accident TED overlay on the centreline TEDE graph
@@ -682,6 +994,19 @@ impl Ap1000Overlay {
             Ap1000Overlay::ScaledTo10Mwt => "AP1000 Dadda 2024 (\u{d7}10/3400)",
             Ap1000Overlay::AsPublished => "AP1000 Dadda 2024 (3400 MWt)",
         }
+    }
+
+    /// Line colour.
+    fn colour(self) -> Color32 {
+        match self {
+            Ap1000Overlay::AsPublished => Color32::from_rgb(90, 30, 120),
+            _ => Color32::from_rgb(140, 60, 170),
+        }
+    }
+
+    /// Where the curve comes from: a published, digitised figure.
+    fn provenance(self) -> Provenance {
+        Provenance::Literature
     }
 
     /// The thermal power the curve is drawn at \[MWt\], `None` for no overlay.
@@ -749,6 +1074,22 @@ fn ap1000_overlay_curve(o: Ap1000Overlay, clip_m: f64) -> (Vec<[f64; 2]>, String
         ));
     }
     (pts, note)
+}
+
+/// The AP1000 overlay's whole curve, `[m, mSv]`, over its full digitised
+/// range at 2000 log-spaced points: the data its reference crossing is
+/// found on (independent of the x range in view). Empty for
+/// [`Ap1000Overlay::None`].
+fn ap1000_full_curve(o: Ap1000Overlay) -> Vec<[f64; 2]> {
+    use sembawang::ap1000_ted as a;
+    let Some(mwth) = o.mwth() else {
+        return Vec::new();
+    };
+    let (lo_km, hi_km) = a::digitised_range_km();
+    a::total_ted_scaled(&a::log_grid_km(lo_km, hi_km, 2000), mwth)
+        .iter()
+        .map(|t| [t.distance_km * 1.0e3, t.total_sv * 1.0e3])
+        .collect()
 }
 
 /// What the steady-plume `chi/Q` field depends on -- all of it, so this one
@@ -1152,6 +1493,52 @@ fn draw_dose_scale_ramp_with_reference(ui: &mut Ui, scale: ColourScale) {
 /// ~~which is what the caller turns into the next frame's resolution
 /// request~~ -- since 2026-10-01 the request is the fixed
 /// [`MAP_REQUESTED_CELLS`].
+/// Height of the map's zoom toolbar \[points\], taken off the height the
+/// map and graph fill.
+const MAP_TOOLBAR_H: f32 = 24.0;
+
+/// The map's zoom toolbar (maintainer, 2026-10-01): Zoom in / Zoom out /
+/// Reset view, about the view centre. GUI only -- see [`MapView`].
+fn draw_map_zoom_toolbar(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState) {
+    let outermost = s
+        .receptors
+        .iter()
+        .map(|r| r.distance_m)
+        .fold(0.0_f64, f64::max);
+    ui.horizontal(|ui| {
+        let v = state.map_view;
+        if ui.small_button("Zoom in").clicked() {
+            state.map_view = v.zoomed(MAP_ZOOM_STEP, v.centre_m, outermost);
+        }
+        if ui.small_button("Zoom out").clicked() {
+            state.map_view = v.zoomed(1.0 / MAP_ZOOM_STEP, v.centre_m, outermost);
+        }
+        if ui.small_button("Reset view").clicked() {
+            state.map_view = MapView::default();
+        }
+        ui.small(format!(
+            "{:.1}x -- display only, same {} cells (Ctrl + wheel zooms, drag pans)",
+            state.map_view.zoom, s.dispersion_grid_cells
+        ));
+    });
+}
+
+/// The map column: the zoom toolbar above the dispersion rose.
+fn draw_map_column(
+    ui: &mut Ui,
+    s: &HtgrSnapshot,
+    state: &mut MapTabState,
+    side: f32,
+    basis: MapBasis,
+    scale: ColourScale,
+) {
+    ui.vertical(|ui| {
+        ui.set_max_width(side);
+        draw_map_zoom_toolbar(ui, s, state);
+        draw_dispersion_rose(ui, s, state, side, basis, scale);
+    });
+}
+
 fn draw_dispersion_rose(
     ui: &mut Ui,
     s: &HtgrSnapshot,
@@ -1160,7 +1547,7 @@ fn draw_dispersion_rose(
     basis: MapBasis,
     scale: ColourScale,
 ) -> f32 {
-    let (response, painter) = ui.allocate_painter(Vec2::new(side, side), Sense::hover());
+    let (response, painter) = ui.allocate_painter(Vec2::new(side, side), Sense::click_and_drag());
     let rect = response.rect;
     let centre = rect.center();
     let size = rect.width().min(rect.height());
@@ -1194,6 +1581,35 @@ fn draw_dispersion_rose(
         return rect.width();
     }
 
+    // The view (GUI-only zoom and pan, 2026-10-01): mouse input first, so
+    // this frame is drawn with it. Ctrl + wheel (or a pinch) zooms about the
+    // pointer -- the same gesture egui_plot zooms with, so a plain wheel
+    // still scrolls the tab; drag pans; double-click resets.
+    let base_px_per_m = f64::from(max_radius) / outermost;
+    {
+        let t = MapTransform::new(centre, base_px_per_m, state.map_view);
+        if response.double_clicked() {
+            state.map_view = MapView::default();
+        } else if response.dragged() {
+            let d = response.drag_delta();
+            state.map_view = state.map_view.panned(
+                [-f64::from(d.x) / t.px_per_m, f64::from(d.y) / t.px_per_m],
+                outermost,
+            );
+        }
+        if response.hovered() {
+            let z = f64::from(ui.input(|i| i.zoom_delta()));
+            if (z - 1.0).abs() > 1e-6 {
+                let about = response
+                    .hover_pos()
+                    .map_or(state.map_view.centre_m, |p| t.to_ground(p));
+                state.map_view = state.map_view.zoomed(z, about, outermost);
+            }
+        }
+    }
+    let t = MapTransform::new(centre, base_px_per_m, state.map_view);
+    let stack = t.to_screen(0.0, 0.0);
+
     // Distance rings, drawn at the real radii so the plot is to scale.
     let mut drawn: Vec<f64> = Vec::new();
     for receptor in &s.receptors {
@@ -1213,15 +1629,14 @@ fn draw_dispersion_rose(
     // rule out.
     // The peak in the PAINTED unit, for the readout below.
     let field_peak = field_value(field_peak_sample(s), basis, s);
-    let grid_px = max_radius * (s.dispersion_grid_half_width_m / outermost) as f32;
+    // The field square on screen, through the view transform; only its
+    // visible UV sub-rect is painted (`field_uv`).
+    let half = s.dispersion_grid_half_width_m;
+    let field_rect = Rect::from_min_max(t.to_screen(-half, half), t.to_screen(half, -half));
     if let Some(texture) = state.field_texture(ui, s, basis, scale) {
-        let field_rect = Rect::from_center_size(centre, Vec2::splat(2.0 * grid_px));
-        painter.image(
-            texture.id(),
-            field_rect,
-            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-            Color32::WHITE,
-        );
+        if let Some((shown, uv)) = field_uv(field_rect, rect) {
+            painter.image(texture.id(), shown, uv, Color32::WHITE);
+        }
     }
     // --- the steady Gaussian plume overlay (gh:#470), over the puff ---
     //
@@ -1242,13 +1657,9 @@ fn draw_dispersion_rose(
         };
         let half_width = s.dispersion_grid_half_width_m;
         if let Some(texture) = state.plume_texture(ui, s, factor, lo, hi) {
-            let field_rect = Rect::from_center_size(centre, Vec2::splat(2.0 * grid_px));
-            painter.image(
-                texture.id(),
-                field_rect,
-                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                Color32::WHITE,
-            );
+            if let Some((shown, uv)) = field_uv(field_rect, rect) {
+                painter.image(texture.id(), shown, uv, Color32::WHITE);
+            }
             let at_400 = MapTabState::plume_key(s).map(|k| {
                 crate::physics::steady_plume_overlay::chi_over_q_at(
                     k.class,
@@ -1296,32 +1707,33 @@ fn draw_dispersion_rose(
     }
 
     drawn.sort_by(|a, b| a.partial_cmp(b).expect("finite distances"));
+    // Labels are kept inside the square, clear of the corner notes.
+    let label_area = rect.shrink2(Vec2::new(24.0, 18.0));
     for distance in &drawn {
-        let r = max_radius * (*distance / outermost) as f32;
-        painter.circle_stroke(centre, r, Stroke::new(1.0, Color32::from_black_alpha(90)));
+        let r = t.radius_px(*distance);
+        painter.circle_stroke(stack, r, Stroke::new(1.0, Color32::from_black_alpha(90)));
         // Label each ring on its own circle. The rings ARE the distance
         // scale, so naming them is what turns the plot from a decoration
-        // into something a reader can take a number off.
-        painter.text(
-            Pos2::new(centre.x + r, centre.y - 5.0),
-            Align2::LEFT_BOTTOM,
-            format!("{distance:.0} m"),
-            FontId::proportional(9.0),
-            Color32::from_gray(110),
-        );
+        // into something a reader can take a number off. Since the zoom
+        // (2026-10-01) the label moves round its ring to stay in view, at a
+        // fixed font size, so it is legible at every zoom.
+        if let Some(p) = ring_label_anchor(&t, *distance, label_area) {
+            painter.text(
+                Pos2::new(p.x + 2.0, p.y - 3.0),
+                Align2::LEFT_BOTTOM,
+                format!("{distance:.0} m"),
+                FontId::proportional(10.0),
+                Color32::from_gray(90),
+            );
+        }
     }
     // Sector spokes, so the 45-degree resolution is visible rather than
-    // implied by the marker spacing.
+    // implied by the marker spacing. Out to the outer ring, through the
+    // same transform.
     for sector in 0..8 {
-        let (sx, sy) = bearing_to_plot(45.0 * sector as f64, 1.0);
+        let (sx, sy) = bearing_to_plot(45.0 * sector as f64, outermost);
         painter.line_segment(
-            [
-                centre,
-                Pos2::new(
-                    centre.x + max_radius * sx as f32,
-                    centre.y - max_radius * sy as f32,
-                ),
-            ],
+            [stack, t.to_screen(sx, sy)],
             Stroke::new(0.5, Color32::from_black_alpha(40)),
         );
     }
@@ -1358,6 +1770,11 @@ fn draw_dispersion_rose(
     // Now the only overlay besides the distance rings, so it carries the whole
     // "which way is the wind going" job and is drawn to be read at a glance:
     // a shaft from the stack, a filled head, and the bearing in words.
+    //
+    // Zoom (2026-10-01): the arrow starts at the stack through the view
+    // transform but keeps its zoom-1 screen length. It shows a direction,
+    // not a distance, so magnifying it would only push the head off screen.
+    let centre = stack;
     let travel_deg = s.wind_from_deg + 180.0;
     let (wx, wy) = bearing_to_plot(travel_deg, 1.0);
     let tip = Pos2::new(
@@ -1395,7 +1812,7 @@ fn draw_dispersion_rose(
     );
 
     painter.text(
-        Pos2::new(centre.x, rect.top() + 8.0),
+        Pos2::new(rect.center().x, rect.top() + 8.0),
         Align2::CENTER_CENTER,
         "N",
         FontId::proportional(11.0),
@@ -1404,7 +1821,10 @@ fn draw_dispersion_rose(
     painter.text(
         Pos2::new(rect.left() + 4.0, rect.bottom() - 4.0),
         Align2::LEFT_BOTTOM,
-        format!("outer ring {outermost:.0} m"),
+        format!(
+            "outer ring {outermost:.0} m; view {:.1}x",
+            state.map_view.zoom
+        ),
         FontId::proportional(9.0),
         Color32::from_gray(110),
     );
@@ -1419,7 +1839,7 @@ fn draw_dispersion_rose(
     // normal-operation plume is ENTIRELY below the floor. Said on the map.
     if let Some(note) = below_floor_note(field_peak, scale, basis) {
         painter.text(
-            Pos2::new(centre.x, rect.top() + 24.0),
+            Pos2::new(rect.center().x, rect.top() + 24.0),
             Align2::CENTER_TOP,
             note,
             FontId::proportional(10.0),
@@ -1899,30 +2319,36 @@ fn draw_dose_rate_tables(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
         .first()
         .map(|r| r.bearings_deg.clone())
         .unwrap_or_default();
-    egui::Grid::new("htgr_map_dose_rate_by_distance")
-        .num_columns(2 + bearings.len())
-        .striped(true)
+    // Its own horizontal scroll, so a table wider than the window
+    // scrolls in place (2026-10-01).
+    egui::ScrollArea::horizontal()
+        .id_salt("htgr_map_dose_rate_by_distance_hscroll")
         .show(ui, |ui| {
-            ui.label("Distance");
-            ui.label("Pathways");
-            for b in &bearings {
-                ui.label(format!("{b:.0} deg"));
-            }
-            ui.end_row();
-            for row in &rows {
-                for (what, values) in [
-                    ("air LIVE (= map pixel)", &row.air),
-                    ("ground shine", &row.ground),
-                ] {
-                    ui.label(format!("{:.0} m", row.distance_m));
-                    ui.label(what);
-                    for v in values.iter() {
-                        ui.label(dose_cell_text_with_reference(*v, floor))
-                            .on_hover_text(dose_rate_method_text());
+            egui::Grid::new("htgr_map_dose_rate_by_distance")
+                .num_columns(2 + bearings.len())
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Distance");
+                    ui.label("Pathways");
+                    for b in &bearings {
+                        ui.label(format!("{b:.0} deg"));
                     }
                     ui.end_row();
-                }
-            }
+                    for row in &rows {
+                        for (what, values) in [
+                            ("air LIVE (= map pixel)", &row.air),
+                            ("ground shine", &row.ground),
+                        ] {
+                            ui.label(format!("{:.0} m", row.distance_m));
+                            ui.label(what);
+                            for v in values.iter() {
+                                ui.label(dose_cell_text_with_reference(*v, floor))
+                                    .on_hover_text(dose_rate_method_text());
+                            }
+                            ui.end_row();
+                        }
+                    }
+                });
         });
     if let Some(note) = dose_table_below_floor_note(&rows, floor) {
         ui.colored_label(Color32::from_rgb(200, 120, 20), note);
@@ -1955,34 +2381,40 @@ fn draw_dose_rate_tables(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
         &peak.ground_bq_per_m2_absolute_by_nuclide,
         dose_rate::coefficients(),
     );
-    egui::Grid::new("htgr_map_dose_rate_split")
-        .num_columns(DOSE_SPLIT_HEADINGS.len())
-        .striped(true)
+    // Its own horizontal scroll, so a table wider than the window
+    // scrolls in place (2026-10-01).
+    egui::ScrollArea::horizontal()
+        .id_salt("htgr_map_dose_rate_split_hscroll")
         .show(ui, |ui| {
-            for h in DOSE_SPLIT_HEADINGS {
-                ui.label(h);
-            }
-            ui.end_row();
-            for (k, name) in TRACKED_NUCLIDES.iter().enumerate() {
-                ui.label(*name);
-                for p in Pathway::ALL {
-                    ui.label(match split[k][p.index()] {
-                        None => "missing".to_string(),
-                        Some(v) => sci_or_dash(v, 3),
-                    });
-                }
-                ui.end_row();
-            }
-            ui.label("Total");
-            for p in Pathway::ALL {
-                let (total, missing) = dose_rate::pathway_total(&split, p);
-                ui.label(if missing.is_empty() {
-                    sci_or_dash(total, 3)
-                } else {
-                    format!("{} (excl. {})", sci_or_dash(total, 3), missing.join(", "))
+            egui::Grid::new("htgr_map_dose_rate_split")
+                .num_columns(DOSE_SPLIT_HEADINGS.len())
+                .striped(true)
+                .show(ui, |ui| {
+                    for h in DOSE_SPLIT_HEADINGS {
+                        ui.label(h);
+                    }
+                    ui.end_row();
+                    for (k, name) in TRACKED_NUCLIDES.iter().enumerate() {
+                        ui.label(*name);
+                        for p in Pathway::ALL {
+                            ui.label(match split[k][p.index()] {
+                                None => "missing".to_string(),
+                                Some(v) => sci_or_dash(v, 3),
+                            });
+                        }
+                        ui.end_row();
+                    }
+                    ui.label("Total");
+                    for p in Pathway::ALL {
+                        let (total, missing) = dose_rate::pathway_total(&split, p);
+                        ui.label(if missing.is_empty() {
+                            sci_or_dash(total, 3)
+                        } else {
+                            format!("{} (excl. {})", sci_or_dash(total, 3), missing.join(", "))
+                        });
+                    }
+                    ui.end_row();
                 });
-            }
-            ui.end_row();
         });
     ui.add_space(6.0);
 }
@@ -2029,24 +2461,30 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
 
     // --- 1. ABSOLUTE (maintainer direction 2026-09-28) ---
     ui.strong("Absolute basis");
-    egui::Grid::new("htgr_map_dispersion_grid_absolute")
-        .num_columns(ABSOLUTE_TABLE_HEADINGS.len())
-        .striped(true)
+    // Its own horizontal scroll, so a table wider than the window
+    // scrolls in place (2026-10-01).
+    egui::ScrollArea::horizontal()
+        .id_salt("htgr_map_dispersion_grid_absolute_hscroll")
         .show(ui, |ui| {
-            for heading in ABSOLUTE_TABLE_HEADINGS {
-                ui.label(heading);
-            }
-            ui.end_row();
-            for r in downwind_rows(s) {
-                ui.label(format!("{:.0} deg", r.bearing_deg));
-                ui.label(format!("{:.0} m", r.distance_m));
-                // The same emission-weighted sum the Absolute-basis texture
-                // paints, so this equals the pixel under the receptor.
-                ui.label(sci_or_dash(receptor_air_absolute(r), 3));
-                ui.label(sci_or_dash(r.air_bq_s_per_m3_absolute, 3));
-                ui.label(sci_or_dash(r.ground_bq_per_m2_absolute, 3));
-                ui.end_row();
-            }
+            egui::Grid::new("htgr_map_dispersion_grid_absolute")
+                .num_columns(ABSOLUTE_TABLE_HEADINGS.len())
+                .striped(true)
+                .show(ui, |ui| {
+                    for heading in ABSOLUTE_TABLE_HEADINGS {
+                        ui.label(heading);
+                    }
+                    ui.end_row();
+                    for r in downwind_rows(s) {
+                        ui.label(format!("{:.0} deg", r.bearing_deg));
+                        ui.label(format!("{:.0} m", r.distance_m));
+                        // The same emission-weighted sum the Absolute-basis texture
+                        // paints, so this equals the pixel under the receptor.
+                        ui.label(sci_or_dash(receptor_air_absolute(r), 3));
+                        ui.label(sci_or_dash(r.air_bq_s_per_m3_absolute, 3));
+                        ui.label(sci_or_dash(r.ground_bq_per_m2_absolute, 3));
+                        ui.end_row();
+                    }
+                });
         });
     ui.label(
         "Air LIVE = instantaneous chi/Q x absolute release rate: the instantaneous air \
@@ -2058,28 +2496,34 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
 
     // --- 2. PER Ci -- unchanged ---
     ui.strong("Per curie of core inventory");
-    egui::Grid::new("htgr_map_dispersion_grid")
-        // 6, not 5: the LIVE chi/Q column was added 2026-09-27 beside the
-        // time-integrated one. Both are shown because they are different
-        // quantities, not two renderings of one.
-        .num_columns(6)
-        .striped(true)
+    // Its own horizontal scroll, so a table wider than the window
+    // scrolls in place (2026-10-01).
+    egui::ScrollArea::horizontal()
+        .id_salt("htgr_map_dispersion_grid_hscroll")
         .show(ui, |ui| {
-            for heading in PER_CI_TABLE_HEADINGS {
-                ui.label(heading);
-            }
-            ui.end_row();
-            for r in downwind_rows(s) {
-                ui.label(format!("{:.0} deg", r.bearing_deg));
-                ui.label(format!("{:.0} m", r.distance_m));
-                // LIVE first, because it is the one that refreshes at 10 Hz and
-                // the one that agrees with the map cell under the same point.
-                ui.label(format!("{:.4e}", r.instantaneous_chi_over_q));
-                ui.label(format!("{:.4e}", r.chi_over_q));
-                ui.label(format!("{:.3e}", r.air_bq_s_per_m3));
-                ui.label(format!("{:.3e}", r.ground_bq_per_m2));
-                ui.end_row();
-            }
+            egui::Grid::new("htgr_map_dispersion_grid")
+                // 6, not 5: the LIVE chi/Q column was added 2026-09-27 beside the
+                // time-integrated one. Both are shown because they are different
+                // quantities, not two renderings of one.
+                .num_columns(6)
+                .striped(true)
+                .show(ui, |ui| {
+                    for heading in PER_CI_TABLE_HEADINGS {
+                        ui.label(heading);
+                    }
+                    ui.end_row();
+                    for r in downwind_rows(s) {
+                        ui.label(format!("{:.0} deg", r.bearing_deg));
+                        ui.label(format!("{:.0} m", r.distance_m));
+                        // LIVE first, because it is the one that refreshes at 10 Hz and
+                        // the one that agrees with the map cell under the same point.
+                        ui.label(format!("{:.4e}", r.instantaneous_chi_over_q));
+                        ui.label(format!("{:.4e}", r.chi_over_q));
+                        ui.label(format!("{:.3e}", r.air_bq_s_per_m3));
+                        ui.label(format!("{:.3e}", r.ground_bq_per_m2));
+                        ui.end_row();
+                    }
+                });
         });
     ui.add_space(4.0);
     ui.label(
@@ -2100,26 +2544,33 @@ fn draw_dispersion_table(ui: &mut Ui, s: &HtgrSnapshot, dose_scale: ColourScale)
         .first()
         .map(|r| r.bearings_deg.clone())
         .unwrap_or_default();
-    egui::Grid::new("htgr_map_chi_over_q_by_distance")
-        .num_columns(2 + bearings.len())
-        .striped(true)
+    // Its own horizontal scroll, so a table wider than the window
+    // scrolls in place (2026-10-01).
+    egui::ScrollArea::horizontal()
+        .id_salt("htgr_map_chi_over_q_by_distance_hscroll")
         .show(ui, |ui| {
-            ui.label("Distance");
-            ui.label("chi/Q");
-            for b in &bearings {
-                ui.label(format!("{b:.0} deg"));
-            }
-            ui.end_row();
-            for row in &rows {
-                for (what, values) in [("LIVE", &row.live), ("integrated", &row.integrated)] {
-                    ui.label(format!("{:.0} m", row.distance_m));
-                    ui.label(what);
-                    for v in values.iter() {
-                        ui.label(format!("{v:.3e}"));
+            egui::Grid::new("htgr_map_chi_over_q_by_distance")
+                .num_columns(2 + bearings.len())
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Distance");
+                    ui.label("chi/Q");
+                    for b in &bearings {
+                        ui.label(format!("{b:.0} deg"));
                     }
                     ui.end_row();
-                }
-            }
+                    for row in &rows {
+                        for (what, values) in [("LIVE", &row.live), ("integrated", &row.integrated)]
+                        {
+                            ui.label(format!("{:.0} m", row.distance_m));
+                            ui.label(what);
+                            for v in values.iter() {
+                                ui.label(format!("{v:.3e}"));
+                            }
+                            ui.end_row();
+                        }
+                    }
+                });
         });
     ui.label(
         "All eight bearings. LIVE is the instantaneous chi/Q the map multiplies by the release \
@@ -2305,14 +2756,22 @@ fn draw_plume_toggle(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState) {
 /// Column headings of the comparison table: distance, class, then the
 /// library's seven dose columns in tier order
 /// (`sembawang::lwr_comparison::ARM_COLUMNS`; maintainer decision,
-/// 2026-09-30, #464), so the map cannot reorder or relabel them.
+/// 2026-09-30, #464), so the map cannot reorder them. ~~or relabel them~~
+/// **One relabel since 2026-10-01 (maintainer):** the KORA column reads
+/// [`kora_short_label`], built from the hold constants, so it is plain
+/// that it is an extreme case.
 fn bounding_headings() -> Vec<String> {
     let mut h = vec!["Distance".to_string(), "Class (worst, 1 m/s)".to_string()];
-    h.extend(
-        sembawang::lwr_comparison::ARM_COLUMNS
-            .iter()
-            .map(|c| format!("{} [mSv]", c.heading)),
-    );
+    h.extend((0..ARM_LEGEND_STEMS.len()).map(|k| {
+        if k == KORA_ARM {
+            format!("{} [mSv]", kora_short_label())
+        } else {
+            format!(
+                "{} [mSv]",
+                sembawang::lwr_comparison::ARM_COLUMNS[k].heading
+            )
+        }
+    }));
     h
 }
 
@@ -2365,20 +2824,26 @@ fn draw_bounding_table(ui: &mut Ui) {
         }
         Ok(c) => {
             let headings = bounding_headings();
-            egui::Grid::new("htgr_map_bounding_air_ingress")
-                .num_columns(headings.len())
-                .striped(true)
+            // Its own horizontal scroll, so a table wider than the window
+            // scrolls in place (2026-10-01).
+            egui::ScrollArea::horizontal()
+                .id_salt("htgr_map_bounding_air_ingress_hscroll")
                 .show(ui, |ui| {
-                    for h in &headings {
-                        ui.label(h);
-                    }
-                    ui.end_row();
-                    for row in bounding_cells(c) {
-                        for cell in row {
-                            ui.label(cell);
-                        }
-                        ui.end_row();
-                    }
+                    egui::Grid::new("htgr_map_bounding_air_ingress")
+                        .num_columns(headings.len())
+                        .striped(true)
+                        .show(ui, |ui| {
+                            for h in &headings {
+                                ui.label(h);
+                            }
+                            ui.end_row();
+                            for row in bounding_cells(c) {
+                                for cell in row {
+                                    ui.label(cell);
+                                }
+                                ui.end_row();
+                            }
+                        });
                 });
             ui.label(b::DBA_LABEL);
             ui.label(b::LWR_LABEL);
@@ -2414,17 +2879,71 @@ fn draw_bounding_table(ui: &mut Ui) {
     ui.add_space(6.0);
 }
 
-/// Short legend names of the bounding arms, in `ARM_COLUMNS` order
-/// (maintainer, 2026-10-01). The full headings and labels go in the notes.
-const ARM_LEGEND_NAMES: [&str; 7] = [
+/// Short legend STEMS of the bounding arms, in `ARM_COLUMNS` order
+/// (maintainer, 2026-10-01). Read them through [`arm_legend_name`]: arm 3's
+/// shown name is built from the KORA constants ([`kora_short_label`]). The
+/// full headings and labels go in the notes.
+const ARM_LEGEND_STEMS: [&str; 7] = [
     "DB: HTR-10 DLOFC",
     "DB: NuScale LOCA",
     "DB: NuScale LOCA, nat. dep.",
-    "BDB: HTR-10 DLOFC + air ingress",
+    "BDB: HTR-10 KORA core burn",
     "BDB: NuScale LOCA + core melt",
     "BDB: NuScale LOCA + core melt, nat. dep.",
     "Context: WASH-1400 PWR 8",
 ];
+
+/// The KORA core-burn arm's index in `ARM_COLUMNS`.
+const KORA_ARM: usize = 3;
+
+/// The KORA core burn's short label (maintainer, 2026-10-01: "so it is
+/// obvious this is an extreme case"), built from
+/// `sembawang::lwr_comparison::bound`'s constants so it cannot drift:
+/// "BDB: HTR-10 KORA core burn (1400 °C, 5.8 d) — EXTREME".
+fn kora_short_label() -> &'static str {
+    use sembawang::lwr_comparison::bound;
+    static LABEL: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    LABEL.get_or_init(|| {
+        format!(
+            "{} ({:.0} \u{b0}C, {:.1} d) \u{2014} EXTREME",
+            ARM_LEGEND_STEMS[KORA_ARM],
+            bound::HOLD_CELSIUS,
+            bound::HOLD_HOURS / 24.0
+        )
+    })
+}
+
+/// The KORA core burn's long note under the plot (maintainer's wording,
+/// 2026-10-01), every number from the constants and the committed KORA row.
+fn kora_long_note() -> String {
+    use sembawang::lwr_comparison::{bound, kora};
+    let f_ox = kora::sphere_test(bound::HOLD_CELSIUS, bound::HOLD_HOURS).map_or_else(
+        || "f_ox unavailable (no KORA row at the hold)".to_string(),
+        |t| {
+            format!(
+                "f_ox = {:.1e} ({}, TECDOC-978 Table 5-7)",
+                t.failed_fraction, t.sample
+            )
+        },
+    );
+    format!(
+        "Extreme bounding case, not a transient: every coated particle assumed exposed to air at \
+         {:.0} \u{b0}C for {:.0} h (\u{2248} {:.1} days), KORA oxidation failure {f_ox}, full \
+         flow-through venting, no building credit. Far beyond the DLOFC the live model produces.",
+        bound::HOLD_CELSIUS,
+        bound::HOLD_HOURS,
+        bound::HOLD_HOURS / 24.0
+    )
+}
+
+/// Arm `k`'s legend / menu name.
+fn arm_legend_name(k: usize) -> &'static str {
+    if k == KORA_ARM {
+        kora_short_label()
+    } else {
+        ARM_LEGEND_STEMS[k]
+    }
+}
 
 /// The release-basis label of each arm (`bounding_air_ingress`'s constants,
 /// the same text the bounding table prints).
@@ -2459,6 +2978,15 @@ enum Provenance {
 }
 
 impl Provenance {
+    /// The overlay menu's section heading.
+    fn menu_heading(self) -> &'static str {
+        match self {
+            Provenance::Literature => "Published literature",
+            Provenance::OurCalculation => "This project's calculations (not validated)",
+            Provenance::Reference => "Reference figures",
+        }
+    }
+
     /// `(line style, width [points])`.
     fn stroke(self) -> (egui_plot::LineStyle, f32) {
         use egui_plot::LineStyle;
@@ -2469,6 +2997,10 @@ impl Provenance {
         }
     }
 }
+
+/// The compact provenance key drawn on the plot itself (maintainer,
+/// 2026-10-01); [`PROVENANCE_KEY`] is the fuller line under it.
+const TEDE_PLOT_KEY: &str = "solid = published \u{b7} dotted = our calculations";
 
 /// The one-line key under the plot.
 const PROVENANCE_KEY: &str =
@@ -2506,7 +3038,9 @@ fn arm_colour_marker(k: usize) -> (Color32, egui_plot::MarkerShape) {
     match k {
         0 => (Color32::from_rgb(0, 110, 110), MarkerShape::Circle),
         1 | 2 => (Color32::from_rgb(60, 180, 170), MarkerShape::Square),
-        3 => (Color32::from_rgb(190, 90, 0), MarkerShape::Circle),
+        // The KORA core burn: strong red, "extreme" (maintainer,
+        // 2026-10-01); still dotted, being our calculation.
+        3 => (Color32::from_rgb(220, 0, 0), MarkerShape::Circle),
         4 | 5 => (Color32::from_rgb(245, 160, 60), MarkerShape::Square),
         _ => (Color32::from_gray(120), MarkerShape::Cross),
     }
@@ -2618,6 +3152,25 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
     use egui_plot::{HoverPosition, Legend, Plot, PlotPoints, Points};
     ui.vertical(|ui| {
         ui.set_max_width(width);
+        // The graph's zoom buttons (maintainer, 2026-10-01). egui_plot's own
+        // wheel / drag / box zoom stay on; Reset (or a double click) returns
+        // to x = 0 .. outermost receptor with 200 m ticks, y auto.
+        let mut zoom_cmd = None;
+        ui.horizontal(|ui| {
+            if ui.small_button("Zoom in").clicked() {
+                zoom_cmd = Some(GraphZoom::In);
+            }
+            if ui.small_button("Zoom out").clicked() {
+                zoom_cmd = Some(GraphZoom::Out);
+            }
+            if ui.small_button("Reset").clicked() {
+                zoom_cmd = Some(GraphZoom::Reset);
+            }
+            if ui.small_button("Full range").clicked() {
+                zoom_cmd = Some(GraphZoom::Full);
+            }
+            ui.small("(Ctrl + wheel zooms, drag pans, double-click resets)");
+        });
         ui.small(TEDE_PLOT_TITLE);
         let points = tede_centreline(s);
         let msv_pts = |f: fn(&TedeCentrelinePoint) -> f64| -> Vec<[f64; 2]> {
@@ -2661,13 +3214,15 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
             Vec::new()
         };
         let overlays = state.tede_overlays;
-        // The bounding arms, straight from the table's rows (computed once
+        // The bounding arms, straight from the comparison's rows -- since
+        // 2026-10-01 the SAME calculation as the bounding table sampled on
+        // the graph grid, 100 m .. 20 km (`graph_comparison`; computed once
         // per process, and only once an arm is picked).
         let comparison = overlays
             .arms
             .iter()
             .any(|b| *b)
-            .then(crate::physics::bounding_air_ingress::comparison);
+            .then(crate::physics::bounding_air_ingress::graph_comparison);
         let arms: Vec<(usize, Vec<[f64; 2]>)> = match comparison {
             Some(Ok(c)) => (0..7)
                 .filter(|k| overlays.arms[*k])
@@ -2675,18 +3230,42 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 .collect(),
             _ => Vec::new(),
         };
-        // The x range ends at the outermost receptor (1000 m before the first
-        // dispersion run), grown to the furthest arm row if one lies beyond.
-        let clip_m = arms
+        // ~~The x range ends at the outermost receptor (1000 m before the
+        // first dispersion run), grown to the furthest arm row if one lies
+        // beyond.~~ **Since 2026-10-01 (maintainer)** every series is loaded
+        // to [`TEDE_X_CAP_M`] (20 km) or its own last point, and the DEFAULT
+        // view ends at [`TEDE_DEFAULT_VIEW_M`] (2 km) or the furthest data if
+        // shorter ([`tede_default_x_max`]); Full range shows it all.
+        let arms_far = arms
             .iter()
             .flat_map(|(_, p)| p.iter().map(|q| q[0]))
-            .fold(points.last().map_or(1000.0, |p| p.distance_m), f64::max);
+            .fold(0.0, f64::max);
+        let lit_far = overlays
+            .ap1000_on()
+            .map(|_| ap1000_data_end_m())
+            .chain(overlays.liu_cao_on().map(|_| liu_cao_data_end_m()))
+            .fold(0.0, f64::max);
+        let full_x = tede_full_x_max(
+            points.last().map_or(1000.0, |p| p.distance_m),
+            arms_far,
+            lit_far,
+        );
+        let default_x = tede_default_x_max(full_x);
+        let lit_x_max = if zoom_cmd == Some(GraphZoom::Reset) {
+            TEDE_X_CAP_M
+        } else {
+            tede_overlay_x_max(&state.tede_view, TEDE_X_CAP_M)
+        };
         let ap1000: Vec<(Ap1000Overlay, Vec<[f64; 2]>, String)> = overlays
             .ap1000_on()
             .map(|o| {
-                let (p, note) = ap1000_overlay_curve(o, clip_m);
+                let (p, note) = ap1000_overlay_curve(o, lit_x_max);
                 (o, p, note)
             })
+            .collect();
+        let liu_cao: Vec<(LiuCaoOverlay, Vec<[f64; 2]>)> = overlays
+            .liu_cao_on()
+            .map(|o| (o, liu_cao_points(o, lit_x_max)))
             .collect();
         // Plot height from the content ABOVE the plot only (title + status);
         // the menu and the notes go below so the graph does not shrink
@@ -2700,9 +3279,59 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 .into_iter()
                 .chain(arms.iter().map(|(_, p)| p))
                 .chain(ap1000.iter().map(|(_, p, _)| p))
+                .chain(liu_cao.iter().map(|(_, p)| p))
                 .flat_map(|v| v.iter().map(|p| p[1])),
         );
-        Plot::new("htgr_tede_centreline_plot")
+        // Where each shown series crosses DOWN through the NRC reference
+        // (maintainer, 2026-10-01), from each series' OWN full data (not the
+        // view-clipped points), interpolated, never extrapolated.
+        let mut crossing_rows: Vec<CrossingRow> = Vec::new();
+        let ours = Provenance::OurCalculation;
+        let mut push = |name: &str, colour, provenance, pts: &[[f64; 2]]| {
+            if let Some(c) = reference_crossing(pts, reference_msv) {
+                crossing_rows.push(CrossingRow {
+                    name: name.to_string(),
+                    colour,
+                    provenance,
+                    crossing: c,
+                });
+            }
+        };
+        push(TEDE_LEGEND_TOTAL, TEDE_TOTAL_COLOUR, ours, &total);
+        if show_window {
+            push(TEDE_LEGEND_WINDOW, TEDE_WINDOW_COLOUR, ours, &window);
+        }
+        push(TEDE_LEGEND_PROJECTION, PLUME_COLOUR, ours, &projection);
+        for (k, pts) in &arms {
+            push(
+                arm_legend_name(*k),
+                arm_colour_marker(*k).0,
+                arm_provenance(*k),
+                pts,
+            );
+        }
+        for (o, _, _) in &ap1000 {
+            push(
+                o.legend_name(),
+                o.colour(),
+                o.provenance(),
+                &ap1000_full_curve(*o),
+            );
+        }
+        for (o, _) in &liu_cao {
+            push(
+                o.legend_name(),
+                o.colour(),
+                o.provenance(),
+                &liu_cao_points(*o, f64::INFINITY),
+            );
+        }
+        let started = state.tede_view.started;
+        let mut plot = Plot::new("htgr_tede_centreline_plot");
+        if zoom_cmd == Some(GraphZoom::Reset) {
+            plot = plot.reset();
+        }
+        let shown = plot
             .legend(
                 Legend::default()
                     .position(TEDE_LEGEND_CORNER)
@@ -2711,16 +3340,27 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
             )
             .width(width)
             .height(plot_h)
-            .x_axis_label("downwind distance [m]")
+            .x_axis_label("downwind distance")
             .y_axis_label("accumulated dose [mSv]")
             .x_grid_spacer(|g| tede_x_marks(g.bounds))
-            .x_axis_formatter(|mark, _| tede_x_label(mark.value))
+            .x_axis_formatter(|mark, range| {
+                tede_x_label(mark.value, mark.step_size, range.end() - range.start())
+            })
             .y_grid_spacer(|g| tede_y_marks(g.bounds))
             .y_axis_formatter(|mark, range| tede_y_label(mark.value, range))
-            .include_x(0.0)
-            .include_x(clip_m)
+            // The default (and Reset / double-click) view: x = 0 ..
+            // `default_x` exactly, whatever data lies beyond it, so the
+            // default ticks are the 200 m ones; y auto over every series,
+            // with egui_plot's margin on top of the legend headroom.
+            .default_x_bounds(0.0, default_x)
             .include_y(0.0)
             .include_y(y_top)
+            .set_margin_fraction(Vec2::new(0.0, 0.05))
+            .allow_zoom(true)
+            .allow_drag(true)
+            .allow_scroll(true)
+            .allow_boxed_zoom(true)
+            .allow_double_click_reset(true)
             .label_formatter(|pos| match pos {
                 HoverPosition::NearDataPoint {
                     plot_name,
@@ -2730,6 +3370,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                     let what = if plot_name.starts_with("HTR-10 centreline") {
                         "\n(centreline = max over the ring's sectors)"
                     } else if plot_name.starts_with("AP1000")
+                        || plot_name.contains("Liu & Cao")
                         || plot_name.starts_with("DB:")
                         || plot_name.starts_with("BDB:")
                         || plot_name.starts_with("Context:")
@@ -2749,15 +3390,35 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 }
             })
             .show(ui, |plot_ui| {
+                // Default view: x follows `default_x` (auto-bounds on with
+                // fixed default bounds), y auto. egui_plot starts and resets
+                // x with auto OFF when default bounds are given, so it is
+                // switched on here on the first frame and on Reset.
+                if !started || zoom_cmd == Some(GraphZoom::Reset) {
+                    plot_ui.set_auto_bounds(egui::Vec2b::new(true, true));
+                }
+                match zoom_cmd {
+                    Some(GraphZoom::In) => {
+                        let c = plot_ui.plot_bounds().center();
+                        plot_ui.zoom_bounds(Vec2::splat(TEDE_ZOOM_STEP), c);
+                    }
+                    Some(GraphZoom::Out) => {
+                        let c = plot_ui.plot_bounds().center();
+                        plot_ui.zoom_bounds(Vec2::splat(1.0 / TEDE_ZOOM_STEP), c);
+                    }
+                    Some(GraphZoom::Full) => {
+                        plot_ui.set_plot_bounds_x(0.0..=full_x);
+                    }
+                    _ => {}
+                }
                 plot_ui.hline(tede_hline(
                     TEDE_LEGEND_NRC,
                     reference_msv,
                     Color32::from_rgb(200, 40, 40),
                     Provenance::Reference,
                 ));
-                let ours = Provenance::OurCalculation;
                 if !total.is_empty() {
-                    let blue = Color32::from_rgb(30, 90, 200);
+                    let blue = TEDE_TOTAL_COLOUR;
                     plot_ui.line(tede_line(TEDE_LEGEND_TOTAL, total.clone(), blue, ours));
                     plot_ui.points(
                         Points::new(TEDE_LEGEND_TOTAL, PlotPoints::from(total))
@@ -2766,7 +3427,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                     );
                 }
                 if show_window && !window.is_empty() {
-                    let green = Color32::from_rgb(20, 150, 80);
+                    let green = TEDE_WINDOW_COLOUR;
                     plot_ui.line(tede_line(TEDE_LEGEND_WINDOW, window, green, ours));
                 }
                 if !projection.is_empty() {
@@ -2779,32 +3440,112 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 }
                 for (k, pts) in &arms {
                     let (colour, marker) = arm_colour_marker(*k);
-                    plot_ui.line(tede_line(ARM_LEGEND_NAMES[*k], pts.clone(), colour, ours));
+                    plot_ui.line(tede_line(
+                        arm_legend_name(*k),
+                        pts.clone(),
+                        colour,
+                        arm_provenance(*k),
+                    ));
                     plot_ui.points(
-                        Points::new(ARM_LEGEND_NAMES[*k], PlotPoints::from(pts.clone()))
+                        Points::new(arm_legend_name(*k), PlotPoints::from(pts.clone()))
                             .color(colour)
                             .shape(marker)
                             .radius(4.0),
                     );
                 }
+                for (o, pts) in &liu_cao {
+                    if !pts.is_empty() {
+                        let lit = o.provenance();
+                        let name = o.legend_name();
+                        plot_ui.line(tede_line(name, pts.clone(), o.colour(), lit));
+                        plot_ui.points(
+                            Points::new(name, PlotPoints::from(pts.clone()))
+                                .color(o.colour())
+                                .radius(3.5),
+                        );
+                    }
+                }
                 for (o, pts, _) in &ap1000 {
                     if !pts.is_empty() {
-                        let colour = match o {
-                            Ap1000Overlay::AsPublished => Color32::from_rgb(90, 30, 120),
-                            _ => Color32::from_rgb(140, 60, 170),
-                        };
+                        let colour = o.colour();
                         plot_ui.line(tede_line(
                             o.legend_name(),
                             pts.clone(),
                             colour,
-                            Provenance::Literature,
+                            o.provenance(),
                         ));
                     }
                 }
+                // The reference crossings: a drop-line from the reference to
+                // the axis at the crossing, in the series' colour, labelled
+                // with the distance; staggered up the headroom band so the
+                // labels do not sit on each other. "data ends" is labelled
+                // at the series' last point and has no drop-line.
+                for (i, r) in crossing_rows.iter().enumerate() {
+                    let label_y = reference_msv * (1.08 + 0.12 * i as f64);
+                    match r.crossing {
+                        ReferenceCrossing::At(x) => {
+                            plot_ui.line(
+                                egui_plot::Line::new(
+                                    "",
+                                    PlotPoints::from(vec![[x, 0.0], [x, label_y]]),
+                                )
+                                .color(r.colour)
+                                .width(1.5),
+                            );
+                            plot_ui.text(
+                                egui_plot::Text::new(
+                                    "",
+                                    egui_plot::PlotPoint::new(x, label_y),
+                                    egui::RichText::new(r.crossing.label()).small(),
+                                )
+                                .color(r.colour)
+                                .anchor(Align2::LEFT_BOTTOM),
+                            );
+                        }
+                        ReferenceCrossing::DataEnds(x) => {
+                            plot_ui.text(
+                                egui_plot::Text::new(
+                                    "",
+                                    egui_plot::PlotPoint::new(x, label_y),
+                                    egui::RichText::new(r.crossing.label()).small(),
+                                )
+                                .color(r.colour)
+                                .anchor(Align2::RIGHT_BOTTOM),
+                            );
+                        }
+                        ReferenceCrossing::BelowEverywhere => {}
+                    }
+                }
+                // Whether x was in the default auto-bounds view (last frame).
+                plot_ui.auto_bounds().x
             });
+        // The one-line provenance key ON the plot (maintainer, 2026-10-01),
+        // top-left, beside the top-right legend, in the headroom band that
+        // holds no data in the default view.
+        let frame = shown.response.rect;
+        ui.painter_at(frame).text(
+            frame.left_top() + Vec2::new(6.0, 4.0),
+            Align2::LEFT_TOP,
+            TEDE_PLOT_KEY,
+            FontId::proportional(10.0),
+            ui.visuals().weak_text_color(),
+        );
+        // What the next frame clips the literature curves to.
+        let b = shown.transform.bounds();
+        state.tede_view = TedeView {
+            zoomed_x: zoom_cmd != Some(GraphZoom::Reset)
+                && (matches!(
+                    zoom_cmd,
+                    Some(GraphZoom::In | GraphZoom::Out | GraphZoom::Full)
+                ) || !shown.inner),
+            last_x: (b.min()[0], b.max()[0]),
+            started: true,
+        };
         // Below the plot: the overlay menu, then the long text that used to
         // sit in the legend.
         draw_tede_overlay_menu(ui, &mut state.tede_overlays);
+        draw_crossing_table(ui, &crossing_rows);
         ui.small(PROVENANCE_KEY);
         ui.add(egui::Label::new(egui::RichText::new(TEDE_PLOT_NOTES).small()).wrap());
         if !ap1000.is_empty() {
@@ -2825,6 +3566,25 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                             )
                             .wrap(),
                         );
+                        if let Some(line) = below_note(&crossing_rows, o.legend_name()) {
+                            ui.small(line);
+                        }
+                    }
+                });
+        }
+        if !liu_cao.is_empty() {
+            egui::CollapsingHeader::new("Liu & Cao (2002) Table 9 notes")
+                .id_salt("htgr_tede_liu_cao_notes")
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.add(egui::Label::new(egui::RichText::new(LIU_CAO_NOTES).small()).wrap());
+                    if liu_cao.iter().all(|(_, p)| p.is_empty()) {
+                        ui.small("No Table 9 row inside the x range shown (first row 250 m).");
+                    }
+                    for (o, _) in &liu_cao {
+                        if let Some(line) = below_note(&crossing_rows, o.legend_name()) {
+                            ui.small(line);
+                        }
                     }
                 });
         }
@@ -2836,6 +3596,11 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                     ui.add(
                         egui::Label::new(egui::RichText::new(arm_notes(&overlays)).small()).wrap(),
                     );
+                    for (k, _) in &arms {
+                        if let Some(line) = below_note(&crossing_rows, arm_legend_name(*k)) {
+                            ui.small(line);
+                        }
+                    }
                     if let Some(Err(e)) = comparison {
                         ui.colored_label(
                             Color32::from_rgb(200, 60, 20),
@@ -2845,6 +3610,173 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 });
         }
     });
+}
+
+/// Live-series colours, shared by the curves and their reference markers.
+const TEDE_TOTAL_COLOUR: Color32 = Color32::from_rgb(30, 90, 200);
+const TEDE_WINDOW_COLOUR: Color32 = Color32::from_rgb(20, 150, 80);
+
+/// Where a series meets the NRC 10 mSv / 96 h reference figure, going out
+/// from the source (maintainer, 2026-10-01). An INDICATIVE distance to a
+/// reference figure, research/education only -- see [`CROSSING_CAVEAT`].
+///
+/// # Methodology
+///
+/// [`reference_crossing`] on each shown series' OWN full data (not the
+/// view-clipped points): the outermost downward crossing of 10 mSv, linear
+/// in distance and dose between the bracketing pair, never extrapolated.
+/// Data: the AP1000 curve at 2000 log-spaced points over its digitised range
+/// (`ap1000_full_curve`); Liu & Cao Table 9's 13 rows; the bounding arms on
+/// the graph grid (`bounding_air_ingress::graph_distances_m`: 100 m steps to
+/// 2 km, 500 m steps to 20 km, so a crossing past 2 km carries up to ~one
+/// 500 m interval of chord error on a convex curve).
+///
+/// # Results (2026-10-01, taken on this change's tree, parent 74aef7fe28)
+///
+/// | Series | Provenance | Distance to 10 mSv |
+/// |---|---|---|
+/// | AP1000 Dadda 2024, x 10/3400 | literature | 3.51 km |
+/// | AP1000 Dadda 2024, 3400 MWt | literature | 91.8 km |
+/// | Liu & Cao 2002 depressurization DBA | literature | below at all distances (max 0.077 mSv) |
+/// | Liu & Cao 2002 water-ingress DBA | literature | below at all distances (max 0.20 mSv) |
+/// | DB: HTR-10 DLOFC | ours | below at all distances |
+/// | DB: NuScale LOCA | ours | 3.46 km |
+/// | BDB: HTR-10 KORA core burn (EXTREME) | ours | 1.24 km |
+/// | BDB: NuScale LOCA + core melt | ours | 8.15 km |
+/// | Context: WASH-1400 PWR 8 | ours | 1.15 km |
+///
+/// The two natural-deposition arms are pending literature and have no
+/// curve. The live HTR-10 centreline depends on the running plant and is
+/// not recorded. These are display readouts of unvalidated curves
+/// (htgr_sim_v1 is not in validation), not a planning-zone result.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ReferenceCrossing {
+    /// The outermost downward crossing \[m\], linearly interpolated
+    /// between the two bracketing data points.
+    At(f64),
+    /// Still at or above the reference at the series' last data point
+    /// \[m\]: no crossing is invented past the data.
+    DataEnds(f64),
+    /// Below the reference at every data point.
+    BelowEverywhere,
+}
+
+impl ReferenceCrossing {
+    /// The marker / table text.
+    fn label(self) -> String {
+        match self {
+            ReferenceCrossing::At(x) => distance_text(x),
+            ReferenceCrossing::DataEnds(x) => format!("> {} (data ends)", distance_text(x)),
+            ReferenceCrossing::BelowEverywhere => {
+                "below reference at all plotted distances".to_string()
+            }
+        }
+    }
+}
+
+/// "750 m" under 1 km, "1.8 km" from 1 km up.
+fn distance_text(m: f64) -> String {
+    if m < 1000.0 {
+        format!("{m:.0} m")
+    } else {
+        format!("{:.1} km", m / 1.0e3)
+    }
+}
+
+/// The outermost distance at which `pts` (`[m, mSv]`, any order) crosses
+/// DOWN through `y_ref`, by linear interpolation between the bracketing
+/// pair; never extrapolated. `None` for no finite data.
+///
+/// The last point at or above `y_ref` is found; if it is the last point the
+/// series is still above where its data ends ([`ReferenceCrossing::DataEnds`]),
+/// otherwise the crossing lies between it and the next point.
+fn reference_crossing(pts: &[[f64; 2]], y_ref: f64) -> Option<ReferenceCrossing> {
+    let mut p: Vec<[f64; 2]> = pts
+        .iter()
+        .copied()
+        .filter(|q| q[0].is_finite() && q[1].is_finite())
+        .collect();
+    p.sort_by(|a, b| a[0].total_cmp(&b[0]));
+    let last = *p.last()?;
+    if last[1] >= y_ref {
+        return Some(ReferenceCrossing::DataEnds(last[0]));
+    }
+    let Some(i) = p.iter().rposition(|q| q[1] >= y_ref) else {
+        return Some(ReferenceCrossing::BelowEverywhere);
+    };
+    let ([x0, y0], [x1, y1]) = (p[i], p[i + 1]);
+    Some(ReferenceCrossing::At(
+        x0 + (y0 - y_ref) / (y0 - y1) * (x1 - x0),
+    ))
+}
+
+/// One row of the crossing table.
+#[derive(Clone, Debug, PartialEq)]
+struct CrossingRow {
+    name: String,
+    colour: Color32,
+    provenance: Provenance,
+    crossing: ReferenceCrossing,
+}
+
+/// "<series>: below reference at all plotted distances." for a series in
+/// `rows` that never reaches the reference, for its notes; `None` otherwise.
+fn below_note(rows: &[CrossingRow], name: &str) -> Option<String> {
+    rows.iter()
+        .find(|r| r.name == name && r.crossing == ReferenceCrossing::BelowEverywhere)
+        .map(|r| format!("{}: {}.", r.name, r.crossing.label()))
+}
+
+/// The crossing table's column heading -- the required wording (maintainer,
+/// 2026-10-01, RESPONSIBLE_USE.md): an indicative distance to a reference
+/// figure, never an emergency-planning determination.
+const CROSSING_HEADING: &str = "Indicative distance to the 10 mSv / 96 h reference figure";
+
+/// The caveat under the crossing table (maintainer's wording, 2026-10-01).
+const CROSSING_CAVEAT: &str = "Research/education only \u{2014} not an emergency planning zone \
+     determination; EPZ sizing involves dose criteria, accident spectra and probabilities beyond \
+     this comparison.";
+
+/// The provenance column text.
+fn provenance_short(p: Provenance) -> &'static str {
+    match p {
+        Provenance::Literature => "literature",
+        Provenance::OurCalculation => "ours",
+        Provenance::Reference => "reference",
+    }
+}
+
+/// The crossing table under the plot: series, provenance and the indicative
+/// distance to the 10 mSv / 96 h reference figure, then the caveat.
+fn draw_crossing_table(ui: &mut Ui, rows: &[CrossingRow]) {
+    if rows.is_empty() {
+        return;
+    }
+    egui::CollapsingHeader::new(CROSSING_HEADING)
+        .id_salt("htgr_tede_crossings")
+        .default_open(true)
+        .show(ui, |ui| {
+            egui::ScrollArea::horizontal()
+                .id_salt("htgr_tede_crossings_hscroll")
+                .show(ui, |ui| {
+                    egui::Grid::new("htgr_tede_crossings_grid")
+                        .num_columns(3)
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.small("Series");
+                            ui.small("Provenance");
+                            ui.small("Distance");
+                            ui.end_row();
+                            for r in rows {
+                                ui.colored_label(r.colour, egui::RichText::new(&r.name).small());
+                                ui.small(provenance_short(r.provenance));
+                                ui.small(r.crossing.label());
+                                ui.end_row();
+                            }
+                        });
+                });
+            ui.add(egui::Label::new(egui::RichText::new(CROSSING_CAVEAT).small()).wrap());
+        });
 }
 
 /// The notes under the graph for the selected bounding arms: per arm its
@@ -2858,19 +3790,86 @@ fn arm_notes(overlays: &TedeOverlays) -> String {
         let col = ARM_COLUMNS[k];
         out.push_str(&format!(
             "{}: {} [{}]. Maximum dose over the first {:.0} h, worst class at 1 m/s, the \
-             bounding table's rows at the receptor distances. {}\n",
-            ARM_LEGEND_NAMES[k],
+             bounding table's calculation sampled every 100 m to 2 km and every 500 m to \
+             20 km. {}\n",
+            arm_legend_name(k),
             col.heading,
             col.tier.label(),
             b::WINDOW_H,
             arm_basis_label(k)
         ));
+        if k == KORA_ARM {
+            out.push_str(&kora_long_note());
+            out.push('\n');
+        }
     }
     out.push_str(&format!(
         "Pools and building not credited -- reactor-level comparison: {}",
         b::BASIS_LABEL
     ));
     out
+}
+
+/// One checkbox of the TEDE overlay menu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OverlayEntry {
+    /// `Ap1000Overlay::ALL[1 + i]`.
+    Ap1000(usize),
+    /// `LiuCaoOverlay::ALL[i]`.
+    LiuCao(usize),
+    /// Bounding-table arm `k` ([`arm_legend_name`]).
+    Arm(usize),
+}
+
+/// The menu's provenance sections, in order (maintainer, 2026-10-01).
+const OVERLAY_MENU_GROUPS: [Provenance; 3] = [
+    Provenance::Literature,
+    Provenance::OurCalculation,
+    Provenance::Reference,
+];
+
+impl OverlayEntry {
+    /// Every entry, in menu order within its group.
+    fn all() -> impl Iterator<Item = OverlayEntry> {
+        (0..2)
+            .map(OverlayEntry::Ap1000)
+            .chain((0..LiuCaoOverlay::ALL.len()).map(OverlayEntry::LiuCao))
+            .chain((0..ARM_LEGEND_STEMS.len()).map(OverlayEntry::Arm))
+    }
+
+    /// The entry's provenance -- the same one its curve is drawn with, so
+    /// the menu section and the line style cannot disagree.
+    fn provenance(self) -> Provenance {
+        match self {
+            OverlayEntry::Ap1000(i) => Ap1000Overlay::ALL[1 + i].provenance(),
+            OverlayEntry::LiuCao(i) => LiuCaoOverlay::ALL[i].provenance(),
+            OverlayEntry::Arm(k) => arm_provenance(k),
+        }
+    }
+
+    /// The menu text.
+    fn label(self) -> &'static str {
+        match self {
+            OverlayEntry::Ap1000(i) => Ap1000Overlay::ALL[1 + i].label(),
+            OverlayEntry::LiuCao(i) => LiuCaoOverlay::ALL[i].label(),
+            OverlayEntry::Arm(k) => arm_legend_name(k),
+        }
+    }
+
+    /// The selection flag it toggles.
+    fn flag(self, o: &mut TedeOverlays) -> &mut bool {
+        match self {
+            OverlayEntry::Ap1000(i) => &mut o.ap1000[i],
+            OverlayEntry::LiuCao(i) => &mut o.liu_cao[i],
+            OverlayEntry::Arm(k) => &mut o.arms[k],
+        }
+    }
+}
+
+/// Bounding arm `k`'s provenance: every arm is this project's calculation
+/// (WASH-1400's fractions are literature, the dose is ours).
+fn arm_provenance(_k: usize) -> Provenance {
+    Provenance::OurCalculation
 }
 
 /// The overlay multi-select under the graph: "None" clears everything, then
@@ -2883,7 +3882,8 @@ fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays) {
         .zip(o.ap1000)
         .filter(|(_, on)| *on)
         .map(|(a, _)| a.legend_name())
-        .chain((0..7).filter(|k| o.arms[*k]).map(|k| ARM_LEGEND_NAMES[k]))
+        .chain(o.liu_cao_on().map(LiuCaoOverlay::legend_name))
+        .chain((0..7).filter(|k| o.arms[*k]).map(arm_legend_name))
         .collect::<Vec<_>>();
     let summary = if selected.is_empty() {
         "None".to_string()
@@ -2901,41 +3901,50 @@ fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays) {
                 {
                     *o = TedeOverlays::default();
                 }
-                ui.separator();
-                // `ALL[0]` is None, the clear-all entry above.
-                for (i, a) in Ap1000Overlay::ALL[1..].iter().enumerate() {
-                    ui.checkbox(&mut o.ap1000[i], a.label());
-                }
-                ui.separator();
+                // Grouped by provenance (maintainer, 2026-10-01), each
+                // entry's group read from its own `provenance()`, so a new
+                // overlay lands in the right section without a list to edit.
                 // Whether an arm is pending is read from the table itself
                 // (computed on first open of this menu).
-                let c = crate::physics::bounding_air_ingress::comparison();
-                for k in 0..7 {
-                    let pending = match c {
-                        Ok(c) => arm_overlay_points(c, k).is_none(),
-                        Err(_) => true,
-                    };
-                    if pending {
-                        o.arms[k] = false;
-                        ui.add_enabled(
-                            false,
-                            egui::Checkbox::new(
-                                &mut false,
-                                format!(
-                                    "{} (pending literature -- not plotted)",
-                                    ARM_LEGEND_NAMES[k]
+                let c = crate::physics::bounding_air_ingress::graph_comparison();
+                for group in OVERLAY_MENU_GROUPS {
+                    let entries: Vec<OverlayEntry> = OverlayEntry::all()
+                        .filter(|e| e.provenance() == group)
+                        .collect();
+                    if entries.is_empty() {
+                        continue;
+                    }
+                    ui.separator();
+                    ui.label(egui::RichText::new(group.menu_heading()).strong());
+                    for e in entries {
+                        let pending = match e {
+                            OverlayEntry::Arm(k) => match c {
+                                Ok(c) => arm_overlay_points(c, k).is_none(),
+                                Err(_) => true,
+                            },
+                            _ => false,
+                        };
+                        if pending {
+                            *e.flag(o) = false;
+                            ui.add_enabled(
+                                false,
+                                egui::Checkbox::new(
+                                    &mut false,
+                                    format!("{} (pending literature -- not plotted)", e.label()),
                                 ),
-                            ),
-                        );
-                    } else {
-                        ui.checkbox(&mut o.arms[k], ARM_LEGEND_NAMES[k]);
+                            );
+                        } else {
+                            ui.checkbox(e.flag(o), e.label());
+                        }
                     }
                 }
             })
             .response
             .on_hover_text(
                 "Comparison curves. AP1000: Dadda et al. 2024, Fig. 7, published; pair with the \
-                 HTR-10 beyond-design-basis core burn (DLOFC + air ingress, KORA). DB/BDB/\
+                 HTR-10 beyond-design-basis core burn (DLOFC + air ingress, KORA). Liu & Cao \
+                 2002 Table 9: HTR-10 design-basis accidents, whole-body, published; the \
+                 depressurization case pairs with DB: HTR-10 DLOFC. DB/BDB/\
                  Context: the bounding table's arms (sembawang::lwr_comparison), same rows.",
             );
     });
@@ -2980,23 +3989,99 @@ fn tede_plot_y_top(reference_msv: f64, values: impl Iterator<Item = f64>) -> f64
             .fold(reference_msv, f64::max)
 }
 
-/// The x tick step \[m\] (maintainer, 2026-10-01: ticks every 200 m, kept
-/// past 1000 m).
-const TEDE_X_STEP_M: f64 = 200.0;
+/// The cap on the TEDE graph's default x range \[m\] (maintainer,
+/// 2026-10-01: "20 km, or as far as the data goes").
+const TEDE_X_CAP_M: f64 = 20_000.0;
 
-/// x grid marks every [`TEDE_X_STEP_M`] across `bounds`.
-fn tede_x_marks(bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
-    uniform_marks(TEDE_X_STEP_M, bounds)
+/// The TEDE graph's default view width \[m\] (maintainer, 2026-10-01: "the
+/// default view should end at 2 km"); the data still runs to
+/// [`TEDE_X_CAP_M`].
+const TEDE_DEFAULT_VIEW_M: f64 = 2000.0;
+
+/// The furthest data among the series shown \[m\] -- the live centreline's
+/// outermost receptor (`live_far_m`, 1000 m before the first dispersion
+/// run), the bounding arms' last graph-grid row, and the last point of each
+/// selected literature curve -- capped at [`TEDE_X_CAP_M`]. Full range.
+fn tede_full_x_max(live_far_m: f64, arms_far_m: f64, literature_far_m: f64) -> f64 {
+    live_far_m
+        .max(arms_far_m)
+        .max(literature_far_m)
+        .min(TEDE_X_CAP_M)
 }
 
-/// "N m" for a multiple of [`TEDE_X_STEP_M`], blank otherwise.
-fn tede_x_label(x: f64) -> String {
-    let k = (x / TEDE_X_STEP_M).round();
-    if (x - k * TEDE_X_STEP_M).abs() < 1e-6 * TEDE_X_STEP_M {
-        format!("{:.0} m", k * TEDE_X_STEP_M)
-    } else {
-        String::new()
+/// The TEDE graph's default (and Reset) x max \[m\]: [`TEDE_DEFAULT_VIEW_M`],
+/// or the furthest data if that is shorter (live centreline only: 1000 m).
+fn tede_default_x_max(full_x_m: f64) -> f64 {
+    full_x_m.min(TEDE_DEFAULT_VIEW_M)
+}
+
+/// The AP1000 curve's last digitised distance \[m\].
+fn ap1000_data_end_m() -> f64 {
+    sembawang::ap1000_ted::digitised_range_km().1 * 1.0e3
+}
+
+/// Liu & Cao Table 9's last row distance \[m\].
+fn liu_cao_data_end_m() -> f64 {
+    liu_cao_points(LiuCaoOverlay::Depressurization, f64::INFINITY)
+        .last()
+        .map_or(0.0, |p| p[0])
+}
+
+/// The x tick step \[m\] at the default view (maintainer, 2026-10-01:
+/// ticks every 200 m, kept past 1000 m).
+const TEDE_X_STEP_M: f64 = 200.0;
+
+/// The x tick step \[m\] for a view `span` metres wide: the largest
+/// 1-2-5 x 10^k step giving at least five intervals. The default view
+/// (0 .. 1000 m) gives [`TEDE_X_STEP_M`], and so does anything up to
+/// 2000 m wide; zoomed in it drops to 100, 50, 20 ... m, zoomed out it
+/// rises to 500 m, 1 km ... (maintainer, 2026-10-01: "adapt sensibly when
+/// zoomed").
+fn tede_x_step(span: f64) -> f64 {
+    if !(span.is_finite() && span > 0.0) {
+        return TEDE_X_STEP_M;
     }
+    let raw = span / 5.0;
+    let mut p = 10f64.powf(raw.log10().floor());
+    if raw / p >= 10.0 {
+        // log10 rounding just under a power of ten.
+        p *= 10.0;
+    }
+    let m = raw / p;
+    p * if m >= 5.0 {
+        5.0
+    } else if m >= 2.0 {
+        2.0
+    } else {
+        1.0
+    }
+}
+
+/// x grid marks every [`tede_x_step`] across `bounds`.
+fn tede_x_marks(bounds: (f64, f64)) -> Vec<egui_plot::GridMark> {
+    uniform_marks(tede_x_step(bounds.1 - bounds.0), bounds)
+}
+
+/// Above this view width the x labels are in km (maintainer, 2026-10-01).
+const TEDE_KM_LABELS_ABOVE_M: f64 = 2000.0;
+
+/// The label for an x mark at a multiple of `step` in a view `span` wide:
+/// "N m" up to [`TEDE_KM_LABELS_ABOVE_M`], "N km" beyond, with as many
+/// decimals as the step needs; blank off the step.
+fn tede_x_label(x: f64, step: f64, span: f64) -> String {
+    let k = (x / step).round();
+    if (x - k * step).abs() >= 1e-6 * step {
+        return String::new();
+    }
+    let v = k * step;
+    let v = if v.abs() < 1e-9 * step { 0.0 } else { v };
+    let (v, step, unit) = if span > TEDE_KM_LABELS_ABOVE_M {
+        (v / 1.0e3, step / 1.0e3, "km")
+    } else {
+        (v, step, "m")
+    };
+    let decimals = (-step.log10().floor()).max(0.0) as usize;
+    format!("{v:.decimals$} {unit}")
 }
 
 /// A "nice" linear step (1, 2 or 5 x 10^k) giving about five intervals over
@@ -3238,17 +4323,18 @@ pub fn draw_map(
     } else {
         view.x
     };
-    let height_left = view.y - ui.min_rect().height() - 8.0;
+    let height_left = view.y - ui.min_rect().height() - 8.0 - MAP_TOOLBAR_H;
     let layout = graph_layout(width, height_left, view.y);
     // The map with the plume-centreline TEDE graph to its RIGHT (gh:#470,
-    // maintainer request 2026-10-01), or below it on a narrow window.
+    // maintainer request 2026-10-01), or below it on a narrow window. Each
+    // has its own zoom toolbar above it (2026-10-01).
     if layout.stacked {
-        draw_dispersion_rose(ui, s, state, layout.side, basis, scale);
-        draw_tede_plot(ui, s, state, layout.plot_width, layout.side);
+        draw_map_column(ui, s, state, layout.side, basis, scale);
+        draw_tede_plot(ui, s, state, layout.plot_width, layout.side + MAP_TOOLBAR_H);
     } else {
         ui.horizontal_top(|ui| {
-            draw_dispersion_rose(ui, s, state, layout.side, basis, scale);
-            draw_tede_plot(ui, s, state, layout.plot_width, layout.side);
+            draw_map_column(ui, s, state, layout.side, basis, scale);
+            draw_tede_plot(ui, s, state, layout.plot_width, layout.side + MAP_TOOLBAR_H);
         });
     }
 
@@ -3328,12 +4414,16 @@ mod tests {
     /// never as zero; the default selection is empty.
     #[test]
     fn the_bounding_overlays_are_the_tables_columns() {
-        use super::{arm_overlay_points, arm_notes, TedeOverlays, ARM_LEGEND_NAMES};
+        use super::{arm_legend_name, arm_notes, arm_overlay_points, TedeOverlays};
         use sembawang::lwr_comparison::ARM_COLUMNS;
         assert!(!TedeOverlays::default().any());
-        let c = crate::physics::bounding_air_ingress::comparison()
+        // The graph series (2026-10-01): the table's calculation on the
+        // graph grid, which shares the table's rows at the receptor
+        // distances (`the_graph_grid_is_the_same_calculation_sampled_more_finely`).
+        let c = crate::physics::bounding_air_ingress::graph_comparison()
             .as_ref()
             .expect("bounding chain runs");
+        assert_eq!(c.rows.last().map(|r| r.distance_m), Some(20_000.0));
         let mut plotted = 0;
         for k in 0..7 {
             let pending = c.rows.iter().any(|r| r.arm_doses_sv()[k].is_none());
@@ -3355,10 +4445,19 @@ mod tests {
             assert!(arm_overlay_points(c, k).is_none());
         }
         // The legend names are short; the long text is in the notes.
-        assert!(ARM_LEGEND_NAMES.iter().all(|n| n.len() <= 42));
+        // (The KORA label is longer by the maintainer's wording, 2026-10-01:
+        // "(1400 °C, 5.8 d) — EXTREME".)
+        assert!((0..7)
+            .filter(|k| *k != super::KORA_ARM)
+            .all(|k| arm_legend_name(k).len() <= 42));
+        assert_eq!(
+            arm_legend_name(super::KORA_ARM),
+            "BDB: HTR-10 KORA core burn (1400 \u{b0}C, 5.8 d) \u{2014} EXTREME"
+        );
         let all = TedeOverlays {
             ap1000: [false; 2],
             arms: [true; 7],
+            liu_cao: [false; 2],
         };
         let notes = arm_notes(&all);
         for needle in [
@@ -3366,6 +4465,11 @@ mod tests {
             "96 h",
             "Design basis: DLOFC vs LOCA",
             "Beyond design basis",
+            "Extreme bounding case, not a transient: every coated particle assumed exposed to \
+             air at 1400 \u{b0}C for 140 h (\u{2248} 5.8 days), KORA oxidation failure f_ox = \
+             1.2e-3",
+            "TECDOC-978 Table 5-7), full flow-through venting, no building credit. Far beyond \
+             the DLOFC the live model produces.",
             "L_a 0.20 %/day",
             "Bounding case, not a transient",
         ] {
@@ -3392,8 +4496,8 @@ mod tests {
             .collect();
         assert_eq!(v.last(), Some(&1400.0));
         assert!(v.windows(2).all(|w| w[1] - w[0] == 200.0));
-        assert_eq!(tede_x_label(600.0), "600 m");
-        assert_eq!(tede_x_label(650.0), "");
+        assert_eq!(tede_x_label(600.0, 200.0, 1000.0), "600 m");
+        assert_eq!(tede_x_label(650.0, 200.0, 1000.0), "");
         assert_eq!(nice_step(18.0), 5.0);
         assert_eq!(nice_step(200.0), 50.0);
         assert_eq!(nice_step(0.004), 0.001);
@@ -3417,6 +4521,368 @@ mod tests {
             tede_plot_y_top(10.0, [115.0, f64::NAN].into_iter()),
             1.8 * 115.0
         );
+    }
+
+    /// Maintainer, 2026-10-01: the TEDE x ticks are 200 m at the default
+    /// view (0 .. outermost receptor) and adapt when zoomed: 100 / 50 m in,
+    /// 500 m and up out. Labels carry decimals only below 1 m steps.
+    #[test]
+    fn the_tede_x_ticks_adapt_to_the_zoom() {
+        use super::{tede_x_label, tede_x_marks, tede_x_step, TEDE_X_STEP_M};
+        assert_eq!(tede_x_step(1000.0), TEDE_X_STEP_M);
+        assert_eq!(tede_x_step(1100.0), TEDE_X_STEP_M);
+        assert_eq!(tede_x_step(2000.0), TEDE_X_STEP_M);
+        assert_eq!(tede_x_step(1000.0 / 1.5), 100.0);
+        assert_eq!(tede_x_step(1000.0 / 2.25), 50.0);
+        assert_eq!(tede_x_step(500.0), 100.0);
+        assert_eq!(tede_x_step(100.0), 20.0);
+        assert_eq!(tede_x_step(3000.0), 500.0);
+        assert_eq!(tede_x_step(10_000.0), 2000.0);
+        let v: Vec<f64> = tede_x_marks((0.0, 1000.0))
+            .iter()
+            .map(|m| m.value)
+            .collect();
+        assert_eq!(v, [0.0, 200.0, 400.0, 600.0, 800.0, 1000.0]);
+        let v: Vec<f64> = tede_x_marks((300.0, 600.0))
+            .iter()
+            .map(|m| m.value)
+            .collect();
+        assert_eq!(v, [300.0, 350.0, 400.0, 450.0, 500.0, 550.0, 600.0]);
+        assert_eq!(tede_x_label(350.0, 50.0, 300.0), "350 m");
+        assert_eq!(tede_x_label(2.5, 0.5, 3.0), "2.5 m");
+        assert_eq!(tede_x_label(0.0, 20.0, 100.0), "0 m");
+        // 20 km view: 2 km steps, labelled in km.
+        assert_eq!(tede_x_step(20_000.0), 2000.0);
+        assert_eq!(tede_x_label(4000.0, 2000.0, 20_000.0), "4 km");
+        assert_eq!(tede_x_label(2500.0, 500.0, 3000.0), "2.5 km");
+        assert_eq!(tede_x_label(1800.0, 200.0, 2000.0), "1800 m");
+    }
+
+    /// Maintainer, 2026-10-01: every series is loaded to 20 km (or its own
+    /// last point); Full range is the furthest data capped at 20 km; the
+    /// default view ends at 2 km, or the furthest data if shorter (the live
+    /// centreline alone keeps 1000 m).
+    #[test]
+    fn the_x_range_is_2_km_by_default_and_20_km_in_full() {
+        use super::{
+            ap1000_data_end_m, liu_cao_data_end_m, tede_default_x_max, tede_full_x_max,
+            TEDE_DEFAULT_VIEW_M, TEDE_X_CAP_M,
+        };
+        assert_eq!((TEDE_DEFAULT_VIEW_M, TEDE_X_CAP_M), (2000.0, 20_000.0));
+        assert_eq!(tede_full_x_max(1000.0, 0.0, 0.0), 1000.0);
+        assert_eq!(
+            tede_default_x_max(tede_full_x_max(1000.0, 0.0, 0.0)),
+            1000.0
+        );
+        assert_eq!(tede_full_x_max(1000.0, 1500.0, 0.0), 1500.0);
+        assert_eq!(liu_cao_data_end_m(), 75_000.0);
+        assert!(ap1000_data_end_m() > TEDE_X_CAP_M);
+        for far in [liu_cao_data_end_m(), ap1000_data_end_m()] {
+            let full = tede_full_x_max(1000.0, 0.0, far);
+            assert_eq!(full, 20_000.0);
+            assert_eq!(tede_default_x_max(full), 2000.0);
+        }
+        // The arms' graph grid ends at 20 km.
+        let full = tede_full_x_max(1000.0, 20_000.0, 0.0);
+        assert_eq!(tede_default_x_max(full), 2000.0);
+        // 200 m ticks at the 2 km default.
+        assert_eq!(super::tede_x_step(2000.0), 200.0);
+    }
+
+    /// Maintainer, 2026-10-01: map zoom is GUI only. One transform places
+    /// the texture's UV sub-rect, the rings and the stack; zoom keeps the
+    /// point under the pointer fixed; zoom 1 is pinned to the stack; the
+    /// physics cell request is unchanged by any of it.
+    #[test]
+    fn the_map_zoom_is_display_only_through_one_transform() {
+        use super::{
+            field_uv, ring_label_anchor, MapTabState, MapTransform, MapView, MAP_REQUESTED_CELLS,
+            MAP_ZOOM_MAX,
+        };
+        use egui::{Pos2, Rect, Vec2};
+        let outer = 1000.0;
+        let v0 = MapView::default();
+        assert_eq!(v0, MapTabState::default().map_view);
+        assert_eq!((v0.zoom, v0.centre_m), (1.0, [0.0, 0.0]));
+        // Zoom about a ground point keeps it on the same screen spot.
+        let centre = Pos2::new(200.0, 200.0);
+        let base = 160.0 / outer; // 0.40 x a 400-point square
+        let t0 = MapTransform::new(centre, base, v0);
+        let about = [300.0, -200.0];
+        let before = t0.to_screen(about[0], about[1]);
+        let v1 = v0.zoomed(2.0, about, outer);
+        let t1 = MapTransform::new(centre, base, v1);
+        let after = t1.to_screen(about[0], about[1]);
+        assert!((before - after).length() < 1e-3, "{before:?} vs {after:?}");
+        assert_eq!(v1.zoom, 2.0);
+        // Round trip, and the rings scale with the zoom.
+        let g = t1.to_ground(Pos2::new(123.0, 321.0));
+        assert!((t1.to_screen(g[0], g[1]) - Pos2::new(123.0, 321.0)).length() < 1e-3);
+        assert!((t1.radius_px(500.0) - 2.0 * t0.radius_px(500.0)).abs() < 1e-4);
+        // Zoom is clamped to [1, max]; at zoom 1 the view cannot pan.
+        assert_eq!(v1.zoomed(100.0, about, outer).zoom, MAP_ZOOM_MAX);
+        let back = v1.zoomed(0.01, about, outer);
+        assert_eq!((back.zoom, back.centre_m), (1.0, [0.0, 0.0]));
+        assert_eq!(v0.panned([500.0, 500.0], outer).centre_m, [0.0, 0.0]);
+        let far = v1.panned([1.0e6, -1.0e6], outer).centre_m;
+        assert_eq!(far, [625.0, -625.0]); // 1.25 x 1000 x (1 - 1/2)
+                                          // The texture: at zoom 2 about the stack the middle half of the UV
+                                          // square fills the map; at zoom 1 the whole texture is drawn.
+        let map = Rect::from_center_size(centre, Vec2::splat(400.0));
+        let half = 1250.0;
+        let field = |t: &MapTransform| {
+            Rect::from_min_max(t.to_screen(-half, half), t.to_screen(half, -half))
+        };
+        let (shown, uv) = field_uv(field(&t0), map).expect("visible");
+        assert_eq!(shown, map);
+        assert!(
+            (uv.min - Pos2::ZERO).length() < 1e-6 && (uv.max - Pos2::new(1.0, 1.0)).length() < 1e-6
+        );
+        let t2 = MapTransform::new(
+            centre,
+            base,
+            MapView::default().zoomed(2.0, [0.0, 0.0], outer),
+        );
+        let (_, uv) = field_uv(field(&t2), map).expect("visible");
+        assert!((uv.min - Pos2::new(0.25, 0.25)).length() < 1e-5, "{uv:?}");
+        assert!((uv.max - Pos2::new(0.75, 0.75)).length() < 1e-5, "{uv:?}");
+        // Ring labels stay inside the square when the ring's east point is
+        // off screen, and vanish only when the ring misses the view.
+        let t8 = MapTransform::new(
+            centre,
+            base,
+            MapView::default().zoomed(8.0, [-1000.0, 0.0], outer),
+        );
+        let inside = map.shrink(20.0);
+        let p = ring_label_anchor(&t8, 1000.0, inside).expect("the 1000 m ring crosses the view");
+        assert!(inside.contains(p));
+        // Not at the ring's east point, which is far off screen: moved round.
+        assert!(!inside.contains(t8.to_screen(1000.0, 0.0)));
+        assert!(ring_label_anchor(&t8, 100.0, inside).is_none());
+        // Nothing of the view reaches the physics request.
+        assert_eq!(MAP_REQUESTED_CELLS, 512);
+    }
+
+    /// Maintainer, 2026-10-01 (#473): the two Liu & Cao (2002) Table 9
+    /// overlays plot the stored table's WHOLE-BODY column as published (no
+    /// normalisation, no thyroid), clipped to the x range in view; literature
+    /// provenance; the notes carry the maintainer's caveats, the 96 h
+    /// assumption first.
+    #[test]
+    fn the_liu_cao_overlays_are_table_9_whole_body() {
+        use super::{liu_cao_points, LiuCaoOverlay, TedeOverlays, LIU_CAO_NOTES};
+        use buangkok::published::accident_dose_by_distance::htr10_accident_dose_by_distance;
+        use uom::si::length::meter;
+        let table = htr10_accident_dose_by_distance();
+        for o in LiuCaoOverlay::ALL {
+            let all = liu_cao_points(o, f64::INFINITY);
+            assert_eq!(all.len(), table.len());
+            for (p, r) in all.iter().zip(&table) {
+                let d = r.doses(o.case());
+                assert_eq!(p[0], r.distance.get::<meter>());
+                assert_eq!(p[1], d.whole_body_msv);
+                assert_ne!(p[1], d.thyroid_msv);
+            }
+            // Default view (0 .. 1000 m): the 250 m and 750 m rows only.
+            let shown: Vec<f64> = liu_cao_points(o, 1000.0).iter().map(|p| p[0]).collect();
+            assert_eq!(shown, [250.0, 750.0]);
+            assert!(liu_cao_points(o, 200.0).is_empty());
+            assert_eq!(liu_cao_points(o, 5000.0).len(), 5);
+        }
+        assert_eq!(
+            liu_cao_points(LiuCaoOverlay::Depressurization, 300.0),
+            [[250.0, 7.7e-2]]
+        );
+        assert_eq!(
+            liu_cao_points(LiuCaoOverlay::WaterIngress, 300.0),
+            [[250.0, 2.0e-1]]
+        );
+        assert_eq!(
+            LiuCaoOverlay::Depressurization.label(),
+            "HTR-10 depressurization DBA (Liu & Cao 2002, Table 9, whole-body)"
+        );
+        assert_eq!(
+            LiuCaoOverlay::WaterIngress.label(),
+            "HTR-10 water-ingress DBA (Liu & Cao 2002, Table 9, whole-body)"
+        );
+        assert!(LIU_CAO_NOTES.starts_with(
+            "Assumption (maintainer, 2026-10-01): the published dose is taken as delivered \
+             entirely within 4 days (96 h), so it is plotted unscaled against the NRC 10 mSv / \
+             96 h reference. The source states no integration period."
+        ));
+        for needle in [
+            "Dose per accident; the source states no integration period.",
+            "so against the NRC 96 h line this leans high",
+            "Whether 'whole-body' is effective dose is not stated.",
+            "Design-basis: no coated-particle release.",
+            "5e-3 defective fraction",
+            "very conservative",
+            "\"DB: HTR-10 DLOFC\"",
+            "thyroid is an organ dose",
+        ] {
+            assert!(LIU_CAO_NOTES.contains(needle), "{needle}");
+        }
+        let mut o = TedeOverlays::default();
+        assert!(!o.any());
+        o.liu_cao[1] = true;
+        assert!(o.any());
+        assert_eq!(
+            o.liu_cao_on().collect::<Vec<_>>(),
+            [LiuCaoOverlay::WaterIngress]
+        );
+    }
+
+    /// The reference-crossing finder (maintainer, 2026-10-01): the outermost
+    /// downward crossing, linearly interpolated between the bracketing pair;
+    /// all below gives "below everywhere"; still above at the last point
+    /// gives "data ends" at that point, never an invented crossing.
+    #[test]
+    fn the_reference_crossing_interpolates_and_never_extrapolates() {
+        use super::{distance_text, reference_crossing, ReferenceCrossing as C};
+        // Bracketing pair (1000 m, 20) .. (2000 m, 5): 10 at 1000 + 10/15 km.
+        let c = reference_crossing(&[[500.0, 40.0], [1000.0, 20.0], [2000.0, 5.0]], 10.0);
+        match c {
+            Some(C::At(x)) => assert!((x - (1000.0 + 1000.0 * 10.0 / 15.0)).abs() < 1e-9),
+            other => panic!("{other:?}"),
+        }
+        // Order of the input does not matter.
+        assert_eq!(
+            reference_crossing(&[[2000.0, 5.0], [500.0, 40.0], [1000.0, 20.0]], 10.0),
+            c
+        );
+        // The OUTERMOST downward crossing when it dips and rises again.
+        let c = reference_crossing(
+            &[[100.0, 20.0], [200.0, 5.0], [300.0, 30.0], [400.0, 0.0]],
+            10.0,
+        );
+        match c {
+            Some(C::At(x)) => assert!((x - (300.0 + 100.0 * 20.0 / 30.0)).abs() < 1e-9),
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(
+            reference_crossing(&[[100.0, 1.0], [200.0, 0.5]], 10.0),
+            Some(C::BelowEverywhere)
+        );
+        assert_eq!(
+            reference_crossing(&[[100.0, 50.0], [20_000.0, 11.0]], 10.0),
+            Some(C::DataEnds(20_000.0))
+        );
+        assert_eq!(reference_crossing(&[], 10.0), None);
+        assert_eq!(C::At(1800.0).label(), "1.8 km");
+        assert_eq!(C::At(750.0).label(), "750 m");
+        assert_eq!(C::DataEnds(20_000.0).label(), "> 20.0 km (data ends)");
+        assert_eq!(
+            C::BelowEverywhere.label(),
+            "below reference at all plotted distances"
+        );
+        assert_eq!(distance_text(999.4), "999 m");
+        // The framing (RESPONSIBLE_USE): an indicative distance to a
+        // reference figure, never labelled an EPZ.
+        assert_eq!(
+            super::CROSSING_HEADING,
+            "Indicative distance to the 10 mSv / 96 h reference figure"
+        );
+        assert!(!super::CROSSING_HEADING.contains("EPZ"));
+        assert!(super::CROSSING_CAVEAT.starts_with(
+            "Research/education only \u{2014} not an emergency planning zone determination"
+        ));
+    }
+
+    /// The AP1000 (x 10/3400) curve's reference crossing is found on its
+    /// OWN full digitised data, not on the view-clipped points: clipped to
+    /// the 2 km default view the curve is still above 10 mSv where it is cut
+    /// (it would read "data ends"), while its own data cross at ~3.51 km,
+    /// where the loader's curve indeed equals 10 mSv.
+    #[test]
+    fn the_ap1000_crossing_is_computed_from_its_own_data() {
+        use super::{
+            ap1000_full_curve, ap1000_overlay_curve, reference_crossing, Ap1000Overlay,
+            ReferenceCrossing as C, NRC_2023_EPZ_CRITERION_DOSE_SV,
+        };
+        let r = NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3;
+        let o = Ap1000Overlay::ScaledTo10Mwt;
+        let full = ap1000_full_curve(o);
+        let Some(C::At(x)) = reference_crossing(&full, r) else {
+            panic!("the scaled AP1000 curve crosses 10 mSv");
+        };
+        assert!((x - 3510.0).abs() < 10.0, "{x}");
+        let at = sembawang::ap1000_ted::total_ted_scaled(&[x / 1.0e3], o.mwth().unwrap());
+        let msv = at[0].total_sv * 1.0e3;
+        assert!((msv - r).abs() < 0.01 * r, "{msv} mSv at {x} m");
+        let (clipped, _) = ap1000_overlay_curve(o, 2000.0);
+        assert!(matches!(
+            reference_crossing(&clipped, r),
+            Some(C::DataEnds(_))
+        ));
+    }
+
+    /// Maintainer, 2026-10-01: the overlay menu is grouped by provenance,
+    /// read from each entry (literature: AP1000 x2, Liu & Cao x2; ours: the
+    /// seven bounding arms), with headings; the compact key is on the plot.
+    #[test]
+    fn the_overlay_menu_is_grouped_by_provenance() {
+        use super::{OverlayEntry, Provenance, TedeOverlays, OVERLAY_MENU_GROUPS, TEDE_PLOT_KEY};
+        let lit: Vec<&str> = OverlayEntry::all()
+            .filter(|e| e.provenance() == Provenance::Literature)
+            .map(OverlayEntry::label)
+            .collect();
+        assert_eq!(lit.len(), 4);
+        assert!(lit[0].starts_with("AP1000") && lit[1].starts_with("AP1000"));
+        assert!(lit[2].contains("depressurization DBA (Liu & Cao 2002, Table 9"));
+        assert!(lit[3].contains("water-ingress DBA (Liu & Cao 2002, Table 9"));
+        let ours: Vec<OverlayEntry> = OverlayEntry::all()
+            .filter(|e| e.provenance() == Provenance::OurCalculation)
+            .collect();
+        assert_eq!(ours, (0..7).map(OverlayEntry::Arm).collect::<Vec<_>>());
+        assert_eq!(
+            OVERLAY_MENU_GROUPS[0].menu_heading(),
+            "Published literature"
+        );
+        assert_eq!(
+            OVERLAY_MENU_GROUPS[1].menu_heading(),
+            "This project's calculations (not validated)"
+        );
+        // Every entry toggles its own flag.
+        let mut o = TedeOverlays::default();
+        for e in OverlayEntry::all() {
+            *e.flag(&mut o) = true;
+        }
+        assert_eq!(
+            (o.ap1000, o.liu_cao, o.arms),
+            ([true; 2], [true; 2], [true; 7])
+        );
+        assert_eq!(
+            TEDE_PLOT_KEY,
+            "solid = published \u{b7} dotted = our calculations"
+        );
+    }
+
+    /// The literature curves are loaded to 20 km in any view, and further
+    /// once the view is zoomed out past it.
+    #[test]
+    fn the_overlay_clip_follows_the_view() {
+        use super::{tede_overlay_x_max, TedeView};
+        let v = TedeView::default();
+        assert_eq!(tede_overlay_x_max(&v, 20_000.0), 20_000.0);
+        let v = TedeView {
+            zoomed_x: true,
+            last_x: (-500.0, 30_000.0),
+            started: true,
+        };
+        assert_eq!(tede_overlay_x_max(&v, 20_000.0), 30_000.0);
+        // Zoomed IN: still loaded to the cap, so zooming out shows them.
+        let v = TedeView {
+            zoomed_x: true,
+            last_x: (0.0, 300.0),
+            started: true,
+        };
+        assert_eq!(tede_overlay_x_max(&v, 20_000.0), 20_000.0);
+        let v = TedeView {
+            zoomed_x: false,
+            last_x: (0.0, 30_000.0),
+            started: true,
+        };
+        assert_eq!(tede_overlay_x_max(&v, 20_000.0), 20_000.0);
     }
 
     /// Maintainer, 2026-10-01: the map (square) and the TEDE graph fill the
@@ -3570,9 +5036,20 @@ mod tests {
         // Tier order (#464): design basis, beyond design basis, context.
         assert!(headings[2].starts_with("DB: HTR-10 DLOFC"));
         assert!(headings[3].starts_with("DB: LWR LOCA"));
-        assert!(headings[5].starts_with("BDB: HTR-10 DLOFC + air ingress"));
+        // ~~"BDB: HTR-10 DLOFC + air ingress"~~ relabelled 2026-10-01
+        // (maintainer) as the KORA core burn, from the hold constants.
+        assert!(headings[5].starts_with("BDB: HTR-10 KORA core burn"));
         assert!(headings[6].starts_with("BDB: LWR LOCA + core melt"));
         assert!(headings[8].starts_with("Context: WASH-1400 PWR 8"));
+        let kora = &headings[5];
+        assert!(kora.starts_with("BDB: HTR-10 KORA core burn"), "{kora}");
+        assert!(kora.contains("EXTREME"));
+        {
+            use sembawang::lwr_comparison::bound;
+            assert!(kora.contains(&format!("{:.0} \u{b0}C", bound::HOLD_CELSIUS)));
+            assert!(kora.contains(&format!("{:.1} d", bound::HOLD_HOURS / 24.0)));
+            assert!(kora.contains("1400 \u{b0}C") && kora.contains("5.8 d"));
+        }
         // The pending natural-deposition columns never print 0.
         assert!(cells
             .iter()

@@ -162,6 +162,43 @@ pub fn comparison() -> &'static Result<BoundingComparison, String> {
     })
 }
 
+/// The TEDE graph's distance grid \[m\] for the bounding arms (maintainer,
+/// 2026-10-01: the pre-calculated arms run to 20 km while the live
+/// centreline stops at its 1 km receptors): every 100 m from 100 m to 2 km,
+/// then every 500 m to 20 km -- 56 points, fine enough to resolve the
+/// curves and their 10 mSv crossings, and containing every
+/// [`RECEPTOR_DISTANCES_M`] exactly (100, 500, 1000 m) so the graph and
+/// the table share those rows.
+pub fn graph_distances_m() -> Vec<f64> {
+    (1..=20)
+        .map(|k| f64::from(k) * 100.0)
+        .chain((5..=40).map(|k| f64::from(k) * 500.0))
+        .collect()
+}
+
+/// The same comparison as [`comparison`] -- the same function, the same
+/// inputs -- sampled on [`graph_distances_m`] for the TEDE graph only, once
+/// per process, lazily. Only more distances are evaluated; no number
+/// changes, and the map's bounding table still reads [`comparison`].
+///
+/// One-off cost, measured 2026-10-01 (release, this machine): 55 ms for the
+/// 56 distances, against 46 ms for the table's 3 (the release chain, not the
+/// distances, dominates), so it is computed on the GUI thread the first time
+/// an arm is shown or the overlay menu opens.
+pub fn graph_comparison() -> &'static Result<BoundingComparison, String> {
+    static CELL: OnceLock<Result<BoundingComparison, String>> = OnceLock::new();
+    CELL.get_or_init(|| {
+        bounding_comparison(
+            htr10_geometry(),
+            Time::new::<hour>(WINDOW_H),
+            HTR10_MWTH,
+            &graph_distances_m(),
+            &NaturalDeposition::PENDING_LITERATURE,
+        )
+        .map_err(|e| e.to_string())
+    })
+}
+
 /// One line of provenance for the oxidation failure fraction, read from the
 /// committed Table 5-7 row, with Fig. 5-23's Nabielek prediction at the same
 /// time for context.
@@ -222,6 +259,32 @@ mod tests {
     /// The LWR doses are lower bounds (#456). At 100 m a ground-level
     /// Gaussian plume is at the near edge of the Pasquill-Gifford curves; the
     /// numbers are screening figures, not a dose to anyone.
+    #[test]
+    fn the_graph_grid_is_the_same_calculation_sampled_more_finely() {
+        let t = comparison().as_ref().expect("bounding chain runs");
+        let g = graph_comparison().as_ref().expect("bounding chain runs");
+        let d = graph_distances_m();
+        assert_eq!(d.len(), 56);
+        assert_eq!(
+            (d[0], d[19], d[20], d[55]),
+            (100.0, 2000.0, 2500.0, 20_000.0)
+        );
+        assert_eq!(g.rows.len(), d.len());
+        for (row, x) in g.rows.iter().zip(&d) {
+            assert_eq!(row.distance_m, *x);
+        }
+        // At every shared distance the graph row IS the table row, exactly.
+        for tr in &t.rows {
+            let gr = g
+                .rows
+                .iter()
+                .find(|r| r.distance_m == tr.distance_m)
+                .expect("receptor distance on the graph grid");
+            assert_eq!(gr, tr, "{} m", tr.distance_m);
+        }
+        assert_eq!(g.incomplete, t.incomplete);
+    }
+
     #[test]
     fn the_bounding_table_is_sembawangs_at_the_map_distances() {
         let c = comparison().as_ref().expect("bounding chain runs");
