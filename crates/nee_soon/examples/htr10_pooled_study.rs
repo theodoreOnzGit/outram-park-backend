@@ -35,7 +35,7 @@
 //! | `OUTRAM_POOL_SEED0` | `20260927` | first seed; the others follow consecutively |
 //! | `OUTRAM_POOL_DIR` | `verification_and_validation/local_perf/htr10_pooled` (gitignored) | log directory |
 //! | `OUTRAM_HTR10_HISTORIES` / `_INACTIVE` / `_ACTIVE` | `10000` / `40` / `100` | per run |
-//! | `OUTRAM_HTR10_LAYERS` | `25` | bed layers (25 = the 123.576 cm critical loading) |
+//! | `OUTRAM_HTR10_LAYERS` | `25` | bed layers. ~~(25 = the 123.576 cm critical loading)~~ **CORRECTED 2026-10-01 (gh:#428): since gh:#472 this is Şeker layers N, and N = 12 is the 123.576 cm critical loading. The default `25` is now refused by `assemble_explicit_triso` (it asserts N ≤ 21), so every run fails unless `OUTRAM_HTR10_LAYERS=12` is set.** |
 //!
 //! Every run also gets `OUTRAM_HTR10_RINGS=14`, `OUTRAM_HTR10_NI_AS_FE=1` and
 //! `OUTRAM_HTR10_FE57_AS_FE56=1`, the stated modelling assumptions of the
@@ -83,8 +83,9 @@ mod linux {
     struct RunResult {
         k: f64,
         sigma: f64,
-        /// RMC interpolated to this run's bed height (the log's
-        /// `HEIGHT-MATCHED ... RMC(interp) = ` line).
+        /// RMC interpolated to this run's ~~bed height~~ reference height,
+        /// which since 2026-10-01 is the equal-ball-count height (gh:#472) (the
+        /// log's `HEIGHT-MATCHED ... RMC(interp) = ` line).
         rmc: Option<f64>,
         transport_s: Option<f64>,
         hardware: Option<String>,

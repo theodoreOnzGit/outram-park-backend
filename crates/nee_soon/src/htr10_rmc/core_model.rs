@@ -23,11 +23,18 @@
 //!
 //! # What this is NOT
 //!
-//! Not yet a benchmark model. The pebbles here carry a **homogenised** fuel
+//! ~~Not yet a benchmark model. The pebbles here carry a **homogenised** fuel
 //! sphere rather than an explicit TRISO lattice, so the double heterogeneity is
 //! absent and `k` from this is not comparable to the paper. That is deliberate:
 //! this exists to measure the cost of the BED, which is the part at unprecedented
-//! scale. The TRISO nesting multiplies on top and is priced separately.
+//! scale. The TRISO nesting multiplies on top and is priced separately.~~
+//! **CORRECTED 2026-10-01 (gh:#428):** that described [`assemble`], which is
+//! withdrawn and panics (its one-ball tile cuts pebbles). The production path
+//! is [`assemble_explicit_triso`]: an explicit TRISO lattice in every fuel
+//! pebble, Şeker & Çolak (2003)'s 13-ball bed (every ball whole, gh:#472), the
+//! explicit TECDOC-1382 reflector (PR #327) and the withdrawn rods. It is the
+//! model compared against RMC. It is still AI-drafted and awaiting human
+//! review, so its results are tentative (see the parent module docs).
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -51,11 +58,18 @@ use super::reflector_geometry::{
 /// Pebble-bed filling fraction stated by Li, Yu & Wei (2014) for the HTR-10
 /// core — the fraction of bed volume occupied by pebbles. Sets the fuel per
 /// unit volume. ~~so the assembled geometry is solved to realise it~~
-/// **CORRECTED 2026-09-25:** [`assemble_explicit_triso`] realises it by
+/// ~~**CORRECTED 2026-09-25:** [`assemble_explicit_triso`] realises it by
 /// construction (the paper's two-ball cell, [`HexBedCell::from_paper`], whose
-/// pitch is derived from it); only [`assemble`] still solves its pitch for it.
-/// Also the discharge-tube smear (`mat::HOMOG_DUMMY`), which since the
-/// two-ball cell agrees with the bed it homogenises (sampled 0.6096-0.6097).
+/// pitch is derived from it); only [`assemble`] still solves its pitch for it.~~
+/// **CORRECTED 2026-10-01 (gh:#428):** neither builder uses it for the bed any
+/// more. [`assemble`] is withdrawn, and [`assemble_explicit_triso`] builds
+/// Şeker's 13-ball cell, which is not built to a filling fraction (its
+/// interior is 0.6448; whole-ball rejection at the wall brings the bed to
+/// about 0.60). This constant still sets the discharge-tube smear
+/// (`mat::HOMOG_DUMMY`), which is only the `OUTRAM_HTR10_HOMOG_TUBE` ablation,
+/// ~~which since the two-ball cell agrees with the bed it homogenises (sampled
+/// 0.6096-0.6097)~~ and it is the stated value the geometry closures compare
+/// against.
 pub const PAPER_FILLING_FRACTION: f64 = 0.61;
 
 /// HTR-10 active core radius \[cm\] — 180 cm diameter (IAEA-TECDOC-1382).
@@ -95,7 +109,10 @@ pub const HTR10_CORE_CAVITY_CM: f64 = 221.818;
 /// ~~The model applied a constant 98.758 cm of void at every loading, behind
 /// an `OUTRAM_HTR10_FIXED_CAVITY=1` opt-in, "so no committed result moves
 /// silently".~~ **REMOVED 2026-09-24 (maintainer direction).** That constant
-/// is the void at **one** loading — the benchmark's 123.06 cm, where
+/// is the void at **one** loading — ~~the benchmark's~~ the **experimental**
+/// first-criticality loading of 123.06 cm (CORRECTED 2026-10-01, gh:#428:
+/// IAEA-TECDOC-1382 p. 251, 16 890 balls in 15 °C air with as-built materials;
+/// RMC's tabulated benchmark row is 123.576 cm), where
 /// `221.818 - 123.06 = 98.758` — and applying it everywhere silently grows the
 /// whole cavity with the bed.
 ///
@@ -157,8 +174,16 @@ pub const HTR10_MODEL_HEIGHT_CM: f64 = 610.0;
 /// tapering from the core radius to the discharge tube.
 ///
 /// Terry (2005) Fig. 2: z = 351.818 (conus top, "zero core height") to
-/// z = 388.764, corroborated against TECDOC-1382 Table 2's stated 36.946.
-/// **It is full of pebbles**, so omitting it omits fuel.
+/// z = 388.764, corroborated against ~~TECDOC-1382 Table 2's~~ **Terry (2005)
+/// Table 2's** stated 36.946 (CORRECTED 2026-10-01, gh:#428: the TECDOC text
+/// carries no 36.946; checked by search of its chapter 4 text. Whether its
+/// Fig. 4.10 labels give it is Not re-checked: the figure has no text layer).
+/// ~~**It is full of pebbles**, so omitting it omits fuel.~~ **CORRECTED
+/// 2026-10-01 (gh:#428):** it is full of **dummy** pebbles only, so omitting it
+/// omits graphite, not fuel: TECDOC-1382 p. 235 (*"dummy balls ... will be
+/// firstly placed into the discharge tube and the bottom conus region"*),
+/// Şeker & Çolak (2003) p. 267, and the code (the conus balls are all dummy,
+/// `tests::the_built_bed_is_57_percent_fuel_balls_and_the_conus_none`).
 pub const HTR10_CONUS_HEIGHT_CM: f64 = 36.946;
 
 /// Fuel-discharge-tube radius \[cm\] — the conus's lower radius.
@@ -184,6 +209,12 @@ pub const HTR10_CONTROL_ROD_OUTER_CM: f64 = 108.6;
 /// Modelling that band as solid zone-22 graphite (as this did) over-reflects
 /// and over-moderates in the reflector band *nearest the core*, which is the
 /// highest-leverage place in the whole reflector to get wrong.
+///
+/// **Not placed by [`assemble_explicit_triso`] since 2026-09-25** (noted
+/// 2026-10-01, gh:#428): the borings are explicit there, so this smear only
+/// fills the unused `mat::BORED_GRAPHITE` slot and is read by the
+/// `htr10_deterministic_vs_mc` and `htr10_mgxs_genfoam` examples. It duplicates zones 31-40 of
+/// [`super::reflector::zone_composition`] (they agree today; a drift risk).
 pub const HTR10_BORED_CARBON: f64 = 0.634459E-01;
 
 /// Natural-boron atom density \[atoms/b·cm\] of the same zones 31–40.
@@ -228,7 +259,8 @@ pub mod mat {
     /// rejected). This smear is only the `OUTRAM_HTR10_HOMOG_TUBE`
     /// ablation now.
     pub const HOMOG_DUMMY: usize = 10;
-    /// Homogenised fuel zone, used only by [`super::assemble`].
+    /// Homogenised fuel zone, used only by [`super::assemble`] (withdrawn
+    /// 2026-10-01; it panics).
     pub const FUEL: usize = KERNEL;
 
     /// First slot of the IAEA-TECDOC-1382 Table 4-3 zone materials that keep a
@@ -279,14 +311,18 @@ pub mod mat {
         (57, 1.0),
         (60, 1.16051),
     ];
-    /// B4C of the control-rod absorber rings (TECDOC § 4.1.2: 1.7 g/cm³,
-    /// natural boron).
+    /// B4C of the control-rod absorber rings (TECDOC ~~§ 4.1.2~~ § 4.1.1.5
+    /// "Control of HTR-10", pp. 235-236: 1.7 g/cm³; CORRECTED 2026-10-01,
+    /// gh:#428). ~~natural boron~~ The section gives no isotopics: natural
+    /// boron is this model's reading (consistent with MIT's TECDOC Table 4-36).
     pub const ROD_B4C: usize = ZONE_TABLE_FIRST + TABLE_4_3_ZONES.len();
-    /// Stainless steel of the control-rod sleeves (TECDOC § 4.1.2: 7.9 g/cm³,
-    /// Cr 18 / Fe 68.1 / Ni 10 / Si 1 / Mn 2 / C 0.1 / Ti 0.8 wt%).
+    /// Stainless steel of the control-rod sleeves (TECDOC ~~§ 4.1.2~~
+    /// § 4.1.1.5, pp. 235-236: 7.9 g/cm³, Cr 18 / Fe 68.1 / Ni 10 / Si 1 /
+    /// Mn 2 / C 0.1 / Ti 0.8 wt%; section CORRECTED 2026-10-01, gh:#428).
     pub const ROD_STEEL: usize = ROD_B4C + 1;
-    /// Iron of the control-rod joints and ends (TECDOC § 4.1.2: Fe only,
-    /// 0.04 atoms/(b cm), for 27.5 mm < R < 55 mm).
+    /// Iron of the control-rod joints and ends (TECDOC ~~§ 4.1.2~~ § 4.1.1.5,
+    /// pp. 235-236: Fe only, 0.04 atoms/(b cm), for 27.5 mm < R < 55 mm;
+    /// section CORRECTED 2026-10-01, gh:#428).
     pub const ROD_IRON: usize = ROD_STEEL + 1;
     /// Number of material slots.
     pub const COUNT: usize = ROD_IRON + 1;
@@ -357,14 +393,15 @@ pub struct AssembledCore {
     pub bed_half_height: f64,
     /// Hex pitch \[cm\] of the bed lattice. [`assemble_explicit_triso`]:
     /// Şeker's 13-ball prism, 16.392 cm ([`SekerCell::from_paper`], since
-    /// 2026-10-01); the two-ball ablation's 6.6106 cm ([`HexBedCell::from_paper`]).
-    /// [`assemble`]: ~~solved from the fuel-zone target~~ still solved so its
-    /// axially clipped one-ball tile realises the paper's fuel-zone fraction,
-    /// 6.6086 cm (gh:#308: that path keeps the one-ball construction).
+    /// 2026-10-01); the two-ball ~~ablation's~~ cell's 6.6106 cm
+    /// ([`HexBedCell::from_paper`]; withdrawn 2026-10-01).
+    /// [`assemble`] (withdrawn 2026-10-01, it panics): ~~solved from the
+    /// fuel-zone target~~ was solved so its axially clipped one-ball tile
+    /// realised the paper's fuel-zone fraction, 6.6086 cm (gh:#308).
     pub lat_pitch: f64,
     /// Axial tile height \[cm\]. [`assemble_explicit_triso`]: 9.798 cm, one
-    /// Şeker layer (or, in the two-ball ablation, one A-B pair). [`assemble`]:
-    /// 4.899 cm, one ball. The bed height is `2 * bed_half_height`: `9.798 N +
+    /// Şeker layer (or, in the withdrawn two-ball cell, one A-B pair).
+    /// [`assemble`] (withdrawn): 4.899 cm, one ball. The bed height is `2 * bed_half_height`: `9.798 N +
     /// 6` cm for Şeker's bed, `n_axial x 4.899` cm for the others.
     pub lat_height: f64,
     /// Bottom of the conus \[cm\] — the deepest fuelled z. Equal to
@@ -1321,10 +1358,14 @@ pub fn assemble_explicit_triso(
         r: graphite_outer,
         bc: BoundaryType::Transmissive,
     }));
-    // 14, 15: the COLD COOLANT FLOW annulus, 140.6 -> 148.6 cm. Modelling it as
+    // 14, 15: the COLD COOLANT FLOW annulus, 140.6 -> 148.6 cm. ~~Modelling it as
     // solid graphite (as this did) overstates the reflector: it is a helium
     // flow path, i.e. effectively void, and leaving it solid suppresses
-    // leakage that the real reactor has.
+    // leakage that the real reactor has.~~ CORRECTED 2026-10-01 (gh:#428): no
+    // annulus is built. Since 2026-09-25 the twenty coolant channels are
+    // explicit 8 cm bores in solid graphite (`reflector_geometry`), and no cell
+    // in this function references surfaces 14 or 15 (checked by search). They
+    // are kept, like 19/20, so every later surface index stays put.
     let (cool_in, cool_out) = if refl_thickness > 0.0 {
         (HTR10_COOLANT_INNER_CM, HTR10_COOLANT_OUTER_CM)
     } else {

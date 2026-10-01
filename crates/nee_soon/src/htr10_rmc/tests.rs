@@ -31,8 +31,14 @@
 //!
 //! ## What is NOT verified here
 //!
-//! The paper's `k_eff`-vs-height curve ([`RMC_KEFF_VS_HEIGHT`]). It needs the
-//! reflector, which the paper defers to IAEA-TECDOC-1382. See the module docs.
+//! The paper's `k_eff`-vs-height curve ([`RMC_KEFF_VS_HEIGHT`]). ~~It needs the
+//! reflector, which the paper defers to IAEA-TECDOC-1382.~~ **CORRECTED
+//! 2026-10-01 (gh:#428):** the reflector is now modelled (explicit TECDOC-1382
+//! borings and zone map, PR #327, `super::reflector_geometry`). The curve is
+//! still not verified *here*, because it needs a transport solve that takes
+//! hours: it is computed by `examples/htr10_rmc_keff.rs` and recorded in
+//! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/`. See the
+//! module docs.
 
 use super::*;
 
@@ -165,9 +171,15 @@ fn the_reference_curve_is_monotonic_and_brackets_criticality() {
 /// across `k = 1`. Recorded so a future full-core run has something to aim at.
 ///
 /// **Measured: 122.269 cm.** The paper never states this; it is read off its
-/// Tables 3/4. HTR-10's experimental first-criticality height is commonly quoted
+/// Tables 3/4. ~~HTR-10's experimental first-criticality height is commonly quoted
 /// near 123 cm, but that value has NOT been checked against a source here and is
-/// deliberately not asserted.
+/// deliberately not asserted.~~ **CORRECTED 2026-10-01 (gh:#428):** the
+/// experimental value is sourced. IAEA-TECDOC-1382 p. 251 (§ 4.2.1.5) gives
+/// first criticality at **16 890 balls (9 627 fuel, 7 263 dummy), a loading
+/// height of 123.06 cm**, in 15 °C air. It is still deliberately not asserted:
+/// it is an experiment in air with as-built materials (TECDOC § 4.2.1.3 lists
+/// the deviations from the benchmark definition), and RMC's curve is a
+/// calculation on the benchmark definition, so the two need not agree.
 #[test]
 fn the_reference_curve_implies_a_critical_height() {
     let c = RMC_KEFF_VS_HEIGHT;
@@ -194,8 +206,8 @@ fn the_reference_curve_implies_a_critical_height() {
 /// cavity between bed and void may change with the loading.
 ///
 /// Since 2026-10-01 (gh:#472) the explicit model is loaded in Şeker layers
-/// (N = 9, 12, 20: the lowest, critical and tallest rows) and the homogenised
-/// one in the equivalent `2N + 1` half-layers. ~~The homogenised one-ball
+/// (N = 9, 12, 20: the lowest, critical and tallest rows)~~ and the homogenised
+/// one in the equivalent `2N + 1` half-layers~~. ~~The homogenised one-ball
 /// model was checked alongside.~~ It was withdrawn on 2026-10-01 because it cuts
 /// pebbles, so it is no longer built here.
 ///
@@ -358,7 +370,9 @@ fn the_built_triso_lattice_holds_the_stated_8335_particles() {
 }
 
 // ---------------------------------------------------------------------------
-// THE TWO-BALL CELL, CHECKED ON THE BUILT GEOMETRY (gh:#309, gh:#310)
+// THE BED, CHECKED ON THE BUILT GEOMETRY (gh:#309, gh:#310; written for the
+// two-ball cell, run on Şeker's 13-ball cell since 2026-10-01, gh:#472 -- the
+// two-ball cell is withdrawn)
 // ---------------------------------------------------------------------------
 
 /// One piece of a pebble, as the BUILT geometry holds it: the global centre of
@@ -373,7 +387,8 @@ struct BallPiece {
 ///
 /// Read from the assembled `Geometry` alone -- the lattice's tile centres and
 /// universes, each universe's cells, their region's sphere and their role --
-/// never from `TwoBallBed`, so it checks what transport sees rather than the
+/// never from the bed's ball list (~~`TwoBallBed`~~ `bed::PebbleBed`, Şeker's
+/// bed since 2026-10-01), so it checks what transport sees rather than the
 /// description it was built from.
 fn built_ball_pieces(c: &crate::htr10_rmc::core_model::AssembledCore) -> Vec<BallPiece> {
     use crate::htr10_rmc::core_model::{tile_cell_role, TileCellRole};
@@ -463,7 +478,8 @@ fn built_balls(pieces: &[BallPiece]) -> Vec<([f64; 3], Vec<bool>)> {
 /// **Since 2026-10-01 (gh:#472) on Şeker's cell (N = 9):** its balls TOUCH (the
 /// flower and the central triangle are contact packings), so the minimum
 /// centre distance is exactly the 6.0 cm diameter and the gate is
-/// `dmin >= d - 1e-9`. Results: printed by the test.
+/// `dmin >= d - 1e-9`. **Results (2026-10-01, N = 9):** 16 692 balls built,
+/// minimum centre distance **6.0000 cm**.
 #[test]
 fn no_two_balls_of_the_built_bed_overlap() {
     use crate::htr10_rmc::core_model::assemble_explicit_triso;
@@ -530,7 +546,10 @@ fn no_two_balls_of_the_built_bed_overlap() {
 ///
 /// **Results (2026-09-25, 14 x 20):** 29 445 balls; held by one tile 2 501
 /// (lattice-edge and margin balls, all outside the bed), two tiles 13 888,
-/// three tiles 13 056; **0 inconsistent**.
+/// three tiles 13 056; **0 inconsistent**. **Since 2026-10-01 on Şeker's cell
+/// (N = 9, gh:#472):** 16 692 balls; one tile 3 744, two tiles 12 948, three
+/// tiles 0; **0 inconsistent**. (In Şeker's cell no ball is split three ways,
+/// so the "two or three tiles" description above is the two-ball cell's.)
 ///
 /// **Mutation-checked (2026-09-25):**
 /// - a PER-TILE identity (every site of a tile takes the identity of its
@@ -591,7 +610,13 @@ fn every_piece_of_a_built_ball_has_one_identity() {
 ///
 /// **Results (2026-09-25, two-ball cell, 14 x 20):** 7 700 of 13 510 balls
 /// centred in the bed fuelled = **0.56995**; conus **0 of 5 404**. Since
-/// 2026-10-01 run on Şeker's cell at N = 9 (gh:#472); results printed.
+/// 2026-10-01 run on Şeker's cell at N = 9 (gh:#472). **Results (2026-10-01,
+/// Şeker, N = 9):** 7 233 of 12 691 = **0.56993**; conus **0 of 2 065**.
+///
+/// **The `2e-3` tolerance has no recorded derivation (gh:#428).** It is not
+/// statistical: the rule is deterministic. For scale, one ball is 1/12 691 ≈
+/// 8e-5 of this subset, so `2e-3` is about 25 balls; the measured deviation is
+/// 7e-5, about one ball. Not tightened here (a documentation-only change).
 #[test]
 fn the_built_bed_is_57_percent_fuel_balls_and_the_conus_none() {
     use crate::htr10_rmc::core_model::assemble_explicit_triso;

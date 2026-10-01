@@ -10,8 +10,10 @@
 //!
 //! Most of this geometry is **not a constant**. ~~The hex pitch is solved so
 //! the axially-clipped ball realises the paper's fuel-zone volume fraction;~~
-//! (**CORRECTED 2026-09-25:** the bed lattice is now the paper's two-ball
-//! prism, pitch and height taken from `HexBedCell::from_paper`, gh:#309/#310);
+//! (~~**CORRECTED 2026-09-25:** the bed lattice is now the paper's two-ball
+//! prism, pitch and height taken from `HexBedCell::from_paper`, gh:#309/#310~~
+//! **CORRECTED 2026-10-01, gh:#428:** the bed lattice is Şeker & Çolak
+//! (2003)'s 13-ball prism, `SekerCell::from_paper`, every ball whole, gh:#472);
 //! the TRISO pitch is solved from a particle count; the tile, cell and universe
 //! counts fall out of the assembly. Transcribing any of them into a manuscript
 //! would create a second copy that drifts silently from the model the
@@ -36,6 +38,19 @@
 //! the geometry the model is built from. The eigenvalue, its residual against
 //! the RMC reference and every caveat on quoting it are in
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`.
+//!
+//! # The radial and axial tables are an R-Z summary, not the model (2026-10-01)
+//!
+//! `htr10_geometry_radial.csv` lists circular annuli. The transported reflector
+//! is 3-D (PR #327): 20 coolant, 10 rod, 3 irradiation and 7 absorber-ball
+//! channels at their own azimuths in solid graphite, and each region's density
+//! from the TECDOC-1382 Fig. 4.10 zone map with its p. 242 corrections
+//! (`htr10_rmc::reflector_geometry`, `core_model::mat::for_zone_mc`). The radii
+//! below are the bands those channels sit in, and their text says what fills
+//! them (CORRECTED 2026-10-01, gh:#428: it described the pre-#327 model, with
+//! a helium coolant annulus, a solid rod band and zone-22 graphite throughout).
+//! The rows themselves are still the old circular closures of gh:#430; changing
+//! them is not a documentation fix.
 
 use std::fmt::Write as _;
 use std::fs;
@@ -58,7 +73,10 @@ use outram_mc_libs::prelude::TrisoSpec;
 
 /// Rings and axial layers of the **reported** case, not the example's own
 /// cheap defaults (8 x 12). The V&V record's quoted results and the timed runs
-/// are both at 14 x 25, so that is what a manuscript table must describe.
+/// are both at ~~14 x 25~~ 14 rings x 25 half-layers, which is 14 x 12 in Şeker
+/// layers since 2026-10-01 (gh:#472), so that is what a manuscript table must
+/// describe. (This paragraph documents `REPORTED_RINGS` / `REPORTED_LAYERS`
+/// below; it is attached to `TEMP_K` by position. Noted 2026-10-01, gh:#428.)
 /// Temperature \[K\] every material is built at -- the same value
 /// `htr10_rmc_keff` uses.
 const TEMP_K: f64 = 300.15;
@@ -161,38 +179,48 @@ fn main() {
             "inner side reflector",
             HTR10_CORE_RADIUS_CM,
             HTR10_CONTROL_ROD_INNER_CM,
-            "graphite; TECDOC Table 4-3 zone 22",
+            // CORRECTED 2026-10-01 (gh:#428): was "graphite; TECDOC Table 4-3
+            // zone 22". The zone map applies (p. 242 corrections).
+            "graphite; TECDOC Fig. 4.10 zone map with p. 242 corrections",
             "Terry et al. (2005) Fig. 2",
         ),
         (
             "control-rod boring band",
             HTR10_CONTROL_ROD_INNER_CM,
             HTR10_CONTROL_ROD_OUTER_CM,
-            // The bored-graphite composition (zones 31-40) is behind
+            // ~~The bored-graphite composition (zones 31-40) is behind
             // OUTRAM_HTR10_BORINGS and OFF by default: every reported run has
-            // solid zone-22 graphite here. Say what was modelled.
-            "solid graphite; TECDOC zone 22 (bored-graphite option OFF)",
-            "Terry et al. (2005) Fig. 2; channel r 102.1 -/+ 13/2",
+            // solid zone-22 graphite here.~~ CORRECTED 2026-10-01 (gh:#428):
+            // that knob was removed on 2026-09-25. The band is solid graphite
+            // at the zone-map densities with 20 explicit borings: 10 rod
+            // channels (rods withdrawn above the core), 3 irradiation and 7
+            // absorber-ball channels, the last two empty (gh:#330). Say what
+            // was modelled.
+            "graphite with 20 explicit borings: 10 rod (rods withdrawn); 3 irradiation and 7 absorber-ball (empty)",
+            "TECDOC-1382 p. 242; Seker and Colak (2003) Fig. 4; channel r 102.1 -/+ 13/2",
         ),
         (
             "outer side reflector",
             HTR10_CONTROL_ROD_OUTER_CM,
             HTR10_COOLANT_INNER_CM,
-            "graphite; TECDOC Table 4-3 zone 22",
+            "graphite; TECDOC Fig. 4.10 zone map with p. 242 corrections",
             "Terry et al. (2005) Fig. 2",
         ),
         (
-            "cold coolant annulus",
+            // CORRECTED 2026-10-01 (gh:#428): was "cold coolant annulus" of
+            // "helium". No annulus is built: the band holds 20 explicit 8 cm
+            // helium channels in solid graphite (`reflector_geometry`).
+            "cold coolant channel band",
             HTR10_COOLANT_INNER_CM,
             HTR10_COOLANT_OUTER_CM,
-            "helium",
-            "Terry et al. (2005) Fig. 2; channel r 144.6 -/+ 8.0/2",
+            "graphite with 20 explicit helium channels (8 cm diameter)",
+            "TECDOC-1382 p. 241; channel r 144.6 -/+ 8.0/2",
         ),
         (
-            "reflector beyond the annulus",
+            "reflector beyond the channel band",
             HTR10_COOLANT_OUTER_CM,
             HTR10_GRAPHITE_OUTER_CM,
-            "graphite; TECDOC Table 4-3 zone 22",
+            "graphite; TECDOC Fig. 4.10 zone map with p. 242 corrections",
             "Terry et al. (2005) Fig. 2",
         ),
         (
@@ -206,8 +234,8 @@ fn main() {
             "fuel discharge tube",
             0.0,
             HTR10_DISCHARGE_TUBE_RADIUS_CM,
-            "dummy pebbles (conus lower radius)",
-            "Terry et al. (2005) s2",
+            "whole dummy pebbles; balls crossing the wall rejected",
+            "Terry et al. (2005) s2; Seker and Colak (2003) p. 267",
         ),
     ] {
         radial.push_str(&row(&[
@@ -246,7 +274,8 @@ fn main() {
             "axial reflector (above cavity)",
             core.refl_top,
             core.cavity_top,
-            "graphite; TECDOC zone 22",
+            // CORRECTED 2026-10-01 (gh:#428): was "graphite; TECDOC zone 22".
+            "graphite and cold helium chamber; TECDOC Fig. 4.10 zone map",
             "Terry et al. (2005) Fig. 2; z 0 to 130",
         ),
         (
@@ -274,7 +303,8 @@ fn main() {
             "bottom reflector (below conus)",
             core.conus_floor,
             core.refl_bottom,
-            "graphite; TECDOC zone 22",
+            // CORRECTED 2026-10-01 (gh:#428): was "graphite; TECDOC zone 22".
+            "graphite structures and hot-gas borings; TECDOC Fig. 4.10 zone map",
             "Terry et al. (2005) Fig. 2; z 388.764 to 610",
         ),
     ] {
@@ -517,7 +547,10 @@ fn main() {
             "bed full height",
             format!("{:.4}", bed_height),
             "cm",
-            "compare the benchmark's 123.576 cm critical loading",
+            // CORRECTED 2026-10-01 (gh:#428): 123.576 cm is Li's and Seker's
+            // N = 12 row, not "the benchmark's" loading; the experiment went
+            // critical at 123.06 cm (TECDOC-1382 p. 251).
+            "compare the 123.576 cm N = 12 row of Li and Seker (experiment: 123.06 cm)",
         ),
         (
             "conus floor",
@@ -676,12 +709,16 @@ fn main() {
         (
             "data library",
             "ENDF/B-VIII.0".to_string(),
-            "the reference used VII.0; the library term is worth about 1100-1600 pcm",
+            // CORRECTED 2026-10-01 (gh:#428): the measured library term ranges
+            // over +808 to +1644 pcm (fast_ablation_2026_09_26.md; README).
+            "RMC used VII.0; the library term was measured at about 800-1650 pcm",
         ),
         (
             "reflector zone",
             format!("{}", cfg.reflector_zone),
-            "TECDOC Table 4-3; zone 22 is the OPTIMISTIC bound",
+            // CORRECTED 2026-10-01 (gh:#428): since the zone map, this zone
+            // fills only the zones p. 242 assigns zone 22's density.
+            "TECDOC Table 4-3; fills the zones p. 242 assigns to zone 22",
         ),
         (
             "boron reading",

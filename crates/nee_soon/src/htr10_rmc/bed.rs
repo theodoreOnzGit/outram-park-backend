@@ -88,9 +88,11 @@
 //! **2. The cell is clustered, not uniformly diluted (gh:#429).** The counts
 //! split each layer into **733 balls in the basal plane and 613 in the central
 //! plane**: areal fractions through the ball centres of **0.814 / 0.681** over
-//! the whole bed. **This module's cell is uniform: 0.747 / 0.747.** A
-//! reconstruction consistent with the text, the counts and Li's Fig. 3 (an
-//! inference, medium confidence, not built): **13 balls per prism**, i.e. the 7
+//! the whole bed. **This module's ~~cell~~ [`HexBedCell`] is uniform:
+//! 0.747 / 0.747.** A
+//! reconstruction consistent with the text, the counts and Li's Fig. 3 (~~an
+//! inference, medium confidence, not built~~ **built 2026-10-01 as
+//! [`SekerCell`], gh:#472**): **13 balls per prism**, i.e. the 7
 //! touching basal balls (7:6 = 1.167 against the counted 733:613 = 1.196) plus
 //! 3 full + 6 half central balls, with a hexagon circumradius ≈ 9.4–9.7 cm.
 //! Fuel is assigned **per layer** to 0.57:0.43 (p.267), not as a fixed per-cell
@@ -99,18 +101,25 @@
 //! **3. Wall-crossing balls are rejected everywhere (gh:#331).** p.267:
 //! *"Outer boundary of the array is the inner surface of the side reflector. If
 //! any ball intersects with the reflector surface, it is rejected."* The same
-//! applies at the cone and the discharge tube. **This module cuts balls at the
+//! applies at the cone and the discharge tube. ~~**This module cuts balls at the
 //! side wall by default** and rejects them only at the cone and tube; see
-//! [`TwoBallBed::rejecting_side_wall_crossers`].
+//! [`TwoBallBed::rejecting_side_wall_crossers`].~~ **CORRECTED 2026-10-01
+//! (gh:#428):** that was [`TwoBallBed`], now withdrawn. The default
+//! [`SekerBed`] rejects at the side wall, the cone and the tube, so every kept
+//! ball is whole.
 //!
 //! **4. The top layer is whole.** p.267: *"The top layer is formed by adding
 //! half spheres to each ball present in this layer."* The count (+733) says
-//! the bottom plane is whole too. **This module clips the top layer** at the
-//! bed plane (gh:#429 item 3; see [`TwoBallBed`], "Axial layout").
+//! the bottom plane is whole too. ~~**This module clips the top layer** at the
+//! bed plane (gh:#429 item 3; see [`TwoBallBed`], "Axial layout").~~
+//! **CORRECTED 2026-10-01 (gh:#428):** only the withdrawn [`TwoBallBed`]
+//! clips it. [`SekerBed`]'s top and bottom basal planes are whole balls (see
+//! its "Axial layout").
 //!
 //! **5. The cone and discharge tube hold graphite balls only**, hexagonally
 //! arranged and rejected at the surfaces (p.267), which is what
-//! [`TwoBallBed`] builds.
+//! ~~[`TwoBallBed`]~~ [`SekerBed`] builds (as the withdrawn [`TwoBallBed`]
+//! did).
 //!
 //! **6. The heights (gh:#333).** Şeker's height runs from the bottom of the
 //! lowest ball to the top of the highest, but the same balls at 0.61 fill
@@ -119,6 +128,12 @@
 //! correctly by **ball count**. See [`super::RMC_KEFF_VS_HEIGHT`].
 //!
 //! # Where it is built (2026-09-25)
+//!
+//! **SUPERSEDED 2026-10-01 (gh:#472, noted gh:#428):** the transported bed is
+//! now [`SekerBed`] on [`SekerCell`]. [`TwoBallBed`] is withdrawn (it cuts
+//! pebbles; its environment knob panics), and [`HexBedCell`] survives for the
+//! geometry closures (`super::geometry_closures`). The rest of this section is
+//! the record.
 //!
 //! [`TwoBallBed`] builds this cell as the transported bed of
 //! `core_model::assemble_explicit_triso`: the hex tile IS the cell (two whole
@@ -490,6 +505,11 @@ pub enum FuelAssignment {
 /// **The HTR-10 bed as the paper's two-ball prism cell**, with a fuel/dummy
 /// identity for every BALL (gh:#309 step 2, gh:#310).
 ///
+/// **WITHDRAWN 2026-10-01 (maintainer, gh:#472):** it cuts pebbles at the side
+/// wall and the bed top, which is wrong physics, and it must not be run, not
+/// even as an ablation. [`SekerBed`] is the bed. Kept as the record of what
+/// the numbers of 2026-09-25 to 2026-09-30 were computed on.
+///
 /// NEW WORK, not a port.
 ///
 /// # Axial layout
@@ -602,7 +622,9 @@ pub struct TwoBallBed {
 /// finished core's filling fraction is 61 %; the cut bed measures 0.6089, while
 /// rejecting wall-crossers ([`TwoBallBed::rejecting_side_wall_crossers`], kept
 /// as an ablation) drops it to 0.5737. *"Packing fraction wrong already changes
-/// too much."*
+/// too much."* **SUPERSEDED 2026-10-01 (maintainer, gh:#331/#472):** the cut
+/// is wrong physics. The default [`SekerBed`] rejects at the side wall too, and
+/// the two-ball bed this paragraph describes is withdrawn.
 ///
 /// `None` in [`TwoBallBed::new_with_tube`] (the `OUTRAM_HTR10_HOMOG_TUBE`
 /// ablation) builds no tube balls and applies no rejection: the cone then cuts
@@ -788,7 +810,9 @@ impl TwoBallBed {
     /// stays the default and this stays an ablation only.
     ///
     /// **New source evidence, 2026-10-01 (for the maintainer to re-decide on
-    /// gh:#331; the default is unchanged):** Li's silence is filled by the model
+    /// gh:#331; ~~the default is unchanged~~ re-decided the same day: the
+    /// default bed is now [`SekerBed`], which rejects at the side wall, and this
+    /// two-ball bed is withdrawn):** Li's silence is filled by the model
     /// Li follows. Şeker & Çolak (2003) p.267: *"If any ball intersects with the
     /// reflector surface, it is rejected."* And their 61 % is measured **after**
     /// that rejection (Table 3: 1346 balls per 9.798 cm layer over the whole
@@ -1681,7 +1705,8 @@ impl SekerBed {
 pub enum PebbleBed {
     /// [`SekerBed`], the default.
     Seker(SekerBed),
-    /// [`TwoBallBed`], an ablation.
+    /// [`TwoBallBed`], ~~an ablation~~ withdrawn 2026-10-01 (it cuts pebbles);
+    /// never built by the default path, and its knob panics.
     TwoBall(TwoBallBed),
 }
 

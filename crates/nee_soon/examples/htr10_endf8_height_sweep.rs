@@ -54,12 +54,13 @@
 //! | quantity | value | why |
 //! |---|---|---|
 //! | library | ENDF/B-VIII.0 | see the thermal laws below |
-//! | graphite S(a,b) | crystalline, MAT 30 | a graphite-moderated thermal system |
+//! | graphite S(a,b) | ~~crystalline, MAT 30~~ **30 %-porosity reactor graphite, MAT 32** (`GraphiteLaw::default()`; CORRECTED 2026-10-01, gh:#428) | a graphite-moderated thermal system |
 //! | SiC S(a,b) | C-in-SiC MAT 44, Si-in-SiC MAT 43 | SiC is a crystal; free gas is wrong |
 //! | UO2 S(a,b) | U-in-UO2 MAT 48, O-in-UO2 MAT 75 | generated in-process from LEAPR decks |
 //! | silicon | natural Si-28/29/30 | splits a correct total, does not change it |
 //! | cavity | fixed core cavity | the only treatment there is — see below |
 //! | rings | 14 | radial tiling of the bed |
+//! | bed | Şeker & Çolak (2003) 13-ball cell, N = 9 … 20 layers | every ball whole (gh:#472) |
 //! | particles | 10 000 per generation | |
 //! | generations | 5 inactive + 135 active | |
 //! | seed | 20260917, single draw | |
@@ -78,9 +79,13 @@
 //!
 //! ## Data provenance
 //!
-//! Atom densities from **IAEA-TECDOC-1382** Table 4-38 via
-//! [`nee_soon::htr10_rmc::materials`]; geometry from Terry et al. (2005) and
-//! the same TECDOC. Evaluated data is ENDF/B-VIII.0 from `reference-data/endf/`.
+//! Atom densities ~~from **IAEA-TECDOC-1382** Table 4-38~~ via
+//! [`nee_soon::htr10_rmc::materials`]: **CORRECTED 2026-10-01 (gh:#428)** —
+//! Table 4-38 is MIT's pebble-bed composition table, which the model does not
+//! use. The pebble is Li, Yu & Wei (2014) Table 2, the reflector zones are
+//! IAEA-TECDOC-1382 Table 4-3 with its p. 242 corrections, and the rods are
+//! TECDOC § 4.1.1.5. Geometry from Terry et al. (2005), the same TECDOC and
+//! Şeker & Çolak (2003). Evaluated data is ENDF/B-VIII.0 from `reference-data/endf/`.
 //! The UO2 laws ship as no tape anywhere in this repository and are generated
 //! from the LEAPR decks committed in `njoy-outram-park-fork`.
 //!
@@ -88,8 +93,10 @@
 //!
 //! **Methodology.** Each case computes `k_eff` for the HTR-10 first-criticality
 //! core at one fuel-loading height and compares it against the RMC result of
-//! Li, Yu & Wei (2014), **interpolated to the height actually modelled**
-//! (`rmc_at_height`). Comparing against RMC's single 123.576 cm headline while
+//! Li, Yu & Wei (2014), ~~**interpolated to the height actually modelled**~~
+//! **read at the height where Şeker's model holds as many balls as the built
+//! bed** (`rmc_at_height` at `seker_height_for_balls`; CORRECTED 2026-10-01,
+//! gh:#428, the comparison changed with gh:#472). Comparing against RMC's single 123.576 cm headline while
 //! modelling a different bed imports ~270 pcm per cm of mismatch, which is
 //! larger than several of the physics terms being argued about. The pass
 //! criterion for the workspace gate is 500-1000 pcm.
@@ -246,7 +253,9 @@ fn all_cases() -> Vec<fn() -> CaseSpec> {
     ]
 }
 
-/// RMC's `k_eff` interpolated to the height actually modelled.
+/// RMC's `k_eff` interpolated to ~~the height actually modelled~~ a given
+/// height. Since 2026-10-01 (gh:#472) it is called at the equal-ball-count
+/// height, not at the built height (CORRECTED 2026-10-01, gh:#428).
 ///
 /// Returns `None` outside the tabulated range rather than extrapolating: past
 /// the ends the curve flattens and a linear extension would invent reactivity.
