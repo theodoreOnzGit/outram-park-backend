@@ -964,12 +964,14 @@ pub fn nominal_helium_flow() -> MassRate {
 ///
 /// ```text
 /// residual = source + circulator_work
-///          - (fuel + bed_solid + bed_helium + hot_duct + cold_return + passive) storage
+///          - (fuel + bed_solid + bed_helium + hot_duct + cold_duct + rpv_annuli
+///             + passive) storage
 ///          - to_steam_generator - to_rccs
 /// ```
 ///
 /// **Boundary.** The fuel node, the bed's graphite and void helium, the
-/// primary loop's hot-duct and cold-return CVs and the passive path's
+/// primary loop's hot-duct, cold-duct and RPV-annuli CVs (~~cold-return CV~~,
+/// split 2026-10-01) and the passive path's
 /// reflector and RPV are inside; the steam generator is outside, and the
 /// boundary on that side is the helium stream, `m_dot (h_hot duct - h_SG,out)`
 /// -- the exchanger's hot-side duty. The exchanger's own three arrays are
@@ -980,9 +982,10 @@ pub fn nominal_helium_flow() -> MassRate {
 /// check.
 ///
 /// Every internal seam -- fuel to bed, bed to passive path, bed to hot duct,
-/// hot duct to steam generator, steam generator to cold return, cold return
-/// to bed -- carries one flux used identically on both sides, so the residual
-/// is a statement about the seams and is expected at rounding level.
+/// hot duct to steam generator, steam generator to cold duct, cold duct to
+/// RPV annuli, RPV annuli to bed -- carries one flux used identically on both
+/// sides, so the residual is a statement about the seams and is expected at
+/// rounding level.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlantEnergyLedger {
     /// Fission (prompt) and decay heat deposited in the fuel node.
@@ -995,8 +998,11 @@ pub struct PlantEnergyLedger {
     pub bed_helium_storage: f64,
     /// Hot-duct CV enthalpy change.
     pub hot_duct_storage: f64,
-    /// Cold-return CV enthalpy change.
-    pub cold_return_storage: f64,
+    /// Cold-duct CV enthalpy change (the coaxial duct's annulus; split out
+    /// of ~~`cold_return_storage`~~ on 2026-10-01).
+    pub cold_duct_storage: f64,
+    /// RPV-annuli CV enthalpy change.
+    pub rpv_annuli_storage: f64,
     /// Reflector + RPV stored-energy change.
     pub passive_storage: f64,
     /// Enthalpy handed from the helium to the steam generator.
@@ -1022,7 +1028,8 @@ impl PlantEnergyLedger {
             + self.bed_solid_storage
             + self.bed_helium_storage
             + self.hot_duct_storage
-            + self.cold_return_storage
+            + self.cold_duct_storage
+            + self.rpv_annuli_storage
             + self.passive_storage
     }
 
@@ -1032,7 +1039,8 @@ impl PlantEnergyLedger {
         self.bed_solid_storage += step.bed_solid_storage;
         self.bed_helium_storage += step.bed_helium_storage;
         self.hot_duct_storage += step.hot_duct_storage;
-        self.cold_return_storage += step.cold_return_storage;
+        self.cold_duct_storage += step.cold_duct_storage;
+        self.rpv_annuli_storage += step.rpv_annuli_storage;
         self.passive_storage += step.passive_storage;
         self.to_steam_generator += step.to_steam_generator;
         self.to_rccs += step.to_rccs;
@@ -1542,9 +1550,9 @@ impl HtgrPlant {
         // helium its own implicit thermal node against this same inlet
         // boundary condition, never an arithmetic mean.
         //
-        // CHANGED 2026-09-29 (gh:#393): an ENTHALPY, the cold-return CV's
-        // state. The same number is handed to the bed and, on the final
-        // corrector, discharged by the cold-return CV -- the seam's single
+        // CHANGED 2026-09-29 (gh:#393): an ENTHALPY, the ~~cold-return~~
+        // RPV-annuli (2026-10-01) CV's state. The same number is handed to the
+        // bed and, on the final corrector, discharged by that CV -- the seam's single
         // flux (see `primary_loop::HeliumPrimaryLoop::close_return_leg`).
         let mut core_inlet_enthalpy = self.primary.core_inlet_enthalpy();
         // Start-of-step readings for the global energy ledger.
@@ -1674,9 +1682,11 @@ impl HtgrPlant {
                     .advance_steam_generator(dt, feedwater_enthalpy, secondary_flow);
             }
 
-            // 3c. Primary cold-return CV: loop hydraulics and circulator
-            //     work, then the CV's enthalpy balance with the work as its
-            //     source. It discharges exactly the enthalpy the bed was
+            // 3c. Primary cold side (~~one cold-return CV~~, split
+            //     2026-10-01): loop hydraulics and circulator work, then the
+            //     cold-duct CV's enthalpy balance with the work as its source,
+            //     then the RPV-annuli CV's, fed by the duct. The latter
+            //     discharges exactly the enthalpy the bed was
             //     handed above, so the seam is one flux.
             //     ~~The core inlet relaxes toward the exchanger's helium-side
             //     outlet over an invented, flow-independent 8 s~~ -- deleted
@@ -1731,7 +1741,8 @@ impl HtgrPlant {
                 bed_solid_storage: bed.solid_storage,
                 bed_helium_storage: bed.fluid_storage,
                 hot_duct_storage: primary.hot_duct_storage,
-                cold_return_storage: primary.cold_return_storage,
+                cold_duct_storage: primary.cold_duct_storage,
+                rpv_annuli_storage: primary.rpv_annuli_storage,
                 passive_storage: (self.decay_heat_path.stored_energy()
                     - passive_stored_at_step_start)
                     .get::<joule>(),
@@ -1881,11 +1892,12 @@ impl HtgrPlant {
         );
     }
 
-    /// The primary gas's `sum V_i / T_i` \[m^3/K\] over its four volumes: the
+    /// The primary gas's `sum V_i / T_i` \[m^3/K\] over its five volumes: the
     /// bed void at the bed helium's outlet temperature, the hot-duct CV, the
-    /// steam generator's shell side at the mean of its two ends, and the
-    /// cold-return CV. The water-ingress pressure is the ideal-gas mixture
-    /// scaled by this (see `water_ingress`).
+    /// steam generator's shell side at the mean of its two ends, the cold-duct
+    /// CV and the RPV-annuli CV (~~the cold-return CV~~ before 2026-10-01).
+    /// The water-ingress pressure is the ideal-gas mixture scaled by this
+    /// (see `water_ingress`).
     fn primary_gas_volume_over_temperature(&self) -> f64 {
         use uom::si::volume::cubic_meter;
         let k = |t: ThermodynamicTemperature| t.get::<kelvin>();
@@ -1895,16 +1907,19 @@ impl HtgrPlant {
             + primary_loop::hot_duct_volume().get::<cubic_meter>() / hot
             + primary_loop::steam_generator_shell_volume().get::<cubic_meter>()
                 / (0.5 * (hot + cold))
-            + primary_loop::cold_return_volume().get::<cubic_meter>() / cold
+            + primary_loop::cold_duct_volume().get::<cubic_meter>()
+                / k(self.primary.cold_duct_temperature())
+            + primary_loop::rpv_annuli_volume().get::<cubic_meter>() / cold
     }
 
     /// The primary gas volume \[m^3\]: bed void + hot duct + SG shell side +
-    /// cold return (the #403 sizing).
+    /// cold duct + RPV annuli (the #403 sizing, split 2026-10-01).
     fn primary_gas_volume(&self) -> uom::si::f64::Volume {
         pebble_bed::bed_void_volume()
             + primary_loop::hot_duct_volume()
             + primary_loop::steam_generator_shell_volume()
-            + primary_loop::cold_return_volume()
+            + primary_loop::cold_duct_volume()
+            + primary_loop::rpv_annuli_volume()
     }
 
     /// The water-ingress accident's state, `None` unless it is running.
@@ -2079,6 +2094,21 @@ impl HtgrPlant {
         s.helium_residence_time_s =
             residence_time_from_flow(self.primary.helium_inventory(), self.primary.mass_flow())
                 .get::<second>();
+        // Per-run tracer transit times (2026-10-01): each drawn run crosses in
+        // its own CV's or volume's `M/m_dot`, not the whole loop's (above,
+        // kept as the panel's "whole loop" readout).
+        s.hot_duct_residence_time_s = self.primary.hot_duct_residence_time().get::<second>();
+        s.cold_duct_residence_time_s = self.primary.cold_duct_residence_time().get::<second>();
+        s.rpv_annuli_residence_time_s = self.primary.rpv_annuli_residence_time().get::<second>();
+        s.riser_residence_time_s = self.primary.riser_residence_time().get::<second>();
+        s.sg_shell_residence_time_s = self
+            .primary
+            .steam_generator_shell_residence_time()
+            .get::<second>();
+        s.sg_tube_residence_time_s = self
+            .primary
+            .steam_generator_tube_residence_time(self.secondary.mass_flow())
+            .get::<second>();
         s.primary_pressure_drop_kpa = self.primary.pressure_drop().get::<kilopascal>();
         s.bed_pressure_drop_kpa = self.primary.bed_pressure_drop().get::<kilopascal>();
         s.circulator_power_mw = self.primary.circulator_power().get::<megawatt>();
@@ -2109,6 +2139,11 @@ impl HtgrPlant {
         )
         .get::<second>();
         s.secondary_piping_inventory_kg = self.secondary.piping_inventory().get::<kilogram>();
+        let runs = self.secondary.piping_run_inventories();
+        let run_tau = |m| residence_time_from_flow(m, self.secondary.mass_flow()).get::<second>();
+        s.main_steam_line_residence_time_s = run_tau(runs.main_steam);
+        s.exhaust_duct_residence_time_s = run_tau(runs.exhaust);
+        s.feedwater_line_residence_time_s = run_tau(runs.feedwater);
         s.feedwater_enthalpy_j_per_kg = self
             .secondary
             .feedwater_enthalpy()
@@ -3240,7 +3275,7 @@ mod tests {
             let fuel = ledger1.stored - ledger0.stored;
             let refl = refl1 - refl0;
             // The chain's exits: the RCCS and (gh:#397) the riser helium,
-            // which leaves this CV set for the primary loop's cold return.
+            // which leaves this CV set for the primary loop's RPV-annuli CV.
             let rccs = (plant.decay_heat_path.heat_to_rccs().get::<watt>()
                 + plant.decay_heat_path.heat_to_risers().get::<watt>())
                 * dt_s;
@@ -3290,7 +3325,8 @@ mod tests {
     ///
     /// ```text
     /// residual = [f_prompt P + P_decay] dt + W dt
-    ///          - dE_fuel - dE_bed,solid - dE_bed,helium - dE_hot duct - dE_cold return
+    ///          - dE_fuel - dE_bed,solid - dE_bed,helium - dE_hot duct
+    ///          - dE_cold duct - dE_RPV annuli   (~~dE_cold return~~ before 2026-10-01)
     ///          - dE_refl+RPV - m_dot (h_hot duct - h_SG,out) dt - Q_RCCS dt
     /// ```
     ///
@@ -3299,8 +3335,8 @@ mod tests {
     /// below 1e-9 of the accumulated source. Also asserted, per step: the bed
     /// -> hot-duct seam carries one flux (the bed's `throughflow_out` equals
     /// the primary loop's `from_bed` to 1e-12 relative); and after the trip
-    /// the cold-return residence time `M_c/m_dot` exceeds 100 s (it was a
-    /// fixed 8 s).
+    /// the ~~cold-return~~ RPV-annuli (2026-10-01) residence time `M_r/m_dot`
+    /// exceeds 100 s (it was a fixed 8 s).
     ///
     /// The opening state is a slow transient, not a steady state -- this
     /// model does not settle inside a test budget -- so "normal operation"
@@ -3340,6 +3376,11 @@ mod tests {
     /// | stage (b), 2026-09-29 (passive path in the bed's solve) | +1.5e-5 J = **3.1e-15** | 1.1e-11 / 9.0e-11 | 0 |
     /// | stage (c), 2026-09-29 (riser leg: reflector -> cold return) | +5.1e-4 J = **1.0e-13** | 1.2e-11 / 4.4e-11 | 0 |
     /// | loop inventory at Yao's 210 kg, 2026-09-29 (gh:#403) | -4.0e-4 J = **8.0e-14** | 1.1e-11 / 4.7e-11 | 0 |
+    /// | cold return split into cold-duct + RPV-annuli CVs, 2026-10-01 | -3.6e-4 J = **7.7e-14** of 4.618e9 J | 1.2e-11 / 4.1e-11 | 0 |
+    ///
+    /// 2026-10-01 split: storage cold duct 1.656e6 J, RPV annuli 1.554e7 J;
+    /// the trip's RPV-annuli residence reaches 19212.1 s at the 0.01 kg/s
+    /// floor.
     ///
     /// gh:#403: cold-return storage 1.856e7 J (it was ~2e6 J with the invented
     /// 6 m^3 allowance); the trip's cold-return residence reaches 19630.6 s at
@@ -3372,7 +3413,8 @@ mod tests {
                 + e.bed_solid_storage.abs()
                 + e.bed_helium_storage.abs()
                 + e.hot_duct_storage.abs()
-                + e.cold_return_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
                 + e.passive_storage.abs()
                 + e.to_steam_generator.abs()
                 + e.to_rccs.abs();
@@ -3382,7 +3424,7 @@ mod tests {
             } else {
                 worst_trip = worst_trip.max(r);
                 max_residence_after_trip = max_residence_after_trip
-                    .max(plant.primary.cold_return_residence_time().get::<second>());
+                    .max(plant.primary.rpv_annuli_residence_time().get::<second>());
             }
             let bed = plant.core.last_step_energy();
             let primary = plant.primary.last_step_energy();
@@ -3394,10 +3436,10 @@ mod tests {
         println!(
             "WHOLE-PLANT ENERGY LEDGER, 60 s normal + 60 s LOFC (trip at 60 s, secondary \
              isolated at 72 s):\n  source {:.6e} J, circulator work {:.6e} J\n  storage: fuel \
-             {:.6e}, bed graphite {:.6e}, bed helium {:.6e}, hot duct {:.6e}, cold return \
-             {:.6e}, reflector+RPV {:.6e}\n  out: steam generator {:.6e}, RCCS {:.6e}\n  \
+             {:.6e}, bed graphite {:.6e}, bed helium {:.6e}, hot duct {:.6e}, cold duct \
+             {:.6e}, RPV annuli {:.6e}, reflector+RPV {:.6e}\n  out: steam generator {:.6e}, RCCS {:.6e}\n  \
              accumulated residual {:.3e} J = {:.3e} of the source; worst step {:.3e} (normal), \
-             {:.3e} (trip); bed->hot-duct seam worst {:.3e}; cold-return residence after trip \
+             {:.3e} (trip); bed->hot-duct seam worst {:.3e}; RPV-annuli residence after trip \
              up to {:.1} s (flow {:.3} kg/s)",
             total.source,
             total.circulator_work,
@@ -3405,7 +3447,8 @@ mod tests {
             total.bed_solid_storage,
             total.bed_helium_storage,
             total.hot_duct_storage,
-            total.cold_return_storage,
+            total.cold_duct_storage,
+            total.rpv_annuli_storage,
             total.passive_storage,
             total.to_steam_generator,
             total.to_rccs,
@@ -3427,8 +3470,120 @@ mod tests {
         assert!(worst_seam < 1e-12, "bed -> hot duct seam {worst_seam:e}");
         assert!(
             max_residence_after_trip > 100.0,
-            "the cold-return residence time must grow as the flow falls: {max_residence_after_trip} s"
+            "the RPV-annuli residence time must grow as the flow falls: {max_residence_after_trip} s"
         );
+    }
+
+    /// **The snapshot publishes each drawn run's own transit time** (2026-10-01,
+    /// the per-run tracer fix), and the whole-loop figure stays a separate
+    /// readout.
+    ///
+    /// Methodology: a fresh plant stepped 5 s at the design commands, then
+    /// `write_snapshot`. Every per-run field must equal the physics method it
+    /// is documented as (to 1e-12: same arithmetic), the three secondary runs
+    /// must be `M_run / m_dot` and sum to the whole-piping figure, and at
+    /// rated flow the hot pipe and the coaxial cold pipe must each be under
+    /// 5 % of the whole-loop residence time -- the ~49 s that was animating a
+    /// 3 m duct before this fix.
+    ///
+    /// Results (2026-10-01): printed below.
+    #[test]
+    fn the_snapshot_publishes_each_runs_own_transit_time() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        for _ in 0..50 {
+            plant.step(dt, design_commands());
+        }
+        let mut snap = HtgrSnapshot::default();
+        plant.write_snapshot(&mut snap);
+        let p = &plant.primary;
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
+        let s = |t: Time| t.get::<second>();
+        for (name, published, physics) in [
+            (
+                "hot duct",
+                snap.hot_duct_residence_time_s,
+                s(p.hot_duct_residence_time()),
+            ),
+            (
+                "cold duct",
+                snap.cold_duct_residence_time_s,
+                s(p.cold_duct_residence_time()),
+            ),
+            (
+                "RPV annuli",
+                snap.rpv_annuli_residence_time_s,
+                s(p.rpv_annuli_residence_time()),
+            ),
+            (
+                "risers",
+                snap.riser_residence_time_s,
+                s(p.riser_residence_time()),
+            ),
+            (
+                "SG shell",
+                snap.sg_shell_residence_time_s,
+                s(p.steam_generator_shell_residence_time()),
+            ),
+            (
+                "SG tube",
+                snap.sg_tube_residence_time_s,
+                s(p.steam_generator_tube_residence_time(plant.secondary.mass_flow())),
+            ),
+        ] {
+            assert!(
+                published > 0.0 && published.is_finite(),
+                "{name}: {published}"
+            );
+            assert!(
+                rel(published, physics) < 1e-12,
+                "{name}: {published} vs {physics}"
+            );
+        }
+        let m_sec = plant.secondary.mass_flow().get::<kilogram_per_second>();
+        let runs = plant.secondary.piping_run_inventories();
+        let kg = |m: uom::si::f64::Mass| m.get::<uom::si::mass::kilogram>();
+        assert!(
+            rel(
+                snap.main_steam_line_residence_time_s,
+                kg(runs.main_steam) / m_sec
+            ) < 1e-12
+        );
+        assert!(rel(snap.exhaust_duct_residence_time_s, kg(runs.exhaust) / m_sec) < 1e-12);
+        assert!(
+            rel(
+                snap.feedwater_line_residence_time_s,
+                kg(runs.feedwater) / m_sec
+            ) < 1e-12
+        );
+        assert!(
+            rel(
+                snap.main_steam_line_residence_time_s
+                    + snap.exhaust_duct_residence_time_s
+                    + snap.feedwater_line_residence_time_s,
+                snap.secondary_residence_time_s
+            ) < 1e-12
+        );
+        let whole = snap.helium_residence_time_s;
+        println!(
+            "snapshot at {:.3} kg/s helium, {m_sec:.3} kg/s secondary: hot duct {:.4} s, cold duct \
+             {:.4} s, risers {:.4} s, RPV annuli {:.3} s, SG shell {:.4} s, SG tube {:.3} s; main \
+             steam {:.4} s, exhaust {:.4} s, feedwater line {:.3} s; WHOLE LOOP {whole:.3} s, \
+             whole piping {:.3} s",
+            snap.helium_mass_flow_kg_per_s,
+            snap.hot_duct_residence_time_s,
+            snap.cold_duct_residence_time_s,
+            snap.riser_residence_time_s,
+            snap.rpv_annuli_residence_time_s,
+            snap.sg_shell_residence_time_s,
+            snap.sg_tube_residence_time_s,
+            snap.main_steam_line_residence_time_s,
+            snap.exhaust_duct_residence_time_s,
+            snap.feedwater_line_residence_time_s,
+            snap.secondary_residence_time_s,
+        );
+        assert!(snap.hot_duct_residence_time_s < 0.05 * whole);
+        assert!(snap.cold_duct_residence_time_s < 0.05 * whole);
     }
 
     /// Run the circulator flow ramp-down transient at `dt` with `n_outer` plant
@@ -5340,7 +5495,8 @@ mod tests {
                 + e.bed_solid_storage.abs()
                 + e.bed_helium_storage.abs()
                 + e.hot_duct_storage.abs()
-                + e.cold_return_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
                 + e.passive_storage.abs()
                 + e.to_steam_generator.abs()
                 + e.to_rccs.abs()
@@ -5557,7 +5713,8 @@ mod tests {
                 + e.bed_solid_storage.abs()
                 + e.bed_helium_storage.abs()
                 + e.hot_duct_storage.abs()
-                + e.cold_return_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
                 + e.passive_storage.abs()
                 + e.to_steam_generator.abs()
                 + e.to_rccs.abs()
@@ -5628,7 +5785,8 @@ mod tests {
                 + e.bed_solid_storage.abs()
                 + e.bed_helium_storage.abs()
                 + e.hot_duct_storage.abs()
-                + e.cold_return_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
                 + e.passive_storage.abs()
                 + e.to_steam_generator.abs()
                 + e.to_rccs.abs()

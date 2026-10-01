@@ -1012,6 +1012,26 @@ impl NodalisedCounterFlowSteamGenerator {
         Time::new::<second>(c / ua)
     }
 
+    /// Helium (hot-fluid) mass held in the shell side \[kg\]: `sum rho_i V_i`
+    /// over the hot array's own cells, at its live densities. Added
+    /// 2026-10-01 so the shell side's tracer transit time comes from the
+    /// resolved array rather than a nominal density.
+    pub fn hot_side_mass(&self) -> Mass {
+        Mass::new::<kilogram>(array_mass(
+            self.hot.rho.internal.as_slice(),
+            &self.hot.mesh.cell_volumes,
+        ))
+    }
+
+    /// Water/steam (cold-fluid) mass held in the tube side \[kg\]: `sum rho_i
+    /// V_i` over the IF97 array's own cells. See [`Self::hot_side_mass`].
+    pub fn cold_side_mass(&self) -> Mass {
+        Mass::new::<kilogram>(array_mass(
+            self.cold.rho.internal.as_slice(),
+            &self.cold.mesh.cell_volumes,
+        ))
+    }
+
     /// The most recently computed state, without stepping.
     pub fn state(&self) -> &SteamGeneratorState {
         &self.last_state
@@ -1362,6 +1382,11 @@ fn hot_fluid_enthalpy(
     }
 }
 
+/// `sum rho_i V_i` over one array's cells \[kg\].
+fn array_mass(rho: &[f64], volumes: &[f64]) -> f64 {
+    rho.iter().zip(volumes).map(|(r, v)| r * v).sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1509,6 +1534,39 @@ mod tests {
     /// old explicit limiter needed, and stable, with the clamp counter at zero.
     /// Interpretation: the sub-step reduction is spending exactly the margin
     /// that implicit convection freed, and nothing more.
+    /// The array masses the tracer transit times read (2026-10-01) are
+    /// `sum rho_i V_i` over **each side's own volume**: the hot array's cell
+    /// volumes sum to `shell_flow_area x shell_flow_length` and the cold
+    /// array's to `tube_flow_area x tube_length`, to 1e-12 relative, and each
+    /// mass equals its cells' `rho V` sum.
+    #[test]
+    fn the_array_masses_are_rho_v_over_each_sides_own_volume() {
+        let sg = NodalisedCounterFlowSteamGenerator::new(htr10()).unwrap();
+        let g = sg.geometry();
+        let v_hot: f64 = sg.hot.mesh.cell_volumes.iter().sum();
+        let v_cold: f64 = sg.cold.mesh.cell_volumes.iter().sum();
+        let shell = (g.shell_flow_area * g.shell_flow_length).get::<cubic_meter>();
+        let tube = (g.tube_flow_area() * g.tube_length).get::<cubic_meter>();
+        assert!(
+            (v_hot - shell).abs() / shell < 1e-12,
+            "hot cells {v_hot} vs shell {shell}"
+        );
+        assert!(
+            (v_cold - tube).abs() / tube < 1e-12,
+            "cold cells {v_cold} vs tube {tube}"
+        );
+        let m_hot = sg.hot_side_mass().get::<kilogram>();
+        let m_cold = sg.cold_side_mass().get::<kilogram>();
+        let mean_rho_hot: f64 = sg.hot.rho.internal.as_slice().iter().sum::<f64>()
+            / sg.hot.rho.internal.as_slice().len() as f64;
+        // Uniform cells, so the mass is the mean density times the volume.
+        assert!((m_hot - mean_rho_hot * shell).abs() / m_hot < 1e-9);
+        assert!(m_cold > 0.0);
+        println!(
+            "SG shell side {m_hot:.4} kg in {shell:.4} m^3; tube side {m_cold:.3} kg in {tube:.5} m^3"
+        );
+    }
+
     #[test]
     #[ignore = "every htgr_sim_v1 test must finish under 1 minute (maintainer direction, 2026-09-27); measured 2026-09-27 as still running after 20 s in its own process. Sweeps substep sizes and settles at each one to find where the Courant bound binds; the sweep is the test."]
     fn the_courant_number_bounds_the_array_substep() {

@@ -125,7 +125,9 @@
 //! reflector ([S2] section 5, [S5] section 2, [S3] section 2; Jun et al. 2009
 //! Table 1) on its way to the top plenum, and cools the reflector as it goes.
 //! The leg is a heat-transfer path out of the reflector row of the bed's
-//! implicit solve and into the primary loop's cold-return CV.
+//! implicit solve and into the primary loop's RPV-annuli CV (the cold-return
+//! CV until it was split into cold-duct and RPV-annuli CVs on 2026-10-01; the
+//! risers are part of the RPV-annuli CV).
 //!
 //! **Geometry, all published or derived from published figures:**
 //! diameter **0.08 m** and channel-centre radius 1.446 m (Jun, Lim & Lee
@@ -145,7 +147,7 @@
 //! friction factor; Dittus-Boelter is the cross-check
 //! (`tests::the_riser_leg_uses_gnielinski_and_vanishes_without_flow`). The
 //! channel wall sits at the reflector temperature and the helium enters at
-//! the cold-return CV's temperature, which is the classic isothermal-wall
+//! the RPV-annuli CV's temperature, which is the classic isothermal-wall
 //! channel, so the leg is the exact effectiveness form
 //!
 //! ```text
@@ -163,7 +165,7 @@
 //! so its liquid viscosity-ratio correction is unity, and the gas
 //! temperature-ratio correction is omitted; its laminar branch is the
 //! uniform-heat-flux `Nu = 4.36`; (c) the riser helium properties are
-//! evaluated at the cold-return temperature (the channel inlet).
+//! evaluated at the RPV-annuli temperature (the channel inlet).
 //!
 //! ## The boundary condition, and where the number comes from
 //!
@@ -743,7 +745,7 @@ fn riser_nusselt_and_reynolds(
 
 /// **The riser leg \[W/K\]**: `m_r c_p (1 - exp(-h A / (m_r c_p)))`, the
 /// exact isothermal-wall channel conductance against the channel INLET
-/// temperature (the cold-return CV). Zero at zero flow. See the module doc.
+/// temperature (the RPV-annuli CV). Zero at zero flow. See the module doc.
 fn ua_reflector_to_risers_w_per_k(
     cold_helium: ThermodynamicTemperature,
     loop_flow: MassRate,
@@ -787,7 +789,7 @@ pub struct PassiveCoupling {
     /// Reflector -> riser helium (gh:#397), against
     /// [`Self::riser_helium_temperature_k`].
     pub reflector_to_risers: f64,
-    /// Temperature of the helium entering the risers -- the cold-return CV's
+    /// Temperature of the helium entering the risers -- the RPV-annuli CV's
     /// state as handed to the bed \[K\].
     pub riser_helium_temperature_k: f64,
     /// Reflector node secant capacity (graphite + boronated brick) from the
@@ -818,7 +820,7 @@ pub struct CoreToRccsPath {
     /// Heat rate reaching the RCCS on the most recent step.
     heat_to_rccs: Power,
     /// Heat rate given to the riser helium on the most recent step (gh:#397)
-    /// -- what the cold-return CV receives.
+    /// -- what the RPV-annuli CV receives.
     heat_to_risers: Power,
 }
 
@@ -961,7 +963,7 @@ impl CoreToRccsPath {
 
     /// The legs and secant capacities at an iterate of the bed's implicit
     /// solve: bed solid at `bed_solid`, bed helium at `bed_helium`, riser
-    /// inlet helium (the cold-return CV) at `cold_helium`, loop flow
+    /// inlet helium (the RPV-annuli CV) at `cold_helium`, loop flow
     /// `mass_flow`, reflector at `reflector`, RPV at `rpv`. The
     /// capacities run from this path's stored (start-of-step) temperatures to
     /// the iterate, so a converged solve conserves enthalpy exactly.
@@ -1080,7 +1082,7 @@ impl CoreToRccsPath {
     }
 
     /// Heat rate given to the helium rising through the side-reflector
-    /// channels on the most recent step (gh:#397) -- the cold-return CV's
+    /// channels on the most recent step (gh:#397) -- the RPV-annuli CV's
     /// riser source.
     pub fn heat_to_risers(&self) -> Power {
         self.heat_to_risers

@@ -92,7 +92,8 @@ pub struct TraceRow {
     pub bed_temperature_k: f64,
     /// Circulator helium mass flow \[kg/s\].
     pub helium_flow_kg_per_s: f64,
-    /// Core inlet (cold-return CV) helium temperature \[K\].
+    /// Core inlet (RPV-annuli CV; the cold-return CV until 2026-10-01) helium
+    /// temperature \[K\].
     pub core_inlet_k: f64,
     /// Core outlet (bed fluid node) helium temperature \[K\].
     pub core_outlet_k: f64,
@@ -109,7 +110,7 @@ pub struct TraceRow {
     /// Circulator work delivered to the helium \[MW\].
     pub circulator_work_mw: f64,
     /// Reflector -> riser helium heat \[MW\] (gh:#397; internal to the
-    /// ledger: it leaves the reflector and enters the cold-return CV).
+    /// ledger: it leaves the reflector and enters the RPV-annuli CV).
     pub riser_heat_mw: f64,
     /// Lumped reflector temperature \[K\].
     pub reflector_k: f64,

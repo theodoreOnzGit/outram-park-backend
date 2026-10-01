@@ -919,7 +919,9 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             row(
                 ui,
-                "Loop residence time",
+                // Whole loop, inventory / m_dot. Not the tracers' timing: each
+                // drawn run uses its own (2026-10-01, `SchematicTracers`).
+                "Residence time (whole loop)",
                 format!("{:.2} s", s.helium_residence_time_s),
             );
             row(
@@ -1001,7 +1003,7 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             row(
                 ui,
-                "Loop residence time",
+                "Residence time (whole piping)",
                 format!("{:.2} s", s.secondary_residence_time_s),
             );
             row(

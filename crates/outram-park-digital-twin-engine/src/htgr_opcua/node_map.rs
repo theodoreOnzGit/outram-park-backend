@@ -600,9 +600,10 @@ impl HtgrSignal {
 
             Self::CoreInletTemperature => {
                 "Helium temperature entering the core. A computed loop variable, not a boundary \
-                 condition: it is the state of the lumped cold-return helium control volume \
-                 (connection tubes, circulator, annuli, riser channels, top plenum), an enthalpy \
-                 balance fed by the steam-generator helium outlet plus the circulator work, so \
+                 condition: it is the state of the lumped RPV-annuli helium control volume \
+                 (RPV annuli, riser channels, top plenum), an enthalpy balance fed by the \
+                 cold-duct control volume (the coaxial duct annulus, which carries the \
+                 steam-generator helium outlet plus the circulator work), so \
                  reducing secondary heat removal raises it (corrected 2026-09-29, gh:#392: it was \
                  described as a fixed return transport lag, which was deleted)."
             }
@@ -631,8 +632,8 @@ impl HtgrSignal {
             }
             Self::CirculatorPower => {
                 "Circulator shaft power m_dot dp / (rho eta) needed to sustain the loop pressure \
-                 drop, with rho the cold-return helium density where the circulator sits. Since \
-                 2026-09-29 (gh:#392) all of it is delivered to the helium as the cold-return \
+                 drop, with rho the cold-duct helium density the circulator discharges into. \
+                 Since 2026-09-29 (gh:#392) all of it is delivered to the helium as the cold-duct \
                  control volume's source. Shaft power, not electrical input."
             }
             Self::HeliumSpecificHeat => {
@@ -650,8 +651,8 @@ impl HtgrSignal {
             }
             Self::IhxHeliumOutletTemperature => {
                 "Helium temperature leaving the steam generator's helium side, the outlet of its \
-                 resolved helium array. It feeds the cold-return helium control volume, whose \
-                 state is the core inlet (corrected 2026-09-29, gh:#392: it was described as \
+                 resolved helium array. It feeds the cold-duct helium control volume, upstream of \
+                 the RPV-annuli volume whose state is the core inlet (corrected 2026-09-29, gh:#392: it was described as \
                  T_core_out - Q_ihx/(m_dot c_p) followed by a return transport lag)."
             }
 

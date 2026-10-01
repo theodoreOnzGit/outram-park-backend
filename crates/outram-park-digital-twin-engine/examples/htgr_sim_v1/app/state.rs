@@ -570,12 +570,36 @@ pub struct HtgrSnapshot {
     pub sg_secondary_duty_mw: f64,
     /// Helium-side IHX outlet temperature \[K\] -- ~~what the core inlet
     /// relaxes toward once the return transport lag has played out~~
-    /// **CORRECTED 2026-09-29**: the inflow to the cold-return CV, whose own
-    /// state is the core inlet (the 8 s lag was deleted, gh:#392).
+    /// **CORRECTED 2026-09-29**: the inflow to the ~~cold-return CV, whose own
+    /// state is the core inlet~~ cold-duct CV (2026-10-01 split; the
+    /// RPV-annuli CV downstream of it is the core inlet) (the 8 s lag was
+    /// deleted, gh:#392).
     pub ihx_outlet_temp_k: f64,
-    /// Helium loop residence time \[s\] (`m/m_dot`), driving the primary
-    /// flow tracers in the schematic.
+    /// **Whole-loop** helium residence time \[s\] (`M_inventory/m_dot`, about
+    /// 49 s at rated flow since gh:#403) -- a panel readout only.
+    /// ~~driving the primary flow tracers in the schematic~~ **CORRECTED
+    /// 2026-10-01**: one loop-wide time made every drawn run, including a
+    /// 3 m duct, take ~49 s to cross. Each drawn run now uses its own transit
+    /// time, the fields below.
     pub helium_residence_time_s: f64,
+    /// Hot-duct CV residence time \[s\], `M_h/m_dot` -- the hot pipe, the
+    /// hot-gas plenum and the SG centre riser's tracers.
+    pub hot_duct_residence_time_s: f64,
+    /// Cold-duct CV residence time \[s\], `M_d/m_dot` -- the coaxial duct's
+    /// cold annulus (and the undimensioned SG-side cold legs, which share it).
+    pub cold_duct_residence_time_s: f64,
+    /// RPV-annuli CV residence time \[s\], `M_r/m_dot` -- the downcomer and
+    /// the top cold plenum.
+    pub rpv_annuli_residence_time_s: f64,
+    /// Transit time up the 20 riser boreholes \[s\], `M_riser/(f_riser
+    /// m_dot)` from the published borehole volume.
+    pub riser_residence_time_s: f64,
+    /// Transit time across the SG helium shell side \[s\], from the
+    /// exchanger's own helium array mass.
+    pub sg_shell_residence_time_s: f64,
+    /// Transit time through the SG tube side \[s\], the exchanger's own
+    /// water/steam array mass over the secondary flow -- the coil tracers.
+    pub sg_tube_residence_time_s: f64,
     /// Frictional pressure drop around the whole helium loop \[kPa\]: the KTA
     /// pebble-bed term plus the published non-bed component sum.
     pub primary_pressure_drop_kpa: f64,
@@ -586,12 +610,12 @@ pub struct HtgrSnapshot {
     /// published figure.
     pub bed_pressure_drop_kpa: f64,
     /// Circulator shaft power \[MW\] -- delivered to the helium in the
-    /// cold-return CV since 2026-09-29 (gh:#392).
+    /// ~~cold-return~~ cold-duct (2026-10-01) CV since 2026-09-29 (gh:#392).
     pub circulator_power_mw: f64,
     /// Passive decay-heat loss from the bed to the reflector \[MW\].
     pub passive_heat_loss_mw: f64,
     /// Heat the side reflector gives the helium rising through its channels
-    /// \[MW\] (gh:#397) -- enters the cold-return CV.
+    /// \[MW\] (gh:#397) -- enters the ~~cold-return~~ RPV-annuli (2026-10-01) CV.
     pub riser_heat_mw: f64,
     /// Lumped side-reflector temperature \[K\] (passive path node).
     pub reflector_temp_k: f64,
@@ -601,7 +625,8 @@ pub struct HtgrSnapshot {
     /// fission (prompt) + decay heat deposited in the fuel.
     pub energy_source_j: f64,
     /// Cumulative change in energy stored in every lumped CV \[J\]: fuel
-    /// node, bed graphite, bed void helium, hot-duct and cold-return CVs,
+    /// node, bed graphite, bed void helium, hot-duct, cold-duct and
+    /// RPV-annuli CVs (~~cold-return CV~~, split 2026-10-01),
     /// reflector and RPV. (The steam generator's arrays are outside it; the
     /// ledger's boundary on that side is the helium stream.)
     pub energy_stored_j: f64,
@@ -638,14 +663,24 @@ pub struct HtgrSnapshot {
     /// Secondary (feedwater/steam) mass flow \[kg/s\], as moved by the
     /// feedwater controller.
     pub secondary_mass_flow_kg_per_s: f64,
-    /// Secondary loop residence time \[s\] (`m/m_dot`), driving the steam-line
-    /// flow tracers in the schematic.
+    /// **Whole-piping** secondary residence time \[s\] (`m/m_dot`) -- a panel
+    /// readout. ~~driving the steam-line flow tracers in the schematic~~
+    /// **CORRECTED 2026-10-01**: each secondary run now has its own transit
+    /// time (the three fields below).
     ///
     /// Built from the secondary **piping** inventory, not a plant water
     /// inventory -- see
     /// [`crate::physics::secondary_loop::SteamSecondaryLoop::piping_inventory`]
     /// for why the distinction is what makes these tracers move at all.
     pub secondary_residence_time_s: f64,
+    /// Main steam line transit time \[s\], `M_line/m_dot` at the SG outlet
+    /// state (2026-10-01).
+    pub main_steam_line_residence_time_s: f64,
+    /// Turbine exhaust duct transit time \[s\] at the turbine outlet state.
+    pub exhaust_duct_residence_time_s: f64,
+    /// Condensate/feedwater line transit time \[s\] at the condensate state
+    /// -- shared by the drawn condensate and feed segments (one line).
+    pub feedwater_line_residence_time_s: f64,
     /// Water/steam mass held in the secondary piping \[kg\] -- the numerator of
     /// [`Self::secondary_residence_time_s`].
     ///
@@ -920,6 +955,12 @@ impl Default for HtgrSnapshot {
             sg_secondary_duty_mw: 0.0,
             ihx_outlet_temp_k: 439.15,
             helium_residence_time_s: 0.0,
+            hot_duct_residence_time_s: 0.0,
+            cold_duct_residence_time_s: 0.0,
+            rpv_annuli_residence_time_s: 0.0,
+            riser_residence_time_s: 0.0,
+            sg_shell_residence_time_s: 0.0,
+            sg_tube_residence_time_s: 0.0,
             primary_pressure_drop_kpa: 0.0,
             bed_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
@@ -945,6 +986,9 @@ impl Default for HtgrSnapshot {
             // 12.5 t/hr of main steam.
             secondary_mass_flow_kg_per_s: 3.47,
             secondary_residence_time_s: 0.0,
+            main_steam_line_residence_time_s: 0.0,
+            exhaust_duct_residence_time_s: 0.0,
+            feedwater_line_residence_time_s: 0.0,
             secondary_piping_inventory_kg: 0.0,
             // Saturated liquid at 104 degC, the published feedwater state.
             feedwater_enthalpy_j_per_kg: 4.36e5,

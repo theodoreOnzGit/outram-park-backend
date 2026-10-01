@@ -313,7 +313,8 @@ pub struct HtgrSimApp {
     plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
-    /// frame from the real loop residence times -- see
+    /// frame from ~~the real loop residence times~~ each drawn run's own
+    /// transit time (2026-10-01; see [`SchematicTracers`]) -- see
     /// [`outram_park_digital_twin_engine::animation`].
     tracers: SchematicTracers,
     /// The plant clock's current rate, measured between snapshots, which sets

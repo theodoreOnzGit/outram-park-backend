@@ -149,7 +149,18 @@
 //! Each run carries a [`TracerTrain`] whose marks travel at `1/residence_time`
 //! of the run per second, so the animation is a direct readout of the physical
 //! transport time: raise the helium flow and the primary tracers visibly speed
-//! up. The trains live in [`SchematicTracers`], owned by the app and advanced
+//! up. ~~The residence time is the loop's (`helium_residence_time_s`,
+//! `secondary_residence_time_s`).~~ **CORRECTED 2026-10-01**: each run uses
+//! **its own** transit time, from its own CV or volume -- the hot pipe the
+//! hot-duct CV's (~0.36 s at rated flow), the coaxial cold pipe the cold-duct
+//! CV's (~1.1 s), the SG portions their own arrays' masses, each secondary run
+//! its own line -- because the whole-loop time (~49 s since gh:#403) made a
+//! 3 m duct take 49 s to cross. The whole-loop figures remain as panel
+//! readouts labelled "whole loop". See [`SchematicTracers`] for the table and
+//! the runs that share a timing. The tracer clock is frame time times the
+//! measured plant-clock rate (`HtgrSimApp::ui`); it was not changed.
+//!
+//! The trains live in [`SchematicTracers`], owned by the app and advanced
 //! once per frame -- widgets are rebuilt every repaint, so a train owned by a
 //! widget would reset its phase each frame.
 //!
@@ -414,44 +425,141 @@ const NOZZLE_SEAM_OVERLAP: f32 = 3.0;
 /// Flow-tracer state for the schematic's connector runs, owned by the app and
 /// advanced once per frame.
 ///
-/// Two trains, one per loop: every primary run shares the helium train and
+/// ~~Two trains, one per loop: every primary run shares the helium train and
 /// every secondary run shares the steam train, so marks stay in step around
-/// each loop. See [`crate::app::schematic`]'s module docs for why these are
-/// app-owned rather than widget-owned.
+/// each loop.~~ **CHANGED 2026-10-01** (maintainer-approved): **one train per
+/// distinct run timing**, each advanced with its own run's transit time. The
+/// single helium train was advanced with the whole-loop `inventory / m_dot`
+/// (about 49 s at rated flow once gh:#403 sized the cold side to the
+/// published 210 kg), so a 3 m duct took 49 s to cross. Marks therefore no
+/// longer stay in step around a loop -- they move at each run's own speed,
+/// which is the point.
+///
+/// | Train | Transit time (snapshot field) | Drawn runs |
+/// |---|---|---|
+/// | `hot_duct` | `hot_duct_residence_time_s`, hot-duct CV `M/m_dot` | hot pipe, hot-gas plenum, SG hot elbow and centre riser |
+/// | `cold_duct` | `cold_duct_residence_time_s`, cold-duct CV (coaxial annulus) | coaxial cold pipe; SG cold legs and the SG-outlet -> circulator run (shared, see below) |
+/// | `rpv_annuli` | `rpv_annuli_residence_time_s`, RPV-annuli CV | downcomer, top cold plenum |
+/// | `riser` | `riser_residence_time_s`, published borehole volume | side-reflector risers |
+/// | `sg_shell` | `sg_shell_residence_time_s`, SG helium array mass | SG shell-side helium |
+/// | `sg_tube` | `sg_tube_residence_time_s`, SG water/steam array mass | SG coil water |
+/// | `main_steam` | `main_steam_line_residence_time_s` | main steam line, SG steam nozzle |
+/// | `exhaust` | `exhaust_duct_residence_time_s` | turbine exhaust |
+/// | `feedwater` | `feedwater_line_residence_time_s` | condensate and feed lines, SG feed nozzle |
+///
+/// **Shared timings, stated.** The six SG-outlet connection tubes, the
+/// circulator casing and the SG vessel/sleeve annulus are not dimensioned in
+/// any source (`docs/reactor-scoping/htr10-plant-data.md` section 4.4) and
+/// have no CV of their own, so the runs drawn for them use the cold-duct
+/// timing, the nearest CV on the same cold stream. The SG centre riser has no
+/// volume in the model (the SG's helium array is the shell side only) and is
+/// the continuation of the hot duct's centre tube, so it uses the hot-duct
+/// timing. The downcomer and top cold plenum share the RPV-annuli CV they are
+/// part of; that CV is mostly undivided vessel free volume, so their ~46 s is
+/// the CV's, not a measured per-passage time. The condensate and feed
+/// segments are one invented line.
+///
+/// See [`crate::app::schematic`]'s module docs for why these are app-owned
+/// rather than widget-owned.
 #[derive(Debug, Clone, Copy)]
 pub struct SchematicTracers {
-    /// Marks on the helium primary runs.
-    pub primary: TracerTrain,
-    /// Marks on the water/steam secondary runs.
-    pub secondary: TracerTrain,
+    /// Hot-duct CV timing.
+    pub hot_duct: TracerTrain,
+    /// Cold-duct CV (coaxial annulus) timing.
+    pub cold_duct: TracerTrain,
+    /// RPV-annuli CV timing.
+    pub rpv_annuli: TracerTrain,
+    /// Side-reflector riser boreholes.
+    pub riser: TracerTrain,
+    /// Steam-generator helium shell side.
+    pub sg_shell: TracerTrain,
+    /// Steam-generator water/steam tube side (the coil).
+    pub sg_tube: TracerTrain,
+    /// Main steam line.
+    pub main_steam: TracerTrain,
+    /// Turbine exhaust duct.
+    pub exhaust: TracerTrain,
+    /// Condensate/feedwater line.
+    pub feedwater: TracerTrain,
 }
 
 impl SchematicTracers {
     /// Fresh, stagnant trains.
     pub fn new() -> Self {
+        let t = TracerTrain::new(TRACER_MARKS);
         Self {
-            primary: TracerTrain::new(TRACER_MARKS),
-            secondary: TracerTrain::new(TRACER_MARKS),
+            hot_duct: t,
+            cold_duct: t,
+            rpv_annuli: t,
+            riser: t,
+            sg_shell: t,
+            sg_tube: t,
+            main_steam: t,
+            exhaust: t,
+            feedwater: t,
         }
     }
 
-    /// Advance both trains by one animation frame of `dt`, using the loop
-    /// residence times and mass flows the physics thread published.
+    /// Advance every train by one animation frame of `dt`, each with **its
+    /// own run's** transit time and its loop's mass flow, as the physics
+    /// thread published them.
     ///
     /// Because the marks move at `1/residence_time` of a run per second, the
-    /// on-screen speed is the real transport speed: at zero flow the residence
-    /// time is unbounded and the trains freeze.
+    /// on-screen speed is the real transport speed of that run: at zero flow
+    /// the residence time is unbounded and the trains freeze, and a reversed
+    /// flow runs them backwards ([`TracerTrain::advance`]).
+    ///
+    /// `dt` is the frame's wall time times the measured plant-clock rate
+    /// (`HtgrSimApp::ui`, unchanged by the 2026-10-01 fix), so fast-forward
+    /// speeds every train up by the same factor. At high fast-forward a
+    /// sub-second run (the hot duct, ~0.36 s) advances more than a mark
+    /// spacing per frame and can strobe; that is the display rate, not the
+    /// transit time.
     pub fn advance(&mut self, dt: Time, snapshot: &HtgrSnapshot) {
-        self.primary.advance(
-            dt,
-            Time::new::<second>(snapshot.helium_residence_time_s),
-            MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s),
-        );
-        self.secondary.advance(
-            dt,
-            Time::new::<second>(snapshot.secondary_residence_time_s),
-            MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
-        );
+        let helium = MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s);
+        let water = MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s);
+        let s = Time::new::<second>;
+        for (train, tau, flow) in [
+            (
+                &mut self.hot_duct,
+                snapshot.hot_duct_residence_time_s,
+                helium,
+            ),
+            (
+                &mut self.cold_duct,
+                snapshot.cold_duct_residence_time_s,
+                helium,
+            ),
+            (
+                &mut self.rpv_annuli,
+                snapshot.rpv_annuli_residence_time_s,
+                helium,
+            ),
+            (&mut self.riser, snapshot.riser_residence_time_s, helium),
+            (
+                &mut self.sg_shell,
+                snapshot.sg_shell_residence_time_s,
+                helium,
+            ),
+            (&mut self.sg_tube, snapshot.sg_tube_residence_time_s, water),
+            (
+                &mut self.main_steam,
+                snapshot.main_steam_line_residence_time_s,
+                water,
+            ),
+            (
+                &mut self.exhaust,
+                snapshot.exhaust_duct_residence_time_s,
+                water,
+            ),
+            (
+                &mut self.feedwater,
+                snapshot.feedwater_line_residence_time_s,
+                water,
+            ),
+        ] {
+            train.advance(dt, s(tau), flow);
+        }
     }
 }
 
@@ -860,43 +968,53 @@ pub fn draw_schematic(
     let (feedwater_temp, condensate_temp) = feed_and_condensate_temps(snapshot);
 
     // ── Streams ─────────────────────────────────────────────────────────
+    // Each run carries its own train and its own transit time (2026-10-01,
+    // see `SchematicTracers`), never the whole-loop residence time.
     let hot_helium = PipeStream {
         temperature: k(snapshot.core_outlet_temp_k),
         mass_flow: MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s),
-        residence_time: Time::new::<second>(snapshot.helium_residence_time_s),
+        residence_time: Time::new::<second>(snapshot.hot_duct_residence_time_s),
         thickness: HELIUM_PIPE_THICKNESS,
-        tracer: tracers.primary,
+        tracer: tracers.hot_duct,
         min_temp: k(DISPLAY_MIN_K),
         max_temp: k(DISPLAY_MAX_K),
     };
-    // Leaving the steam generator: this is what the circulator lifts.
+    // Leaving the steam generator: this is what the circulator lifts. The
+    // connection tubes are undimensioned and have no CV, so this run shares
+    // the cold-duct timing (stated in `SchematicTracers`).
     let cold_helium = PipeStream {
         temperature: k(snapshot.ihx_outlet_temp_k),
+        residence_time: Time::new::<second>(snapshot.cold_duct_residence_time_s),
+        tracer: tracers.cold_duct,
         ..hot_helium
     };
-    // Arriving at the core: the model's core inlet lags the SG outlet by the
-    // loop transport time, so the last leg of the return really is a different
-    // temperature during a transient.
+    // Circulator discharge to the reactor through the coaxial duct's annulus:
+    // the cold-duct CV. Coloured at the core inlet (the RPV-annuli CV just
+    // downstream), as before.
     let core_inlet_helium = PipeStream {
         temperature: k(snapshot.core_inlet_temp_k),
-        ..hot_helium
+        ..cold_helium
     };
 
     let main_steam = PipeStream {
         temperature: k(snapshot.sg_steam_outlet_temp_k),
         mass_flow: MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
-        residence_time: Time::new::<second>(snapshot.secondary_residence_time_s),
+        residence_time: Time::new::<second>(snapshot.main_steam_line_residence_time_s),
         thickness: STEAM_PIPE_THICKNESS,
-        tracer: tracers.secondary,
+        tracer: tracers.main_steam,
         min_temp: k(DISPLAY_MIN_K),
         max_temp: k(DISPLAY_MAX_K),
     };
     let exhaust = PipeStream {
         temperature: condensate_temp,
+        residence_time: Time::new::<second>(snapshot.exhaust_duct_residence_time_s),
+        tracer: tracers.exhaust,
         ..main_steam
     };
     let feed = PipeStream {
         temperature: feedwater_temp,
+        residence_time: Time::new::<second>(snapshot.feedwater_line_residence_time_s),
+        tracer: tracers.feedwater,
         ..main_steam
     };
 
@@ -1621,6 +1739,80 @@ mod tests {
     //! when you want to look at it rather than assert on it.
 
     use super::*;
+
+    /// **Each tracer train advances with its own run's transit time**, not
+    /// the whole loop's (2026-10-01). A snapshot with a distinct transit time
+    /// per run and a deliberately huge whole-loop figure: after one 0.1 s
+    /// frame every train's phase must be exactly `0.1 / tau_run` (mod 1), and
+    /// none may be `0.1 / tau_whole`. A reversed helium flow must run the
+    /// helium trains backwards and leave the water trains forward; zero
+    /// helium flow must freeze the helium trains.
+    #[test]
+    fn each_tracer_train_advances_with_its_own_runs_transit_time() {
+        let mut snap = HtgrSnapshot::default();
+        snap.helium_mass_flow_kg_per_s = 4.3;
+        snap.secondary_mass_flow_kg_per_s = 3.2;
+        snap.helium_residence_time_s = 1000.0;
+        snap.secondary_residence_time_s = 1000.0;
+        snap.hot_duct_residence_time_s = 0.4;
+        snap.cold_duct_residence_time_s = 1.1;
+        snap.rpv_annuli_residence_time_s = 46.0;
+        snap.riser_residence_time_s = 0.37;
+        snap.sg_shell_residence_time_s = 1.3;
+        snap.sg_tube_residence_time_s = 14.0;
+        snap.main_steam_line_residence_time_s = 0.6;
+        snap.exhaust_duct_residence_time_s = 0.2;
+        snap.feedwater_line_residence_time_s = 15.0;
+        let dt = Time::new::<second>(0.1);
+        let mut t = SchematicTracers::new();
+        t.advance(dt, &snap);
+        let expect = |tau: f64| (0.1 / tau).rem_euclid(1.0);
+        for (name, train, tau) in [
+            ("hot duct", t.hot_duct, snap.hot_duct_residence_time_s),
+            ("cold duct", t.cold_duct, snap.cold_duct_residence_time_s),
+            ("RPV annuli", t.rpv_annuli, snap.rpv_annuli_residence_time_s),
+            ("riser", t.riser, snap.riser_residence_time_s),
+            ("SG shell", t.sg_shell, snap.sg_shell_residence_time_s),
+            ("SG tube", t.sg_tube, snap.sg_tube_residence_time_s),
+            (
+                "main steam",
+                t.main_steam,
+                snap.main_steam_line_residence_time_s,
+            ),
+            ("exhaust", t.exhaust, snap.exhaust_duct_residence_time_s),
+            (
+                "feedwater",
+                t.feedwater,
+                snap.feedwater_line_residence_time_s,
+            ),
+        ] {
+            assert!(
+                (train.phase() - expect(tau)).abs() < 1e-12,
+                "{name}: phase {} vs {} for its own tau {tau} s",
+                train.phase(),
+                expect(tau)
+            );
+            assert!(
+                (train.phase() - expect(1000.0)).abs() > 1e-6,
+                "{name} used the whole loop"
+            );
+        }
+
+        // Reversed helium: helium trains step back by the same amount.
+        snap.helium_mass_flow_kg_per_s = -4.3;
+        let mut r = SchematicTracers::new();
+        r.advance(dt, &snap);
+        assert!((r.hot_duct.phase() - (-0.1f64 / 0.4).rem_euclid(1.0)).abs() < 1e-12);
+        assert!((r.main_steam.phase() - expect(0.6)).abs() < 1e-12);
+
+        // Stagnant helium: helium trains freeze where they are.
+        snap.helium_mass_flow_kg_per_s = 0.0;
+        let before = t;
+        t.advance(dt, &snap);
+        assert_eq!(t.hot_duct.phase(), before.hot_duct.phase());
+        assert_eq!(t.cold_duct.phase(), before.cold_duct.phase());
+        assert_ne!(t.sg_tube.phase(), before.sg_tube.phase());
+    }
 
     /// **Helium and water/steam must traverse the SG coil region in OPPOSITE
     /// vertical directions** -- the counter-current arrangement the physics

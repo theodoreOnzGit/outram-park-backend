@@ -14,11 +14,11 @@
 //! | helium in / out, vessel wall | core inlet / outlet temperature |
 //! | reflector | bed (graphite) temperature |
 //! | control rods | operator command, slewed like v1, with the scram floor |
-//! | helium tracers | helium mass flow and residence time |
+//! | helium tracers | helium mass flow and ~~residence time~~ **each run's own transit time** (2026-10-01; see below) |
 //! | main steam / feedwater / condensate | SG steam outlet; (p, h) flashes as in v1 |
 //! | turbine rotor | shaft speed |
 //! | condenser | exhaust quality, condensate temperature, cooling water |
-//! | secondary tracers | secondary mass flow and residence time |
+//! | secondary tracers | secondary mass flow and ~~residence time~~ **each run's own transit time** (2026-10-01) |
 //! | feed pump rotor | feedwater (secondary) mass flow, by the affinity law |
 //!
 //! One thing is not model state, and is stated rather than invented: the bed
@@ -27,6 +27,17 @@
 //! shaft-speed model.~~ **CHANGED 2026-09-22**: the pump now turns at a speed
 //! derived from the feedwater flow; see [`feed_pump_speed`] for the relation
 //! and its one assumed number.
+//!
+//! **Tracer timings (CORRECTED 2026-10-01).** ~~Every helium pass carries the
+//! primary train, advanced with the whole-loop residence time~~ -- that was
+//! `inventory / m_dot`, about 49 s at rated flow since gh:#403, so the coaxial
+//! duct and every other drawn pass took ~49 s to cross. Each pass now carries
+//! the train for its own timing ([`SchematicTracers`]): downcomer and top cold
+//! plenum the RPV-annuli CV, risers the published borehole volume, hot plenum,
+//! hot duct, SG hot elbow and SG centre riser the hot-duct CV, coaxial cold
+//! annulus and SG cold legs the cold-duct CV, SG shell side and coil the
+//! exchanger's own helium and water arrays, and the secondary pipes and SG
+//! nozzles their own lines.
 //!
 //! **Offline demonstration only**, per the workspace `RESPONSIBLE_USE.md`.
 
@@ -294,8 +305,7 @@ fn draw_plant_at(
     vessel_width: f32,
 ) -> egui::Rect {
     let (min_t, max_t) = (k(DISPLAY_MIN_K), k(DISPLAY_MAX_K));
-    let primary = tracers.primary;
-    let secondary_train = tracers.secondary;
+    let t = *tracers;
 
     // The rods: the operator's command slewed at the drive speed, with the
     // protection system's scram insertion as a floor, exactly as v1 draws them
@@ -311,8 +321,9 @@ fn draw_plant_at(
 
     let pebbles = advanced_pebble_handling(ui.ctx(), pebble_handling_id());
 
-    // Every helium pass carries the primary train, as every v1 helium run
-    // does: one loop, one flow, one residence time.
+    // ~~Every helium pass carries the primary train: one loop, one flow, one
+    // residence time.~~ Each pass carries its own run's train (2026-10-01; see
+    // `SchematicTracers` for which runs share a timing and why).
     let reactor = Htr10ReactorSchematic::new(
         Htr10ReactorSchematic::native_size(vessel_width),
         min_t,
@@ -325,12 +336,12 @@ fn draw_plant_at(
     )
     .with_control_rod_frac(rods)
     .with_bed_height_cm(EQUILIBRIUM_BED_HEIGHT_CM)
-    .with_downcomer_tracer(primary)
-    .with_riser_tracer(primary)
-    .with_plenum_tracer(primary)
-    .with_cold_plenum_tracer(primary)
-    .with_hot_duct_tracer(primary)
-    .with_cold_duct_tracer(primary)
+    .with_downcomer_tracer(t.rpv_annuli)
+    .with_riser_tracer(t.riser)
+    .with_plenum_tracer(t.hot_duct)
+    .with_cold_plenum_tracer(t.rpv_annuli)
+    .with_hot_duct_tracer(t.hot_duct)
+    .with_cold_duct_tracer(t.cold_duct)
     // ── Pebble handling: the DRAWING only (GitHub issue #347) ────────────
     //
     // The refuelling chute and the defuelling route are already drawn by this
@@ -367,12 +378,12 @@ fn draw_plant_at(
             feedwater_temp,
             steam_temp,
         )
-        .with_riser_tracer(primary)
-        .with_shell_gas_tracer(primary)
-        .with_coil_water_tracer(secondary_train)
-        .with_feedwater_tracer(secondary_train)
-        .with_steam_tracer(secondary_train)
-        .with_duct_inlet_tracers(primary, primary)
+        .with_riser_tracer(t.hot_duct)
+        .with_shell_gas_tracer(t.sg_shell)
+        .with_coil_water_tracer(t.sg_tube)
+        .with_feedwater_tracer(t.feedwater)
+        .with_steam_tracer(t.main_steam)
+        .with_duct_inlet_tracers(t.hot_duct, t.cold_duct)
     };
 
     let secondary = SecondaryLoopView {
@@ -383,6 +394,9 @@ fn draw_plant_at(
         cooling_water_inlet_temp: k(COOLING_WATER_INLET_K),
         cooling_water_outlet_temp: k(snapshot.cooling_water_outlet_temp_k),
         mass_flow: MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
+        // Informational only: the tracer trains below are already advanced,
+        // each with its own line's transit time; this field does not move
+        // them. The whole-piping figure is what the shared view type carries.
         pipe_residence_time: Time::new::<second>(snapshot.secondary_residence_time_s),
         turbine_speed: AngularVelocity::new::<radian_per_second>(snapshot.shaft_speed_rad_per_s),
         pump_speed: feed_pump_speed(MassRate::new::<kilogram_per_second>(
@@ -390,10 +404,10 @@ fn draw_plant_at(
         )),
         simulation_time: Time::new::<second>(snapshot.sim_time_s),
         tracers: SecondaryTracers {
-            main_steam: secondary_train,
-            exhaust: secondary_train,
-            condensate: secondary_train,
-            feed: secondary_train,
+            main_steam: t.main_steam,
+            exhaust: t.exhaust,
+            condensate: t.feedwater,
+            feed: t.feedwater,
         },
         min_temp: min_t,
         max_temp: max_t,

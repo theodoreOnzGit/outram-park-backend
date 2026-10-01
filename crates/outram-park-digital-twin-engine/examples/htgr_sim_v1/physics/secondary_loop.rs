@@ -881,9 +881,10 @@ pub struct SteamSecondaryLoop {
     /// recent step, as `Q_offered / Q_max`. See
     /// [`Self::absorbable_duty_utilisation`].
     absorbable_duty_utilisation: f64,
-    /// Water/steam mass held in the secondary **piping** on the most recent
-    /// step -- see [`Self::piping_inventory`].
-    piping_inventory: Mass,
+    /// Water/steam mass held in each secondary **pipe run** on the most
+    /// recent step -- see [`Self::piping_inventory`] and
+    /// [`Self::piping_run_inventories`].
+    piping_inventory: PipingRunInventories,
     /// Pure-feedback PI controller on the steam-temperature error. See
     /// [`FeedwaterController`].
     feedwater_controller: FeedwaterController,
@@ -1209,19 +1210,30 @@ impl SteamSecondaryLoop {
     ///
     /// # Two honest limitations
     ///
-    /// - **One number drives three runs.** The schematic shares a single
+    /// - ~~**One number drives three runs.** The schematic shares a single
     ///   `TracerTrain` across the steam line, the exhaust duct and the
     ///   feedwater line, so they are all drawn at this loop-wide figure. It is
     ///   dominated by the feedwater line (liquid, hence nearly all the mass),
     ///   so the *steam* runs are drawn slower than their own transport time.
     ///   Giving each run its own train and its own residence time is the
-    ///   correct refinement and is not done here.
+    ///   correct refinement and is not done here.~~ **DONE 2026-10-01**: each
+    ///   run now has its own train and its own transit time from
+    ///   [`Self::piping_run_inventories`]; this loop-wide sum survives only as
+    ///   the panel's whole-piping readout.
     /// - **Cold start reads high, correctly.** Before the steam generator makes
     ///   steam its outlet is compressed liquid, so the main-steam line's `rho V`
     ///   is briefly three orders of magnitude larger. That is a real statement
     ///   about a line full of water, not an artefact, and it decays as the plant
     ///   heats up.
     pub fn piping_inventory(&self) -> Mass {
+        self.piping_inventory.total()
+    }
+
+    /// Water/steam mass held in **each** secondary pipe run \[kg\], so each
+    /// drawn run can be animated with its own transit time `M_run / m_dot`
+    /// (2026-10-01). Same volumes and IF97 states as
+    /// [`Self::piping_inventory`], which is their sum.
+    pub fn piping_run_inventories(&self) -> PipingRunInventories {
         self.piping_inventory
     }
 
@@ -1299,9 +1311,10 @@ impl SteamSecondaryLoop {
     }
 }
 
-/// Water/steam mass held in the secondary piping, `sum V_i / v_i` over the
-/// three runs -- see [`SteamSecondaryLoop::piping_inventory`] for what it is
-/// for and what it deliberately excludes.
+/// Water/steam mass held in each secondary pipe run, `V_i / v_i` per run
+/// (summed by [`PipingRunInventories::total`]) -- see
+/// [`SteamSecondaryLoop::piping_inventory`] for what it is for and what it
+/// deliberately excludes.
 ///
 /// Each argument is a real IAPWS-IF97 state and supplies the specific volume
 /// \[m^3/kg\] of its run:
@@ -1317,7 +1330,11 @@ impl SteamSecondaryLoop {
 /// A non-finite or non-positive specific volume contributes nothing rather than
 /// poisoning the sum -- the result feeds a residence time, and an infinite
 /// inventory would freeze the schematic's tracers with no explanation.
-fn piping_inventory(steam: &HemSteamCv, exhaust: &HemSteamCv, condensate: &HemSteamCv) -> Mass {
+fn piping_inventory(
+    steam: &HemSteamCv,
+    exhaust: &HemSteamCv,
+    condensate: &HemSteamCv,
+) -> PipingRunInventories {
     let mass_in = |volume_m3: f64, state: &HemSteamCv| {
         let v = state
             .get_specific_volume()
@@ -1328,11 +1345,34 @@ fn piping_inventory(steam: &HemSteamCv, exhaust: &HemSteamCv, condensate: &HemSt
             0.0
         }
     };
-    Mass::new::<kilogram>(
-        mass_in(MAIN_STEAM_LINE_VOLUME_M3, steam)
-            + mass_in(EXHAUST_DUCT_VOLUME_M3, exhaust)
-            + mass_in(FEEDWATER_LINE_VOLUME_M3, condensate),
-    )
+    PipingRunInventories {
+        main_steam: Mass::new::<kilogram>(mass_in(MAIN_STEAM_LINE_VOLUME_M3, steam)),
+        exhaust: Mass::new::<kilogram>(mass_in(EXHAUST_DUCT_VOLUME_M3, exhaust)),
+        feedwater: Mass::new::<kilogram>(mass_in(FEEDWATER_LINE_VOLUME_M3, condensate)),
+    }
+}
+
+/// Water/steam mass in each of the three secondary pipe runs \[kg\], each
+/// `V_run / v` at its own IF97 state (2026-10-01). The drawn runs map onto
+/// them as: main steam line -> [`Self::main_steam`]; turbine exhaust duct ->
+/// [`Self::exhaust`]; hotwell condensate line **and** feed line (one
+/// invented 40 m condensate/feedwater line, [`FEEDWATER_LINE_VOLUME_M3`], so
+/// the two drawn segments share its transit time) -> [`Self::feedwater`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PipingRunInventories {
+    /// Main steam line, at the steam-generator outlet state.
+    pub main_steam: Mass,
+    /// Turbine exhaust duct, at the turbine outlet state.
+    pub exhaust: Mass,
+    /// Condensate/feedwater line, at the hotwell condensate state.
+    pub feedwater: Mass,
+}
+
+impl PipingRunInventories {
+    /// The three runs' sum -- [`SteamSecondaryLoop::piping_inventory`].
+    pub fn total(&self) -> Mass {
+        self.main_steam + self.exhaust + self.feedwater
+    }
 }
 
 /// Feedwater specific enthalpy: condensate enthalpy plus the real feed-pump
