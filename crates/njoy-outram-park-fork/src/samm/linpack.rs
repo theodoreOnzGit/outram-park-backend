@@ -9,7 +9,9 @@
 //! 3-channel cases in [`super::onech`]/[`super::twoch`]/
 //! [`super::threech`]), so the level matrix `Y = I - R*L` is factored once
 //! via [`xspfa`] and then solved once per unit column via [`xspsl`] to
-//! build up `Y^-1` column by column (see `yfour`, not yet ported).
+//! build up `Y^-1` column by column (see ~~`yfour`, not yet ported~~
+//! **CORRECTED 2026-10-01**: `yfour` is ported, as
+//! [`crate::samm::rmatrix_invert::yfour`]).
 //!
 //! # Storage convention
 //!
@@ -36,10 +38,14 @@
 //! `samm.f90` passes `incx=incy=1` (verified by grep across the whole
 //! file) — so only the stride-1 path is ported, and the manual unrolling
 //! is dropped (meaningless with a modern optimizing compiler; the loop
-//! bodies are otherwise identical). `xdot` is additionally inlined at its
-//! two call sites in [`xspsl`] rather than kept as a free function, since
-//! Rust has no direct equivalent of Fortran's "function with an extra
-//! output parameter" (`xdoti`) signature.
+//! bodies are otherwise identical). ~~`xdot` is additionally inlined at its
+//! two call sites in [`xspsl`] rather than kept as a free function~~
+//! **CORRECTED 2026-10-01** (GitHub #339): `xdot` is a free function
+//! returning `(real, imag)` in place of Fortran's `xdoti` output argument,
+//! and it takes the right-hand side `b` as its `y` operand, as upstream's
+//! call sites do. Until this date it read `y` from the packed factor
+//! instead, which corrupted `Y^-1` for every `n >= 4` spin group with a
+//! non-zero off-diagonal; see `xdot`'s doc comment.
 
 /// A packed complex-symmetric matrix (see this module's doc comment for
 /// the storage convention).
@@ -89,16 +95,36 @@ fn xaxpy(n: i64, sa: f64, sai: f64, re: &mut [f64], im: &mut [f64], x0: i64, y0:
     }
 }
 
-/// `sum(x[x0+1..=x0+n] * y[y0+1..=y0+n])` (complex, not conjugated) —
-/// upstream `xdot`, stride-1 only. Returns `(real, imag)`.
-fn xdot(n: i64, re: &[f64], im: &[f64], x0: i64, y0: i64) -> (f64, f64) {
+/// `sum(x[x0+1..=x0+n] * b[1..=n])` (complex, not conjugated), where `x`
+/// lives in the packed factor (`re`/`im`) and `b` is the right-hand side —
+/// upstream `xdot` (`samm.f90:5892-5935`), stride-1 only. Returns
+/// `(real, imag)`.
+///
+/// Upstream's only two call sites are in `xspsl`'s forward loop
+/// (`samm.f90:6189, 6201-6204`): `xdot(xdoti,k-1,ap(1,ik+1),1,b(1,1),1)`
+/// — `sx` is a column of the factor, `sy` is **`b`**.
+///
+/// ~~`xdot(n, re, im, x0, y0)` reading both `x` and `y` from the packed
+/// matrix~~ — **CORRECTED 2026-10-01** (GitHub #339). The `y` operand was
+/// taken from the factor at offset `y0 = 0`, i.e. from `ap(1..k-1)`, not
+/// from `b`. Every `n >= 4`-channel spin group whose level matrix has a
+/// non-zero off-diagonal therefore got a wrong `Y^-1`: on ENDF/B-VIII.0
+/// Fe-57 (J=1⁻, two entrance + two (n,n'₁) channels) `|Y·Y^-1 - I|` was
+/// 3.3 at 14.67 keV and 40 at 110 keV, `Σ|U|²` reached 9 120, and the
+/// MT=51 cross section came out up to 4e4 b, driving capture
+/// (`nonelastic - MT51`) negative. A negative partial never passes the
+/// `resxs` midpoint test, so RECONR bisected every panel to the
+/// significant-figure floor and ran out of memory. No test had exercised
+/// this path: every earlier LRF=7 tape (Cl-35, Fe-54, Sr-88) has spin
+/// groups of at most three channels or a diagonal `Y`.
+fn xdot(n: i64, re: &[f64], im: &[f64], x0: i64, b_re: &[f64], b_im: &[f64]) -> (f64, f64) {
     let mut stemp = 0.0_f64;
     let mut stempi = 0.0_f64;
     for i in 1..=n {
         let xr = g(re, x0 + i);
         let xi = g(im, x0 + i);
-        let yr = g(re, y0 + i);
-        let yi = g(im, y0 + i);
+        let yr = b_re[(i - 1) as usize];
+        let yi = b_im[(i - 1) as usize];
         stemp += xr * yr - xi * yi;
         stempi += xi * yr + xr * yi;
     }
@@ -414,7 +440,7 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
         if kpvt[(k - 1) as usize] >= 0 {
             // 1x1 pivot block.
             if k != 1 {
-                let (dr, di) = xdot(k - 1, re, im, ik, 0);
+                let (dr, di) = xdot(k - 1, re, im, ik, b_re, b_im);
                 b_re[(k - 1) as usize] += dr;
                 b_im[(k - 1) as usize] += di;
                 let kp = kpvt[(k - 1) as usize];
@@ -428,11 +454,11 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
         } else {
             // 2x2 pivot block.
             if k != 1 {
-                let (dr, di) = xdot(k - 1, re, im, ik, 0);
+                let (dr, di) = xdot(k - 1, re, im, ik, b_re, b_im);
                 b_re[(k - 1) as usize] += dr;
                 b_im[(k - 1) as usize] += di;
                 let ikp1 = ik + k;
-                let (dr2, di2) = xdot(k - 1, re, im, ikp1, 0);
+                let (dr2, di2) = xdot(k - 1, re, im, ikp1, b_re, b_im);
                 b_re[k as usize] += dr2;
                 b_im[k as usize] += di2;
                 let kp = kpvt[(k - 1) as usize].abs();

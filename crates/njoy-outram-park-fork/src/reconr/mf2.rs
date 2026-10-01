@@ -47,7 +47,8 @@ pub enum ResonanceFormalism {
     ///
     /// # Verified against NJOY2016 (2026-09-14, gh:#202)
     ///
-    /// Sr-88 (MAT 3837, the only LRF=7 evaluation in `reference-data/endf/`)
+    /// Sr-88 (MAT 3837, ~~the only LRF=7 evaluation in `reference-data/endf/`~~
+    /// **CORRECTED 2026-10-01**: one of seven there; see `crate::samm`'s doc)
     /// reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
     /// **all 44,326 points of NJOY's own grid** inside the resolved range:
     /// worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,

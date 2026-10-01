@@ -21,7 +21,10 @@ the defect report at the 7-figure floor of NJOY's printed output.
 at 0 K, over Sr-88's resolved-resonance range `1e-5 .. 9.5e5 eV`.
 
 **Inputs.** `reference-data/endf/n-038_Sr_088-ENDF8.1.endf`, ENDF/B-VIII.1,
-MAT 3837 — the only LRF=7 evaluation held in this repository. Reconstruction
+MAT 3837 — ~~the only LRF=7 evaluation held in this repository~~
+**CORRECTED 2026-10-01**: one of seven held in `reference-data/endf/`, with
+Cl-35, Fe-54, Fe-57, Cu-63, Cu-65 and Mo-95 (screened on MF=2's `LRF`).
+Reconstruction
 tolerance `err = 0.001` (and `0.0001` for the scaling check below), temperature
 0 K.
 

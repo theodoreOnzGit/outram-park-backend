@@ -568,6 +568,28 @@ does not fire on this evaluation, depth 64 permits astronomically many points.
 **This has NOT been confirmed** — no instrumented run has shown the achieved
 depth — and no constant was changed on the strength of it.
 
+**RESOLVED 2026-10-01 (GitHub #339); the candidate above was not the cause.**
+The bisection depth was never the problem. The significant-figure test fires
+as designed. What it bounds is a panel's depth, not how many panels are
+refined to it.
+- `samm::linpack::xspsl`'s `xdot` took its second operand from the packed
+  factor, not from `b` (`samm.f90:6189, 6201-6204`). So `yfour` returned a
+  wrong `Y^-1` for every spin group of four or more coupled channels.
+- On Fe-57 that put the MT=51 channel 10x to 1e4x too high, and capture
+  (`nonelastic - MT51`) went negative.
+- The port also lacked `sigma`'s guard `if (sigp(j).lt.zero) sigp(j)=0`
+  (`reconr.f90:2641-2645`). A negative partial fails `resxs`'s midpoint test
+  at every panel, so every panel was refined to the floor.
+
+That is also why the tolerance did not bound it. With both fixed, RECONR on
+Fe-57 and Mo-95 reproduces NJOY2016's PENDF word for word:
+- Fe-57: 0.10 s, 24 MB;
+- Mo-95: 0.40 s.
+
+Gate: `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`. **The ACE
+comparison of this record has not been re-run for either tape**, so their
+rows below stay "not comparable" until it is.
+
 **Both timeouts are `LRF=7` tapes, and so is the worst ESZ outlier.** Seven
 tapes in the set use `LRU=1 / LRF=7`: Cl-35, Fe-54, Fe-57, Cu-63, Cu-65, Sr-88,
 Mo-95. Zero of the 50 non-`LRF=7` tapes timed out.
@@ -619,7 +641,7 @@ with evidence rather than left unstated.
 
 | group | n | `NSUB` | outcome |
 |---|---|---|---|
-| incident neutron, `n-*` | 57 | 10 | **55 compared** (54 in the sweep + B-10 VIII.0, above); **2 not comparable** — Fe-57 and Mo-95, OOM at every tolerance tried |
+| incident neutron, `n-*` | 57 | 10 | **55 compared** (54 in the sweep + B-10 VIII.0, above); **2 not comparable** — Fe-57 and Mo-95, ~~OOM at every tolerance tried~~ OOM fixed 2026-10-01 (#339, RECONR now word-for-word NJOY's); ACE comparison not yet re-run |
 | `synthetic-caseb-lfw1` | 1 | **10** | a neutron tape the `n-*` glob missed — **compared at RECONR level**; NJOY itself cannot ACE it |
 | thermal `tsl-*` | 9 | 12 | **all 9 compared** — see `acer_thermal_vs_njoy2016.md` |
 | photoatomic | 2 | 3 | **both compared** against NJOY GAMINR goldens |
@@ -636,7 +658,7 @@ with evidence rather than left unstated.
 | RECONR-level compared (`synthetic-caseb-lfw1`) | **1** |
 | **carrying a comparison** | **67** |
 | not comparable — different ACE class (He-4) | 1 |
-| not comparable — this port's reconstruction OOMs (Fe-57, Mo-95) | 2 |
+| not comparable — ~~this port's reconstruction OOMs~~ OOM fixed 2026-10-01 (#339), ACE not yet re-run (Fe-57, Mo-95) | 2 |
 | **total** | **70** |
 
 The three without a number are not gaps in the sweep: He-4's is *settled*

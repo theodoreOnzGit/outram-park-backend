@@ -283,9 +283,18 @@ Sr-88 groups have a single explicit channel).
 - **`coulomb/steed.rs`'s `coulfg` has one dead local (`paccq`) intentionally
   not ported** — write-only in the Fortran (computed, never read again
   within the subroutine); see [`coulomb::coulfg`]'s doc comment.
-- **`linpack.rs`'s `yfour` (4+ channels) is still untested against a
+- ~~**`linpack.rs`'s `yfour` (4+ channels) is still untested against a
   real R-matrix problem** — Cl-35 has at most three explicit channels
-  per spin group, so only `onech`/`twoch`/`threech` are oracle-verified.
+  per spin group, so only `onech`/`twoch`/`threech` are oracle-verified.~~
+  **CORRECTED 2026-10-01 (GitHub #339).** Untested, and it was wrong:
+  `xspsl`'s `xdot` read its second operand from the factor instead of
+  from `b`. That gave a wrong `Y^-1` for every coupled group of four or
+  more channels. Fixed, and now verified two ways:
+  - `rmatrix_invert`'s unit tests check `Y·Y^-1 = I` across the 1x1, swap
+    and 2x2 pivot branches;
+  - ENDF/B-VIII.0 Fe-57 (J=1⁻, J=2⁺: four channels) and Mo-95 reproduce
+    NJOY2016's RECONR PENDF word for word
+    (`tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`).
 - **`xsformula::sectio`'s `crss` indexing quirk** — positions 0/1 are
   hardcoded to elastic/capture regardless of particle-pair numbering;
   ported literally from upstream's own convention. See `sectio.rs`'s doc

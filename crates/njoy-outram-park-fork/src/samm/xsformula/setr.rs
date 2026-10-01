@@ -275,9 +275,13 @@ pub fn setr(
 
                 rootp[i - 1] = p.sqrt();
 
-                // samm.f90:3415-3453
+                // samm.f90:3415-3453. Upstream tests `1-p*rmat(2,ii).eq.one`
+                // (:3416). ~~`1 - p*ymat.im(ii)`~~ -- CORRECTED 2026-10-01
+                // (GitHub #339): `ymat.im(ii)` is `-rmat.im(ii)` here, and
+                // `1+x == 1` and `1-x == 1` round differently for
+                // |x| in (2^-54, 2^-53].
                 let skip_elinv = !iffy
-                    && !(pair.shift_flag <= 0 && (1.0 - p * g(&ymat.im, ii) == 1.0 || p < TINY));
+                    && !(pair.shift_flag <= 0 && (1.0 - p * g(&rmat.im, ii) == 1.0 || p < TINY));
                 if skip_elinv {
                     elinvr[i - 1] = hr;
                     elinvi[i - 1] = hi;

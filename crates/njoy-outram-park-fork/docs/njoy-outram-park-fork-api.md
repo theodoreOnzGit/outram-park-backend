@@ -22431,7 +22431,8 @@ LRF=7: R-Matrix Limited. **Parsed** via
 
 # Verified against NJOY2016 (2026-09-14, gh:#202)
 
-Sr-88 (MAT 3837, the only LRF=7 evaluation in `reference-data/endf/`)
+Sr-88 (MAT 3837, ~~the only LRF=7 evaluation in `reference-data/endf/`~~
+**CORRECTED 2026-10-01**: one of seven there; see `crate::samm`'s doc)
 reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
 **all 44,326 points of NJOY's own grid** inside the resolved range:
 worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
@@ -74260,7 +74261,9 @@ channels there is no closed-form inverse (unlike the 1-, 2-, and
 3-channel cases in [`super::onech`]/[`super::twoch`]/
 [`super::threech`]), so the level matrix `Y = I - R*L` is factored once
 via [`xspfa`] and then solved once per unit column via [`xspsl`] to
-build up `Y^-1` column by column (see `yfour`, not yet ported).
+build up `Y^-1` column by column (see ~~`yfour`, not yet ported~~
+**CORRECTED 2026-10-01**: `yfour` is ported, as
+[`crate::samm::rmatrix_invert::yfour`]).
 
 # Storage convention
 
@@ -74287,10 +74290,14 @@ the stride-1 case (a 1970s performance trick). Every call site in
 `samm.f90` passes `incx=incy=1` (verified by grep across the whole
 file) — so only the stride-1 path is ported, and the manual unrolling
 is dropped (meaningless with a modern optimizing compiler; the loop
-bodies are otherwise identical). `xdot` is additionally inlined at its
-two call sites in [`xspsl`] rather than kept as a free function, since
-Rust has no direct equivalent of Fortran's "function with an extra
-output parameter" (`xdoti`) signature.
+bodies are otherwise identical). ~~`xdot` is additionally inlined at its
+two call sites in [`xspsl`] rather than kept as a free function~~
+**CORRECTED 2026-10-01** (GitHub #339): `xdot` is a free function
+returning `(real, imag)` in place of Fortran's `xdoti` output argument,
+and it takes the right-hand side `b` as its `y` operand, as upstream's
+call sites do. Until this date it read `y` from the packed factor
+instead, which corrupted `Y^-1` for every `n >= 4` spin group with a
+non-zero off-diagonal; see `xdot`'s doc comment.
 
 ```rust
 pub mod linpack { /* ... */ }
@@ -76880,8 +76887,11 @@ inference would have cost a wasted re-port of a module that was already
 there. A `NotPorted` marker on a function nobody calls is worse than no
 marker: it is a false negative that reads like a finding.
 
-LRF=7 is verified against NJOY2016 2016.79 on Sr-88 (MAT 3837, the only LRF=7
-evaluation in `reference-data/endf/`) across all 44,326 points of NJOY's own
+LRF=7 is verified against NJOY2016 2016.79 on Sr-88 (MAT 3837, ~~the only LRF=7
+evaluation in `reference-data/endf/`~~ **CORRECTED 2026-10-01**: one of seven
+there, with Cl-35, Fe-54, Fe-57, Cu-63, Cu-65 and Mo-95; Fe-57 and Mo-95 are
+word-for-word NJOY's in `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`)
+across all 44,326 points of NJOY's own
 grid inside the resolved range — worst relative deviation MT=1 `9.80e-3`, and
 `2.39e-3` at `err = 0.0001`. Record:
 `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:

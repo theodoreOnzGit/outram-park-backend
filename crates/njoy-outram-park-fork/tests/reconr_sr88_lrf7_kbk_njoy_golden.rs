@@ -4,8 +4,9 @@
 //! # Methodology
 //!
 //! **What is computed.** The crate's [`reconr`] reconstruction of Sr-88
-//! (ENDF/B-VIII.1, MAT 3837 — the only LRF=7 evaluation held in
-//! `reference-data/endf/`), MF=3 MT=1/2/102, over its whole resolved-resonance
+//! (ENDF/B-VIII.1, MAT 3837 — ~~the only LRF=7 evaluation held in
+//! `reference-data/endf/`~~ **CORRECTED 2026-10-01**: one of seven held there,
+//! with Cl-35, Fe-54, Fe-57, Cu-63, Cu-65 and Mo-95), MF=3 MT=1/2/102, over its whole resolved-resonance
 //! range `1e-5 .. 9.5e5 eV`.
 //!
 //! **Reference.** NJOY2016 upstream `ac5adf5f` (2016.79), built in-session with

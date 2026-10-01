@@ -477,6 +477,16 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     }
     rebuild_total_as_sum_of_parts(&mut sections, &final_grid);
 
+    // `emerge` writes each section from its last zero before the first
+    // positive value (`ith`, `reconr.f90:4808, 4919`). Before the redundant
+    // sums below, which then start where their first non-zero part does, as
+    // upstream's `mtrt` makes them (`:4888-4891`).
+    for sec in sections.iter_mut() {
+        if sec.mt != MtReaction::Mt1Total {
+            trim_leading_zeros_to_ith(&mut sec.pairs);
+        }
+    }
+
     // Phase 2d: rebuild the lumped charged-particle channels MT=103-107 from
     // the discrete MT=600-849 levels, as the redundant reactions they are.
     synthesise_lumped_particle_channels(&mut sections);
@@ -772,6 +782,29 @@ fn evaluate_on_union(t: &crate::endf::records::Tab1, union: &[f64], first_res: O
             (e, sigfig(sn, 7, 0))
         })
         .collect()
+}
+
+/// `emerge`'s output start (`reconr.f90:4808, 4919-4932`): `ith` is the first
+/// point whose value is positive (`if (ith.eq.0.and.sn.gt.zero) ith=in`),
+/// moved back one (`if (ith.gt.1) ith=ith-1`), and the TAB1 is written from
+/// there. So every leading zero but the last is dropped.
+///
+/// [`evaluate_on_union`]'s threshold filter already does this for an
+/// ordinary section. It cannot for a **resonance reaction** (`itype != 0`),
+/// which is evaluated from the first resonance point down: the extra
+/// particle-pair channels of an `LRF=7` range can have a threshold inside the
+/// range. ENDF/B-VIII.0 Fe-57's MT=51 (n,n'₁, threshold 14 668.34 eV) came out
+/// with 3 206 extra leading zeros from 1e-5 eV, and its MT=4 sum with them, where
+/// NJOY2016's PENDF starts both at 14 668.32 eV (GitHub #339, 2026-10-01).
+///
+/// A section with no positive value is left whole: upstream's `ith` then
+/// stays 0 and its write loop reads index 0, which is not a defined result.
+fn trim_leading_zeros_to_ith(pairs: &mut Vec<(f64, f64)>) {
+    if let Some(first_pos) = pairs.iter().position(|&(_, y)| y > 0.0) {
+        if first_pos > 1 {
+            pairs.drain(..first_pos - 1);
+        }
+    }
 }
 
 /// `lunion`'s threshold check (`reconr.f90:1913-1938`): a section whose first
@@ -1162,6 +1195,47 @@ pub(crate) struct RangeDelta {
     pub(crate) other: [f64; MAX_OTHER],
 }
 
+impl RangeDelta {
+    /// Every slot set to zero where it is negative, each independently —
+    /// upstream `sigma`'s guard on a resolved section's contribution
+    /// (`reconr.f90:2641-2645`):
+    ///
+    /// ```fortran
+    /// do j=1,nsig
+    ///    if (sigp(j).lt.zero) sigp(j)=0
+    ///    sig(j)=sig(j)+sigp(j)*abn
+    /// enddo
+    /// ```
+    ///
+    /// It runs for every resolved formalism (modes 0-7) and **not** for the
+    /// unresolved contribution, which `sigma` adds afterwards from `sigunr`
+    /// without a guard (`:2660-2666`); hence it is applied in
+    /// [`rebuild_range`] (the four resolved callers) and not in
+    /// [`rebuild_range_with`] (which [`urr`] calls directly). A slot is
+    /// clamped on its own — upstream does not recompute the total when a
+    /// partial is clamped, and neither does this.
+    ///
+    /// Why it matters beyond the value: `resxs`'s midpoint test is
+    /// `dm(j) > errn*sig(j+1)`, which a **negative** `sig` fails at every
+    /// panel, so an unclamped negative partial makes RECONR bisect every
+    /// panel down to the significant-figure floor. Missing until 2026-10-01
+    /// (GitHub #339), when a separate kernel defect gave Fe-57 a negative
+    /// LRF=7 capture and the reconstruction exhausted memory.
+    pub(crate) fn clamp_negative_to_zero(mut self) -> Self {
+        let z = |v: &mut f64| {
+            if *v < 0.0 {
+                *v = 0.0;
+            }
+        };
+        z(&mut self.total);
+        z(&mut self.elastic);
+        z(&mut self.fission);
+        z(&mut self.capture);
+        self.other.iter_mut().for_each(z);
+        self
+    }
+}
+
 fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {
     if range.l_states.is_empty() {
         return;
@@ -1243,6 +1317,12 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
 /// fixed halo leaves, where the Lorentzian wing would otherwise be grossly
 /// over-linearised (the U-238 capture-wing pedestal bug; see this crate's
 /// `docs/porting-plan.md`).
+///
+/// This is the entry point for the **resolved** formalisms, so `delta_at`'s
+/// result passes through [`RangeDelta::clamp_negative_to_zero`] first, as
+/// upstream `sigma` clamps every resolved section's `sigp`
+/// (`reconr.f90:2641-2645`). The unresolved range calls
+/// [`rebuild_range_with`] directly and is not clamped, as upstream.
 pub(crate) fn rebuild_range(
     sections: &mut Vec<ReconrSection>,
     el: f64,
@@ -1253,7 +1333,9 @@ pub(crate) fn rebuild_range(
     raw: &RawMf3,
     delta_at: impl Fn(f64) -> RangeDelta + Sync,
 ) {
-    rebuild_range_with(sections, el, eh, halo, eps, other_mts, raw, RebuildOpts::default(), delta_at);
+    rebuild_range_with(sections, el, eh, halo, eps, other_mts, raw, RebuildOpts::default(), |e| {
+        delta_at(e).clamp_negative_to_zero()
+    });
 }
 
 /// How [`rebuild_range_with`] differs between the resolved and unresolved
