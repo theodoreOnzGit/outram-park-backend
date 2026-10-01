@@ -261,7 +261,7 @@ fn main() {
             core.bed_half_height,
             -core.bed_half_height,
             "hex lattice; 57:43 fuelled:dummy",
-            "realised: half-layers x 4.899 cm (half the two-ball tile)",
+            "realised: Seker layers, 9.798 N + 6 cm, every ball whole (gh:#472)",
         ),
         (
             "conus (sloping bed floor)",
@@ -412,12 +412,15 @@ fn main() {
         "-",
         "Li et al. (2014) Table 1",
     );
+    // ~~The two-ball prism pitch (6.6106 cm, diluted to 0.61)~~ REPLACED
+    // 2026-10-01 (gh:#472): Şeker & Çolak (2003)'s 13-ball cell.
+    let seker = nee_soon::htr10_rmc::bed::SekerCell::from_paper();
     push_dh(
         "3 bed",
-        "paper hex cell pitch (two-ball prism)",
-        format!("{:.4}", cell.pitch),
+        "Seker hex cell pitch (13-ball prism, flat to flat)",
+        format!("{:.4}", seker.pitch()),
         "cm",
-        "reconstructed from the stated 0.61 filling fraction",
+        "Seker & Colak (2003) text + Fig. 3: apothem 3 sqrt(3) + 3, no free parameter",
     );
     push_dh(
         "3 bed",
@@ -428,13 +431,20 @@ fn main() {
     );
 
     // ------------------------------------------------- realised lattice
-    // Two whole 6 cm balls per tile (gh:#309 step 2): the realised packing and
-    // the closest approach follow from the BUILT lattice's pitch and height.
+    // ~~Two whole 6 cm balls per tile (gh:#309 step 2)~~ CHANGED 2026-10-01
+    // (gh:#472): 13 balls per Şeker tile. The interior packing follows from the
+    // BUILT lattice's pitch and height; Şeker's balls touch, so both nearest
+    // distances are one diameter (tested on the built bed in
+    // `htr10_rmc::tests::no_two_balls_of_the_built_bed_overlap`).
     let tile_volume = 0.5 * 3.0_f64.sqrt() * core.lat_pitch.powi(2) * core.lat_height;
-    let realised_packing =
-        2.0 * 4.0 / 3.0 * std::f64::consts::PI * (0.5 * table1::BALL_DIAMETER_CM).powi(3)
-            / tile_volume;
-    let interlayer = (core.lat_pitch / 3.0_f64.sqrt()).hypot(0.5 * core.lat_height);
+    let realised_packing = seker.balls_per_cell()
+        * 4.0
+        / 3.0
+        * std::f64::consts::PI
+        * (0.5 * table1::BALL_DIAMETER_CM).powi(3)
+        / tile_volume;
+    let interlayer = table1::BALL_DIAMETER_CM;
+    let core_balls = core.bed.as_ref().and_then(|b| b.core_balls()).unwrap_or(0);
     let mut realised = String::from("quantity,magnitude,units,remark\n");
     for (q, v, u, note) in [
         (
@@ -447,25 +457,25 @@ fn main() {
             "axial layers",
             format!("{layers}"),
             "-",
-            "reported case size; half-layers of 4.899 cm (one ball layer each)",
+            "reported case size; Seker layers N (bed 9.798 N + 6 cm)",
         ),
         (
             "hex lattice pitch, realised",
             format!("{:.4}", core.lat_pitch),
             "cm",
-            "the paper's two-ball prism pitch (not solved)",
+            "Seker's 13-ball prism pitch (not solved)",
         ),
         (
             "axial tile height, realised",
             format!("{:.4}", core.lat_height),
             "cm",
-            "one A-B layer pair: two balls per tile",
+            "one Seker layer: 7 basal + 6 central balls per tile",
         ),
         (
             "ball filling fraction, realised tile",
             format!("{:.5}", realised_packing),
             "-",
-            "2 whole balls per tile volume; sampled bed value in the V&V record",
+            "interior: 13 whole balls per tile volume; wall rejection lowers the bed value (V&V record)",
         ),
         (
             "helium fraction, realised tile",
@@ -475,15 +485,21 @@ fn main() {
         ),
         (
             "nearest centre distance, in-plane",
-            format!("{:.4}", core.lat_pitch),
+            format!("{:.4}", table1::BALL_DIAMETER_CM),
             "cm",
-            "A to A or B to B within a layer",
+            "touching: Seker's basal flower and central triangle",
         ),
         (
             "nearest centre distance, between layers",
             format!("{:.4}", interlayer),
             "cm",
-            "A to B: hypot(pitch/sqrt(3), height/2); clear of the 6 cm diameter",
+            "touching: central balls rest in the basal hollows (d/sqrt3 lateral, d sqrt(2/3) vertical)",
+        ),
+        (
+            "balls in the bed (kept, whole)",
+            format!("{core_balls}"),
+            "-",
+            "compared to the reference at equal ball count (gh:#472)",
         ),
         (
             "bed cylinder radius",
