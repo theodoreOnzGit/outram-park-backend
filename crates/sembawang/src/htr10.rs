@@ -540,7 +540,18 @@ pub const LIU_CAO_DESIGN_FREE_URANIUM: f64 = 3.0e-4;
 /// HTR-10 design **particle failure fraction from irradiation**, `5·10⁻⁴`:
 /// Liu & Cao 2002 §2.1 (p.82), a design specification. TRISO-ATOPS's `f_inc`,
 /// the in-service failure that accumulates as the fuel is irradiated
-/// (#469 item 1). Read by `htgr_sim_v1` and by
+/// (#469 item 1).
+///
+/// **Why this value (maintainer-accepted 2026-10-01, #471).** It is the
+/// published HTR-10 design figure for irradiation-induced failure; with the
+/// free uranium above it makes up Liu & Cao's total `< 8·10⁻⁴` at **maximum
+/// design burnup**. Applying it to the whole core is therefore conservative:
+/// the simulator's fuel sits at the 1080 FPD mean residence, not at the
+/// discharge burnup. It is not the `5·10⁻³` Liu & Cao used for their Table 3
+/// helium activity, which they call *"somewhat arbitrarily set"*. Source:
+/// `crates/kovan-literature/derived/liu-cao2002-htr10-source-term-assumptions.md`.
+///
+/// Read by `htgr_sim_v1` and by
 /// [`crate::lwr_comparison::bound::F_INC`].
 pub const LIU_CAO_DESIGN_IRRADIATION_FAILURE: f64 = 5.0e-4;
 
