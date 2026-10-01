@@ -78,10 +78,17 @@ fn find_fuel_pebble(g: &Geometry, near: Position) -> Option<(Position, Position)
     // offsets (`TRISO_OFFSET` in `core_model`; [0.13, 0.37, 0.71] since
     // 2026-10-01), so a single line through a pebble centre can miss every
     // kernel.
+    // Since 2026-10-01 the offset is generic in z too, so the pebble's
+    // mid-plane may cut no kernel: step z through one TRISO pitch (~0.195 cm)
+    // as well.
     let u = Direction::new(0.0, 0.0, 1.0);
-    for j in 0..40 {
+    for (kz, j) in (0..20).flat_map(|kz| (0..40).map(move |j| (kz, j))) {
         for i in 0..4000 {
-            let p = Position::new(near.x + 0.01 * i as f64, near.y + 0.01 * j as f64, near.z);
+            let p = Position::new(
+                near.x + 0.01 * i as f64,
+                near.y + 0.01 * j as f64,
+                near.z + 0.01 * kz as f64,
+            );
             if let Some(path) = g.locate(p, u, SurfaceToken::NONE) {
                 let n = path.levels.len();
                 if path.material == Some(mat::KERNEL) && n >= 3 {
