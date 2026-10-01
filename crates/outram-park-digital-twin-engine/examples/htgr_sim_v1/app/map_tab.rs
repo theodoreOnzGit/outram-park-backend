@@ -3106,7 +3106,11 @@ enum Provenance {
     /// DOTTED.
     OurCalculation,
     /// A regulatory reference figure, not a dose curve (the NRC 10 mSv /
-    /// 96 h line): dashed, so it reads as neither of the above.
+    /// 96 h line): ~~dashed, so it reads as neither of the above~~
+    /// **CHANGED 2026-10-01** (maintainer: "the NRC line to be thick and red
+    /// ... continuous too"): thick, solid, pure red ([`TEDE_NRC_COLOUR`]). It
+    /// stays distinguishable from a literature curve by being a horizontal
+    /// criterion line in its own colour, labelled in the legend.
     Reference,
 }
 
@@ -3126,7 +3130,7 @@ impl Provenance {
         match self {
             Provenance::Literature => (LineStyle::Solid, 3.0),
             Provenance::OurCalculation => (LineStyle::dotted_dense(), 1.5),
-            Provenance::Reference => (LineStyle::dashed_dense(), 1.5),
+            Provenance::Reference => (LineStyle::Solid, 4.0),
         }
     }
 }
@@ -3154,6 +3158,10 @@ fn tede_line(
 }
 
 /// A TEDE-graph horizontal line, styled by its [`Provenance`].
+/// The NRC 10 mSv / 96 h reference line's colour: pure red, thick (see
+/// [`Provenance::Reference`]); maintainer, 2026-10-01.
+const TEDE_NRC_COLOUR: Color32 = Color32::from_rgb(255, 0, 0);
+
 fn tede_hline(name: &str, y: f64, colour: Color32, p: Provenance) -> egui_plot::HLine {
     let (style, width) = p.stroke();
     egui_plot::HLine::new(name.to_string(), y)
@@ -3589,7 +3597,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 plot_ui.hline(tede_hline(
                     TEDE_LEGEND_NRC,
                     reference_msv,
-                    Color32::from_rgb(200, 40, 40),
+                    TEDE_NRC_COLOUR,
                     Provenance::Reference,
                 ));
                 if !total.is_empty() {
@@ -4770,13 +4778,18 @@ mod tests {
         assert_eq!(tede_y_label(10.0, &(0.0..=18.0)), "10 mSv");
         assert_eq!(tede_y_label(0.002, &(0.0..=0.004)), "0.002 mSv");
         // Line style is provenance alone: literature thick solid, ours
-        // dotted and thinner, the regulatory line dashed.
+        // dotted and thinner, the regulatory line thick solid red.
         use super::Provenance;
         use egui_plot::LineStyle;
         assert_eq!(Provenance::Literature.stroke(), (LineStyle::Solid, 3.0));
         let (ours, w) = Provenance::OurCalculation.stroke();
         assert_eq!(ours, LineStyle::dotted_dense());
         assert!(w < 3.0);
+        // The NRC line: thick and red (maintainer, 2026-10-01).
+        let (nrc, nrc_w) = Provenance::Reference.stroke();
+        assert_eq!(nrc, LineStyle::Solid);
+        assert!(nrc_w >= 3.0);
+        assert_eq!(super::TEDE_NRC_COLOUR, egui::Color32::from_rgb(255, 0, 0));
         assert!(super::PROVENANCE_KEY.contains("thick solid = published literature"));
         assert!(super::PROVENANCE_KEY.contains("dotted = this project's calculations"));
         // Headroom: 1.8 x the larger of the NRC line and the data.
