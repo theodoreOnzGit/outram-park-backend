@@ -611,6 +611,9 @@ pub struct MapTabState {
     /// Which comparison curves the TEDE graph overlays (#473): the published
     /// AP1000 curve and the bounding-table arms. Default none; display only.
     tede_overlays: TedeOverlays,
+    /// The TEDE graph's "Normalise to thermal power" selection (maintainer,
+    /// 2026-10-01): default 600 MWth. Display only.
+    tede_power: PowerNorm,
     /// The map's zoom and pan (maintainer, 2026-10-01). GUI only: it
     /// magnifies the uploaded texture and the overlays drawn on it, and never
     /// reaches the physics (the cell request stays [`MAP_REQUESTED_CELLS`]).
@@ -817,8 +820,9 @@ fn tede_overlay_x_max(view: &TedeView, cap_m: f64) -> f64 {
 /// 2026-10-01): any of the AP1000 curves and any computed bounding arm.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TedeOverlays {
-    /// [`Ap1000Overlay::ScaledTo10Mwt`], [`Ap1000Overlay::AsPublished`].
-    ap1000: [bool; 2],
+    /// [`Ap1000Overlay::Dadda2024`] (~~two flags, scaled to 10 MWt / as
+    /// published~~ one since the power selector, 2026-10-01).
+    ap1000: bool,
     /// One per `sembawang::lwr_comparison::ARM_COLUMNS` column.
     arms: [bool; 7],
     /// [`LiuCaoOverlay::Depressurization`], [`LiuCaoOverlay::WaterIngress`].
@@ -826,21 +830,14 @@ pub struct TedeOverlays {
 }
 
 impl TedeOverlays {
-    /// The AP1000 curves switched on, in menu order.
+    /// The AP1000 curve, when switched on.
     fn ap1000_on(&self) -> impl Iterator<Item = Ap1000Overlay> + '_ {
-        [Ap1000Overlay::ScaledTo10Mwt, Ap1000Overlay::AsPublished]
-            .into_iter()
-            .zip(self.ap1000)
-            .filter_map(|(o, on)| on.then_some(o))
+        self.ap1000.then_some(Ap1000Overlay::Dadda2024).into_iter()
     }
 
     /// Whether anything is overlaid.
     fn any(&self) -> bool {
-        self.ap1000
-            .iter()
-            .chain(&self.arms)
-            .chain(&self.liu_cao)
-            .any(|b| *b)
+        self.ap1000 || self.arms.iter().chain(&self.liu_cao).any(|b| *b)
     }
 
     /// The Liu & Cao curves switched on, in menu order.
@@ -950,72 +947,205 @@ fn liu_cao_points(o: LiuCaoOverlay, x_max_m: f64) -> Vec<[f64; 2]> {
         .collect()
 }
 
+/// The thermal power a TEDE-graph series is NATIVELY at, i.e. as it arrives
+/// from its source before the graph's power normalisation (maintainer,
+/// 2026-10-01: "scale the TEDE to 600 MWth"). Every series is scaled from
+/// this, once, by [`PowerNorm::scale`], so nothing is double-scaled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SeriesPower {
+    /// HTR-10 at 10 MWth: the live centreline (and its trailing window and
+    /// steady-plume projection), the HTR-10 bounding arms (DB DLOFC, BDB KORA)
+    /// and Liu & Cao (2002) Table 9.
+    Htr10,
+    /// An LWR / WASH-1400 arm as `sembawang::lwr_comparison` delivers it:
+    /// ALREADY scaled to 10 MWth there (NuScale Table B-5 x 10/160 etc., the
+    /// #450 convention). It is scaled from 10 MWth here, never from 160.
+    LwrArmAt10,
+    /// AP1000, Dadda et al. (2024) Fig. 7, as published at 3400 MWt.
+    Ap1000,
+}
+
+impl SeriesPower {
+    /// Native thermal power \[MWth\].
+    fn mwth(self) -> f64 {
+        match self {
+            SeriesPower::Htr10 | SeriesPower::LwrArmAt10 => {
+                crate::physics::bounding_air_ingress::HTR10_MWTH
+            }
+            SeriesPower::Ap1000 => sembawang::ap1000_ted::AP1000_MWTH,
+        }
+    }
+
+    /// The native-power text in legends and notes.
+    fn text(self) -> &'static str {
+        match self {
+            SeriesPower::Htr10 => "10 MWth",
+            SeriesPower::LwrArmAt10 => "10 MWth",
+            SeriesPower::Ap1000 => "3400 MWt",
+        }
+    }
+
+    /// The longer native-power text in the notes.
+    fn note(self) -> &'static str {
+        match self {
+            SeriesPower::Htr10 => "native 10 MWth (HTR-10)",
+            SeriesPower::LwrArmAt10 => {
+                "native 10 MWth (already scaled from the LWR's power in sembawang, #450)"
+            }
+            SeriesPower::Ap1000 => "native 3400 MWt (AP1000, as published)",
+        }
+    }
+}
+
+/// The TEDE graph's "Normalise to thermal power" selector (maintainer,
+/// 2026-10-01: "scale the TEDE to 600 MWth"). DISPLAY ONLY: every dose
+/// series is multiplied by `target / native` ([`PowerNorm::scale`]) -- dose
+/// proportional to released activity proportional to thermal power, the #450
+/// convention -- and nothing upstream (physics, sembawang, buangkok, changi)
+/// changes. The NRC 10 mSv / 96 h line is a criterion and is never scaled.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PowerNorm {
+    /// Every series at HTR-10's 10 MWth: the graph as it was before the
+    /// selector.
+    Htr10,
+    /// Every series linearly scaled to 600 MWth. The default (maintainer's
+    /// request, 2026-10-01).
+    #[default]
+    Mwth600,
+}
+
+impl PowerNorm {
+    /// Selector order.
+    const ALL: [PowerNorm; 2] = [PowerNorm::Htr10, PowerNorm::Mwth600];
+
+    /// The target thermal power \[MWth\].
+    fn mwth(self) -> f64 {
+        match self {
+            PowerNorm::Htr10 => crate::physics::bounding_air_ingress::HTR10_MWTH,
+            PowerNorm::Mwth600 => 600.0,
+        }
+    }
+
+    /// The selector entry.
+    fn label(self) -> &'static str {
+        match self {
+            PowerNorm::Htr10 => "10 MWth (HTR-10)",
+            PowerNorm::Mwth600 => "600 MWth",
+        }
+    }
+
+    /// The factor applied to a series natively at `native`:
+    /// `target / native`.
+    fn factor(self, native: SeriesPower) -> f64 {
+        self.mwth() / native.mwth()
+    }
+
+    /// THE scaling helper -- the one place a dose is normalised to thermal
+    /// power. `v * target / native`, written in that order so that the
+    /// AP1000 curve at 10 MWth is bit-for-bit
+    /// `sembawang::ap1000_ted::scale_to_power`'s, and the identity (exactly
+    /// `v`) when the target is the native power.
+    fn scale(self, v: f64, native: SeriesPower) -> f64 {
+        let (t, n) = (self.mwth(), native.mwth());
+        if t == n {
+            v
+        } else {
+            v * t / n
+        }
+    }
+
+    /// [`PowerNorm::scale`] on the dose of each `[m, mSv]` point.
+    fn scale_points(self, pts: &[[f64; 2]], native: SeriesPower) -> Vec<[f64; 2]> {
+        pts.iter()
+            .map(|p| [p[0], self.scale(p[1], native)])
+            .collect()
+    }
+
+    /// The legend suffix: native power and factor, e.g. " [10 MWth \u{d7}60]";
+    /// empty when the factor is 1 (so at 10 MWth the HTR-10 and arm names
+    /// read exactly as before the selector).
+    fn tag(self, native: SeriesPower) -> String {
+        let f = self.factor(native);
+        if f == 1.0 {
+            String::new()
+        } else {
+            format!(" [{} \u{d7}{}]", native.text(), factor_text(f))
+        }
+    }
+}
+
+/// A scale factor to three significant figures, trailing zeros dropped:
+/// 60 -> "60", 0.17647 -> "0.176", 0.0029412 -> "0.00294".
+fn factor_text(f: f64) -> String {
+    if !(f.is_finite() && f > 0.0) {
+        return format!("{f}");
+    }
+    let decimals = (2 - f.log10().floor() as i32).max(0) as usize;
+    let s = format!("{f:.decimals$}");
+    if s.contains('.') {
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    } else {
+        s
+    }
+}
+
+/// The caveat at the top of the notes while 600 MWth is selected
+/// (maintainer's wording, 2026-10-01). Pinned by a test.
+const POWER_SCALING_CAVEAT: &str =
+    "Linear power scaling: dose \u{221d} released activity \u{221d} \
+     thermal power. Assumes the same release fractions, release height, weather and receptor at \
+     every size; ignores that a larger plant's source geometry, building wake, containment/vessel \
+     scaling and fuel burnup differ. Not a dose for any real 600 MWth plant.";
+
 /// The AP1000 severe-accident TED overlay on the centreline TEDE graph
 /// (maintainer request 2026-10-01, #473): Dadda et al. (2024) Fig. 7, the
-/// eight groups summed (`sembawang::ap1000_ted`). Default none; since the
-/// overlay menu became a multi-select (2026-10-01) `None` is its "clear all"
-/// entry and the other two are checkboxes ([`TedeOverlays`]).
+/// eight groups summed (`sembawang::ap1000_ted`), natively 3400 MWt and
+/// scaled by the graph's [`PowerNorm`] selector.
+///
+/// ~~Two entries, "scaled to 10 MWt" (x 10/3400) and "as published,
+/// 3400 MWt".~~ **CHANGED 2026-10-01 (power selector):** ONE entry, scaled
+/// by the selector (x 10/3400 at 10 MWth, x 600/3400 at 600 MWth). The
+/// as-published 3400 MWt entry was dropped: it would be the only series not
+/// at the selected power, so it could not be read against anything else on
+/// the graph, and the published values themselves are pinned by sembawang's
+/// digitisation gate against Dadda's Table 3.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Ap1000Overlay {
-    /// No overlay.
+    /// No overlay (the menu's "clear all" entry).
     #[default]
     None,
-    /// Scaled to HTR-10's 10 MWt by `x 10 / 3400` (#450 convention).
-    ScaledTo10Mwt,
-    /// As published, 3400 MWt.
-    AsPublished,
+    /// Dadda et al. (2024), scaled from 3400 MWt by the power selector.
+    Dadda2024,
 }
 
 impl Ap1000Overlay {
-    /// The dropdown order.
-    const ALL: [Ap1000Overlay; 3] = [
-        Ap1000Overlay::None,
-        Ap1000Overlay::ScaledTo10Mwt,
-        Ap1000Overlay::AsPublished,
-    ];
-
-    /// The dropdown entry.
+    /// The menu entry.
     fn label(self) -> &'static str {
         match self {
             Ap1000Overlay::None => "None",
-            Ap1000Overlay::ScaledTo10Mwt => {
-                "AP1000 severe accident (Dadda 2024, class B) \u{2014} scaled to 10 MWt"
-            }
-            Ap1000Overlay::AsPublished => {
-                "AP1000 severe accident (Dadda 2024, class B) \u{2014} as published, 3400 MWt"
+            Ap1000Overlay::Dadda2024 => {
+                "AP1000 severe accident (Dadda 2024, class B) \u{2014} published at 3400 MWt, \
+                 scaled to the selected power"
             }
         }
     }
 
-    /// The short legend name.
+    /// The short legend name (before the power tag).
     fn legend_name(self) -> &'static str {
         match self {
             Ap1000Overlay::None => "",
-            Ap1000Overlay::ScaledTo10Mwt => "AP1000 Dadda 2024 (\u{d7}10/3400)",
-            Ap1000Overlay::AsPublished => "AP1000 Dadda 2024 (3400 MWt)",
+            Ap1000Overlay::Dadda2024 => "AP1000 Dadda 2024",
         }
     }
 
     /// Line colour.
     fn colour(self) -> Color32 {
-        match self {
-            Ap1000Overlay::AsPublished => Color32::from_rgb(90, 30, 120),
-            _ => Color32::from_rgb(140, 60, 170),
-        }
+        Color32::from_rgb(140, 60, 170)
     }
 
     /// Where the curve comes from: a published, digitised figure.
     fn provenance(self) -> Provenance {
         Provenance::Literature
-    }
-
-    /// The thermal power the curve is drawn at \[MWt\], `None` for no overlay.
-    fn mwth(self) -> Option<f64> {
-        match self {
-            Ap1000Overlay::None => None,
-            Ap1000Overlay::ScaledTo10Mwt => Some(crate::physics::bounding_air_ingress::HTR10_MWTH),
-            Ap1000Overlay::AsPublished => Some(sembawang::ap1000_ted::AP1000_MWTH),
-        }
     }
 }
 
@@ -1030,15 +1160,28 @@ fn ap1000_overlay_caveats(o: Ap1000Overlay) -> String {
     )
 }
 
-/// The AP1000 overlay's curve on the TEDE graph's axes, `[m, mSv]`, clipped
-/// to `[digitised start, clip_m]`, plus a note: groups counted as zero
-/// outside their digitised range, and whether the clip hides the peak. Empty
-/// for [`Ap1000Overlay::None`].
-fn ap1000_overlay_curve(o: Ap1000Overlay, clip_m: f64) -> (Vec<[f64; 2]>, String) {
+/// The AP1000 curve at `[km]` distances as `[m, mSv]`, natively 3400 MWt
+/// (`sembawang::ap1000_ted::total_ted`), normalised by [`PowerNorm::scale`]
+/// in Sv before the x 1e3 -- the order the pre-selector code used, so the
+/// 10 MWth curve is bit-for-bit unchanged.
+fn ap1000_points(x_km: &[f64], norm: PowerNorm) -> Vec<[f64; 2]> {
+    sembawang::ap1000_ted::total_ted(x_km)
+        .iter()
+        .map(|t| {
+            [
+                t.distance_km * 1.0e3,
+                norm.scale(t.total_sv, SeriesPower::Ap1000) * 1.0e3,
+            ]
+        })
+        .collect()
+}
+
+/// The AP1000 overlay's curve on the TEDE graph's axes, `[m, mSv]`, at the
+/// selected power, clipped to `[digitised start, clip_m]`, plus a note:
+/// groups counted as zero outside their digitised range, and whether the
+/// clip hides the peak.
+fn ap1000_overlay_curve(norm: PowerNorm, clip_m: f64) -> (Vec<[f64; 2]>, String) {
     use sembawang::ap1000_ted as a;
-    let Some(mwth) = o.mwth() else {
-        return (Vec::new(), String::new());
-    };
     let (lo_km, hi_km) = a::digitised_range_km();
     let end_km = (clip_m / 1.0e3).min(hi_km);
     if !(end_km > lo_km) {
@@ -1047,12 +1190,9 @@ fn ap1000_overlay_curve(o: Ap1000Overlay, clip_m: f64) -> (Vec<[f64; 2]>, String
             "AP1000 overlay: graph range ends before the digitised curve.".into(),
         );
     }
-    let tot = a::total_ted_scaled(&a::log_grid_km(lo_km, end_km, 120), mwth);
-    let pts: Vec<[f64; 2]> = tot
-        .iter()
-        .map(|t| [t.distance_km * 1.0e3, t.total_sv * 1.0e3])
-        .collect();
-    let partial_to_m = tot
+    let grid = a::log_grid_km(lo_km, end_km, 120);
+    let pts = ap1000_points(&grid, norm);
+    let partial_to_m = a::total_ted(&grid)
         .iter()
         .filter(|t| !t.groups_outside.is_empty())
         .map(|t| t.distance_km * 1.0e3)
@@ -1076,20 +1216,13 @@ fn ap1000_overlay_curve(o: Ap1000Overlay, clip_m: f64) -> (Vec<[f64; 2]>, String
     (pts, note)
 }
 
-/// The AP1000 overlay's whole curve, `[m, mSv]`, over its full digitised
-/// range at 2000 log-spaced points: the data its reference crossing is
-/// found on (independent of the x range in view). Empty for
-/// [`Ap1000Overlay::None`].
-fn ap1000_full_curve(o: Ap1000Overlay) -> Vec<[f64; 2]> {
+/// The AP1000 overlay's whole curve, `[m, mSv]`, at the selected power,
+/// over its full digitised range at 2000 log-spaced points: the data its
+/// reference crossing is found on (independent of the x range in view).
+fn ap1000_full_curve(norm: PowerNorm) -> Vec<[f64; 2]> {
     use sembawang::ap1000_ted as a;
-    let Some(mwth) = o.mwth() else {
-        return Vec::new();
-    };
     let (lo_km, hi_km) = a::digitised_range_km();
-    a::total_ted_scaled(&a::log_grid_km(lo_km, hi_km, 2000), mwth)
-        .iter()
-        .map(|t| [t.distance_km * 1.0e3, t.total_sv * 1.0e3])
-        .collect()
+    ap1000_points(&a::log_grid_km(lo_km, hi_km, 2000), norm)
 }
 
 /// What the steady-plume `chi/Q` field depends on -- all of it, so this one
@@ -3143,8 +3276,13 @@ fn steady_plume_projection_msv(s: &HtgrSnapshot, x_m: f64) -> Option<f64> {
 /// linear dose in mSv against linear distance in m, ticks every 200 m and
 /// evenly spaced mSv ticks; no log tick formatter. The overlays
 /// ([`TedeOverlays`], default none) are drawn on the same linear axes: the
-/// AP1000 curve as published (3400 MWt, ~39 Sv peak) or a 100 m LWR arm
-/// flattens the HTR-10 curve, which is expected and NOT switched to log.
+/// AP1000 curve ~~as published (3400 MWt, ~39 Sv peak)~~ (since 2026-10-01
+/// at the selected power, [`PowerNorm`]) or a 100 m LWR arm flattens the
+/// HTR-10 curve, which is expected and NOT switched to log.
+///
+/// Every dose series is normalised to the "Normalise to thermal power"
+/// selection (default 600 MWth) from its own native power by
+/// [`PowerNorm::scale`]; the NRC line is not. Display only.
 ///
 /// `width` x `height` is the column this graph fills (title, plot, then the
 /// overlay menu and notes BELOW the plot so they do not shrink it).
@@ -3180,9 +3318,17 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 .map(|p| [p.distance_m, f(p) * 1.0e3])
                 .collect()
         };
-        let total = msv_pts(|p| p.since_start_sv);
+        // The power normalisation (maintainer, 2026-10-01), applied to each
+        // series once, from its native power, by `PowerNorm::scale`.
+        let norm = state.tede_power;
+        let htr = SeriesPower::Htr10;
+        let htr_tag = norm.tag(htr);
+        let name_total = format!("{TEDE_LEGEND_TOTAL}{htr_tag}");
+        let name_window = format!("{TEDE_LEGEND_WINDOW}{htr_tag}");
+        let name_projection = format!("{TEDE_LEGEND_PROJECTION}{htr_tag}");
+        let total = norm.scale_points(&msv_pts(|p| p.since_start_sv), htr);
         let show_window = s.tede.elapsed_s > 95.0 * 3600.0;
-        let window = msv_pts(|p| p.trailing_96h_sv);
+        let window = norm.scale_points(&msv_pts(|p| p.trailing_96h_sv), htr);
         let mut status = format!(
             "Accumulated over {} of plant time.",
             clock_text(s.tede.elapsed_s)
@@ -3200,7 +3346,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
             status.push_str(" Trailing-96 h window = since start until 95 h have run.");
         }
         ui.small(status);
-        let projection: Vec<[f64; 2]> = if state.plume_overlay {
+        let projection_native: Vec<[f64; 2]> = if state.plume_overlay {
             let far = points.last().map_or(0.0, |p| p.distance_m);
             (1..=40)
                 .map(|k| far * k as f64 / 40.0)
@@ -3213,6 +3359,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
         } else {
             Vec::new()
         };
+        let projection = norm.scale_points(&projection_native, htr);
         let overlays = state.tede_overlays;
         // The bounding arms, straight from the comparison's rows -- since
         // 2026-10-01 the SAME calculation as the bounding table sampled on
@@ -3226,7 +3373,9 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
         let arms: Vec<(usize, Vec<[f64; 2]>)> = match comparison {
             Some(Ok(c)) => (0..7)
                 .filter(|k| overlays.arms[*k])
-                .filter_map(|k| arm_overlay_points(c, k).map(|p| (k, p)))
+                .filter_map(|k| {
+                    arm_overlay_points(c, k).map(|p| (k, norm.scale_points(&p, arm_power(k))))
+                })
                 .collect(),
             _ => Vec::new(),
         };
@@ -3259,20 +3408,46 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
         let ap1000: Vec<(Ap1000Overlay, Vec<[f64; 2]>, String)> = overlays
             .ap1000_on()
             .map(|o| {
-                let (p, note) = ap1000_overlay_curve(o, lit_x_max);
+                let (p, note) = ap1000_overlay_curve(norm, lit_x_max);
                 (o, p, note)
             })
             .collect();
         let liu_cao: Vec<(LiuCaoOverlay, Vec<[f64; 2]>)> = overlays
             .liu_cao_on()
-            .map(|o| (o, liu_cao_points(o, lit_x_max)))
+            .map(|o| (o, norm.scale_points(&liu_cao_points(o, lit_x_max), htr)))
             .collect();
+        // Every shown series' legend name (with its power tag) and native
+        // power, for the notes' "Power normalisation" lines.
+        let ap1000_name = |o: Ap1000Overlay| -> String {
+            format!("{}{}", o.legend_name(), norm.tag(SeriesPower::Ap1000))
+        };
+        let liu_cao_name = |o: LiuCaoOverlay| -> String { format!("{}{htr_tag}", o.legend_name()) };
+        let mut power_rows: Vec<(String, SeriesPower)> = Vec::new();
+        if !total.is_empty() {
+            power_rows.push((name_total.clone(), htr));
+        }
+        if show_window && !window.is_empty() {
+            power_rows.push((name_window.clone(), htr));
+        }
+        if !projection.is_empty() {
+            power_rows.push((name_projection.clone(), htr));
+        }
+        power_rows.extend(
+            arms.iter()
+                .map(|(k, _)| (arm_series_name(*k, norm), arm_power(*k))),
+        );
+        power_rows.extend(
+            ap1000
+                .iter()
+                .map(|(o, _, _)| (ap1000_name(*o), SeriesPower::Ap1000)),
+        );
+        power_rows.extend(liu_cao.iter().map(|(o, _)| (liu_cao_name(*o), htr)));
         // Plot height from the content ABOVE the plot only (title + status);
         // the menu and the notes go below so the graph does not shrink
         // (maintainer, 2026-10-01).
         let used = ui.min_rect().height();
         let plot_h = (height - used).max(200.0);
-        let reference_msv = NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3;
+        let reference_msv = nrc_reference_msv();
         let y_top = tede_plot_y_top(
             reference_msv,
             [&total, &window, &projection]
@@ -3297,14 +3472,14 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 });
             }
         };
-        push(TEDE_LEGEND_TOTAL, TEDE_TOTAL_COLOUR, ours, &total);
+        push(&name_total, TEDE_TOTAL_COLOUR, ours, &total);
         if show_window {
-            push(TEDE_LEGEND_WINDOW, TEDE_WINDOW_COLOUR, ours, &window);
+            push(&name_window, TEDE_WINDOW_COLOUR, ours, &window);
         }
-        push(TEDE_LEGEND_PROJECTION, PLUME_COLOUR, ours, &projection);
+        push(&name_projection, PLUME_COLOUR, ours, &projection);
         for (k, pts) in &arms {
             push(
-                arm_legend_name(*k),
+                &arm_series_name(*k, norm),
                 arm_colour_marker(*k).0,
                 arm_provenance(*k),
                 pts,
@@ -3312,18 +3487,18 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
         }
         for (o, _, _) in &ap1000 {
             push(
-                o.legend_name(),
+                &ap1000_name(*o),
                 o.colour(),
                 o.provenance(),
-                &ap1000_full_curve(*o),
+                &ap1000_full_curve(norm),
             );
         }
         for (o, _) in &liu_cao {
             push(
-                o.legend_name(),
+                &liu_cao_name(*o),
                 o.colour(),
                 o.provenance(),
-                &liu_cao_points(*o, f64::INFINITY),
+                &norm.scale_points(&liu_cao_points(*o, f64::INFINITY), htr),
             );
         }
         let started = state.tede_view.started;
@@ -3419,35 +3594,26 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 ));
                 if !total.is_empty() {
                     let blue = TEDE_TOTAL_COLOUR;
-                    plot_ui.line(tede_line(TEDE_LEGEND_TOTAL, total.clone(), blue, ours));
+                    plot_ui.line(tede_line(&name_total, total.clone(), blue, ours));
                     plot_ui.points(
-                        Points::new(TEDE_LEGEND_TOTAL, PlotPoints::from(total))
+                        Points::new(name_total.as_str(), PlotPoints::from(total))
                             .color(blue)
                             .radius(3.5),
                     );
                 }
                 if show_window && !window.is_empty() {
                     let green = TEDE_WINDOW_COLOUR;
-                    plot_ui.line(tede_line(TEDE_LEGEND_WINDOW, window, green, ours));
+                    plot_ui.line(tede_line(&name_window, window, green, ours));
                 }
                 if !projection.is_empty() {
-                    plot_ui.line(tede_line(
-                        TEDE_LEGEND_PROJECTION,
-                        projection,
-                        PLUME_COLOUR,
-                        ours,
-                    ));
+                    plot_ui.line(tede_line(&name_projection, projection, PLUME_COLOUR, ours));
                 }
                 for (k, pts) in &arms {
                     let (colour, marker) = arm_colour_marker(*k);
-                    plot_ui.line(tede_line(
-                        arm_legend_name(*k),
-                        pts.clone(),
-                        colour,
-                        arm_provenance(*k),
-                    ));
+                    let name = arm_series_name(*k, norm);
+                    plot_ui.line(tede_line(&name, pts.clone(), colour, arm_provenance(*k)));
                     plot_ui.points(
-                        Points::new(arm_legend_name(*k), PlotPoints::from(pts.clone()))
+                        Points::new(name, PlotPoints::from(pts.clone()))
                             .color(colour)
                             .shape(marker)
                             .radius(4.0),
@@ -3456,8 +3622,8 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                 for (o, pts) in &liu_cao {
                     if !pts.is_empty() {
                         let lit = o.provenance();
-                        let name = o.legend_name();
-                        plot_ui.line(tede_line(name, pts.clone(), o.colour(), lit));
+                        let name = liu_cao_name(*o);
+                        plot_ui.line(tede_line(&name, pts.clone(), o.colour(), lit));
                         plot_ui.points(
                             Points::new(name, PlotPoints::from(pts.clone()))
                                 .color(o.colour())
@@ -3469,7 +3635,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                     if !pts.is_empty() {
                         let colour = o.colour();
                         plot_ui.line(tede_line(
-                            o.legend_name(),
+                            &ap1000_name(*o),
                             pts.clone(),
                             colour,
                             o.provenance(),
@@ -3544,7 +3710,28 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
         };
         // Below the plot: the overlay menu, then the long text that used to
         // sit in the legend.
-        draw_tede_overlay_menu(ui, &mut state.tede_overlays);
+        draw_tede_overlay_menu(ui, &mut state.tede_overlays, &mut state.tede_power);
+        // The power-scaling caveat first in the notes while 600 MWth is
+        // selected (maintainer's wording), then every shown series' native
+        // power and factor.
+        if norm != PowerNorm::Htr10 {
+            ui.add(
+                egui::Label::new(
+                    egui::RichText::new(POWER_SCALING_CAVEAT)
+                        .small()
+                        .color(Color32::from_rgb(200, 90, 0)),
+                )
+                .wrap(),
+            );
+        }
+        if !power_rows.is_empty() {
+            ui.add(
+                egui::Label::new(
+                    egui::RichText::new(power_normalisation_note(norm, &power_rows)).small(),
+                )
+                .wrap(),
+            );
+        }
         draw_crossing_table(ui, &crossing_rows);
         ui.small(PROVENANCE_KEY);
         ui.add(egui::Label::new(egui::RichText::new(TEDE_PLOT_NOTES).small()).wrap());
@@ -3566,7 +3753,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                             )
                             .wrap(),
                         );
-                        if let Some(line) = below_note(&crossing_rows, o.legend_name()) {
+                        if let Some(line) = below_note(&crossing_rows, &ap1000_name(*o)) {
                             ui.small(line);
                         }
                     }
@@ -3582,7 +3769,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                         ui.small("No Table 9 row inside the x range shown (first row 250 m).");
                     }
                     for (o, _) in &liu_cao {
-                        if let Some(line) = below_note(&crossing_rows, o.legend_name()) {
+                        if let Some(line) = below_note(&crossing_rows, &liu_cao_name(*o)) {
                             ui.small(line);
                         }
                     }
@@ -3597,7 +3784,7 @@ fn draw_tede_plot(ui: &mut Ui, s: &HtgrSnapshot, state: &mut MapTabState, width:
                         egui::Label::new(egui::RichText::new(arm_notes(&overlays)).small()).wrap(),
                     );
                     for (k, _) in &arms {
-                        if let Some(line) = below_note(&crossing_rows, arm_legend_name(*k)) {
+                        if let Some(line) = below_note(&crossing_rows, &arm_series_name(*k, norm)) {
                             ui.small(line);
                         }
                     }
@@ -3644,6 +3831,30 @@ const TEDE_WINDOW_COLOUR: Color32 = Color32::from_rgb(20, 150, 80);
 /// | BDB: HTR-10 KORA core burn (EXTREME) | ours | 1.24 km |
 /// | BDB: NuScale LOCA + core melt | ours | 8.15 km |
 /// | Context: WASH-1400 PWR 8 | ours | 1.15 km |
+///
+/// # Results at 600 MWth (2026-10-01, power selector, display scaling only)
+///
+/// Every curve x `600 / native` ([`PowerNorm::scale`]: x60 for the HTR-10
+/// series and the LWR arms, which arrive at 10 MWth; x0.176 for AP1000),
+/// the 10 mSv criterion unscaled. Pinned by
+/// `tests::the_crossings_recompute_at_600_mwth`. The arms' graph grid ends
+/// at 20 km, so where a scaled arm is still above 10 mSv there the table
+/// says "> 20.0 km (data ends)" -- no crossing is extrapolated past it.
+///
+/// | Series | Factor | 10 MWth | 600 MWth |
+/// |---|---|---|---|
+/// | AP1000 Dadda 2024 | x0.00294 / x0.176 | 3.51 km | 32.9 km (its own data run past 20 km) |
+/// | Liu & Cao 2002 depressurization DBA | x1 / x60 | below everywhere | below everywhere (max 4.6 mSv) |
+/// | Liu & Cao 2002 water-ingress DBA | x1 / x60 | below everywhere | 399 m |
+/// | DB: HTR-10 DLOFC | x1 / x60 | below everywhere | below everywhere (max 2.70 mSv) |
+/// | DB: NuScale LOCA | x1 / x60 | 3.46 km | > 20.0 km (data ends; 62.0 mSv at 20 km) |
+/// | BDB: HTR-10 KORA core burn (EXTREME) | x1 / x60 | 1.24 km | > 20.0 km (data ends; 13.6 mSv at 20 km) |
+/// | BDB: NuScale LOCA + core melt | x1 / x60 | 8.15 km | > 20.0 km (data ends; 194 mSv at 20 km) |
+/// | Context: WASH-1400 PWR 8 | x1 / x60 | 1.15 km | > 20.0 km (data ends; 12.0 mSv at 20 km) |
+///
+/// The ~~"AP1000 Dadda 2024, 3400 MWt" 91.8 km~~ row has no counterpart
+/// since the selector replaced the as-published entry (it is the 3400 MWt
+/// curve; the number above stands as recorded).
 ///
 /// The two natural-deposition arms are pending literature and have no
 /// curve. The live HTR-10 centreline depends on the running plant and is
@@ -3813,8 +4024,8 @@ fn arm_notes(overlays: &TedeOverlays) -> String {
 /// One checkbox of the TEDE overlay menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum OverlayEntry {
-    /// `Ap1000Overlay::ALL[1 + i]`.
-    Ap1000(usize),
+    /// [`Ap1000Overlay::Dadda2024`].
+    Ap1000,
     /// `LiuCaoOverlay::ALL[i]`.
     LiuCao(usize),
     /// Bounding-table arm `k` ([`arm_legend_name`]).
@@ -3831,8 +4042,7 @@ const OVERLAY_MENU_GROUPS: [Provenance; 3] = [
 impl OverlayEntry {
     /// Every entry, in menu order within its group.
     fn all() -> impl Iterator<Item = OverlayEntry> {
-        (0..2)
-            .map(OverlayEntry::Ap1000)
+        std::iter::once(OverlayEntry::Ap1000)
             .chain((0..LiuCaoOverlay::ALL.len()).map(OverlayEntry::LiuCao))
             .chain((0..ARM_LEGEND_STEMS.len()).map(OverlayEntry::Arm))
     }
@@ -3841,7 +4051,7 @@ impl OverlayEntry {
     /// the menu section and the line style cannot disagree.
     fn provenance(self) -> Provenance {
         match self {
-            OverlayEntry::Ap1000(i) => Ap1000Overlay::ALL[1 + i].provenance(),
+            OverlayEntry::Ap1000 => Ap1000Overlay::Dadda2024.provenance(),
             OverlayEntry::LiuCao(i) => LiuCaoOverlay::ALL[i].provenance(),
             OverlayEntry::Arm(k) => arm_provenance(k),
         }
@@ -3850,7 +4060,7 @@ impl OverlayEntry {
     /// The menu text.
     fn label(self) -> &'static str {
         match self {
-            OverlayEntry::Ap1000(i) => Ap1000Overlay::ALL[1 + i].label(),
+            OverlayEntry::Ap1000 => Ap1000Overlay::Dadda2024.label(),
             OverlayEntry::LiuCao(i) => LiuCaoOverlay::ALL[i].label(),
             OverlayEntry::Arm(k) => arm_legend_name(k),
         }
@@ -3859,7 +4069,7 @@ impl OverlayEntry {
     /// The selection flag it toggles.
     fn flag(self, o: &mut TedeOverlays) -> &mut bool {
         match self {
-            OverlayEntry::Ap1000(i) => &mut o.ap1000[i],
+            OverlayEntry::Ap1000 => &mut o.ap1000,
             OverlayEntry::LiuCao(i) => &mut o.liu_cao[i],
             OverlayEntry::Arm(k) => &mut o.arms[k],
         }
@@ -3872,16 +4082,57 @@ fn arm_provenance(_k: usize) -> Provenance {
     Provenance::OurCalculation
 }
 
+/// Bounding arm `k`'s native power as `sembawang` delivers it: the HTR-10
+/// arms (DB DLOFC, BDB KORA) at 10 MWth, the LWR and WASH-1400 arms already
+/// scaled to 10 MWth there (#450).
+fn arm_power(k: usize) -> SeriesPower {
+    if k == 0 || k == KORA_ARM {
+        SeriesPower::Htr10
+    } else {
+        SeriesPower::LwrArmAt10
+    }
+}
+
+/// Arm `k`'s legend name at `norm`: [`arm_legend_name`] plus the power tag.
+fn arm_series_name(k: usize, norm: PowerNorm) -> String {
+    format!("{}{}", arm_legend_name(k), norm.tag(arm_power(k)))
+}
+
+/// The NRC 2023 10 mSv / 96 h reference figure \[mSv\]. A criterion: it
+/// is NEVER power-normalised (maintainer, 2026-10-01).
+fn nrc_reference_msv() -> f64 {
+    NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3
+}
+
+/// The notes' "Power normalisation" lines: the target, then each shown
+/// series' native power and the factor applied.
+fn power_normalisation_note(norm: PowerNorm, rows: &[(String, SeriesPower)]) -> String {
+    let mut out = format!(
+        "Power normalisation: every dose curve shown at {} (dose x target / native power); the \
+         NRC 10 mSv / 96 h line is a criterion and is not scaled.",
+        norm.label()
+    );
+    for (name, p) in rows {
+        out.push_str(&format!(
+            "\n{name}: {}, \u{d7}{} applied.",
+            p.note(),
+            factor_text(norm.factor(*p))
+        ));
+    }
+    out
+}
+
 /// The overlay multi-select under the graph: "None" clears everything, then
 /// one checkbox per AP1000 curve and per bounding arm. A pending arm (any
 /// row `None`, "pending literature" in the table) is shown disabled and is
 /// never plotted.
-fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays) {
-    let selected = [Ap1000Overlay::ScaledTo10Mwt, Ap1000Overlay::AsPublished]
-        .into_iter()
-        .zip(o.ap1000)
-        .filter(|(_, on)| *on)
-        .map(|(a, _)| a.legend_name())
+///
+/// Beside it, the "Normalise to thermal power" selector ([`PowerNorm`],
+/// maintainer 2026-10-01, default 600 MWth).
+fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays, power: &mut PowerNorm) {
+    let selected = o
+        .ap1000_on()
+        .map(Ap1000Overlay::legend_name)
         .chain(o.liu_cao_on().map(LiuCaoOverlay::legend_name))
         .chain((0..7).filter(|k| o.arms[*k]).map(arm_legend_name))
         .collect::<Vec<_>>();
@@ -3946,6 +4197,19 @@ fn draw_tede_overlay_menu(ui: &mut Ui, o: &mut TedeOverlays) {
                  2002 Table 9: HTR-10 design-basis accidents, whole-body, published; the \
                  depressurization case pairs with DB: HTR-10 DLOFC. DB/BDB/\
                  Context: the bounding table's arms (sembawang::lwr_comparison), same rows.",
+            );
+        ui.small("Normalise to thermal power:");
+        egui::ComboBox::from_id_salt("htgr_tede_power_norm")
+            .selected_text(power.label())
+            .show_ui(ui, |ui| {
+                for p in PowerNorm::ALL {
+                    ui.selectable_value(power, p, p.label());
+                }
+            })
+            .response
+            .on_hover_text(
+                "Display only: every dose curve x target / native power (dose \u{221d} released \
+                 activity \u{221d} thermal power). The NRC line is not scaled.",
             );
     });
 }
@@ -4455,7 +4719,7 @@ mod tests {
             "BDB: HTR-10 KORA core burn (1400 \u{b0}C, 5.8 d) \u{2014} EXTREME"
         );
         let all = TedeOverlays {
-            ap1000: [false; 2],
+            ap1000: false,
             arms: [true; 7],
             liu_cao: [false; 2],
         };
@@ -4788,6 +5052,173 @@ mod tests {
         ));
     }
 
+    /// The power selector's helper (maintainer, 2026-10-01): native ->
+    /// target for each provenance -- 10 -> 600 MWth is x60 for HTR-10 and
+    /// for the LWR arms (which arrive at 10 MWth from sembawang, so they are
+    /// NOT rescaled from 160), 3400 -> 600 is x0.17647 for AP1000; the
+    /// identity at the native power; 600 MWth is the default; the legend tag
+    /// and the caveat carry the factor and the maintainer's wording.
+    #[test]
+    fn the_power_normalisation_maps_native_to_target() {
+        use super::{arm_power, factor_text, PowerNorm as N, SeriesPower as P, POWER_SCALING_CAVEAT};
+        assert_eq!(N::default(), N::Mwth600);
+        assert_eq!(N::ALL.map(N::label), ["10 MWth (HTR-10)", "600 MWth"]);
+        assert_eq!(N::Mwth600.factor(P::Htr10), 60.0);
+        assert_eq!(N::Mwth600.factor(P::LwrArmAt10), 60.0);
+        assert!((N::Mwth600.factor(P::Ap1000) - 600.0 / 3400.0).abs() < 1e-15);
+        assert!((N::Mwth600.factor(P::Ap1000) - 0.176_470_588).abs() < 1e-9);
+        assert_eq!(N::Htr10.factor(P::Htr10), 1.0);
+        assert_eq!(N::Htr10.factor(P::LwrArmAt10), 1.0);
+        assert!((N::Htr10.factor(P::Ap1000) - 10.0 / 3400.0).abs() < 1e-18);
+        // The identity is exact at the native power, whatever the value.
+        for v in [0.1, 1.0 / 3.0, 7.77e-9, 123.456] {
+            assert_eq!(N::Htr10.scale(v, P::Htr10), v);
+            assert_eq!(N::Mwth600.scale(v, P::Htr10), v * 600.0 / 10.0);
+            assert_eq!(N::Htr10.scale(v, P::Ap1000), v * 10.0 / 3400.0);
+        }
+        // HTR-10 arms (DB DLOFC, BDB KORA) native HTR-10, the rest LWR at 10.
+        assert_eq!(
+            (0..7).map(arm_power).collect::<Vec<_>>(),
+            [
+                P::Htr10,
+                P::LwrArmAt10,
+                P::LwrArmAt10,
+                P::Htr10,
+                P::LwrArmAt10,
+                P::LwrArmAt10,
+                P::LwrArmAt10
+            ]
+        );
+        assert_eq!(factor_text(60.0), "60");
+        assert_eq!(factor_text(600.0 / 3400.0), "0.176");
+        assert_eq!(factor_text(10.0 / 3400.0), "0.00294");
+        assert_eq!(factor_text(1.0), "1");
+        assert_eq!(N::Mwth600.tag(P::Htr10), " [10 MWth \u{d7}60]");
+        assert_eq!(N::Mwth600.tag(P::Ap1000), " [3400 MWt \u{d7}0.176]");
+        assert_eq!(N::Htr10.tag(P::Htr10), "");
+        assert_eq!(N::Htr10.tag(P::Ap1000), " [3400 MWt \u{d7}0.00294]");
+        assert!(POWER_SCALING_CAVEAT.starts_with(
+            "Linear power scaling: dose \u{221d} released activity \u{221d} thermal power."
+        ));
+        assert!(POWER_SCALING_CAVEAT.ends_with("Not a dose for any real 600 MWth plant."));
+    }
+
+    /// At 10 MWth every plotted value equals the pre-selector graph's
+    /// EXACTLY (regression): the bounding arms are `arm_doses_sv x 1e3`,
+    /// Liu & Cao is Table 9 as published, the live centreline is untouched;
+    /// at 600 MWth each is x60 of that. The NRC line is the criterion
+    /// unscaled at both settings.
+    #[test]
+    fn at_10_mwth_the_graph_is_unchanged_and_the_nrc_line_is_never_scaled() {
+        use super::{
+            arm_overlay_points, arm_power, liu_cao_points, nrc_reference_msv, LiuCaoOverlay,
+            PowerNorm as N, SeriesPower as P, NRC_2023_EPZ_CRITERION_DOSE_SV,
+        };
+        let c = crate::physics::bounding_air_ingress::graph_comparison()
+            .as_ref()
+            .expect("bounding chain runs");
+        for k in 0..7 {
+            if let Some(pts) = arm_overlay_points(c, k) {
+                assert_eq!(N::Htr10.scale_points(&pts, arm_power(k)), pts);
+                let big = N::Mwth600.scale_points(&pts, arm_power(k));
+                for (a, b) in pts.iter().zip(&big) {
+                    assert_eq!((a[0], a[1] * 600.0 / 10.0), (b[0], b[1]));
+                    assert!((b[1] - 60.0 * a[1]).abs() <= 1e-14 * b[1]);
+                }
+            }
+        }
+        for o in LiuCaoOverlay::ALL {
+            let pts = liu_cao_points(o, f64::INFINITY);
+            assert_eq!(N::Htr10.scale_points(&pts, P::Htr10), pts);
+        }
+        let live = vec![[100.0, 0.123], [500.0, 4.5e-3], [1000.0, 1.0 / 7.0]];
+        assert_eq!(N::Htr10.scale_points(&live, P::Htr10), live);
+        // The criterion: 10 mSv, independent of the selector.
+        assert_eq!(nrc_reference_msv(), NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3);
+        assert_eq!(nrc_reference_msv(), 10.0);
+    }
+
+    /// The crossing table recomputes on the SCALED curves against the
+    /// UNSCALED 10 mSv criterion, interpolated and never extrapolated.
+    /// Recorded 2026-10-01 (see [`super::ReferenceCrossing`]'s table).
+    #[test]
+    fn the_crossings_recompute_at_600_mwth() {
+        use super::{
+            ap1000_full_curve, arm_overlay_points, arm_power, arm_series_name, liu_cao_points,
+            nrc_reference_msv, reference_crossing, LiuCaoOverlay, PowerNorm as N,
+            ReferenceCrossing as C, SeriesPower as P,
+        };
+        let r = nrc_reference_msv();
+        // A synthetic native curve: 20 mSv at 1 km falling to 0.1 mSv at
+        // 2 km. Scaled x60 it crosses where the NATIVE curve is 10/60 mSv,
+        // i.e. the line is not scaled with the curve.
+        let native = [[1000.0, 20.0], [2000.0, 0.1]];
+        let Some(C::At(x10)) = reference_crossing(&native, r) else {
+            panic!()
+        };
+        let Some(C::At(x600)) = reference_crossing(&N::Mwth600.scale_points(&native, P::Htr10), r)
+        else {
+            panic!()
+        };
+        assert!((x10 - (1000.0 + 10.0 / 19.9 * 1000.0)).abs() < 1e-9);
+        assert!((x600 - (1000.0 + (1200.0 - 10.0) / 1194.0 * 1000.0)).abs() < 1e-9);
+        let c = crate::physics::bounding_air_ingress::graph_comparison()
+            .as_ref()
+            .expect("bounding chain runs");
+        let mut rows: Vec<(String, Option<C>, Option<C>)> = Vec::new();
+        for k in 0..7 {
+            if let Some(pts) = arm_overlay_points(c, k) {
+                rows.push((
+                    arm_series_name(k, N::Mwth600),
+                    reference_crossing(&N::Htr10.scale_points(&pts, arm_power(k)), r),
+                    reference_crossing(&N::Mwth600.scale_points(&pts, arm_power(k)), r),
+                ));
+            }
+        }
+        rows.push((
+            "AP1000".into(),
+            reference_crossing(&ap1000_full_curve(N::Htr10), r),
+            reference_crossing(&ap1000_full_curve(N::Mwth600), r),
+        ));
+        for o in LiuCaoOverlay::ALL {
+            let pts = liu_cao_points(o, f64::INFINITY);
+            rows.push((
+                o.legend_name().into(),
+                reference_crossing(&N::Htr10.scale_points(&pts, P::Htr10), r),
+                reference_crossing(&N::Mwth600.scale_points(&pts, P::Htr10), r),
+            ));
+        }
+        #[derive(Clone, Copy)]
+        enum W {
+            Below,
+            Ends,
+            At(f64),
+        }
+        let ok = |c: &Option<C>, w: W| match (c, w) {
+            (Some(C::BelowEverywhere), W::Below) => true,
+            (Some(C::DataEnds(x)), W::Ends) => *x == 20_000.0,
+            (Some(C::At(v)), W::At(x)) => (v - x).abs() < 1.0,
+            _ => false,
+        };
+        let want = [
+            ("DB: HTR-10 DLOFC", W::Below, W::Below),
+            ("DB: NuScale LOCA", W::At(3461.3), W::Ends),
+            ("BDB: HTR-10 KORA", W::At(1240.7), W::Ends),
+            ("BDB: NuScale LOCA + core melt", W::At(8147.3), W::Ends),
+            ("Context: WASH-1400", W::At(1149.5), W::Ends),
+            ("AP1000", W::At(3510.1), W::At(32945.7)),
+            ("HTR-10 depressurization", W::Below, W::Below),
+            ("HTR-10 water-ingress", W::Below, W::At(398.8)),
+        ];
+        assert_eq!(rows.len(), want.len());
+        for ((n, a, b), (stem, w10, w600)) in rows.iter().zip(want) {
+            assert!(n.starts_with(stem), "{n}");
+            assert!(ok(a, w10), "{n} at 10 MWth: {a:?}");
+            assert!(ok(b, w600), "{n} at 600 MWth: {b:?}");
+        }
+        assert!(rows[0].0.ends_with(" [10 MWth \u{d7}60]"));
+    }
+
     /// The AP1000 (x 10/3400) curve's reference crossing is found on its
     /// OWN full digitised data, not on the view-clipped points: clipped to
     /// the 2 km default view the curve is still above 10 mSv where it is cut
@@ -4796,17 +5227,17 @@ mod tests {
     #[test]
     fn the_ap1000_crossing_is_computed_from_its_own_data() {
         use super::{
-            ap1000_full_curve, ap1000_overlay_curve, reference_crossing, Ap1000Overlay,
+            ap1000_full_curve, ap1000_overlay_curve, reference_crossing, PowerNorm,
             ReferenceCrossing as C, NRC_2023_EPZ_CRITERION_DOSE_SV,
         };
         let r = NRC_2023_EPZ_CRITERION_DOSE_SV * 1.0e3;
-        let o = Ap1000Overlay::ScaledTo10Mwt;
+        let o = PowerNorm::Htr10;
         let full = ap1000_full_curve(o);
         let Some(C::At(x)) = reference_crossing(&full, r) else {
             panic!("the scaled AP1000 curve crosses 10 mSv");
         };
         assert!((x - 3510.0).abs() < 10.0, "{x}");
-        let at = sembawang::ap1000_ted::total_ted_scaled(&[x / 1.0e3], o.mwth().unwrap());
+        let at = sembawang::ap1000_ted::total_ted_scaled(&[x / 1.0e3], 10.0);
         let msv = at[0].total_sv * 1.0e3;
         assert!((msv - r).abs() < 0.01 * r, "{msv} mSv at {x} m");
         let (clipped, _) = ap1000_overlay_curve(o, 2000.0);
@@ -4817,7 +5248,8 @@ mod tests {
     }
 
     /// Maintainer, 2026-10-01: the overlay menu is grouped by provenance,
-    /// read from each entry (literature: AP1000 x2, Liu & Cao x2; ours: the
+    /// read from each entry (literature: AP1000 -- ~~x2~~ one since the
+    /// power selector -- and Liu & Cao x2; ours: the
     /// seven bounding arms), with headings; the compact key is on the plot.
     #[test]
     fn the_overlay_menu_is_grouped_by_provenance() {
@@ -4826,10 +5258,10 @@ mod tests {
             .filter(|e| e.provenance() == Provenance::Literature)
             .map(OverlayEntry::label)
             .collect();
-        assert_eq!(lit.len(), 4);
-        assert!(lit[0].starts_with("AP1000") && lit[1].starts_with("AP1000"));
-        assert!(lit[2].contains("depressurization DBA (Liu & Cao 2002, Table 9"));
-        assert!(lit[3].contains("water-ingress DBA (Liu & Cao 2002, Table 9"));
+        assert_eq!(lit.len(), 3);
+        assert!(lit[0].starts_with("AP1000"));
+        assert!(lit[1].contains("depressurization DBA (Liu & Cao 2002, Table 9"));
+        assert!(lit[2].contains("water-ingress DBA (Liu & Cao 2002, Table 9"));
         let ours: Vec<OverlayEntry> = OverlayEntry::all()
             .filter(|e| e.provenance() == Provenance::OurCalculation)
             .collect();
@@ -4847,10 +5279,7 @@ mod tests {
         for e in OverlayEntry::all() {
             *e.flag(&mut o) = true;
         }
-        assert_eq!(
-            (o.ap1000, o.liu_cao, o.arms),
-            ([true; 2], [true; 2], [true; 7])
-        );
+        assert_eq!((o.ap1000, o.liu_cao, o.arms), (true, [true; 2], [true; 7]));
         assert_eq!(
             TEDE_PLOT_KEY,
             "solid = published \u{b7} dotted = our calculations"
@@ -4927,27 +5356,24 @@ mod tests {
         );
     }
 
-    /// #473 (2026-10-01): the AP1000 overlay defaults to none; its entries
-    /// are the maintainer's three; the scaled curve is the published sum
-    /// x 10/3400 in mSv against m, peaking near 0.59 km (~115 mSv) inside the
-    /// 1000 m clip; the legend carries the pairing and every mismatch.
+    /// #473 (2026-10-01): the AP1000 overlay defaults to none; ~~its entries
+    /// are the maintainer's three~~ since the power selector (2026-10-01) it
+    /// has one entry, scaled by the selector; at 10 MWth the curve is the
+    /// published sum x 10/3400 BIT FOR BIT (`total_ted_scaled(.., 10)`, the
+    /// pre-selector path), in mSv against m, peaking near 0.59 km (~115 mSv)
+    /// inside the 1000 m clip; at 600 MWth it is the same sum x 600/3400;
+    /// the legend carries the pairing and every mismatch.
     #[test]
     fn the_ap1000_overlay_is_optional_scaled_and_labelled() {
-        use super::{ap1000_overlay_caveats, ap1000_overlay_curve, Ap1000Overlay};
+        use super::{ap1000_overlay_caveats, ap1000_overlay_curve, Ap1000Overlay, PowerNorm};
         assert_eq!(Ap1000Overlay::default(), Ap1000Overlay::None);
         assert_eq!(
-            Ap1000Overlay::ALL.map(|o| o.label()),
-            [
-                "None",
-                "AP1000 severe accident (Dadda 2024, class B) \u{2014} scaled to 10 MWt",
-                "AP1000 severe accident (Dadda 2024, class B) \u{2014} as published, 3400 MWt",
-            ]
+            Ap1000Overlay::Dadda2024.label(),
+            "AP1000 severe accident (Dadda 2024, class B) \u{2014} published at 3400 MWt, \
+             scaled to the selected power"
         );
-        assert!(ap1000_overlay_curve(Ap1000Overlay::None, 1000.0)
-            .0
-            .is_empty());
-        let (scaled, note) = ap1000_overlay_curve(Ap1000Overlay::ScaledTo10Mwt, 1000.0);
-        let (full, _) = ap1000_overlay_curve(Ap1000Overlay::AsPublished, 1000.0);
+        let (scaled, note) = ap1000_overlay_curve(PowerNorm::Htr10, 1000.0);
+        let (big, _) = ap1000_overlay_curve(PowerNorm::Mwth600, 1000.0);
         assert!(note.contains("peak is inside") && note.contains("not extrapolated"));
         assert!(scaled.iter().all(|p| p[0] >= 98.0 && p[0] <= 1000.0 + 1e-9));
         let pk = scaled
@@ -4956,12 +5382,21 @@ mod tests {
             .fold([0.0, 0.0], |a, b| if b[1] > a[1] { b } else { a });
         assert!((pk[0] - 593.0).abs() < 30.0, "{pk:?}");
         assert!((pk[1] - 115.0).abs() < 2.0, "{pk:?}");
-        for (a, b) in scaled.iter().zip(&full) {
-            assert!((a[1] - b[1] * 10.0 / 3400.0).abs() <= 1e-12 * b[1].max(1.0));
+        // Regression: the pre-selector "scaled to 10 MWt" curve, exactly.
+        let (lo, hi) = sembawang::ap1000_ted::digitised_range_km();
+        let grid = sembawang::ap1000_ted::log_grid_km(lo, hi.min(1.0), 120);
+        let old: Vec<[f64; 2]> = sembawang::ap1000_ted::total_ted_scaled(&grid, 10.0)
+            .iter()
+            .map(|t| [t.distance_km * 1.0e3, t.total_sv * 1.0e3])
+            .collect();
+        assert_eq!(scaled, old);
+        for (a, b) in scaled.iter().zip(&big) {
+            assert_eq!(a[0], b[0]);
+            assert!((b[1] - a[1] * 60.0).abs() <= 1e-12 * b[1].max(1.0));
         }
-        let (_, clipped) = ap1000_overlay_curve(Ap1000Overlay::ScaledTo10Mwt, 400.0);
+        let (_, clipped) = ap1000_overlay_curve(PowerNorm::Mwth600, 400.0);
         assert!(clipped.contains("CLIPPED"));
-        let legend = ap1000_overlay_caveats(Ap1000Overlay::ScaledTo10Mwt);
+        let legend = ap1000_overlay_caveats(Ap1000Overlay::Dadda2024);
         for needle in [
             "DLOFC + air ingress, KORA",
             "unmitigated core melt",
