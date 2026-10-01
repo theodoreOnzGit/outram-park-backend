@@ -18,8 +18,11 @@ The VIII.0-only plot taken before the VII.0 arm finished is
 - **Geometry check first:** `cargo test --release -p nee_soon --test
   htr10_geometry_integrity`: **4 passed, 0 failed**
   (`logs/geometry_integrity.log`). The geometry images were regenerated on
-  2026-10-01 in `../htr10_geometry_images/` and `../htr10_python_plots/`; they
-  were not regenerated for this run, and the geometry did not change.
+  2026-10-01 in `../htr10_geometry_images/` ~~and `../htr10_python_plots/`~~
+  **CORRECTED 2026-10-02**: `../htr10_python_plots/` still held the
+  2026-09-26 two-ball images at the time; it was regenerated for the 13-ball
+  bed on 2026-10-02. They were not regenerated for this run, and the
+  geometry did not change.
 - **Model:** `assemble_explicit_triso`, 14 rings, Şeker & Çolak (2003)
   13-ball cell (every pebble whole, gh:#472), explicit TECDOC-1382 reflector
   with the withdrawn rods in, helium coolant (gh:#426), natural carbon

@@ -22,9 +22,10 @@ rebuild the runs: `RUN_PARAMETERS.md`.
 - **Code:** `develop` at `f888cfd98e`, `reference-data/ace` at `6440b6df`.
   Example `examples/htr10_rmc_keff.rs`, release build. Geometry integrity
   test first: **4 passed, 0 failed** (`logs/geometry_integrity.log`). The
-  geometry did not change since the images in `../htr10_geometry_images/`
-  and `../htr10_python_plots/` were drawn on 2026-10-01, so they were not
-  regenerated.
+  geometry did not change after `../htr10_geometry_images/` was drawn on
+  2026-10-01. `../htr10_python_plots/` turned out to still hold the
+  2026-09-26 two-ball images, so it was regenerated on 2026-10-02 from the
+  same N = 12 bed these runs use (see its README).
 - **Statistics:** **10 000 histories × [5 inactive + 135 active]** (140
   cycles), the reference paper's own settings at the maintainer's request.
   Seed 20260917. Earlier records on this bed used 2000 × [30 + 70]

@@ -16,8 +16,9 @@
 //! plane was chosen and how many ball centres lie on it.
 //!
 //! Default output: `crates/nee_soon/verification_and_validation/htr10_python_plots/`.
-//! Size: 14 rings x `OUTRAM_HTR10_LAYERS` (default 25, the critical loading,
-//! 122.474 cm) — the geometry the k-eff runs use, drawn with the withdrawn rods
+//! Size: 14 rings x `OUTRAM_HTR10_LAYERS` Şeker layers (~~default 25, the
+//! critical loading, 122.474 cm~~ **CORRECTED 2026-10-02**: the code default
+//! is 12, the 123.576 cm row of the 13-ball bed, gh:#472) — the geometry the k-eff runs use, drawn with the withdrawn rods
 //! IN (the geometry default). NOT a validation artefact: no transport runs.
 
 use std::path::PathBuf;
