@@ -35,19 +35,31 @@
 //!
 //! # Three things Table 2 does not say
 //!
-//! Every one is an assumption a reader must be able to overrule, so each is a
-//! named constant or an enum rather than a buried literal:
+//! ~~Every one is an assumption a reader must be able to overrule~~
+//! **CORRECTED 2026-10-01 (gh:#428, gh:#334):** Li's Table 2 is silent on all
+//! three, but the benchmark specification it follows is not silent on the
+//! first two. IAEA-TECDOC-1382 part 2, **Table 4-2** "Fuel element
+//! characteristics" (§ 4.1.1.5, printed p.235; re-read 2026-10-01), states
+//! *"Enrichment of 235U (weight) 17 %"* and *"Density of graphite in matrix
+//! and outer shell 1.73 g/cm3"*. So items 1 and 2 are the specification, not
+//! assumptions. Each is still a named constant or an enum rather than a
+//! buried literal:
 //!
 //! 1. **The enrichment basis.** "Fuel enrichment 17 %" gives no basis.
-//!    [`ENRICHMENT_WT`] takes it as **weight** percent, the industry convention.
+//!    [`ENRICHMENT_WT`] takes it as **weight** percent, ~~the industry
+//!    convention~~ as TECDOC-1382 Table 4-2 states. Whether Li's RMC model
+//!    used weight or atom per cent is not stated in Li (gh:#334).
 //!    The table's own 5 g heavy-metal figure *cannot* arbitrate — it comes out
 //!    4.99991 g on a weight reading against 4.99992 g on an atom reading — but
 //!    the two differ by **1.06 % in U-235 number density**, which an eigenvalue
 //!    does see.
-//! 2. **The fuel ball's graphite density.** Table 2 states 1.73 g/cm3 only for
-//!    the *moderator* ball. [`RHO_GRAPHITE`] applies it to the matrix and shell
-//!    too.
-//! 3. **The "ppm" basis.** Taken as by weight, of *natural* boron — see
+//! 2. **The fuel ball's graphite density.** Li's Table 2 states 1.73 g/cm3
+//!    only for the *moderator* ball. [`RHO_GRAPHITE`] applies it to the matrix
+//!    and shell too, ~~an assumption~~ as TECDOC-1382 Table 4-2 states for the
+//!    fuel ball's matrix and outer shell.
+//! 3. **The "ppm" basis.** TECDOC-1382 Table 4-2 is silent on this too: it
+//!    says "equivalent natural boron content" with no weight or atom basis
+//!    (checked 2026-10-01). Taken as by weight, of *natural* boron — see
 //!    [`BoronReading`], which exists because this one is both easy to get wrong
 //!    and expensive when you do.
 
@@ -57,15 +69,27 @@ use crate::material::material::{Material, NuclideComponent};
 const NA: f64 = 6.022_140_76e23;
 const M_U235: f64 = 235.043_930;
 const M_U238: f64 = 238.050_788;
+/// O-16 isotopic mass \[g/mol\]. All oxygen is placed as O-16, and the UO2
+/// molar mass uses this rather than natural oxygen's 15.999 (noted 2026-10-01,
+/// gh:#428). O-17 and O-18 (0.04 + 0.20 at.%) are omitted. The molar-mass
+/// difference shifts the UO2 molecule density by about 3e-5 relative, a
+/// negligible effect.
 const M_O16: f64 = 15.994_914_6;
 const M_C: f64 = 12.011;
+/// Natural silicon \[g/mol\]. `nee_soon::htr10_rmc::materials::atomic_weight::SI`
+/// uses the IUPAC conventional value 28.085 (noted 2026-10-01, gh:#428). The
+/// two differ by 1.8e-5 relative, which is negligible but is a duplicated
+/// constant that can drift.
 const M_SI: f64 = 28.0855;
 const M_B10: f64 = 10.0129;
 const M_B11: f64 = 11.0093;
 
 /// Fuel enrichment as a **weight** fraction of U-235 in uranium (Table 2: 17 %).
 ///
-/// See the module docs for why the basis is an assumption and what it costs.
+/// ~~See the module docs for why the basis is an assumption and what it
+/// costs.~~ **CORRECTED 2026-10-01 (gh:#428):** the weight basis is stated by
+/// IAEA-TECDOC-1382 Table 4-2; only Li's Table 2 leaves it out. See the module
+/// docs for what the other basis would cost.
 pub const ENRICHMENT_WT: f64 = 0.17;
 /// UO2 kernel density \[g/cm3\] (Table 2).
 pub const RHO_UO2: f64 = 10.4;
@@ -76,7 +100,9 @@ pub const RHO_PYC: f64 = 1.9;
 /// SiC density \[g/cm3\] (Table 2).
 pub const RHO_SIC: f64 = 3.18;
 /// Graphite density \[g/cm3\] — Table 2 gives this for the **moderator ball**;
-/// applied here to the fuel ball's matrix and shell as well. See the module docs.
+/// applied here to the fuel ball's matrix and shell as well, as
+/// IAEA-TECDOC-1382 Table 4-2 states (*"Density of graphite in matrix and outer
+/// shell 1.73 g/cm3"*; corrected 2026-10-01, gh:#428). See the module docs.
 pub const RHO_GRAPHITE: f64 = 1.73;
 /// Natural boron in the uranium \[ppm by weight\] (Table 2).
 pub const B_PPM_URANIUM: f64 = 4.0;
