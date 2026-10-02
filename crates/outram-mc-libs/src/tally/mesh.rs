@@ -24,9 +24,15 @@
 //! [`MeshKind`]; per-bin volumes for flux normalisation (scope item 5) are on
 //! [`MeshKind::bin_volume`].
 //!
-//! Still absent, and still a real gap: the **unstructured** mesh family, which
+//! ~~Still absent, and still a real gap: the **unstructured** mesh family, which
 //! is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
-//! #260. Also still a gap, unchanged by this work and pre-dating it: the
+//! #260.~~ **CORRECTED 2026-10-03 (GitHub #492):** the unstructured family is
+//! [`MeshKind::Unstructured`] (description in `outram_blender::unstructured`,
+//! built from or converted to OpenFOAM `polyMesh`), scored by
+//! [`super::mesh_unstructured::UnstructuredMeshExt`] — point location, and a
+//! track-length estimator that **does** split a segment across the cells it
+//! crosses (`MOABMesh::bins_crossed`). For the four **structured** kinds the
+//! following gap is unchanged: the
 //! track-length **`bins_crossed`** sub-segmentation, so a segment is scored
 //! whole into its midpoint's cell rather than split across the cells it
 //! actually crosses. That approximation is exact only while a mesh cell is
@@ -35,6 +41,7 @@
 //! across it. Worth knowing before using a fine R-Z mesh.
 
 use crate::geometry::position::Position;
+use crate::tally::mesh_unstructured::UnstructuredMeshExt;
 
 pub use outram_blender::spatial_mesh::*;
 
@@ -439,6 +446,19 @@ impl SphericalMeshExt for SphericalMesh {
 pub trait MeshKindExt {
     /// Flat bin index containing `p`, or `None` if `p` is outside the mesh.
     fn bin(&self, p: Position) -> Option<usize>;
+    /// Whether the track-length estimator splits a segment across the bins
+    /// it crosses on this mesh ([`Self::bins_crossed`]), rather than scoring
+    /// it whole into its midpoint's bin.
+    ///
+    /// `true` only for [`MeshKind::Unstructured`] (GitHub #492, after
+    /// `MOABMesh::bins_crossed`). The four structured kinds keep the
+    /// documented midpoint approximation (module docs): changing them would
+    /// move every recorded structured-mesh tally, which needs its own
+    /// re-measurement, and is not part of #492.
+    fn splits_track_length(&self) -> bool;
+    /// `(bin, length fraction)` for every bin the segment `r0 -> r1` \[cm\]
+    /// crosses, or `None` where [`Self::splits_track_length`] is `false`.
+    fn bins_crossed(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>>;
 }
 
 impl MeshKindExt for MeshKind {
@@ -448,6 +468,21 @@ impl MeshKindExt for MeshKind {
             Self::Rectilinear(m) => m.bin(p),
             Self::Cylindrical(m) => m.bin(p),
             Self::Spherical(m) => m.bin(p),
+            Self::Unstructured(m) => m.locate(p),
+        }
+    }
+
+    fn splits_track_length(&self) -> bool {
+        match self {
+            Self::Regular(_) | Self::Rectilinear(_) | Self::Cylindrical(_) | Self::Spherical(_) => false,
+            Self::Unstructured(_) => true,
+        }
+    }
+
+    fn bins_crossed(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
+        match self {
+            Self::Regular(_) | Self::Rectilinear(_) | Self::Cylindrical(_) | Self::Spherical(_) => None,
+            Self::Unstructured(m) => Some(m.bins_crossed(r0, r1)),
         }
     }
 }

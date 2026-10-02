@@ -649,6 +649,9 @@ impl MeshSurfaceFilter {
                     MeshKind::Rectilinear(_) => "a rectilinear mesh",
                     MeshKind::Cylindrical(_) => "a cylindrical mesh",
                     MeshKind::Spherical(_) => "a spherical mesh",
+                    // Upstream fatal_errors too: "Unstructured mesh surface
+                    // tallies are not implemented." (`src/mesh.cpp:1029`).
+                    MeshKind::Unstructured(_) => "an unstructured mesh",
                     MeshKind::Regular(_) => unreachable!(),
                 }
             )),

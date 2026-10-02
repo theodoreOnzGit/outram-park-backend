@@ -39,10 +39,18 @@
 //!
 //! Units: cm and radians, raw `f64`, as in OpenMC.
 //!
-//! The unstructured mesh family is not here yet; it is GitHub #492, which
-//! will add it as a [`MeshKind`] variant.
+//! ~~The unstructured mesh family is not here yet; it is GitHub #492, which
+//! will add it as a [`MeshKind`] variant.~~ **CORRECTED 2026-10-03 (GitHub
+//! #492):** it is [`MeshKind::Unstructured`], holding an
+//! `Arc<`[`UnstructuredMesh`]`>` from [`crate::unstructured`] — the same
+//! object an FV or FE solver is built from. Point location and the
+//! track-length estimator across its cells live in outram-mc-libs
+//! (`UnstructuredMeshExt`).
+
+use std::sync::Arc;
 
 use crate::csg::position::Position;
+pub use crate::unstructured::UnstructuredMesh;
 
 /// Axis-aligned regular (equal-spacing) Cartesian mesh.
 ///
@@ -222,8 +230,10 @@ impl SphericalMesh {
     }
 }
 
-/// **Enum dispatch over every structured mesh type** — the form a
-/// outram-mc-libs' `tally::filter::MeshFilter` holds so one filter serves all four.
+/// **Enum dispatch over every tally mesh type** — the form
+/// outram-mc-libs' `tally::filter::MeshFilter` holds so one filter serves all
+/// of them. ~~every structured mesh type ... all four~~ **CORRECTED
+/// 2026-10-03:** four structured kinds plus [`MeshKind::Unstructured`].
 ///
 /// Enum rather than a trait object, per the workspace Rust design rule
 /// (`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
@@ -231,17 +241,21 @@ impl SphericalMesh {
 /// faithful equivalent here and costs no indirection.
 #[derive(Debug, Clone, PartialEq)]
 ///
-/// **Not `#[non_exhaustive]`, deliberately** (GitHub #486 / #492). An
-/// `Unstructured(Arc<..>)` variant is planned (#492): MC tally meshes will be
-/// the same mesh objects the deterministic solver uses for MGXS. When it lands,
-/// every `match` on this enum must fail to compile until it decides what to do
-/// with an unstructured mesh, which is what the absence of a wildcard-forcing
-/// attribute guarantees inside this workspace.
+/// **Not `#[non_exhaustive]`, deliberately** (GitHub #486 / #492). ~~An
+/// `Unstructured(Arc<..>)` variant is planned (#492)~~ **It landed
+/// 2026-10-03 (#492)**: MC tally meshes are the same mesh objects the
+/// deterministic solver uses for MGXS. Every exhaustive `match` on this enum
+/// in the workspace was updated by hand when it landed, which is what the
+/// absence of a wildcard-forcing attribute guaranteed; a future variant will
+/// force the same review.
 pub enum MeshKind {
     Regular(RegularMesh),
     Rectilinear(RectilinearMesh),
     Cylindrical(CylindricalMesh),
     Spherical(SphericalMesh),
+    /// A neutral [`UnstructuredMesh`] (3-D only for tallies; see
+    /// outram-mc-libs' `UnstructuredMeshExt`). Bins are cells, in cell order.
+    Unstructured(Arc<UnstructuredMesh>),
 }
 
 impl MeshKind {
@@ -253,6 +267,7 @@ impl MeshKind {
             Self::Rectilinear(m) => m.n_bins(),
             Self::Cylindrical(m) => m.n_bins(),
             Self::Spherical(m) => m.n_bins(),
+            Self::Unstructured(m) => m.n_cells(),
         }
     }
 
@@ -275,6 +290,11 @@ impl MeshKind {
             Self::Rectilinear(m) => m.volume(unflatten(bin, m.dimension())),
             Self::Cylindrical(m) => m.volume(unflatten(bin, m.dimension())),
             Self::Spherical(m) => m.volume(unflatten(bin, m.dimension())),
+            // The mesh stores volumes in its own unit; tallies are in cm.
+            Self::Unstructured(m) => {
+                let s = m.unit().cm_per_unit();
+                m.cell_volume(bin) * s * s * s
+            }
         })
     }
 }

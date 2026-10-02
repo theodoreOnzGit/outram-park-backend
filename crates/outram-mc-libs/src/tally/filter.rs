@@ -44,6 +44,19 @@ pub trait Filter: Send + Sync {
     fn expansion_moments(&self, _event: &FilterEvent) -> Option<Vec<f64>> {
         None
     }
+
+    /// Track-length splitting: for a filter that divides a streamed segment
+    /// `r0 -> r1` \[cm\] among several bins, the `(bin, length fraction)`
+    /// pairs — the multi-`(bin, weight)` return of OpenMC's
+    /// `MeshFilter::get_all_bins` under the track-length estimator
+    /// (`src/tallies/filter_mesh.cpp:60-69`). `None` (the default) means the
+    /// filter bins the segment by [`Filter::get_bin`] at its midpoint.
+    ///
+    /// Only a [`MeshFilter`] on an unstructured mesh returns `Some` today
+    /// (GitHub #492).
+    fn track_length_bins(&self, _r0: Position, _r1: Position) -> Option<Vec<(usize, f64)>> {
+        None
+    }
 }
 #[derive(Debug, Clone, PartialEq)]
 
@@ -408,6 +421,12 @@ impl Filter for MeshFilter {
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         self.mesh.bin(ev.position)
+    }
+    /// Unstructured meshes split the segment across the cells it crosses
+    /// (GitHub #492); the structured kinds return `None` and keep the
+    /// midpoint binning documented above.
+    fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
+        self.mesh.bins_crossed(r0, r1)
     }
 }
 
@@ -1074,6 +1093,22 @@ impl FilterKind {
     /// Functional-expansion weights, or `None` for a non-expansion filter.
     pub fn expansion_moments(&self, event: &FilterEvent) -> Option<Vec<f64>> {
         self.as_filter().expansion_moments(event)
+    }
+
+    /// Whether this filter splits a track-length segment across several
+    /// bins ([`Filter::track_length_bins`]) — known before any event, so the
+    /// scoring path can choose its branch once per segment.
+    pub fn splits_track_length(&self) -> bool {
+        match self {
+            FilterKind::Mesh(f) => f.mesh.splits_track_length(),
+            _ => false,
+        }
+    }
+
+    /// `(bin, length fraction)` pairs for the segment `r0 -> r1` \[cm\], or
+    /// `None` for a filter that bins the segment at its midpoint.
+    pub fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
+        self.as_filter().track_length_bins(r0, r1)
     }
 
     /// Whether this filter deposits into every moment bin at once rather than

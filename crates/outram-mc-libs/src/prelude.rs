@@ -41,6 +41,7 @@ pub use crate::tally::mesh::{
     CylindricalMeshExt, MeshKindExt, RectilinearMeshExt, RegularMesh, RegularMeshExt,
     SphericalMeshExt,
 };
+pub use crate::tally::mesh_unstructured::{UnstructuredMesh, UnstructuredMeshExt};
 pub use crate::tally::scoring::Q_FISSION_J;
 pub use crate::tally::arithmetic::DerivedTally;
 pub use crate::physics::compute::{ComputeType, ThreadCount};
