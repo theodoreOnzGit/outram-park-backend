@@ -8,6 +8,21 @@ repository = "https://github.com/theodoreOnzGit/outram-park-backend"
 readme = "README.md"
 publish = false
 
+[features]
+# `long-tests` (GitHub #503, 2026-10-02): the workspace rule
+# (docs/claude-md/long-tests-and-ci.md) gates any test over 5 minutes behind
+# this default-on feature. MEASURED 2026-10-02 on an i9-13900K, each test run
+# alone (RAYON_NUM_THREADS=12 pinned to 14 cores; the two transients re-run on
+# 10 cores / 8 threads): the slowest is neacrpd1t's
+# `the_two_kinetics_schemes_agree_on_a_gentle_window` at 202 s (14 cores) /
+# 206 s (10 cores), then 108 s, 99 s, 95 s; no test reaches 5 minutes, so
+# NOTHING is gated yet. The 49-minute run that prompted #503 was CPU
+# oversubscription (each test runs faer/rayon in parallel internally, and the
+# harness ran 14 of them at once), not a slow test: the whole lib suite takes
+# 1509 s at `--test-threads=4` (14 then 10 cores). See CLAUDE.md.
+default = ["long-tests"]
+long-tests = []
+
 # Dependencies are added as the modules that need them land, rather than all up
 # front, so an unused entry never implies a capability the crate does not have.
 #
