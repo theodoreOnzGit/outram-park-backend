@@ -31,18 +31,23 @@
 //! GPLv3-compatible). It authors and procedurally generates geometry, then
 //! bridges it into two OUTRAM PARK solver workflows:
 //!
-//! - **Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
+//! - ~~**Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
 //!   fit it to an `outram-mc-libs` CSG universe ([`export`]), attach materials,
 //!   and run a k-eigenvalue (criticality) calculation returning `k_eff ± σ`
 //!   (the `sim` module). This path is driven by the **MC Studio** egui app
-//!   (`examples/mc_studio`).
+//!   (`examples/mc_studio`).~~ **MOVED 2026-10-02 (GitHub #486):** this crate
+//!   no longer depends on `outram-mc-libs` (outram-mc depends on *it*, for the
+//!   CSG description). Fit a surface to CSG here ([`export::to_csg_primitive`]);
+//!   the bridge onto outram-mc and the k-eigenvalue run driver (`sim`) live in
+//!   `nee_soon` (`nee_soon::blender_bridge`, `nee_soon::sim`), which MC Studio
+//!   in `dhoby-ghaut` drives.
 //! - **CFD / thermal-hydraulics volume meshing** (feature `foam-mesh`). Hand a
 //!   closed surface to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
 //!   pipeline and write out an OpenFOAM `polyMesh` (the `foam_mesh` module). This
 //!   path is driven by the **Mesh Studio** egui app (`examples/mesh_studio`).
 //!
 //! The base authoring library (primitives, mesh operators, modifiers, procedural
-//! evaluator, geometry processing) pulls in neither solver — both bridges are
+//! evaluator, geometry processing) pulls in no solver — the CFD bridges are
 //! opt-in cargo features, so the default build stays light and Android-buildable.
 //!
 //! > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
@@ -144,9 +149,9 @@
 //! | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridge (`foam-export`; ~~`mc-export`~~ retired 2026-10-02, #486) |
 //! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
-//! | `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
+//! | ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (GitHub #486): the Monte Carlo setup + run driver, backend of **MC Studio** |
 //! | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
@@ -204,12 +209,6 @@ pub mod dissolve;
 pub mod edge_bevel;
 pub mod edge_tools;
 pub mod export;
-
-/// Monte Carlo simulation setup + run (feature `mc-export`) — build materials,
-/// bundle geometry + source + settings, run a k-eigenvalue criticality
-/// calculation. The backend the MC Studio GUI drives.
-#[cfg(feature = "mc-export")]
-pub mod sim;
 
 /// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
 /// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers

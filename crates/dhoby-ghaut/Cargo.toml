@@ -28,15 +28,17 @@ eframe = { workspace = true }
 egui = { workspace = true }
 egui_plot = { workspace = true }
 env_logger = { workspace = true }
-# Authoring frontend (math/mesh/primitives) plus its Monte Carlo bridge.
+# Authoring frontend (math/mesh/primitives) plus its volume-meshing bridge.
 #
-# The `mc-export` feature is still required here because `outram_blender::sim`
-# has not moved yet. The intended end state is that the headless bridge lives
-# ungated in `nee_soon` and this dependency drops the feature -- see
-# `src/lib.rs`. Do not treat this line as settled.
-# Both bridges are LIBRARY code and stay in outram-blender; this crate only
-# hosts the GUIs that drive them, so it enables both features.
-outram-blender = { workspace = true, features = ["mc-export", "foam-mesh", "gpu"] }
+# ~~The `mc-export` feature is still required here because `outram_blender::sim`
+# has not moved yet.~~ DONE 2026-10-02 (GitHub #486): the headless Monte Carlo
+# bridge (`to_mc_geometry`) and run driver (`sim`) now live ungated in
+# `nee_soon`, outram-blender's `mc-export` feature is retired, and MC Studio
+# drives `nee_soon::sim`. The volume-meshing bridge (`foam-mesh`) is LIBRARY
+# code and stays in outram-blender; this crate only hosts the GUI that drives it.
+outram-blender = { workspace = true, features = ["foam-mesh", "gpu"] }
+# MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`).
+nee_soon = { workspace = true }
 
 # MC Studio -- author geometry, set up and run an outram-mc calculation.
 #

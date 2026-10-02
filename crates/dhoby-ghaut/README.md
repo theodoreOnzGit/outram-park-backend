@@ -30,7 +30,7 @@ moved here from `outram-blender` on 2026-09-17:
 
 | Example | What it does |
 |---|---|
-| `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `outram_blender::sim`, and read `k_eff ± σ` with the per-generation plot |
+| `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
 
 ```bash
@@ -47,15 +47,19 @@ cargo run  -p dhoby-ghaut --example mc_studio --release -- --headless
 cargo test -p dhoby-ghaut --examples --release
 ```
 
-The GUI dependencies (`eframe`, `egui`, `egui_plot`, `env_logger`, and
-`outram-blender` with its `mc-export` and `foam-mesh` features) are
+The GUI dependencies (`eframe`, `egui`, `egui_plot`, `env_logger`,
+`outram-blender` with its `foam-mesh` feature (~~and `mc-export`~~, retired
+2026-10-02), and `nee_soon` for the Monte Carlo backend) are
 dev-dependencies gated off Android. On Android each example compiles to an
 empty `main`.
 
-The non-GUI halves of both bridges still live in `outram-blender`
+~~The non-GUI halves of both bridges still live in `outram-blender`
 (`src/sim.rs`, `src/foam_mesh.rs`, `src/export.rs`). `src/lib.rs` records the
 intent to move the headless Monte Carlo bridge into `nee_soon` as ungated code;
-that has not happened.
+that has not happened.~~ **CORRECTED 2026-10-02 (GitHub #486):** the headless
+Monte Carlo bridge moved to `nee_soon` (`nee_soon::sim`,
+`nee_soon::blender_bridge`), ungated. The volume-meshing bridge stays in
+`outram-blender` (`src/foam_mesh.rs`, feature `foam-mesh`).
 
 ## Bookkeeping status
 

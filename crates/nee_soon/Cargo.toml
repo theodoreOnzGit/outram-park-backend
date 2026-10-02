@@ -25,6 +25,10 @@ teh-o-prke            = { workspace = true }   # point reactor kinetics (PRKE)
 # intended NeutronicsModel::Sp3 / Sp3Neutronics interface (see op-fr2.2.4).
 outram-foam-appbuilder-lib = { workspace = true }   # GeN-Foam SP3 multiphysics host
 outram-foam-basic-lib      = { workspace = true }   # FvMesh / fields, for the GeN-Foam bridge
+# Geometry authoring: `blender_bridge` (surface mesh -> outram-mc CSG) and the
+# `sim` run driver moved here from outram-blender's retired `mc-export` feature
+# (GitHub #486, 2026-10-02). The edge runs coupler -> blender, never back.
+outram-blender        = { workspace = true }
 
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.

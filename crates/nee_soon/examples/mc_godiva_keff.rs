@@ -1,5 +1,5 @@
-//! End-to-end **Monte Carlo criticality** demo driven by the outram-blender
-//! `sim` backend — the "author geometry → set up → run outram-mc" path the GUI
+//! End-to-end **Monte Carlo criticality** demo driven by the `nee_soon::sim`
+//! backend (~~outram-blender `sim`~~ moved here 2026-10-02, GitHub #486) — the "author geometry → set up → run outram-mc" path the GUI
 //! wraps. Offline demonstration only (education / research / V&V).
 //!
 //! Two runs of the **Godiva** bare-HEU-sphere benchmark (ICSBEP
@@ -10,10 +10,14 @@
 //!    outram-mc CSG via `csg_from_mesh`, run with `run_keff_csg`. This exercises
 //!    the whole authoring → export → simulate bridge.
 //!
-//! Run with (the `mc-export` feature pulls in outram-mc-libs):
+//! Run with:
 //! ```text
-//! cargo run -p outram-blender --example mc_godiva_keff --features mc-export --release
+//! cargo run --release -p nee_soon --example mc_godiva_keff
 //! ```
+//!
+//! (~~`cargo run -p outram-blender --example mc_godiva_keff --features
+//! mc-export --release`~~ — blender's `mc-export` feature was retired on
+//! 2026-10-02, GitHub #486, and this example moved to `nee_soon`.)
 //!
 //! # V&V — methodology and results
 //!
@@ -41,18 +45,12 @@
 //! r = 8.7407) is exact. This is a *pipeline* validation, not a claim that the
 //! embedded data reproduces the benchmark to within its uncertainty.
 
-#[cfg(not(feature = "mc-export"))]
 fn main() {
-    eprintln!("rebuild with `--features mc-export` to run the Monte Carlo backend demo");
-}
-
-#[cfg(feature = "mc-export")]
-fn main() {
-    use outram_blender::primitives::uv_sphere;
-    use outram_blender::sim::{
+    use nee_soon::sim::{
         csg_from_mesh, ComputeType, KeffSettings, MaterialSpec, McSimSetup, SimGeometry,
         ThreadCount,
     };
+    use outram_blender::primitives::uv_sphere;
 
     // Godiva HEU material, atom densities [atoms/barn·cm] (HEU-MET-FAST-001).
     let heu = MaterialSpec {

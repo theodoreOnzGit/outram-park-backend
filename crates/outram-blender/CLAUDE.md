@@ -52,7 +52,7 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 | feature | default | pulls | what it gates |
 |---|---|---|---|
 | `gpu` | **on** | `wgpu` (never on Android) | `src/gpu.rs` and the GPU attempt in `Affine3::transform_points_best_effort` |
-| `mc-export` | off | `outram-mc-libs` | `export` CSG bridge, `sim` |
+| ~~`mc-export`~~ | — | — | **RETIRED 2026-10-02** (#486): `to_mc_geometry`, `sim` and the `mc_godiva_keff` example moved to `nee_soon` |
 | `foam-export` | off | `outram-foam-basic-lib` | polyMesh read/write bridge |
 | `foam-mesh` | off | `outram-park-fork-cfmesh` | `foam_mesh` volume-meshing bridge |
 | `gnn-graph` | off | `raffles`, `outram-mc-libs` | `gnn_graph::cell_adjacency_graph` (CSG cells -> RAFFLES graph) |

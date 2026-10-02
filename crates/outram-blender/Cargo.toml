@@ -12,7 +12,7 @@ license.workspace = true
 # Foundation. No Blender source tree is bundled; exactly one file,
 # src/boolean_predicates.rs, is a literal attributed port (GPL-2.0-or-later,
 # GPL-3.0-compatible). See README.md "Naming & trademark" and NOTICE.
-description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics, with opt-in Monte Carlo (mc-export) and OpenFOAM volume-meshing (foam-mesh) solver bridges. Not affiliated with the Blender Foundation."
+description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics, with opt-in OpenFOAM volume-meshing (foam-mesh) solver bridges. Not affiliated with the Blender Foundation."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -36,21 +36,24 @@ exclude = ["docs", "upstream_source/*", "!upstream_source/README.md"]
 default = ["gpu"]
 gpu = ["dep:wgpu"]
 
-# Optional export bridges to the real OUTRAM PARK solver crates. OFF by default
+# Optional export bridge to a real OUTRAM PARK solver crate. OFF by default
 # so the authoring frontend stays light and trivially Android-buildable; enable
-# a bridge only when you actually hand geometry to that solver.
+# it only when you actually hand geometry to that solver.
 #
 #   foam-export → real outram-foam-basic-lib polyMesh types (CFD boundary export)
-#   mc-export   → real outram-mc-libs CSG surface/cell types (Monte Carlo)
 #
 # The polyMesh connectivity + I/O types (`io::poly_mesh::PolyMesh`,
 # `BoundaryPatch`, `Vector3`) live in outram-foam-basic-lib (outram-foam-mesh
-# re-exports none of them), so that is the foam-export target. Both target
-# crates are BLAS-free (Android-safe); mc-export additionally pulls the
-# nuclear-data crate transitively, which is why it is opt-in rather than a hard
-# dependency of the frontend.
+# re-exports none of them), so that is the foam-export target. It is BLAS-free
+# (Android-safe).
+#
+# ~~mc-export → real outram-mc-libs CSG surface/cell types (Monte Carlo)~~
+# RETIRED 2026-10-02 (GitHub #486, maintainer decision): outram-mc-libs takes
+# its CSG description from THIS crate (#486 stage 3a), and Cargo counts optional
+# dependencies when it looks for cycles, so this crate may not depend on
+# outram-mc-libs at all. The bridge (`to_mc_geometry`), the run driver (`sim`)
+# and the `mc_godiva_keff` example moved to `nee_soon`.
 foam-export = ["dep:outram-foam-basic-lib"]
-mc-export = ["dep:outram-mc-libs"]
 
 # foam-mesh → volume meshing bridge to outram-park-fork-cfmesh: take a blender
 # surface `Mesh` (or a built-in primitive) → cfmesh's tet→dual→boundary-layers
@@ -140,8 +143,9 @@ egui = { workspace = true }
 egui_plot = { workspace = true }
 env_logger = { workspace = true }
 
-# The Monte Carlo authoring GUI. Needs `mc-export` (the outram-mc-libs bridge +
-# the `sim` backend it drives), so it only builds with that feature:
+# The Monte Carlo authoring GUI. ~~Needs `mc-export` (the outram-mc-libs bridge +
+# the `sim` backend it drives), so it only builds with that feature~~ (the
+# bridge and `sim` moved to `nee_soon` on 2026-10-02, GitHub #486):
 # ~~mc_studio~~ MOVED 2026-09-17 to `crates/dhoby-ghaut` (DHOBY GHAUT), which is
 # the designated home for windowed studios. This crate is an AUTHORING frontend
 # and should not carry a windowing stack; keeping the GUI here is what forced

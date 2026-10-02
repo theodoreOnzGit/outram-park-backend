@@ -4,7 +4,8 @@
 //! / boolean operators into whole-reactor **surfaces**, ready to hand to the
 //! solver bridges: the volume-meshing bridge ([`crate::foam_mesh`], feature
 //! `foam-mesh`, for CFD / thermal-hydraulics) and the Monte-Carlo bridge
-//! ([`crate::sim`], feature `mc-export`, for neutronics). Nothing here meshes or
+//! (~~`crate::sim`, feature `mc-export`~~ `nee_soon::sim` since 2026-10-02,
+//! GitHub #486, for neutronics). Nothing here meshes or
 //! simulates — it only *authors* a closed, watertight, outward-wound
 //! [`Mesh`](crate::mesh::Mesh) that those bridges then consume.
 //!

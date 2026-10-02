@@ -20,7 +20,8 @@
 //! created the crate (`eeaf739b0`, 2026-09-17): `examples/mc_studio/main.rs`
 //! and `examples/mesh_studio/main.rs`, carried by target-gated
 //! dev-dependencies (`eframe`, `egui`, `egui_plot`, and `outram-blender` with
-//! its `mc-export` and `foam-mesh` features). Each has a `--headless` mode and
+//! ~~its `mc-export` and~~ its `foam-mesh` feature, plus `nee_soon` for the
+//! Monte Carlo backend since 2026-10-02, GitHub #486). Each has a `--headless` mode and
 //! four `#[test]`s against a committed CSV fixture under `tests/fixtures/`
 //! (`cargo test -p dhoby-ghaut --examples --release`). Verified by reading
 //! `Cargo.toml`, both example files and `git log -- crates/dhoby-ghaut`.
@@ -78,8 +79,9 @@
 //!   `outram-park-fork-cfmesh`.
 //!
 //! The non-GUI halves of those bridges (`outram-blender/src/sim.rs`'s material
-//! and tally construction, and `export.rs`'s `to_mc_geometry`) are expected to
-//! go to `nee_soon` as ungated code, **not** here.
+//! and tally construction, and `export.rs`'s `to_mc_geometry`) ~~are expected
+//! to go~~ **went on 2026-10-02 (GitHub #486)** to `nee_soon` as ungated code
+//! (`nee_soon::sim`, `nee_soon::blender_bridge`), **not** here.
 //!
 //! # Rules this crate inherits
 //!

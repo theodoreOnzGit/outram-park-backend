@@ -2150,6 +2150,7 @@ dependencies = [
  "egui",
  "egui_plot",
  "env_logger",
+ "nee_soon",
  "outram-blender",
 ]
 
@@ -5902,6 +5903,7 @@ name = "nee_soon"
 version = "0.0.2"
 dependencies = [
  "njoy-outram-park-fork",
+ "outram-blender",
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-mc-libs",

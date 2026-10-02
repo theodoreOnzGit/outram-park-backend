@@ -21,9 +21,14 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Monte Carlo **simulation setup + run** — the backend the **MC Studio** egui
-//! app (`examples/mc_studio`) drives (feature `mc-export`).
+//! app (`dhoby-ghaut`'s `examples/mc_studio`) drives.
 //!
-//! [`crate::export`] turns authored geometry into an `outram-mc-libs`
+//! ~~outram-blender `sim` (feature `mc-export`)~~ **MOVED here 2026-10-02**
+//! (GitHub #486): outram-mc-libs takes its CSG description from
+//! outram-blender, so outram-blender may not depend on outram-mc-libs, and
+//! this driver, which needs both, sits in the coupling crate.
+//!
+//! [`crate::blender_bridge`] turns authored geometry into an `outram-mc-libs`
 //! [`Geometry`]. This module is the rest of "set up and run a *basic* Monte
 //! Carlo simulation": build **materials** from a friendly nuclide-name + density
 //! spec, bundle geometry + materials + source + run settings into an
@@ -45,8 +50,8 @@
 //!
 //! ```no_run
 //! use outram_blender::primitives::uv_sphere;
-//! use outram_blender::sim::{MaterialSpec, McSimSetup, SimGeometry, atom_density};
-//! use outram_blender::sim::KeffSettings;
+//! use nee_soon::sim::{MaterialSpec, McSimSetup, SimGeometry, atom_density};
+//! use nee_soon::sim::KeffSettings;
 //!
 //! // 1. A material: Godiva HEU by atom density [atoms/barn·cm].
 //! let heu = MaterialSpec {
@@ -69,8 +74,9 @@
 //! println!("k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
 //! ```
 
-use crate::export::{to_mc_geometry, ExportError};
-use crate::mesh::Mesh;
+use crate::blender_bridge::to_mc_geometry;
+use outram_blender::export::ExportError;
+use outram_blender::mesh::Mesh;
 use std::collections::HashMap;
 
 use outram_mc_libs::geometry::position::Position;
@@ -81,7 +87,7 @@ use outram_mc_libs::physics::transport_csg::run_keff_csg;
 use outram_mc_libs::prelude::{CellFill, Geometry, Tally};
 
 // Re-export the run-configuration and result types so a GUI/consumer needs only
-// `outram_blender::sim::*`, not a direct outram-mc-libs dependency.
+// `nee_soon::sim::*`, not a direct outram-mc-libs dependency.
 pub use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
 pub use outram_mc_libs::physics::keff::{KeffResult, KeffSettings};
 pub use outram_mc_libs::physics::transport_csg::SourceBox;
@@ -116,7 +122,7 @@ pub struct MaterialSpec {
 ///
 /// # Example
 /// ```
-/// use outram_blender::sim::atom_density;
+/// use nee_soon::sim::atom_density;
 /// // Pure U-235 metal at 18.74 g/cm³, M ≈ 235.04 g/mol → ~4.8e-2 atoms/b·cm.
 /// let n = atom_density(18.74, 235.04, 1.0);
 /// assert!((n - 4.8e-2).abs() < 2e-3);
@@ -465,7 +471,7 @@ mod tests {
     /// the authored-geometry route reaches a real k_eff.
     #[test]
     fn authored_sphere_csg_runs_and_is_near_critical() {
-        use crate::primitives::uv_sphere;
+        use outram_blender::primitives::uv_sphere;
         let mesh = uv_sphere(24, 12, 8.7407);
         let geometry = csg_from_mesh(&mesh, 0).expect("uv-sphere exports to CSG");
         let sim = McSimSetup {
@@ -493,7 +499,7 @@ mod tests {
     /// cell is sampled) with a finite relative error.
     #[test]
     fn cell_flux_tally_accumulates() {
-        use crate::primitives::uv_sphere;
+        use outram_blender::primitives::uv_sphere;
         let mesh = uv_sphere(24, 12, 8.7407);
         let geometry = csg_from_mesh(&mesh, 0).expect("export");
         let n_active = 35u64;
