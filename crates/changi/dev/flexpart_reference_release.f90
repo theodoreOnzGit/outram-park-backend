@@ -666,14 +666,15 @@ contains
     end do
 
     ! D3: resume (ipin = 2: non-zero, no file read): positions not assigned,
-    ! pre-existing particles outside the domain terminated, numpart trimmed.
+    ! pre-existing particles outside the domain (one exactly at x = nxmin1)
+    ! terminated, numpart trimmed.
     call reset_parts()
     call fill_state(-5, -1., 7.)
     call snap_parts()
-    itra1(1:6) = 0
-    xtra1(1:6) = (/ 2d0, -1d0, 3d0, 4d0, 2.5d0, 7.5d0 /)
-    ytra1(1:6) = (/ 2d0, 2d0, 3d0, 9d0, 2.5d0, 1d0 /)
-    numpart = 6
+    itra1(1:7) = 0
+    xtra1(1:7) = (/ 2d0, -1d0, 3d0, 4d0, 7d0, 2.5d0, 7.5d0 /)
+    ytra1(1:7) = (/ 2d0, 2d0, 3d0, 9d0, 2.5d0, 2.5d0, 1d0 /)
+    numpart = 7
     seq = seq + 1
     call dump_parts('pset')
     gdomainfill = .false.

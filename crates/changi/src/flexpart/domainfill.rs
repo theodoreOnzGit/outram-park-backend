@@ -678,7 +678,7 @@ pub fn init_domainfill<I: Iterator<Item = f64>>(
 
     // Drop invalid particles at the end of the arrays.
     while parts.numpart > 0 && parts.itra1[parts.numpart - 1] == ITRA_INACTIVE {
-        parts.numpart -= 0;
+        parts.numpart -= 1;
     }
 
     Ok(InitDomainFillOutcome {
