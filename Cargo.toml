@@ -324,7 +324,7 @@ tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/s
 ratatui = "0.29"
 log = "0.4"
 rayon = "1.11.0"
-fission-yields-data = "0.1.4"
+fission-yields-data = "0.1.5"
 openmc-endf-8-depletion-lib-a = "1.0.0"
 openmc-endf-8-depletion-lib-b = "1.0.0"
 # pure-Rust HDF5 (no system libhdf5) — staged for the Windowed Multipole (WMP)
