@@ -8,7 +8,9 @@
 //! Building a message-passing graph from a Monte Carlo CSG geometry.
 //!
 //! **Feature `gnn-graph`** (off by default): pulls `raffles` (for
-//! [`raffles::gnn::Graph`]) and `outram-mc-libs` (for the CSG [`Cell`] type).
+//! [`raffles::gnn::Graph`]). ~~and `outram-mc-libs` (for the CSG [`Cell`]
+//! type)~~ — since #486 stage 3a (2026-10-02) [`Cell`] is this crate's own
+//! [`crate::csg::cell::Cell`].
 //!
 //! # Where this lives, and why
 //!
@@ -28,11 +30,13 @@
 //! depend on `outram-park-fork-liggghts` (and through its default `gnn`
 //! feature, on RAFFLES) without a cycle.
 //!
-//! **Interim state, stated plainly.** The cell types are still
+//! ~~**Interim state, stated plainly.** The cell types are still
 //! `outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken}`, so
-//! this module needs `outram-mc-libs` as well as `raffles`. When #486 moves
-//! `Cell` into this crate the adapter will need only blender-native types plus
-//! RAFFLES, and the `outram-mc-libs` half of the feature can go. The matching
+//! this module needs `outram-mc-libs` as well as `raffles`.~~ **DONE
+//! 2026-10-02 (#486 stage 3a):** `Cell` moved into this crate
+//! ([`crate::csg::cell`]); the adapter needs only blender-native types plus
+//! RAFFLES, and the `outram-mc-libs` half of the feature is gone
+//! (`outram_mc_libs::geometry::cell::Cell` is the same type, re-exported). The matching
 //! adapter for granular DEM contact graphs lives in
 //! `outram-park-fork-liggghts` behind its `gnn` feature.
 //!
@@ -83,7 +87,7 @@
 //! without reporting it. Any such surrogate needs its own uncertainty story
 //! before it goes anywhere near a k-eff.
 
-use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
+use crate::csg::cell::{Cell, HalfSpaceSense, RegionToken};
 use raffles::gnn::Graph;
 use raffles::{RafflesError, Result};
 
@@ -144,7 +148,7 @@ pub fn cell_adjacency_graph(cells: &[Cell]) -> Result<Graph> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use outram_mc_libs::geometry::cell::CellFill;
+    use crate::csg::cell::CellFill;
 
     /// A cell bounded inside surface `inside_of` and outside every surface in
     /// `outside_of`.

@@ -210,6 +210,13 @@ pub mod edge_bevel;
 pub mod edge_tools;
 pub mod export;
 
+/// **CSG geometry description and its pure navigation kernel** (surfaces,
+/// cells, universes, lattices, locate / distance-to-boundary, TRISO particle).
+/// Moved here from `outram-mc-libs` on 2026-10-02 (GitHub issue #486);
+/// outram-mc-libs re-exports it under `outram_mc_libs::geometry::*`. Core: no
+/// feature, no dependency, Android- and wasm-clean.
+pub mod csg;
+
 /// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
 /// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
 /// `pipeline`, get back a polyhedral `VolumeMesh` + quality report, and export an

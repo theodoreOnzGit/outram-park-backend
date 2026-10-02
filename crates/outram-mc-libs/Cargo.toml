@@ -61,6 +61,16 @@ outram-park-fork-liggghts = { workspace = true }
 # on this crate. Default features: `long-tests` gates raffles' own slow tests
 # and costs a dependent nothing; `burn` stays off. Pure Rust, Android/wasm-clean.
 raffles = { workspace = true }
+# CSG geometry DESCRIPTION and its pure navigation kernel (GitHub #486,
+# maintainer decision 2026-10-02): position, surfaces, cells, universes,
+# lattices, `Geometry::locate` / `distance_to_boundary`, the TRISO particle
+# builder and the tally-mesh description live in `outram_blender::csg` (and
+# `spatial_mesh`), re-exported here under the old `geometry::*` /
+# `tally::mesh::*` paths. Transport-state work stays here on `*Ext` traits
+# (`geometry::crossing`). The root workspace entry is `default-features =
+# false`, so blender's `gpu` (wgpu) feature is not pulled; this crate has its
+# own GPU path. outram-blender must never depend on this crate.
+outram-blender = { workspace = true }
 # Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
 # `material::thermal`), which speaks dimensioned `uom` types. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.

@@ -8,6 +8,7 @@ pub use crate::geometry::position::{Position, Direction};
 pub use crate::geometry::surface::{
     BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder,
 };
+pub use crate::geometry::crossing::SurfaceKindExt;
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 pub use crate::geometry::universe::Universe;
 pub use crate::geometry::plot::{

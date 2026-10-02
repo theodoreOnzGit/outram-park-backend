@@ -20,6 +20,7 @@ use super::position::{stream, Direction, Position};
 use super::surface::{BoundaryType, SurfaceKind};
 use super::universe::Universe;
 use crate::geometry::cell::{Cell, TrackingMethod};
+use super::crossing::SurfaceKindExt;
 
 /// One coordinate level in a located particle's nesting chain.
 ///
