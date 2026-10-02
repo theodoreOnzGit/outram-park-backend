@@ -847,7 +847,7 @@ dependencies = [
 name = "bishan"
 version = "0.0.1"
 dependencies = [
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -964,7 +964,7 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "serde_json",
- "uom 0.38.0",
+ "uom",
  "wgpu",
 ]
 
@@ -1007,7 +1007,7 @@ dependencies = [
  "boon-lay",
  "changi",
  "petir",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -1433,7 +1433,7 @@ dependencies = [
  "petir",
  "raffles",
  "rayon",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -1443,7 +1443,7 @@ dependencies = [
  "approx",
  "csv",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -2906,7 +2906,7 @@ version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -2975,13 +2975,13 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "fission-yields-data"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfb694623ed6f4c558cb379206c535aaf4fa113f83335891a1b2a56c917c84fc"
+checksum = "d7506656379b57126a52b4d390130e38aa530d200f780ca1fe2a136bbea51c02"
 dependencies = [
  "strum",
  "strum_macros",
- "uom 0.37.0",
+ "uom",
 ]
 
 [[package]]
@@ -5907,7 +5907,7 @@ dependencies = [
  "outram-mc-libs",
  "teh-o-prke",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -5971,7 +5971,7 @@ dependencies = [
  "rayon",
  "sha2",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
  "ureq 2.12.1",
  "wgpu",
  "zip",
@@ -6681,7 +6681,7 @@ dependencies = [
  "outram-foam-turbulence-lib",
  "serde",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6694,7 +6694,7 @@ dependencies = [
  "petir",
  "rayon",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
  "wgpu",
 ]
 
@@ -6708,7 +6708,7 @@ dependencies = [
  "outram-foam-mesh",
  "outram-park-fork-offbeat",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6719,7 +6719,7 @@ dependencies = [
  "ndarray",
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6729,7 +6729,7 @@ dependencies = [
  "approx",
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6740,7 +6740,7 @@ dependencies = [
  "ndarray",
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6762,7 +6762,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
  "wgpu",
 ]
 
@@ -6804,7 +6804,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tuas_boussinesq_solver",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6823,7 +6823,7 @@ version = "0.1.2"
 dependencies = [
  "approx",
  "petir",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6834,7 +6834,7 @@ dependencies = [
  "ndarray",
  "roots",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
  "zip",
 ]
 
@@ -6847,7 +6847,7 @@ dependencies = [
  "raffles",
  "rayon",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
  "wgpu",
 ]
 
@@ -6857,7 +6857,7 @@ version = "0.0.0"
 dependencies = [
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6867,7 +6867,7 @@ dependencies = [
  "approx",
  "outram-foam-basic-lib",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6876,7 +6876,7 @@ version = "0.0.0"
 dependencies = [
  "num-complex",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -6889,7 +6889,7 @@ dependencies = [
  "rayon",
  "tampines-steam-tables",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
  "wgpu",
 ]
 
@@ -6898,7 +6898,7 @@ name = "outram-park-fork-thermochimica"
 version = "0.0.0"
 dependencies = [
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -7082,7 +7082,7 @@ dependencies = [
  "approx",
  "libm",
  "naga",
- "uom 0.38.0",
+ "uom",
  "wgpu",
 ]
 
@@ -8193,7 +8193,7 @@ dependencies = [
  "serde_json",
  "tampines",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -8849,7 +8849,7 @@ dependencies = [
  "teh-o-prke",
  "thiserror 2.0.18",
  "tuas_boussinesq_solver",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -8873,7 +8873,7 @@ dependencies = [
  "teh-o-prke",
  "thiserror 2.0.18",
  "tuas_boussinesq_solver",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -8904,7 +8904,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "tuas_boussinesq_solver",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -9323,7 +9323,7 @@ dependencies = [
  "roots",
  "serde",
  "thiserror 2.0.18",
- "uom 0.38.0",
+ "uom",
 ]
 
 [[package]]
@@ -9479,16 +9479,6 @@ name = "unty"
 version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
-
-[[package]]
-name = "uom"
-version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd5cfe7d84f6774726717f358a37f5bca8fca273bed4de40604ad129d1107b49"
-dependencies = [
- "num-traits",
- "typenum",
-]
 
 [[package]]
 name = "uom"
