@@ -724,6 +724,12 @@ bit-identity contract above is untouched.
   mean / Jeffreys variance priors, BIC verdict on the Kass–Raftery scale via
   `model_selection`).
 
+Also added 2026-10-03, but as **ordinary contribution** rather than a scope
+change: `src/surrogate/validation.rs` (leave-one-out refits and jackknife+
+prediction intervals for `PolynomialSurrogate`; first consumers #497 and
+#499). It fills the "cross-validation machinery" that `src/surrogate/mod.rs`
+already lists as in scope. The owner has not reviewed it.
+
 `outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
 which is exactly why RAFFLES must stay free of physics and geometry
 dependencies.

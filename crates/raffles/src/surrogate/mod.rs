@@ -10,10 +10,17 @@
 //!   crate's `burn` feature. For responses a bounded-degree polynomial cannot
 //!   express.
 //!
+//! - **[`validation`]** — leave-one-out cross-validation and jackknife+
+//!   prediction intervals for [`PolynomialSurrogate`] (added 2026-10-03,
+//!   GitHub #499).
+//!
 //! Gaussian process regression / kriging and the sparse-grid polynomial chaos
-//! route are **not** implemented. Neither is the cross-validation machinery;
-//! the fitted models report `r_squared` and `rmse` on whatever data they are
-//! given, and the tests here demonstrate why that must be held-out data.
+//! route are **not** implemented. ~~Neither is the cross-validation
+//! machinery;~~ **CORRECTED 2026-10-03** — leave-one-out cross-validation is
+//! now in [`validation`] (polynomial surrogates only; k-fold and the neural
+//! surrogate are not covered). The fitted models still report `r_squared` and
+//! `rmse` on whatever data they are given, and the tests here demonstrate why
+//! that must be held-out data.
 //!
 //! ## Scope — what belongs here
 //!
@@ -64,6 +71,7 @@
 //! the copyright holder and the licence.
 
 pub mod polynomial;
+pub mod validation;
 
 #[cfg(feature = "burn")]
 pub mod neural;

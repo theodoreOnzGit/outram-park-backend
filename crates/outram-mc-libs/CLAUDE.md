@@ -869,6 +869,14 @@ the maintainer, 2026-10-03; protocols in
   recommends an inactive count only when every analysed trace has settled,
   otherwise says so. Complements `vv::report_source_convergence` (active-half
   drift), which it does not replace. Report-only.
+- `stats::learned_importance` (#497) — `learned_weight_windows`: MAGIC where
+  the early tally resolves the flux, a RAFFLES polynomial in `ln φ(x,y,z)`
+  filling the cells MAGIC leaves without a window (extrapolation clamped,
+  leave-one-out error reported); `VrArm` / `FomComparison` for
+  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Off by default**:
+  it only builds a `WeightWindows`; transport changes only if a caller
+  attaches it to a `VarianceReduction`, whose default stays analog. Source
+  biasing is not implemented.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
