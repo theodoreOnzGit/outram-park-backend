@@ -883,6 +883,13 @@ the maintainer, 2026-10-03; protocols in
   marginal least-squares slope per input, or Sobol indices), and
   `DirectPerturbation` for the #498 gate. Quantification only — no
   calibration.
+- `stats::sweep` (#499) — `SweepSurrogate` (RAFFLES polynomial + leave-one-out
+  refits), `predict` → `SurrogatePrediction` with a jackknife+ interval (its
+  own type: **a surrogate value is never a transport result**), `loo_gate`
+  (literal and noise-floor-aware readings — the literal one is expected to
+  fail for a perfect surrogate; flagged on #499), `propose_next_runs`
+  (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
+  the committed HTR-10 sweep CSV without transport.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 

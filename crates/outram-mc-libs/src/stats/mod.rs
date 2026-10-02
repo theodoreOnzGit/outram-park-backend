@@ -44,4 +44,5 @@ pub mod convergence;
 pub mod correlated_sigma;
 pub mod ensemble;
 pub mod learned_importance;
+pub mod sweep;
 pub mod uq;

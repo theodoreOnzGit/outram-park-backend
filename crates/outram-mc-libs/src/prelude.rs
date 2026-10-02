@@ -152,3 +152,4 @@ pub use crate::stats::learned_importance::{
     learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
 };
 pub use crate::stats::uq::{DirectPerturbation, UncertainInput, UqDesign, UqReport};
+pub use crate::stats::sweep::{SurrogatePrediction, SweepRun, SweepSurrogate};
