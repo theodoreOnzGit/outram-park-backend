@@ -396,6 +396,7 @@ Local stand-ins, none of which changes a routine under test:
 | `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | **bit-exact** |
 | 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | **bit-exact**; `plumetraj` only to its print format |
 | 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
+| release | `releaseparticles`, `init_domainfill`, `boundcond_domainfill` (draws injected; each call from upstream's own pre-call state) | 35 calls, 2 516 slot/cell rows | **bit-exact**; real(4) scope excludes calls 27–35, where upstream's own two builds differ by one particle (a `nint(16.4995)` tie flipped by `f32` cell-area cancellation) |
 | vert | `verttransform_ecmwf`, `verttransform_gfs`, `verttransform_nests`, `shift_field`, `shift_field_0` (call sequences replayed with upstream's saved state) | 1 005 | **bit-exact**, 42 460 outputs |
 | concout | `concoutput`, `concoutput_nest`, `concoutput_surf` (every record read back from the files upstream writes); `timemanager`'s output clock, deposition decay, pre/post-advance bookkeeping and particle splitting (inline code extracted byte-for-byte, as stage 0 did for decay) | 2 516 | **bit-exact** (tolerance 0) |
 | outgrid | `outgrid_init`(+nest), `calcfluxes`, `fluxoutput` (numbers read back from the file upstream writes), `initial_cond_calc` | 4 896 | **bit-exact** (tolerance 0) |
@@ -471,6 +472,13 @@ Real(8) covers every excluded row bit for bit.
   the whole pole row. GFS also uses `-xlonr` in one south-pole branch where
   every other branch uses `+xlonr`. The heights and `nmixz` are set once, by
   whichever of the ECMWF and GFS routines runs first.
+- **`init_domainfill` zeroes the wrong boundary accumulators.** It writes
+  `acc_mass_sn(1/2,jy,j) = 0`, indexing the longitude dimension with `jy`.
+- **`boundcond_domainfill` reads `zcolumn(k,i,0)`**, out of bounds, for a
+  boundary column with exactly two release heights. The port refuses.
+- **`releaseparticles` applies summer time as a flat +1 h** for UTC months
+  4–9 in both hemispheres. It applies no decay to the release mass in v10.4;
+  that happens in `timemanager`.
 - **`calcfluxes` drops every flux across the cyclic boundary.** It writes
   `(real(nxmin1)-1.e5)` where `1.e-5` is evidently meant, so `ixs` always lies
   off the grid. Upstream records none of the 21 wrapping steps in the fixture.
