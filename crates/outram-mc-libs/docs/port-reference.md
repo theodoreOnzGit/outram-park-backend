@@ -146,8 +146,11 @@ scatters, and banks fission sites. It is validated against the **Godiva bare-sph
 benchmark (ICSBEP HEU-MET-FAST-001), see `docs/validation.md`. The
 `hexagonal-lattice` and `triso` notebook harnesses run this loop live. Still
 pending: the generic history-based `transport.rs`, ~~multigroup (`physics_mg.rs`),~~
-DAGMC/unstructured mesh, photon transport, and the C-API. **CORRECTED 2026-09-22**
+DAGMC/~~unstructured mesh~~, photon transport, and the C-API. **CORRECTED 2026-09-22**
 — multigroup is no longer pending; see item 25 of the porting order.
+**CORRECTED 2026-10-03 (GitHub #492)** — unstructured-mesh **tallies** exist
+(`MeshKind::Unstructured`, `tally::mesh_unstructured`; tests written, not yet
+run). DAGMC geometry is still pending.
 
 **Godiva k_eff figures — status after `op-jis` (2026-08-06).** `rng::lcg::prn`
 gained OpenMC's PCG-RXS-M-XS output permutation; the LCG **state recurrence is

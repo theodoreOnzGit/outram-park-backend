@@ -46,3 +46,13 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Meshing nexus: outram-blender exports into this crate (GitHub #492, 2026-10-03)
+
+`outram-blender`'s neutral `unstructured::UnstructuredMesh` is the one mesh
+description the FV, FE and Monte Carlo solvers are built from. Its `foam-mesh` feature **calls** this crate's tet -> dual -> layers pipeline (through `outram_blender::foam_mesh`) and converts the `VolumeMesh` (`convert::cfmesh`). Note from the first run (2026-10-03): 264 of 24751 dual cells of a 0.1 m cylinder mesh are not star-shaped about their centroid; the neutral mesh accepts them (cells are defined by their bounding faces), but a consumer that decomposes cells about the centroid must check `decomposition_is_valid`.
+
+**This crate must never depend on `outram-blender`** (GitHub #486 dependency
+rule 1): blender depends on this crate, optionally, to export into it, and
+Cargo counts optional dependencies when it looks for cycles. Mesh types stay
+defined here; the converters live in `outram_blender::unstructured::convert`.

@@ -6,8 +6,12 @@ Guidance for Claude Code (and other AI assistants) working in the `outram-blende
 meshing.** It owns the CSG geometry description and its pure navigation kernel
 (`csg`), the OpenMC-port geometry plotter (`csg::plot`), the Monte Carlo tally
 mesh description (`spatial_mesh`), and the mesh-authoring frontend (a GPL fork
-of Blender's mesh architecture) with its OpenFOAM bridges. It is planned to
-become the meshing nexus for FV/FE too (#492).
+of Blender's mesh architecture) with its OpenFOAM bridges. ~~It is planned to
+become the meshing nexus for FV/FE too (#492).~~ **Since 2026-10-03 (#492) it
+is the meshing nexus:** `unstructured::UnstructuredMesh` is the one mesh
+description FV (`PolyMesh`/`FvMesh`), FE (`farrer-park`) and Monte Carlo
+tallies (`MeshKind::Unstructured`) are built from; see "Meshing nexus"
+below.
 
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
@@ -67,6 +71,12 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 | `foam-export` | off | `outram-foam-basic-lib` | polyMesh read/write bridge |
 | `foam-mesh` | off | `outram-park-fork-cfmesh` | `foam_mesh` volume-meshing bridge |
 | `gnn-graph` | off | `raffles` (~~`outram-mc-libs`~~, gone since #486 stage 3a) | `gnn_graph::cell_adjacency_graph` (CSG cells -> RAFFLES graph) |
+| `block-mesh` (2026-10-03, #492) | off | `outram-foam-mesh` (+ `foam-export`) | `unstructured::convert::block_mesh`: blockMesh and the snappyHexMesh driver -> neutral mesh |
+| `fem-export` (2026-10-03, #492) | off | `farrer-park` | `unstructured::convert::fem`: neutral <-> farrer-park `Mesh`, farrer-park's generators |
+
+`foam-export` also gates `unstructured::convert::foam` (neutral <->
+`PolyMesh`, -> `FvMesh`) and `foam-mesh` gates `unstructured::convert::cfmesh`
+(cfMesh `VolumeMesh` -> neutral) since 2026-10-03.
 
 - **`gpu` is a feature so dependents can drop `wgpu`** (GitHub issue #486):
   `default-features = false` gives the CPU path only. Every use of `crate::gpu`
@@ -105,9 +115,11 @@ Rules that follow:
 - **This crate must never depend on `outram-mc-libs`**, not even optionally:
   outram-mc depends on this crate, and Cargo counts optional dependencies when
   it checks for cycles. A Monte Carlo bridge belongs in `nee_soon`.
-- **`MeshKind` is deliberately NOT `#[non_exhaustive]`**: the planned
+- **`MeshKind` is deliberately NOT `#[non_exhaustive]`**: ~~the planned
   `Unstructured(Arc<..>)` variant (#492) must break every `match` site at
-  compile time.
+  compile time.~~ **`Unstructured(Arc<UnstructuredMesh>)` landed 2026-10-03
+  (#492)** and every match site in outram-mc-libs was updated by hand; the
+  next variant must force the same review.
 - **Keep the documented raw-`f64`-cm API** in `csg` and `spatial_mesh` (no
   `uom`): it is the particle-tracking inner loop; see outram-mc-libs'
   `CLAUDE.md`, "Units: raw `f64`, not `uom`".
@@ -120,3 +132,34 @@ Rules that follow:
 - The code is an OpenMC port (MIT): keep each file's provenance header; see
   `NOTICE` and `LICENSE.openmc`.
 
+## Meshing nexus (GitHub #492, 2026-10-03)
+
+`unstructured::UnstructuredMesh` is the **neutral mesh description**: points,
+faces wound out of their owner, owner / neighbour, cells that carry both the
+FV view (faces) and, when typed, the FE view (element kind + ordered nodes),
+typed patches, cell zones and an explicit `LengthUnit`.
+
+| here | elsewhere (never moved here) |
+|---|---|
+| the description, its geometry (OpenFOAM `primitiveMesh` port), the bounding-triangle cell definition and centroid decomposition, `CellLocator`, the 1-D mesher (`one_d`), the plotter (`unstructured::plot`) | the meshers: blockMesh / snappyHexMesh (`outram-foam-mesh`), cfMesh (`outram-park-fork-cfmesh`), farrer-park's FEM generators — **called** from `unstructured::convert`, behind features |
+| converters: `convert::foam` (<-> `PolyMesh`, -> `FvMesh`), `convert::fem` (<-> farrer-park `Mesh`), `convert::cfmesh`, `convert::block_mesh` | point location and track-length scoring on the mesh: outram-mc-libs `tally::mesh_unstructured::UnstructuredMeshExt` |
+
+Rules that follow:
+
+- **Direction (GitHub #486 rule 1).** This crate depends on the FV/FE solver
+  crates (optionally); **they must never depend on it**, or they could not be
+  export targets. Monte Carlo is the other way round (outram-mc-libs depends
+  on this crate).
+- **A cell is the region bounded by its faces' fan triangles**
+  (`for_each_bounding_triangle`), not its centroid decomposition. Some cfMesh
+  dual cells are not star-shaped about their centroid (264 of 24751 on the
+  first cylinder drawn, 2026-10-03); `decomposition_is_valid(c)` says whether
+  the decomposition may be used (sampling only).
+- **Units:** raw `f64` in the mesh's declared `LengthUnit` (the
+  `csg`/`spatial_mesh` raw-`f64` exception); converters scale to metres for
+  the FV/FE crates, Monte Carlo scales its cm positions into the mesh unit.
+- **Draw every new mesh** (HARD RULE above) with `unstructured::plot`;
+  `examples/meshing_nexus_images.rs` is the worked example and
+  `docs/meshing_nexus/` holds its images and what was checked in them.
+- **Not yet here** (maintainer default, 2026-10-03): OFFBEAT and Moltres
+  meshes; the MGXS round trip lives in `nee_soon`.

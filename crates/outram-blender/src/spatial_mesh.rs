@@ -42,7 +42,7 @@
 //! ~~The unstructured mesh family is not here yet; it is GitHub #492, which
 //! will add it as a [`MeshKind`] variant.~~ **CORRECTED 2026-10-03 (GitHub
 //! #492):** it is [`MeshKind::Unstructured`], holding an
-//! `Arc<`[`UnstructuredMesh`]`>` from [`crate::unstructured`] — the same
+//! `Arc<`[`UnstructuredMesh`](crate::unstructured::UnstructuredMesh)`>` from [`crate::unstructured`] — the same
 //! object an FV or FE solver is built from. Point location and the
 //! track-length estimator across its cells live in outram-mc-libs
 //! (`UnstructuredMeshExt`).

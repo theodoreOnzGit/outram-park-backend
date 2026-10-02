@@ -328,3 +328,13 @@ Release mode only: `cargo test --release -p farrer-park`. Keep the suite fast
 enough to run on every change — if a verification case needs a large mesh, gate
 the expensive refinement level behind `#[ignore]` and say so in its doc comment,
 rather than letting the default suite become too slow to run.
+
+## Meshing nexus: outram-blender exports into this crate (GitHub #492, 2026-10-03)
+
+`outram-blender`'s neutral `unstructured::UnstructuredMesh` is the one mesh
+description the FV, FE and Monte Carlo solvers are built from. Its `fem-export` feature converts neutral meshes to and from this crate's `mesh::Mesh` (`convert::fem`) and **calls this crate's structured generators** (`box_hex8`, `box_tet4`, `rectangle_quad4`, `rectangle_tri6`, `quarter_annulus_quad4`) through `convert::fem::FemGenerator`. The generators stay here (maintainer default). The node orderings of `element::ElementType` are the neutral mesh's, so conversion copies connectivity unchanged; do not renumber them without updating `outram_blender::unstructured::element`.
+
+**This crate must never depend on `outram-blender`** (GitHub #486 dependency
+rule 1): blender depends on this crate, optionally, to export into it, and
+Cargo counts optional dependencies when it looks for cycles. Mesh types stay
+defined here; the converters live in `outram_blender::unstructured::convert`.

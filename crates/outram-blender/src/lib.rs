@@ -158,6 +158,7 @@
 //! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridge (`foam-export`; ~~`mc-export`~~ retired 2026-10-02, #486) |
 //! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
 //! | ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (GitHub #486): the Monte Carlo setup + run driver, backend of **MC Studio** |
+//! | [`unstructured`] | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh (`UnstructuredMesh`), converters (`convert::{foam, block_mesh, cfmesh, fem}`, feature-gated), the 1-D mesher, a mesh plotter. Unit tests written, not yet run |
 //! | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)

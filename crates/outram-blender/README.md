@@ -22,7 +22,16 @@
   writing PNG, pixel-for-pixel against `openmc --plot` (V&V in
   `crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
 - **Tally-mesh description** (`spatial_mesh`) — regular, rectilinear,
-  cylindrical and spherical meshes; an unstructured variant is planned (#492).
+  cylindrical and spherical meshes; ~~an unstructured variant is planned
+  (#492)~~ **and, since 2026-10-03, `MeshKind::Unstructured`** (#492).
+- **The meshing nexus** (`unstructured`, 2026-10-03, #492) — one neutral
+  mesh description (`UnstructuredMesh`: points, faces, cells with element
+  types, patches, zones) that finite-volume (`outram-foam-basic-lib`
+  `PolyMesh`/`FvMesh`), finite-element (`farrer-park` `Mesh`) and Monte Carlo
+  tallies are all built from. Converters per solver family and orchestration
+  of the workspace's meshers (blockMesh / snappyHexMesh, cfMesh, farrer-park's
+  generators, a 1-D mesher) sit behind features; a plotter draws the mesh
+  itself. Drawings: [`docs/meshing_nexus/`](docs/meshing_nexus/README.md).
 - **A pure-Rust, headless mesh-authoring frontend**, inspired by the
   **architecture** of [Blender](https://github.com/blender/blender). It authors
   and procedurally generates geometry, then bridges it into OUTRAM PARK solver
@@ -199,7 +208,8 @@ included.
 | `gnn_graph` *(feature `gnn-graph`)* | — (no Blender analogue) | **real** — `cell_adjacency_graph`: CSG cells (`csg::cell::Cell`; ~~`outram-mc-libs`~~ since 2026-10-02) → a RAFFLES message-passing graph (cells joined when they share a surface with opposite senses; a documented **superset** of true adjacency). **Moved here 2026-10-02** from `raffles::gnn::mc_geometry`: this crate owns geometry description (issue #486) |
 | ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (#486) |
 | `csg` | — (OpenMC port) | **real** — CSG description + pure navigation kernel, moved from `outram-mc-libs` 2026-10-02 (#486); `csg::plot` is the OpenMC plotter |
-| `spatial_mesh` | — (OpenMC port) | **real** — tally-mesh description (Regular / Rectilinear / Cylindrical / Spherical, `MeshKind`), moved from `outram-mc-libs` 2026-10-02 (#486) |
+| `spatial_mesh` | — (OpenMC port) | **real** — tally-mesh description (Regular / Rectilinear / Cylindrical / Spherical, `MeshKind`), moved from `outram-mc-libs` 2026-10-02 (#486); `MeshKind::Unstructured` since 2026-10-03 (#492) |
+| `unstructured` | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh, its geometry, `CellLocator`, the 1-D mesher, a mesh plotter; `convert::{foam, block_mesh, cfmesh, fem}` behind `foam-export` / `block-mesh` / `foam-mesh` / `fem-export`. Unit tests written, **not yet run** (testing deferred by the maintainer) |
 | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet → dual → boundary-layers pipeline → OpenFOAM `polyMesh` (with a quality report). Gated by a **closed, consistently-wound 2-manifold check** on the input surface (`check_closed_manifold`), because the backend's carve classifies cells by ray parity and would silently mis-mesh a leaky surface. The **Mesh Studio** backend |
 
 ## Design rules honoured (workspace `CLAUDE.md`)

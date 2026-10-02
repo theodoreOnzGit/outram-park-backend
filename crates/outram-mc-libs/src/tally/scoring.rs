@@ -771,4 +771,57 @@ mod tests {
         assert_eq!(t.bins[0].count, 2);
         assert_eq!(t.bins[1].count, 0, "cell-1 saw no collisions");
     }
+
+    /// GitHub #492: a track-length flux tally on an **unstructured** mesh
+    /// splits a segment across the cells it crosses. Two unit hexes along x;
+    /// a 1.5 cm segment from x = 0.25 to 1.75 puts 0.75 cm in each. A second
+    /// filter (energy, unsplit) multiplies through with weight 1.
+    ///
+    /// Results: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).
+    #[test]
+    fn unstructured_mesh_filter_splits_track_length() {
+        use crate::tally::filter::{EnergyFilter, MeshFilter};
+        use crate::tally::mesh::MeshKind;
+        use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
+        use std::sync::Arc;
+
+        let mut pts = Vec::new();
+        for x in [0.0, 1.0, 2.0] {
+            for (y, z) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
+                pts.push([x, y, z]);
+            }
+        }
+        let el = |i: usize| Element { kind: ElementKind::Hex8, nodes: (0..8).map(|k| 4 * i + k).collect() };
+        let mesh =
+            UnstructuredMesh::from_elements(LengthUnit::Centimetre, pts, vec![el(0), el(1)], vec![], vec![])
+                .unwrap();
+        let tally = Tally {
+            id: 7,
+            name: "umesh flux".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: vec![0.0, 2.0e7] }),
+                FilterKind::Mesh(MeshFilter { mesh: MeshKind::Unstructured(Arc::new(mesh)) }),
+            ],
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let mut batch = vec![0.0; 2];
+        score_track_length(
+            &mut batch,
+            &tally,
+            0,
+            usize::MAX,
+            0,
+            1.0e6,
+            1.5,
+            Position::new(1.0, 0.5, 0.5),
+            None,
+            1.0,
+            None,
+            0.0,
+            Direction::new(1.0, 0.0, 0.0),
+        );
+        assert!((batch[0] - 0.75).abs() < 1e-12, "cell 0 got {}", batch[0]);
+        assert!((batch[1] - 0.75).abs() < 1e-12, "cell 1 got {}", batch[1]);
+    }
 }

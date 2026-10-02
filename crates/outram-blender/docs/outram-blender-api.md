@@ -141,6 +141,7 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridge (`foam-export`; ~~`mc-export`~~ retired 2026-10-02, #486) |
 | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
 | ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (GitHub #486): the Monte Carlo setup + run driver, backend of **MC Studio** |
+| [`unstructured`] | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh (`UnstructuredMesh`), converters (`convert::{foam, block_mesh, cfmesh, fem}`, feature-gated), the 1-D mesher, a mesh plotter. Unit tests written, not yet run |
 | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 
 ## Design rules honoured here (workspace `CLAUDE.md`)
@@ -17314,10 +17315,11 @@ pub struct Universe {
 - **WasmNotSync**
 ## Module `spatial_mesh`
 
-**Spatial (tally) mesh description**: regular, rectilinear, cylindrical and
-spherical meshes and [`spatial_mesh::MeshKind`]. Moved here from
-`outram-mc-libs` (`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin
-lookup and scoring stay in outram-mc-libs. Core: no feature, no dependency.
+**Spatial (tally) mesh description**: regular, rectilinear, cylindrical,
+spherical and (since 2026-10-03, GitHub #492) **unstructured** meshes and
+[`spatial_mesh::MeshKind`]. Moved here from `outram-mc-libs`
+(`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin lookup and scoring
+stay in outram-mc-libs. Core: no feature, no dependency.
 **Spatial mesh description** — the structured meshes a Monte Carlo tally
 (and, later, the deterministic MGXS path) bins space on.
 
@@ -17331,8 +17333,13 @@ re-exports everything here as `outram_mc_libs::tally::mesh::*`.
 
 Units: cm and radians, raw `f64`, as in OpenMC.
 
-The unstructured mesh family is not here yet; it is GitHub #492, which
-will add it as a [`MeshKind`] variant.
+~~The unstructured mesh family is not here yet; it is GitHub #492, which
+will add it as a [`MeshKind`] variant.~~ **CORRECTED 2026-10-03 (GitHub
+#492):** it is [`MeshKind::Unstructured`], holding an
+`Arc<`[`UnstructuredMesh`](crate::unstructured::UnstructuredMesh)`>` from [`crate::unstructured`] — the same
+object an FV or FE solver is built from. Point location and the
+track-length estimator across its cells live in outram-mc-libs
+(`UnstructuredMeshExt`).
 
 ```rust
 pub mod spatial_mesh { /* ... */ }
@@ -18005,20 +18012,23 @@ pub struct SphericalMesh {
 - **WasmNotSync**
 #### Enum `MeshKind`
 
-**Enum dispatch over every structured mesh type** — the form a
-outram-mc-libs' `tally::filter::MeshFilter` holds so one filter serves all four.
+**Enum dispatch over every tally mesh type** — the form
+outram-mc-libs' `tally::filter::MeshFilter` holds so one filter serves all
+of them. ~~every structured mesh type ... all four~~ **CORRECTED
+2026-10-03:** four structured kinds plus [`MeshKind::Unstructured`].
 
 Enum rather than a trait object, per the workspace Rust design rule
 (`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
 Upstream uses virtual dispatch off a `Mesh` base class; the enum is the
 faithful equivalent here and costs no indirection.
 
-**Not `#[non_exhaustive]`, deliberately** (GitHub #486 / #492). An
-`Unstructured(Arc<..>)` variant is planned (#492): MC tally meshes will be
-the same mesh objects the deterministic solver uses for MGXS. When it lands,
-every `match` on this enum must fail to compile until it decides what to do
-with an unstructured mesh, which is what the absence of a wildcard-forcing
-attribute guarantees inside this workspace.
+**Not `#[non_exhaustive]`, deliberately** (GitHub #486 / #492). ~~An
+`Unstructured(Arc<..>)` variant is planned (#492)~~ **It landed
+2026-10-03 (#492)**: MC tally meshes are the same mesh objects the
+deterministic solver uses for MGXS. Every exhaustive `match` on this enum
+in the workspace was updated by hand when it landed, which is what the
+absence of a wildcard-forcing attribute guaranteed; a future variant will
+force the same review.
 
 ```rust
 pub enum MeshKind {
@@ -18026,6 +18036,7 @@ pub enum MeshKind {
     Rectilinear(RectilinearMesh),
     Cylindrical(CylindricalMesh),
     Spherical(SphericalMesh),
+    Unstructured(std::sync::Arc<UnstructuredMesh>),
 }
 ```
 
@@ -18062,6 +18073,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `SphericalMesh` |  |
+
+###### `Unstructured`
+
+A neutral [`UnstructuredMesh`] (3-D only for tallies; see
+outram-mc-libs' `UnstructuredMeshExt`). Bins are cells, in cell order.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<UnstructuredMesh>` |  |
 
 ##### Implementations
 
@@ -18212,6 +18234,3378 @@ Flat bin index back to `(i, j, k)`, first axis fastest — the inverse of
 
 ```rust
 pub fn unflatten(bin: usize, d: [usize; 3]) -> [usize; 3] { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `UnstructuredMesh`
+
+```rust
+pub use crate::unstructured::UnstructuredMesh;
+```
+
+## Module `unstructured`
+
+**The neutral unstructured mesh** (GitHub #492): one description that FV
+(`polyMesh` / `FvMesh`), FE (`farrer-park` typed elements) and Monte Carlo
+tallies (`spatial_mesh::MeshKind::Unstructured`) are all built from, with
+feature-gated converters and orchestration of the workspace's meshers
+(blockMesh / snappyHexMesh, cfMesh, farrer-park generators, the 1-D
+mesher) and a mesh plotter. Core: no feature.
+# The neutral unstructured mesh — blender as the meshing nexus (GitHub #492)
+
+One mesh description, [`UnstructuredMesh`], that the three solver families
+of this workspace are built from:
+
+- **finite volume** (`outram-foam-*`, GeN-Foam ports): cells are
+  polyhedra bounded by faces with an owner and (internally) a neighbour,
+  boundary faces grouped in typed patches — the OpenFOAM `polyMesh` model;
+- **finite element** (`farrer-park`, later Moltres / OFFBEAT): cells are
+  **typed** elements (`Tet4`, `Hex8`, `Tri3`, `Tri6`, `Quad4`) with nodes in
+  a fixed local order;
+- **Monte Carlo** (`outram-mc-libs`): the same cells are tally bins, through
+  [`crate::spatial_mesh::MeshKind::Unstructured`], so MGXS bins and solver
+  cells match one-to-one by construction (the #492 MGXS requirement).
+
+Every cell carries both views: its faces (always) and its element type and
+ordered nodes (when it is a typed element; a cfMesh dual cell is a plain
+[`ElementKind::Polyhedron`]). [`UnstructuredMesh::from_elements`] derives
+the faces of an FE mesh; [`UnstructuredMesh::from_polyhedral`] recognises
+tets and hexes in an FV mesh. Cell **zones** name material / solver regions
+and patches name boundaries.
+
+## What lives where
+
+| here (`outram_blender::unstructured`) | elsewhere |
+|---|---|
+| description: points, faces, cells, patches, zones, element types, units | — |
+| geometry: face centres / area vectors, cell volumes / centroids (OpenFOAM `primitiveMesh` port), the centroid tetrahedral decomposition | — |
+| a uniform-grid spatial index over cell bounding boxes ([`CellLocator`]) | — |
+| the 1-D mesher ([`one_d::one_d_column`]) | — |
+| converters and mesher orchestration ([`convert`], feature-gated) | the meshers themselves: `outram-foam-mesh` (blockMesh / snappy), `outram-park-fork-cfmesh`, `farrer-park`'s generators |
+| drawing ([`plot`]) | — |
+| — | **point location and track-length scoring**: `outram-mc-libs`' `UnstructuredMeshExt` (`tally::mesh`) |
+
+## Units
+
+Coordinates are raw `f64` in the mesh's declared [`LengthUnit`] (the
+documented raw-`f64` exception of `csg` / `spatial_mesh`), mirroring
+OpenMC's unstructured-mesh `length_multiplier`. Converters scale to metres
+for the FV / FE crates; Monte Carlo scales its cm positions into the mesh
+unit.
+
+## Status
+
+Untrusted AI-generated draft (2026-10-03), per the workspace
+`RESPONSIBLE_USE.md`. Unit tests are written but **NOT YET RUN** (testing
+deferred by the maintainer, 2026-10-03). For research, education and V&V
+only.
+
+```rust
+pub mod unstructured { /* ... */ }
+```
+
+### Modules
+
+## Module `build`
+
+The two constructors of [`UnstructuredMesh`]: from typed **elements** (the
+finite-element view) and from **polyhedral faces** (the `polyMesh` view).
+Each derives what the other view needs.
+
+```rust
+pub mod build { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_PATCH`
+
+Name of the patch that collects boundary faces no
+[`BoundarySpec`] claimed — OpenFOAM `blockMesh`'s default patch name.
+
+`blockMesh` gives `defaultFaces` the type `empty`; this crate gives it
+[`PatchKind::Patch`] instead, deliberately: `empty` means "2-D reduced
+direction" to an FV solver, which would be wrong for every 3-D mesh built
+here. Rename or retype it with
+[`UnstructuredMesh::with_patch_where`].
+
+```rust
+pub const DEFAULT_PATCH: &str = "defaultFaces";
+```
+
+## Module `convert`
+
+**Converters and mesher orchestration**: one module per solver family,
+each behind the cargo feature that pulls that solver crate.
+
+| module | feature | to | from | meshers driven |
+|---|---|---|---|---|
+| `foam` | `foam-export` | `outram-foam-basic-lib` `PolyMesh`, `FvMesh` | `PolyMesh` | — |
+| `block_mesh` | `block-mesh` | — | `outram-foam-mesh` `blockMesh`, `snappyHexMesh` driver | `block_mesh`, `snappy_from_surface` |
+| `cfmesh` | `foam-mesh` | — | `outram-park-fork-cfmesh` `VolumeMesh` | `tet_dual` (tet -> dual -> layers) |
+| `fem` | `fem-export` | `farrer-park` `Mesh` | `farrer-park` `Mesh` | `FemGenerator` (farrer-park's own generators, which stay there) |
+
+The 1-D mesher is in the core ([`super::one_d`]), because its points are
+not recoverable from the `FvMesh` the FV crate's version returns.
+
+**Direction rule (GitHub #486, #492).** The solver crates never depend on
+this one; this crate depends on them, optionally. No converter targets
+`outram-mc-libs`: Monte Carlo takes the neutral mesh directly through
+`spatial_mesh::MeshKind::Unstructured`.
+
+There is no `FvMesh -> UnstructuredMesh` converter, deliberately: an
+`FvMesh` holds no points, so there is nothing to build vertices from. Go
+through the `PolyMesh` it was built from.
+
+```rust
+pub mod convert { /* ... */ }
+```
+
+### Types
+
+#### Enum `ConvertError`
+
+Errors from a converter or a mesher it drives.
+
+```rust
+pub enum ConvertError {
+    Dimension {
+        dim: usize,
+        target: &'static str,
+    },
+    MixedElements {
+        target: &'static str,
+        cell: usize,
+        found: &'static str,
+        first: &'static str,
+    },
+    Mesh(super::mesh::UnstructuredMeshError),
+    Solver(String),
+}
+```
+
+##### Variants
+
+###### `Dimension`
+
+The target needs a mesh of another dimension.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dim` | `usize` | The mesh's dimension. |
+| `target` | `&'static str` | The target type. |
+
+###### `MixedElements`
+
+The target needs every cell to be one typed element kind.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `target` | `&'static str` | The target type. |
+| `cell` | `usize` | The offending cell. |
+| `found` | `&'static str` | Its kind. |
+| `first` | `&'static str` | The first cell's kind. |
+
+###### `Mesh`
+
+A neutral-mesh construction error on the way in.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::mesh::UnstructuredMeshError` |  |
+
+###### `Solver`
+
+The solver crate refused the result or the mesher failed; its message.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ConvertError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+  - ```rust
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: UnstructuredMeshError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ConvertError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `element`
+
+Element types, length units and patch kinds of the neutral
+[`UnstructuredMesh`](super::UnstructuredMesh).
+
+# Local node orderings
+
+The finite-element kinds use the node orderings of `farrer-park`'s
+`element::ElementType` (which are the VTK / Abaqus conventions), so a
+converted mesh needs no renumbering:
+
+- [`ElementKind::Tet4`] — the fourth node lies on the positive side of the
+  plane of the first three (`(n1 - n0) x (n2 - n0) . (n3 - n0) > 0`).
+- [`ElementKind::Hex8`] — nodes 0-3 are the `zeta = -1` face,
+  counter-clockwise seen from `+zeta`; nodes 4-7 the matching `zeta = +1`
+  face.
+- [`ElementKind::Tri3`] / [`ElementKind::Quad4`] — corners counter-clockwise
+  in the `z = 0` plane; [`ElementKind::Tri6`] adds the midsides of edges
+  0-1, 1-2, 2-0 as nodes 3, 4, 5.
+
+The local face tables below list each face **wound outward** (right-hand
+normal pointing out of the element). The tables were checked by hand on the
+reference elements; `face_tables_are_outward` in the tests checks them
+numerically.
+
+```rust
+pub mod element { /* ... */ }
+```
+
+### Types
+
+#### Enum `LengthUnit`
+
+The unit the mesh's point coordinates are stored in.
+
+The neutral mesh stores raw `f64` coordinates (the documented raw-`f64`
+exception of `csg` and `spatial_mesh`: point location sits on the Monte
+Carlo hot path) and carries the unit explicitly so no consumer has to
+guess. Monte Carlo works in **cm**, `outram-foam-*` and `farrer-park` in
+**m**; the converters scale.
+
+This mirrors OpenMC's `UnstructuredMesh::length_multiplier_`
+(`include/openmc/mesh.h:820`), which scales a mesh file's units to cm
+(`LibMesh::get_bin`, `src/mesh.cpp:3973`, divides the query point by it).
+
+```rust
+pub enum LengthUnit {
+    Centimetre,
+    Metre,
+    Millimetre,
+}
+```
+
+##### Variants
+
+###### `Centimetre`
+
+Centimetres (the Monte Carlo convention).
+
+###### `Metre`
+
+Metres (the finite-volume and finite-element convention).
+
+###### `Millimetre`
+
+Millimetres (CAD exports).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cm_per_unit(self: Self) -> f64 { /* ... */ }
+  ```
+  Centimetres per one stored unit.
+
+- ```rust
+  pub fn metres_per_unit(self: Self) -> f64 { /* ... */ }
+  ```
+  Metres per one stored unit.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LengthUnit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LengthUnit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ElementKind`
+
+The type of one mesh cell.
+
+The FV world sees every cell as a polyhedron (faces + owner/neighbour);
+the FE world needs a **typed** element with an ordered node list. Both are
+carried: every cell has its faces, and a typed cell also has its nodes in
+the local ordering above. A polyhedral cell (an OpenFOAM `polyMesh` cell
+that is not recognised as a tet or a hex, e.g. a cfMesh dual cell) has no
+FE ordering and is [`ElementKind::Polyhedron`].
+
+```rust
+pub enum ElementKind {
+    Tri3,
+    Tri6,
+    Quad4,
+    Tet4,
+    Hex8,
+    Polygon,
+    Polyhedron,
+}
+```
+
+##### Variants
+
+###### `Tri3`
+
+3-node linear triangle (2-D).
+
+###### `Tri6`
+
+6-node quadratic triangle (2-D). Geometry here uses the straight-sided
+corner triangle; the midside nodes are carried for the FE converter.
+
+###### `Quad4`
+
+4-node bilinear quadrilateral (2-D).
+
+###### `Tet4`
+
+4-node linear tetrahedron.
+
+###### `Hex8`
+
+8-node trilinear hexahedron.
+
+###### `Polygon`
+
+A general polygon (2-D) with no FE ordering.
+
+###### `Polyhedron`
+
+A general polyhedron (3-D) with no FE ordering.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dim(self: Self) -> usize { /* ... */ }
+  ```
+  Spatial dimension of the cell: 2 or 3.
+
+- ```rust
+  pub fn n_nodes(self: Self) -> Option<usize> { /* ... */ }
+  ```
+  Nodes per element, or `None` for the untyped polygon / polyhedron.
+
+- ```rust
+  pub fn is_typed(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this is a typed finite element (has a fixed node ordering).
+
+- ```rust
+  pub fn local_faces(self: Self) -> &'static [&'static [usize]] { /* ... */ }
+  ```
+  Local faces of a typed element, each wound outward, as indices into
+
+- ```rust
+  pub fn n_corners(self: Self) -> Option<usize> { /* ... */ }
+  ```
+  Number of corner (vertex) nodes: the leading nodes that define the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ElementKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ElementKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PatchKind`
+
+Boundary-patch type, the union of what the FV converters need.
+
+Mirrors `outram_foam_basic_lib::mesh::PatchKind` (OpenFOAM's
+`polyPatch` types). A finite-element consumer ignores the kind and uses the
+patch as a named facet set.
+
+```rust
+pub enum PatchKind {
+    Patch,
+    Wall,
+    Symmetry,
+    Empty,
+    Wedge,
+    Cyclic {
+        partner: Option<usize>,
+    },
+    CyclicAmi {
+        partner: Option<usize>,
+    },
+    Processor,
+}
+```
+
+##### Variants
+
+###### `Patch`
+
+Generic boundary.
+
+###### `Wall`
+
+Wall.
+
+###### `Symmetry`
+
+Symmetry plane.
+
+###### `Empty`
+
+2-D reduced case (OpenFOAM `empty`).
+
+###### `Wedge`
+
+Axisymmetric wedge.
+
+###### `Cyclic`
+
+Conformal periodic pair; `partner` is the patch index of the other
+half when known.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `partner` | `Option<usize>` | Patch index of the partner half, if resolved. |
+
+###### `CyclicAmi`
+
+Non-conformal periodic pair (OpenFOAM `cyclicAMI`). The AMI weights
+are not part of the description; the FV side recomputes them.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `partner` | `Option<usize>` | Patch index of the partner half, if resolved. |
+
+###### `Processor`
+
+Inter-processor decomposition seam.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PatchKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PatchKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Patch`
+
+A named set of boundary faces.
+
+```rust
+pub struct Patch {
+    pub name: String,
+    pub kind: PatchKind,
+    pub faces: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Patch name (`"inlet"`, `"walls"`, `"defaultFaces"`, ...). |
+| `kind` | `PatchKind` | Patch type. |
+| `faces` | `Vec<usize>` | Global face indices (boundary faces only), ascending. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Patch { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Patch) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Zone`
+
+A named set of cells: a material region, a solver region, a tally group.
+
+OpenFOAM `cellZone`, Exodus element block, MOAB material set. Zones may
+overlap and need not cover the mesh;
+[`UnstructuredMesh::zone_of`](super::UnstructuredMesh::zone_of) reports
+the first zone a cell is in.
+
+```rust
+pub struct Zone {
+    pub name: String,
+    pub cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Zone name (`"fuel"`, `"reflector"`, ...). |
+| `cells` | `Vec<usize>` | Cell indices, ascending. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Zone { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Zone) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Element`
+
+One input element for
+[`UnstructuredMesh::from_elements`](super::UnstructuredMesh::from_elements):
+a typed cell given by its nodes.
+
+```rust
+pub struct Element {
+    pub kind: ElementKind,
+    pub nodes: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `ElementKind` | Element type; must be a typed kind (not `Polygon`/`Polyhedron`). |
+| `nodes` | `Vec<usize>` | Node indices in the kind's local ordering. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Element { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Element) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoundarySpec`
+
+One input boundary facet set for
+[`UnstructuredMesh::from_elements`](super::UnstructuredMesh::from_elements).
+
+Each facet is a corner-node list; it is matched to a mesh boundary face by
+its **set** of nodes, so the winding given here does not matter.
+
+```rust
+pub struct BoundarySpec {
+    pub name: String,
+    pub kind: PatchKind,
+    pub facets: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Patch name. |
+| `kind` | `PatchKind` | Patch type. |
+| `facets` | `Vec<Vec<usize>>` | Corner-node lists of the facets in this patch. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundarySpec { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoundarySpec) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PolyFace`
+
+One input face for
+[`UnstructuredMesh::from_polyhedral`](super::UnstructuredMesh::from_polyhedral).
+
+```rust
+pub struct PolyFace {
+    pub verts: Vec<usize>,
+    pub owner: usize,
+    pub neighbour: Option<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `verts` | `Vec<usize>` | Vertex loop, wound so the normal points out of `owner` (into<br>`neighbour`), the OpenFOAM convention. |
+| `owner` | `usize` | Owner cell. |
+| `neighbour` | `Option<usize>` | Neighbour cell, `None` on the boundary. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PolyFace { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PolyFace) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `geometry`
+
+Face and cell geometry of the neutral mesh: face centres and area vectors,
+cell volumes and centroids, and the two triangulations a cell is used
+through.
+
+All quantities are in the mesh's own [`LengthUnit`](super::LengthUnit).
+
+# What "inside a cell" means: the bounding triangles
+
+A polyhedral cell with non-planar faces has no unique interior. This crate
+fixes one: the cell is the region enclosed by the **fan triangles**
+`(face centre, v_i, v_i+1)` of its faces
+([`UnstructuredMesh::for_each_bounding_triangle`](super::UnstructuredMesh::for_each_bounding_triangle)).
+Two cells sharing a face share its fan triangles, so the cells tile the
+mesh with no gap and no overlap, and the definition holds for **any**
+closed cell, convex or not. Point location (outram-mc-libs) tests it by
+the generalized winding number of those triangles, the same inside test
+[`crate::boolean_classify`] uses for closed surface meshes.
+
+# The centroid decomposition: sampling only
+
+The tetrahedra `(face centre, v_i, v_i+1, cell centre)`
+([`UnstructuredMesh::for_each_cell_simplex`](super::UnstructuredMesh::for_each_cell_simplex))
+are OpenFOAM's `tetDecomposition` (the `CELL_TETS` mode of
+`polyMesh::findCell`). They tile the cell exactly when it is star-shaped
+about its centroid, which every convex cell is; some cfMesh dual cells are
+not (found 2026-10-03 on the first cfMesh cylinder put through this
+module: cell 4 of a 0.1 m tet-dual mesh had an inverted decomposition
+tetrahedron). Whether a cell's decomposition is valid is recorded
+([`UnstructuredMesh::decomposition_is_valid`](super::UnstructuredMesh::decomposition_is_valid));
+it is used only to sample uniformly in a cell, with rejection sampling as
+the fallback.
+
+The volume formula below is OpenFOAM's pyramid decomposition about an
+estimated centre; for a closed cell with planar faces it is exact by the
+divergence theorem whatever the cell's shape (a warped face adds the usual
+OpenFOAM approximation).
+
+```rust
+pub mod geometry { /* ... */ }
+```
+
+### Functions
+
+#### Function `sub`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a - b`.
+
+```rust
+pub fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `add`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a + b`.
+
+```rust
+pub fn add(a: [f64; 3], b: [f64; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `scale`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`s a`.
+
+```rust
+pub fn scale(a: [f64; 3], s: f64) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `dot`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a . b`.
+
+```rust
+pub fn dot(a: [f64; 3], b: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `cross`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a x b`.
+
+```rust
+pub fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `mag`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`|a|`.
+
+```rust
+pub fn mag(a: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `tet_signed_volume`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Signed volume of the tetrahedron `(a, b, c, d)`:
+`((b - a) x (c - a)) . (d - a) / 6`, positive when `d` lies on the side
+the right-hand normal of `(a, b, c)` points to.
+
+```rust
+pub fn tet_signed_volume(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `face_centre_and_area`
+
+Centre and area vector of one face.
+
+- **3-D** (`dim == 3`): port of `primitiveMesh::makeFaceCentresAndAreas`
+  (mirrored from `outram_foam_basic_lib::io::poly_mesh::face_centre_and_area`):
+  a triangle is exact; a polygon is fanned about its vertex average, the
+  centre is the area-weighted mean of the fan-triangle centroids and the
+  area vector the sum of the fan-triangle area vectors. The area vector's
+  direction is the right-hand normal of the vertex loop.
+- **2-D** (`dim == 2`): the face is an edge `a -> b` in the `z = 0` plane;
+  the centre is its midpoint and the area vector `(dy, -dx, 0)`, the
+  outward normal of a counter-clockwise cell scaled by the edge length
+  (unit depth).
+
+```rust
+pub fn face_centre_and_area(points: &[[f64; 3]], verts: &[usize], dim: usize) -> ([f64; 3], [f64; 3]) { /* ... */ }
+```
+
+#### Function `cell_volumes_and_centres`
+
+Volumes and centroids of every cell, by the OpenFOAM pyramid
+decomposition (`primitiveMesh::makeCellCentresAndVols`).
+
+First the cell centre is estimated as the mean of its face centres; then
+each face contributes a pyramid with apex at that estimate. In 3-D the
+pyramid volume is `Sf . (Cf - c_est) / 3` with centroid
+`3/4 Cf + 1/4 c_est`; in 2-D the triangle area is `Sf . (Cf - c_est) / 2`
+with centroid `2/3 Cf + 1/3 c_est`.
+
+`face_owner_side` is, for each face, `(owner, neighbour)`; the area vector
+is negated for the neighbour.
+
+```rust
+pub fn cell_volumes_and_centres(n_cells: usize, face_centres: &[[f64; 3]], face_areas: &[[f64; 3]], owner: &[usize], neighbour: &[Option<usize>], dim: usize) -> (Vec<f64>, Vec<[f64; 3]>) { /* ... */ }
+```
+
+#### Function `for_each_fan_triangle`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Visit the fan triangles `(face centre, v_i, v_i+1)` of one 3-D face, wound
+like the face (right-hand normal along the face's area vector).
+
+```rust
+pub fn for_each_fan_triangle<F: FnMut([f64; 3], [f64; 3], [f64; 3])>(points: &[[f64; 3]], verts: &[usize], centre: [f64; 3], f: F) { /* ... */ }
+```
+
+## Module `locator`
+
+A uniform bucket grid over cell bounding boxes: the spatial index that
+turns "which cell contains this point" from a scan of every cell into a
+scan of a handful.
+
+# Where this sits relative to upstream
+
+OpenMC delegates the same job to a library: MOAB's `AdaptiveKDTree` over
+the tets and their triangles (`MOABMesh::build_kdtree`,
+`src/mesh.cpp:3099`, options `MAX_DEPTH=20;PLANE_SET=2`) or libMesh's
+`PointLocator` (`LibMesh::get_bin`, `src/mesh.cpp:3973`). Neither is
+available in pure Rust, so this is the pure-Rust equivalent: a uniform
+grid, which is simpler than a k-d tree and as good for the near-uniform
+cell sizes a reactor mesh has. It is an index only — it answers "which
+cells might contain this point", never "which cell does"; the exact test is
+the caller's (outram-mc-libs' `UnstructuredMeshExt`).
+
+The grid is part of the description (built once, read-only, shared through
+the mesh's `Arc`) so that every consumer uses the same candidates.
+
+```rust
+pub mod locator { /* ... */ }
+```
+
+### Types
+
+#### Struct `CellLocator`
+
+Uniform bucket grid over cell bounding boxes (compressed-row storage).
+
+```rust
+pub struct CellLocator {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(lower: [f64; 3], upper: [f64; 3], cell_bounds: &[[[f64; 3]; 2]]) -> Self { /* ... */ }
+  ```
+  Build the grid over `cell_bounds` (`[lower, upper]` per cell), which
+
+- ```rust
+  pub fn dims(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Buckets per axis.
+
+- ```rust
+  pub fn candidates_at(self: &Self, p: [f64; 3]) -> &[usize] { /* ... */ }
+  ```
+  Cells whose bounding box overlaps the bucket containing `p`, or an
+
+- ```rust
+  pub fn candidates_in_box(self: &Self, lo: [f64; 3], hi: [f64; 3], out: &mut Vec<usize>) { /* ... */ }
+  ```
+  Every cell whose bucket overlaps the axis-aligned box `[lo, hi]`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellLocator { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellLocator) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `mesh`
+
+The [`UnstructuredMesh`] type: storage, accessors, derived geometry and
+validation. Construction lives in [`super::build`].
+
+```rust
+pub mod mesh { /* ... */ }
+```
+
+### Types
+
+#### Enum `UnstructuredMeshError`
+
+Errors raised while building or validating an [`UnstructuredMesh`].
+
+```rust
+pub enum UnstructuredMeshError {
+    Empty(&'static str),
+    PointOutOfRange {
+        context: &'static str,
+        index: usize,
+        n_points: usize,
+    },
+    CellOutOfRange {
+        context: &'static str,
+        index: usize,
+        n_cells: usize,
+    },
+    WrongNodeCount {
+        element: usize,
+        kind: super::element::ElementKind,
+        expected: usize,
+        got: usize,
+    },
+    BadKind {
+        element: usize,
+        kind: super::element::ElementKind,
+        reason: &'static str,
+    },
+    MixedDimension {
+        element: usize,
+        expected: usize,
+        got: usize,
+    },
+    NonManifoldFace {
+        nodes: Vec<usize>,
+    },
+    UnmatchedFacet {
+        patch: String,
+        nodes: Vec<usize>,
+    },
+    FaceInTwoPatches {
+        face: usize,
+        first: String,
+        second: String,
+    },
+    FaceOutOfRange {
+        patch: String,
+        face: usize,
+        n_faces: usize,
+    },
+    BoundaryFaceUnpatched {
+        face: usize,
+    },
+    InternalFaceInPatch {
+        face: usize,
+        patch: String,
+    },
+    DegenerateFace {
+        face: usize,
+        n: usize,
+        dim: usize,
+        min: usize,
+    },
+    SelfNeighbour {
+        face: usize,
+        cell: usize,
+    },
+    TooFewFaces {
+        cell: usize,
+        n: usize,
+        dim: usize,
+        min: usize,
+    },
+    OpenCell {
+        cell: usize,
+        relative: f64,
+    },
+    BadCellGeometry {
+        cell: usize,
+        volume: f64,
+        reason: &'static str,
+    },
+}
+```
+
+##### Variants
+
+###### `Empty`
+
+Nothing to build.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `PointOutOfRange`
+
+A point index past the end of the point list.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `context` | `&'static str` | Where it was found. |
+| `index` | `usize` | The bad index. |
+| `n_points` | `usize` | Number of points. |
+
+###### `CellOutOfRange`
+
+A cell index past the end of the cell list.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `context` | `&'static str` | Where it was found. |
+| `index` | `usize` | The bad index. |
+| `n_cells` | `usize` | Number of cells. |
+
+###### `WrongNodeCount`
+
+A typed element with the wrong number of nodes.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `element` | `usize` | Element index. |
+| `kind` | `super::element::ElementKind` | Its kind. |
+| `expected` | `usize` | Nodes the kind needs. |
+| `got` | `usize` | Nodes given. |
+
+###### `BadKind`
+
+An element kind that is not allowed where it was given.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `element` | `usize` | Element index. |
+| `kind` | `super::element::ElementKind` | Its kind. |
+| `reason` | `&'static str` | Why. |
+
+###### `MixedDimension`
+
+Elements of different dimension in one mesh.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `element` | `usize` | Element index. |
+| `expected` | `usize` | Mesh dimension (from the first element). |
+| `got` | `usize` | This element's dimension. |
+
+###### `NonManifoldFace`
+
+A face shared by more than two cells.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nodes` | `Vec<usize>` | Sorted corner nodes of the face. |
+
+###### `UnmatchedFacet`
+
+A boundary facet that matches no boundary face.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `String` | Patch name. |
+| `nodes` | `Vec<usize>` | The facet's nodes as given. |
+
+###### `FaceInTwoPatches`
+
+A face listed in two patches.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `first` | `String` | First patch. |
+| `second` | `String` | Second patch. |
+
+###### `FaceOutOfRange`
+
+A patch naming a face that does not exist.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `String` | Patch name. |
+| `face` | `usize` | The bad index. |
+| `n_faces` | `usize` | Number of faces. |
+
+###### `BoundaryFaceUnpatched`
+
+A boundary face no patch claims.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+
+###### `InternalFaceInPatch`
+
+An internal face listed in a patch.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `patch` | `String` | Patch name. |
+
+###### `DegenerateFace`
+
+A face with too few vertices.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `n` | `usize` | Vertices given. |
+| `dim` | `usize` | Mesh dimension. |
+| `min` | `usize` | Minimum. |
+
+###### `SelfNeighbour`
+
+A face whose owner is also its neighbour.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `cell` | `usize` | The cell. |
+
+###### `TooFewFaces`
+
+A cell with too few faces to enclose anything.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index. |
+| `n` | `usize` | Faces found. |
+| `dim` | `usize` | Mesh dimension. |
+| `min` | `usize` | Minimum. |
+
+###### `OpenCell`
+
+A cell whose outward area vectors do not sum to zero.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index. |
+| `relative` | `f64` | Relative closure residual. |
+
+###### `BadCellGeometry`
+
+A cell with non-positive volume.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index. |
+| `volume` | `f64` | Cell volume (area in 2-D). |
+| `reason` | `&'static str` | What is wrong. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnstructuredMeshError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: UnstructuredMeshError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnstructuredMeshError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `UnstructuredMesh`
+
+The **neutral mesh description**: one object both a finite-volume solver
+(polyhedral cells, owner/neighbour faces, patches) and a finite-element
+solver (typed elements with ordered nodes) can be built from, and that a
+Monte Carlo tally bins on (`spatial_mesh::MeshKind::Unstructured`).
+
+See the [module docs](super) for the design and the converters.
+
+# Invariants (checked on construction)
+
+- Every face is wound so its area vector points **out of its owner** (into
+  its neighbour), and `owner < neighbour` for internal faces built from
+  elements (the OpenFOAM upper-triangular convention the `polyMesh`
+  converter relies on).
+- Every boundary face is in exactly one patch; no internal face is in any.
+- Every cell is closed and has a positive volume.
+
+A cell need **not** be convex or star-shaped: a cfMesh dual cell often is
+neither. Whether its centroid decomposition is valid (no inverted
+tetrahedron) is recorded per cell, [`Self::decomposition_is_valid`], and
+only used to choose a sampling method; point location uses the cell's
+bounding faces (see [`super::geometry`]), which is right for any closed
+cell.
+
+Fields are private so the derived geometry cannot drift from the topology;
+a mesh is immutable once built (share it with `Arc`).
+
+```rust
+pub struct UnstructuredMesh {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_elements(unit: LengthUnit, points: Vec<[f64; 3]>, elements: Vec<Element>, boundaries: Vec<BoundarySpec>, zones: Vec<Zone>) -> Result<Self, UnstructuredMeshError> { /* ... */ }
+  ```
+  Build from **typed elements** (the finite-element view).
+
+- ```rust
+  pub fn from_polyhedral(unit: LengthUnit, points: Vec<[f64; 3]>, faces: Vec<PolyFace>, n_cells: usize, patches: Vec<Patch>, zones: Vec<Zone>) -> Result<Self, UnstructuredMeshError> { /* ... */ }
+  ```
+  Build from **polyhedral faces** (the OpenFOAM `polyMesh` view; 3-D).
+
+- ```rust
+  pub fn decomposition_is_valid(self: &Self, c: usize) -> bool { /* ... */ }
+  ```
+  Whether cell `c`'s centroid decomposition
+
+- ```rust
+  pub fn n_non_star_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells whose centroid decomposition is not valid.
+
+- ```rust
+  pub fn for_each_bounding_triangle<F: FnMut([[f64; 3]; 3])>(self: &Self, c: usize, f: F) { /* ... */ }
+  ```
+  Visit the **bounding triangles** of cell `c`, each wound **outward**
+
+- ```rust
+  pub fn unit(self: &Self) -> LengthUnit { /* ... */ }
+  ```
+  Unit of every stored coordinate, length, area and volume.
+
+- ```rust
+  pub fn dim(self: &Self) -> usize { /* ... */ }
+  ```
+  Spatial dimension, 2 or 3.
+
+- ```rust
+  pub fn points(self: &Self) -> &[[f64; 3]] { /* ... */ }
+  ```
+  Points (vertices), in [`Self::unit`].
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn n_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of faces (internal + boundary).
+
+- ```rust
+  pub fn n_internal_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of internal faces.
+
+- ```rust
+  pub fn face(self: &Self, f: usize) -> &[usize] { /* ... */ }
+  ```
+  Vertex loop of face `f`, wound out of its owner.
+
+- ```rust
+  pub fn owner(self: &Self, f: usize) -> usize { /* ... */ }
+  ```
+  Owner cell of face `f`.
+
+- ```rust
+  pub fn neighbour(self: &Self, f: usize) -> Option<usize> { /* ... */ }
+  ```
+  Neighbour cell of face `f`, `None` on the boundary.
+
+- ```rust
+  pub fn cell_kind(self: &Self, c: usize) -> ElementKind { /* ... */ }
+  ```
+  Type of cell `c`.
+
+- ```rust
+  pub fn cell_nodes(self: &Self, c: usize) -> &[usize] { /* ... */ }
+  ```
+  Nodes of cell `c`: the local FE ordering for a typed cell, the sorted
+
+- ```rust
+  pub fn cell_faces(self: &Self, c: usize) -> &[usize] { /* ... */ }
+  ```
+  Faces bounding cell `c`.
+
+- ```rust
+  pub fn patches(self: &Self) -> &[Patch] { /* ... */ }
+  ```
+  Boundary patches.
+
+- ```rust
+  pub fn zones(self: &Self) -> &[Zone] { /* ... */ }
+  ```
+  Cell zones.
+
+- ```rust
+  pub fn zone_of(self: &Self, c: usize) -> Option<usize> { /* ... */ }
+  ```
+  The first zone cell `c` belongs to, if any.
+
+- ```rust
+  pub fn face_centre(self: &Self, f: usize) -> [f64; 3] { /* ... */ }
+  ```
+  Centre of face `f`.
+
+- ```rust
+  pub fn face_area_vector(self: &Self, f: usize) -> [f64; 3] { /* ... */ }
+  ```
+  Area vector of face `f` (out of the owner; per unit depth in 2-D).
+
+- ```rust
+  pub fn cell_volume(self: &Self, c: usize) -> f64 { /* ... */ }
+  ```
+  Volume of cell `c` in `unit^3` (area in `unit^2` for a 2-D mesh).
+
+- ```rust
+  pub fn cell_centre(self: &Self, c: usize) -> [f64; 3] { /* ... */ }
+  ```
+  Volume-weighted centroid of cell `c`.
+
+- ```rust
+  pub fn cell_bounds(self: &Self, c: usize) -> [[f64; 3]; 2] { /* ... */ }
+  ```
+  Axis-aligned bounds `[lower, upper]` of cell `c`.
+
+- ```rust
+  pub fn bounds(self: &Self) -> [[f64; 3]; 2] { /* ... */ }
+  ```
+  Axis-aligned bounds `[lower, upper]` of the whole mesh.
+
+- ```rust
+  pub fn locator(self: &Self) -> &CellLocator { /* ... */ }
+  ```
+  The spatial index over cell bounding boxes.
+
+- ```rust
+  pub fn total_volume(self: &Self) -> f64 { /* ... */ }
+  ```
+  Sum of cell volumes, in `unit^3`.
+
+- ```rust
+  pub fn patch_index(self: &Self, name: &str) -> Option<usize> { /* ... */ }
+  ```
+  Index of the patch named `name`.
+
+- ```rust
+  pub fn for_each_cell_simplex<F: FnMut([[f64; 3]; 4])>(self: &Self, c: usize, f: F) { /* ... */ }
+  ```
+  Visit every simplex of cell `c`'s centroid decomposition (see
+
+- ```rust
+  pub fn with_unit(self: &Self, unit: LengthUnit) -> Self { /* ... */ }
+  ```
+  A copy with every coordinate rescaled into `unit`.
+
+- ```rust
+  pub fn with_patch_where<F: Fn([f64; 3], [f64; 3]) -> bool, /* synthetic */ impl Into<String>: Into<String>>(self: Self, name: impl Into<String>, kind: PatchKind, select: F) -> Self { /* ... */ }
+  ```
+  Move every boundary face whose centre and outward unit normal satisfy
+
+- ```rust
+  pub fn with_zones(self: Self, zones: Vec<Zone>) -> Result<Self, UnstructuredMeshError> { /* ... */ }
+  ```
+  Replace the cell zones.
+
+- ```rust
+  pub fn face_is_oriented(self: &Self, f: usize) -> bool { /* ... */ }
+  ```
+  Outward normal component check used by the converters: `true` if the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnstructuredMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnstructuredMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `one_d`
+
+The **1-D mesher**: a column of `n` equal hexahedra along `x`, the neutral
+counterpart of `outram-foam-basic-lib`'s `create_one_d_mesh`.
+
+# Why this is not a call to `create_one_d_mesh`
+
+Checked and rejected (2026-10-03): `create_one_d_mesh` returns an `FvMesh`,
+which stores cell/face geometry but **no points**, so no neutral mesh can be
+rebuilt from it; and this crate's core cannot depend on
+`outram-foam-basic-lib` (outram-mc-libs takes the core without features).
+So the column is built here with points, and the
+`one_d_column_matches_create_one_d_mesh` test (feature `foam-export`) pins
+it to the original: same cell volumes and centres, same internal-face area
+vectors, same `right`/`left` patches in the same order. The only addition
+is the lateral surface, which an `FvMesh` column simply omits and this mesh
+carries as an `empty` patch named `sides` (the OpenFOAM way to say "no
+flux in this direction").
+
+```rust
+pub mod one_d { /* ... */ }
+```
+
+### Functions
+
+#### Function `one_d_column`
+
+A column of `n_cells` equal [`ElementKind::Hex8`] cells over
+`x in [0, length]`, square cross-section of area `area`, centred on the
+`x` axis (so cell centres sit at `y = z = 0`, as in `create_one_d_mesh`).
+
+Patches, in order: `right` (`x = length`, [`PatchKind::Patch`]), `left`
+(`x = 0`, [`PatchKind::Patch`]), `sides` (the lateral faces,
+[`PatchKind::Empty`]).
+
+# Arguments
+- `unit` — unit of `length` (and of `area`, squared).
+- `length` — column length, `> 0`.
+- `area` — cross-sectional area, `> 0`.
+- `n_cells` — number of cells, `>= 1`.
+
+# Errors
+[`UnstructuredMeshError::Empty`] for `n_cells == 0` or a non-positive
+length or area.
+
+```rust
+pub fn one_d_column(unit: super::element::LengthUnit, length: f64, area: f64, n_cells: usize) -> Result<super::mesh::UnstructuredMesh, super::mesh::UnstructuredMeshError> { /* ... */ }
+```
+
+## Module `plot`
+
+**Drawing a neutral mesh** — the geometry-drawing HARD RULE (crate
+`CLAUDE.md`) for FV and FE meshes: "for meshes, plot the mesh itself
+(cells, patches, zones)".
+
+A slice plane cuts the mesh; every cell's cut is filled with its zone
+colour (or its own colour), and every **face** the plane crosses is drawn
+as a black line, so the picture shows the cells a solver integrates over,
+not a resampling of them. A cell's cut is the plane section of its
+**bounding triangles** ([`UnstructuredMesh::for_each_bounding_triangle`]),
+filled by even-odd scanline, so what is filled is exactly the region point
+location assigns to that cell, convex or not. A 2-D mesh is drawn as it is
+(basis [`PlotBasis::Xy`]).
+
+Coordinates are in **cm** whatever the mesh's unit (they are scaled), so
+the frame and ticks of [`annotate_slice`] read correctly.
+
+```rust
+pub mod plot { /* ... */ }
+```
+
+### Types
+
+#### Enum `MeshColourBy`
+
+What the fill colour of a cell means.
+
+```rust
+pub enum MeshColourBy {
+    Zone,
+    Cell,
+}
+```
+
+##### Variants
+
+###### `Zone`
+
+One colour per cell zone (cells in no zone are light grey). The legend
+lists the zones.
+
+###### `Cell`
+
+One colour per cell, to see individual cells. No legend.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshSlice`
+
+A slice of a neutral mesh to draw.
+
+```rust
+pub struct MeshSlice {
+    pub basis: crate::csg::plot::slice::PlotBasis,
+    pub origin: [f64; 3],
+    pub width: [f64; 2],
+    pub pixels: [usize; 2],
+    pub colour_by: MeshColourBy,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `basis` | `crate::csg::plot::slice::PlotBasis` | Orientation (horizontal, vertical axes). |
+| `origin` | `[f64; 3]` | Slice centre \[cm\]; its normal-axis component is the cut height. |
+| `width` | `[f64; 2]` | Full widths along the horizontal and vertical axes \[cm\]. |
+| `pixels` | `[usize; 2]` | Pixels across and down. |
+| `colour_by` | `MeshColourBy` | Fill colouring. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn framing(mesh: &UnstructuredMesh, basis: PlotBasis, pixels: usize, colour_by: MeshColourBy) -> Self { /* ... */ }
+  ```
+  A slice through the middle of the mesh's bounding box, framing it with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshSlice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshSlice) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `render_mesh_slice`
+
+Rasterise `slice` of `mesh` (no frame): cell cuts filled, crossed faces
+drawn in black, background white. Returns the image and the zone legend.
+
+```rust
+pub fn render_mesh_slice(mesh: &super::mesh::UnstructuredMesh, slice: &MeshSlice) -> (crate::csg::plot::image::ImageData, Vec<crate::csg::plot::annotate::LegendEntry>) { /* ... */ }
+```
+
+#### Function `render_mesh_slice_annotated`
+
+[`render_mesh_slice`] framed with a title, a zone legend and cm ticks
+([`annotate_slice`]).
+
+```rust
+pub fn render_mesh_slice_annotated(mesh: &super::mesh::UnstructuredMesh, slice: &MeshSlice, title: &str) -> crate::csg::plot::image::ImageData { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `DEFAULT_PATCH`
+
+```rust
+pub use build::DEFAULT_PATCH;
+```
+
+#### Re-export `ConvertError`
+
+```rust
+pub use convert::ConvertError;
+```
+
+#### Re-export `BoundarySpec`
+
+```rust
+pub use element::BoundarySpec;
+```
+
+#### Re-export `Element`
+
+```rust
+pub use element::Element;
+```
+
+#### Re-export `ElementKind`
+
+```rust
+pub use element::ElementKind;
+```
+
+#### Re-export `LengthUnit`
+
+```rust
+pub use element::LengthUnit;
+```
+
+#### Re-export `Patch`
+
+```rust
+pub use element::Patch;
+```
+
+#### Re-export `PatchKind`
+
+```rust
+pub use element::PatchKind;
+```
+
+#### Re-export `PolyFace`
+
+```rust
+pub use element::PolyFace;
+```
+
+#### Re-export `Zone`
+
+```rust
+pub use element::Zone;
+```
+
+#### Re-export `CellLocator`
+
+```rust
+pub use locator::CellLocator;
+```
+
+#### Re-export `UnstructuredMesh`
+
+```rust
+pub use mesh::UnstructuredMesh;
+```
+
+#### Re-export `UnstructuredMeshError`
+
+```rust
+pub use mesh::UnstructuredMeshError;
+```
+
+#### Re-export `render_mesh_slice`
+
+```rust
+pub use plot::render_mesh_slice;
+```
+
+#### Re-export `render_mesh_slice_annotated`
+
+```rust
+pub use plot::render_mesh_slice_annotated;
+```
+
+#### Re-export `MeshColourBy`
+
+```rust
+pub use plot::MeshColourBy;
+```
+
+#### Re-export `MeshSlice`
+
+```rust
+pub use plot::MeshSlice;
 ```
 
 ## Module `array_patterns`
@@ -37489,7 +40883,7 @@ pub fn weld(mesh: &crate::mesh::Mesh, distance: f64) -> crate::mesh::Mesh { /* .
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gpu\"), span: crates/outram-blender/src/lib.rs:338:11: 338:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:338:32: 338:53 (#0) }, crates/outram-blender/src/lib.rs:338:31: 338:54 (#0))], crates/outram-blender/src/lib.rs:338:10: 338:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gpu\"), span: crates/outram-blender/src/lib.rs:348:11: 348:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:348:32: 348:53 (#0) }, crates/outram-blender/src/lib.rs:348:31: 348:54 (#0))], crates/outram-blender/src/lib.rs:348:10: 348:55 (#0))])]")`
 
 Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
 (~~compiled unconditionally on every desktop target, no cargo feature~~

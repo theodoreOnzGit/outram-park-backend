@@ -11490,9 +11490,12 @@ mesh box is unbinned (`get_bin` returns `None`, so the tally drops it).
 Ported from `src/tallies/filter_mesh.cpp` (`MeshFilter::get_all_bins`, the
 non-track-length branch: `mesh->get_bin(r)`; a single bin, weight 1). The
 track-length "bins crossed" sub-segmentation
-(`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) — this
-port scores the whole segment into the midpoint's cell, which is exact for a
-mesh whose cells are large relative to the mean free path.
+(`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) **for
+the four structured kinds** — this port scores the whole segment into the
+midpoint's cell, which is exact for a mesh whose cells are large relative
+to the mean free path. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
+#492) the segment IS split** across the cells it crosses
+([`Filter::track_length_bins`], after `MOABMesh::bins_crossed`).
 **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
 [`RegularMesh`]; it is now a [`MeshKind`], so the same filter serves the
 regular, rectilinear, cylindrical and spherical meshes. Enum dispatch rather
@@ -11568,6 +11571,11 @@ pub struct MeshFilter {
   - ```rust
     fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
     ```
+
+  - ```rust
+    fn track_length_bins(self: &Self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> { /* ... */ }
+    ```
+    Unstructured meshes split the segment across the cells it crosses
 
 - **Freeze**
 - **From**
@@ -13682,6 +13690,16 @@ Fields:
   Functional-expansion weights, or `None` for a non-expansion filter.
 
 - ```rust
+  pub fn splits_track_length(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this filter splits a track-length segment across several
+
+- ```rust
+  pub fn track_length_bins(self: &Self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> { /* ... */ }
+  ```
+  `(bin, length fraction)` pairs for the segment `r0 -> r1` \[cm\], or
+
+- ```rust
   pub fn is_expansion(self: &Self) -> bool { /* ... */ }
   ```
   Whether this filter deposits into every moment bin at once rather than
@@ -13838,6 +13856,11 @@ pub trait Filter: Send + Sync {
   fn expansion_moments(self: &Self, _event: &FilterEvent) -> Option<Vec<f64>> { /* ... */ }
   ```
   Functional-expansion weights: for an expansion filter (e.g.
+
+- ```rust
+  fn track_length_bins(self: &Self, _r0: Position, _r1: Position) -> Option<Vec<(usize, f64)>> { /* ... */ }
+  ```
+  Track-length splitting: for a filter that divides a streamed segment
 
 ##### Implementations
 
@@ -17560,9 +17583,15 @@ Scope item 4 (wiring into [`super::filter::MeshFilter`]) is done too, via
 [`MeshKind`]; per-bin volumes for flux normalisation (scope item 5) are on
 [`MeshKind::bin_volume`].
 
-Still absent, and still a real gap: the **unstructured** mesh family, which
+~~Still absent, and still a real gap: the **unstructured** mesh family, which
 is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
-#260. Also still a gap, unchanged by this work and pre-dating it: the
+#260.~~ **CORRECTED 2026-10-03 (GitHub #492):** the unstructured family is
+[`MeshKind::Unstructured`] (description in `outram_blender::unstructured`,
+built from or converted to OpenFOAM `polyMesh`), scored by
+[`super::mesh_unstructured::UnstructuredMeshExt`] — point location, and a
+track-length estimator that **does** split a segment across the cells it
+crosses (`MOABMesh::bins_crossed`). For the four **structured** kinds the
+following gap is unchanged: the
 track-length **`bins_crossed`** sub-segmentation, so a segment is scored
 whole into its midpoint's cell rather than split across the cells it
 actually crosses. That approximation is exact only while a mesh cell is
@@ -17687,6 +17716,8 @@ pub trait MeshKindExt {
 ###### Required Methods
 
 - `bin`: Flat bin index containing `p`, or `None` if `p` is outside the mesh.
+- `splits_track_length`: Whether the track-length estimator splits a segment across the bins
+- `bins_crossed`: `(bin, length fraction)` for every bin the segment `r0 -> r1` \[cm\]
 
 ##### Implementations
 
@@ -17713,6 +17744,87 @@ pub const SURFACE_BINS_PER_ELEMENT: usize = 12;
 
 ```rust
 pub use outram_blender::spatial_mesh::*;
+```
+
+## Module `mesh_unstructured`
+
+**Unstructured-mesh tally scoring** (GitHub #492): point location in a
+cell of a neutral [`UnstructuredMesh`] and the track-length estimator
+across its cells. The description (cells, faces, decomposition, spatial
+index) is `outram_blender::unstructured`; the scoring is here, on the
+transport hot path, as for the structured meshes (GitHub #486).
+
+# Mapping to upstream
+
+| OpenMC | here | note |
+|---|---|---|
+| `LibMesh::get_bin` / `MOABMesh::get_bin` (`mesh.cpp:3973`, `:3326`) | [`UnstructuredMeshExt::locate`] | position divided by `length_multiplier` (here the mesh's `LengthUnit`), bounding-box rejection, then a containing-element search |
+| `MOABMesh::get_tet` + `point_in_tet` (`:3241`, `:3366`) | the candidate loop + an inside test | the k-d tree leaf is replaced by `CellLocator::candidates_at`; upstream's barycentric test on a tet is replaced by the **generalized winding number** of the cell's bounding fan triangles, which is exact for a tet and also right for a general (even non-convex) polyhedron |
+| `MOABMesh::bins_crossed` + `intersect_track` (`:3168`, `:3144`) | [`UnstructuredMeshExt::bins_crossed`] | every crossing of the segment with a cell face, sorted; each sub-segment is located at its midpoint and weighted by its length fraction |
+| `LibMesh::bins_crossed` (`:3966`) | — | upstream **does not implement** track-length tallies on libMesh meshes (`fatal_error`); the MOAB algorithm is used for every mesh here |
+| `UnstructuredMesh::sample_tet` (`:992`) | [`UnstructuredMeshExt::sample_in_cell`] | a centroid-decomposition tet is chosen by volume first, so a star-shaped polyhedron is sampled uniformly; a cell whose decomposition is not valid (non-star-shaped) is sampled by rejection from its bounding box against the inside test |
+| `UnstructuredMesh::surface_bins_crossed` (`:1029`) | — | upstream `fatal_error`s ("not implemented"); so does `MeshSurfaceFilter::new` here |
+
+# Two deliberate departures from the MOAB routine
+
+1. **Duplicate hits are removed after sorting.** Upstream calls
+   `std::unique(hits.begin(), hits.end())` *before* `std::sort` and never
+   erases the tail (`mesh.cpp:3160-3164`), so duplicates are neither
+   adjacent nor removed; a duplicated distance yields a zero-length
+   sub-segment, which scores weight 0 into the bin at its midpoint. The
+   intended behaviour (sort, then drop duplicates) is implemented here and
+   zero-length sub-segments are skipped, so the scored weights are the same.
+2. **No `TINY_BIT` nudge.** Upstream widens the ray by `TINY_BIT` at both
+   ends so a hit exactly at an endpoint is found; here intersections are
+   taken on the closed parameter interval `[0, 1]`, which finds those hits
+   without moving the distances (upstream's distances are measured from the
+   nudged start, so they are `TINY_BIT` long, a ~1e-14 cm effect).
+
+# What a 2-D mesh does
+
+Nothing: a 2-D neutral mesh (an FE plane-strain mesh, say) is not a
+transport tally mesh, and [`UnstructuredMeshExt::locate`] returns `None`
+for it, so it bins no event. OpenMC fixes `n_dimension_ = 3` for every
+unstructured mesh (`mesh.cpp:893`).
+
+```rust
+pub mod mesh_unstructured { /* ... */ }
+```
+
+### Traits
+
+#### Trait `UnstructuredMeshExt`
+
+Tally scoring on an [`UnstructuredMesh`] that stays in `outram-mc-libs`.
+
+Positions are in **cm**; the mesh's own unit is converted internally.
+
+```rust
+pub trait UnstructuredMeshExt {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `locate`: Cell containing `p` \[cm\], or `None` outside the mesh (or for a 2-D
+- `bins_crossed`: The cells the segment `r0 -> r1` \[cm\] crosses, in order, each with
+- `sample_in_cell`: A point \[cm\] uniformly distributed in cell `cell`.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `UnstructuredMesh`
+
+### Re-exports
+
+#### Re-export `UnstructuredMesh`
+
+```rust
+pub use outram_blender::unstructured::UnstructuredMesh;
 ```
 
 ## Module `scoring`
@@ -56347,6 +56459,18 @@ pub use crate::tally::mesh::RegularMeshExt;
 pub use crate::tally::mesh::SphericalMeshExt;
 ```
 
+#### Re-export `UnstructuredMesh`
+
+```rust
+pub use crate::tally::mesh_unstructured::UnstructuredMesh;
+```
+
+#### Re-export `UnstructuredMeshExt`
+
+```rust
+pub use crate::tally::mesh_unstructured::UnstructuredMeshExt;
+```
+
 #### Re-export `Q_FISSION_J`
 
 ```rust
@@ -56843,7 +56967,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:105:11: 105:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:105:10: 105:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:106:11: 106:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:106:10: 106:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -56889,7 +57013,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:115:11: 115:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:115:10: 115:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:116:11: 116:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:116:10: 116:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -56923,7 +57047,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:123:11: 123:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:123:10: 123:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:124:11: 124:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:124:10: 124:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -56975,7 +57099,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:135:11: 135:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:135:10: 135:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:136:11: 136:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:136:10: 136:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;

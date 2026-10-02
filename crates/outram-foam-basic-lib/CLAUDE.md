@@ -273,3 +273,13 @@ OpenFOAM's fixed `IOobject` name), not an audit trail. Full write-up in
 - **`docs/porting-roadmap.md`** — remaining work before the solver crates can
   be written (icoFoam / chtMultiRegionFoam prerequisites), the `#[ignore]`-d
   known test failures to investigate, and the prioritised test backlog (P0–P2).
+
+## Meshing nexus: outram-blender exports into this crate (GitHub #492, 2026-10-03)
+
+`outram-blender`'s neutral `unstructured::UnstructuredMesh` is the one mesh
+description the FV, FE and Monte Carlo solvers are built from. Its `foam-export` feature converts neutral meshes to and from `io::PolyMesh` and to `mesh::FvMesh` (`convert::foam`, through `PolyMesh::to_fv_mesh`, so the FV geometry is computed here). **Since the same day this crate is also the one copy of `FvMesh`, `MeshError`, the 1-D mesher and the tensor primitives** for `tampines-steam-tables` and `outram-park-fork-coolprop`, which re-export them (their copies were code-identical); a change to those items is now a change to both. Solver infrastructure (LDU matrices, Krylov solvers) stays here (maintainer decision).
+
+**This crate must never depend on `outram-blender`** (GitHub #486 dependency
+rule 1): blender depends on this crate, optionally, to export into it, and
+Cargo counts optional dependencies when it looks for cycles. Mesh types stay
+defined here; the converters live in `outram_blender::unstructured::convert`.
