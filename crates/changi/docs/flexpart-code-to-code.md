@@ -396,6 +396,7 @@ Local stand-ins, none of which changes a routine under test:
 | `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | **bit-exact** |
 | 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | **bit-exact**; `plumetraj` only to its print format |
 | 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
+| vert | `verttransform_ecmwf`, `verttransform_gfs`, `verttransform_nests`, `shift_field`, `shift_field_0` (call sequences replayed with upstream's saved state) | 1 005 | **bit-exact**, 42 460 outputs |
 | concout | `concoutput`, `concoutput_nest`, `concoutput_surf` (every record read back from the files upstream writes); `timemanager`'s output clock, deposition decay, pre/post-advance bookkeeping and particle splitting (inline code extracted byte-for-byte, as stage 0 did for decay) | 2 516 | **bit-exact** (tolerance 0) |
 | outgrid | `outgrid_init`(+nest), `calcfluxes`, `fluxoutput` (numbers read back from the file upstream writes), `initial_cond_calc` | 4 896 | **bit-exact** (tolerance 0) |
 
@@ -465,6 +466,11 @@ Real(8) covers every excluded row bit for bit.
 - **`timemanager.f90:583` passes a scalar `idummy`** where `get_wetscav` takes
   `integer(int64)` arrays. In WETBKDEP runs that is an out-of-bounds write.
   Found by reading, not exercised.
+- **`verttransform_*` rotates the South Pole wind with `northpolemap`.** On a
+  south-pole-only grid that map is all zeros, so `uupol`/`vvpol` are 0 along
+  the whole pole row. GFS also uses `-xlonr` in one south-pole branch where
+  every other branch uses `+xlonr`. The heights and `nmixz` are set once, by
+  whichever of the ECMWF and GFS routines runs first.
 - **`calcfluxes` drops every flux across the cyclic boundary.** It writes
   `(real(nxmin1)-1.e5)` where `1.e-5` is evidently meant, so `ixs` always lies
   off the grid. Upstream records none of the 21 wrapping steps in the fixture.
@@ -570,7 +576,8 @@ Not covered, and tracked in GitHub issue #410:
 - ~~the meteorological interpolation, the output grids, and the OH chemistry~~
   **CORRECTED 2026-10-02** — ported and verified (stages 2, 3, 5);
 - still not ported: the GRIB/NetCDF readers and file writers (I/O, not
-  numerics), `verttransform_*`, release and domain filling
+  numerics), ~~`verttransform_*`~~ (**CORRECTED 2026-10-02**: ported and
+  verified, stage `vert`), release and domain filling
   (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`) (gh:#410
   wave 2). (~~the `concoutput*` unit conversion and `timemanager`'s per-step
   bookkeeping~~ **CORRECTED 2026-10-02**: ported and verified, stage
