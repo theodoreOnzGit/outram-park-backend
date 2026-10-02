@@ -159,7 +159,7 @@ Wei (2014)'s RMC curve (the reference) and the paper's MCNP Tables 3 and 4
 | Example | Statistics | Record |
 |---|---|---|
 | `htr10_endf8_kvsh_quick` | 2000 × [30 inactive + 70 active] | `verification_and_validation/htr10_endf8_kvsh_quick_2026-10-02/` |
-| `htr10_endf8_kvsh_heavy` | 10 000 × [5 inactive + 135 active] (the paper's) | `verification_and_validation/htr10_endf8_kvsh_heavy_<date>/` |
+| `htr10_endf8_kvsh_heavy` | 10 000 × [5 inactive + 135 active] (the paper's) | `verification_and_validation/htr10_endf8_kvsh_heavy_2026-10-02/` |
 
 ```bash
 taskset -c 0-9 cargo build --release -j 8 -p nee_soon --example htr10_endf8_kvsh_quick

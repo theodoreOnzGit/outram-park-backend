@@ -55,7 +55,11 @@
 //! ENDF/B-VI runs on an independent model). One seed per point; the error bar
 //! is the within-run 1σ, which does not contain seed-to-seed scatter.
 //!
-//! **Results (2026-10-02).** See
+//! **Results (2026-10-02).** k − RMC over N = 10..20: mean +221, RMS 359,
+//! max 674 pcm, σ 282-362 pcm; 11/11 within ±1000, 9/11 within ±500; slope
+//! +7.8 pcm/cm. N = 10, 12, 20 equal the 2026-10-01 `htr10_rmc_keff` records
+//! to every printed digit. 278-331 s transport per height, 58 min whole sweep,
+//! i9-13900K pinned to CPUs 0-9, 8 threads, 62.5 GiB, shared machine. See
 //! `crates/nee_soon/verification_and_validation/htr10_endf8_kvsh_quick_2026-10-02/README.md`
 //! for the table with 1σ, the figure, timings with hardware, and the reading.
 

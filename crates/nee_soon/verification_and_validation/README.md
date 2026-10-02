@@ -67,7 +67,7 @@ example (`water_critical_point_iapws95.md`).
 ## HTR-10 k against loading height
 
 - [`htr10_endf8_kvsh_quick_2026-10-02/`](htr10_endf8_kvsh_quick_2026-10-02/README.md)
-  and `htr10_endf8_kvsh_heavy_<date>/` — the whole ENDF/B-VIII.0 sweep from
+  and [`htr10_endf8_kvsh_heavy_2026-10-02/`](htr10_endf8_kvsh_heavy_2026-10-02/README.md) — the whole ENDF/B-VIII.0 sweep from
   `examples/htr10_endf8_kvsh_quick.rs` / `_heavy.rs` (gh:#501), against RMC
   and both MCNP columns, with the figure script that drew them.
 - [`htr10_seker_2026_10_01_10k/`](htr10_seker_2026_10_01_10k/README.md) — the

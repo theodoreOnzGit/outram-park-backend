@@ -43,8 +43,14 @@
 //! re-runs them on 8 threads through the shared machinery, which compares
 //! the code before and after the #486 geometry move and the thread count.
 //!
-//! **Results.** See
-//! `crates/nee_soon/verification_and_validation/htr10_endf8_kvsh_heavy_<date>/README.md`.
+//! **Results (2026-10-02/03, commit `eb5ee78b69`).** k − RMC over N = 10..20:
+//! mean +52, RMS 292, max 525 pcm, σ 92-117 pcm; 11/11 within ±1000, 10/11
+//! within ±500; slope +8.3 pcm/cm. All 11 k ± σ equal the 2026-10-02
+//! `htr10_rmc_keff` record to six decimals (5 threads then, 8 now).
+//! 1928-2240 s transport per height, 6 h 28 min whole sweep, on an
+//! i9-13900K pinned to CPUs 0-9, 8 threads, 62.5 GiB, shared machine. Full
+//! record:
+//! `crates/nee_soon/verification_and_validation/htr10_endf8_kvsh_heavy_2026-10-02/README.md`.
 
 #[path = "common/htr10_kvsh.rs"]
 mod htr10_kvsh;
