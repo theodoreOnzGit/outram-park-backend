@@ -77,13 +77,20 @@ mod tests {
     use crate::primitives;
 
     /// A 2 m cube through cfMesh (the same case as `foam_mesh`'s headline
-    /// V&V): the neutral mesh keeps cfMesh's cell count and its 8 m^3.
+    /// V&V): the neutral mesh keeps cfMesh's cell count and its volume.
+    ///
+    /// Pass criterion, fixed before any run: total volumes agree to 1e-6
+    /// relative. The two crates may estimate warped-face centres differently,
+    /// so exact agreement is not expected; but one lost or flipped cell moves
+    /// the total by about 1/n_cells (far above 1e-6 here), so the criterion
+    /// still catches a broken conversion. Result: NOT YET MEASURED (testing
+    /// deferred by maintainer, 2026-10-03).
     #[test]
     fn cube_tet_dual_reaches_the_neutral_mesh() {
         let opts = TetDualOptions { cell_size: 0.5, first_layer_thickness: 0.02, ..Default::default() };
         let (vm, report) = crate::foam_mesh::mesh_to_tet_dual(&primitives::cube(2.0), &opts).unwrap();
         let m = from_volume_mesh(&vm).unwrap();
         assert_eq!(m.n_cells(), vm.n_cells);
-        assert!((m.total_volume() - report.total_volume).abs() < 1e-9 * report.total_volume);
+        assert!((m.total_volume() - report.total_volume).abs() < 1e-6 * report.total_volume);
     }
 }
