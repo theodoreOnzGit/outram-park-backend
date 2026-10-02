@@ -96,7 +96,18 @@ outram-park-fork-cfmesh = { workspace = true, optional = true, features = ["foam
 # For the large mesh solves the advanced operators need (Laplacian editing /
 # ARAP deformation / parameterization — see beads op-hzs). Per-element math
 # stays in fixed-size `crate::math` types; faer handles the big systems.
-faer = { workspace = true }
+#
+# Target-split (GitHub #486, maintainer decision 2026-10-02): mesh authoring
+# and faer are ALWAYS compiled (no `mesh` feature), so faer itself must build
+# for wasm32. Off wasm, faer's full default feature set (`rayon` included), as
+# before. On wasm32, without `rayon` (spindle -> atomic-wait has no wasm
+# backend) and `rand` (getrandom needs a wasm backend feature), which nothing
+# here uses. The root workspace entry is `default-features = false`, so the
+# features are named here.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+faer = { workspace = true, features = ["std", "sparse-linalg"] }
 
 # GPU compute (headless, no window) — see src/gpu.rs. wgpu is **target-gated OFF
 # Android** (no system Vulkan/Metal loader there, and the workspace Android rule

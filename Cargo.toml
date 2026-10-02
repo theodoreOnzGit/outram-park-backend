@@ -194,7 +194,14 @@ getrandom = "0.3"
 # Pure-Rust dense+sparse linear algebra (SIMD via `pulp`, no system BLAS →
 # Android-safe). Used by outram-blender for the large mesh solves (Laplacian
 # editing / ARAP / parameterization); per-element math stays in fixed-size types.
-faer = "0.24"
+#
+# `default-features = false` HERE (GitHub #486, 2026-10-02) so a member can drop
+# faer's `rayon` and `rand` features on wasm32: `rayon` pulls spindle ->
+# atomic-wait (no wasm backend) and `rand` pulls getrandom (needs a wasm feature).
+# Every member therefore names its faer features itself. faer's own defaults are
+# `std`, `rayon`, `sparse-linalg`, `rand`, `npy`; outram-blender and bedok
+# request exactly those on native targets, so nothing changes off wasm.
+faer = { version = "0.24", default-features = false }
 # burn — deep-learning / tensor framework (tracel-ai), declared `no_std`.
 # MIT OR Apache-2.0, i.e. permissive into GPL-3.0 (ONE-WAY: our GPL-3.0 code
 # cannot flow back to burn).
@@ -483,7 +490,12 @@ kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
 # `mc-export` (outram-mc-libs CSG → Monte Carlo, the MC Studio GUI) and
 # `foam-mesh` (outram-park-fork-cfmesh tet-dual pipeline → OpenFOAM polyMesh,
 # the Mesh Studio GUI).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.4" }
+#
+# `default-features = false` (GitHub #486, 2026-10-02): outram-mc-libs takes
+# blender's geometry description without blender's default-on `gpu` feature
+# (wgpu); outram-mc has its own GPU path. A member that wants blender's GPU
+# vertex transform names `features = ["gpu"]`.
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.4", default-features = false }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between

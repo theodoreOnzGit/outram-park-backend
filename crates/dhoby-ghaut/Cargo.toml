@@ -36,7 +36,7 @@ env_logger = { workspace = true }
 # `src/lib.rs`. Do not treat this line as settled.
 # Both bridges are LIBRARY code and stay in outram-blender; this crate only
 # hosts the GUIs that drive them, so it enables both features.
-outram-blender = { workspace = true, features = ["mc-export", "foam-mesh"] }
+outram-blender = { workspace = true, features = ["mc-export", "foam-mesh", "gpu"] }
 
 # MC Studio -- author geometry, set up and run an outram-mc calculation.
 #

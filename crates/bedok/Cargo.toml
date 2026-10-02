@@ -42,4 +42,7 @@ petir.workspace = true
 # sanodaldiffusion_solverxyz solve the full flux system, which couples nodes
 # spatially, and both factorise LHS once and reuse that factorisation across
 # power iterations (MATLAB `decomposition`).
-faer.workspace = true
+# The root workspace entry is `default-features = false` (GitHub #486,
+# 2026-10-02, so outram-blender can build faer for wasm32); this names faer's
+# own default features so bedok's build is unchanged.
+faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }
