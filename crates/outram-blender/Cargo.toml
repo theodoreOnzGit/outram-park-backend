@@ -199,3 +199,9 @@ env_logger = { workspace = true }
 # only the windowed GUI moved, so this crate keeps no windowing stack.
 #
 #   cargo run -p dhoby-ghaut --example mesh_studio --release
+
+# Draws one mesh from each orchestrated mesher (GitHub #492, geometry-drawing
+# HARD RULE) into docs/meshing_nexus/. Needs every meshing-nexus bridge.
+[[example]]
+name = "meshing_nexus_images"
+required-features = ["block-mesh", "foam-mesh", "fem-export"]

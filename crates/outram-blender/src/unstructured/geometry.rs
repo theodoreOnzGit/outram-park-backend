@@ -27,28 +27,41 @@
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
 //! Face and cell geometry of the neutral mesh: face centres and area vectors,
-//! cell volumes and centroids, and the **tetrahedral decomposition** that
-//! defines what "inside a cell" means for a general polyhedron.
+//! cell volumes and centroids, and the two triangulations a cell is used
+//! through.
 //!
 //! All quantities are in the mesh's own [`LengthUnit`](super::LengthUnit).
 //!
-//! # The decomposition is the definition of a cell
+//! # What "inside a cell" means: the bounding triangles
 //!
 //! A polyhedral cell with non-planar faces has no unique interior. This crate
-//! fixes one: the cell is the union of the tetrahedra
-//! `(face centre, v_i, v_i+1, cell centre)` over every face fan triangle
-//! `(face centre, v_i, v_i+1)` of every face. That is OpenFOAM's
-//! `tetDecomposition` (the `cellDecomposition` / `CELL_TETS` mode of
-//! `polyMesh::findCell`), and it is the same decomposition the volume formula
-//! below integrates over, so **the volume a tally divides by is the volume of
-//! the region point location assigns to the cell**. Two cells sharing a face
-//! share its fan triangles, so the decomposition tiles the mesh conformingly.
+//! fixes one: the cell is the region enclosed by the **fan triangles**
+//! `(face centre, v_i, v_i+1)` of its faces
+//! ([`UnstructuredMesh::for_each_bounding_triangle`](super::UnstructuredMesh::for_each_bounding_triangle)).
+//! Two cells sharing a face share its fan triangles, so the cells tile the
+//! mesh with no gap and no overlap, and the definition holds for **any**
+//! closed cell, convex or not. Point location (outram-mc-libs) tests it by
+//! the generalized winding number of those triangles, the same inside test
+//! [`crate::boolean_classify`] uses for closed surface meshes.
 //!
-//! It is exact for every convex cell and for every cell that is star-shaped
-//! about its centroid. A cell that is not (a strongly concave polyhedron) gets
-//! overlapping or inverted tetrahedra; OpenFOAM has the same limitation and
-//! `checkMesh` reports such cells as concave. [`super::UnstructuredMesh`]
-//! rejects any cell whose decomposition contains an inverted tetrahedron.
+//! # The centroid decomposition: sampling only
+//!
+//! The tetrahedra `(face centre, v_i, v_i+1, cell centre)`
+//! ([`UnstructuredMesh::for_each_cell_simplex`](super::UnstructuredMesh::for_each_cell_simplex))
+//! are OpenFOAM's `tetDecomposition` (the `CELL_TETS` mode of
+//! `polyMesh::findCell`). They tile the cell exactly when it is star-shaped
+//! about its centroid, which every convex cell is; some cfMesh dual cells are
+//! not (found 2026-10-03 on the first cfMesh cylinder put through this
+//! module: cell 4 of a 0.1 m tet-dual mesh had an inverted decomposition
+//! tetrahedron). Whether a cell's decomposition is valid is recorded
+//! ([`UnstructuredMesh::decomposition_is_valid`](super::UnstructuredMesh::decomposition_is_valid));
+//! it is used only to sample uniformly in a cell, with rejection sampling as
+//! the fallback.
+//!
+//! The volume formula below is OpenFOAM's pyramid decomposition about an
+//! estimated centre; for a closed cell with planar faces it is exact by the
+//! divergence theorem whatever the cell's shape (a warped face adds the usual
+//! OpenFOAM approximation).
 
 /// `a - b`.
 #[inline]

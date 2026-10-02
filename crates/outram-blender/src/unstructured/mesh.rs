@@ -176,8 +176,7 @@ pub enum UnstructuredMeshError {
         /// Relative closure residual.
         relative: f64,
     },
-    /// A cell with non-positive volume, or whose tetrahedral decomposition
-    /// contains an inverted tetrahedron (a concave or tangled cell).
+    /// A cell with non-positive volume.
     #[error("cell {cell}: {reason} (volume {volume:e})")]
     BadCellGeometry {
         /// Cell index.
@@ -214,8 +213,14 @@ pub(crate) struct CellRecord {
 ///   elements (the OpenFOAM upper-triangular convention the `polyMesh`
 ///   converter relies on).
 /// - Every boundary face is in exactly one patch; no internal face is in any.
-/// - Every cell is closed and has a positive volume, and its tetrahedral
-///   decomposition (see [`super::geometry`]) has no inverted tetrahedron.
+/// - Every cell is closed and has a positive volume.
+///
+/// A cell need **not** be convex or star-shaped: a cfMesh dual cell often is
+/// neither. Whether its centroid decomposition is valid (no inverted
+/// tetrahedron) is recorded per cell, [`Self::decomposition_is_valid`], and
+/// only used to choose a sampling method; point location uses the cell's
+/// bounding faces (see [`super::geometry`]), which is right for any closed
+/// cell.
 ///
 /// Fields are private so the derived geometry cannot drift from the topology;
 /// a mesh is immutable once built (share it with `Arc`).
@@ -239,6 +244,7 @@ pub struct UnstructuredMesh {
     pub(crate) cell_zone: Vec<Option<usize>>,
     pub(crate) bounds: [[f64; 3]; 2],
     pub(crate) locator: CellLocator,
+    pub(crate) decomposition_ok: Vec<bool>,
 }
 
 impl UnstructuredMesh {
@@ -350,13 +356,17 @@ impl UnstructuredMesh {
             cell_zone,
             bounds: [lo, hi],
             locator,
+            decomposition_ok: Vec::new(),
         };
-        mesh.validate_cells()?;
+        let mut mesh = mesh;
+        mesh.decomposition_ok = mesh.validate_cells()?;
         Ok(mesh)
     }
 
-    /// Closure, positive volume and an uninverted decomposition, per cell.
-    fn validate_cells(&self) -> Result<(), UnstructuredMeshError> {
+    /// Closure and positive volume per cell (errors), and whether each cell's
+    /// centroid decomposition is free of inverted simplices (returned).
+    fn validate_cells(&self) -> Result<Vec<bool>, UnstructuredMeshError> {
+        let mut ok = Vec::with_capacity(self.n_cells());
         let min_faces = if self.dim == 2 { 3 } else { 4 };
         for c in 0..self.n_cells() {
             let faces = &self.cells[c].faces;
@@ -394,15 +404,53 @@ impl UnstructuredMesh {
                     inverted = true;
                 }
             });
-            if inverted {
-                return Err(UnstructuredMeshError::BadCellGeometry {
-                    cell: c,
-                    volume,
-                    reason: "inverted tetrahedron in the centroid decomposition (concave or tangled cell)",
-                });
-            }
+            ok.push(!inverted);
         }
-        Ok(())
+        Ok(ok)
+    }
+
+    /// Whether cell `c`'s centroid decomposition
+    /// ([`Self::for_each_cell_simplex`]) has no inverted simplex, i.e. the
+    /// cell is star-shaped about its centroid and the simplices tile it. True
+    /// for every convex cell; false for some cfMesh dual cells. Consumers that
+    /// sample or integrate over the simplices must check it.
+    #[inline]
+    pub fn decomposition_is_valid(&self, c: usize) -> bool {
+        self.decomposition_ok[c]
+    }
+
+    /// Number of cells whose centroid decomposition is not valid.
+    pub fn n_non_star_cells(&self) -> usize {
+        self.decomposition_ok.iter().filter(|ok| !**ok).count()
+    }
+
+    /// Visit the **bounding triangles** of cell `c`, each wound **outward**
+    /// from the cell: the fan triangles `(face centre, v_i, v_i+1)` of every
+    /// face (reversed on the neighbour side). In 2-D, the bounding edges as
+    /// `[a, b, b]` (counter-clockwise for the cell). These define the cell's
+    /// region for point location, for any closed cell, convex or not; a shared
+    /// face contributes the same triangles to both its cells.
+    #[inline]
+    pub fn for_each_bounding_triangle<F: FnMut([[f64; 3]; 3])>(&self, c: usize, mut f: F) {
+        for &face in &self.cells[c].faces {
+            let owner_side = self.owner[face] == c;
+            if self.dim == 2 {
+                let (a, b) = (self.points[self.faces[face][0]], self.points[self.faces[face][1]]);
+                if owner_side {
+                    f([a, b, b]);
+                } else {
+                    f([b, a, a]);
+                }
+                continue;
+            }
+            for_each_fan_triangle(&self.points, &self.faces[face], self.face_centres[face], |fc, p, q| {
+                if owner_side {
+                    f([fc, p, q]);
+                } else {
+                    f([fc, q, p]);
+                }
+            });
+        }
     }
 
     // ── Accessors ──────────────────────────────────────────────────────────

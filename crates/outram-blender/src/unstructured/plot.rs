@@ -23,11 +23,11 @@
 //! A slice plane cuts the mesh; every cell's cut is filled with its zone
 //! colour (or its own colour), and every **face** the plane crosses is drawn
 //! as a black line, so the picture shows the cells a solver integrates over,
-//! not a resampling of them. The cut of a cell is computed from the same
-//! centroid tetrahedral decomposition point location uses
-//! ([`UnstructuredMesh::for_each_cell_simplex`]), so what is filled is exactly
-//! the region assigned to that cell. A 2-D mesh is drawn as it is (basis
-//! [`PlotBasis::Xy`]).
+//! not a resampling of them. A cell's cut is the plane section of its
+//! **bounding triangles** ([`UnstructuredMesh::for_each_bounding_triangle`]),
+//! filled by even-odd scanline, so what is filled is exactly the region point
+//! location assigns to that cell, convex or not. A 2-D mesh is drawn as it is
+//! (basis [`PlotBasis::Xy`]).
 //!
 //! Coordinates are in **cm** whatever the mesh's unit (they are scaled), so
 //! the frame and ticks of [`annotate_slice`] read correctly.
@@ -91,37 +91,36 @@ impl MeshSlice {
     }
 }
 
-/// Fill the convex polygon `poly` (pixel coordinates, any winding) by
-/// pixel-centre sampling.
-fn fill_convex(img: &mut ImageData, poly: &[(f64, f64)], colour: Rgb) {
-    if poly.len() < 3 {
+/// Fill the region enclosed by the closed set of segments `segs` (pixel
+/// coordinates) by pixel-centre sampling with the even-odd rule: along each
+/// pixel row, sort the crossings and fill between alternate pairs. Works for
+/// non-convex and multiply connected sections.
+fn fill_even_odd(img: &mut ImageData, segs: &[((f64, f64), (f64, f64))], colour: Rgb) {
+    if segs.is_empty() {
         return;
     }
-    let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
-    for &(x, y) in poly {
-        x0 = x0.min(x);
-        x1 = x1.max(x);
-        y0 = y0.min(y);
-        y1 = y1.max(y);
+    let (mut y0, mut y1) = (f64::MAX, f64::MIN);
+    for &(a, b) in segs {
+        y0 = y0.min(a.1.min(b.1));
+        y1 = y1.max(a.1.max(b.1));
     }
-    let xa = x0.ceil().max(0.0) as i64;
-    let xb = (x1.floor() as i64).min(img.width as i64 - 1);
     let ya = y0.ceil().max(0.0) as i64;
     let yb = (y1.floor() as i64).min(img.height as i64 - 1);
-    let n = poly.len();
-    let area: f64 = (0..n).map(|i| {
-        let (p, q) = (poly[i], poly[(i + 1) % n]);
-        p.0 * q.1 - q.0 * p.1
-    }).sum();
-    let sgn = if area >= 0.0 { 1.0 } else { -1.0 };
+    let mut xs: Vec<f64> = Vec::new();
     for y in ya..=yb {
-        for x in xa..=xb {
-            let (px, py) = (x as f64, y as f64);
-            let inside = (0..n).all(|i| {
-                let (p, q) = (poly[i], poly[(i + 1) % n]);
-                sgn * ((q.0 - p.0) * (py - p.1) - (q.1 - p.1) * (px - p.0)) >= -1e-9
-            });
-            if inside {
+        let py = y as f64;
+        xs.clear();
+        for &(a, b) in segs {
+            // Half-open in y so a vertex shared by two segments counts once.
+            if (a.1 <= py && b.1 > py) || (b.1 <= py && a.1 > py) {
+                xs.push(a.0 + (py - a.1) / (b.1 - a.1) * (b.0 - a.0));
+            }
+        }
+        xs.sort_by(|p, q| p.partial_cmp(q).unwrap_or(std::cmp::Ordering::Equal));
+        for pair in xs.chunks_exact(2) {
+            let xa = pair[0].ceil().max(0.0) as i64;
+            let xb = (pair[1].floor() as i64).min(img.width as i64 - 1);
+            for x in xa..=xb {
                 img.set(x as usize, y as usize, colour);
             }
         }
@@ -165,19 +164,6 @@ fn plane_cut(pts: &[[f64; 3]], n: usize, s: f64) -> Vec<[f64; 3]> {
     out
 }
 
-/// Order in-plane points counter-clockwise about their mean (they are the
-/// vertices of a convex polygon: a plane cut of a tetrahedron).
-fn order_convex(mut p: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
-    let n = p.len() as f64;
-    let (cx, cy) = p.iter().fold((0.0, 0.0), |a, q| (a.0 + q.0 / n, a.1 + q.1 / n));
-    p.sort_by(|a, b| {
-        let ta = (a.1 - cy).atan2(a.0 - cx);
-        let tb = (b.1 - cy).atan2(b.0 - cx);
-        ta.partial_cmp(&tb).unwrap_or(std::cmp::Ordering::Equal)
-    });
-    p
-}
-
 /// Rasterise `slice` of `mesh` (no frame): cell cuts filled, crossed faces
 /// drawn in black, background white. Returns the image and the zone legend.
 pub fn render_mesh_slice(mesh: &UnstructuredMesh, slice: &MeshSlice) -> (ImageData, Vec<LegendEntry>) {
@@ -203,9 +189,11 @@ pub fn render_mesh_slice(mesh: &UnstructuredMesh, slice: &MeshSlice) -> (ImageDa
     let px = |p: [f64; 3]| slice.to_pixel(p[a] * s, p[b] * s);
 
     if mesh.dim() == 2 {
+        let mut segs = Vec::new();
         for c in 0..mesh.n_cells() {
-            let col = fill_of(c);
-            mesh.for_each_cell_simplex(c, |t| fill_convex(&mut img, &[px(t[0]), px(t[1]), px(t[2])], col));
+            segs.clear();
+            mesh.for_each_bounding_triangle(c, |t| segs.push((px(t[0]), px(t[1]))));
+            fill_even_odd(&mut img, &segs, fill_of(c));
         }
         for f in 0..mesh.n_faces() {
             let v = mesh.face(f);
@@ -215,19 +203,20 @@ pub fn render_mesh_slice(mesh: &UnstructuredMesh, slice: &MeshSlice) -> (ImageDa
     }
 
     let cut_unit = cut / s;
+    let mut segs = Vec::new();
     for c in 0..mesh.n_cells() {
         let bb = mesh.cell_bounds(c);
         if bb[0][n] > cut_unit || bb[1][n] < cut_unit {
             continue;
         }
-        let col = fill_of(c);
-        mesh.for_each_cell_simplex(c, |t| {
+        segs.clear();
+        mesh.for_each_bounding_triangle(c, |t| {
             let pts = plane_cut(&t, n, cut_unit);
-            if pts.len() >= 3 {
-                let poly = order_convex(pts.iter().map(|&p| px(p)).collect());
-                fill_convex(&mut img, &poly, col);
+            if pts.len() >= 2 {
+                segs.push((px(pts[0]), px(pts[pts.len() - 1])));
             }
         });
+        fill_even_odd(&mut img, &segs, fill_of(c));
     }
     for f in 0..mesh.n_faces() {
         let verts = mesh.face(f);

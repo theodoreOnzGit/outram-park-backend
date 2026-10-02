@@ -39,10 +39,10 @@
 //! | OpenMC | here | note |
 //! |---|---|---|
 //! | `LibMesh::get_bin` / `MOABMesh::get_bin` (`mesh.cpp:3973`, `:3326`) | [`UnstructuredMeshExt::locate`] | position divided by `length_multiplier` (here the mesh's `LengthUnit`), bounding-box rejection, then a containing-element search |
-//! | `MOABMesh::get_tet` + `point_in_tet` (`:3241`, `:3366`) | the candidate loop + barycentric test | the k-d tree leaf is replaced by `CellLocator::candidates_at`; the tet is replaced by the **centroid tetrahedral decomposition** of a general polyhedron (a tet cell decomposes into 4 tets that tile it exactly) |
+//! | `MOABMesh::get_tet` + `point_in_tet` (`:3241`, `:3366`) | the candidate loop + an inside test | the k-d tree leaf is replaced by `CellLocator::candidates_at`; upstream's barycentric test on a tet is replaced by the **generalized winding number** of the cell's bounding fan triangles, which is exact for a tet and also right for a general (even non-convex) polyhedron |
 //! | `MOABMesh::bins_crossed` + `intersect_track` (`:3168`, `:3144`) | [`UnstructuredMeshExt::bins_crossed`] | every crossing of the segment with a cell face, sorted; each sub-segment is located at its midpoint and weighted by its length fraction |
 //! | `LibMesh::bins_crossed` (`:3966`) | — | upstream **does not implement** track-length tallies on libMesh meshes (`fatal_error`); the MOAB algorithm is used for every mesh here |
-//! | `UnstructuredMesh::sample_tet` (`:992`) | [`UnstructuredMeshExt::sample_in_cell`] | a decomposition tet is chosen by volume first, so a polyhedron is sampled uniformly |
+//! | `UnstructuredMesh::sample_tet` (`:992`) | [`UnstructuredMeshExt::sample_in_cell`] | a centroid-decomposition tet is chosen by volume first, so a star-shaped polyhedron is sampled uniformly; a cell whose decomposition is not valid (non-star-shaped) is sampled by rejection from its bounding box against the inside test |
 //! | `UnstructuredMesh::surface_bins_crossed` (`:1029`) | — | upstream `fatal_error`s ("not implemented"); so does `MeshSurfaceFilter::new` here |
 //!
 //! # Two deliberate departures from the MOAB routine
@@ -73,13 +73,15 @@ pub use outram_blender::unstructured::UnstructuredMesh;
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
 
-/// Relative tolerance of the barycentric inside test: a point counts as
-/// inside a decomposition tetrahedron when every sub-volume is at least
-/// `-INSIDE_TOL * V`. A strict `>= 0` (upstream's test) can leave a point
-/// lying exactly on a shared face outside **both** neighbours through
-/// round-off; this closes that gap, and the first cell to claim the point
-/// wins, as with upstream's leaf scan.
-const INSIDE_TOL: f64 = 1e-12;
+/// Winding-number threshold of the inside test. A point strictly inside a
+/// closed cell has winding number 1, outside 0, and exactly on a face 1/2.
+/// Accepting `w >= 1/2 - INSIDE_TOL` makes a point on a shared face count as
+/// inside **both** neighbours rather than, through round-off, neither; the
+/// first cell to claim it wins, as with upstream's leaf scan.
+const INSIDE_TOL: f64 = 1e-9;
+
+/// Rejection-sampling attempts before giving up on a non-star-shaped cell.
+const MAX_REJECTION_TRIES: usize = 100_000;
 
 /// Relative tolerance below which two sorted crossing distances are the same
 /// crossing (a ray through an edge or vertex hits several fan triangles).
@@ -101,23 +103,22 @@ pub trait UnstructuredMeshExt {
     fn sample_in_cell(&self, cell: usize, seed: &mut u64) -> Position;
 }
 
-/// Barycentric inside test on one positively oriented tetrahedron, as in
-/// `MOABMesh::point_in_tet` (`mesh.cpp:3366`), written with signed
-/// sub-volumes instead of a stored inverse matrix.
+/// Signed solid angle subtended at `q` by the triangle `(a, b, c)`, positive
+/// when the triangle is wound counter-clockwise seen from `q` (Van Oosterom &
+/// Strackee, IEEE Trans. Biomed. Eng. BME-30 (1983) 125-126).
 #[inline]
-fn in_tet(t: &[[f64; 3]; 4], q: [f64; 3]) -> bool {
-    let v = tet_signed_volume(t[0], t[1], t[2], t[3]);
-    if !(v > 0.0) {
-        return false;
-    }
-    let tol = -INSIDE_TOL * v;
-    tet_signed_volume(q, t[1], t[2], t[3]) >= tol
-        && tet_signed_volume(t[0], q, t[2], t[3]) >= tol
-        && tet_signed_volume(t[0], t[1], q, t[3]) >= tol
-        && tet_signed_volume(t[0], t[1], t[2], q) >= tol
+fn solid_angle(q: [f64; 3], a: [f64; 3], b: [f64; 3], c: [f64; 3]) -> f64 {
+    use outram_blender::unstructured::geometry::{cross, dot, mag, sub};
+    let (ra, rb, rc) = (sub(a, q), sub(b, q), sub(c, q));
+    let (la, lb, lc) = (mag(ra), mag(rb), mag(rc));
+    let num = dot(ra, cross(rb, rc));
+    let den = la * lb * lc + dot(ra, rb) * lc + dot(ra, rc) * lb + dot(rb, rc) * la;
+    2.0 * num.atan2(den)
 }
 
-/// Whether `q` (mesh units) lies in cell `c`'s decomposition.
+/// Whether `q` (mesh units) lies in cell `c`: the generalized winding number
+/// of the cell's outward bounding fan triangles is at least 1/2 (the same
+/// test as `outram_blender::boolean_classify`, applied per cell).
 #[inline]
 fn in_cell(mesh: &UnstructuredMesh, c: usize, q: [f64; 3]) -> bool {
     let bb = mesh.cell_bounds(c);
@@ -128,13 +129,9 @@ fn in_cell(mesh: &UnstructuredMesh, c: usize, q: [f64; 3]) -> bool {
             return false;
         }
     }
-    let mut found = false;
-    mesh.for_each_cell_simplex(c, |t| {
-        if !found && in_tet(&t, q) {
-            found = true;
-        }
-    });
-    found
+    let mut omega = 0.0;
+    mesh.for_each_bounding_triangle(c, |t| omega += solid_angle(q, t[0], t[1], t[2]));
+    omega / (4.0 * std::f64::consts::PI) >= 0.5 - INSIDE_TOL
 }
 
 /// Point location in mesh units.
@@ -250,6 +247,30 @@ impl UnstructuredMeshExt for UnstructuredMesh {
     }
 
     fn sample_in_cell(&self, cell: usize, seed: &mut u64) -> Position {
+        let k = self.unit().cm_per_unit();
+        if !self.decomposition_is_valid(cell) {
+            // Not star-shaped about its centroid: rejection from the bounding
+            // box against the same inside test point location uses.
+            let [lo, hi] = self.cell_bounds(cell);
+            for _ in 0..MAX_REJECTION_TRIES {
+                let q = [
+                    lo[0] + (hi[0] - lo[0]) * prn(seed),
+                    lo[1] + (hi[1] - lo[1]) * prn(seed),
+                    lo[2] + (hi[2] - lo[2]) * prn(seed),
+                ];
+                if in_cell(self, cell, q) {
+                    return Position::new(q[0] * k, q[1] * k, q[2] * k);
+                }
+            }
+            // A closed cell of positive volume cannot reject this often
+            // unless its bounding box dwarfs it by > 1e5; returning a guessed
+            // point would bias the source silently, so stop instead.
+            panic!(
+                "sample_in_cell: {MAX_REJECTION_TRIES} rejections in cell {cell} (volume {:e}); \
+                 the cell is far smaller than its bounding box",
+                self.cell_volume(cell)
+            );
+        }
         let mut tets: Vec<([[f64; 3]; 4], f64)> = Vec::new();
         let mut total = 0.0;
         self.for_each_cell_simplex(cell, |t| {
@@ -278,7 +299,6 @@ impl UnstructuredMeshExt for UnstructuredMesh {
                 u = old_s + tt + u - 1.0;
             }
         }
-        let k = self.unit().cm_per_unit();
         let p = |i: usize| t[i];
         let q = [
             p(0)[0] + s * (p(1)[0] - p(0)[0]) + tt * (p(2)[0] - p(0)[0]) + u * (p(3)[0] - p(0)[0]),
