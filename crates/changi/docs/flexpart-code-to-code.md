@@ -583,15 +583,18 @@ Not covered, and tracked in GitHub issue #410:
   velocities `part0` returns~~ **CORRECTED 2026-10-02** — ported and verified;
 - ~~the meteorological interpolation, the output grids, and the OH chemistry~~
   **CORRECTED 2026-10-02** — ported and verified (stages 2, 3, 5);
-- still not ported: the GRIB/NetCDF readers and file writers (I/O, not
-  numerics), ~~`verttransform_*`~~ (**CORRECTED 2026-10-02**: ported and
-  verified, stage `vert`), release and domain filling
-  (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`) (gh:#410
-  wave 2). (~~the `concoutput*` unit conversion and `timemanager`'s per-step
-  bookkeeping~~ **CORRECTED 2026-10-02**: ported and verified, stage
-  `concout`.) (`outgrid_init*`, `initial_cond_calc` and
-  `calcfluxes`/`fluxoutput` were listed here; **CORRECTED 2026-10-02**: they
-  are ported and verified, see the stages table.)
+- still not ported: only the GRIB/NetCDF readers and the file writers. These
+  are I/O, not numerics: `readwind_*`, `gridcheck_*`, `readreleases`,
+  `readcommand` and the other `read*` routines, plus the `write*`,
+  `partoutput*` and netCDF writers. Their callers' numerics are ported and
+  take the decoded fields as inputs. Earlier versions of this list also named
+  `verttransform_*`, release and domain filling, `outgrid_init*`,
+  `initial_cond_calc`, `calcfluxes`/`fluxoutput`, the `concoutput*`
+  conversion and `timemanager`'s bookkeeping. **CORRECTED 2026-10-02**: all of
+  those are ported and verified (stages `vert`, `release`, `outgrid`,
+  `concout`; gh:#410 wave 2). The exceptions stated in those stages remain:
+  the two `init_domainfill` top clamps are unverified, and the MPI variants
+  are not ported.
 
 **Radioactive decay's fixture gap is closed (2026-09-15).** It was the one
 ported module checked only against hand-copied upstream *expressions* rather
