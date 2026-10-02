@@ -75,6 +75,20 @@ foam-mesh = ["dep:outram-park-fork-cfmesh"]
 # `crate::csg::cell::Cell`, so the feature needs only raffles.
 gnn-graph = ["dep:raffles"]
 
+# ── Meshing nexus (GitHub #492, 2026-10-03) ─────────────────────────────────
+# The neutral mesh (`unstructured`) and its plotter are CORE (no feature).
+# Each solver family's converter / mesher orchestration is behind a feature
+# that pulls that solver crate, OFF by default (maintainer default: heavy
+# solver crates default-off). The solver crates never depend on this one
+# (GitHub #486 dependency rule 1), so these edges cannot form a cycle.
+#
+#   foam-export  (above)  neutral <-> outram-foam-basic-lib PolyMesh / FvMesh
+#   block-mesh            blockMesh + snappyHexMesh (outram-foam-mesh) -> neutral
+#   foam-mesh    (above)  cfMesh tet->dual->layers VolumeMesh -> neutral
+#   fem-export            neutral <-> farrer-park Mesh, farrer-park generators
+block-mesh = ["foam-export", "dep:outram-foam-mesh"]
+fem-export = ["dep:farrer-park"]
+
 [dependencies]
 # Pure-Rust error type (Android-safe, in workspace deps). No BLAS, no C, no GUI.
 thiserror = { workspace = true }
@@ -105,6 +119,12 @@ raffles = { workspace = true, optional = true }
 # this stays out of the default build via `optional` and off Android via being
 # feature-gated, not target-gated.
 outram-park-fork-cfmesh = { workspace = true, optional = true, features = ["foam-export"] }
+
+# Meshing-nexus bridges (GitHub #492): blockMesh / snappyHexMesh, and the
+# farrer-park FEM mesh + generators. Both pure Rust and Android-safe; optional
+# so outram-mc-libs (default-features = false) never compiles them.
+outram-foam-mesh = { workspace = true, optional = true }
+farrer-park = { workspace = true, optional = true }
 
 # Pure-Rust dense+sparse linear algebra backend (Android-safe, no system BLAS).
 # For the large mesh solves the advanced operators need (Laplacian editing /
@@ -146,6 +166,11 @@ wgpu = { workspace = true, optional = true }
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
 # `cfg(not(target_os = "android"))` gate, never in the library's unconditional
 # build (workspace Android-portability rule).
+
+# `uom` only for the `foam-export` cross-check against
+# `create_one_d_mesh`, whose arguments are uom quantities.
+[dev-dependencies]
+uom = { workspace = true }
 
 # GUI example stack — the `mc_studio` egui app (author geometry + set up and run
 # a basic outram-mc Monte Carlo simulation). Dev-only and **target-gated OFF

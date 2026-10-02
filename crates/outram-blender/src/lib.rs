@@ -223,11 +223,20 @@ pub mod export;
 /// feature, no dependency, Android- and wasm-clean.
 pub mod csg;
 
-/// **Spatial (tally) mesh description**: regular, rectilinear, cylindrical and
-/// spherical meshes and [`spatial_mesh::MeshKind`]. Moved here from
-/// `outram-mc-libs` (`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin
-/// lookup and scoring stay in outram-mc-libs. Core: no feature, no dependency.
+/// **Spatial (tally) mesh description**: regular, rectilinear, cylindrical,
+/// spherical and (since 2026-10-03, GitHub #492) **unstructured** meshes and
+/// [`spatial_mesh::MeshKind`]. Moved here from `outram-mc-libs`
+/// (`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin lookup and scoring
+/// stay in outram-mc-libs. Core: no feature, no dependency.
 pub mod spatial_mesh;
+
+/// **The neutral unstructured mesh** (GitHub #492): one description that FV
+/// (`polyMesh` / `FvMesh`), FE (`farrer-park` typed elements) and Monte Carlo
+/// tallies (`spatial_mesh::MeshKind::Unstructured`) are all built from, with
+/// feature-gated converters and orchestration of the workspace's meshers
+/// (blockMesh / snappyHexMesh, cfMesh, farrer-park generators, the 1-D
+/// mesher) and a mesh plotter. Core: no feature.
+pub mod unstructured;
 
 /// Serial `rayon` stand-in for wasm32 (the plotter's `into_par_iter`).
 #[cfg(target_arch = "wasm32")]

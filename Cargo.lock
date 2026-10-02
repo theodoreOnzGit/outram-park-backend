@@ -6663,13 +6663,16 @@ dependencies = [
  "egui_plot",
  "env_logger",
  "faer",
+ "farrer-park",
  "miniz_oxide",
  "outram-foam-basic-lib",
+ "outram-foam-mesh",
  "outram-park-fork-cfmesh",
  "petir",
  "raffles",
  "rayon",
  "thiserror 2.0.18",
+ "uom",
  "wgpu",
 ]
 
