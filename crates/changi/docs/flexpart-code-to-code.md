@@ -506,6 +506,23 @@ test runs in 5 s.
 The stochastic comparison was capable of failing, and it found a real piece of
 FLEXPART's model that the deterministic comparison could not see.
 
+### Stage 7b: convective redistribution with independent random numbers
+
+`dev/flexpart_stochastic_redist.f90` builds one convecting ECMWF column
+(Ts = 308 K, RH 0.92/0.75). It spins up `calcmatrix` for 200 steps of 900 s,
+so the cloud-base flux reaches the `8.6e-3 kg m^-2 s^-1` that `convmix` would
+build. It then redistributes 20 000 particles, started on a 0–14 km grid, with
+upstream's own `ran3`, in 16 replicates.
+
+The port rebuilds the matrix with its own `calcmatrix` and asserts it is the
+same: bit-exact against real(8). It then redistributes with `petir` uniforms,
+also in 16 replicates.
+
+**Results:** 7/7 statistics within 1σ of FLEXPART's run-to-run spread, at both
+precisions, with χ² = 5.2 on 7 dof. The statistics are the mean and variance
+of the final height per starting band, and the fraction moved by the matrix
+(0.45 %). `tests/flexpart_stochastic_redist.rs`.
+
 ## What this does NOT establish
 
 **Verification, not validation.** It establishes that the Rust computes what the

@@ -126,7 +126,7 @@ done
 # ---------------------------------------------------------------------------
 # Later stages, each with its own script (see the script headers for what is
 # compiled verbatim and what configuration copy or shim each needs).
-for stage in interp met advance cmapf output convection stochastic; do
+for stage in interp met advance cmapf output convection stochastic stochastic_redist; do
   script="$CRATE_DIR/dev/build_reference_$stage.sh"
   if [ -f "$script" ]; then
     echo "stage $stage..." >&2
