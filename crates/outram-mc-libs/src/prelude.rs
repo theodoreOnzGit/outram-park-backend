@@ -147,3 +147,4 @@ pub use crate::NjoyError;
 // nothing here is on any driver's default path.
 pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};
 pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchRecorder};
+pub use crate::stats::convergence::SourceConvergence;

@@ -864,6 +864,11 @@ the maintainer, 2026-10-03; protocols in
   run's own `k_std`, which is carried bit for bit and never replaced.
   `TallyBatchRecorder` differences a `Tally`'s running sums per batch; no
   driver exposes a per-batch hook yet, so it serves caller-stepped loops only.
+- `stats::convergence` (#496) — `SourceConvergence::from_result`: MSER-5,
+  Geweke and change-point on the entropy and `k` traces (all generations);
+  recommends an inactive count only when every analysed trace has settled,
+  otherwise says so. Complements `vv::report_source_convergence` (active-half
+  drift), which it does not replace. Report-only.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 

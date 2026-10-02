@@ -718,6 +718,11 @@ bit-identity contract above is untouched.
   non-overlapping batch means (default batch `⌊√n⌋`, fixed; leading remainder
   dropped), and `CorrelatedMean`, which always carries the naive `s/√n`
   beside the corrected estimates.
+- `src/estimators/stationarity.rs` (#496) — MSER-5 truncation (White 1997),
+  Geweke's 10 %/50 % two-window z with batch-means errors (`|z| > 1.96`,
+  fixed), and a single change-point in the mean (exact posterior under flat
+  mean / Jeffreys variance priors, BIC verdict on the Kass–Raftery scale via
+  `model_selection`).
 
 `outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
 which is exactly why RAFFLES must stay free of physics and geometry

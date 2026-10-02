@@ -40,5 +40,6 @@
 //! compile; they have not been run. V&V stubs live under
 //! `verification_and_validation/stats_epic_493/`.
 
+pub mod convergence;
 pub mod correlated_sigma;
 pub mod ensemble;

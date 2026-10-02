@@ -211,6 +211,14 @@ pub fn report_transport_losses(label: &str, r: &crate::physics::keff::KeffResult
 /// `drift_pcm` is returned so a caller can gate on it rather than eyeball it.
 /// A drift comparable to, or larger than, the residual being interpreted means
 /// that residual cannot be attributed to nuclear data at all.
+///
+/// **See also (2026-10-03, GitHub #496):**
+/// [`crate::stats::convergence::SourceConvergence`] runs MSER-5, Geweke and a
+/// change-point test over the WHOLE entropy and `k` traces (inactive
+/// included) and recommends an inactive count with its evidence; and
+/// [`crate::stats::correlated_sigma::KeffUncertainty`] gives the
+/// autocorrelation-corrected `σ` that the lower-bound error below lacks.
+/// This function is unchanged and still what the ICSBEP examples print.
 pub fn report_source_convergence(
     label: &str,
     r: &crate::physics::keff::KeffResult,

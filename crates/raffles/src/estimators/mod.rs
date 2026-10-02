@@ -54,6 +54,9 @@ pub mod seed_consistency;
 /// Autocorrelation-corrected standard errors for a correlated sequence: batch
 /// means, integrated autocorrelation time, effective sample size (GitHub #495).
 pub mod autocorrelation;
+/// Stationarity diagnostics on a trace: MSER truncation, a Geweke two-window
+/// test, a single change-point posterior (GitHub #496).
+pub mod stationarity;
 
 /// Sample mean and **standard error of the mean** (1σ) of `x`.
 ///
