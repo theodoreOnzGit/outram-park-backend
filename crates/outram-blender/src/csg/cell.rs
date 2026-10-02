@@ -315,6 +315,15 @@ impl Cell {
     /// `surfaces` is the global surface array the tokens index into. A malformed
     /// (stack-underflowing) region conservatively returns `false`. Pass
     /// [`SurfaceToken::NONE`] for a standalone point query.
+    ///
+    /// # An empty region is all space (upstream behaviour, GitHub #504)
+    ///
+    /// A cell with no region tokens contains **every** point, as in OpenMC: an
+    /// empty expression is a "simple" region, and `Region::contains_simple`
+    /// (`src/cell.cpp:1046`) loops over the tokens and returns `true` when none
+    /// fails, so with no tokens it returns `true`. ~~Until 2026-10-02 this port
+    /// ended with `stack.pop().unwrap_or(false)`, so an empty region contained
+    /// nothing~~ **CORRECTED 2026-10-02** (maintainer: follow upstream).
     #[inline]
     pub fn contains(
         &self,
@@ -323,6 +332,11 @@ impl Cell {
         surfaces: &[SurfaceKind],
         on_surface: SurfaceToken,
     ) -> bool {
+        // Upstream `contains_simple` returns `true` when no token fails, so an
+        // empty region is all space (`src/cell.cpp:1046`, GitHub #504).
+        if self.region.is_empty() {
+            return true;
+        }
         let mut stack: Vec<bool> = Vec::with_capacity(self.region.len());
         for tok in &self.region {
             match tok {
@@ -406,6 +420,39 @@ impl Cell {
 mod tests {
     use super::*;
     use crate::csg::surface::{BoundaryType, Sphere};
+
+    /// **GitHub #504: an empty region is all space, as in OpenMC.**
+    ///
+    /// Upstream `Region::contains_simple` (`src/cell.cpp:1046`) returns `true`
+    /// when no token fails, so a cell with no region contains every point.
+    /// Probed far inside, far outside and on the axes of an unrelated surface,
+    /// with and without an `on_surface` token, it must always answer `true`.
+    #[test]
+    fn an_empty_region_contains_every_point() {
+        let surfaces = vec![SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 1.0,
+            bc: BoundaryType::Transmissive,
+        })];
+        let everywhere = Cell::material(7, vec![], 0, 293.6);
+        let u = Direction::new(0.0, 0.0, 1.0);
+        for r in [
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.0, 0.0, 0.0),
+            Position::new(-3.0e5, 2.0e5, 7.0),
+            Position::new(1.0e-300, -1.0e300, 0.0),
+        ] {
+            assert!(everywhere.contains(r, u, &surfaces, SurfaceToken::NONE));
+            assert!(everywhere.contains(
+                r,
+                u,
+                &surfaces,
+                SurfaceToken::on(0, HalfSpaceSense::Outside)
+            ));
+        }
+    }
 
     /// **GitHub #168 regression, at the level it is decided.**
     ///

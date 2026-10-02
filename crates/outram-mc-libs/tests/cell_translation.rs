@@ -490,9 +490,16 @@ fn surface_crossing_agrees_under_translation() {
                 // a reason that has nothing to do with the translation this
                 // test is about.
                 let (mut seed_a, mut seed_b) = (0x5EED_0259_u64, 0x5EED_0259_u64);
-                let ca =
-                    translated.cross_surface_in_frame(sa, &pa, ha.coord_level, hit_a, u, &mut seed_a);
-                let cb = moved.cross_surface_in_frame(sb, &pb, hb.coord_level, hit_b, u, &mut seed_b);
+                let ca = translated.cross_surface_in_frame(
+                    sa,
+                    &pa,
+                    ha.coord_level,
+                    hit_a,
+                    u,
+                    &mut seed_a,
+                );
+                let cb =
+                    moved.cross_surface_in_frame(sb, &pb, hb.coord_level, hit_b, u, &mut seed_b);
                 assert_eq!(
                     ca.alive, cb.alive,
                     "survival differs crossing surface {sa}/{sb} under translation \
@@ -575,11 +582,17 @@ fn translation_of_a_lattice_fill_equals_shifting_lower_left() {
         }
     }
 
-    // An empty region means "contains everything" only if the RPN evaluator
+    // ~~An empty region means "contains everything" only if the RPN evaluator
     // says so; it returns false on an empty stack. So give the tile cells a
-    // region that is always true by using the root sphere's inside — the tile
-    // universes are clipped by the lattice anyway.
+    // region that is always true by using the root sphere's inside~~
+    // CORRECTED 2026-10-02 (GitHub #504): the tile cells were never given such a
+    // region -- they use `vec![]`, which until then contained NOTHING, so every
+    // tile point located to `None` on both sides and this comparison was
+    // vacuous. An empty region now contains every point, as in OpenMC
+    // (`src/cell.cpp:1046`), so the tile materials are actually compared; the
+    // `located` count below guards against a vacuous pass.
     let mut checked = 0usize;
+    let mut located = 0usize;
     for t in translations() {
         let a = lattice_geom(Position::ZERO, t);
         let b = lattice_geom(t, Position::ZERO);
@@ -600,6 +613,7 @@ fn translation_of_a_lattice_fill_equals_shifting_lower_left() {
                     t.z
                 );
                 if let (Some(pa), Some(pb)) = (&pa, &pb) {
+                    located += 1;
                     assert_eq!(
                         pa.levels.last().unwrap().lattice_index,
                         pb.levels.last().unwrap().lattice_index,
@@ -617,7 +631,15 @@ fn translation_of_a_lattice_fill_equals_shifting_lower_left() {
             }
         }
     }
-    println!("cell translation, lattice: {checked} tile lookups agree, index included");
+    // GitHub #504: before empty regions meant all space, every lookup here was
+    // `None` on both sides and this test compared nothing.
+    assert!(
+        located > 0,
+        "no lattice tile point was located on either side: the comparison would be vacuous"
+    );
+    println!(
+        "cell translation, lattice: {checked} tile lookups agree ({located} located), index included"
+    );
 }
 
 /// **7. The identity survives a full eigenvalue solve.**
