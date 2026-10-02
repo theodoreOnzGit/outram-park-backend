@@ -150,375 +150,29 @@ This trait is implemented for the following types:
 
 ## Module `rng`
 
+Random numbers: OpenMC's 64-bit LCG and the samplers built on it.
+
+- [`lcg`] — **re-exported from [`petir::rng::lcg`]** since 2026-10-02. The
+  generator was ported here first and moved to PETIR at the maintainer's
+  direction, so that `raffles` could use it without depending on this
+  crate (that edge closed a dependency cycle once this crate took on
+  `outram-park-fork-liggghts` for DEM pebble beds). The path
+  `outram_mc_libs::rng::lcg` is kept on purpose so no call site had to
+  change, and the move changed no random number
+  (`petir::rng::lcg`'s `moved_stream_is_pinned` test).
+- [`distributions`] — OpenMC's `random_dist.cpp` samplers. The physics
+  samplers (`maxwell`, `watt`, `isotropic_direction`) stay here; the
+  generic ones (`uniform`, `sample_normal`, `sample_normal_3d`,
+  `sample_exp`) are re-exported from `raffles::distributions::seeded`
+  since 2026-10-02 (GitHub #500). None went to PETIR: they call `cos`/`sin`
+  through a platform-or-`petir::real` route (`deterministic-math`) that a
+  `no_std` copy could not reproduce bit for bit.
+
 ```rust
 pub mod rng { /* ... */ }
 ```
 
 ### Modules
-
-## Module `lcg`
-
-```rust
-pub mod lcg { /* ... */ }
-```
-
-### Types
-
-#### Struct `Lcg64`
-
-Stateful 64-bit LCG — drop-in replacement for `oorandom::Rand64`.
-
-Provides the same interface (`new`, `rand_float`, `rand_u64`) so boon-lay
-code can substitute `use outram_mc_libs::rng::lcg::Lcg64 as Rand64` with no
-other changes to call sites.
-
-```rust
-pub struct Lcg64 {
-    // Some fields omitted
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| *private fields* | ... | *Some fields have been omitted* |
-
-##### Implementations
-
-###### Methods
-
-- ```rust
-  pub fn new(seed: u128) -> Self { /* ... */ }
-  ```
-  Create a new generator from a 128-bit seed (matches `oorandom::Rand64::new`).
-
-- ```rust
-  pub fn rand_float(self: &mut Self) -> f64 { /* ... */ }
-  ```
-  Return a uniform sample in [0, 1) and advance the state.
-
-- ```rust
-  pub fn rand_u64(self: &mut Self) -> u64 { /* ... */ }
-  ```
-  Return a raw 64-bit integer and advance the state.
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> Lcg64 { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **PartialEq**
-  - ```rust
-    fn eq(self: &Self, other: &Lcg64) -> bool { /* ... */ }
-    ```
-
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **StructuralPartialEq**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-### Functions
-
-#### Function `prn`
-
-**Attributes:**
-
-- `Other("#[attr = Inline(Hint)]")`
-
-Advance the seed one step and return a uniform sample in [0, 1).
-
-**Upstream:** `double prn(uint64_t* seed)` —
-`/home/teddy0/Documents/research/openmc/src/random_lcg.cpp:32-44`
-(declared `include/openmc/random_lcg.h:33`). The C++ body is:
-
-```text
-*seed = (prn_mult * (*seed) + prn_add);
-uint64_t word =
-  ((*seed >> ((*seed >> 59u) + 5u)) ^ *seed) * 12605985483714917081ull;
-uint64_t result = (word >> 43u) ^ word;
-return ldexp(result, -64);
-```
-
-# What this computes
-
-Two separate stages, and it matters which is which:
-
-1. **State advance** — `x <- MULT * x + INC (mod 2^64)`, the plain 64-bit
-   LCG recurrence. This is **unchanged** by the output permutation, so
-   [`future_seed`], [`init_seed`], the jump-ahead identity, and every
-   integer-state guarantee in this crate (including the GPU shaders'
-   bit-exact state mirror) are untouched.
-2. **Output permutation** — `PCG-RXS-M-XS` (O'Neill 2014, HMC-CS-2014-0905;
-   upstream adapts <https://github.com/imneme/pcg-c>): a **r**andom-length
-   **x**or-**s**hift whose shift amount `(x >> 59) + 5` is drawn from the
-   state's own top five bits, then a **m**ultiply by [`PCG_PERM_MULT`], then
-   a final **x**or-**s**hift fold by 43. The permuted word, not the raw
-   state, becomes the double.
-
-# Why the permutation is here (this is the whole point)
-
-A bare LCG has **Marsaglia lattice structure**: successive k-tuples of its
-outputs do not fill the unit cube, they lie on a limited family of parallel
-hyperplanes. Taking the top 52 bits of the state — what this function used
-to return — sidesteps the weak-low-order-bit problem but does nothing at all
-about the lattice, because the top bits *are* the state.
-
-Monte Carlo transport consumes **tuples**: one history draws a flight
-distance, then a scattering direction, then a secondary energy from
-*consecutive* draws. That is precisely where hyperplane structure bites. The
-RXS-M-XS permutation exists to destroy it, and measurably does — see
-[`tests::lattice_structure_lag1`] and [`tests::lattice_structure_lag2`],
-which measure the defect directly and record the before/after numbers.
-
-Reproducing OpenMC's stream bit-for-bit is a **side effect** of this port,
-not its purpose; see the "RNG goal: statistical correctness, NOT
-particle-for-particle parity" section of this crate's `CLAUDE.md`.
-
-# Range
-
-Returns a sample in `[0, 1)` for every state reachable in practice.
-
-**Known boundary case, inherited from upstream and deliberately not
-patched.** `ldexp(result, -64)` converts a `u64` to a `f64` first, and the
-1024 values `result >= 2^64 - 1024` all round to `2^64`, giving exactly
-`1.0`. The probability is `1024 / 2^64 = 2^-54 ~ 5.6e-17` per draw. Measured
-2026-08-06: **zero** occurrences in 5.0e7 consecutive draws from `seed = 1`
-(expected count 2.8e-9), and the observed maximum was
-`0.99999998925400047`. This is safe for every consumer in this crate — all
-six index-by-uniform sites clamp with `.min(len - 1)`, and `-ln(1.0) = 0`
-merely yields a zero-length flight — but it is recorded here rather than
-silently "fixed", because clamping would be an undocumented divergence from
-the reference implementation.
-
-# Example
-
-```
-use outram_mc_libs::rng::lcg::prn;
-let mut seed = 1u64;
-let x = prn(&mut seed);
-assert!((0.0..1.0).contains(&x));
-```
-
-```rust
-pub fn prn(seed: &mut u64) -> f64 { /* ... */ }
-```
-
-#### Function `future_seed`
-
-Advance the seed `n` steps in O(log n) using the LCG jump-ahead identity.
-
-Maps to `uint64_t future_seed(uint64_t n, uint64_t seed)`.
-Algorithm: each iteration squares `a` and halves `n`, accumulating the
-combined multiplier/increment for odd bits.  Identical to Knuth §3.2.1.
-
-```rust
-pub fn future_seed(n: u64, seed: u64) -> u64 { /* ... */ }
-```
-
-#### Function `init_seed`
-
-Derive an independent RNG stream seed for particle `id` from a master seed.
-
-**Upstream:** `uint64_t init_seed(int64_t id, int offset)` —
-`/home/teddy0/Documents/research/openmc/src/random_lcg.cpp:60-64`
-(declared at `include/openmc/random_lcg.h:50`). The C++ body is:
-
-```text
-return future_seed(static_cast<uint64_t>(id) * prn_stride,
-                   master_seed + offset);
-```
-
-**The mapping, stated plainly.** `id` is multiplied by the stride and that
-product is the *jump-ahead distance*; `offset` is added to the **master
-seed**, selecting a different starting point of the LCG orbit (OpenMC uses
-it to give one particle several disjoint streams — `STREAM_TRACKING`,
-`STREAM_SOURCE`, `STREAM_URR_PTABLE`, `STREAM_VOLUME`; see
-`init_particle_seeds`, `random_lcg.cpp:70-76`). So consecutive `id`s are
-[`DEFAULT_STRIDE`] draws apart, and a different `offset` is a different run
-rather than a shift inside the same one.
-
-**Signature deviation (deliberate, not a porting error).** OpenMC reads
-`master_seed` from a mutable global (`random_lcg.cpp:8`, set via
-`openmc_set_seed`). This port takes it as an explicit third parameter —
-there is no global RNG state in this crate, so the caller passes it in. The
-*semantics* are identical to upstream; only the plumbing of `master_seed`
-differs. Likewise the stride is pinned to the compile-time
-[`DEFAULT_STRIDE`] because this port has no `openmc_set_stride` equivalent
-(upstream `prn_stride` is a mutable global, `random_lcg.cpp:13`).
-
-**Wrapping.** `static_cast<uint64_t>(id) * prn_stride` is an unsigned
-64-bit multiply upstream, and `master_seed + offset` is an `int64_t` add
-that is then reinterpreted as `uint64_t`. Both are reproduced with
-`wrapping_*` so the result is identical in debug and release rather than
-panicking on overflow.
-
-# Parameters
-
-- `id` — particle (or other stream) index; stream `k` starts
-  `k * DEFAULT_STRIDE` draws into the sequence.
-- `offset` — stream selector, added to `master_seed`. Different values give
-  independent runs, not shifted views of one run.
-- `master_seed` — the run's master seed (OpenMC's `DEFAULT_SEED` is `1`).
-
-# Example
-
-```
-use outram_mc_libs::rng::lcg::{init_seed, future_seed, DEFAULT_STRIDE};
-// Consecutive ids are one full stride apart in the sequence.
-assert_eq!(
-    init_seed(4, 0, 1),
-    future_seed(DEFAULT_STRIDE, init_seed(3, 0, 1))
-);
-```
-
-```rust
-pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 { /* ... */ }
-```
-
-### Constants and Statics
-
-#### Constant `MULT`
-
-PCG-RXS-M-XS generator over a 64-bit LCG — port of OpenMC's `random_lcg`.
-
-C++ source: `src/random_lcg.cpp`, `include/openmc/random_lcg.h`
-(canonical tree: `/home/teddy0/Documents/research/openmc/`).
-
-The **state** is a 64-bit LCG with modulus 2^64 (implicit wrapping):
-  x_{n+1} = MULT * x_n + INC  (mod 2^64)
-
-The **output** is not that state. [`prn`] applies the PCG-RXS-M-XS output
-permutation before converting to a double, because the raw LCG state carries
-Marsaglia lattice structure that Monte Carlo transport is directly exposed
-to (a history draws distance, direction, and energy from consecutive draws).
-See [`prn`] for the derivation and the measured before/after statistics.
-
-Keeping the two apart matters when reading this module: the permutation
-touches the *output only*. The recurrence, and therefore [`future_seed`],
-[`init_seed`], the jump-ahead identity, and the GPU shaders' bit-exact
-integer-state mirror, are all independent of it.
-
-The jump-ahead feature lets each particle own a completely independent
-stream by skipping ahead by a per-particle stride (default 152917).
-This is the key technique enabling reproducible parallel Monte Carlo.
-LCG multiplier — Knuth's choice (identical to PCG-64).
-
-```rust
-pub const MULT: u64 = 6364136223846793005;
-```
-
-#### Constant `INC`
-
-LCG additive increment.
-
-```rust
-pub const INC: u64 = 1442695040888963407;
-```
-
-#### Constant `DEFAULT_STRIDE`
-
-Default per-particle stride (number of RNG draws reserved per particle).
-
-```rust
-pub const DEFAULT_STRIDE: u64 = 152917;
-```
 
 ## Module `distributions`
 
@@ -527,68 +181,6 @@ pub mod distributions { /* ... */ }
 ```
 
 ### Functions
-
-#### Function `uniform`
-
-**Attributes:**
-
-- `Other("#[attr = Inline(Hint)]")`
-
-Sample a uniform deviate on `[low, high)`.
-
-```rust
-pub fn uniform(seed: &mut u64, low: f64, high: f64) -> f64 { /* ... */ }
-```
-
-#### Function `sample_normal`
-
-**Attributes:**
-
-- `Other("#[attr = Inline(Hint)]")`
-
-Sample a standard normal deviate N(0,1) via Box-Muller transform.
-
-Uses two uniform draws: `u1 = prn(seed)`, `u2 = prn(seed)`.
-Returns `√(−2 ln u1) · cos(2π u2)`.
-
-Drop-in replacement for `rand_distr::StandardNormal` in boon-lay diffusion
-modules.  For N(μ, σ²): `μ + σ * sample_normal(seed)`.
-
-```rust
-pub fn sample_normal(seed: &mut u64) -> f64 { /* ... */ }
-```
-
-#### Function `sample_normal_3d`
-
-**Attributes:**
-
-- `Other("#[attr = Inline(Hint)]")`
-
-Sample a 3-D displacement from N(0, σ²) in each axis independently.
-
-Returns `(dx, dy, dz)` with each component drawn from N(0, σ²).
-Used by boon-lay Lagrangian diffusion to advance a particle one step.
-
-```rust
-pub fn sample_normal_3d(seed: &mut u64, sigma: f64) -> (f64, f64, f64) { /* ... */ }
-```
-
-#### Function `sample_exp`
-
-**Attributes:**
-
-- `Other("#[attr = Inline(Hint)]")`
-
-Sample from an exponential distribution with the given `rate` λ.
-
-Uses inverse-CDF: `x = −ln(u) / λ`.  Mean of the distribution is `1/λ`.
-
-Drop-in replacement for `rand_distr::Exp::new(rate).unwrap().sample(&mut rng)`
-in boon-lay collision/scattering modules.
-
-```rust
-pub fn sample_exp(seed: &mut u64, rate: f64) -> f64 { /* ... */ }
-```
 
 #### Function `maxwell`
 
@@ -628,6 +220,72 @@ Returns direction cosines `(u, v, w)`. The polar cosine μ is uniform on
 
 ```rust
 pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64) { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `sample_exp`
+
+The generic samplers — `uniform`, `sample_normal` (Box-Muller),
+`sample_normal_3d` and `sample_exp` — **moved 2026-10-02** to
+[`raffles::distributions::seeded`] (GitHub #500), byte for byte, and are
+re-exported here so `outram_mc_libs::rng::distributions::*` call sites (this
+crate, `boon-lay`, `nee_soon`) are unchanged. Their `cos` keeps this crate's
+routing: this crate's `deterministic-math` feature forwards to RAFFLES'.
+The physics samplers below stay here.
+
+```rust
+pub use raffles::distributions::seeded::sample_exp;
+```
+
+#### Re-export `sample_normal`
+
+The generic samplers — `uniform`, `sample_normal` (Box-Muller),
+`sample_normal_3d` and `sample_exp` — **moved 2026-10-02** to
+[`raffles::distributions::seeded`] (GitHub #500), byte for byte, and are
+re-exported here so `outram_mc_libs::rng::distributions::*` call sites (this
+crate, `boon-lay`, `nee_soon`) are unchanged. Their `cos` keeps this crate's
+routing: this crate's `deterministic-math` feature forwards to RAFFLES'.
+The physics samplers below stay here.
+
+```rust
+pub use raffles::distributions::seeded::sample_normal;
+```
+
+#### Re-export `sample_normal_3d`
+
+The generic samplers — `uniform`, `sample_normal` (Box-Muller),
+`sample_normal_3d` and `sample_exp` — **moved 2026-10-02** to
+[`raffles::distributions::seeded`] (GitHub #500), byte for byte, and are
+re-exported here so `outram_mc_libs::rng::distributions::*` call sites (this
+crate, `boon-lay`, `nee_soon`) are unchanged. Their `cos` keeps this crate's
+routing: this crate's `deterministic-math` feature forwards to RAFFLES'.
+The physics samplers below stay here.
+
+```rust
+pub use raffles::distributions::seeded::sample_normal_3d;
+```
+
+#### Re-export `uniform`
+
+The generic samplers — `uniform`, `sample_normal` (Box-Muller),
+`sample_normal_3d` and `sample_exp` — **moved 2026-10-02** to
+[`raffles::distributions::seeded`] (GitHub #500), byte for byte, and are
+re-exported here so `outram_mc_libs::rng::distributions::*` call sites (this
+crate, `boon-lay`, `nee_soon`) are unchanged. Their `cos` keeps this crate's
+routing: this crate's `deterministic-math` feature forwards to RAFFLES'.
+The physics samplers below stay here.
+
+```rust
+pub use raffles::distributions::seeded::uniform;
+```
+
+### Re-exports
+
+#### Re-export `lcg`
+
+```rust
+pub use petir::rng::lcg;
 ```
 
 ## Module `geometry`
@@ -27855,163 +27513,7 @@ pub struct Trigger {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
-#### Struct `BinStats`
-
-Running sums for one tally bin across realizations.
-
-```rust
-pub struct BinStats {
-    pub sum: f64,
-    pub sum_sq: f64,
-}
-```
-
-##### Fields
-
-| Name | Type | Documentation |
-|------|------|---------------|
-| `sum` | `f64` | Sum of the per-realization values. |
-| `sum_sq` | `f64` | Sum of their squares. |
-
-##### Implementations
-
-###### Trait Implementations
-
-- **Any**
-  - ```rust
-    fn type_id(self: &Self) -> TypeId { /* ... */ }
-    ```
-
-- **Borrow**
-  - ```rust
-    fn borrow(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **BorrowMut**
-  - ```rust
-    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
-    ```
-
-- **CastableFrom**
-- **Clone**
-  - ```rust
-    fn clone(self: &Self) -> BinStats { /* ... */ }
-    ```
-
-- **CloneToUninit**
-  - ```rust
-    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Copy**
-- **Debug**
-  - ```rust
-    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Default**
-  - ```rust
-    fn default() -> BinStats { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
-- **Freeze**
-- **From**
-  - ```rust
-    fn from(t: T) -> T { /* ... */ }
-    ```
-    Returns the argument unchanged.
-
-- **Into**
-  - ```rust
-    fn into(self: Self) -> U { /* ... */ }
-    ```
-    Calls `U::from(self)`.
-
-- **IntoEither**
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
-- **RefUnwindSafe**
-- **Same**
-- **Send**
-- **Sync**
-- **ToOwned**
-  - ```rust
-    fn to_owned(self: &Self) -> T { /* ... */ }
-    ```
-
-  - ```rust
-    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
-    ```
-
-- **TryFrom**
-  - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
-    ```
-
-- **TryInto**
-  - ```rust
-    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
-    ```
-
-- **Unpin**
-- **UnsafeUnpin**
-- **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
-
-#### Function `bin_uncertainty`
-
-Mean, standard deviation **of the mean**, and relative error for a bin over
-`n` realizations — `get_tally_uncertainty` (`src/tallies/trigger.cpp:30`).
-
-Returns `None` for a bin whose mean is exactly zero, which upstream signals
-with a `(-1, -1)` sentinel pair. A `None` here is "no contributions", not
-"converged to zero", and the caller must keep those distinct.
-
-# The formula is the standard error, not the sample spread
-
-```text
-mean    = sum / n
-std_dev = sqrt( (sum_sq / n - mean^2) / (n - 1) )
-rel_err = std_dev / |mean|
-```
-
-Note the `(n - 1)` is **outside** the parenthesis, so this is the
-uncertainty **on the mean**, not the spread of the realizations. Getting
-that wrong by a factor of `sqrt(n)` would make every trigger fire far too
-early and the runs would look wonderfully cheap.
-
-```rust
-pub fn bin_uncertainty(stats: BinStats, n: usize) -> Option<(f64, f64, f64)> { /* ... */ }
-```
 
 #### Function `bin_ratio`
 
@@ -28075,20 +27577,50 @@ Are all triggers satisfied? `max(ratio) <= 1` (`:182`).
 pub fn satisfied(ratio: f64) -> bool { /* ... */ }
 ```
 
-#### Function `predict_batches`
+### Re-exports
 
-Predicted total batches needed, assuming variance falls as `1/N`
-(`:209-215`):
+#### Re-export `bin_uncertainty`
 
-```text
-n_pred = (int)(n_active * ratio^2) + n_inactive + 1
-```
+Running sums for one tally bin across realizations, and the mean /
+standard-deviation-of-the-mean / relative error computed from them —
+`get_tally_uncertainty` (`src/tallies/trigger.cpp:30`).
 
-Returns `None` when the ratio is infinite — a tally with no scores gives no
-basis for an estimate, and upstream says so rather than printing a number.
+**Moved 2026-10-02** to [`raffles::estimators`] (GitHub #500), byte for
+byte, and re-exported here. What stays in this module is the trigger
+POLICY: the metrics, thresholds, `ignore_zeros`, the deliberate
+variance-branch divergence from upstream, and when to stop. See
+[`raffles::estimators::bin_uncertainty`] for the formula (the uncertainty is
+on the mean, `(n - 1)` outside the parenthesis).
 
 ```rust
-pub fn predict_batches(current_batch: usize, n_inactive: usize, ratio: f64) -> Option<usize> { /* ... */ }
+pub use raffles::estimators::bin_uncertainty;
+```
+
+#### Re-export `BinStats`
+
+Running sums for one tally bin across realizations, and the mean /
+standard-deviation-of-the-mean / relative error computed from them —
+`get_tally_uncertainty` (`src/tallies/trigger.cpp:30`).
+
+**Moved 2026-10-02** to [`raffles::estimators`] (GitHub #500), byte for
+byte, and re-exported here. What stays in this module is the trigger
+POLICY: the metrics, thresholds, `ignore_zeros`, the deliberate
+variance-branch divergence from upstream, and when to stop. See
+[`raffles::estimators::bin_uncertainty`] for the formula (the uncertainty is
+on the mean, `(n - 1)` outside the parenthesis).
+
+```rust
+pub use raffles::estimators::BinStats;
+```
+
+#### Re-export `predict_batches`
+
+Predicted total batches needed, assuming variance falls as `1/N`
+(`src/tallies/trigger.cpp:209-215`). **Moved 2026-10-02** to
+[`raffles::estimators::predict_batches`] (GitHub #500), re-exported here.
+
+```rust
+pub use raffles::estimators::predict_batches;
 ```
 
 ## Module `mesh`
@@ -29342,6 +28874,11 @@ These assume the operands are **uncorrelated**, exactly as OpenMC's tally
 arithmetic does; combining a tally with itself (e.g. `a + a`) therefore reports
 a larger σ than the exact `2·a` (`scalar_mul`), which is the correct behaviour
 for the independent-samples assumption and is asserted in the verification test.
+
+**The arithmetic moved 2026-10-02** to `raffles::estimators`
+(`sigma_sum`, `product_with_sigma`, `quotient_with_sigma`, `sum_with_sigma`;
+GitHub #500), byte for byte. [`DerivedTally`] keeps the tally selection
+and readout and calls it.
 
 No `Box`, no trait objects, no lifetime parameters — a plain owned struct of two
 `Vec<f64>` (per the crate's Rust design rules).
@@ -43482,6 +43019,10 @@ Two families of technique make this tractable, and both live here:
   itself. Random Sequential Addition (RSA) is implemented
   ([`sphere_packing::pack_spheres`]); the RSA–DEM/ODR–DEM high-density hybrids
   are future work. See the [`references`] bibliography.
+- **[`dem_bed`]** — a pebble bed **settled by granular DEM**
+  (`outram-park-fork-liggghts`, a dependency since 2026-10-02) converted to
+  pebble centres in cm, with monodispersity enforced and the soft-sphere
+  overlap measured and reported. It does not yet build a CSG geometry.
 - **[`keff_delta`]** — the assembly: a fission-source k-eigenvalue power
   iteration over a reflective cube of packed kernels, with every history
   streamed by delta tracking ([`keff_delta::run_keff_delta`]). This is the
@@ -44619,6 +44160,444 @@ pub fn bounded_delta_flight_urr<D, M>(start: crate::geometry::position::Position
 where
     D: Fn(crate::geometry::position::Position, crate::geometry::position::Direction) -> f64,
     M: Fn(crate::geometry::position::Position) -> Option<usize> { /* ... */ }
+```
+
+## Module `dem_bed`
+
+**DEM-settled pebble beds** — hand a bed settled by
+`outram-park-fork-liggghts` to Monte Carlo transport.
+
+New work, not an OpenMC port: OpenMC has no granular solver and takes pebble
+centres from a file (`openmc.model.pack_spheres` is RSA/CRP, which live in
+[`super::sphere_packing`] and [`super::crp_packing`]). This module is the
+seam between the two crates, added 2026-10-02 at the maintainer's direction
+("make liggghts a dependency of outram-mc so it is easier to model pebble
+beds").
+
+# What it does
+
+[`DemBed::from_particles`] takes the particles of a settled DEM system and
+returns their centres and the (common) radius **in this crate's length
+convention, cm** — DEM works in SI metres, so every length is multiplied by
+[`CM_PER_M`]. [`DemBed::from_granular_system`] and
+[`DemBed::from_dem_simulation`] are the same call on liggghts' two engines.
+Use `GranularSystem` for anything that must settle into a static bed: per
+that crate's `CLAUDE.md` it is the LIGGGHTS-faithful engine (shear history),
+verified against upstream LIGGGHTS on the HTR-10 core. `DemSimulation` has
+no tangential spring and cannot hold a heap.
+
+Two checks are made and neither is hidden:
+
+- **Monodispersity is refused, not averaged.** Every particle must have the
+  same radius to [`MONODISPERSE_REL_TOL`]; otherwise
+  [`DemBedError::Polydisperse`] names the extremes. A pebble-bed core
+  universe is built around one pebble radius, and quietly averaging a
+  polydisperse bed would put fuel where there is none.
+- **Soft-sphere overlap is measured and reported.** DEM contacts are
+  *penetrations*: a settled Hertz/Hooke bed has every touching pair
+  interpenetrating by a small amount set by the contact stiffness and the
+  load. [`DemBed::max_overlap_cm`] / [`DemBed::max_relative_overlap`] /
+  [`DemBed::overlapping_pairs`] report it. Nothing is shrunk, moved or
+  clipped: whether to accept the overlap, shrink the CSG radius, or re-settle
+  stiffer is the geometry builder's decision, and it should be made with the
+  number in hand. The HTR-10 model once carried pebbles interpenetrating by
+  1.1 cm unnoticed (gh:#309, #310), which is why the number is surfaced.
+
+# What it does NOT do (yet)
+
+- **It does not build a CSG geometry of the bed.** The output is centres and
+  a radius, the same thing [`super::sphere_packing::Sphere`] carries; turning
+  them into cells, a lattice, or a delta-tracked medium is the caller's job
+  (see `nee_soon::htr10_rmc` for how the HTR-10 core does it from a centre
+  list). When that is done, the geometry must be drawn and shown per this
+  crate's `CLAUDE.md` before any k-eff from it is reported.
+- **It does not check the container.** It does not know the vessel; the
+  caller does. The test below checks containment for its own cylinder.
+- **No physics claim.** A DEM-settled bed is a *verification*-grade product
+  of `outram-park-fork-liggghts` (cross-code agreement with LIGGGHTS, no
+  experimental comparison — see that crate's `CLAUDE.md`). Converting it to
+  cm adds nothing to that claim.
+
+```rust
+pub mod dem_bed { /* ... */ }
+```
+
+### Types
+
+#### Enum `DemBedError`
+
+Why a DEM bed could not be converted.
+
+```rust
+pub enum DemBedError {
+    Empty,
+    NonFinite {
+        index: usize,
+    },
+    Polydisperse {
+        min_radius_m: f64,
+        max_radius_m: f64,
+        relative_spread: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Empty`
+
+The system holds no particles.
+
+###### `NonFinite`
+
+A particle's position or radius is not finite (a blown-up integration).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | Index of the offending particle. |
+
+###### `Polydisperse`
+
+The radii differ by more than [`MONODISPERSE_REL_TOL`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `min_radius_m` | `f64` | Smallest radius \[m\]. |
+| `max_radius_m` | `f64` | Largest radius \[m\]. |
+| `relative_spread` | `f64` | `(max - min) / max`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DemBedError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DemBedError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DemBed`
+
+A settled, monodisperse DEM bed in this crate's units (cm).
+
+```rust
+pub struct DemBed {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_particles(particles: &[Particle]) -> Result<Self, DemBedError> { /* ... */ }
+  ```
+  Convert DEM particles (SI) to pebble centres and radius (cm).
+
+- ```rust
+  pub fn from_granular_system(system: &GranularSystem) -> Result<Self, DemBedError> { /* ... */ }
+  ```
+  [`DemBed::from_particles`] on a `GranularSystem` — the
+
+- ```rust
+  pub fn from_dem_simulation(sim: &DemSimulation) -> Result<Self, DemBedError> { /* ... */ }
+  ```
+  [`DemBed::from_particles`] on a `DemSimulation` (the stateless engine).
+
+- ```rust
+  pub fn spheres(self: &Self) -> &[Sphere] { /* ... */ }
+  ```
+  Pebble centres and radius \[cm\], in DEM particle order.
+
+- ```rust
+  pub fn into_spheres(self: Self) -> Vec<Sphere> { /* ... */ }
+  ```
+  Consume the bed, returning the spheres \[cm\].
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of pebbles.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` if there are no pebbles (never, for a successfully built bed).
+
+- ```rust
+  pub fn radius_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  The common pebble radius \[cm\].
+
+- ```rust
+  pub fn max_overlap_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Largest pairwise interpenetration `2r - d` over all pairs \[cm\]; `0.0`
+
+- ```rust
+  pub fn max_relative_overlap(self: &Self) -> f64 { /* ... */ }
+  ```
+  [`DemBed::max_overlap_cm`] as a fraction of the pebble **diameter**.
+
+- ```rust
+  pub fn overlapping_pairs(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of pebble pairs that interpenetrate (`d < 2r`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DemBed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DemBed) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `CM_PER_M`
+
+Centimetres per metre: DEM (SI) to this crate's length unit.
+
+```rust
+pub const CM_PER_M: f64 = 100.0;
+```
+
+#### Constant `MONODISPERSE_REL_TOL`
+
+Relative radius spread below which a bed counts as monodisperse.
+
+DEM particles built from one radius carry bit-identical radii; this
+tolerance only forgives a radius that has round-tripped through a text
+file. It is not a knob for accepting a genuinely polydisperse bed.
+
+```rust
+pub const MONODISPERSE_REL_TOL: f64 = 1e-9;
 ```
 
 ## Module `fhr_pebble`
@@ -61418,6 +61397,24 @@ been advanced to the collision site; the caller does the collision physics.
 - **WasmNotSync**
 ### Functions
 
+#### Function `shader_source`
+
+The complete shader the pipeline compiles: PETIR's LCG
+([`petir::wgsl::LCG`], the workspace's one WGSL copy of OpenMC's 64-bit
+LCG state advance) concatenated ahead of [`KERNEL_WGSL`].
+
+**Why composition and not a copy (2026-10-02).** This kernel used to carry
+its own transcription of the LCG, and so did the other batched kernel; the
+maintainer directed that the LCG live once, in PETIR, beside its Rust
+original [`petir::rng::lcg`]. WGSL has no `#include`, so composing is
+string concatenation at pipeline creation. The arithmetic is unchanged
+byte for byte, and `tests/gpu_lcg_advance_directly.rs` pins the composed
+source bit-exact against the CPU LCG on a device.
+
+```rust
+pub fn shader_source() -> String { /* ... */ }
+```
+
 #### Function `advance_flight_cpu_mirror`
 
 Advance every particle in `batch` through **one flight** on the CPU, using
@@ -61458,7 +61455,7 @@ pub fn advance_flight_cpu_mirror(grid: &[f32], sigma: &[f32], batch: &mut Flight
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_flight.rs:400:11: 400:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_flight.rs:400:10: 400:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_flight.rs:423:11: 423:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_flight.rs:423:10: 423:33 (#0))])]")`
 
 Advance every particle in `batch` through **one flight on the GPU**, via the
 WGSL compute shader `shaders/batched_flight.wgsl`. This is the `f32`
@@ -61490,6 +61487,19 @@ touching the GPU.
 
 ```rust
 pub fn advance_flight_gpu(ctx: &crate::gpu::GpuContext, grid: &[f32], sigma: &[f32], batch: &mut FlightBatch, sphere: FlightSphere) -> Vec<FlightOutcome> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `KERNEL_WGSL`
+
+This kernel's own WGSL, which is **not a complete shader on its own**: it
+calls `petir_lcg_next`, defined in [`petir::wgsl::LCG`]. Compile
+[`shader_source`] instead. Exposed so tests can append probe entry points
+to exactly what the pipeline compiles.
+
+```rust
+pub const KERNEL_WGSL: &str = "// batched_flight.wgsl \u{2014} One next-event free flight for a resident batch of neutrons.\n//\n// PHYSICS / WHAT THIS COMPUTES\n// ----------------------------\n// This is the hot, regular, per-event neutron flight of a Monte Carlo transport\n// code, run for a whole BATCH of live neutrons in parallel (one GPU invocation\n// per particle). Each dispatch advances every live particle through EXACTLY ONE\n// flight (one event):\n//   1. draw a uniform random number xi in [0,1) from the per-particle 64-bit LCG,\n//   2. look up the macroscopic total cross section  Sigma_t (cm^-1) at the\n//      particle energy via binary search + linear interpolation on a shared\n//      union energy grid,\n//   3. sample the distance to the next collision  d_col = -ln(xi) / Sigma_t  (cm),\n//   4. compute the distance to the bounding sphere  d_bound  (cm),\n//   5. stream to whichever is nearer and flag the outcome:\n//        collided  (d_col <  d_bound) \u{2014} particle moved to the collision site,\n//        leaked    (d_col >= d_bound) \u{2014} particle left the sphere (dead here).\n// The branchy collision physics (which nuclide/reaction, secondary E/angle) is\n// NOT done here \u{2014} it stays on the CPU caller. This kernel only does the flight.\n//\n// BUFFER PACKING (why arrays are concatenated)\n// --------------------------------------------\n// `wgpu`\'s downlevel default limit is only 4 storage buffers per compute stage,\n// so the eight logical SoA arrays are packed into 4 storage buffers plus the\n// uniform. For a batch of N = params.n_particle particles and G = params.n_grid\n// grid points:\n//   xs      (read)       : grid[0..G]  ++ sigma[0..G]            (f32, 2G)\n//   part_in (read)       : energy[0..N] ++ dir[0..3N]            (f32, 4N)\n//   pos     (read_write) : x,y,z per particle                   (f32, 3N)\n//   state   (read_write) : rng_hi[0..N] ++ rng_lo[0..N] ++ outcome[0..N] (u32, 3N)\n// Accessors:\n//   grid(j)   = xs[j]                 sigma(j)  = xs[G + j]\n//   energy(i) = part_in[i]            dir(i,c)  = part_in[N + 3i + c]\n//   rng_hi(i) = state[i]              rng_lo(i) = state[N + i]\n//   outcome(i)= state[2N + i]  (WRITE: 0 = leaked/dead, 1 = collided)\n// pos is READ + WRITE (updated to the collision site on collide); dir/energy/xs\n// are READ only.\n//\n// THE RNG \u{2014} OpenMC 64-bit LCG, STATE ADVANCE ported bit-exactly\n// ------------------------------------------------------------\n// OpenMC\'s LCG (src/random_lcg.cpp:32-35, prn_mult/prn_add on lines 11-12):\n//   seed_{n+1} = (MULT * seed_n + INC) mod 2^64\n//   MULT = 6364136223846793005 = 0x5851F42D4C957F2D\n//   INC  = 1442695040888963407 = 0x14057B7EF767814F\n// The CPU reference is `petir::rng::lcg` (`future_seed(1, seed)` advances one\n// step), re-exported as `outram_mc_libs::rng::lcg`.\n//\n// WGSL has NO u64 and NO f64, so the 64-bit multiply-add is emulated with u32\n// pairs (16-bit schoolbook for exact carries) so the *integer state advance is\n// BIT-EXACT* vs the CPU LCG: the returned (rng_hi, rng_lo) equal CPU\n// `future_seed(1, seed)` for every particle. This is the reproducibility linchpin.\n//\n// WHERE THE LCG CODE LIVES (2026-10-02). ~~This file carried its own\n// `lcg_advance`, `mul64_low`, `mul_u32_full` and MULT/INC constants.~~ MOVED to\n// PETIR: `petir::wgsl::LCG` (`crates/petir/src/wgsl/shaders/lcg.wgsl`), the ONE\n// copy in the workspace, which `batched_event.wgsl` also uses. This file is no\n// longer a complete shader on its own: `batched_flight::shader_source()`\n// concatenates `petir::wgsl::LCG` ahead of it, and this kernel calls\n// `petir_lcg_next(vec2(lo, hi)) -> vec3(new_lo, new_hi, bitcast(xi))`. The\n// arithmetic is byte-for-byte what was here; the GPU bit-exactness gates\n// (`tests/gpu_lcg_advance_directly.rs`) run on the composed source.\n//\n// The uniform VALUE used for the flight is NOT the CPU f64 `prn` value (that is\n// impossible to match in f32). Instead it is derived from the TOP 24 bits of the\n// advanced 64-bit state:\n//   xi = f32(state_hi >> 8) * (1.0 / 16777216.0)      // top 24 bits -> [0,1)\n// state_hi >> 8 is < 2^24, so f32 represents it exactly.\n//\n// DOCUMENTED DIVERGENCE. The integer state stream is bit-exact vs the CPU\n// (gpu_lcg_advance_directly.rs asserts it as equality, over 256 seeds and over\n// 4096-step chains). The uniform VALUE is not, and ~~this is the accepted f32\n// acceleration divergence~~ **CORRECTED 2026-09-19** \u{2014} it is STRUCTURAL, not a\n// precision effect, and calling it an f32 cost understated it by seven orders\n// of magnitude:\n//\n//   CPU  petir::rng::lcg::prn (moved from src/rng/lcg.rs:116-117 on\n//        2026-10-02) applies a PCG-RXS-M-XS output PERMUTATION to\n//        the advanced state, then scales the permuted word by 2^-64.\n//   GPU  applies NO permutation and scales the raw top 24 bits by 2^-24.\n//\n// These are different functions of the same integer and would disagree in\n// exact arithmetic. Measured over 1e6 consecutive draws from seed 1, the worst\n// gap is 9.995e-01 \u{2014} effectively two unrelated uniforms.\n//\n// THE BEHAVIOUR IS STILL SOUND, and that is measured, not assumed. An LCG\'s\n// high bits are its good ones; the permutation exists because OpenMC wanted\n// quality across ALL bits. Over the same 1e6 draws the raw top-24 stream has\n// mean 4.9977e-01, chi-square 44.67 on 63 dof over 64 equal buckets (5 %\n// critical value 82.5), and covariance -6.6e-05 against the CPU stream, inside\n// one standard error of zero. Re-measured by\n// `the_reference_is_sound_without_a_gpu`.\n//\n// The CPU single-thread path stays the trusted, bit-reproducible reference.\n//\n// PROVENANCE\n// ----------\n// - RNG state advance: OpenMC src/random_lcg.cpp:32-35 (prn), constants 11-12.\n// - Sigma_t grid search + linear interp: OpenMC src/nuclide.cpp:716-740\n//   (Nuclide::calculate_xs), mirrored exactly as in this crate\'s xs_interp.wgsl.\n// - Bounding-sphere distance: OpenMC src/surface.cpp:607-638\n//   (SurfaceSphere::distance), the coincident=false path; also this crate\'s\n//   `src/geometry/surface.rs` Sphere::distance.\n//\n// PRECISION / STATUS\n// ------------------\n// Everything on the GPU is f32; the authoritative reference is the raw-f64 CPU\n// transport loop, with `advance_flight_cpu_mirror` providing a same-f32-path\n// bit-level reference for THIS kernel\'s logic. UNTRUSTED, AI-DRAFTED: must pass\n// the V&V gate (LCG-state bit-exactness + GPU-vs-mirror agreement) and human\n// review before it is trusted, per the project\'s V&V policy.\n//\n// BINDING LAYOUT (all @group(0)) \u{2014} see BUFFER PACKING above for element layout.\n//   @binding(0) xs      : array<f32> read       \u{2014} grid ++ sigma\n//   @binding(1) part_in : array<f32> read       \u{2014} energy ++ dir\n//   @binding(2) params  : uniform Params\n//   @binding(3) pos     : array<f32> read_write \u{2014} positions (cm, 3N)\n//   @binding(4) state   : array<u32> read_write \u{2014} rng_hi ++ rng_lo ++ outcome\n//\n// Workgroup size: 64 (one invocation per particle; global_invocation_id.x = index).\n\nstruct Params {\n    n_grid: u32,      // number of energy grid / sigma points (G)\n    n_particle: u32,  // number of particles in the batch (N)\n    pad0: u32,        // padding for 16-byte uniform alignment\n    pad1: u32,        // padding for 16-byte uniform alignment\n    sphere: vec4<f32>,// bounding sphere: (center_x, center_y, center_z, radius) cm\n};\n\n@group(0) @binding(0) var<storage, read>       xs:      array<f32>;\n@group(0) @binding(1) var<storage, read>       part_in: array<f32>;\n@group(0) @binding(2) var<uniform>             params:  Params;\n@group(0) @binding(3) var<storage, read_write> pos:     array<f32>;\n@group(0) @binding(4) var<storage, read_write> state:   array<u32>;\n\n// A sentinel \"no intersection\" distance (cm). Physically the sampled flight\n// distance in this kernel is O(10) cm, so this is always larger than any d_col.\nconst BIG: f32 = 1e30;\n// Coincident-surface epsilon (cm), f32; matches the task spec / OpenMC treatment.\nconst EPS: f32 = 1e-7;\n\n@compute @workgroup_size(64)\nfn main(@builtin(global_invocation_id) gid: vec3<u32>) {\n    let i = gid.x;\n    let nn = params.n_particle;\n\n    // 1. Tail guard: only live particles i < N are uploaded; the rest do nothing.\n    if (i >= nn) {\n        return;\n    }\n\n    // 2. Advance the RNG one step; write the new split seed back regardless of\n    //    outcome (every flight consumes exactly one LCG step).\n    //    state layout: rng_hi[0..N] ++ rng_lo[0..N] ++ outcome[0..N].\n    //    `petir_lcg_next` comes from PETIR\'s `lcg.wgsl`, concatenated ahead of\n    //    this file at pipeline creation (see the header).\n    let adv = petir_lcg_next(vec2<u32>(state[nn + i], state[i]));\n    state[i] = adv.y;               // rng_hi\n    state[nn + i] = adv.x;          // rng_lo\n    let xi = bitcast<f32>(adv.z);\n\n    // 3. Sigma_t at energy[i] via binary search + linear interpolation on the\n    //    shared union grid (mirrors OpenMC src/nuclide.cpp:716-740, as in\n    //    xs_interp.wgsl). xs layout: grid[0..G] ++ sigma[0..G].\n    let e = part_in[i];             // energy[i]\n    let n = params.n_grid;\n    var i_grid: u32;\n    if (e < xs[0]) {\n        i_grid = 0u;                    // below grid: clamp to first interval\n    } else if (e > xs[n - 1u]) {\n        i_grid = n - 2u;                // above grid: clamp to last interval\n    } else {\n        var lo: u32 = 0u;\n        var hi: u32 = n - 1u;\n        loop {\n            if (hi - lo <= 1u) { break; }\n            let mid = (lo + hi) >> 1u;\n            if (xs[mid] <= e) { lo = mid; } else { hi = mid; }\n        }\n        i_grid = lo;\n    }\n    let d = xs[i_grid + 1u] - xs[i_grid];\n    var f: f32;\n    if (d == 0.0) {\n        f = 0.0;\n    } else {\n        f = (e - xs[i_grid]) / d;\n    }\n    let sigma_t = (1.0 - f) * xs[n + i_grid] + f * xs[n + i_grid + 1u];\n\n    // 4. Non-positive Sigma_t: no collision possible -> leaked (dead).\n    if (sigma_t <= 0.0) {\n        state[2u * nn + i] = 0u;       // outcome = leaked\n        return;\n    }\n\n    // 5. Distance to collision (cm). xi == 0 -> log(0) = -inf -> d_col = +inf,\n    //    which is >= d_bound below, i.e. treated as a leak.\n    let d_col = -log(xi) / sigma_t;\n\n    // 6. Distance to the bounding sphere (cm). Mirrors OpenMC\n    //    src/surface.cpp:607-638 SurfaceSphere::distance (coincident = false).\n    //    part_in dir layout: dir(i,c) = part_in[N + 3i + c].\n    let px = pos[3u * i + 0u];\n    let py = pos[3u * i + 1u];\n    let pz = pos[3u * i + 2u];\n    let ux = part_in[nn + 3u * i + 0u];\n    let uy = part_in[nn + 3u * i + 1u];\n    let uz = part_in[nn + 3u * i + 2u];\n    let ox = px - params.sphere.x;\n    let oy = py - params.sphere.y;\n    let oz = pz - params.sphere.z;\n    let rad = params.sphere.w;\n    let k = ox * ux + oy * uy + oz * uz;      // o . u\n    let c = ox * ox + oy * oy + oz * oz - rad * rad;\n    let disc = k * k - c;\n    var d_bound: f32;\n    if (disc < 0.0) {\n        d_bound = BIG;                         // ray misses the sphere\n    } else {\n        let sq = sqrt(disc);\n        let d_near = -k - sq;\n        if (d_near > EPS) {\n            d_bound = d_near;\n        } else {\n            let d_far = -k + sq;\n            if (d_far > EPS) {\n                d_bound = d_far;\n            } else {\n                d_bound = BIG;                 // both roots behind the particle\n            }\n        }\n    }\n\n    // 7. Stream to the nearer event.\n    if (d_col >= d_bound) {\n        state[2u * nn + i] = 0u;               // leaked; leave pos unchanged\n        return;\n    }\n    // 8. Collided: advance position to the collision site.\n    pos[3u * i + 0u] = px + ux * d_col;\n    pos[3u * i + 1u] = py + uy * d_col;\n    pos[3u * i + 2u] = pz + uz * d_col;\n    state[2u * nn + i] = 1u;                    // collided\n}\n";
 ```
 
 ## Module `collision_grid`
@@ -62154,6 +62164,24 @@ pub struct EventTablesF32 {
 - **WasmNotSync**
 ### Functions
 
+#### Function `shader_source`
+
+The complete shader the pipeline compiles: PETIR's LCG
+([`petir::wgsl::LCG`], the workspace's one WGSL copy of OpenMC's 64-bit
+LCG state advance) concatenated ahead of [`KERNEL_WGSL`].
+
+**Why composition and not a copy (2026-10-02).** This kernel used to carry
+its own transcription of the LCG, and so did the other batched kernel; the
+maintainer directed that the LCG live once, in PETIR, beside its Rust
+original [`petir::rng::lcg`]. WGSL has no `#include`, so composing is
+string concatenation at pipeline creation. The arithmetic is unchanged
+byte for byte, and `tests/gpu_lcg_advance_directly.rs` pins the composed
+source bit-exact against the CPU LCG on a device.
+
+```rust
+pub fn shader_source() -> String { /* ... */ }
+```
+
 #### Function `advance_event_cpu_mirror`
 
 Advance **every currently-alive neutron** in `batch` through **one event**
@@ -62188,7 +62216,7 @@ pub fn advance_generation_cpu_mirror(tables: &EventTablesF32, batch: &mut EventB
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_event.rs:663:11: 663:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_event.rs:663:10: 663:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_event.rs:687:11: 687:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_event.rs:687:10: 687:33 (#0))])]")`
 
 Advance a whole generation on the **GPU**, keeping the batch resident in GPU
 buffers across every event ([`crate::gpu`] `mod.rs` precision contract applies).
@@ -62216,6 +62244,17 @@ Sentinel in [`EventBatch::fiss_nuc`] meaning "this neutron did not fission".
 
 ```rust
 pub const FISS_NONE: u32 = 0xFFFF_FFFF;
+```
+
+#### Constant `KERNEL_WGSL`
+
+This kernel's own WGSL, which is **not a complete shader on its own**: it
+calls `petir_lcg_next`, defined in [`petir::wgsl::LCG`]. Compile
+[`shader_source`] instead. Exposed so tests can append probe entry points
+to exactly what the pipeline compiles.
+
+```rust
+pub const KERNEL_WGSL: &str = "// batched_event.wgsl \u{2014} ONE full transport event (flight + collision) for a\n// resident batch of neutrons, run entirely on the GPU.\n//\n// WHAT THIS COMPUTES (the op-u6s.8 fix)\n// -------------------------------------\n// The batched-flight kernel (batched_flight.wgsl) put only the FLIGHT on the GPU\n// and left the collision on the CPU, forcing a CPU<->GPU round-trip PER EVENT.\n// This kernel does the WHOLE event \u{2014} flight AND collision physics \u{2014} on the GPU,\n// so a generation\'s batch stays resident in GPU buffers across every event and\n// the only CPU traffic is (a) a 4-byte alive-count read per event and (b) one\n// fission-record read-back per GENERATION.\n//\n// Per invocation (one neutron, global_invocation_id.x = index i):\n//   1. If i>=N or the neutron is already dead, do nothing.\n//   2. FLIGHT: advance the per-particle 64-bit LCG one step -> xi; look up the\n//      macroscopic total Sigma_t at the neutron energy (binary search + linear\n//      interp on the shared union grid); sample d_col=-ln(xi)/Sigma_t; find the\n//      distance to the bounding sphere; if the sphere is nearer -> LEAK (dead).\n//   3. COLLISION (mirrors CPU `collide_batched`, src/physics/keff.rs):\n//        a. stream the neutron to the collision site;\n//        b. sample the collision nuclide j ~ N_j*sigma_t,j(E);\n//        c. partition the reaction on the microscopic total:\n//             fission | capture | inelastic(continuum) | elastic;\n//        d. fission -> record (production=nu_bar, nuclide j); neutron dies (its\n//           daughters are banked on the CPU once per generation, using the\n//           handed-back seed, so the coherent stream continues there);\n//        e. capture -> dies;\n//        f. inelastic -> Weisskopf continuum down-scatter (new E, direction);\n//        g. elastic -> two-body kinematics, isotropic-CM below the CE/MG seam or\n//           the maximum-entropy exponential-mu law (group mean cosine) above it.\n//   4. A neutron that scatters stays alive: atomicAdd(alive_count, 1).\n//\n// PROVENANCE (CPU sources mirrored, all in this crate + OpenMC)\n//   - LCG state advance: OpenMC src/random_lcg.cpp:32-35, via PETIR\'s lcg.wgsl\n//     (composed ahead of this file; see the LCG section below).\n//   - Sigma_t grid search + interp: OpenMC src/nuclide.cpp:716-740.\n//   - Sphere distance: OpenMC src/surface.cpp:607-638.\n//   - Nuclide sampling: src/material/material.rs `sample_nuclide`.\n//   - Reaction partition: src/physics/keff.rs `collide_batched` / `transport_history`.\n//   - Elastic/inelastic kinematics: src/physics/scatter.rs\n//     (`two_body_scatter_with_mu`, `continuum_inelastic_scatter`, `rotate_direction`,\n//     `cm_to_lab`).\n//   - Exponential-mu / Langevin inverse: src/material/nuclide.rs\n//     (`sample_exponential_mu`, `langevin_inverse`).\n//\n// PRECISION / STATUS\n//   Everything here is f32; the trusted reference is the raw-f64 CPU transport\n//   loop. `advance_event_cpu_mirror` (batched_event.rs) runs the SAME f32 path and\n//   is the bit-level reference for this kernel\'s LOGIC. The uniform is the top-24\n//   bits of the advanced 64-bit LCG state (as in batched_flight.wgsl). The\n//   integer state stream stays bit-exact vs the CPU, and\n//   gpu_lcg_advance_directly.rs additionally pins THIS kernel\'s composed source\n//   and batched_flight\'s to the same stream, state and uniform alike.\n//   ~~The two files implement the LCG twice and a history depends on which one\n//   drew it.~~ CORRECTED 2026-10-02: they no longer do \u{2014} both call PETIR\'s\n//   single `petir_lcg_next`, so that check now guards the composition rather\n//   than two transcriptions. ~~The uniform VALUE is the documented f32 divergence from the CPU\n//   f64 `prn`.~~ **CORRECTED 2026-09-19** \u{2014} that divergence is STRUCTURAL, not\n//   a precision effect: the CPU applies a PCG-RXS-M-XS output permutation\n//   (petir::rng::lcg::prn, formerly src/rng/lcg.rs:116-117) and this does not, so the two would disagree in\n//   exact arithmetic (worst gap 9.995e-01 over 1e6 draws). The raw top-24\n//   stream is a sound uniform in its own right \u{2014} see batched_flight.wgsl\'s\n//   header for the measured mean, chi-square and covariance.\n//   UNTRUSTED, AI-DRAFTED: must pass the V&V gate and human review before it\n//   is trusted.\n//\n// BUFFER LAYOUT (4 storage + 1 uniform; downlevel_defaults allows 4 storage/stage)\n//   @binding(0) xs    : array<f32> read       \u{2014} packed tables, see accessors below\n//   @binding(1) istate: array<u32> read_write \u{2014} seed_lo ++ seed_hi ++ alive ++ fiss_nuc\n//   @binding(2) fstate: array<f32> read_write \u{2014} pos(3N) ++ dir(3N) ++ energy(N) ++ production(N)\n//   @binding(3) ctrl  : atomic<u32> read_write \u{2014} live-neutron count for this event\n//   @binding(4) params: uniform Params\n//\n// xs packing (G = n_grid, NN = n_nuclide), all f32:\n//   grid[0..G] ++ macro_total[0..G]\n//   ++ micro_total[NN*G] ++ micro_fission[NN*G] ++ micro_absorption[NN*G]\n//   ++ micro_inelastic[NN*G] ++ micro_nu_fission[NN*G] ++ micro_mubar[NN*G]\n//   ++ atom_density[NN] ++ awr[NN] ++ e_max[NN]\n// per-nuclide channel c of nuclide j at grid point k = base_c + j*G + k.\n//\n// Workgroup size 64 (one invocation per neutron).\n\nstruct Params {\n    n_grid: u32,       // G\n    n_particle: u32,   // N\n    n_nuclide: u32,    // NN\n    pad0: u32,\n    sphere: vec4<f32>, // (center_x, center_y, center_z, radius) cm\n};\n\n@group(0) @binding(0) var<storage, read>        xs:     array<f32>;\n@group(0) @binding(1) var<storage, read_write>  istate: array<u32>;\n@group(0) @binding(2) var<storage, read_write>  fstate: array<f32>;\n@group(0) @binding(3) var<storage, read_write>  ctrl:   atomic<u32>;\n@group(0) @binding(4) var<uniform>              params: Params;\n\nconst BIG: f32 = 1e30;\nconst EPS: f32 = 1e-7;\nconst PI:  f32 = 3.14159265358979323846;\nconst FISS_NONE: u32 = 0xFFFFFFFFu; // \"did not fission\" sentinel in fiss_nuc\n\n// ---- 64-bit LCG: petir_lcg_next, from PETIR\'s lcg.wgsl ------------------------\n// ~~`mul_u32_full`, `mul64_low`, `rng_next` and the MULT/INC constants were\n// defined here.~~ MOVED 2026-10-02 to `petir::wgsl::LCG`\n// (`crates/petir/src/wgsl/shaders/lcg.wgsl`), the ONE copy in the workspace,\n// shared with batched_flight.wgsl. `batched_event::shader_source()`\n// concatenates it ahead of this file, and every former `rng_next(seed)` call\n// is now `petir_lcg_next(seed)`: same argument (vec2 lo, hi), same return\n// (vec3 new_lo, new_hi, bitcast(xi)), byte-for-byte the same arithmetic.\n\n// ---- Shared grid search (binary search + interpolation factor) ----------------\n\nstruct GridLoc { i: u32, f: f32 };\n\nfn locate(e: f32) -> GridLoc {\n    let n = params.n_grid;\n    var i_grid: u32;\n    if (e < xs[0]) {\n        i_grid = 0u;\n    } else if (e > xs[n - 1u]) {\n        i_grid = n - 2u;\n    } else {\n        var lo: u32 = 0u;\n        var hi: u32 = n - 1u;\n        loop {\n            if (hi - lo <= 1u) { break; }\n            let mid = (lo + hi) >> 1u;\n            if (xs[mid] <= e) { lo = mid; } else { hi = mid; }\n        }\n        i_grid = lo;\n    }\n    let d = xs[i_grid + 1u] - xs[i_grid];\n    var f: f32;\n    if (d == 0.0) { f = 0.0; } else { f = (e - xs[i_grid]) / d; }\n    return GridLoc(i_grid, f);\n}\n\n// Linear-interpolate a packed per-nuclide channel (base offset `base`) for\n// nuclide `j` at the located grid point.\nfn interp_channel(base: u32, j: u32, loc: GridLoc) -> f32 {\n    let g = params.n_grid;\n    let k = base + j * g + loc.i;\n    return (1.0 - loc.f) * xs[k] + loc.f * xs[k + 1u];\n}\n\n// ---- Kinematics (ports of src/physics/scatter.rs, f32) ------------------------\n\n// Rotate unit direction `u` by cosine `mu` and a sampled azimuth; returns the new\n// direction and advanced seed (one RNG draw for phi).\nstruct DirSeed { dir: vec3<f32>, seed: vec2<u32> };\n\nfn rotate_direction(u: vec3<f32>, mu: f32, seed_in: vec2<u32>) -> DirSeed {\n    let r = petir_lcg_next(seed_in);\n    let seed = r.xy;\n    let phi = 2.0 * PI * bitcast<f32>(r.z);\n    let sinphi = sin(phi);\n    let cosphi = cos(phi);\n    let a = sqrt(max(1.0 - mu * mu, 0.0));\n    let b0 = sqrt(max(1.0 - u.z * u.z, 0.0));\n    var dir: vec3<f32>;\n    if (b0 > 1.0e-10) {\n        dir = vec3<f32>(\n            mu * u.x + a * (u.x * u.z * cosphi - u.y * sinphi) / b0,\n            mu * u.y + a * (u.y * u.z * cosphi + u.x * sinphi) / b0,\n            mu * u.z - a * b0 * cosphi,\n        );\n    } else {\n        let b = sqrt(max(1.0 - u.y * u.y, 0.0));\n        dir = vec3<f32>(\n            mu * u.x + a * (u.x * u.y * cosphi + u.z * sinphi) / b,\n            mu * u.y - a * b * cosphi,\n            mu * u.z + a * (u.y * u.z * cosphi - u.x * sinphi) / b,\n        );\n    }\n    return DirSeed(dir, seed);\n}\n\n// CM outgoing energy + CM cosine -> lab (e_out, mu_lab). Mirrors cm_to_lab.\nfn cm_to_lab(e: f32, e_cm_out: f32, mu_cm: f32, awr: f32) -> vec2<f32> {\n    let ap1 = awr + 1.0;\n    let e_trans = e / (ap1 * ap1);\n    let cross = 2.0 * mu_cm * sqrt(e_cm_out * e_trans);\n    let e_out = max(e_cm_out + e_trans + cross, 0.0);\n    var mu_lab: f32;\n    if (e_out > 0.0) {\n        mu_lab = clamp(mu_cm * sqrt(e_cm_out / e_out) + sqrt(e_trans / e_out), -1.0, 1.0);\n    } else {\n        mu_lab = 1.0;\n    }\n    return vec2<f32>(e_out, mu_lab);\n}\n\nstruct Scatter { e: f32, dir: vec3<f32>, seed: vec2<u32> };\n\n// Two-body scatter with a supplied CM cosine (Q-value `q`). One RNG draw (azimuth).\nfn two_body_with_mu(e: f32, u: vec3<f32>, awr: f32, q: f32, mu_cm: f32, seed_in: vec2<u32>) -> Scatter {\n    let a = awr;\n    let ap1 = a + 1.0;\n    let e_cm_out = max(e * (a / ap1) * (a / ap1) + q * a / ap1, 0.0);\n    let lab = cm_to_lab(e, e_cm_out, clamp(mu_cm, -1.0, 1.0), a);\n    let ds = rotate_direction(u, lab.y, seed_in);\n    return Scatter(lab.x, ds.dir, ds.seed);\n}\n\n// Invert the Langevin function L(l)=coth l - 1/l = mu_bar (Newton). No draws.\nfn langevin_inverse(mu_bar: f32) -> f32 {\n    let x = abs(mu_bar);\n    var lambda: f32;\n    if (x < 0.3) { lambda = 3.0 * x; } else { lambda = min(1.0 / (1.0 - x), 50.0); }\n    for (var it: u32 = 0u; it < 30u; it = it + 1u) {\n        let coth = 1.0 / tanh(lambda);\n        let f = coth - 1.0 / lambda - x;\n        let d = 1.0 / (lambda * lambda) - (coth * coth - 1.0);\n        if (abs(d) < 1.0e-12) { break; }\n        let step = f / d;\n        lambda = lambda - step;\n        if (lambda <= 0.0) { lambda = 1.0e-3; }\n        if (abs(step) < 1.0e-10) { break; }\n    }\n    if (mu_bar < 0.0) { return -lambda; }\n    return lambda;\n}\n\n// Sample an elastic CM cosine from the exponential-mu law with mean `mubar`,\n// using the supplied uniform `xi`. Mirrors sample_exponential_mu (no draws here;\n// the caller drew `xi`).\nfn exponential_mu(mubar: f32, xi: f32) -> f32 {\n    let mu_bar = clamp(mubar, -0.99, 0.99);\n    if (abs(mu_bar) < 1.0e-4) { return clamp(2.0 * xi - 1.0, -1.0, 1.0); }\n    let lambda = langevin_inverse(mu_bar);\n    if (abs(lambda) < 1.0e-6) { return clamp(2.0 * xi - 1.0, -1.0, 1.0); }\n    let mu = 1.0 + log(xi + (1.0 - xi) * exp(-2.0 * lambda)) / lambda;\n    return clamp(mu, -1.0, 1.0);\n}\n\n// Continuum inelastic (Weisskopf evaporation). Mirrors continuum_inelastic_scatter:\n// draw order = e_cm_out seed (1), then up to 64 iters of (r1,r2), then mu (1), then\n// rotate (1).\nfn continuum_inelastic(e: f32, u: vec3<f32>, awr: f32, seed_in: vec2<u32>) -> Scatter {\n    var seed = seed_in;\n    let a = awr;\n    let ap1 = a + 1.0;\n    let e_cm_elastic = e * (a / ap1) * (a / ap1);\n    let a_ld = max(a / 11.0, 1.0);\n    let theta = max(sqrt(e * 1.0e-6 / a_ld) * 1.0e6, 1.0);\n\n    var r = petir_lcg_next(seed); seed = r.xy;\n    var e_cm_out = e_cm_elastic * bitcast<f32>(r.z);\n    for (var it: u32 = 0u; it < 64u; it = it + 1u) {\n        var r1v = petir_lcg_next(seed); seed = r1v.xy;\n        var r2v = petir_lcg_next(seed); seed = r2v.xy;\n        let cand = -theta * log(bitcast<f32>(r1v.z) * bitcast<f32>(r2v.z));\n        if (cand <= e_cm_elastic) { e_cm_out = cand; break; }\n    }\n    var rmu = petir_lcg_next(seed); seed = rmu.xy;\n    let mu_cm = 2.0 * bitcast<f32>(rmu.z) - 1.0;\n    let lab = cm_to_lab(e, e_cm_out, mu_cm, a);\n    let ds = rotate_direction(u, lab.y, seed);\n    return Scatter(lab.x, ds.dir, ds.seed);\n}\n\n// ---- Main event kernel --------------------------------------------------------\n\n@compute @workgroup_size(64)\nfn main(@builtin(global_invocation_id) gid: vec3<u32>) {\n    let i = gid.x;\n    let nn = params.n_particle;\n    if (i >= nn) { return; }\n    // Already dead (leaked/absorbed/fissioned on a previous event): skip.\n    if (istate[2u * nn + i] == 0u) { return; }\n\n    let n_nuc = params.n_nuclide;\n    let g = params.n_grid;\n\n    // Reassemble the seed (istate: seed_lo[0..N] ++ seed_hi[N..2N]).\n    var seed = vec2<u32>(istate[i], istate[nn + i]);\n\n    // Neutron phase-space (fstate: pos(3N) ++ dir(3N) ++ energy(N) ++ prod(N)).\n    var px = fstate[3u * i + 0u];\n    var py = fstate[3u * i + 1u];\n    var pz = fstate[3u * i + 2u];\n    let ux = fstate[3u * nn + 3u * i + 0u];\n    let uy = fstate[3u * nn + 3u * i + 1u];\n    let uz = fstate[3u * nn + 3u * i + 2u];\n    let e = fstate[6u * nn + i];\n\n    // ---- 1. FLIGHT ---------------------------------------------------------\n    var rf = petir_lcg_next(seed); seed = rf.xy;\n    let xi_flight = bitcast<f32>(rf.z);\n\n    let loc = locate(e);\n    // macroscopic total Sigma_t = macro_total column (offset G).\n    let sigma_t = (1.0 - loc.f) * xs[g + loc.i] + loc.f * xs[g + loc.i + 1u];\n    if (sigma_t <= 0.0) {\n        istate[2u * nn + i] = 0u; // no interaction possible -> dead\n        istate[i] = seed.x; istate[nn + i] = seed.y;\n        return;\n    }\n    let d_col = -log(xi_flight) / sigma_t;\n\n    // Distance to the bounding sphere (src/surface.cpp:607-638).\n    let ox = px - params.sphere.x;\n    let oy = py - params.sphere.y;\n    let oz = pz - params.sphere.z;\n    let kdot = ox * ux + oy * uy + oz * uz;\n    let cc = ox * ox + oy * oy + oz * oz - params.sphere.w * params.sphere.w;\n    let disc = kdot * kdot - cc;\n    var d_bound: f32;\n    if (disc < 0.0) {\n        d_bound = BIG;\n    } else {\n        let sq = sqrt(disc);\n        let d_near = -kdot - sq;\n        if (d_near > EPS) {\n            d_bound = d_near;\n        } else {\n            let d_far = -kdot + sq;\n            if (d_far > EPS) { d_bound = d_far; } else { d_bound = BIG; }\n        }\n    }\n\n    if (d_col >= d_bound) {\n        istate[2u * nn + i] = 0u; // leaked\n        istate[i] = seed.x; istate[nn + i] = seed.y;\n        return;\n    }\n\n    // ---- 2. COLLISION ------------------------------------------------------\n    // Stream to the collision site.\n    px = px + ux * d_col;\n    py = py + uy * d_col;\n    pz = pz + uz * d_col;\n    fstate[3u * i + 0u] = px;\n    fstate[3u * i + 1u] = py;\n    fstate[3u * i + 2u] = pz;\n\n    // Channel base offsets in the xs buffer.\n    let base_tot   = 2u * g;\n    let base_fis   = 2u * g + 1u * n_nuc * g;\n    let base_abs   = 2u * g + 2u * n_nuc * g;\n    let base_inel  = 2u * g + 3u * n_nuc * g;\n    let base_nufis = 2u * g + 4u * n_nuc * g;\n    let base_mubar = 2u * g + 5u * n_nuc * g;\n    let base_N     = 2u * g + 6u * n_nuc * g;\n    let base_awr   = base_N + n_nuc;\n    let base_emax  = base_N + 2u * n_nuc;\n\n    // (a) sample the collision nuclide j ~ N_j * sigma_t,j(E).\n    var sig_tot: f32 = 0.0;\n    for (var j: u32 = 0u; j < n_nuc; j = j + 1u) {\n        sig_tot = sig_tot + xs[base_N + j] * interp_channel(base_tot, j, loc);\n    }\n    var rn = petir_lcg_next(seed); seed = rn.xy;\n    let xi_n = bitcast<f32>(rn.z) * sig_tot;\n    var jsel: u32 = n_nuc - 1u;\n    var acc: f32 = 0.0;\n    for (var j: u32 = 0u; j < n_nuc; j = j + 1u) {\n        acc = acc + xs[base_N + j] * interp_channel(base_tot, j, loc);\n        if (xi_n < acc) { jsel = j; break; }\n    }\n\n    // (b) channel cross sections for the chosen nuclide at E.\n    let x_tot   = interp_channel(base_tot, jsel, loc);\n    let x_fis   = interp_channel(base_fis, jsel, loc);\n    let x_abs   = interp_channel(base_abs, jsel, loc);\n    let x_inel  = interp_channel(base_inel, jsel, loc);\n    let x_nufis = interp_channel(base_nufis, jsel, loc);\n    let mubar   = interp_channel(base_mubar, jsel, loc);\n    let awr_j   = xs[base_awr + jsel];\n    let emax_j  = xs[base_emax + jsel];\n\n    // (c) reaction partition on the microscopic total (fission|capture|inelastic|\n    //     elastic \u{2014} (n,2n)=0 for the LOW tier, so it collapses out).\n    var rr = petir_lcg_next(seed); seed = rr.xy;\n    let xi_r = bitcast<f32>(rr.z) * x_tot;\n\n    let u_in = vec3<f32>(ux, uy, uz);\n\n    if (xi_r < x_fis) {\n        // Fission: record nu_bar and the nuclide; the neutron dies here. Its\n        // daughters (count + birth energy/angle) are sampled on the CPU per\n        // generation from the handed-back seed, so the stream stays coherent.\n        var nu_bar: f32 = 0.0;\n        if (x_fis > 0.0) { nu_bar = x_nufis / x_fis; }\n        fstate[7u * nn + i] = nu_bar;      // production\n        istate[3u * nn + i] = jsel;        // fiss_nuc\n        istate[2u * nn + i] = 0u;          // dead (terminal)\n        istate[i] = seed.x; istate[nn + i] = seed.y;\n        return;\n    } else if (xi_r < x_abs) {\n        // Radiative capture -> dead.\n        istate[2u * nn + i] = 0u;\n        istate[i] = seed.x; istate[nn + i] = seed.y;\n        return;\n    } else if (xi_r < x_abs + x_inel) {\n        // Continuum inelastic down-scatter (Weisskopf).\n        let sc = continuum_inelastic(e, u_in, awr_j, seed);\n        seed = sc.seed;\n        fstate[6u * nn + i] = sc.e;\n        fstate[3u * nn + 3u * i + 0u] = sc.dir.x;\n        fstate[3u * nn + 3u * i + 1u] = sc.dir.y;\n        fstate[3u * nn + 3u * i + 2u] = sc.dir.z;\n    } else {\n        // Elastic. Below the CE/MG seam (or |mubar|<1e-4) -> isotropic-CM;\n        // above -> exponential-mu forward scatter. Both draw one uniform for the\n        // CM cosine, then rotate_direction draws the azimuth (see scatter.rs).\n        var mu_cm: f32;\n        var re = petir_lcg_next(seed); seed = re.xy;\n        let xi_e = bitcast<f32>(re.z);\n        if (e <= emax_j || abs(mubar) < 1.0e-4) {\n            mu_cm = 2.0 * xi_e - 1.0;         // isotropic-CM\n        } else {\n            mu_cm = exponential_mu(mubar, xi_e); // forward-elastic\n        }\n        let sc = two_body_with_mu(e, u_in, awr_j, 0.0, mu_cm, seed);\n        seed = sc.seed;\n        fstate[6u * nn + i] = sc.e;\n        fstate[3u * nn + 3u * i + 0u] = sc.dir.x;\n        fstate[3u * nn + 3u * i + 1u] = sc.dir.y;\n        fstate[3u * nn + 3u * i + 2u] = sc.dir.z;\n    }\n\n    // Survived (scattered): still alive for the next event.\n    istate[i] = seed.x; istate[nn + i] = seed.y;\n    atomicAdd(&ctrl, 1u);\n}\n";
 ```
 
 ### Re-exports
@@ -64238,50 +64277,6 @@ pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.012;
 
 ### Functions
 
-#### Function `pooled`
-
-Pooled statistics of a seed ensemble: `(mean, sample sd, standard error)`.
-
-# Why a shared helper and not a local closure
-
-Every criticality benchmark in this crate is a Monte Carlo estimate whose
-**single-run scatter is far larger than the effect sizes being argued
-about** — Godiva carries `sd ≈ 175 pcm` per run at 5000 histories ×
-[40 + 120]. A single run therefore cannot resolve a 100–200 pcm change, and
-this crate's record contains three headline numbers that were single draws
-and moved by more than their own quoted uncertainty when pooled
-(`+57 → +228`, `+512 → +247`, URR `+79 → +43`).
-
-The fix is to make pooling the default way a benchmark reports, which means
-it has to be one line at every call site.
-
-# The distinction that matters
-
-- **`sd`** is what *one* run scatters by. Quote it when telling a reader
-  what a single reproduction of the example will give them.
-- **`sem = sd/√n`** is the uncertainty *on the pooled mean*. Quote it when
-  comparing against a benchmark or another code.
-
-Confusing the two is how a result gets over- or under-claimed. Both are
-returned so a caller cannot silently pick the flattering one.
-
-Returns `(mean, 0.0, 0.0)` for a single sample: one draw has no measurable
-spread, and reporting `0` uncertainty is more honest than inventing one.
-
-# Example
-
-```
-use outram_mc_libs::vv::pooled;
-let (mean, sd, sem) = pooled(&[100.0, 200.0, 300.0]);
-assert!((mean - 200.0).abs() < 1e-9);
-assert!((sd - 100.0).abs() < 1e-9);
-assert!((sem - 100.0 / 3.0_f64.sqrt()).abs() < 1e-9);
-```
-
-```rust
-pub fn pooled(x: &[f64]) -> (f64, f64, f64) { /* ... */ }
-```
-
 #### Function `bench_seeds`
 
 How many seeds a benchmark example should run, from `OUTRAM_BENCH_SEEDS`.
@@ -64466,6 +64461,53 @@ pub use njoy_outram_park_fork::vv::RecordedKeff;
 
 ```rust
 pub use njoy_outram_park_fork::vv::WorstDeviation;
+```
+
+#### Re-export `pooled`
+
+Pooled statistics of a seed ensemble: `(mean, sample sd, standard error)`.
+
+# Why a shared helper and not a local closure
+
+Every criticality benchmark in this crate is a Monte Carlo estimate whose
+**single-run scatter is far larger than the effect sizes being argued
+about** — Godiva carries `sd ≈ 175 pcm` per run at 5000 histories ×
+[40 + 120]. A single run therefore cannot resolve a 100–200 pcm change, and
+this crate's record contains three headline numbers that were single draws
+and moved by more than their own quoted uncertainty when pooled
+(`+57 → +228`, `+512 → +247`, URR `+79 → +43`).
+
+The fix is to make pooling the default way a benchmark reports, which means
+it has to be one line at every call site.
+
+# The distinction that matters
+
+- **`sd`** is what *one* run scatters by. Quote it when telling a reader
+  what a single reproduction of the example will give them.
+- **`sem = sd/√n`** is the uncertainty *on the pooled mean*. Quote it when
+  comparing against a benchmark or another code.
+
+Confusing the two is how a result gets over- or under-claimed. Both are
+returned so a caller cannot silently pick the flattering one.
+
+Returns `(mean, 0.0, 0.0)` for a single sample: one draw has no measurable
+spread, and reporting `0` uncertainty is more honest than inventing one.
+
+# Example
+
+```
+use outram_mc_libs::vv::pooled;
+let (mean, sd, sem) = pooled(&[100.0, 200.0, 300.0]);
+assert!((mean - 200.0).abs() < 1e-9);
+assert!((sd - 100.0).abs() < 1e-9);
+assert!((sem - 100.0 / 3.0_f64.sqrt()).abs() < 1e-9);
+```
+
+**Moved 2026-10-02** to [`raffles::estimators::pooled`] (GitHub #500), byte
+for byte; this path re-exports it, and the bench knobs below stay here.
+
+```rust
+pub use raffles::estimators::pooled;
 ```
 
 ## Module `prelude`
@@ -65328,6 +65370,18 @@ pub use crate::pebble_beds::crp_packing::CrpError;
 pub use crate::pebble_beds::crp_packing::MAX_PF_CRP;
 ```
 
+#### Re-export `DemBed`
+
+```rust
+pub use crate::pebble_beds::dem_bed::DemBed;
+```
+
+#### Re-export `DemBedError`
+
+```rust
+pub use crate::pebble_beds::dem_bed::DemBedError;
+```
+
 #### Re-export `MaterialId`
 
 ```rust
@@ -65464,7 +65518,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:101:11: 101:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:101:10: 101:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:102:11: 102:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:102:10: 102:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -65510,7 +65564,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:111:11: 111:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:111:10: 111:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:112:11: 112:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:112:10: 112:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -65544,7 +65598,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:119:11: 119:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:119:10: 119:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:120:11: 120:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:120:10: 120:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -65596,7 +65650,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:131:11: 131:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:131:10: 131:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:132:11: 132:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:132:10: 132:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;
