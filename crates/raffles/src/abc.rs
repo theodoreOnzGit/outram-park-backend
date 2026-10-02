@@ -459,7 +459,7 @@ where
         }
         // Draw the acceptance deviate unconditionally so that the stream
         // advances by a fixed amount per proposal, keeping runs reproducible.
-        let u = outram_mc_libs::rng::lcg::prn(&mut accept_seed);
+        let u = petir::rng::lcg::prn(&mut accept_seed);
         if pooled.is_empty() || pooled.iter().any(|row| row.len() != config.width()) {
             continue;
         }
@@ -496,7 +496,7 @@ mod tests {
     use super::*;
     use crate::bayesian::{temcmc, TransitionalConfig};
     use crate::distributions::{ContinuousDistribution1D, Distribution, Normal, Uniform};
-    use outram_mc_libs::rng::lcg::prn;
+    use petir::rng::lcg::prn;
 
     /// Twelve observations of a `N(2.5, 1)` process, the same data the
     /// conjugate tests in [`crate::bayesian::transitional`] use, so the two

@@ -6663,6 +6663,7 @@ dependencies = [
  "outram-foam-basic-lib",
  "outram-mc-libs",
  "outram-park-fork-cfmesh",
+ "raffles",
  "thiserror 2.0.18",
  "wgpu",
 ]
@@ -6754,6 +6755,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
+ "outram-park-fork-liggghts",
  "petir",
  "ratatui",
  "rayon",
@@ -7592,7 +7594,7 @@ name = "raffles"
 version = "0.0.0"
 dependencies = [
  "burn",
- "outram-mc-libs",
+ "petir",
  "thiserror 2.0.18",
  "xml-rs",
 ]

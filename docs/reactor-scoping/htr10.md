@@ -56,7 +56,8 @@ secondary loop.
 >   defects `op-rbo` and `op-jis` as open, with `:853` a priority-0 "close the
 >   two RNG defects" row. **Both were fixed** — commits `9f4ff6d470` and
 >   `e71f1f97fa`, both dated 2026-08-06. Verified by reading `rng/lcg.rs:233`
->   and `:111-121`.
+>   and `:111-121` (that file moved unchanged to `crates/petir/src/rng/lcg.rs`
+>   on 2026-10-02, where the same lines are `:249` and `:127-137`).
 > - `htr10-neutronics.md:257` quotes `outram-mc-libs/src/material/thermal.rs:24-26`
 >   as saying graphite coherent/incoherent-elastic scattering "is deliberately
 >   not wired here yet". **That text is no longer at those lines**; the module

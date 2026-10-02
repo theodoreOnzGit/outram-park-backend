@@ -307,7 +307,7 @@ mod tests {
     use crate::samplers::stream_seed;
     use burn::backend::{Autodiff, NdArray};
     use burn::prelude::Backend;
-    use outram_mc_libs::rng::lcg::prn;
+    use petir::rng::lcg::prn;
 
     type TestBackend = Autodiff<NdArray<f32>>;
 

@@ -46,3 +46,17 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Cargo features (2026-10-02)
+
+| feature | default | pulls | what it gates |
+|---|---|---|---|
+| `mc-export` | off | `outram-mc-libs` | `export` CSG bridge, `sim` |
+| `foam-export` | off | `outram-foam-basic-lib` | polyMesh read/write bridge |
+| `foam-mesh` | off | `outram-park-fork-cfmesh` | `foam_mesh` volume-meshing bridge |
+| `gnn-graph` | off | `raffles`, `outram-mc-libs` | `gnn_graph::cell_adjacency_graph` (CSG cells -> RAFFLES graph) |
+
+- **`gnn-graph` lives here by maintainer decision** (2026-10-02): this crate
+  owns geometry description under #486. It needs `outram-mc-libs` only because
+  `Cell` lives there today. **`raffles` must not depend on this crate** (or on
+  `outram-mc-libs`); the edge runs geometry -> RAFFLES only.

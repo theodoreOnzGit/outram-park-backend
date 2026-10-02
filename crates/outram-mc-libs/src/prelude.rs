@@ -67,6 +67,7 @@ pub use crate::pebble_beds::sphere_packing::{
     pack_spheres, PackedSpheres, PackingConfig, PackingMethod,
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
+pub use crate::pebble_beds::dem_bed::{DemBed, DemBedError};
 // Stochastic-media research track (beads epic op-eby). The chord statistics,
 // SCLS retention machinery and brute-force index are implemented.
 //

@@ -22,7 +22,7 @@
 // machine precision and pretending otherwise would hide it.
 //
 // The random stream differs too: upstream uses one static `std::mt19937`,
-// this uses `outram_mc_libs::rng::lcg`, the workspace's generator. Two Monte
+// this uses `petir::rng::lcg`, the workspace's generator. Two Monte
 // Carlo runs from different streams agree statistically and never exactly,
 // which is why the verification is statistical.
 // ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@
 //! SCRAM's `--uncertainty` reports the mean, sigma, error factor, confidence
 //! interval and quantiles. Those are the oracle. But **the random streams
 //! differ** — upstream draws from one static `std::mt19937`, this from
-//! `outram_mc_libs::rng::lcg` — so the two runs cannot agree sample for
+//! `petir::rng::lcg` — so the two runs cannot agree sample for
 //! sample, only in distribution. The verification is therefore statistical,
 //! and `tests/scram_uncertainty.rs` says at what confidence.
 //!

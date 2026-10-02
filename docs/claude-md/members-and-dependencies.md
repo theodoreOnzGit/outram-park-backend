@@ -22,7 +22,7 @@ applies: only to crates declared mature".
 
 | Crate (`crates/…`) | Role | Mature |
 |---|---|---|
-| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. | ✅ |
+| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. Since 2026-10-02 also the workspace's RNG (OpenMC's LCG, `rng::lcg` + `wgsl::LCG`), moved from `outram-mc-libs` | ✅ |
 | `outram-foam-basic-lib` | OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, solvers, interpolation, thermophysics, fields, mesh, FV operators | ✅ |
 | `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; others scaffolded) | |
 | `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer + case I/O; host of the **GeN-Foam** deterministic-neutronics + TH port | ✅ |
@@ -42,7 +42,7 @@ applies: only to crates declared mature".
 | `outram-park-fork-dwsim-libs` | Pure-Rust fork of **DWSIM** process-simulation building blocks. **EOS layer only** has met its bar; flash layer open | ✅ |
 | `outram-park-fork-offbeat` | Pure-Rust fork of **OFFBEAT** — nuclear fuel performance (eigenstrain, rheology, gap/contact, burnup, FGR, corrosion) | |
 | `farrer-park` | **FEM structural mechanics** — small-strain elasticity, J2 plasticity, crystal plasticity. **Shear locking measured and NOT cured** (`op-uqqg`) | ✅ |
-| `outram-park-fork-liggghts` | Granular DEM — contact mechanics, thermal DEM, pebble-bed physics (ports LIGGGHTS). Cross-code verified; **no experimental validation** | ✅ |
+| `outram-park-fork-liggghts` | Granular DEM — contact mechanics, thermal DEM, pebble-bed physics (ports LIGGGHTS). Cross-code verified; **no experimental validation**. A dependency of `outram-mc-libs` since 2026-10-02 (`pebble_beds::dem_bed`) | ✅ |
 | `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport. Scaffold | |
 | `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tet/polyhedral volume meshing with boundary layers | |
 | `outram-park-fork-moltres` | **Circulating-fuel MSR** — multigroup diffusion + precursor drift + salt heat transfer on the FV layer. Steady eigenvalue only, no consumer yet | |
@@ -109,9 +109,27 @@ worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps �
 `outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set);
 `dover → outram-park-fork-dwsim-libs` (2026-09-30); `tampines` dev-deps →
 `{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
-`outram-mc-libs → njoy-outram-park-fork` (cross sections).
-`outram-foam-basic-lib` has no internal deps, and `njoy-outram-park-fork` is
-kept lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
+`outram-mc-libs → {njoy-outram-park-fork (cross sections), petir (maths and,
+since 2026-10-02, the RNG), outram-park-fork-liggghts (DEM pebble beds,
+2026-10-02, no default features)}`;
+`raffles → petir` (the RNG) — ~~`raffles → outram-mc-libs`~~ **REMOVED
+2026-10-02**: it closed the cycle `outram-mc-libs → liggghts → raffles →
+outram-mc-libs`; the LCG moved to `petir::rng` and the CSG graph adapter to
+`outram_blender::gnn_graph`. **`raffles` must not depend on `outram-mc-libs`
+or `outram-blender`.** The reverse, `outram-mc-libs → raffles`, is an
+**allowed** edge (maintainer, 2026-10-02) to be added when outram-mc first
+uses RAFFLES, not before;
+`outram-park-fork-liggghts → raffles` (optional, its default `gnn` feature);
+`outram-blender → {outram-mc-libs, outram-foam-basic-lib,
+outram-park-fork-cfmesh, raffles}`, all optional (features `mc-export`,
+`foam-export`, `foam-mesh`, `gnn-graph`).
+`outram-foam-basic-lib` has no internal deps besides `petir`, and
+`njoy-outram-park-fork` is kept lean so data consumers stay light:
+~~`thiserror`, `uom`; no BLAS~~ **CORRECTED 2026-10-02** — its direct
+dependencies are `thiserror`, `uom`, `petir`, `log`, `miniz_oxide`,
+`hdf5-pure`, `sha2`, `directories`, `fs2`, `rayon`, `ratatui` and (desktop
+only) `wgpu` (`cargo tree -p njoy-outram-park-fork -e normal --depth 1`); still
+no BLAS and no C toolchain.
 
 **`farrer-park → outram-foam-basic-lib` is for the shared numerical backend
 ONLY.** Its FEM `CsrMatrix` implements

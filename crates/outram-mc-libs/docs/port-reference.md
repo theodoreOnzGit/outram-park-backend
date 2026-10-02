@@ -12,7 +12,7 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 ### RNG
 | Rust file | C++ source |
 |---|---|
-| `src/rng/lcg.rs` | `src/random_lcg.cpp`, `include/openmc/random_lcg.h` |
+| ~~`src/rng/lcg.rs`~~ `petir/src/rng/lcg.rs` (**moved 2026-10-02**, re-exported as `rng::lcg`) | `src/random_lcg.cpp`, `include/openmc/random_lcg.h` |
 | `src/rng/distributions.rs` | `src/random_dist.cpp`, `src/distribution_energy.cpp`, `src/distribution_angle.cpp` |
 
 ### Geometry
@@ -81,7 +81,7 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 
 ## Porting order (bottom-up dependency order)
 
-1. `rng/lcg.rs` — no deps ✅ (implemented)
+1. `rng/lcg.rs` — no deps ✅ (implemented; moved to `petir::rng::lcg` 2026-10-02)
 2. `geometry/position.rs` — no deps ✅ (implemented)
 3. `rng/distributions.rs` — depends on lcg ✅ (~~stubs~~ **CORRECTED 2026-09-22** — implemented: `uniform`, `sample_normal`, `sample_normal_3d`, `sample_exp`, `maxwell`, `watt`, `isotropic_direction`)
 4. `geometry/surface.rs` — depends on position. **Full OpenMC surface set ✅**: axis planes (`XPlane`/`YPlane`/`ZPlane`) + general `Plane`, `Sphere`, `XCylinder`/`YCylinder`/`ZCylinder`, `XCone`/`YCone`/`ZCone`, general `Quadric` (op-ah7), and `XTorus`/`YTorus`/`ZTorus` (op-e5k, quartic ray intersection via an in-file degree-≤4 real-root solver) — evaluate/sense/distance/normal/reflect, all unit-tested.
@@ -112,7 +112,7 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 ## Test backlog
 
 ### P0 — First things to verify
-- `rng/lcg.rs`: `future_seed(n, s)` matches n sequential `prn()` calls for n ∈ {1, 100, 10000} ✅
+- `rng/lcg.rs` (now `petir/src/rng/lcg.rs`): `future_seed(n, s)` matches n sequential `prn()` calls for n ∈ {1, 100, 10000} ✅
 - `geometry/position.rs`: `stream()` correctness, `from_unnormalised()` gives unit vector ✅
 - `geometry/surface.rs`: `XPlane/YPlane/ZPlane` evaluate + distance
 - `rng/distributions.rs`: `uniform()` stays in [0,1)

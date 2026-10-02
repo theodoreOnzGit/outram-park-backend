@@ -346,6 +346,15 @@ Three of those are newer than the rest and are worth naming here:
 what `granular_system` runs; `Particle::integrate` is **not** velocity-Verlet
 (see its doc comment and the V&V document) and should not drive contacts.
 
+**Downstream consumer (2026-10-02): `outram-mc-libs`** depends on this crate
+with **no default features** (so without `gnn`/`raffles`), and
+`outram_mc_libs::pebble_beds::dem_bed::DemBed` converts a settled
+`GranularSystem` or `DemSimulation` into pebble centres in cm. Two
+consequences for work here: `Particle::{position, radius}` and both engines'
+`particles()` are now a cross-crate API, and **`raffles` must never come to
+depend on `outram-mc-libs`** (this crate's `gnn` feature would then close a
+cycle through it).
+
 `timestep` ports `fix check/timestep/gran` — use `TimestepEstimate::
 recommended_dt` to pick `dt` rather than guessing; an over-long explicit step
 does not merely lose accuracy, it ejects particles.

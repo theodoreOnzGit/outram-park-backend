@@ -55,7 +55,7 @@
 //     upstream offers (`custom` and `equal`).
 //   * **The RNG is not ported at all.** RAVEN's `utils/randomUtils.py` wraps
 //     `numpy.random.Generator` (PCG64). RAFFLES instead reuses the Outram Park
-//     workspace's existing generator, `outram_mc_libs::rng::lcg` — see "The
+//     workspace's existing generator, `petir::rng::lcg` — see "The
 //     RNG" in the module doc. `randomUtils.randomPermutation` (repeated `pop`
 //     of a random index from a shrinking list) is replaced by an in-place
 //     Fisher-Yates shuffle: the same uniform distribution over permutations, a
@@ -165,8 +165,14 @@
 //! # The RNG — reused, not reinvented
 //!
 //! **RAFFLES ships no generator of its own.** Sampling draws from
-//! `outram_mc_libs::rng::lcg`, the workspace's port of OpenMC's 64-bit linear
-//! congruential generator (`src/random_lcg.cpp`). Three reasons it is the right
+//! `petir::rng::lcg`, the workspace's port of OpenMC's 64-bit linear
+//! congruential generator (`src/random_lcg.cpp`). ~~It is reached through
+//! `outram_mc_libs::rng::lcg`.~~ **CORRECTED 2026-10-02**: the generator moved
+//! from `outram-mc-libs` into `petir` (the workspace's `no_std` numerics
+//! crate), unchanged bit for bit, and RAFFLES now depends on `petir` instead
+//! of on the transport crate. That edge had to go: with `outram-mc-libs` taking
+//! on `outram-park-fork-liggghts` for DEM pebble beds, it closed the cycle
+//! `outram-mc-libs -> liggghts -> raffles -> outram-mc-libs`. Three reasons it is the right
 //! choice here rather than a fresh PRNG or a new `rand` dependency:
 //!
 //! - **One generator per workspace.** `docs/raven-port-scoping.md` (section 10,
@@ -178,14 +184,14 @@
 //!   given a starting seed a full stride away from its neighbours' — the
 //!   streams provably do not overlap. That is OpenMC's reproducible-parallel
 //!   Monte Carlo design, and it is what makes the dimensions of a design
-//!   statistically independent. It is also already tested upstream in
-//!   `outram-mc-libs`.
-//! - **Android-clean.** `outram-mc-libs` target-gates its wgpu/GPU paths off
-//!   Android, so `cargo check -p raffles --all-targets --target
-//!   aarch64-linux-android` stays clean. RAFFLES follows the same gating
-//!   convention if it ever needs something Android-hostile.
+//!   statistically independent. It is also already tested where it lives, in
+//!   `petir::rng::lcg` (formerly `outram-mc-libs`).
+//! - **Android-clean.** `petir` is `no_std` with no GPU dependency in its
+//!   default build, so `cargo check -p raffles --all-targets --target
+//!   aarch64-linux-android` stays clean. RAFFLES follows `outram-mc-libs`'
+//!   gating convention if it ever needs something Android-hostile.
 //!
-//! `outram_mc_libs::rng::lcg::init_seed` is deliberately **not** used — see
+//! `petir::rng::lcg::init_seed` is deliberately **not** used — see
 //! [`stream_seed`] for why, and for what this module does instead.
 //!
 //! # Reproducibility
@@ -221,7 +227,7 @@
 //!
 //! None of this is validation, and none of it has been through human review.
 
-use outram_mc_libs::rng::lcg::{future_seed, prn, DEFAULT_STRIDE};
+use petir::rng::lcg::{future_seed, prn, DEFAULT_STRIDE};
 
 use crate::{RafflesError, Result};
 
@@ -232,7 +238,7 @@ use crate::{RafflesError, Result};
 /// `2^52`, the scale used to turn a uniform back into an integer.
 ///
 /// **The exact-round-trip claim this constant used to carry is no longer
-/// true, and the correction matters.** `outram_mc_libs::rng::lcg::prn` used to
+/// true, and the correction matters.** `petir::rng::lcg::prn` used to
 /// form its uniform from the raw top 52 bits of the LCG state, so multiplying
 /// by `2^52` recovered that integer exactly. It now applies OpenMC's
 /// PCG-RXS-M-XS output permutation and scales a full 64-bit word by `2^-64`
@@ -263,18 +269,20 @@ const PRN_RESOLUTION: f64 = 4_503_599_627_370_496.0;
 /// `master_seed` may be any `i64` and `stream` any index; there are no bad
 /// values.
 ///
-/// # Why not `outram_mc_libs::rng::lcg::init_seed`
+/// # Why not `petir::rng::lcg::init_seed`
 ///
-/// That helper computes `future_seed(id + offset, future_seed(DEFAULT_STRIDE,
+/// ~~That helper computes `future_seed(id + offset, future_seed(DEFAULT_STRIDE,
 /// master))`, i.e. consecutive `id`s land **one LCG step apart**, not one
-/// stride apart. OpenMC's own `init_seed` (`src/random_lcg.cpp:60`) is
-/// `future_seed(id * prn_stride, master_seed + offset)`. Using the workspace
-/// helper for per-dimension streams would therefore make dimension `j+1`'s
-/// draws a one-step shift of dimension `j`'s — near-perfectly correlated
-/// dimensions, and a silently wrong design. This function calls `future_seed`
-/// directly with OpenMC's `id * stride` semantics instead. The discrepancy is
-/// in `outram-mc-libs`, not here, and is reported rather than patched from this
-/// crate.
+/// stride apart. [...] The discrepancy is in `outram-mc-libs`, not here, and is
+/// reported rather than patched from this crate.~~ **CORRECTED 2026-10-02** —
+/// stale since `op-rbo` (2026-08-06): `init_seed` now computes
+/// `future_seed(id * DEFAULT_STRIDE, master_seed + offset)` with wrapping
+/// arithmetic, exactly OpenMC's `src/random_lcg.cpp:60`, so it too gives
+/// non-overlapping streams (checked by reading `petir::rng::lcg::init_seed`
+/// and its test `init_seed_consecutive_ids_are_one_full_stride_apart`). This
+/// function still calls `future_seed` directly, now as a preference rather
+/// than a workaround: it lets a design widen the stride past
+/// `DEFAULT_STRIDE`, which `init_seed` pins.
 ///
 /// # Example
 ///
@@ -1067,7 +1075,7 @@ mod tests {
 
     /// The reused generator's output range, and the bounded-integer helper.
     ///
-    /// **Methodology.** `outram_mc_libs::rng::lcg::prn` is tested in its own
+    /// **Methodology.** `petir::rng::lcg::prn` is tested in its own
     /// crate; this checks the properties *this* module depends on. 10,000,000
     /// consecutive `prn` draws from `stream_seed(SEED, 0)`, checking
     /// `0 <= u < 1` and finiteness on every draw and recording the extremes.
@@ -1170,7 +1178,7 @@ mod tests {
     /// **Methodology.** This is the test that guards the stream derivation in
     /// [`stream_seed`], and it is not decorative: deriving streams one LCG
     /// *step* apart instead of one *stride* apart — which is what
-    /// `outram_mc_libs::rng::lcg::init_seed` does — would make dimension `j+1`
+    /// `petir::rng::lcg::init_seed` does — would make dimension `j+1`
     /// a one-step shift of dimension `j` and quietly destroy the design.
     ///
     /// Two checks. (1) `stream_seed(SEED, k)` for `k` in `0..64` must give 64
@@ -1189,7 +1197,8 @@ mod tests {
     /// consistent with independence at this sample size. Note the limit of
     /// this check: it establishes the *absence of linear correlation between
     /// streams*, not full statistical independence of the LCG, which is a
-    /// property of the generator and is `outram-mc-libs`' to verify.
+    /// property of the generator and is `petir::rng::lcg`'s to verify
+    /// (it lived in `outram-mc-libs` until 2026-10-02).
     #[test]
     fn per_dimension_streams_are_distinct_and_uncorrelated() {
         let seeds: Vec<u64> = (0..64).map(|k| stream_seed(SEED, k)).collect();

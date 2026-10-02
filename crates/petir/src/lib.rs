@@ -129,6 +129,7 @@
 //! | [`roots`] | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) one-dimensional root finders, with GSL's three convergence tests |
 //! | [`fast_exp`], [`fast_log`], [`fast_pow`] | ported | ARM optimized-routines `exp`, `log`, `pow` — bit-identical to upstream |
 //! | [`real`] | — | The `no_std` float-math shim |
+//! | [`rng`] | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with PCG output permutation and O(log n) jump-ahead; moved here from `outram-mc-libs` 2026-10-02 |
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
 //! The epic's original scope is now COVERED. What remains are deliberate
@@ -212,6 +213,7 @@ pub mod min;
 pub mod ode;
 pub mod poly;
 pub mod real;
+pub mod rng;
 pub mod roots;
 pub mod scalar;
 pub mod specfunc;

@@ -1130,7 +1130,8 @@ above, which is upgraded accordingly.
 Everything else in this record is an exact comparison to six significant
 figures. This is not, and the reason is structural rather than a shortfall:
 **upstream draws from one static `std::mt19937` and this port from
-`outram_mc_libs::rng::lcg`**, the workspace's generator. Two Monte Carlo runs
+`petir::rng::lcg`** (~~`outram_mc_libs::rng::lcg`~~ — **CORRECTED 2026-10-02**: the
+same generator, moved to `petir` unchanged), the workspace's generator. Two Monte Carlo runs
 from different streams agree in distribution and never sample for sample. The
 generator was reused rather than replaced because the workspace already has a
 tested one and a tested distribution library, and adding a second of either is

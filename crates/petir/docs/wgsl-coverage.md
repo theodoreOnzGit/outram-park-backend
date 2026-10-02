@@ -93,7 +93,8 @@ and stays there.
 | `specfunc` (Coulomb wave functions) | ~10 | **NOT GPU-SHAPED** (measured) | `F_L`, `G_L`. Its continued fraction `coulomb_CF1` needs **up to 99,329 iterations**, measured over 7875 points of `(L, eta, x)`; 18 % of them need more than 256 and 26 % hit upstream's own `CF1_abort` of `1e5`. Against `ellint`'s 16 and `elljac`'s 8. A trip count varying from 3 to 99,329 between neighbouring arguments has no cap that is both safe and cheap, and every invocation in a workgroup would wait for the worst. **An f64 port is still worth having; a shader is not.** See `op-uczx.28` |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
-| `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
+| `rng` / `qrng` | 28 | PORTABLE | GSL's own generators (`mt19937`, `ranlxd`, ...) and the quasi-random sequences are not ported. ~~`outram-mc-libs` already has an LCG in WGSL~~ **CORRECTED 2026-10-02**: that LCG now lives here — see the OpenMC 64-bit LCG row below |
+| — OpenMC 64-bit LCG | — | **PORTED** (state advance) | not a GSL module: `lcg.wgsl` transcribes `petir::rng::lcg` (OpenMC `src/random_lcg.cpp`), moved here from two inline copies in `outram-mc-libs`' batched kernels on 2026-10-02. Integer state **bit-exact** against `future_seed(1, .)` — pinned off-device by `mirror_lcg`'s tests and on a device by `outram-mc-libs/tests/gpu_lcg_advance_directly.rs`. The `f32` uniform is the raw top 24 bits, **not** the CPU's PCG-permuted `prn`; the shader header measures why that is still sound |
 | `fft` | 76 | PORTABLE | a classic GPU workload; multi-dispatch |
 | `complex` | 59 | PORTABLE | as `vec2<f32>`; WGSL has no complex type |
 | `const` | — | PORTABLE | constants only |

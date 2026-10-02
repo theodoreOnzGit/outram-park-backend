@@ -422,7 +422,7 @@ fn solve_symmetric_positive_definite(a: &[Vec<f64>], b: &[f64]) -> Option<Vec<f6
 mod tests {
     use super::*;
     use crate::samplers::stream_seed;
-    use outram_mc_libs::rng::lcg::prn;
+    use petir::rng::lcg::prn;
 
     /// **Methodology.** The basis size must be `C(d + p, p)`. Checked against
     /// hand-computed values: 1 input at degree 3 is 4; 2 at degree 2 is 6;
