@@ -27,7 +27,11 @@ LD_LIBRARY_PATH=. mono d.exe
 | `eos_driver.cs` | `Calculator.CalcProp` density/Z | **verified** — differs from `Z_PR` by a Peneloux volume translation |
 | `flash_driver.cs` | `Calculator.CalcEquilibrium` PT flash | **verified** — differs from this port by the `k_ij` this port cannot apply |
 | `column_driver.cs` | `WangHenkeMethod.SolveColumn` | **verified** — converges on a separating case from this port's own initial estimates |
-| `cstr_driver.cs` | a real `Reactor_CSTR.Calculate()` on a headless flowsheet | **verified** — matches this port to 6.1e-10 per species once upstream is converged; see below |
+| `cstr_driver.cs` | a real `Reactor_CSTR.Calculate()` on a headless flowsheet | **verified** — matches this port to 6.1e-10 per species once upstream is converged; see below. Case `hetcat_liq` (2026-10-02): Langmuir–Hinshelwood with `CatalystAmount`, 2.4e-13 after the R3 fix (#481) |
+| `conversion_driver.cs` | a real `Reactor_Conversion`, reactions from `CreateConversionReaction`, set ranks | **verified 2026-10-02** — single / sequential / parallel bit-identical to ≤ 3.7e-16 after porting rank groups (#477); upstream penalty-scope defect loses 25 % of carbon (#478); `ReactionPhase` not ported (#479). `tests/upstream_conversion_parity.rs` |
+| `equilibrium_driver.cs` | a real `Reactor_Equilibrium`, vapour reaction, explicit `ln K(T)` in both codes | **verified 2026-10-02** — ≤ 3.9e-12 (WGS) and ≤ 1.7e-15 (SMR) on mole fractions at `InternalLoopTolerance = 1e-20` (default 1e-3 stops short, #484); fugacity basis fixed (#482); ideal φ costs +0.32 % / +1.1 % at 10 / 30 bar (#483). `tests/upstream_equilibrium_parity.rs` |
+| `gibbs_driver.cs` | a real `Reactor_Gibbs` (GibbsMin with BFGS-B, and Lagrange); prints upstream's `g°/RT` and outlet `ln φ` | **verified 2026-10-02** — ≤ 8.5e-6 vs GibbsMin (upstream's penalty leaves a 2e-6 element imbalance), ≤ 3.5e-7 vs Lagrange once its `ln(P/P0)/(RT)` slip is added; Lagrange fails at ≤ 2 bar (#485). Needs `liblpsolve55.so` (below). `tests/upstream_gibbs_parity.rs` |
+| `pfr_driver.cs` | a real `Reactor_PFR`, ΔP pinned to 0; prints upstream's per-segment profile | **verified 2026-10-02** — on upstream's own per-segment `Q`: 1.4e-10 / 2.6e-9 / 2.0e-10 (vapour, SMR, LH bed). Upstream integrates only 99 % of each segment when `ΔV/(0.01·ΔV)` truncates (#480). Fixtures in `tests/fixtures/upstream_pfr/`. `tests/upstream_pfr_parity.rs` |
 
 ## Column driver
 
@@ -123,3 +127,49 @@ not list:
 - running from a directory holding **every** project's `bin/Release`
   output, not just one. FlowsheetBase pulls in `DWSIM.DynamicsManager`,
   `LiteDB` and others that only another project copies locally.
+
+## Building without root (snrsi-arch-desktop, 2026-10-02)
+
+The machine had a `dotnet` SDK (10.0.112) but no Mono and no sudo. Everything
+below is user-space; it reproduced the recorded CSTR numbers bit-for-bit
+(`X = 0.65770328398504`, `τ_L = 192.14419923492437`, and the frozen 5-species
+SMR vector).
+
+1. **Mono from conda-forge.** Fetch the static `micromamba` binary
+   (`https://micro.mamba.pm/api/micromamba/linux-64/latest`) and run
+   `micromamba create -p <toolchain>/env -c conda-forge mono` (Mono 6.12.0.199).
+   Its `lib/mono/4.8-api` is the `FrameworkPathOverride`.
+2. **VB runtime** (workaround 5): `libmono-microsoft-visualbasic10.0-cil_4.0.1-3_all.deb`
+   from `archive.ubuntu.com/ubuntu/pool/universe/m/mono-basic/`, unpacked with
+   `bsdtar`; copy its `Microsoft.VisualBasic.dll` into the env's `lib/mono/4.5/`
+   and its GAC folder. Add the `System.configuration.dll` symlink in the env's
+   `4.8-api`.
+3. **`packages/` was entirely absent** in a fresh clone (not 80 %): all 128
+   `id/version` pairs from the 46 `packages.config` files were fetched from
+   `api.nuget.org/v3-flatcontainer`, plus `System.Resources.Extensions` 8.0.0
+   and `SkiaSharp.NativeAssets.Linux` 1.68.2.1.
+4. **Build** `DWSIM.FlowsheetBase/DWSIM.FlowsheetBase.vbproj` (it pulls in
+   Thermodynamics and UnitOperations) with `dotnet msbuild ... -m:14
+   /p:Configuration=Release /p:RestorePackages=false
+   /p:FrameworkPathOverride=<env>/lib/mono/4.8-api
+   /p:GenerateSerializationAssemblies=Off /p:GenerateSatelliteAssemblies=false`.
+   `RestorePackages=false` is needed, or `.nuget/NuGet.targets` tries to run
+   `mono NuGet.exe` and fails. `Directory.Build.props` now takes the
+   `netstandard` facade from `$(FrameworkPathOverride)`, so it works for any
+   Mono location.
+5. **Run directory:** merge every `*/bin/Release` into one folder, add
+   `libSkiaSharp.so`, and — for the Gibbs driver's Lagrange path —
+   `PlatformFiles/Linux/liblpsolve55.so` from the upstream tree. Put the env's
+   `bin` on `PATH`, compile with `mcs` (also reference `DWSIM.GlobalSettings.dll`
+   and `DWSIM.MathOps.dll`), and run with `LD_LIBRARY_PATH=. mono <driver>.exe`.
+6. **Diagnostic build** (CSTR all-vapour cases, #326): copy
+   `DWSIM.UnitOperations` to a sibling folder inside the build copy, apply
+   `cstr_diagnostic_dt_seed.patch` with `patch -p2 --binary`, build that
+   `.vbproj` with `/p:BuildProjectReferences=false` (no `OutDir`, or the
+   project references are looked for there), and copy the resulting
+   `DWSIM.UnitOperations.dll` over a copy of the run directory.
+
+Two things to know when writing drivers: upstream's reaction expressions go
+through Flee, which **cannot parse `1e-5`** (write `0.00001`); and a PFR with
+a catalyst bed applies Ergun, which needs a particle diameter (default 0), so
+pin `UseUserDefinedPressureDrop` for an isobaric comparison.
