@@ -37,6 +37,15 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 
 ## Open tier
 
+> **2026-10-02 — `conlin2017njoy21` added to the public open corpus.** J.L.
+> Conlin, A.C. Kahler, A.P. McCartney, D.A. Rehn, *NJOY21: Next generation
+> nuclear data processing capabilities*, EPJ Web of Conferences 146, 09040
+> (2017), doi:10.1051/epjconf/201714609040. CC BY 4.0, stated on PDF page 1.
+> Previously held only in the maintainer's private library
+> (`local-kovan-repo/literature/proprietary/`), which is not this repository.
+> Now `reactor-literature/theodore-open-corpus/cc-by/conlin2017-njoy21-next-generation-nuclear-data-processing.pdf`
+> (reactor-literature `ceffde2`). Not hardcoded into Kovan.
+
 ### Papers (`open/papers/`)
 
 **`choo2023criticality`** — Choo, A. J. Y. and Xiao, S. (2023). *Criticality
