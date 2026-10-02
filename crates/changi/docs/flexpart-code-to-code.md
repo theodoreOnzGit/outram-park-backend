@@ -396,6 +396,7 @@ Local stand-ins, none of which changes a routine under test:
 | `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | **bit-exact** |
 | 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | **bit-exact**; `plumetraj` only to its print format |
 | 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
+| concout | `concoutput`, `concoutput_nest`, `concoutput_surf` (every record read back from the files upstream writes); `timemanager`'s output clock, deposition decay, pre/post-advance bookkeeping and particle splitting (inline code extracted byte-for-byte, as stage 0 did for decay) | 2 516 | **bit-exact** (tolerance 0) |
 | outgrid | `outgrid_init`(+nest), `calcfluxes`, `fluxoutput` (numbers read back from the file upstream writes), `initial_cond_calc` | 4 896 | **bit-exact** (tolerance 0) |
 
 The one translation defect these stages found was in an **earlier** stage. It
@@ -455,6 +456,15 @@ Real(8) covers every excluded row bit for bit.
   pressure.
 - **`ohreaction` indexes the wrong `tt`.** It uses `n` rather than
   `memind(n)`.
+- **FLEXPART does not compile at `-fdefault-real-8` as shipped.** The generic
+  `mean` has no specific for `concoutput*`'s mix of real(4) `auxgrid` and
+  real(8) `grid`. The real(8) concout build therefore sets `dep_prec=dp`, a
+  `par_mod` configuration parameter.
+- **`concoutput_nest`/`_surf` ignore `lparticlecountoutput`.** They write
+  counts × 1e12 / volume into concentration files.
+- **`timemanager.f90:583` passes a scalar `idummy`** where `get_wetscav` takes
+  `integer(int64)` arrays. In WETBKDEP runs that is an out-of-bounds write.
+  Found by reading, not exercised.
 - **`calcfluxes` drops every flux across the cyclic boundary.** It writes
   `(real(nxmin1)-1.e5)` where `1.e-5` is evidently meant, so `ixs` always lies
   off the grid. Upstream records none of the 21 wrapping steps in the fixture.
@@ -561,9 +571,10 @@ Not covered, and tracked in GitHub issue #410:
   **CORRECTED 2026-10-02** — ported and verified (stages 2, 3, 5);
 - still not ported: the GRIB/NetCDF readers and file writers (I/O, not
   numerics), `verttransform_*`, release and domain filling
-  (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`), the
-  `concoutput*` unit conversion and `timemanager`'s per-step bookkeeping
-  (gh:#410 wave 2). (`outgrid_init*`, `initial_cond_calc` and
+  (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`) (gh:#410
+  wave 2). (~~the `concoutput*` unit conversion and `timemanager`'s per-step
+  bookkeeping~~ **CORRECTED 2026-10-02**: ported and verified, stage
+  `concout`.) (`outgrid_init*`, `initial_cond_calc` and
   `calcfluxes`/`fluxoutput` were listed here; **CORRECTED 2026-10-02**: they
   are ported and verified, see the stages table.)
 
