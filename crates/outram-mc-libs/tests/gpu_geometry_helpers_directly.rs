@@ -89,6 +89,16 @@
 //! `the_torus_reference_and_the_case_set_are_sound`, which needs no device —
 //! a case set that happened to miss every torus would otherwise let the GPU
 //! comparison pass by agreeing about nothing.
+//!
+//! # Known limitation: SIGSEGV under parallel test threads (GitHub #466)
+//!
+//! This binary exits with SIGSEGV at `--test-threads=3` and passes 10/10 at
+//! `--test-threads=1`. Each test here creates its own `wgpu` device and queue,
+//! and concurrent device creation in one process appears to race in the
+//! Vulkan driver or loader. The crash is below this crate, and it is
+//! intermittent. Until #466 lands a shared process-wide GPU context, read a
+//! SIGSEGV here as that race rather than a geometry-helper defect, and re-run
+//! with `--test-threads=1`.
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 

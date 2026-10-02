@@ -66,6 +66,18 @@ the GPU path does *not* currently beat `CpuMultiThread`** (measured on an RTX
 arithmetic-dense, not where it's memory-random** — pick the backend accordingly;
 CPU remains the trusted result either way.
 
+**Known limitation: concurrent GPU device creation can crash the test process
+(GitHub #466).** `tests/gpu_geometry_helpers_directly.rs` exits with SIGSEGV
+under `--test-threads=3` and passes 10/10 at `--test-threads=1`. The library's
+own test binary SIGSEGV'd once under 14 threads on 2026-10-02 and then passed
+five reruns. Each GPU test creates its own `wgpu` device and queue, and
+several threads doing that at once in one process appear to race inside the
+Vulkan driver or loader. The crash is below this crate, which is safe Rust,
+and it is a race, so it is intermittent. Treat a SIGSEGV in a GPU test binary
+as this limitation until #466 lands a shared, process-wide GPU context for the
+tests. If it bites, re-run with `--test-threads=1`. Transport itself uses one
+device per run and is not affected.
+
 ## Quick start
 
 ```toml
