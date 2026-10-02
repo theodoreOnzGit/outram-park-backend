@@ -80,8 +80,8 @@
 //! 1. **Heights are set once, from the first field ever read.** `init` is a
 //!    `SAVE`d logical. The reference profile `height(1..nuvz)` is integrated at
 //!    the first column (`jy` outer, `ix` inner) with `ps > 100000 Pa`, and
-//!    `nmixz` is the first level above `hmixmax = 4500 m`. Every later call, of
-//!    either routine's *other* fields too, reuses them. The ECMWF and GFS
+//!    `nmixz` is the first level above `hmixmax = 4500 m`. Every later call
+//!    reuses them, whatever its surface pressures. The ECMWF and GFS
 //!    routines each have their **own** `init`, but write the **same**
 //!    `com_mod` `height`: the second routine to be called for the first time
 //!    overwrites the first's heights. If no level exceeds `hmixmax`, `nmixz`
@@ -146,6 +146,17 @@
 //!     `clwc` is total condensate.
 //! 15. **The `virr` test counter** and its never-executed file output
 //!     (`if (1.eq.2)`) have no effect and are not ported.
+//!
+//! # Where the port deliberately differs
+//!
+//! Upstream's whole-array statements (`uu(:,:,1,n)=uuh(:,:,1)`,
+//! `clw(:,:,:,n)=0.`, `clwc = clwc + ciwc`, ...) run over the full
+//! `0:nxmax-1 x 0:nymax-1` (and, for the cloud resets, `nzmax`) extent,
+//! copying whatever the raw arrays hold outside the active grid. The port
+//! writes only the active `nx x ny x nz` grid. The difference is visible only
+//! if a later call on a *larger* grid reads a stale value outside the earlier
+//! grid; the code-to-code driver keeps each slot's grid size fixed within a
+//! process, so it is not exercised there.
 
 use super::boundary_layer::f_qvsat;
 use super::cmapf::{cc2gll, Strcmp};
@@ -483,9 +494,11 @@ fn check_shapes(
         && hyb.aknew.len() >= nz
         && hyb.bknew.len() >= nz
         && zgrid.height.len() >= nz
-        && [&raw.uuh, &raw.vvh, &raw.pvh, &raw.tth, &raw.qvh, &raw.clwch, &raw.ciwch]
-            .iter()
-            .all(|f| f3_fits(f, nx, ny, nuvz))
+        && [
+            &raw.uuh, &raw.vvh, &raw.pvh, &raw.tth, &raw.qvh, &raw.clwch, &raw.ciwch,
+        ]
+        .iter()
+        .all(|f| f3_fits(f, nx, ny, nuvz))
         && f3_fits(&raw.wwh, nx, ny, nwz)
         && [&raw.ps, &raw.tt2, &raw.td2, &raw.lsprec, &raw.convprec]
             .iter()
@@ -567,7 +580,7 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
     let nymin1 = ny - 1;
     let ixc = nx / 2 - 1;
     if polar.nglobal {
-        let j0 = (fortran_int(polar.switchnorthg) - 1) as usize;
+        let j0 = (fortran_int(polar.switchnorthg) - 2) as usize;
         for iz in 0..nz {
             for jy in j0..=nymin1 {
                 let ylat = g.ylat0 + jy as f64 * g.dy;
@@ -599,7 +612,7 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
                 PI / 2.0 - xlonr
             };
             if ddpol < 0.0 {
-                ddpol = 2.0 * PI + ddpol;
+                ddpol += 2.0 * PI; // upstream: 2.0*pi+ddpol (IEEE addition commutes)
             }
             if ddpol > 2.0 * PI {
                 ddpol -= 2.0 * PI;
@@ -664,7 +677,7 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
                 PI / 2.0 - xlonr
             };
             if ddpol < 0.0 {
-                ddpol = 2.0 * PI + ddpol;
+                ddpol += 2.0 * PI; // upstream: 2.0*pi+ddpol (IEEE addition commutes)
             }
             if ddpol > 2.0 * PI {
                 ddpol -= 2.0 * PI;
@@ -725,8 +738,8 @@ fn cloud_water_column(
 ) -> Result<(), VertError> {
     for kz in 1..nz {
         if out.clwc.at(ix, jy, kz - 1) > 0.0 {
-            let clw =
-                (out.clwc.at(ix, jy, kz - 1) * out.rho.at(ix, jy, kz - 1)) * (height[kz] - height[kz - 1]);
+            let clw = (out.clwc.at(ix, jy, kz - 1) * out.rho.at(ix, jy, kz - 1))
+                * (height[kz] - height[kz - 1]);
             out.clw.set(ix, jy, kz - 1, clw);
             let c = out.ctwc.at(ix, jy) + clw;
             out.ctwc.set(ix, jy, c);
@@ -740,7 +753,8 @@ fn cloud_water_column(
                 if kz == 1 {
                     return Err(VertError::NestHeightZero);
                 }
-                let sh = ((out.cloud_height(ix, jy) as f64 + height[kz - 1]) - height[kz - 2]).trunc();
+                let sh =
+                    ((out.cloud_height(ix, jy) as f64 + height[kz - 1]) - height[kz - 2]).trunc();
                 out.set_cloud_height(ix, jy, sh as i32);
                 out.set_cloud(ix, jy, kz - 1, 1);
                 out.set_cloud(ix, jy, kz - 1, if lsp >= convp { 3 } else { 2 });
@@ -759,7 +773,15 @@ fn cloud_water_column(
 }
 
 /// Old (relative-humidity) cloud scheme for one column, all three routines.
-fn rh_cloud_column(ix: usize, jy: usize, nz: usize, height: &[f64], lsp: f64, convp: f64, out: &mut ZFields) {
+fn rh_cloud_column(
+    ix: usize,
+    jy: usize,
+    nz: usize,
+    height: &[f64],
+    lsp: f64,
+    convp: f64,
+    out: &mut ZFields,
+) {
     let mut rain_cloud_above = false;
     out.set_cloud_height(ix, jy, 0);
     for kz_inv in 1..nz {
@@ -771,7 +793,8 @@ fn rh_cloud_column(ix: usize, jy: usize, nz: usize, height: &[f64], lsp: f64, co
         if rh > 0.8 {
             if lsp > 0.01 || convp > 0.01 {
                 rain_cloud_above = true;
-                let sh = ((out.cloud_height(ix, jy) as f64 + height[kz - 1]) - height[kz - 2]).trunc();
+                let sh =
+                    ((out.cloud_height(ix, jy) as f64 + height[kz - 1]) - height[kz - 2]).trunc();
                 out.set_cloud_height(ix, jy, sh as i32);
                 out.set_cloud(ix, jy, kz - 1, if lsp >= convp { 3 } else { 2 });
             } else {
@@ -859,11 +882,13 @@ fn eta_columns(grid: &VertGrid, hyb: &HybridCoefficients, raw: &RawFields) -> Et
             let ik = c.i(ix, jy, 0);
             c.pinmconv[ik] = v;
             for kz in 2..nz {
-                let v = (c.uvzlev[c.i(ix, jy, kz)] - c.uvzlev[c.i(ix, jy, kz - 2)]) / (dp(kz + 1) - dp(kz - 1));
+                let v = (c.uvzlev[c.i(ix, jy, kz)] - c.uvzlev[c.i(ix, jy, kz - 2)])
+                    / (dp(kz + 1) - dp(kz - 1));
                 let ik = c.i(ix, jy, kz - 1);
                 c.pinmconv[ik] = v;
             }
-            let v = (c.uvzlev[c.i(ix, jy, nz - 1)] - c.uvzlev[c.i(ix, jy, nz - 2)]) / (dp(nz) - dp(nz - 1));
+            let v = (c.uvzlev[c.i(ix, jy, nz - 1)] - c.uvzlev[c.i(ix, jy, nz - 2)])
+                / (dp(nz) - dp(nz - 1));
             let ik = c.i(ix, jy, nz - 1);
             c.pinmconv[ik] = v;
         }
@@ -969,7 +994,8 @@ fn eta_transform(
                     let dz1 = h - c.at(&c.uvzlev, ix, jy, kz - 2);
                     let dz2 = c.at(&c.uvzlev, ix, jy, kz - 1) - h;
                     let dz = dz1 + dz2;
-                    let lin = |f: &Field3| (f.at(ix, jy, kz - 2) * dz2 + f.at(ix, jy, kz - 1) * dz1) / dz;
+                    let lin =
+                        |f: &Field3| (f.at(ix, jy, kz - 2) * dz2 + f.at(ix, jy, kz - 1) * dz1) / dz;
                     out.uu.set(ix, jy, iz - 1, lin(&raw.uuh));
                     out.vv.set(ix, jy, iz - 1, lin(&raw.vvh));
                     out.tt.set(ix, jy, iz - 1, lin(&raw.tth));
@@ -981,23 +1007,40 @@ fn eta_transform(
                         }
                     }
                     out.pv.set(ix, jy, iz - 1, lin(&raw.pvh));
-                    let r = (c.at(&c.rhoh, ix, jy, kz - 2) * dz2 + c.at(&c.rhoh, ix, jy, kz - 1) * dz1) / dz;
+                    let r = (c.at(&c.rhoh, ix, jy, kz - 2) * dz2
+                        + c.at(&c.rhoh, ix, jy, kz - 1) * dz1)
+                        / dz;
                     out.rho.set(ix, jy, iz - 1, r);
                     if ecmwf {
-                        let p = (c.at(&c.prsh, ix, jy, kz - 2) * dz2 + c.at(&c.prsh, ix, jy, kz - 1) * dz1) / dz;
+                        let p = (c.at(&c.prsh, ix, jy, kz - 2) * dz2
+                            + c.at(&c.prsh, ix, jy, kz - 1) * dz1)
+                            / dz;
                         out.prs.set(ix, jy, iz - 1, p);
                     }
                 }
             }
 
             // Levels where w is given.
-            out.ww.set(ix, jy, 0, raw.wwh.at(ix, jy, 0) * c.at(&c.pinmconv, ix, jy, 0));
-            out.ww.set(ix, jy, t, raw.wwh.at(ix, jy, nwz - 1) * c.at(&c.pinmconv, ix, jy, nz - 1));
+            out.ww.set(
+                ix,
+                jy,
+                0,
+                raw.wwh.at(ix, jy, 0) * c.at(&c.pinmconv, ix, jy, 0),
+            );
+            out.ww.set(
+                ix,
+                jy,
+                t,
+                raw.wwh.at(ix, jy, nwz - 1) * c.at(&c.pinmconv, ix, jy, nz - 1),
+            );
             let mut idx = 2usize;
             for iz in 2..=nz {
                 let h = height[iz - 1];
                 for kz in idx..=nwz {
-                    if idx <= kz && h > c.at(&c.wzlev, ix, jy, kz - 2) && h <= c.at(&c.wzlev, ix, jy, kz - 1) {
+                    if idx <= kz
+                        && h > c.at(&c.wzlev, ix, jy, kz - 2)
+                        && h <= c.at(&c.wzlev, ix, jy, kz - 1)
+                    {
                         idx = kz;
                         break;
                     }
@@ -1020,10 +1063,12 @@ fn eta_transform(
             let d = (out.rho.at(ix, jy, 1) - out.rho.at(ix, jy, 0)) / (height[1] - height[0]);
             out.drhodz.set(ix, jy, 0, d);
             for kz in 2..nz {
-                let d = (out.rho.at(ix, jy, kz) - out.rho.at(ix, jy, kz - 2)) / (height[kz] - height[kz - 2]);
+                let d = (out.rho.at(ix, jy, kz) - out.rho.at(ix, jy, kz - 2))
+                    / (height[kz] - height[kz - 2]);
                 out.drhodz.set(ix, jy, kz - 1, d);
             }
-            out.drhodz.set(ix, jy, nz - 1, out.drhodz.at(ix, jy, nz - 2));
+            out.drhodz
+                .set(ix, jy, nz - 1, out.drhodz.at(ix, jy, nz - 2));
         }
     }
 
@@ -1060,7 +1105,8 @@ fn eta_transform(
                     let corr = match kind {
                         EtaKind::Ecmwf => dzdx * u * grid.dxconst * cosf + dzdy * v * grid.dyconst,
                         EtaKind::Nest { xresoln, yresoln } => {
-                            dzdx * u * grid.dxconst * xresoln * cosf + dzdy * v * grid.dyconst * yresoln
+                            dzdx * u * grid.dxconst * xresoln * cosf
+                                + dzdy * v * grid.dyconst * yresoln
                         }
                     };
                     out.ww.set(ix, jy, iz - 1, out.ww.at(ix, jy, iz - 1) + corr);
@@ -1068,7 +1114,6 @@ fn eta_transform(
             }
         }
     }
-    let _ = nuvz;
     c
 }
 
@@ -1217,7 +1262,15 @@ pub fn verttransform_nests(
             &nest.raw,
             out,
         );
-        eta_clouds(&nest.grid, height, nest.clouds, &nest.raw, 1, &mut cloudh_min, out)?;
+        eta_clouds(
+            &nest.grid,
+            height,
+            nest.clouds,
+            &nest.raw,
+            1,
+            &mut cloudh_min,
+            out,
+        )?;
     }
     Ok(())
 }
@@ -1285,7 +1338,8 @@ pub fn verttransform_gfs(
             let ps = raw.ps.at(ix, jy);
             let llev = gfs_llev(ps, &hyb.akz, nuvz);
 
-            let mut tvold = raw.tth.at(ix, jy, llev - 1) * (1.0 + 0.608 * raw.qvh.at(ix, jy, llev - 1));
+            let mut tvold =
+                raw.tth.at(ix, jy, llev - 1) * (1.0 + 0.608 * raw.qvh.at(ix, jy, llev - 1));
             let mut pold = hyb.akz[llev - 1];
             wzlev[llev - 1] = 0.0;
             uvw.set(ix, jy, llev - 1, 0.0);
@@ -1305,9 +1359,11 @@ pub fn verttransform_gfs(
             pinmconv[llev - 1] =
                 (uvw.at(ix, jy, llev) - uvw.at(ix, jy, llev - 1)) / (dp(llev + 1) - dp(llev));
             for kz in llev + 1..nz {
-                pinmconv[kz - 1] = (uvw.at(ix, jy, kz) - uvw.at(ix, jy, kz - 2)) / (dp(kz + 1) - dp(kz - 1));
+                pinmconv[kz - 1] =
+                    (uvw.at(ix, jy, kz) - uvw.at(ix, jy, kz - 2)) / (dp(kz + 1) - dp(kz - 1));
             }
-            pinmconv[nz - 1] = (uvw.at(ix, jy, nz - 1) - uvw.at(ix, jy, nz - 2)) / (dp(nz) - dp(nz - 1));
+            pinmconv[nz - 1] =
+                (uvw.at(ix, jy, nz - 1) - uvw.at(ix, jy, nz - 2)) / (dp(nz) - dp(nz - 1));
 
             let l = llev - 1;
             let t = nz - 1;
@@ -1356,7 +1412,8 @@ pub fn verttransform_gfs(
                         dz = dz1 + dz2;
                         dz_set = true;
                         let (a, b, d) = (dz1, dz2, dz);
-                        let lin = |f: &Field3| (f.at(ix, jy, kz - 2) * b + f.at(ix, jy, kz - 1) * a) / d;
+                        let lin =
+                            |f: &Field3| (f.at(ix, jy, kz - 2) * b + f.at(ix, jy, kz - 1) * a) / d;
                         out.uu.set(ix, jy, iz - 1, lin(&raw.uuh));
                         out.vv.set(ix, jy, iz - 1, lin(&raw.vvh));
                         out.tt.set(ix, jy, iz - 1, lin(&raw.tth));
@@ -1365,15 +1422,21 @@ pub fn verttransform_gfs(
                             out.clwc.set(ix, jy, iz - 1, lin(&raw.clwch));
                         }
                         out.pv.set(ix, jy, iz - 1, lin(&raw.pvh));
-                        out.rho.set(ix, jy, iz - 1, (rhoh[kz - 2] * b + rhoh[kz - 1] * a) / d);
-                        out.pplev
-                            .set(ix, jy, iz - 1, (hyb.akz[kz - 2] * b + hyb.akz[kz - 1] * a) / d);
+                        out.rho
+                            .set(ix, jy, iz - 1, (rhoh[kz - 2] * b + rhoh[kz - 1] * a) / d);
+                        out.pplev.set(
+                            ix,
+                            jy,
+                            iz - 1,
+                            (hyb.akz[kz - 2] * b + hyb.akz[kz - 1] * a) / d,
+                        );
                     }
                 }
             }
 
             out.ww.set(ix, jy, 0, raw.wwh.at(ix, jy, l) * pinmconv[l]);
-            out.ww.set(ix, jy, t, raw.wwh.at(ix, jy, nwz - 1) * pinmconv[nz - 1]);
+            out.ww
+                .set(ix, jy, t, raw.wwh.at(ix, jy, nwz - 1) * pinmconv[nz - 1]);
             for iz in 2..=nz {
                 let h = height[iz - 1];
                 for kz in kmin..=nwz {
@@ -1393,10 +1456,12 @@ pub fn verttransform_gfs(
             let d = (out.rho.at(ix, jy, 1) - out.rho.at(ix, jy, 0)) / (height[1] - height[0]);
             out.drhodz.set(ix, jy, 0, d);
             for kz in 2..nz {
-                let d = (out.rho.at(ix, jy, kz) - out.rho.at(ix, jy, kz - 2)) / (height[kz] - height[kz - 2]);
+                let d = (out.rho.at(ix, jy, kz) - out.rho.at(ix, jy, kz - 2))
+                    / (height[kz] - height[kz - 2]);
                 out.drhodz.set(ix, jy, kz - 1, d);
             }
-            out.drhodz.set(ix, jy, nz - 1, out.drhodz.at(ix, jy, nz - 2));
+            out.drhodz
+                .set(ix, jy, nz - 1, out.drhodz.at(ix, jy, nz - 2));
         }
     }
 
@@ -1435,7 +1500,12 @@ pub fn verttransform_gfs(
                     let dzdy1 = (zl(ix, jy + 1, k0) - zl(ix, jy - 1, k0)) / 2.0;
                     let dzdy2 = (zl(ix, jy + 1, klp) - zl(ix, jy - 1, klp)) / 2.0;
                     let dzdy = (dzdy1 * dz2 + dzdy2 * dz1) / dz;
-                    out.ww.set(ix, jy, iz - 1, out.ww.at(ix, jy, iz - 1) + (dzdx * ui + dzdy * vi));
+                    out.ww.set(
+                        ix,
+                        jy,
+                        iz - 1,
+                        out.ww.at(ix, jy, iz - 1) + (dzdx * ui + dzdy * vi),
+                    );
                 }
             }
         }
