@@ -23,9 +23,31 @@
 //! rate from [`Reaction::net_rate`]. The per-reaction extent
 //! `ζ_r = ∫₀^V rate_r dV` [mol/s] is accumulated with the same RK4 weights.
 //!
+//! **Constant `Q` versus upstream's re-flash.** Upstream marches the volume in
+//! `1/dV` segments (`dV = 0.01` by default, `PFR.vb:709,894`), freezes `Q` at each
+//! segment's start (`PFR.vb:955-972`) and re-flashes between segments. Run on
+//! upstream's own per-segment `Q`, this RK4 reproduces upstream to 1.4e-10
+//! (isomerisation) and 2.6e-9 (steam reforming); held at the *inlet* `Q`, as
+//! here, it overstates steam-reforming CO by 6.0 % (upstream's `Q` grows 24.7 %)
+//! — `tests/upstream_pfr_parity.rs`.
+//!
+//! ### Heterogeneous catalytic reactions and the catalyst bed
+//!
+//! A [`ReactionKind::HeterogeneousCatalytic`] rate is per kilogram of catalyst
+//! and carries the Langmuir–Hinshelwood denominator. Upstream evaluates
+//! `rate = numerator / denominator` (`PFR.vb:368-425`), scales it by
+//! `CatalystLoading / CatalystVoidFraction` (`PFR.vb:467`), and integrates every
+//! reaction over the **void** volume `ε·V` once a bed is defined
+//! (`vfrac`, `PFR.vb:1069-1070`). This port does the same through
+//! [`Pfr::catalyst_loading`] and [`Pfr::catalyst_void_fraction`], with
+//! [`Reaction::langmuir_hinshelwood_rate`]. ~~(Before 2026-10-02 every reaction
+//! kind was integrated with the power-law `net_rate` over the full volume,
+//! dropping the adsorption denominator, the catalyst loading and the void
+//! fraction — coverage row R3.)~~ **CORRECTED 2026-10-02.**
+//!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
-use crate::reactions::Reaction;
+use crate::reactions::{Reaction, ReactionKind};
 
 use super::{ReactorError, ReactorFeed, ReactorOutcome};
 
@@ -41,23 +63,55 @@ pub struct Pfr {
     /// Number of fixed RK4 sub-steps over `[0, V]`. More steps = more accurate;
     /// 100–1000 is ample for the smooth balances here.
     pub n_steps: usize,
+    /// Catalyst loading [kg of catalyst per m³ of reactor] (DWSIM
+    /// `CatalystLoading`, `PFR.vb:125`). Default `0`: no bed.
+    pub catalyst_loading: f64,
+    /// Bed void fraction `ε` [-] (DWSIM `CatalystVoidFraction`, `PFR.vb:127`).
+    /// Default `0`: no bed.
+    pub catalyst_void_fraction: f64,
 }
 
 impl Pfr {
-    /// Construct a PFR. `n_steps` is clamped to at least 1.
+    /// Construct a PFR with no catalyst bed. `n_steps` is clamped to at least 1.
     #[must_use]
     pub fn new(reactions: Vec<Reaction>, volume: f64, n_steps: usize) -> Self {
         Self {
             reactions,
             volume,
             n_steps: n_steps.max(1),
+            catalyst_loading: 0.0,
+            catalyst_void_fraction: 0.0,
         }
     }
 
-    /// Evaluate `(dF/dV, per-reaction rate)` at the current molar flows.
+    /// Define a packed catalyst bed: `loading` [kg/m³ reactor] and void
+    /// fraction `void_fraction` [-]. Needed by heterogeneous catalytic
+    /// reactions; once both are positive, every reaction is integrated over the
+    /// void volume `ε·V`, as upstream does.
+    #[must_use]
+    pub fn with_catalyst_bed(mut self, loading: f64, void_fraction: f64) -> Self {
+        self.catalyst_loading = loading;
+        self.catalyst_void_fraction = void_fraction;
+        self
+    }
+
+    /// Fraction of [`volume`](Self::volume) the fluid occupies: `ε` once a bed
+    /// is defined, else `1` (`PFR.vb:1069-1070`).
+    fn fluid_fraction(&self) -> f64 {
+        if self.catalyst_void_fraction > 0.0 && self.catalyst_loading > 0.0 {
+            self.catalyst_void_fraction
+        } else {
+            1.0
+        }
+    }
+
+    /// Evaluate `(dF/dV, per-reaction rate)` at the current molar flows, per
+    /// unit of *fluid* volume.
     ///
-    /// `dfdv[i] = Σ_r −rate_r · νᵢᵣ / ν_BC,r`; `rates[r] = rate_r(C)`,
-    /// `Cᵢ = max(Fᵢ, 0) / Q`.
+    /// `dfdv[i] = Σ_r −rate_r · νᵢᵣ / ν_BC,r`; `Cᵢ = max(Fᵢ, 0) / Q`. For a
+    /// kinetic reaction `rate_r` is [`Reaction::net_rate`]; for a heterogeneous
+    /// catalytic one it is [`Reaction::langmuir_hinshelwood_rate`] ×
+    /// `loading / ε` (`PFR.vb:465-468`).
     fn derivatives(&self, flows: &[f64], q: f64, temperature: f64) -> (Vec<f64>, Vec<f64>) {
         let n = flows.len();
         let mut conc = vec![0.0; n];
@@ -67,7 +121,13 @@ impl Pfr {
         let mut dfdv = vec![0.0; n];
         let mut rates = Vec::with_capacity(self.reactions.len());
         for rxn in &self.reactions {
-            let rate = rxn.net_rate(&conc, temperature);
+            let rate = match rxn.kind {
+                ReactionKind::HeterogeneousCatalytic => {
+                    rxn.langmuir_hinshelwood_rate(&conc, temperature) * self.catalyst_loading
+                        / self.catalyst_void_fraction
+                }
+                _ => rxn.net_rate(&conc, temperature),
+            };
             let sc_bc = rxn.base_stoich_coeff();
             for c in &rxn.components {
                 // Production per unit volume: dN_i/dV = -rate * ν_i / ν_BC.
@@ -102,8 +162,23 @@ impl Pfr {
             }
         }
 
+        if self
+            .reactions
+            .iter()
+            .any(|r| r.kind == ReactionKind::HeterogeneousCatalytic)
+            && !(self.catalyst_void_fraction > 0.0)
+        {
+            // Upstream divides by the void fraction here (PFR.vb:467) and fails
+            // with a NaN rate; say why instead.
+            return Err(ReactorError::InvalidFeed(
+                "a heterogeneous catalytic reaction needs a catalyst bed: set \
+                 catalyst_void_fraction > 0 (Pfr::with_catalyst_bed)"
+                    .into(),
+            ));
+        }
+
         let t = feed.temperature;
-        let h = self.volume / self.n_steps as f64;
+        let h = self.volume * self.fluid_fraction() / self.n_steps as f64;
         let mut y = feed.molar_flows.clone();
         let mut extents = vec![0.0; self.reactions.len()];
 

@@ -118,8 +118,10 @@ pub enum ReactionKind {
     Equilibrium,
     /// Arrhenius power-law rate kinetics.
     Kinetic,
-    /// Heterogeneous catalytic (Langmuir–Hinshelwood in DWSIM; power-law
-    /// placeholder here — see the type-level note).
+    /// Heterogeneous catalytic: Langmuir–Hinshelwood rate per kg of catalyst.
+    /// ~~power-law placeholder here~~ **CORRECTED 2026-10-02** — the CSTR and
+    /// PFR now evaluate [`Reaction::langmuir_hinshelwood_rate`] and scale it by
+    /// the catalyst mass / bed loading, as upstream does.
     HeterogeneousCatalytic,
 }
 
@@ -139,7 +141,12 @@ pub enum ReactionKind {
 pub enum ReactionBasis {
     /// Activity `aᵢ = γᵢ xᵢ` (ideal `γᵢ = 1` in this port).
     Activity,
-    /// Fugacity `fᵢ = φᵢ yᵢ P` (ideal `φᵢ = 1` in this port).
+    /// Fugacity, as upstream uses it in an equilibrium expression: the
+    /// dimensionless `fᵢ/P0 = φᵢ yᵢ P / P0`, `P0 = 101 325 Pa`
+    /// (`Equilibrium.vb:338-339`; ideal `φᵢ = 1` in this port). ~~`fᵢ = φᵢ yᵢ P`~~
+    /// **CORRECTED 2026-10-02** — the `/P0` was missing here, and the
+    /// equilibrium reactor returned plain `yᵢ` for this basis until the same
+    /// change (`tests/upstream_equilibrium_parity.rs`).
     Fugacity,
     /// Molar concentration `Cᵢ` [mol/m³]. The default kinetic basis.
     #[default]
@@ -606,8 +613,12 @@ impl Reaction {
     /// production is obtained by multiplying by `νᵢ / |ν_BC|` in the reactor
     /// (see [`crate::reactors`]).
     ///
-    /// Applies to [`ReactionKind::Kinetic`] and, as a documented placeholder,
-    /// [`ReactionKind::HeterogeneousCatalytic`].
+    /// The rate of a [`ReactionKind::Kinetic`] reaction, and the numerator of a
+    /// [`ReactionKind::HeterogeneousCatalytic`] one.
+    /// ~~Applies to … as a documented placeholder, `HeterogeneousCatalytic`.~~
+    /// **CORRECTED 2026-10-02** — the reactors use
+    /// [`langmuir_hinshelwood_rate`](Self::langmuir_hinshelwood_rate) for
+    /// catalytic reactions.
     #[must_use]
     pub fn net_rate(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
         let kf = self.forward_rate_constant(temperature_k);

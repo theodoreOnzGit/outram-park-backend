@@ -1,6 +1,16 @@
-// Headless driver for upstream DWSIM Reactor_CSTR (pinned 1abf72d1).
-// Compared code-to-code against outram-park-fork-dwsim-libs::reactors::Cstr.
+// Headless driver for upstream DWSIM Reactor_PFR (pinned 1abf72d1).
+// Compared code-to-code against outram-park-fork-dwsim-libs::reactors::Pfr.
 // Prints KEY=value lines only; everything else goes to stderr.
+//
+// Upstream marches the volume in 1/dV segments (PFR.vb:894; dV defaults to
+// 0.01), freezes the volumetric flow Q at each segment's start (PFR.vb:955-972),
+// integrates the segment with a DotNumerics ODE solver at its default
+// RelTol 1e-3 / AbsTol 1e-6 (PFR.vb:1108-1169, xOdeBase.cs:96,105), then
+// re-flashes. The per-segment profile is printed so the port can be run on the
+// same piecewise-constant Q.
+//
+// Env: PFR_DV (segment fraction, default upstream's 0.01),
+//      PFR_SOLVER (InternalSolver 0..3; 0 = implicit RK5, upstream's default).
 using System;
 using System.Linq;
 using System.Globalization;
@@ -32,67 +42,63 @@ class HeadlessFlowsheet : DWSIM.FlowsheetBase.FlowsheetBase {
     public override bool SupressMessages { get; set; }
 }
 
-// One kinetic reaction: stoichiometry (compound -> nu), forward/reverse orders,
-// Arrhenius pairs, base reactant. MolarConc basis, mol/m3 and mol/[m3.s].
 class Rx {
     public string Name, Base;
     public Dictionary<string, double> Nu = new Dictionary<string, double>();
     public Dictionary<string, double> Fwd = new Dictionary<string, double>();
     public Dictionary<string, double> Rev = new Dictionary<string, double>();
     public double Af, Ef, Ar, Er;
-    public string Num, Den; // heterogeneous catalytic: rate = Num / Den [mol/(kg.s)]
+    public string Num, Den; // heterogeneous catalytic: rate = Num / Den (PFR.vb:368-425)
 }
 
 class Case {
     public string Name;
     public string[] Comps;
-    public double[] Feed;          // mol/s
-    public double T, P, V, Headspace, Wcat;
-    public ReactionPhase Phase;
+    public double[] Feed; // mol/s
+    public double T, P, V;
+    public string Phase = "mixture";
+    public double Loading, Void; // CatalystLoading [kg/m3], CatalystVoidFraction
     public List<Rx> Rxns = new List<Rx>();
 }
 
 class Driver {
     static string F(double v) { return v.ToString("R", CultureInfo.InvariantCulture); }
 
+    static Rx Iso() {
+        var r = new Rx { Name = "iso", Base = "N-butane", Af = 0.01, Ef = 0.0, Ar = 0.0, Er = 0.0 };
+        r.Nu["N-butane"] = -1; r.Nu["Isobutane"] = 1;
+        r.Fwd["N-butane"] = 1; r.Fwd["Isobutane"] = 0;
+        r.Rev["N-butane"] = 0; r.Rev["Isobutane"] = 0;
+        return r;
+    }
+
     static Case Get(string name) {
         var c = new Case { Name = name };
         switch (name) {
         case "iso_liq":
-        case "iso_gas":
-        case "iso_gas_mix": {
-            c.Comps = new[] { "N-butane", "Isobutane" };
-            c.Feed = new[] { 1.0, 0.0 };
-            if (name == "iso_liq") { c.T = 300.0; c.P = 1.0e6; c.V = 0.02; c.Phase = ReactionPhase.Liquid; }
-            else if (name == "iso_gas") { c.T = 400.0; c.P = 1.0e5; c.V = 20.0; c.Headspace = 20.0; c.Phase = ReactionPhase.Vapor; }
-            else                   { c.T = 400.0; c.P = 1.0e5; c.V = 20.0; c.Headspace = 0.0; c.Phase = ReactionPhase.Mixture; }
-            var r = new Rx { Name = "iso", Base = "N-butane", Af = 0.01, Ef = 0.0, Ar = 0.0, Er = 0.0 };
-            r.Nu["N-butane"] = -1; r.Nu["Isobutane"] = 1;
-            r.Fwd["N-butane"] = 1; r.Fwd["Isobutane"] = 0;
-            r.Rev["N-butane"] = 0; r.Rev["Isobutane"] = 0;
-            c.Rxns.Add(r);
+            // Same kinetics and conditions as the CSTR driver's iso_liq.
+            c.Comps = new[] { "N-butane", "Isobutane" }; c.Feed = new[] { 1.0, 0.0 };
+            c.T = 300.0; c.P = 1.0e6; c.V = 0.02; c.Rxns.Add(Iso());
             break;
-        }
-        case "hetcat_liq": {
-            // Liquid n-butane -> isobutane on catalyst, Langmuir-Hinshelwood:
-            // rate = 2e-5 C_A / (1 + 1e-4 C_A)^2 [mol/(kg.s)], W_cat = 10 kg
-            // (CSTR.vb:768-802 rate, :855 times CatalystAmount).
-            c.Comps = new[] { "N-butane", "Isobutane" };
-            c.Feed = new[] { 1.0, 0.0 };
-            c.T = 300.0; c.P = 1.0e6; c.V = 0.02; c.Wcat = 10.0; c.Phase = ReactionPhase.Liquid;
-            var r = new Rx { Name = "iso_cat", Base = "N-butane", Num = "0.00002*R1", Den = "(1+0.0001*R1)^2" };
+        case "iso_gas":
+            c.Comps = new[] { "N-butane", "Isobutane" }; c.Feed = new[] { 1.0, 0.0 };
+            c.T = 400.0; c.P = 1.0e5; c.V = 20.0; c.Rxns.Add(Iso());
+            break;
+        case "hetcat_gas": {
+            // n-butane -> isobutane on a packed bed, Langmuir-Hinshelwood:
+            // rate = 1e-5 C_A / (1 + 0.05 C_A)^2 [mol/(kg.s)], C_A in mol/m3.
+            c.Comps = new[] { "N-butane", "Isobutane" }; c.Feed = new[] { 1.0, 0.0 };
+            c.T = 400.0; c.P = 1.0e5; c.V = 20.0; c.Loading = 500.0; c.Void = 0.4;
+            var r = new Rx { Name = "iso_cat", Base = "N-butane", Num = "0.00001*R1", Den = "(1+0.05*R1)^2" };
             r.Nu["N-butane"] = -1; r.Nu["Isobutane"] = 1;
-            r.Fwd["N-butane"] = 0; r.Fwd["Isobutane"] = 0;
-            r.Rev["N-butane"] = 0; r.Rev["Isobutane"] = 0;
             c.Rxns.Add(r);
             break;
         }
         case "smr": {
-            // DOVER's base deck (crates/dover/decks/smr_cstr.toml), reverse rates from
-            // dover::smr::consistent_reverse at 1123.15 K, printed at full precision.
+            // The CSTR driver's DOVER steam-reforming deck, in a PFR of the same volume.
             c.Comps = new[] { "Methane", "Water", "Carbon monoxide", "Carbon dioxide", "Hydrogen" };
             c.Feed = new[] { 1.0, 3.0, 0.0, 0.0, 0.0 };
-            c.T = 1123.15; c.P = 2.0e6; c.V = 2.0; c.Headspace = 0.0; c.Phase = ReactionPhase.Mixture;
+            c.T = 1123.15; c.P = 2.0e6; c.V = 2.0;
             var r0 = new Rx { Name = "reforming", Base = "Methane",
                 Af = 1.0e7, Ef = 2.4e5, Ar = 5.314382778663273e-7, Er = 34100.0 };
             r0.Nu["Methane"] = -1; r0.Nu["Water"] = -1; r0.Nu["Carbon monoxide"] = 1; r0.Nu["Hydrogen"] = 3;
@@ -127,44 +133,43 @@ class Driver {
         var ins  = (MaterialStream)fs.AddObject(ObjectType.MaterialStream, 0, 0, "IN");
         var outs = (MaterialStream)fs.AddObject(ObjectType.MaterialStream, 200, 0, "OUT");
         var es   = (EnergyStream)fs.AddObject(ObjectType.EnergyStream, 100, 100, "Q");
-        var r    = (Reactor_CSTR)fs.AddObject(ObjectType.RCT_CSTR, 100, 0, "CSTR");
+        var r    = (Reactor_PFR)fs.AddObject(ObjectType.RCT_PFR, 100, 0, "PFR");
         foreach (ISimulationObject o in new ISimulationObject[] { ins, outs, r }) o.PropertyPackage = pp;
         fs.ConnectObjects(ins.GraphicObject, r.GraphicObject, 0, 0);
         fs.ConnectObjects(r.GraphicObject, outs.GraphicObject, 0, 0);
         fs.ConnectObjects(es.GraphicObject, r.GraphicObject, 0, 1);
 
-        // Reactions and set.
         var set = new ReactionSet { ID = "RS1", Name = "RS1" };
         int rank = 0;
         foreach (var rx in c.Rxns) {
-            var rxn = new Reaction(rx.Name, rx.Name, "");
-            rxn.ReactionType = rx.Num != null ? ReactionType.Heterogeneous_Catalytic : ReactionType.Kinetic;
-            if (rx.Num != null) { rxn.RateEquationNumerator = rx.Num; rxn.RateEquationDenominator = rx.Den; }
-            rxn.ReactionBasis = ReactionBasis.MolarConc;
-            rxn.ReactionPhase = c.Phase;
-            rxn.BaseReactant = rx.Base;
-            rxn.ConcUnit = "mol/m3";
-            rxn.VelUnit = rx.Num != null ? "mol/[kg.s]" : "mol/[m3.s]";
-            rxn.A_Forward = rx.Af; rxn.E_Forward = rx.Ef;
-            rxn.A_Reverse = rx.Ar; rxn.E_Reverse = rx.Er;
-            foreach (var kv in rx.Nu)
-                rxn.Components.Add(kv.Key, new ReactionStoichBase(kv.Key, kv.Value, kv.Key == rx.Base, rx.Fwd[kv.Key], rx.Rev[kv.Key]));
+            var rxn = rx.Num != null
+                ? (Reaction)fs.CreateHetCatReaction(rx.Name, "", rx.Nu, rx.Base, c.Phase,
+                    "molar concentration", "mol/m3", "mol/[kg.s]", rx.Num, rx.Den)
+                : (Reaction)fs.CreateKineticReaction(rx.Name, "", rx.Nu, rx.Fwd, rx.Rev, rx.Base, c.Phase,
+                    "molar concentration", "mol/m3", "mol/[m3.s]", rx.Af, rx.Ef, rx.Ar, rx.Er, "", "");
             fs.AddReaction(rxn);
-            set.Reactions.Add(rxn.ID, new ReactionSetBase(rxn.ID, rank++, true));
+            // Rank 0 for all: one parallel group, every reaction in one ODE system.
+            set.Reactions.Add(rxn.ID, new ReactionSetBase(rxn.ID, 0, true));
+            rank++;
         }
         fs.AddReactionSet(set);
         r.ReactionSetID = set.ID;
         r.ReactorOperationMode = OperationMode.Isothermic;
+        r.ReactorSizingType = Reactor_PFR.SizingType.Length;
         r.Volume = c.V;
-        r.Headspace = c.Headspace;
-        r.CatalystAmount = c.Wcat;
-        var mi = Environment.GetEnvironmentVariable("CSTR_MAXIT");
-        if (!string.IsNullOrEmpty(mi)) r.MaxIterations = int.Parse(mi);
-        var tl = Environment.GetEnvironmentVariable("CSTR_TOL");
-        if (!string.IsNullOrEmpty(tl)) r.Tolerance = double.Parse(tl, CultureInfo.InvariantCulture);
-        Console.WriteLine("MAXIT=" + r.MaxIterations); Console.WriteLine("TOL=" + F(r.Tolerance));
+        r.Length = 1.0;
+        r.CatalystLoading = c.Loading;
+        r.CatalystVoidFraction = c.Void;
+        // Isobaric comparison: with a bed, upstream applies Ergun (needs a particle
+        // diameter, default 0, so dP explodes). Pin dP = 0; the port has no dP.
+        r.UseUserDefinedPressureDrop = true;
+        r.UserDefinedPressureDrop = 0.0;
+        var dv = Environment.GetEnvironmentVariable("PFR_DV");
+        if (!string.IsNullOrEmpty(dv)) r.dV = double.Parse(dv, CultureInfo.InvariantCulture);
+        var sv = Environment.GetEnvironmentVariable("PFR_SOLVER");
+        if (!string.IsNullOrEmpty(sv)) r.InternalSolver = int.Parse(sv);
+        Console.WriteLine("DV=" + F(r.dV)); Console.WriteLine("SOLVER=" + r.InternalSolver);
 
-        // Inlet.
         double tot = c.Feed.Sum();
         ins.SetTemperature(c.T);
         ins.SetPressure(c.P);
@@ -173,10 +178,8 @@ class Driver {
         ins.Calculate(true, true);
 
         Console.WriteLine("CASE=" + c.Name);
-        Console.WriteLine("T=" + F(c.T)); Console.WriteLine("P=" + F(c.P)); Console.WriteLine("V=" + F(c.V)); Console.WriteLine("HEADSPACE=" + F(c.Headspace));
+        Console.WriteLine("V=" + F(c.V));
         Console.WriteLine("Q_IN=" + F(ins.Phases[0].Properties.volumetric_flow.GetValueOrDefault()));
-        Console.WriteLine("QL_IN=" + F(ins.Phases[1].Properties.volumetric_flow.GetValueOrDefault()));
-        Console.WriteLine("QV_IN=" + F(ins.Phases[2].Properties.volumetric_flow.GetValueOrDefault()));
         Console.WriteLine("VAPFRAC_IN=" + F(ins.Phases[2].Properties.molarfraction.GetValueOrDefault()));
         for (int i = 0; i < c.Comps.Length; i++) Console.WriteLine("F_IN[" + i + "]=" + F(c.Feed[i]));
 
@@ -185,17 +188,20 @@ class Driver {
         catch (Exception e) { Console.WriteLine("ERROR=" + e.Message.Replace('\n', ' ')); return; }
         Console.WriteLine("WALL_MS=" + F((DateTime.UtcNow - t0).TotalMilliseconds));
 
-        // Raw values exactly as the reactor wrote them (before any stream calc).
-        Console.WriteLine("MASSFLOW_OUT_RAW=" + F(outs.Phases[0].Properties.massflow.GetValueOrDefault()));
-        for (int i = 0; i < c.Comps.Length; i++)
-            Console.WriteLine("X_OUT_RAW[" + i + "]=" + F(outs.Phases[0].Compounds[c.Comps[i]].MoleFraction.GetValueOrDefault()));
-        // What the flowsheet solver does next: calculate the outlet stream.
+        // Profile: (position along Length, T, P, items). Q at each point is
+        // MolarFlow / MolarConcentration of any compound with flow (PFR.vb:810-811).
+        Console.WriteLine("NPROFILE=" + r.Profile.Count);
+        for (int k = 0; k < r.Profile.Count; k++) {
+            var pt = r.Profile[k];
+            double q = double.NaN;
+            foreach (var it in pt.Item4) if (it.MolarFlow > 0 && it.MolarConcentration > 0) { q = it.MolarFlow / it.MolarConcentration; break; }
+            var flows = string.Join(",", c.Comps.Select(n => F(pt.Item4.First(it => it.Compound == n).MolarFlow)));
+            Console.WriteLine("PROFILE[" + k + "]=" + F(pt.Item1) + ";" + F(q) + ";" + flows);
+        }
+
         outs.Calculate(true, true);
         for (int i = 0; i < c.Comps.Length; i++)
             Console.WriteLine("F_OUT[" + i + "]=" + F(outs.Phases[0].Compounds[c.Comps[i]].MolarFlow.GetValueOrDefault()));
-        Console.WriteLine("MOLARFLOW_OUT=" + F(outs.Phases[0].Properties.molarflow.GetValueOrDefault()));
         Console.WriteLine("Q_OUT=" + F(outs.Phases[0].Properties.volumetric_flow.GetValueOrDefault()));
-        Console.WriteLine("TAU_L=" + F(r.ResidenceTimeL));
-        Console.WriteLine("DELTAQ=" + F(r.DeltaQ.GetValueOrDefault()));
     }
 }

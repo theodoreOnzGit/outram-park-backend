@@ -37,6 +37,7 @@
 //! | liquid n-butane → isobutane, first order | X = 0.657703283985040 | 0.657703283988240 | 4.9e-12 |
 //! | vapour n-butane → isobutane (*diagnostic build*) | X = 0.858781337972923 | 0.858781337973070 | 1.7e-13 |
 //! | steam reforming + shift, 5 species (*diagnostic build*) | X(CH4) = 0.375803270 | 0.375803270 | ≤ 6.1e-10 per species flow |
+//! | liquid isomerisation, heterogeneous catalytic (LH), 10 kg catalyst — *added 2026-10-02* | x(iC4) = 0.452788251442438 | 0.452788251442329 | 2.4e-13 (pre-fix: −99.1 %, coverage R3) |
 //!
 //! In both isomerisation cases this crate also equals the closed form
 //! `X = kτ/(1 + kτ)` to every printed digit.
@@ -261,3 +262,67 @@ const SMR_UPSTREAM_FLOWS: [f64; 5] = [
 /// Gate on the worst per-species relative gap. Measured 6.1e-10; set at 1e-8.
 /// The upstream vector is frozen above, so only this crate can move the gap.
 const SMR_GATE: f64 = 1e-8;
+
+/// Heterogeneous catalytic (Langmuir–Hinshelwood) isomerisation against the
+/// **pristine** upstream build — coverage row R3.
+///
+/// **Case.** 1 mol/s liquid n-butane, 300 K, 10 bar, `V = 0.02 m³`,
+/// `CatalystAmount = 10 kg`, `rate = 2e-5·C_A / (1 + 1e-4·C_A)²` mol/(kg·s)
+/// (upstream numerator/denominator expressions `0.00002*R1`,
+/// `(1+0.0001*R1)^2`; `CSTR.vb:768-802` evaluates them, `:855` multiplies by
+/// `CatalystAmount`). Upstream at `Tolerance = 1e-13` reports `τ_L =
+/// 193.66885836821319 s`, isobutane fraction `0.45278825144243845`.
+///
+/// **Result (2026-10-02).** This crate, handed `Q = V/τ_L`: 0.4527882514423291,
+/// gap **2.4e-13**. Before the fix it integrated every reaction kind with the
+/// power-law `net_rate` times `V` — no adsorption denominator, no catalyst
+/// mass — and gave **0.003858 (−99.1 %)**; that behaviour is reproduced at the
+/// end of the test by the equivalent `Kinetic` reaction.
+#[test]
+fn heterogeneous_catalytic_matches_upstream() {
+    use outram_park_fork_dwsim_libs::reactions::{AdsorptionTerm, LangmuirHinshelwood};
+    const UPSTREAM_TAU: f64 = 193.668_858_368_213_19;
+    const UPSTREAM_X: f64 = 0.452_788_251_442_438_45;
+    let q = 0.02 / UPSTREAM_TAU;
+    let feed = ReactorFeed::new(vec![1.0, 0.0], 300.0, 1.0e6, q);
+    let components = vec![
+        ReactionComponent::new(0, -1.0, 1.0, 0.0, true),
+        ReactionComponent::new(1, 1.0, 0.0, 0.0, false),
+    ];
+    let catalytic = Reaction::new(
+        ReactionKind::HeterogeneousCatalytic,
+        ReactionBasis::MolarConcentration,
+        components.clone(),
+    )
+    .with_forward(2.0e-5, 0.0)
+    .with_langmuir_hinshelwood(LangmuirHinshelwood::new(
+        vec![AdsorptionTerm::new(0, 1.0e-4, 0.0, 1.0)],
+        2.0,
+    ));
+    let out = Cstr::new(vec![catalytic], 0.02)
+        .with_catalyst_amount(10.0)
+        .solve(&feed)
+        .expect("catalytic CSTR converges");
+    let x = out.molar_flows[1] / out.molar_flows.iter().sum::<f64>();
+    let rel = ((x - UPSTREAM_X) / UPSTREAM_X).abs();
+    eprintln!("hetcat CSTR: port {x} vs upstream {UPSTREAM_X}: rel {rel:e}");
+    assert!(
+        rel < 1e-10,
+        "port {x} vs upstream {UPSTREAM_X}: rel {rel:e}"
+    );
+
+    // The pre-fix behaviour, reproduced: power-law rate per m³ over V.
+    let as_kinetic = Reaction::new(
+        ReactionKind::Kinetic,
+        ReactionBasis::MolarConcentration,
+        components,
+    )
+    .with_forward(2.0e-5, 0.0);
+    let old = Cstr::new(vec![as_kinetic], 0.02).solve(&feed).unwrap();
+    let x_old = old.molar_flows[1] / old.molar_flows.iter().sum::<f64>();
+    eprintln!(
+        "hetcat CSTR pre-fix: {x_old} ({:+.1} %)",
+        100.0 * (x_old / UPSTREAM_X - 1.0)
+    );
+    assert!(x_old < 0.1 * UPSTREAM_X);
+}
