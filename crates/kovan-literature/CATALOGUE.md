@@ -37,6 +37,15 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 
 ## Open tier
 
+> **2026-10-02: `kabach2021intercomparison` logged.** O. Kabach, A. Chetaine,
+> A. Benchrif, H. Amsil, *An inter-comparison between ENDF/B-VIII.0-NECP-Atlas
+> and ENDF/B-VIII.0-NJOY results …*, Nucl. Eng. Technol. 53 (2021) 2445–2453,
+> doi:10.1016/j.net.2021.02.012. **CC BY-NC-ND 4.0** (PDF page 1). It was added
+> by a Kovan save to `reactor-literature/theodore-open-corpus/` without a
+> README row; logged under the new README ground 7 (reactor-literature
+> `359bb76`, `03afc72`). The PDF was briefly dropped by Kovan's reset on a
+> rejected push and restored (#502).
+
 > **2026-10-02 — NJOY2016 manual (`2022laur1720093`) logged with its licence
 > basis.** It had been in `reactor-literature/theodore-open-corpus/` without a
 > README row. Basis: LANS BSD-3-Clause-style licence of
