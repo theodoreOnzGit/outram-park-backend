@@ -387,9 +387,7 @@ fn segment_of(bounds: &[f64], t: f64) -> Option<usize> {
 mod tests {
     use super::*;
     use crate::puff::concentration::METHANE_PPM_PER_KG_PER_M3;
-    use crate::puff::simulate::{
-        constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy,
-    };
+    use crate::puff::simulate::{constant_wind, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy};
     use uom::si::f64::{Mass, Velocity};
     use uom::si::mass::kilogram;
     use uom::si::velocity::meter_per_second;

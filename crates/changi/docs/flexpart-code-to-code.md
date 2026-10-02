@@ -182,6 +182,180 @@ through), so the port drops it — recorded here rather than silently. The Fortr
 driver passes a copy for the same reason, so the fixture records the argument
 the caller actually supplied.
 
+
+## Stage 1 (2026-10-02): turbulence, CBL, dry deposition, PBL, solar, calendar
+
+### Methodology
+
+A second driver, `dev/flexpart_reference_physics.f90`, links **27 upstream
+files verbatim**: `par_mod`, `com_mod`, `hanna_mod`, `ew`,
+`dynamic_viscosity`, `psim`, `psih`, `raerod`, `hanna`, `hanna1`,
+`hanna_short`, `cbl`, `getrb`, `getrc`, `partdep`, `caldate`, `juldate`,
+`getvdep`, `get_settling`, `pbl_profile`, `qvsat`, `richardson`, `windalign`,
+`zenithangle`, `photo_O1D`, `distance`, `distance2`.
+
+Several of these read meteorology and tables from `com_mod` rather than from
+their arguments. The driver writes **synthetic fields straight into
+`com_mod`**: Wesely tables, landuse fractions, roughness lengths, level
+heights, `tt`/`rho` columns, `bdate`, `ldirect` and so on. No GRIB or NetCDF
+file is involved. Each such input is echoed into the fixture as a setup row
+(`particle_bins`, `wesely`, `richardson.column`), so the Rust test feeds the
+port the same values.
+
+The routines that carry state between calls (`hanna*`, through `hanna_mod`)
+are given fixed sentinel priors before every call, and those priors are
+recorded. Two upstream behaviours that depend on prior state are therefore
+*verified* rather than merely tolerated:
+
+- `hanna_short` applies `max(10, tlu)` to a `tlu` it never computes;
+- `hanna1` leaves `sigma_w` unassigned for unstable `zeta >= 1`.
+
+The build adds two flags to the original harness:
+
+- `-mcmodel=medium`, because `com_mod`'s static arrays exceed 2 GB at real(8);
+- `-fdefault-double-8` for the real(8) build. Without it, the driver's
+  `double precision` Julian dates are promoted to real(16) and no longer match
+  upstream's `real(kind=dp)`. That was found because the first real(8) run
+  printed `****` for every Julian date.
+
+The real4 fixture prints 9 significant digits, and the test parses them as
+**`f32` then widens**, so the port is fed exactly the values the Fortran was.
+
+```bash
+./dev/build_reference.sh
+cargo test --release -p changi --test flexpart_physics_code_to_code -- --nocapture
+```
+
+### Results
+
+Taken **2026-10-02**, upstream `3d7eebf`, **5 521 rows per fixture, 20 tests,
+all passing**. "max rel dev" is the largest relative deviation over every
+output of every row.
+
+| Group | Rows | vs `real8` | vs `real4` |
+|---|---:|---:|---:|
+| `hanna` | 640 | **0 (bit-exact)** | 7.66e-7 (floor `1e-10`, see below) |
+| `hanna1` | 640 | **0 (bit-exact)** | 1.06e-6 (floor `1e-10`) |
+| `hanna_short` | 640 | **0 (bit-exact)** | 6.05e-7 (floor `1e-10`) |
+| `cbl` | 1 200 | 2.43e-15 (`erf` substitution) | spread rule, 248 outputs |
+| `getrb` | 32 | **0 (bit-exact)** | 1.18e-7 |
+| `getrc` | 481 | **0 (bit-exact)** | 1.45e-7 |
+| `partdep` | 90 | **0 (bit-exact)** | 2.16e-7 |
+| `getvdep` | 1 008 | **0 (bit-exact)** | 4.59e-6 |
+| `get_settling` | 70 | **0 (bit-exact)** | 3.44e-7 |
+| `pbl_profile` | 56 | **0 (bit-exact)** | 2.49e-6 |
+| `qvsat` | 24 | **0 (bit-exact)** | 8.39e-7 (21 rows, see below) |
+| `richardson` | 36 | **0 (bit-exact)** | 1.08e-4 (spread rule, 3 outputs) |
+| `windalign` | 36 | **0 (bit-exact)** | 1.57e-7 |
+| `zenithangle` | 168 | **0 (bit-exact)** | 5.63e-7 |
+| `photo_O1D` | 99 | **0 (bit-exact)** | 3.29e-5 (spread rule, 2 outputs) |
+| `distance` | 8 | **0 (bit-exact)** | 6.32e-8 |
+| `distance2` | 9 | **0 (bit-exact)** | 6.15e-8 |
+| `juldate` | 84 | **0 (bit-exact)** | 0 |
+| `caldate` | 126 | **0 (bit-exact)** | 0 (117 rows, see below) |
+
+**Interpretation.** Against real(8), **18 of 19 groups are bit-exact on every
+output of every row**. The nineteenth, `cbl`, differs in 26 of its 6 000
+outputs by at most `2.4e-15`. That residual was **attributed by experiment,
+not by argument**: rebuilt in a scratch crate with glibc's `erf` (which is
+what gfortran's intrinsic calls) in place of `petir::specfunc::erf`, `cbl`
+is bit-exact on all 6 000 outputs. The port keeps `petir`'s `erf` per the
+crate's reuse rule. (`cbl` uses the **intrinsic**: its `real :: erf`
+declaration has no `external`, so the intrinsic wins over `erf.f90`.)
+
+### Where the shipped real(4) build cannot be held to a relative bound
+
+Each case below shows the port agreeing exactly with real(8) and the shipped
+build departing from its own real(8) self. These are properties of FLEXPART
+as distributed.
+
+- **`cbl`: the drift term in the PDF tails.** When the particle velocity lies
+  far in the tail of both Gaussian modes, `ptot` falls to `1e-12 .. 1e-7`.
+  `Phi` is then a sum of `O(1e-4)` terms cancelling to `O(ptot)`, and the
+  drift `a = (...)/ptot` divides that noise by a tiny number. Upstream's
+  real(4) build differs from its own real(8) build by up to **1.1e3 relative
+  in `Phi` and 5.1e3 in `a`**, and the drift's sign flips in some rows (70 of
+  the original 900 rows). Any particle in that regime gets an arbitrary drift
+  in the shipped model; how often that happens in a real run is not measured
+  here.
+- **`hanna*`: gradient underflow.** In a stable layer with `u* = 1e-6`, the
+  gradient `d sigma_w / dz` is `~1e-48`, below `f32`'s smallest subnormal. The
+  shipped build flushes it to 0 and then applies upstream's own
+  `0 -> 1e-10` substitute. The real(4) check carries an absolute floor of
+  exactly that substitute, `1e-10` as `f32` stores it.
+- **`qvsat`: a threshold decided by rounding.** The `f32` image of the input
+  253.15 K *is* the `f32` threshold `253.15`. The shipped build therefore
+  takes the liquid branch, while the port given that `f32` value takes the
+  ice branch; they differ by 18 %. Those three rows (three pressures) are out
+  of the real(4) scope. Real(8) covers both sides of the switch exactly.
+- **`caldate`: the 1600 century leap day.** The shipped build returns
+  `16010231`, which is not a date, for JD 2305507 (1600-02-29), because
+  `((julday-1867216)-0.25)/36524.25` is evaluated in default `real`. Real(8)
+  and the port return `16000229`. The defect is pinned by its own test so a
+  change upstream is noticed. Dates before the Gregorian switch (1582-10-15)
+  are outside the port's documented range and are skipped.
+- **`photo_O1D` near the horizon** (87–88°, `exp(-0.4/cos)` amplifying `cos`
+  error) and **`richardson`'s `hmixplus`** (a Brunt–Väisälä frequency from a
+  `theta` difference across a twentieth of a layer) sit at `3e-5` and
+  `1.1e-4`.
+
+The **precision-spread rule** used for `cbl`, `photo_O1D` and `richardson` is
+opt-in per group. It accepts a real(4) output when the port lies within 4x
+upstream's own real(4)-vs-real(8) distance for that output, and every output
+accepted this way is counted in the test's printout. It is the statement
+"this residual is FLEXPART's single precision". The real(8) check is what
+proves the translation.
+
+### The suite is not vacuous
+
+Mutation run on 2026-10-02. **19 mutations, 19 killed**:
+
+| Mutation | Killed by |
+|---|---|
+| `hanna` exponent `0.66666 -> 0.66667` | `hanna`, `hanna_short` |
+| `hanna` `sigma_w` offset `1e-2 -> 1e-3` | `hanna`, `hanna_short` |
+| `cbl` closure `0.66667 -> 0.6667` | `cbl` |
+| `cbl` cube-root exponent `0.333333333 -> 1/3` | `cbl` |
+| `cbl` taper switch `-h/L < 15 -> < 14` | `cbl` |
+| `getrb` Prandtl `0.72 -> 0.71` | `getrb`, `getvdep` |
+| `getrc` `r_c >= 10` floor removed | `getrc` |
+| `getvdep` southern shift `365/2 -> 182.5` | `getvdep` |
+| `getvdep` tropical season `mmdd 600 -> 1000` | `getvdep` |
+| `partdep` `alpha <= log10(eps) -> <= -4` | `partdep` |
+| `get_settling` drag switch `Re < 500 -> < 400` | `get_settling` |
+| `pbl_profile` `r1 0.74 -> 0.75` | `pbl_profile` |
+| `richardson` excess `bs 8.5 -> 8.0` | `richardson` |
+| `richardson` drop the `k = k-1` | `richardson` |
+| `qvsat` switch `t >= 253.15 -> t > 253.16` | `qvsat` |
+| `zenithangle`/`photo_O1D` local pi `3.1415927 -> PI` | `zenithangle`, `photo_O1D` |
+| `zenithangle` leap-day `+1` removed | `zenithangle` |
+| `distance` radius `6.3712e6 -> 6.371e6` | `distance`, `distance2` |
+| `caldate` `ss == 60` rollover | `caldate`, `zenithangle` |
+
+The first pass left **four survivors**, and they were treated as findings
+about the sweep, not the mutations:
+
+- `cbl`: no case had `-h/L` between 14 and 15;
+- `getvdep`: no southern date sat half a day from a season boundary;
+- `get_settling`: the Reynolds number never entered 400–500;
+- the `mmdd 600 -> 700` mutation was equivalent (both are summer), so it was
+  replaced by `600 -> 1000`.
+
+The driver gained `L = -75.5 m`, a 2 May date (Oct 31 after the +182-day
+shift) and a 900 µm particle (Re 455 → 436). The suite was rerun and all 19
+mutations were killed.
+
+### Provenance decisions for Numerical Recipes code
+
+`caldate.f90` and `juldate.f90` derive from *Numerical Recipes*. Their
+licence is not GPL-compatible, so they are **not translated**. The port
+computes the day count with Howard Hinnant's public-domain
+`days_from_civil`/`civil_from_days`, already used in
+`crates/kovan-metrics/src/date.rs`, and ports only FLEXPART's own
+time-of-day arithmetic. The fixture shows the two agree exactly from
+1582-10-15 onwards. `random_mod.f90` (NR `ran3`/`gasdev`) is not ported and
+not reimplemented (maintainer decision, #410).
+
 ## What this does NOT establish
 
 **Verification, not validation.** It establishes that the Rust computes what the
@@ -194,21 +368,24 @@ emergency response, dose assessment for real populations, or operational Level 3
 PSA. The `Bookkeeping status` block in the README records that human review of
 both the V&V and the interface is still outstanding.
 
-Not covered, and tracked in beads:
+Not covered, and tracked in GitHub issue #410:
 
-- the particle advection loop (`advance.f90`) and the Hanna turbulence
-  parameterisation — the heart of the Lagrangian model, and the point at which
-  the RNG and `boon-lay`'s prior art become relevant;
-- the convective boundary-layer scheme (`cbl.f90`);
-- wet scavenging (`wetdepo.f90`, `get_wetscav.f90`) and the dry-deposition
-  velocity assembly (`getvdep.f90`);
-- the Richardson-number mixing-height diagnostic (`richardson.f90`);
-- `get_settling.f90`'s ambient rescaling of the reference-state settling
-  velocities `part0` returns;
-- the GRIB/NetCDF meteorological readers, the output grids, and the OH chemistry.
-
-None of these have a Rust port yet, so none has a fixture — that is the honest
-statement of what is not yet ported, not a verification gap in what is.
+- the particle advection loop (`advance.f90`) — the heart of the Lagrangian
+  model, and the point at which the RNG becomes relevant;
+- ~~the Hanna turbulence parameterisation~~ **CORRECTED 2026-10-02** — ported
+  and verified, see "Stage 1" below;
+- ~~the convective boundary-layer scheme (`cbl.f90`)~~ **CORRECTED 2026-10-02**
+  — ported and verified;
+- wet scavenging (`wetdepo.f90`, `get_wetscav.f90`); ~~and the dry-deposition
+  velocity assembly (`getvdep.f90`)~~ **CORRECTED 2026-10-02** — `getvdep`
+  is ported and verified;
+- ~~the Richardson-number mixing-height diagnostic (`richardson.f90`)~~
+  **CORRECTED 2026-10-02** — ported and verified;
+- ~~`get_settling.f90`'s ambient rescaling of the reference-state settling
+  velocities `part0` returns~~ **CORRECTED 2026-10-02** — ported and verified;
+- the meteorological interpolation, the GRIB/NetCDF readers, the output grids,
+  and the OH chemistry (`photo_O1D` and `zenithangle` are ported; the reaction
+  itself is not).
 
 **Radioactive decay's fixture gap is closed (2026-09-15).** It was the one
 ported module checked only against hand-copied upstream *expressions* rather

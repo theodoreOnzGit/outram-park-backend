@@ -18,13 +18,14 @@
 //!
 //! ## What is ported so far
 //!
-//! This module currently covers the **surface-layer and deposition scalar
-//! kernels** — the pure functions that turn meteorological surface fields into
-//! turbulence scales and aerosol deposition properties. These were chosen first
-//! because every one of them depends only on `par_mod` constants in upstream
-//! (verified by inspecting their `use` statements), so each can be called
-//! directly from a Fortran driver and verified against the real FLEXPART with
-//! no meteorological input files, no GRIB reader and no NetCDF.
+//! This module covers the **surface-layer, turbulence, deposition and
+//! boundary-layer kernels**: the functions that turn meteorological fields
+//! into turbulence statistics, deposition velocities and mixing heights. Each
+//! is verified against the real FLEXPART, compiled from upstream source, with
+//! no meteorological input files, no GRIB reader and no NetCDF. The first set
+//! depends only on `par_mod` constants. The stage-1 set (2026-10-02) reads
+//! `com_mod`, and its driver writes synthetic fields there (see
+//! `docs/flexpart-code-to-code.md`).
 //!
 //! | Submodule | Upstream files | Content |
 //! |---|---|---|
@@ -33,16 +34,23 @@
 //! | [`surface_layer`] | `psim.f90`, `psih.f90`, `scalev.f90`, `obukhov.f90`, `raerod.f90` | Monin–Obukhov similarity, friction velocity, aerodynamic resistance |
 //! | [`aerosol`] | `part0.f90` | Lognormal size distribution, settling, Cunningham, Schmidt |
 //! | [`decay`] | `readreleases.f90`, `timemanager.f90` | Radioactive decay |
+//! | [`turbulence`] | `hanna*.f90`, `windalign.f90` | Hanna (1982) turbulence statistics |
+//! | [`cbl`] | `cbl.f90` | Skewed convective-boundary-layer drift and diffusion |
+//! | [`dry_deposition`] | `getrb.f90`, `getrc.f90`, `partdep.f90`, `getvdep.f90`, `get_settling.f90` | Dry deposition velocity, settling |
+//! | [`boundary_layer`] | `pbl_profile.f90`, `richardson.f90`, `qvsat.f90` | Profile fluxes, mixing height, saturation humidity |
+//! | [`solar`] | `zenithangle.f90`, `photo_O1D.f90` | Solar zenith angle, O(¹D) photolysis |
+//! | [`geodesy`] | `distance.f90`, `distance2.f90` | Great-circle distance |
+//! | [`calendar`] | `juldate.f90`, `caldate.f90` | Julian date (day count re-derived; NR provenance) |
 //!
 //! ## What is NOT ported
 //!
-//! Everything else, which is most of FLEXPART: the particle advection loop
-//! (`advance.f90`), the Hanna turbulence parameterisation, the convective
-//! boundary-layer scheme (`cbl.f90`), wet scavenging (`wetdepo.f90`,
-//! `get_wetscav.f90`), the Richardson-number mixing-height diagnostic, the
-//! GRIB/NetCDF meteorological readers, the output grids, and the OH-reaction
-//! chemistry. Do not read this module as "FLEXPART in Rust" — it is the first
-//! verified slice of one.
+//! The particle advection loop (`advance.f90`), the meteorological
+//! interpolation, wet scavenging (`wetdepo.f90`, `get_wetscav.f90`), the
+//! GRIB/NetCDF meteorological readers, the output grids, and the OH reaction.
+//! (**CORRECTED 2026-10-02**: the Hanna turbulence, `cbl.f90` and the
+//! Richardson mixing height were listed here and are now ported and verified.)
+//! Do not read this module as "FLEXPART in Rust": it is a verified set of its
+//! kernels.
 //!
 //! ## Precision, and why results differ from a stock FLEXPART build
 //!
@@ -60,7 +68,14 @@
 //! documentation for the scope limits, which are binding.
 
 pub mod aerosol;
+pub mod boundary_layer;
+pub mod calendar;
+pub mod cbl;
 pub mod constants;
 pub mod decay;
+pub mod dry_deposition;
+pub mod geodesy;
 pub mod surface_layer;
+pub mod solar;
 pub mod thermo;
+pub mod turbulence;

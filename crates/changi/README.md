@@ -103,12 +103,20 @@ scales and aerosol deposition properties.
 | Monin–Obukhov similarity, friction velocity, aerodynamic resistance | `psim.f90`, `psih.f90`, `scalev.f90`, `obukhov.f90`, `raerod.f90` | yes |
 | Lognormal aerosol bins: settling, Cunningham, Schmidt | `part0.f90` | yes |
 | Radioactive decay | `readreleases.f90`, `timemanager.f90` | yes |
+| Hanna turbulence, wind alignment | `hanna.f90`, `hanna1.f90`, `hanna_short.f90`, `windalign.f90` | yes (2026-10-02) |
+| Skewed convective boundary layer | `cbl.f90` | yes (2026-10-02) |
+| Dry deposition: `r_b`, Wesely `r_c`, particles, cell assembly, settling | `getrb.f90`, `getrc.f90`, `partdep.f90`, `getvdep.f90`, `get_settling.f90` | yes (2026-10-02) |
+| Profile fluxes, Richardson mixing height, saturation humidity | `pbl_profile.f90`, `richardson.f90`, `qvsat.f90` | yes (2026-10-02) |
+| Solar zenith angle, O(¹D) photolysis, great-circle distance | `zenithangle.f90`, `photo_O1D.f90`, `distance*.f90` | yes (2026-10-02) |
+| Calendar | `juldate.f90`, `caldate.f90` (day count re-derived, not translated: NR provenance) | yes (2026-10-02) |
 
-**Not ported**, which is most of FLEXPART: the particle advection loop
-(`advance.f90`), the Hanna turbulence parameterisation, the convective
-boundary-layer scheme, wet scavenging, the Richardson mixing-height diagnostic,
-the GRIB/NetCDF readers, the output grids and the OH chemistry. This is the
-first verified slice of a port, not "FLEXPART in Rust".
+**Not ported**, which is still most of the *model*: ~~the Hanna turbulence
+parameterisation, the convective boundary-layer scheme, the Richardson
+mixing-height diagnostic~~ (**CORRECTED 2026-10-02**: those are ported and
+verified, above). Not yet ported: the particle advection loop (`advance.f90`),
+the meteorological interpolation, wet scavenging, the GRIB/NetCDF readers, the
+output grids and the OH reaction. This is a verified set of kernels, not
+"FLEXPART in Rust".
 
 ### 2. `puff` — the Gaussian puff forward model
 

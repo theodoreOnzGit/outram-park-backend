@@ -865,7 +865,10 @@ mod tests {
         assert!((dx_l - 500.0).abs() < 1e-9, "dx = {dx_l}, wanted 500 m");
         assert!((dy_l - 500.0).abs() < 1e-9, "dy = {dy_l}, wanted 500 m");
         // Its dispersion distance is the PATH, 1000 m, not the 707.1 m chord.
-        assert!((dist_l - 1000.0).abs() < 1e-9, "path = {dist_l}, wanted 1000 m");
+        assert!(
+            (dist_l - 1000.0).abs() < 1e-9,
+            "path = {dist_l}, wanted 1000 m"
+        );
         assert!(
             dist_l > dx_l.hypot(dy_l),
             "on a bent trajectory the path {dist_l} must exceed the net displacement {}",
@@ -874,7 +877,10 @@ mod tests {
 
         // The frozen-wind puff never turned: still due east, second leg lost.
         assert!((dx_u - 1000.0).abs() < 1e-9, "dx = {dx_u}, wanted 1000 m");
-        assert!(dy_u.abs() < 1e-9, "dy = {dy_u}, wanted 0 m -- it never turned");
+        assert!(
+            dy_u.abs() < 1e-9,
+            "dy = {dy_u}, wanted 0 m -- it never turned"
+        );
         // And it is half a kilometre from where the parcel actually is.
         assert!(
             (dx_u - dx_l).hypot(dy_u - dy_l) > 490.0,
@@ -940,7 +946,13 @@ mod tests {
         let p = live[0];
         let (dx_l, dy_l, dist_l) = puff_offset(&p, AdvectionPolicy::LagrangianTrajectory, elapsed);
         let (dx_u, dy_u, dist_u) = puff_offset(&p, AdvectionPolicy::UpstreamFrozenWind, elapsed);
-        let rel = |a: f64, b: f64| if b == 0.0 { a.abs() } else { (a - b).abs() / b.abs() };
+        let rel = |a: f64, b: f64| {
+            if b == 0.0 {
+                a.abs()
+            } else {
+                (a - b).abs() / b.abs()
+            }
+        };
         println!(
             "CONSTANT WIND ({} , {}) m/s over {elapsed} s in {steps} steps\n  \
              analytic: dx = {dx_u:.6} m, dy = {dy_u:.6} m, dist = {dist_u:.6} m\n  \
@@ -954,7 +966,10 @@ mod tests {
         );
         assert!(rel(dx_l, dx_u) < 1e-9, "dx: {dx_l} against {dx_u}");
         assert!(rel(dy_l, dy_u) < 1e-9, "dy: {dy_l} against {dy_u}");
-        assert!(rel(dist_l, dist_u) < 1e-9, "distance: {dist_l} against {dist_u}");
+        assert!(
+            rel(dist_l, dist_u) < 1e-9,
+            "distance: {dist_l} against {dist_u}"
+        );
     }
 
     /// The default policy conserves mass; the bug-compatible one does not.
