@@ -93,6 +93,11 @@
 //!   receptor densities and discards them) and **zeroes `creceptor`** as
 //!   well as `griduncn`; `concoutput` zeroes `creceptor` and `gridunc`. The
 //!   port leaves resetting the accumulators to the caller.
+//! * **Only `concoutput` honours `lparticlecountoutput`.** `concoutput_nest`
+//!   and `concoutput_surf` have no particle-count branch and always write
+//!   `grid*factor3d/tot_mu`; with particle-count output on, their files
+//!   hold particle counts times `1e12/volume/outnum` under a concentration
+//!   file name. Observed in the fixture (variant V2) and reproduced.
 //! * **Receptor concentrations are written whenever `numreceptor > 0`**,
 //!   also for `iout = 2`, when `openreceptors.f90` has not opened the unit
 //!   (gfortran then writes `fort.91`). Not reproduced (file I/O); the record
@@ -238,7 +243,7 @@ pub struct ConcOutputSettings {
     /// `memind(2)`, 1-based time slot (ignored by [`Routine::Surface`]).
     pub memind2: usize,
     /// `lparticlecountoutput` (a `par_mod` parameter): write grid values
-    /// unconverted.
+    /// unconverted. Honoured by [`Routine::Concoutput`] only, as upstream.
     pub particle_count_output: bool,
     /// Output level tops, m (`outheight(1:numzgrid)`).
     pub outheight: Vec<f64>,
@@ -616,8 +621,20 @@ pub fn concoutput(
                         // Deposition: mean_mixed_dsd (real(dep_prec) sample,
                         // real(sp) mean, real(dep_prec) sigma).
                         for (on, g, tot, sigtot, isw) in [
-                            (do_wet, wetgridunc, &mut wetgridtotal, &mut wetgridsigmatotal, true),
-                            (do_dry, drygridunc, &mut drygridtotal, &mut drygridsigmatotal, false),
+                            (
+                                do_wet,
+                                wetgridunc,
+                                &mut wetgridtotal,
+                                &mut wetgridsigmatotal,
+                                true,
+                            ),
+                            (
+                                do_dry,
+                                drygridunc,
+                                &mut drygridtotal,
+                                &mut drygridsigmatotal,
+                                false,
+                            ),
                         ] {
                             if !on {
                                 continue;
@@ -684,7 +701,8 @@ pub fn concoutput(
                         cells3(),
                         |c| st.grid[c] > SMALLNUM,
                         |f, c| {
-                            if set.particle_count_output {
+                            // Only concoutput.f90 has the count branch.
+                            if set.particle_count_output && set.routine == Routine::Concoutput {
                                 f * st.grid[c]
                             } else {
                                 f * st.grid[c] * factor3d[c] / tot_mu(ks, kp)

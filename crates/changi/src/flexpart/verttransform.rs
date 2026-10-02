@@ -567,7 +567,7 @@ fn polar_caps(grid: &VertGrid, polar: &PolarCaps, gfs: bool, out: &mut ZFields) 
     let nymin1 = ny - 1;
     let ixc = nx / 2 - 1;
     if polar.nglobal {
-        let j0 = (fortran_int(polar.switchnorthg) - 2) as usize;
+        let j0 = (fortran_int(polar.switchnorthg) - 1) as usize;
         for iz in 0..nz {
             for jy in j0..=nymin1 {
                 let ylat = g.ylat0 + jy as f64 * g.dy;

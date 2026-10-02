@@ -50,7 +50,8 @@
 ! routine under test is verbatim). The build compiles this driver three times
 ! per precision:
 !   V0  par_mod.f90 as shipped (maxspec = maxageclass = nclassunc = 1);
-!   V1  maxspec=2, maxageclass=2, nclassunc=4;
+!   V1  maxspec=2, maxageclass=2, nclassunc=3 (not a power of two, so the
+!       real(sp) mean xl/n*n of mean_mixed_dsd rounds);
 !   V2  as V1 plus lparticlecountoutput=.true.
 ! and, in the real(8) build ONLY, dep_prec=dp in all three. Reason, measured:
 ! upstream v10.4 does NOT COMPILE with -fdefault-real-8 and dep_prec=sp:
@@ -183,7 +184,7 @@ contains
   ! 4 griduncn, 5 wetgriduncn, 6 drygriduncn (kz = 0 for 2-D grids).
   ! A cell is zero in all classes when m <= 1 (runs of zeros for the sparse
   ! packing); for m = 6 all classes are equal (sigma exactly 0); otherwise
-  ! the classes differ. Values are k/64 * 2**e * scale: exact in real(4).
+  ! the classes differ (class 2 by a factor ~2**-24, see the end). Values are k/64 * 2**e * scale: exact in real(4).
   real function gval(icase, ix, jy, kz, ks, kp, l, nage, ikind)
     integer, intent(in) :: icase, ix, jy, kz, ks, kp, l, nage, ikind
     integer :: m, k, e
@@ -199,6 +200,10 @@ contains
     end if
     e = mod(ix + jy + kz + ikind, 5) - 2
     gval = real(k) / 64. * 2.**e * cscale(icase)
+    ! Class 2 is 2**24 times smaller (still exact in real(4)): class sums
+    ! then need more than 24 bits, so the explicit real(sp) roundings
+    ! (wetgrid/drygrid means, gridtotal) are exercised, not merely exact.
+    if (m /= 6 .and. l == 2) gval = gval * 2.**(-24)
   end function gval
 
   ! Mass scale per case. Case 3 uses ~1e-17 kg so that the one-pass variance
@@ -746,7 +751,8 @@ contains
       select case (isched)
       case (1)   ! the defaults of readcommand.f90: 3 h output, 900 s sync
         loutstep = 10800; loutaver = 10800; loutsample = 900; lsynctime = 900; ideltas = 43200
-      case (2)   ! averaging shorter than the output step
+      case (2)   ! averaging shorter than the output step; iout = 5
+        iout = 5
         loutstep = 10800; loutaver = 3600; loutsample = 1800; lsynctime = 900; ideltas = 32400
       case (3)   ! backward run: readcommand.f90:629-631 negates the steps
         ldirect = -1
@@ -981,7 +987,7 @@ contains
       select case (ic)
       case (2); ioutputforeachrelease = 1
       case (3); itramem(j) = 7200                 ! released now: initialize
-      case (4); itime = 0; itra1(j) = 0; itramem(j) = 0
+      case (4); itime = 0; itra1(j) = 0; itramem(j) = -3600  ! e.g. read from a restart
       case (5); itramem(j) = itime - 3600         ! itage == lage(1): class 2
       case (6); itramem(j) = itime - 90000        ! older than every class
       case (7); DRYBKDEP = .true.
@@ -1039,7 +1045,9 @@ contains
   subroutine tm_post(itime, j, nstop, prob, ldeltat, nage, kp, xmassfract)
     integer, intent(in) :: itime, j, nstop, ldeltat, nage, kp
     real, intent(in) :: prob(maxspec)
-    real, intent(out) :: xmassfract
+    ! inout, not out: xmassfract is not assigned when nstop > 1, and the
+    ! caller's preset must survive so the row shows "not computed".
+    real, intent(inout) :: xmassfract
     integer :: ks
     real :: decfact
 

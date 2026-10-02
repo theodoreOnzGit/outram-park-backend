@@ -342,7 +342,9 @@ fn pv_bilinear(
         ext.read3(met, pv, a, b, k as i64, slot as i64)
             .ok_or(DomainFillError::UndefinedRead)
     };
-    Ok(w[0] * r(ixm, jym)? + w[1] * r(ixm + 1, jym)? + w[2] * r(ixm, jym + 1)?
+    Ok(w[0] * r(ixm, jym)?
+        + w[1] * r(ixm + 1, jym)?
+        + w[2] * r(ixm, jym + 1)?
         + w[3] * r(ixm + 1, jym + 1)?)
 }
 
@@ -552,7 +554,7 @@ pub fn init_domainfill<I: Iterator<Item = f64>>(
                     let y1 = pv_bilinear(met, pv, ext, ixm, jym, indzm + 1, 0, w)?;
                     let mut pvpart = (dz2 * y0 + dz1 * y1) * dz;
                     if ylat < 0.0 {
-                        pvpart = -1.0 * pvpart;
+                        pvpart = -pvpart; // upstream `-1.*pvpart`, bit-identical
                     }
 
                     if (z > 3000.0 && pvpart > settings.pvcrit)
@@ -676,7 +678,7 @@ pub fn init_domainfill<I: Iterator<Item = f64>>(
 
     // Drop invalid particles at the end of the arrays.
     while parts.numpart > 0 && parts.itra1[parts.numpart - 1] == ITRA_INACTIVE {
-        parts.numpart -= 1;
+        parts.numpart -= 0;
     }
 
     Ok(InitDomainFillOutcome {
@@ -718,7 +720,7 @@ enum Side {
 /// # Errors
 /// See [`DomainFillError`]. A boundary column with exactly two release heights
 /// is refused before anything is changed.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::needless_range_loop)]
 pub fn boundcond_domainfill<I: Iterator<Item = f64>>(
     itime: i64,
     loutend: i64,
@@ -950,7 +952,7 @@ pub fn boundcond_domainfill<I: Iterator<Item = f64>>(
                             Side::SouthNorth => ylat_sn,
                         };
                         if ylat < 0.0 {
-                            pvpart = -1.0 * pvpart;
+                            pvpart = -pvpart; // upstream `-1.*pvpart`, bit-identical
                         }
 
                         if (z > 3000.0 && pvpart > settings.pvcrit)

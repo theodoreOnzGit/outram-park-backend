@@ -392,6 +392,7 @@ fn fint(x: f64) -> i64 {
     x.trunc() as i64
 }
 
+#[allow(clippy::too_many_arguments)]
 /// A 3-D read on the mother grid (static) or a nest (allocatable: refused
 /// outside the filled grid).
 fn read3(
@@ -445,7 +446,7 @@ fn pick_tt(m: &MetFields) -> &[f64] {
 ///
 /// # Errors
 /// See [`ReleaseError`].
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::needless_range_loop)]
 pub fn releaseparticles<I: Iterator<Item = f64>>(
     itime: i64,
     points: &[ReleasePoint],
@@ -512,8 +513,8 @@ pub fn releaseparticles<I: Iterator<Item = f64>>(
 
         // Species- and time-dependent correction factor.
         let mut average_timecorrect = 0.0;
-        let point_source = (pt.xpoint2 - pt.xpoint1).abs() < 1.0e-4
-            && (pt.ypoint2 - pt.ypoint1).abs() < 1.0e-4;
+        let point_source =
+            (pt.xpoint2 - pt.xpoint1).abs() < 1.0e-4 && (pt.ypoint2 - pt.ypoint1).abs() < 1.0e-4;
         for (k, tc) in timecorrect.iter_mut().enumerate() {
             *tc = if point_source {
                 variation.point_hour[k * 24 + h] * variation.point_dow[k * 7 + d]
@@ -571,8 +572,8 @@ pub fn releaseparticles<I: Iterator<Item = f64>>(
                     parts.xscav_frac1[ipart * nspec + k] = -1.0;
                 }
             }
-            parts.nclass[ipart] = (fint(draw(draws)? * settings.nclassunc as f64) + 1)
-                .min(settings.nclassunc);
+            parts.nclass[ipart] =
+                (fint(draw(draws)? * settings.nclassunc as f64) + 1).min(settings.nclassunc);
             parts.numparticlecount += 1;
             parts.npoint[ipart] = if settings.mquasilag {
                 parts.numparticlecount

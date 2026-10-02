@@ -16,7 +16,7 @@
 #
 # par_mod.f90 copies (FLEXPART's user configuration; checked diff counts):
 #   V0  as shipped                     (real(8) build: + dep_prec=dp)
-#   V1  maxspec=2, maxageclass=2, nclassunc=4         (real(8): + dep_prec=dp)
+#   V1  maxspec=2, maxageclass=2, nclassunc=3         (real(8): + dep_prec=dp)
 #   V2  as V1 + lparticlecountoutput=.true.           (real(8): + dep_prec=dp)
 # dep_prec=dp is REQUIRED in the real(8) build: with -fdefault-real-8 and the
 # shipped dep_prec=sp, concoutput*.f90 do not compile (no specific of the
@@ -57,9 +57,9 @@ make_par_mod () {
   local variant="$1" tag="$2" dest="$3" want=0
   cp "$SRC/par_mod.f90" "$dest"
   if [ "$variant" != V0 ]; then
-    sed -i -e 's/maxageclass=1,nclassunc=1$/maxageclass=2,nclassunc=4/' \
+    sed -i -e 's/maxageclass=1,nclassunc=1$/maxageclass=2,nclassunc=3/' \
            -e 's/:: maxspec=1$/:: maxspec=2/' "$dest"
-    grep -q 'maxageclass=2,nclassunc=4' "$dest"
+    grep -q 'maxageclass=2,nclassunc=3' "$dest"
     grep -q ':: maxspec=2$' "$dest"
     want=$((want + 2))
   fi
