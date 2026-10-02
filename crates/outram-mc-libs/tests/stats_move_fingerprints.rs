@@ -44,6 +44,16 @@
 //!
 //! After the move: identical, all six.
 //!
+//! **Added 2026-10-02 for GitHub issue #486** (CSG description, navigation
+//! kernel and tally-mesh description move to `outram-blender`), pinned on
+//! `40b6ba9fca` before that move:
+//!
+//! | case | fingerprint | detail |
+//! |---|---|---|
+//! | `csg_nested_lattice_navigation` | `0xa10fb6daad87f539` | 3104 of 4000 random points located; 17220 flight events with `cross_surface_in_frame` |
+//! | `csg_nested_lattice_keff` | `0x509ddd7ff08feef7` | `k = 0x3ffb9180edbe43e9 +/- 0x3f8b269ad03f0271` |
+//! | `tally_meshes` | `0x574737c051c52969` | four meshes: bins, volumes, surface crossings |
+//!
 //! **Platform caveat.** `sample_normal` calls the platform `cos` unless the
 //! `deterministic-math` feature is on, and the transport drivers call the
 //! platform `cos`/`sin` too, so a different libm (macOS, Windows) can give
@@ -459,5 +469,412 @@ fn shannon_entropy_is_bit_identical() {
         fp.0,
         0x5c785611104f059b,
         &format!("H = {:#018x}", h.to_bits()),
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// GitHub issue #486 (2026-10-02): the CSG description, the pure navigation
+// kernel and the tally-mesh description move to `outram-blender`. The cases
+// below pin a nested hex -> pebble -> rect-lattice TRISO model through every
+// moved kernel (surface evaluate/distance/normal/sense, `Cell::contains`,
+// `Universe::find_cell`, `Geometry::locate` / `distance_to_boundary`, lattice
+// indices and distances), through the transport-state work that stays in
+// outram-mc (`cross_surface_in_frame`, reflection off a cylinder and two
+// planes), through a k-eigenvalue run on the same model, through the TRISO
+// particle builder and through all four tally meshes. Pinned on `40b6ba9fca`
+// (before the move), by the same print-then-pin method as the cases above.
+// ════════════════════════════════════════════════════════════════════════
+
+/// Deterministic 64-bit stream for the probes (splitmix64), independent of the
+/// crate's own RNG so a change there cannot hide a change here.
+struct Probe(u64);
+
+impl Probe {
+    fn next(&mut self) -> f64 {
+        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^= z >> 31;
+        (z >> 11) as f64 / (1u64 << 53) as f64
+    }
+    fn range(&mut self, lo: f64, hi: f64) -> f64 {
+        lo + (hi - lo) * self.next()
+    }
+    fn direction(&mut self) -> outram_mc_libs::geometry::position::Direction {
+        let mu = self.range(-1.0, 1.0);
+        let phi = self.range(0.0, std::f64::consts::TAU);
+        let s = (1.0 - mu * mu).sqrt();
+        outram_mc_libs::geometry::position::Direction::new(s * phi.cos(), s * phi.sin(), mu)
+    }
+}
+
+/// Hex lattice (3 rings, pitch 2 cm, Y orientation) of "pebbles" (sphere
+/// r = 0.8) each holding a 2x2x2 rect lattice of five-shell TRISO particles,
+/// inside a reflective cylinder r = 3.6 cm between reflective planes z = +/-1.
+/// Material indices: 0 kernel, 1..=4 coatings, 5 matrix, 6 coolant.
+fn hex_pebble_triso_geometry() -> Geometry {
+    use outram_mc_libs::geometry::cell::CellFill;
+    use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
+    use outram_mc_libs::geometry::surface::{ZCylinder, ZPlane};
+    use outram_mc_libs::geometry::triso_particle::{
+        build_triso_particle, TrisoMaterials, TrisoRadii,
+    };
+
+    // TRISO universe first: surfaces 0..5, cells 0..6, universe index 0.
+    let triso = build_triso_particle(
+        Position::ZERO,
+        TrisoRadii {
+            kernel: 0.025,
+            buffer: 0.035,
+            ipyc: 0.039,
+            sic: 0.0425,
+            opyc: 0.0465,
+        },
+        TrisoMaterials {
+            kernel: 0,
+            buffer: 1,
+            ipyc: 2,
+            sic: 3,
+            opyc: 4,
+            matrix: 5,
+        },
+        900.0,
+        5,
+        0,
+        0,
+    );
+    let mut surfaces = triso.surfaces.clone();
+    let mut cells = triso.cells.clone();
+    let mut universes = vec![triso.universe.clone()];
+
+    let inside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Inside,
+    };
+    let outside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Outside,
+    };
+
+    // 5: pebble sphere; 6: root cylinder; 7, 8: z planes.
+    surfaces.push(SurfaceKind::Sphere(Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: 0.8,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: 3.6,
+        bc: BoundaryType::Reflective,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: -1.0,
+        bc: BoundaryType::Reflective,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: 1.0,
+        bc: BoundaryType::Reflective,
+    }));
+
+    // Universe index 1: pebble = TRISO rect lattice inside the sphere,
+    // coolant outside.
+    let c_pebble = cells.len();
+    cells.push(Cell::fill(21, vec![inside(5)], CellFill::Lattice(1), Position::ZERO));
+    cells.push(Cell::material(22, vec![outside(5)], 6, 900.0));
+    universes.push(Universe {
+        id: 1,
+        cell_indices: vec![c_pebble, c_pebble + 1],
+    });
+    // Universe index 2: coolant only (the hex lattice's outer universe). An
+    // empty region contains nothing here (`Cell::contains` returns `false` on
+    // an empty stack), so "everywhere" is written as `-5 | +5`.
+    let c_cool = cells.len();
+    cells.push(Cell::material(
+        23,
+        vec![inside(5), outside(5), RegionToken::Union],
+        6,
+        900.0,
+    ));
+    universes.push(Universe {
+        id: 2,
+        cell_indices: vec![c_cool],
+    });
+    // Universe index 3: root.
+    let c_root = cells.len();
+    cells.push(Cell::fill(
+        24,
+        vec![
+            inside(6),
+            outside(7),
+            RegionToken::Intersection,
+            inside(8),
+            RegionToken::Intersection,
+        ],
+        CellFill::Lattice(0),
+        Position::ZERO,
+    ));
+    universes.push(Universe {
+        id: 3,
+        cell_indices: vec![c_root],
+    });
+
+    // Hex rings outer -> inner: 12, 6, 1 tiles; pebbles mixed with coolant.
+    let ring = |n: usize, k: usize| -> Vec<usize> {
+        (0..n).map(|i| if (i + k) % 3 == 0 { 2 } else { 1 }).collect()
+    };
+    let hex = HexLattice::from_rings(
+        0,
+        HexOrientation::Y,
+        Position::ZERO,
+        2.0,
+        &[ring(12, 0), ring(6, 1), vec![1]],
+        Some(2),
+    );
+    let triso_lattice = RectLattice {
+        id: 1,
+        n: [2, 2, 2],
+        lower_left: Position::new(-0.4, -0.4, -0.4),
+        pitch: [0.4, 0.4, 0.4],
+        universes: vec![0; 8],
+        outer: Some(0),
+    };
+
+    Geometry {
+        surfaces,
+        cells,
+        universes,
+        lattices: vec![Lattice::Hex(hex), Lattice::Rect(triso_lattice)],
+        root_universe: 3,
+    }
+}
+
+/// Pure navigation kernel plus the surface-crossing walk (#486).
+#[test]
+fn csg_nested_lattice_navigation_is_bit_identical() {
+    use outram_mc_libs::geometry::cell::SurfaceToken;
+    use outram_mc_libs::geometry::geometry::Crossing;
+    use outram_mc_libs::geometry::position::stream;
+
+    let geom = hex_pebble_triso_geometry();
+    let mut p = Probe(0x486);
+    let mut fp = Fp::new();
+    let mut n_located = 0usize;
+
+    // (1) Point location and boundary distance from random points.
+    for _ in 0..4000 {
+        let r = Position::new(p.range(-3.6, 3.6), p.range(-3.6, 3.6), p.range(-1.0, 1.0));
+        let u = p.direction();
+        match geom.locate(r, u, SurfaceToken::NONE) {
+            Some(path) => {
+                n_located += 1;
+                fp.f(path.levels.len() as f64);
+                fp.f(path.material.map_or(-1.0, |m| m as f64));
+                for c in &path.levels {
+                    fp.f(c.cell as f64);
+                    fp.fs(&[c.r.x, c.r.y, c.r.z, c.offset.x, c.offset.y, c.offset.z]);
+                    fp.fs(&c.lattice_index.map(f64::from));
+                }
+                let hit = geom.distance_to_boundary(&path);
+                fp.f(hit.distance);
+                fp.f(hit.coord_level as f64);
+                fp.f(match hit.crossing {
+                    Crossing::Surface(i) => i as f64,
+                    Crossing::Lattice => -2.0,
+                    Crossing::None => -3.0,
+                });
+            }
+            None => fp.f(-7.0),
+        }
+    }
+
+    // (2) Surface kernels on every surface.
+    for _ in 0..500 {
+        let r = Position::new(p.range(-4.0, 4.0), p.range(-4.0, 4.0), p.range(-1.5, 1.5));
+        let u = p.direction();
+        for s in &geom.surfaces {
+            let n = s.normal(r);
+            fp.fs(&[s.evaluate(r), s.distance(r, u, false), n.u, n.v, n.w]);
+            fp.f(if s.sense(r, u) { 1.0 } else { 0.0 });
+        }
+    }
+
+    // (3) Flights: locate, distance, cross (outram-mc's transport-state work)
+    // and re-locate, up to 60 events per history, as the CSG transport loop
+    // does.
+    const NUDGE: f64 = 1.0e-8;
+    let mut seed = 0x486_u64;
+    let mut n_events = 0usize;
+    for _ in 0..300 {
+        let mut r = Position::new(p.range(-3.0, 3.0), p.range(-3.0, 3.0), p.range(-0.9, 0.9));
+        let mut u = p.direction();
+        let mut on = SurfaceToken::NONE;
+        for _ in 0..60 {
+            let Some(path) = geom.locate(r, u, on) else {
+                fp.f(-9.0);
+                break;
+            };
+            let hit = geom.distance_to_boundary(&path);
+            fp.f(hit.distance);
+            fp.f(path.material.map_or(-1.0, |m| m as f64));
+            n_events += 1;
+            match hit.crossing {
+                Crossing::Surface(i) => {
+                    let r_hit = stream(r, u, hit.distance);
+                    let x = geom.cross_surface_in_frame(
+                        i,
+                        &path,
+                        hit.coord_level,
+                        r_hit,
+                        u,
+                        &mut seed,
+                    );
+                    fp.fs(&[x.r.x, x.r.y, x.r.z, x.u.u, x.u.v, x.u.w]);
+                    if !x.alive {
+                        break;
+                    }
+                    r = x.r;
+                    u = x.u;
+                    on = x.on_surface;
+                }
+                Crossing::Lattice => {
+                    r = stream(stream(r, u, hit.distance), u, NUDGE);
+                    on = SurfaceToken::NONE;
+                }
+                Crossing::None => break,
+            }
+        }
+    }
+
+    check(
+        "csg_nested_lattice_navigation",
+        fp.0,
+        0xa10fb6daad87f539,
+        &format!("{n_located} of 4000 points located, {n_events} flight events"),
+    );
+}
+
+/// k-eigenvalue transport through the nested hex/rect lattice model (#486).
+#[test]
+fn csg_nested_lattice_keff_is_bit_identical() {
+    let nuclides = vec![
+        Nuclide::from_core("U235").unwrap(),
+        Nuclide::from_core("U238").unwrap(),
+        Nuclide::from_core("O16").unwrap(),
+        Nuclide::from_core("C0").unwrap(),
+        Nuclide::from_core("Si28").unwrap(),
+    ];
+    let nc = |nuclide_idx: usize, atom_density: f64| NuclideComponent {
+        nuclide_idx,
+        atom_density,
+    };
+    let mat = |id: i32, components: Vec<NuclideComponent>| Material {
+        id,
+        name: format!("m{id}"),
+        temperature: 900.0,
+        components,
+    };
+    let materials = vec![
+        mat(1, vec![nc(0, 0.0047), nc(1, 0.0188), nc(2, 0.047)]),
+        mat(2, vec![nc(3, 0.0501)]),
+        mat(3, vec![nc(3, 0.0953)]),
+        mat(4, vec![nc(4, 0.0481), nc(3, 0.0481)]),
+        mat(5, vec![nc(3, 0.0938)]),
+        mat(6, vec![nc(3, 0.0852)]),
+        mat(7, vec![nc(3, 0.0050)]),
+    ];
+    let settings = KeffSettings {
+        n_particles: 400,
+        n_inactive: 8,
+        n_active: 16,
+        temperature_k: 900.0,
+        ..KeffSettings::default()
+    };
+    let src = SourceBox {
+        lower: Position::new(-2.0, -2.0, -0.8),
+        upper: Position::new(2.0, 2.0, 0.8),
+    };
+    let r = outram_mc_libs::physics::transport_csg::run_keff_csg(
+        &hex_pebble_triso_geometry(),
+        &materials,
+        &nuclides,
+        src,
+        &settings,
+        None,
+    );
+    let mut fp = Fp::new();
+    fp.keff(&r);
+    check(
+        "csg_nested_lattice_keff",
+        fp.0,
+        0x509ddd7ff08feef7,
+        &format!(
+            "k = {:#018x} +/- {:#018x}",
+            r.k_mean.to_bits(),
+            r.k_std.to_bits()
+        ),
+    );
+}
+
+/// All four tally meshes: bin lookup, volumes and surface crossings (#486).
+#[test]
+fn tally_meshes_are_bit_identical() {
+    use outram_mc_libs::tally::mesh::{CylindricalMesh, MeshKind, RectilinearMesh, SphericalMesh};
+    let regular = RegularMesh {
+        lower_left: [-2.0, -1.5, -1.0],
+        upper_right: [2.0, 1.5, 1.0],
+        dimension: [5, 4, 3],
+    };
+    let meshes = [
+        MeshKind::Regular(regular.clone()),
+        MeshKind::Rectilinear(RectilinearMesh {
+            grid: [
+                vec![-2.0, -0.5, 0.1, 2.0],
+                vec![-1.5, 0.0, 1.5],
+                vec![-1.0, -0.2, 0.3, 1.0],
+            ],
+        }),
+        MeshKind::Cylindrical(CylindricalMesh {
+            r_grid: vec![0.0, 0.5, 1.2, 2.0],
+            phi_grid: vec![0.0, 2.0, 4.0, std::f64::consts::TAU],
+            z_grid: vec![-1.0, 0.0, 1.0],
+            origin: Position::new(0.1, -0.2, 0.0),
+        }),
+        MeshKind::Spherical(SphericalMesh {
+            r_grid: vec![0.0, 0.7, 1.4, 2.1],
+            theta_grid: vec![0.0, 1.0, std::f64::consts::PI],
+            phi_grid: vec![0.0, 3.0, std::f64::consts::TAU],
+            origin: Position::new(0.0, 0.0, 0.1),
+        }),
+    ];
+    let mut p = Probe(0x4860e5);
+    let mut fp = Fp::new();
+    for m in &meshes {
+        fp.f(m.n_bins() as f64);
+        for b in 0..m.n_bins() {
+            fp.f(m.bin_volume(b).unwrap_or(-1.0));
+        }
+        for _ in 0..3000 {
+            let r = Position::new(p.range(-2.5, 2.5), p.range(-2.0, 2.0), p.range(-1.5, 1.5));
+            fp.f(m.bin(r).map_or(-1.0, |b| b as f64));
+        }
+    }
+    fp.f(regular.n_surface_bins() as f64);
+    for _ in 0..2000 {
+        let r0 = Position::new(p.range(-2.5, 2.5), p.range(-2.0, 2.0), p.range(-1.5, 1.5));
+        let r1 = Position::new(p.range(-2.5, 2.5), p.range(-2.0, 2.0), p.range(-1.5, 1.5));
+        fp.f(regular.get_bin(r0).map_or(-1.0, |b| b as f64));
+        for b in regular.surface_bins_crossed(r0, r1) {
+            fp.f(b as f64);
+        }
+    }
+    check(
+        "tally_meshes",
+        fp.0,
+        0x574737c051c52969,
+        "four meshes: bins, volumes, surface crossings",
     );
 }
