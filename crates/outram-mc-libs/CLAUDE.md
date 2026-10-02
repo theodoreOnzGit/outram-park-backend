@@ -763,9 +763,8 @@ site here, in `boon-lay` and in `nee_soon` is unchanged.
   `outram_blender::gnn_graph` (GitHub issue #486). **`raffles` must never
   depend on this crate again.** The reverse edge, this crate -> `raffles`, is
   **allowed** (maintainer, 2026-10-02: RAFFLES is a statistics crate that can
-  speed up Monte Carlo) now that `raffles` depends only on `petir` — add it
-  when something here actually uses RAFFLES, not before (no orphaned
-  dependencies).
+  speed up Monte Carlo) now that `raffles` depends only on `petir`, and it was
+  added the same day with real consumers — see the next section.
 - **No random number moved.** `petir::rng::lcg`'s `moved_stream_is_pinned`
   pins values printed by the pre-move file compiled standalone.
 - **The GPU kernels compose, they do not copy.** `batched_flight.wgsl` and
@@ -773,9 +772,40 @@ site here, in `boon-lay` and in `nee_soon` is unchanged.
   and `gpu::batched_event::shader_source()` prepend `petir::wgsl::LCG` and the
   kernels call `petir_lcg_next`. Test probes must use `shader_source()`, not
   `include_str!` of the kernel file, which no longer compiles on its own.
-- **`rng::distributions` stays here**: it calls `cos`/`sin` through this
-  crate's `mathf` route (platform libm by default), which a `no_std` PETIR copy
-  could not reproduce bit for bit.
+- **`rng::distributions` did not go to PETIR**: it calls `cos`/`sin` through
+  this crate's `mathf` route (platform libm by default), which a `no_std`
+  PETIR copy could not reproduce bit for bit. (Its generic samplers later went
+  to RAFFLES instead, with the routing preserved — next section.)
+
+### Generic statistics live in RAFFLES (2026-10-02, GitHub #500)
+
+**The maths on numbers lives in `raffles`; deciding what is counted stays
+here.** Moved, byte for byte, and re-exported at the old paths:
+
+| was | now | what stays here |
+|---|---|---|
+| `mean_and_stderr`, four identical private copies (`physics/keff.rs`, `physics/transport_csg.rs`, `physics/physics_mg.rs`, `pebble_beds/keff_delta.rs`) | `raffles::estimators::mean_and_stderr` | choice of active generations |
+| `tally::mesh::RegularMesh::shannon_entropy`'s formula | `raffles::estimators::shannon_entropy_bits` | `count_sites` (binning the bank) |
+| `vv::pooled` | `raffles::estimators::pooled` (re-exported) | `bench_seeds`, `bench_run_size`, `bench_speed` |
+| `tally::trigger::{BinStats, bin_uncertainty, predict_batches}` | `raffles::estimators` (re-exported) | `Trigger`, `TriggerMetric`, `bin_ratio`, `limiting_ratio`, `satisfied` |
+| `tally::arithmetic` propagation formulas | `raffles::estimators::{sigma_sum, product_with_sigma, quotient_with_sigma, sum_with_sigma}` | `DerivedTally` readout and selection |
+| `rng::distributions::{uniform, sample_normal, sample_normal_3d, sample_exp}` | `raffles::distributions::seeded` (re-exported) | `maxwell`, `watt`, `isotropic_direction` |
+
+- **Bit-identical, measured.** `tests/stats_move_fingerprints.rs` pins six
+  fingerprints (Godiva `run_keff`; Godiva CSG with entropy mesh and a k
+  trigger; a two-group MG sphere; the FHR explicit-TRISO delta-tracking
+  pebble; pure statistics; Shannon entropy), printed before the move and
+  unchanged after it.
+- **`mean_and_stderr` and `pooled` are deliberately NOT merged**:
+  `sqrt(var / n)` and `sqrt(var) / sqrt(n)` differ in the last bit.
+- **`deterministic-math` forwards to `raffles/deterministic-math`**, so
+  `sample_normal`'s `cos` keeps this crate's routing.
+- **Not moved, because it does not exist:** a χ²/dof consistency check of
+  seed values against their internal σ. `vv.rs` has no such function; it
+  belongs with #494 when that lands.
+- RAFFLES is Adolphus Lye's crate; the move was the workspace maintainer's
+  direction and is recorded in `crates/raffles/CLAUDE.md` with their review
+  outstanding.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 

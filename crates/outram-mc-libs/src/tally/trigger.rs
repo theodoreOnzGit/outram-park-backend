@@ -39,51 +39,17 @@ pub struct Trigger {
     pub ignore_zeros: bool,
 }
 
-/// Running sums for one tally bin across realizations.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct BinStats {
-    /// Sum of the per-realization values.
-    pub sum: f64,
-    /// Sum of their squares.
-    pub sum_sq: f64,
-}
-
-/// Mean, standard deviation **of the mean**, and relative error for a bin over
-/// `n` realizations — `get_tally_uncertainty` (`src/tallies/trigger.cpp:30`).
+/// Running sums for one tally bin across realizations, and the mean /
+/// standard-deviation-of-the-mean / relative error computed from them —
+/// `get_tally_uncertainty` (`src/tallies/trigger.cpp:30`).
 ///
-/// Returns `None` for a bin whose mean is exactly zero, which upstream signals
-/// with a `(-1, -1)` sentinel pair. A `None` here is "no contributions", not
-/// "converged to zero", and the caller must keep those distinct.
-///
-/// # The formula is the standard error, not the sample spread
-///
-/// ```text
-/// mean    = sum / n
-/// std_dev = sqrt( (sum_sq / n - mean^2) / (n - 1) )
-/// rel_err = std_dev / |mean|
-/// ```
-///
-/// Note the `(n - 1)` is **outside** the parenthesis, so this is the
-/// uncertainty **on the mean**, not the spread of the realizations. Getting
-/// that wrong by a factor of `sqrt(n)` would make every trigger fire far too
-/// early and the runs would look wonderfully cheap.
-pub fn bin_uncertainty(stats: BinStats, n: usize) -> Option<(f64, f64, f64)> {
-    if n < 2 {
-        return None;
-    }
-    let nf = n as f64;
-    let mean = stats.sum / nf;
-    if mean == 0.0 {
-        return None;
-    }
-    // Same cancelling form as `TallyBin::rel_std_dev` carried before
-    // `variance()` existed; clamped here so a cancelled variance reports as
-    // converged-to-zero rather than NaN, which would make a trigger
-    // comparison silently false.
-    let std_dev = ((stats.sum_sq / nf - mean * mean) / (nf - 1.0)).max(0.0).sqrt();
-    let rel_err = std_dev / mean.abs();
-    Some((mean, std_dev, rel_err))
-}
+/// **Moved 2026-10-02** to [`raffles::estimators`] (GitHub #500), byte for
+/// byte, and re-exported here. What stays in this module is the trigger
+/// POLICY: the metrics, thresholds, `ignore_zeros`, the deliberate
+/// variance-branch divergence from upstream, and when to stop. See
+/// [`raffles::estimators::bin_uncertainty`] for the formula (the uncertainty is
+/// on the mean, `(n - 1)` outside the parenthesis).
+pub use raffles::estimators::{bin_uncertainty, BinStats};
 
 /// The uncertainty/threshold ratio for one bin under one trigger, or
 /// `INFINITY` for an unmeasured bin that the trigger does not ignore.
@@ -172,25 +138,9 @@ pub fn satisfied(ratio: f64) -> bool {
 }
 
 /// Predicted total batches needed, assuming variance falls as `1/N`
-/// (`:209-215`):
-///
-/// ```text
-/// n_pred = (int)(n_active * ratio^2) + n_inactive + 1
-/// ```
-///
-/// Returns `None` when the ratio is infinite — a tally with no scores gives no
-/// basis for an estimate, and upstream says so rather than printing a number.
-pub fn predict_batches(
-    current_batch: usize,
-    n_inactive: usize,
-    ratio: f64,
-) -> Option<usize> {
-    if !ratio.is_finite() {
-        return None;
-    }
-    let n_active = current_batch.saturating_sub(n_inactive) as f64;
-    Some((n_active * ratio * ratio) as usize + n_inactive + 1)
-}
+/// (`src/tallies/trigger.cpp:209-215`). **Moved 2026-10-02** to
+/// [`raffles::estimators::predict_batches`] (GitHub #500), re-exported here.
+pub use raffles::estimators::predict_batches;
 
 #[cfg(test)]
 mod tests {

@@ -215,19 +215,10 @@ impl RegularMesh {
     /// # Parameters
     /// - `sites` — the fission bank for the generation just completed.
     pub fn shannon_entropy(&self, sites: &[crate::particle::bank::BankSite]) -> Option<f64> {
+        // Deciding what is counted (binning the bank on this mesh) stays
+        // here; the formula is RAFFLES' since 2026-10-02 (GitHub #500).
         let (counts, _outside) = self.count_sites(sites);
-        let total: f64 = counts.iter().sum();
-        if !(total > 0.0) {
-            return None;
-        }
-        let mut h = 0.0;
-        for c in &counts {
-            let p = c / total;
-            if p > 0.0 {
-                h -= p * p.log2();
-            }
-        }
-        Some(h)
+        raffles::estimators::shannon_entropy_bits(&counts)
     }
 }
 

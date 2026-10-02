@@ -36,7 +36,7 @@ maker: propose changes of direction to them rather than making them.
 
 | Module | What it holds |
 |---|---|
-| `distributions` | Probability distributions — densities, CDFs, inverse CDFs, analytic moments; continuous and discrete, truncated variants, multivariate |
+| `distributions` | Probability distributions — densities, CDFs, inverse CDFs, analytic moments; continuous and discrete, truncated variants, multivariate. Plus `distributions::seeded` (2026-10-02, from `outram-mc-libs`): uniform, Box-Muller normal and exponential deviates drawn directly from the workspace LCG seed |
 | `samplers` | Sampling strategies — Monte Carlo, Latin hypercube (RAVEN calls it `Stratified`), grid / full-factorial |
 | `sensitivity` | Importance measures from an evaluated sample — Sobol first-order and total indices, Pearson / Spearman / partial correlation |
 | `bayesian` | Bayesian model updating — independent priors, Metropolis–Hastings and affine-invariant ensemble moves, TMCMC and TEMCMC with the log-evidence as a by-product, and both published tempering criteria |
@@ -44,6 +44,7 @@ maker: propose changes of direction to them rather than making them.
 | `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
 | `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
 | `model_selection` | Comparing models by evidence — Bayes factors, posterior model probabilities, the Kass–Raftery scale |
+| `estimators` | Basic estimators moved from `outram-mc-libs` 2026-10-02 (GitHub #500, at the workspace maintainer's direction; owner review outstanding): sample mean and standard error, seed pooling, Shannon entropy over counts, running-sum (batch) uncertainty and batch prediction, first-order error propagation. Bit-identical to the outram-mc originals by contract |
 | `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, or a **ZBDD** for scale; coherent **and** non-coherent), derive its **prime implicants** where cut sets would be conservative, quantify the top event by rare-event, MCUB, exact inclusion-exclusion **or a BDD**, and rank the basic events by the five standard importance measures. Handles house events, **common-cause-failure groups** (all four models, applied by default) **substitutions** (delete terms, recovery rules, exchange events) and **alignments** (per-phase mission time and house events) and **uncertainty analysis** (Monte Carlo over the seven MEF random deviates), and **reads SCRAM's own Model Exchange Format input models** including `<define-component>` private namespaces and `<xi:include>`; no preprocessor |
 | `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
 | `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
@@ -181,6 +182,7 @@ lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 
 | Feature | Default | What it adds |
 |---|---|---|
+| `deterministic-math` | off | Routes `distributions::seeded::sample_normal`'s `cos` through `petir::real::cos` instead of the platform libm. `outram-mc-libs`' feature of the same name turns it on, so the samplers it re-exports keep their stream |
 | `burn` | off | Neural-network surrogates backed by [burn](https://github.com/tracel-ai/burn), this workspace's replacement for PyTorch. Pulls `burn` in `no_std` + `alloc` mode with the pure-Rust, libm-backed `ndarray` backend — no system BLAS and no GPU, so the Android and wasm builds stay clean. |
 
 ```bash

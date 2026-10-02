@@ -674,6 +674,32 @@ direction in the first place. The instruction is recorded as superseded rather
 than deleted, because the crate owner's review is still outstanding and the
 scope has moved a long way since it was written.
 
+**`src/estimators.rs` and `src/distributions/seeded.rs` were added on
+2026-10-02 at the workspace maintainer's direction, not the crate owner's**
+(GitHub issue #500, under the outram-mc ↔ RAFFLES epic #493). They hold
+generic statistics moved out of `outram-mc-libs` — sample mean and standard
+error, seed pooling, Shannon entropy over counts, the trigger's running-sum
+uncertainty and batch prediction, first-order error propagation — and three
+seed-driven samplers (`uniform`, Box-Muller `sample_normal`, `sample_exp`).
+The rule they follow: the maths on numbers lives here, and deciding *what* is
+counted stays in the physics crate. #493's ownership comment classes a new
+basic-estimators module as **needing Adolphus Lye's OK**; the maintainer
+directed it to land now, so, as with `scram/`, it is recorded here as a
+direction call that is **theirs to confirm or reverse**, with their review
+outstanding. Until they decide, two constraints bind anyone editing these
+files:
+
+- **Bit-identity is the contract.** `outram-mc-libs` pins k-eff results to the
+  bit through these functions (`tests/stats_move_fingerprints.rs` there). Do
+  not "tidy" an expression — a reassociated sum or a `sqrt(a)/sqrt(b)` in
+  place of `sqrt(a/b)` moves recorded results.
+- **They are not RAVEN ports** and carry no RAVEN header; each function names
+  the outram-mc file (and, through it, the OpenMC routine) it came from.
+
+`outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
+which is exactly why RAFFLES must stay free of physics and geometry
+dependencies.
+
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
 run-directory management; databases; RAVEN's optimisers; adaptive /
 model-in-the-loop samplers (they need the model-evaluation loop this crate

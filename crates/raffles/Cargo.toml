@@ -122,6 +122,12 @@ default = ["long-tests"]
 # its module decomposition, not its order pruning, is what makes the same
 # route fast there.
 long-tests = []
+# Route `distributions::seeded::sample_normal`'s `cos` through
+# `petir::real::cos` (deterministic across platforms) instead of the platform
+# libm. OFF by default, matching `outram-mc-libs`' feature of the same name,
+# which forwards to this one so the samplers it re-exports keep exactly the
+# stream they drew before they moved here (2026-10-02, GitHub #500).
+deterministic-math = []
 # Neural-network surrogates and graph neural networks via burn (no_std + alloc,
 # ndarray backend + autodiff). Consumed by `surrogate::neural`, `gnn::mpnn` and
 # `gnn::training`; everything else in the crate builds without it, which is why
