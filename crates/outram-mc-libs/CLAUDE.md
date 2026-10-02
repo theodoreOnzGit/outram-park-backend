@@ -547,6 +547,7 @@ a translation of it.
 |---|---|---|
 | RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting. **Moved 2026-10-02 to `petir::rng::lcg`** (Rust) and `petir::wgsl::LCG` (WGSL), re-exported here as `rng::lcg`; see "The RNG lives in PETIR" below |
 | Distributions | `src/random_dist.cpp` | Maxwell, Watt, tabulated samplers |
+| Geometry (all six rows below) | — | **MOVED 2026-10-02 to `outram_blender::csg` (GitHub #486)** with the pure navigation kernel; re-exported here under the same `geometry::*` paths. Transport-state work stays here: see "Geometry lives in outram-blender" below |
 | Geometry / position | `include/openmc/position.h` | 3-D position and direction vectors (cm) |
 | Geometry / surfaces | `src/surface.cpp` | Quadric CSG surfaces + distance/sense |
 | Geometry / cells | `src/cell.cpp` | Boolean RPN region evaluation |
@@ -606,7 +607,9 @@ capability-parity epic gh:#257:**
   of scope.~~ **REVERSED 2026-09-25 (maintainer direction: "make sure the
   plotting capabilities of openmc are properly ported over (to jpg or PNG)").**
   `src/plot.cpp`'s slice and ray-trace rasterisers, its default colour stream
-  and a PNG/PPM writer are ported in `src/geometry/plot/` and match
+  and a PNG/PPM writer are ported in ~~`src/geometry/plot/`~~
+  `outram_blender::csg::plot` (moved 2026-10-02, GitHub #486; re-exported here
+  as `geometry::plot`) and match
   `openmc --plot` pixel-for-pixel on 17 reference images
   (`verification_and_validation/geometry_plotting/README.md`). Voxel plots
   (HDF5 output) remain out of scope; the matplotlib-script emitter is kept.
@@ -731,7 +734,8 @@ bytes on disk. `no file I/O in the inner loop` is the invariant; `no HDF5
 anywhere in the workspace` never was one.
 
 **One exception, noted 2026-09-25:** the geometry plotter
-(`src/geometry/plot/`) encodes PNG/PPM itself — `ImageData::to_png_bytes` is
+(~~`src/geometry/plot/`~~ `outram_blender::csg::plot` since 2026-10-02,
+GitHub #486) encodes PNG/PPM itself — `ImageData::to_png_bytes` is
 the pure path, and `ImageData::write_png` is a one-line `std::fs::write`
 convenience at the end of a plot, never inside transport. The DEFLATE codec is
 `miniz_oxide`, already in this crate's tree via `njoy-outram-park-fork`.
@@ -776,6 +780,35 @@ site here, in `boon-lay` and in `nee_soon` is unchanged.
   this crate's `mathf` route (platform libm by default), which a `no_std`
   PETIR copy could not reproduce bit for bit. (Its generic samplers later went
   to RAFFLES instead, with the routing preserved — next section.)
+
+### Geometry lives in outram-blender (2026-10-02, GitHub #486)
+
+**The CSG description, its pure navigation kernel, the geometry plotter and
+the tally-mesh description live in `outram-blender`; this crate keeps the
+transport-state work and re-exports everything under the old paths.**
+Maintainer decisions recorded on GitHub #486.
+
+| moved to `outram_blender` | stays here |
+|---|---|
+| `csg::{position, surface, cell, universe, lattice, geometry, triso_particle}` (re-exported as `geometry::*`) | `geometry::crossing`: `GeometryExt` (`cross_surface`, `cross_surface_in_frame`, `distance_out_of_level`, `sigma_t_at`, `validate_boundary_conditions`), `SurfaceKindExt` (`diffuse_reflect`, `sphere_centre_radius`, `overlaps_voxel`), nudging and corner reflection |
+| `csg::plot` (re-exported as `geometry::plot`; `ModelPlot` is generic over `MaterialIdentity`, implemented for `Material` in `geometry/plot.rs`) | the plot-parity V&V (`tests/*plot_parity.rs`, `verification_and_validation/geometry_plotting/`) |
+| `spatial_mesh` (re-exported as `tally::mesh::*`) | `tally::mesh`: `RegularMeshExt`, `RectilinearMeshExt`, `CylindricalMeshExt`, `SphericalMeshExt`, `MeshKindExt` — bin lookup, `count_sites`, `shannon_entropy`, mesh-surface crossings |
+| — | distribcell, `virtual_lattice`, `volume_calc`, GPU encoders and WGSL |
+
+- **The `*Ext` traits are in the prelude.** Code that names `Geometry` or a
+  mesh by path needs one more `use` (e.g. `use
+  outram_mc_libs::geometry::crossing::GeometryExt;`); the compiler names the
+  trait when it is missing.
+- **outram-blender must never depend on this crate** (Cargo counts optional
+  deps for cycles). The workspace entry is `default-features = false` (no
+  wgpu); blender's mesh authoring and `faer` are still compiled, by
+  maintainer decision — the cost is in the `cargo tree` count.
+- **A change to the moved code is a change to this crate's transport.** The
+  bit-identity gate is `tests/stats_move_fingerprints.rs` (three #486 cases:
+  nested hex/rect-lattice TRISO navigation and crossings, a k run on it, and
+  all four tally meshes); the plot-parity tests stay here.
+- **Publishing:** a crates.io release of this crate needs `outram-blender`
+  and `petir` published at compatible versions (accepted by the maintainer).
 
 ### Generic statistics live in RAFFLES (2026-10-02, GitHub #500)
 

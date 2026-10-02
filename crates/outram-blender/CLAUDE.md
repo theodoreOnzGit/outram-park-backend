@@ -2,6 +2,13 @@
 
 Guidance for Claude Code (and other AI assistants) working in the `outram-blender` crate.
 
+**What this crate is (2026-10-02, GitHub #486): geometry description +
+meshing.** It owns the CSG geometry description and its pure navigation kernel
+(`csg`), the OpenMC-port geometry plotter (`csg::plot`), the Monte Carlo tally
+mesh description (`spatial_mesh`), and the mesh-authoring frontend (a GPL fork
+of Blender's mesh architecture) with its OpenFOAM bridges. It is planned to
+become the meshing nexus for FV/FE too (#492).
+
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
@@ -46,6 +53,10 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+**MOVED 2026-10-02 (GitHub #486):** the plotter now lives in this crate as
+`outram_blender::csg::plot` (re-exported unchanged as
+`outram_mc_libs::geometry::plot`); its pixel-parity V&V stays in
+`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`.
 
 ## Cargo features (2026-10-02)
 
@@ -55,7 +66,7 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 | ~~`mc-export`~~ | — | — | **RETIRED 2026-10-02** (#486): `to_mc_geometry`, `sim` and the `mc_godiva_keff` example moved to `nee_soon` |
 | `foam-export` | off | `outram-foam-basic-lib` | polyMesh read/write bridge |
 | `foam-mesh` | off | `outram-park-fork-cfmesh` | `foam_mesh` volume-meshing bridge |
-| `gnn-graph` | off | `raffles`, `outram-mc-libs` | `gnn_graph::cell_adjacency_graph` (CSG cells -> RAFFLES graph) |
+| `gnn-graph` | off | `raffles` (~~`outram-mc-libs`~~, gone since #486 stage 3a) | `gnn_graph::cell_adjacency_graph` (CSG cells -> RAFFLES graph) |
 
 - **`gpu` is a feature so dependents can drop `wgpu`** (GitHub issue #486):
   `default-features = false` gives the CPU path only. Every use of `crate::gpu`
@@ -66,7 +77,46 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
   `cargo test --release -p outram-blender --lib --tests` and the same with
   `--no-default-features`.
 - **`gnn-graph` lives here by maintainer decision** (2026-10-02): this crate
-  owns geometry description under #486. It needs `outram-mc-libs` only because
-  `Cell` lives there today. **`raffles` must not depend on this crate** (or on
-  `outram-mc-libs`); the edge runs geometry -> RAFFLES only.
+  owns geometry description under #486. ~~It needs `outram-mc-libs` only
+  because `Cell` lives there today.~~ **CORRECTED 2026-10-02:** `Cell` is
+  `crate::csg::cell::Cell` now, so the feature pulls only `raffles`.
+  **`raffles` must not depend on this crate** (or on `outram-mc-libs`); the
+  edge runs geometry -> RAFFLES only.
+- **There is no `mesh` feature** (maintainer decision 2026-10-02): mesh
+  authoring and `faer` are always compiled, even for `default-features =
+  false` dependents such as outram-mc-libs. `faer` is target-split in
+  `Cargo.toml` instead (no `rayon`/`rand` on wasm32) so the whole crate builds
+  for `wasm32-unknown-unknown`; it is in `scripts/check-wasm.sh`.
+
+## CSG description and tally meshes: what lives here, what does not (GitHub #486)
+
+Moved here from `outram-mc-libs` on 2026-10-02 (maintainer decisions recorded
+on GitHub #486):
+
+| here (`outram_blender`) | stays in `outram-mc-libs` |
+|---|---|
+| `csg::{position, surface, cell, universe, lattice, geometry, triso_particle}` — the description and the **pure** navigation kernel: surface evaluate / sense / distance / normal / reflect, `Cell::contains` / `distance_to_boundary`, `Universe::find_cell`, `Geometry::locate` / `distance_to_boundary`, lattice indices / local positions / distances | transport-state work on `*Ext` traits in `geometry::crossing`: `GeometryExt` (`cross_surface*`, nudging, corner reflection, `distance_out_of_level`, `sigma_t_at`, `validate_boundary_conditions`), `SurfaceKindExt` (`diffuse_reflect`, virtual-lattice helpers); distribcell, virtual lattices, `volume_calc`, GPU encoders and WGSL |
+| `csg::plot` — the OpenMC plotter (slices, ray traces, `ModelPlot`, PNG); materials enter through the `MaterialIdentity` trait | the plot-parity V&V tests (`tests/geometry_plot_openmc_parity.rs`, `python_plot_parity.rs`, `xs_and_tracks_plot_parity.rs`) and `impl MaterialIdentity for Material` |
+| `spatial_mesh` — Regular / Rectilinear / Cylindrical / Spherical meshes and `MeshKind` (bounds, edges, bin counts, volumes, public `unflatten`) | bin lookup and scoring on `RegularMeshExt` & co. (`get_bin`, `bin`, `indices`, `surface_bins_crossed`, `count_sites`, `shannon_entropy`) |
+| `export::to_csg_geometry` — fit a surface mesh and return a native CSG `Geometry` | — (`nee_soon::blender_bridge::to_mc_geometry` is a wrapper over it) |
+
+Rules that follow:
+
+- **This crate must never depend on `outram-mc-libs`**, not even optionally:
+  outram-mc depends on this crate, and Cargo counts optional dependencies when
+  it checks for cycles. A Monte Carlo bridge belongs in `nee_soon`.
+- **`MeshKind` is deliberately NOT `#[non_exhaustive]`**: the planned
+  `Unstructured(Arc<..>)` variant (#492) must break every `match` site at
+  compile time.
+- **Keep the documented raw-`f64`-cm API** in `csg` and `spatial_mesh` (no
+  `uom`): it is the particle-tracking inner loop; see outram-mc-libs'
+  `CLAUDE.md`, "Units: raw `f64`, not `uom`".
+- **Hot-path functions carry `#[inline]`**, because outram-mc calls them
+  across the crate boundary without LTO.
+- **A change to `csg` or `spatial_mesh` is a change to outram-mc's
+  transport.** Run outram-mc-libs' bit-identity gate
+  (`tests/stats_move_fingerprints.rs`) and its plot-parity tests, and draw the
+  geometry (HARD RULE above).
+- The code is an OpenMC port (MIT): keep each file's provenance header; see
+  `NOTICE` and `LICENSE.openmc`.
 

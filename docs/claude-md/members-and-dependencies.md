@@ -30,9 +30,9 @@ applies: only to crates declared mature".
 | `outram-foam-cli` | OpenFOAM-style command-line utilities as terminal binaries | |
 | `outram-foam-multiphase` | Phase-II multiphase CFD — drift-flux first. Scaffold, no human V&V | |
 | `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), Faddeeva, windowed multipole, ν̄/χ. Exposes `XsProvider` | ✅ |
-| `outram-mc-libs` | **Monte Carlo transport** — CSG geometry, tracking, k-eigenvalue, delta tracking, depletion. **Data-free**: pulls from `njoy-outram-park-fork` | ✅ |
+| `outram-mc-libs` | **Monte Carlo transport** — tracking, k-eigenvalue, delta tracking, depletion; ~~CSG geometry~~ the CSG description and its navigation kernel live in `outram-blender` since 2026-10-02 (#486), re-exported here as `geometry::*` (transport-state work stays here). **Data-free**: pulls from `njoy-outram-park-fork` | ✅ |
 | `teh-o-prke` | Point Reactor Kinetics (PRKE) | ✅ |
-| `nee_soon` | Integration / coupling layer — MC ⟷ deterministic/TH ⟷ nuclear data ⟷ PRKE. Steady state only, no validation | |
+| `nee_soon` | Integration / coupling layer — MC ⟷ deterministic/TH ⟷ nuclear data ⟷ PRKE. Steady state only, no validation. Since 2026-10-02 also the blender → MC bridge (`blender_bridge`, `sim`, moved from blender's retired `mc-export`) | |
 | `bedok` | Systems-level multiphysics — 3-D nodal diffusion + channel TH, above 1-D neutronics and below CFD. IAEA-3D matches published `k_eff`; stage-2 corrections on by default | |
 | `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) — TUAS | ✅ |
 | `tampines` | Central thermal-hydraulic framework — composes TUAS, CoolProp, steam tables, outram-foam, chem-eng | |
@@ -58,7 +58,7 @@ applies: only to crates declared mature".
 | `dover` | **DOVER** — *Deck-based Open-source Visualisation Engine for Reactors*. The **low-fidelity counterpart of `dhoby-ghaut`** (maintainer, 2026-09-25); direction: schema-checked TOML input decks, steady-state (DWSIM-like) and dynamic runs. ~~Empty skeleton: nothing implemented, no dependencies~~ **CORRECTED 2026-09-30**: first model merged, a TOML-deck-driven steam-methane-reforming CSTR (`deck`, `smr`, `species`, headless runner) on `outram-park-fork-dwsim-libs`, with a CSTR parity test against compiled upstream DWSIM | |
 | `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → GPL-3.0 is **one-way**. Implemented in part, no human V&V. Since 2026-10-02 also `outram-mc-libs`' generic statistics (`estimators`, `distributions::seeded`; maintainer direction, owner review outstanding) | |
 | `outram-park-mpi` | Pure-Rust **MPICH** subset over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold | |
-| `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) + the MC and OpenFOAM export bridges | |
+| `outram-blender` | **Geometry description + meshing** (2026-10-02, #486): the CSG description and its pure navigation kernel (`csg`, an OpenMC port moved from `outram-mc-libs`), the geometry plotter (`csg::plot`), the tally-mesh description (`spatial_mesh`), plus the mesh-authoring frontend (GPL fork of Blender's mesh architecture) and the OpenFOAM export bridges. ~~+ the MC export bridge~~ (moved to `nee_soon`) | |
 | `dhoby-ghaut` | **DHOBY GHAUT** — intended GUI home for the meshing and MC studios. **Placeholder**; holds the `mc_studio` / `mesh_studio` examples | |
 | `outram-park-digital-twin-engine` | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | |
 | `kovan-common` | KOVAN shared canonical types (`KovanDocument`, `KovanSymbol`, …) | |
@@ -111,7 +111,10 @@ worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps �
 `{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
 `outram-mc-libs → {njoy-outram-park-fork (cross sections), petir (maths and,
 since 2026-10-02, the RNG), outram-park-fork-liggghts (DEM pebble beds,
-2026-10-02, no default features), raffles (generic statistics, 2026-10-02)}`;
+2026-10-02, no default features), raffles (generic statistics, 2026-10-02),
+outram-blender (CSG and tally-mesh description, GitHub #486, 2026-10-02;
+`default-features = false`, so no wgpu, but blender's mesh authoring and faer
+are always compiled — maintainer decision)}`;
 `raffles → petir` (the RNG) — ~~`raffles → outram-mc-libs`~~ **REMOVED
 2026-10-02**: it closed the cycle `outram-mc-libs → liggghts → raffles →
 outram-mc-libs`; the LCG moved to `petir::rng` and the CSG graph adapter to
@@ -122,9 +125,15 @@ outram-mc's generic statistics (mean/stderr, pooling, entropy, trigger
 statistics, error propagation, generic samplers) live in
 `raffles::estimators` / `raffles::distributions::seeded` (GitHub #500);
 `outram-park-fork-liggghts → raffles` (optional, its default `gnn` feature);
-`outram-blender → {outram-mc-libs, outram-foam-basic-lib,
+~~`outram-blender → {outram-mc-libs, outram-foam-basic-lib,
 outram-park-fork-cfmesh, raffles}`, all optional (features `mc-export`,
-`foam-export`, `foam-mesh`, `gnn-graph`).
+`foam-export`, `foam-mesh`, `gnn-graph`).~~ **CORRECTED 2026-10-02 (#486):**
+`outram-blender → {petir (plot colour stream), outram-foam-basic-lib,
+outram-park-fork-cfmesh, raffles}`, the last three optional (features
+`foam-export`, `foam-mesh`, `gnn-graph`). **`outram-blender` must never depend
+on `outram-mc-libs`, not even optionally** (Cargo counts optional deps for
+cycles); `mc-export` is retired. `nee_soon → outram-blender` and
+`dhoby-ghaut (dev) → {outram-blender, nee_soon}` carry the MC bridge instead.
 `outram-foam-basic-lib` has no internal deps besides `petir`, and
 `njoy-outram-park-fork` is kept lean so data consumers stay light:
 ~~`thiserror`, `uom`; no BLAS~~ **CORRECTED 2026-10-02** — its direct

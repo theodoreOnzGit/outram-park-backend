@@ -16,14 +16,21 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 | `src/rng/distributions.rs` | `src/random_dist.cpp`, `src/distribution_energy.cpp`, `src/distribution_angle.cpp` |
 
 ### Geometry
+
+**MOVED 2026-10-02 (GitHub #486)** to `outram-blender` (`crates/outram-blender/src/csg/`),
+re-exported here under the same `geometry::*` paths. The transport-state half
+of `src/geometry.cpp` stays in this crate as `src/geometry/crossing/`.
+
 | Rust file | C++ source |
 |---|---|
-| `src/geometry/position.rs` | `include/openmc/position.h` |
-| `src/geometry/surface.rs` | `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` |
-| `src/geometry/cell.rs` | `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` |
-| `src/geometry/universe.rs` | `src/universe.cpp` (217 LOC) |
-| `src/geometry/lattice/mod.rs` | `src/lattice.cpp` (1219 LOC) |
-| `src/geometry/geometry.rs` | `src/geometry.cpp` (495 LOC), `src/geometry_aux.cpp` |
+| ~~`src/geometry/position.rs`~~ `outram-blender/src/csg/position.rs` | `include/openmc/position.h` |
+| ~~`src/geometry/surface.rs`~~ `outram-blender/src/csg/surface/{mod,quadric,torus}.rs` | `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` |
+| ~~`src/geometry/cell.rs`~~ `outram-blender/src/csg/cell.rs` | `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` |
+| ~~`src/geometry/universe.rs`~~ `outram-blender/src/csg/universe.rs` | `src/universe.cpp` (217 LOC) |
+| ~~`src/geometry/lattice/mod.rs`~~ `outram-blender/src/csg/lattice/{mod,rect,hex,hex_build}.rs` | `src/lattice.cpp` (1219 LOC) |
+| ~~`src/geometry/geometry.rs`~~ `outram-blender/src/csg/geometry.rs` (locate, distance_to_boundary) + `src/geometry/crossing/mod.rs` here (cross_surface and the rest of the transport-state work) | `src/geometry.cpp` (495 LOC), `src/geometry_aux.cpp` |
+| ~~`src/geometry/plot/`~~ `outram-blender/src/csg/plot/` | `src/plot.cpp`, `openmc/plots.py`, `openmc/model/model.py` |
+| ~~`src/tally/mesh.rs`~~ (description) `outram-blender/src/spatial_mesh.rs`; bin lookup stays in `src/tally/mesh.rs` | `src/mesh.cpp`, `include/openmc/mesh.h` |
 
 ### Particle
 | Rust file | C++ source |

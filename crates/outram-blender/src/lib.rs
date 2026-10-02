@@ -25,6 +25,12 @@
 
 //! # outram-blender
 //!
+//! **Geometry description + meshing** (scope widened 2026-10-02, GitHub
+//! issue #486): the CSG geometry description and its pure navigation kernel
+//! ([`csg`], an OpenMC port moved here from `outram-mc-libs`, which re-exports
+//! it), the OpenMC geometry plotter ([`csg::plot`]), the tally-mesh description
+//! ([`spatial_mesh`]), and the mesh-authoring frontend described below.
+//!
 //! A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 //! multiphysics suite, inspired by the **architecture** of
 //! [Blender](https://github.com/blender/blender) (GPLv2-or-later, which is

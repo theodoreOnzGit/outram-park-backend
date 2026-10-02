@@ -8,24 +8,35 @@
 
 # outram-blender
 
+**Geometry description + meshing** (scope widened 2026-10-02, GitHub
+issue #486): the CSG geometry description and its pure navigation kernel
+([`csg`], an OpenMC port moved here from `outram-mc-libs`, which re-exports
+it), the OpenMC geometry plotter ([`csg::plot`]), the tally-mesh description
+([`spatial_mesh`]), and the mesh-authoring frontend described below.
+
 A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 multiphysics suite, inspired by the **architecture** of
 [Blender](https://github.com/blender/blender) (GPLv2-or-later, which is
 GPLv3-compatible). It authors and procedurally generates geometry, then
 bridges it into two OUTRAM PARK solver workflows:
 
-- **Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
+- ~~**Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
   fit it to an `outram-mc-libs` CSG universe ([`export`]), attach materials,
   and run a k-eigenvalue (criticality) calculation returning `k_eff ± σ`
   (the `sim` module). This path is driven by the **MC Studio** egui app
-  (`examples/mc_studio`).
+  (`examples/mc_studio`).~~ **MOVED 2026-10-02 (GitHub #486):** this crate
+  no longer depends on `outram-mc-libs` (outram-mc depends on *it*, for the
+  CSG description). Fit a surface to CSG here ([`export::to_csg_primitive`]);
+  the bridge onto outram-mc and the k-eigenvalue run driver (`sim`) live in
+  `nee_soon` (`nee_soon::blender_bridge`, `nee_soon::sim`), which MC Studio
+  in `dhoby-ghaut` drives.
 - **CFD / thermal-hydraulics volume meshing** (feature `foam-mesh`). Hand a
   closed surface to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
   pipeline and write out an OpenFOAM `polyMesh` (the `foam_mesh` module). This
   path is driven by the **Mesh Studio** egui app (`examples/mesh_studio`).
 
 The base authoring library (primitives, mesh operators, modifiers, procedural
-evaluator, geometry processing) pulls in neither solver — both bridges are
+evaluator, geometry processing) pulls in no solver — the CFD bridges are
 opt-in cargo features, so the default build stays light and Android-buildable.
 
 > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
@@ -127,9 +138,9 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-| [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+| [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridge (`foam-export`; ~~`mc-export`~~ retired 2026-10-02, #486) |
 | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
-| `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
+| ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (GitHub #486): the Monte Carlo setup + run driver, backend of **MC Studio** |
 | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 
 ## Design rules honoured here (workspace `CLAUDE.md`)
@@ -319,6 +330,7 @@ weights broke SPD.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -683,6 +695,7 @@ pub struct MeshAttributes {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -877,6 +890,7 @@ Percentage (0–100) of the mean adjacent edge length.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1025,6 +1039,7 @@ pub struct BevelOptions {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -1240,6 +1255,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -1544,6 +1560,7 @@ this is an epsilon-based judgement call, not an exact predicate.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1974,6 +1991,7 @@ pub struct Vec2 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2272,6 +2290,7 @@ pub struct BridgeOptions {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -2752,6 +2771,7 @@ Every point is coplanar — the hull would be a flat polygon, not a solid.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -2948,6 +2968,7 @@ Non-uniform rational B-spline of the spline's `order`.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3114,6 +3135,7 @@ Left untouched.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3270,6 +3292,7 @@ pub struct ControlPoint {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -3463,6 +3486,7 @@ pub struct Spline {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -3603,6 +3627,7 @@ pub struct SplineSample {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -3860,6 +3885,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -4015,6 +4041,7 @@ Fill the outline once (a flat face).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4160,6 +4187,7 @@ pub struct CurveGeometry {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -4355,6 +4383,7 @@ pub struct Cursor3D {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -4521,6 +4550,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4775,6 +4805,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4948,6 +4979,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5165,6 +5197,7 @@ pub struct Lattice {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5315,6 +5348,7 @@ The closest target vertex.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5449,6 +5483,7 @@ pub struct SurfaceBind {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5712,6 +5747,7 @@ No legal collapse remained (every candidate was rejected by the manifold
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5848,6 +5884,7 @@ pub struct DecimateResult {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6063,6 +6100,7 @@ Collapse the given edges (see [`crate::merge::merge_edges`]).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -6308,8 +6346,11 @@ cargo features, so neither solver crate is a hard dependency:
   reader/writer round-trips), and `from_poly_mesh` reads one back into a
   [`Mesh`] — combined with `PolyMesh::read(dir)` this **imports** an OpenFOAM
   `constant/polyMesh` directory, the inverse of `write_polymesh`;
-- `mc-export` → `to_mc_geometry` returns a real
-  `outram_mc_libs::prelude::Geometry` (surfaces + a cell region).
+- ~~`mc-export` → `to_mc_geometry` returns a real
+  `outram_mc_libs::prelude::Geometry` (surfaces + a cell region).~~
+  **MOVED 2026-10-02 (GitHub #486)**: the `mc-export` feature is retired,
+  because this crate may not depend on `outram-mc-libs` (outram-mc depends
+  on it). `to_mc_geometry` now lives in `nee_soon::blender_bridge`.
 
 These are the wired counterparts of the text / mirror exporters (epic
 `op-hzs`, beads `op-hzs.6`/`op-hzs.7`).
@@ -6413,8 +6454,8 @@ pub enum ExportError {
 
 A requested export path is documented but not implemented for this mesh.
 
-Returned when [`to_csg_primitive`] (or `to_mc_geometry`, which builds
-on it) is handed a mesh that is not a half-space intersection — i.e. a
+Returned when [`to_csg_primitive`] (or `nee_soon`'s `to_mc_geometry`,
+which builds on it) is handed a mesh that is not a half-space intersection — i.e. a
 **non-convex** solid, which no combination of analytic surfaces
 describes. That is not a gap in this module: use [`to_faceted_solid`]
 for the DAGMC-style faceted boundary representation of such a solid.
@@ -6553,6 +6594,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -6702,6 +6744,7 @@ pub struct IndexedTriangles {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6854,6 +6897,7 @@ pub struct PolyMeshText {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7105,6 +7149,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7262,6 +7307,7 @@ The `f < 0` side (inside a sphere/cylinder; -axis side of a plane).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7435,6 +7481,7 @@ Boolean NOT of the top operand (set complement).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7588,6 +7635,7 @@ pub struct CsgDescription {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7759,6 +7807,7 @@ pub struct FacetedSolid {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7944,6 +7993,10227 @@ assert!(export::to_faceted_solid_checked(&primitives::grid(2, 2, 1.0)).is_err())
 pub fn to_faceted_solid_checked(mesh: &crate::mesh::Mesh) -> Result<FacetedSolid, ExportError> { /* ... */ }
 ```
 
+#### Function `to_csg_geometry`
+
+Convert `mesh` to a native CSG [`crate::csg::geometry::Geometry`] — the
+geometry a Monte Carlo code tracks through.
+
+Added 2026-10-02 (GitHub #486, plan stage 6): since the CSG description
+lives in [`crate::csg`], the export needs no solver crate. It is the
+former `mc-export` bridge (`to_mc_geometry`, now a thin wrapper over this
+in `nee_soon::blender_bridge`), producing the same type: outram-mc-libs
+re-exports [`crate::csg::geometry::Geometry`] as its own `Geometry`. Fits `mesh` to analytic CSG via [`to_csg_primitive`],
+then maps the local-mirror surfaces/region onto the real
+[`crate::csg`] `SurfaceKind` / `RegionToken` and wraps them in a single-cell `Geometry`:
+
+- each [`CsgSurface`] → the matching `SurfaceKind` variant, tagged
+  `BoundaryType::Transmissive` (an interior surface);
+- [`Sense::Negative`] → `HalfSpaceSense::Inside` (evaluate `< 0`),
+  [`Sense::Positive`] → `HalfSpaceSense::Outside` (evaluate `> 0`);
+- the region RPN maps 1:1 onto [`crate::csg::cell::RegionToken`];
+- the region becomes one `Cell` (id `1`) filled `CellFill::Void`, in a single
+  root `Universe`. **The `Void` fill is a placeholder** — the caller assigns
+  the real material/fill and temperature; this bridge exports *geometry*
+  only.
+
+All fitted surfaces map exactly: box, sphere, and Z-cylinder primitives, plus
+the **convex-faceted** route — a general [`CsgSurface::Plane`] maps to
+[`crate::csg::surface::Plane`] `{ a, b, c, d }` (`a·x + b·y + c·z = d`), so an
+arbitrary convex polyhedron exports as one half-space per face.
+
+# Errors
+
+Returns [`ExportError::NotImplemented`] only if `mesh` is not a fittable
+primitive at all (propagated from [`to_csg_primitive`] — i.e. a non-convex
+mesh, which has no half-space-intersection CSG; use [`to_faceted_solid`] for
+that boundary representation).
+
+```rust
+pub fn to_csg_geometry(mesh: &crate::mesh::Mesh) -> Result<crate::csg::geometry::Geometry, ExportError> { /* ... */ }
+```
+
+## Module `csg`
+
+**CSG geometry description and its pure navigation kernel** (surfaces,
+cells, universes, lattices, locate / distance-to-boundary, TRISO particle).
+Moved here from `outram-mc-libs` on 2026-10-02 (GitHub issue #486);
+outram-mc-libs re-exports it under `outram_mc_libs::geometry::*`. Core: no
+feature, no dependency, Android- and wasm-clean.
+**Constructive solid geometry (CSG) description and its pure navigation
+kernel** — the geometry a Monte Carlo code tracks through.
+
+Moved here from `outram-mc-libs` (`src/geometry/`) on 2026-10-02, GitHub
+issue #486, by maintainer decision: outram-blender owns geometry
+**description** and the **pure** queries on it (surface evaluate, sense,
+distance and normal; cell membership and boundary distance; universe
+search; geometry location and boundary distance; lattice indices, local
+positions and distances), so the geometry plotter and the transport code
+share one locator and "draw what the solver sees" holds by construction.
+`outram-mc-libs` keeps the **transport-state** work (surface crossing,
+nudging, corner and diffuse reflection, cross-section lookups, distribcell,
+virtual lattices, volume calculation, GPU encoders, tally scoring), reaches
+it on these types through `*Ext` traits, and re-exports everything here
+under its old `outram_mc_libs::geometry::*` paths.
+
+The code is a port of OpenMC's geometry (MIT licence; see `NOTICE` and
+`LICENSE.openmc`). Units are raw `f64` **centimetres**, as in OpenMC and
+outram-mc-libs: this is the inner loop of particle tracking, so the
+workspace `uom` rule is deliberately not applied here (documented in
+`crates/outram-mc-libs/CLAUDE.md`, "Units: raw `f64`, not `uom`").
+
+This module is in the crate's **core**: it needs no cargo feature and pulls
+no dependency, so `default-features = false` builds it for Android and
+`wasm32-unknown-unknown`.
+
+```rust
+pub mod csg { /* ... */ }
+```
+
+### Modules
+
+## Module `cell`
+
+CSG cells — regions bounded by surface half-spaces.
+
+C++ source: `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` (493 LOC).
+
+A `Cell` is defined by a Boolean combination of surface half-spaces encoded
+as a **Reverse Polish Notation (RPN)** token stream ([`RegionToken`]):
+half-space operands are pushed, and the `Intersection` / `Union` /
+`Complement` operators pop and combine them. A pure intersection cell — the
+common case (fuel pin, moderator box) — is written as
+`[HalfSpace, HalfSpace, Intersection, HalfSpace, Intersection, …]`.
+
+A cell may be a **material cell** (filled with a `Material`) or a **fill
+cell** (filled with a nested `Universe` or `Lattice`).
+
+```rust
+pub mod cell { /* ... */ }
+```
+
+### Types
+
+#### Enum `HalfSpaceSense`
+
+Which side of a surface a half-space token selects.
+
+```rust
+pub enum HalfSpaceSense {
+    Inside,
+    Outside,
+}
+```
+
+##### Variants
+
+###### `Inside`
+
+Negative side, `evaluate(r) < 0` — the interior of a sphere/cylinder.
+
+###### `Outside`
+
+Positive side, `evaluate(r) > 0` — the exterior.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HalfSpaceSense { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HalfSpaceSense) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SurfaceToken`
+
+**Which surface a particle is sitting on, and which side of it it is on.**
+
+This is OpenMC's *signed surface token* (`Particle::surface_`,
+`include/openmc/particle_data.h:437`; `SURFACE_NONE == 0`), expressed as a
+named type instead of a signed integer with a magic zero.
+
+# Why a particle needs to carry this
+
+Immediately after a boundary crossing the particle sits **exactly on** a
+surface, where `Surface::evaluate(r)` is ~0 and its sign is decided by
+round-off rather than by geometry. A membership test that re-evaluates that
+sign can therefore put the particle back in the cell it was *leaving*; the
+next `distance_to_boundary` then finds no forward surface (the one it is on
+is suppressed as coincident), the particle streams to infinity and the
+history leaks. That is GitHub #168 — 85 % of source neutrons lost on a
+concentric-shell pebble (measured 2026-09-10: leakage 0.846 per source
+neutron, k_eff 0.236 where ~1.30 was expected).
+
+Carrying the crossed surface **plus the side it ended up on** removes the
+ambiguity entirely: [`Cell::contains`] takes the recorded sense as fact for
+that one surface instead of re-deriving it. Mirrors `Region::contains_simple`
+/ `contains_complex` (`src/cell.cpp:1046`, `:1069`), where a region token
+equal to `on_surface` is satisfied outright and its negation fails outright.
+
+[`SurfaceToken::NONE`] means "not on any surface" — the state after a
+collision, at birth, and for any standalone geometry query.
+
+```rust
+pub enum SurfaceToken {
+    None,
+    On {
+        surface_idx: usize,
+        sense: HalfSpaceSense,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+The particle is not sitting on any surface.
+
+###### `On`
+
+The particle is on surface `surface_idx`, on the `sense` side of it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface_idx` | `usize` | Index into the global surface array. |
+| `sense` | `HalfSpaceSense` | Which side of that surface the particle is on. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn on(surface_idx: usize, sense: HalfSpaceSense) -> Self { /* ... */ }
+  ```
+  On surface `surface_idx`, on the `sense` side.
+
+- ```rust
+  pub fn is_on(self: Self, surface_idx: usize) -> bool { /* ... */ }
+  ```
+  Whether this token names surface `surface_idx` (either sense) — the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceToken { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurfaceToken) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RegionToken`
+
+One token in the RPN region definition. Maps to OpenMC's region token stream
+(`src/cell.cpp`), but with the operators named rather than encoded as the
+sentinel negative integers OpenMC uses.
+
+```rust
+pub enum RegionToken {
+    HalfSpace {
+        surface_idx: usize,
+        sense: HalfSpaceSense,
+    },
+    Intersection,
+    Union,
+    Complement,
+}
+```
+
+##### Variants
+
+###### `HalfSpace`
+
+Half-space of surface `surface_idx` (index into the global surface array).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface_idx` | `usize` |  |
+| `sense` | `HalfSpaceSense` |  |
+
+###### `Intersection`
+
+Logical AND of the two operands below it on the stack.
+
+###### `Union`
+
+Logical OR of the two operands below it on the stack.
+
+###### `Complement`
+
+Logical NOT of the single operand below it on the stack.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RegionToken { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RegionToken) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CellFill`
+
+What fills a cell. Maps to OpenMC's `Cell::type_` / `Fill`.
+
+```rust
+pub enum CellFill {
+    Material(usize),
+    Universe(usize),
+    Lattice(usize),
+    Void,
+}
+```
+
+##### Variants
+
+###### `Material`
+
+Filled with a material (index into the materials list).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Universe`
+
+Filled with a nested universe (index into the universe array).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Lattice`
+
+Filled with a lattice (index into the lattice array).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Void`
+
+Void — no material, streams freely.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellFill { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellFill) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `TrackingMethod`
+
+**How a particle is transported through a region.**
+
+This is NEW WORK, not a port — OpenMC is pure surface tracking and has no
+equivalent. It exists so a single model can use delta (Woodcock) tracking
+where the geometry is finely divided, and ordinary surface tracking
+everywhere else. See `bn:op-867c.1`, gh #214.
+
+# Why a per-region choice rather than one method per run
+
+Delta tracking samples flights against a **majorant** — a bound on `Σ_t`
+over everything the tracker might encounter — so one strong absorber
+anywhere raises the cost *everywhere*. Measured on 2026-09-17
+(`examples/majorant_absorber_price.rs`): adding one illustrative B4C control
+rod to the bounded material set costs **26.3x in tracking steps at the
+thermal peak**, and it costs that in reflector graphite metres from the rod
+just as much as inside it. Above ~1 keV it costs nothing, because there the
+rod is not the largest cross section in the problem.
+
+Scoping the method — and with it the majorant — to the region that benefits
+is what recovers that factor. Delta tracking is **unbiased** under any valid
+majorant, so this is a cost decision and never an accuracy one.
+
+# Inheritance
+
+A region's method applies to everything nested inside it unless a deeper
+region overrides it. [`super::geometry::GeometryPath::tracking`] reports the
+method in force at the located point, which is the deepest declaration on
+the path.
+
+```rust
+pub enum TrackingMethod {
+    Surface,
+    Delta {
+        majorant: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Surface`
+
+Conventional surface tracking: stream to the next boundary, collide on
+the local `Σ_t`. The default, and correct everywhere.
+
+###### `Delta`
+
+Delta (Woodcock) tracking against the majorant at `majorant` in the
+caller's majorant table.
+
+The index is deliberately **not** a majorant by value: majorants live in
+`pebble_beds::delta_tracking`, and having `geometry` own one would
+invert the module dependency. The transport driver supplies the table.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `majorant` | `usize` | Index into the caller-supplied majorant table. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrackingMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TrackingMethod { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrackingMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Cell`
+
+A CSG cell. Maps to `openmc::Cell`.
+
+```rust
+pub struct Cell {
+    pub id: i32,
+    pub region: Vec<RegionToken>,
+    pub fill: CellFill,
+    pub temperature: f64,
+    pub translation: super::position::Position,
+    pub tracking: Option<TrackingMethod>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | User-facing cell id (for reporting/tallies). |
+| `region` | `Vec<RegionToken>` | Region definition as an RPN token stream (see [`RegionToken`]). |
+| `fill` | `CellFill` | What the cell is filled with. |
+| `temperature` | `f64` | Temperature of this cell in Kelvin.<br><br>~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport<br>does not read this field.** Cross sections are looked up at the<br>material's temperature and broadened at the nuclide's build<br>temperature; free-gas kinematics use ~~the run's<br>`KeffSettings::temperature_k`~~ the nuclide's data temperature (the<br>material's for a multipole nuclide; GitHub #313, 2026-09-30).<br>Changing it to 1200 K leaves `k`<br>bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's<br>declared temperature for callers and a future per-cell treatment (OpenMC<br>has one); see `docs/temperatures.md`. |
+| `translation` | `super::position::Position` | Rigid translation \[cm\] applied to a fill universe's local frame<br>(`coord.r -= translation`). Zero for material cells and untranslated fills.<br>Mirrors `Cell::translation_` in `src/cell.cpp`. |
+| `tracking` | `Option<TrackingMethod>` | How particles are transported through this region, or `None` to<br>**inherit** from the enclosing region.<br><br>`None` and `Some(TrackingMethod::Surface)` are deliberately different:<br>the first inherits, the second is an explicit override that carves a<br>surface-tracked island out of a delta-tracked parent — a control-rod<br>channel inside a pebble bed being exactly that case. Collapsing them<br>into a bare `TrackingMethod` makes every nested universe silently reset<br>its parent's choice, since `Surface` is the common default.<br><br>NEW WORK, no OpenMC counterpart. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn material(id: i32, region: Vec<RegionToken>, material_idx: usize, temperature: f64) -> Self { /* ... */ }
+  ```
+  Build a material cell with no translation — the common leaf case.
+
+- ```rust
+  pub fn fill(id: i32, region: Vec<RegionToken>, fill: CellFill, translation: Position) -> Self { /* ... */ }
+  ```
+  Build a fill cell (nested universe or lattice) with an optional translation.
+
+- ```rust
+  pub fn delta_tracked(self: Self, majorant_idx: usize) -> Self { /* ... */ }
+  ```
+  Declare that this region is transported by **delta (Woodcock) tracking**
+
+- ```rust
+  pub fn surface_tracked(self: Self) -> Self { /* ... */ }
+  ```
+  Declare this region **explicitly** surface-tracked, overriding an
+
+- ```rust
+  pub fn contains(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], on_surface: SurfaceToken) -> bool { /* ... */ }
+  ```
+  Whether a particle at `r` heading along `u` lies inside this cell's region.
+
+- ```rust
+  pub fn distance_to_boundary(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], on_surface: SurfaceToken) -> (f64, usize) { /* ... */ }
+  ```
+  Distance along ray `(r, u)` to the nearest surface bounding this cell.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Cell { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `geometry`
+
+High-level geometry navigation: particle location and boundary crossing.
+
+C++ source: `src/geometry.cpp` (495 LOC), `include/openmc/geometry.h`.
+
+These are the two innermost queries of the transport algorithm:
+  1. [`Geometry::locate`] — descend the universe/lattice hierarchy from the
+     root universe to find the leaf cell and its material at a point (ported
+     from `find_cell_inner`, `src/geometry.cpp:102`).
+  2. [`Geometry::distance_to_boundary`] — over every coordinate level, find
+     the nearest surface **or** lattice-tile crossing (ported from
+     `distance_to_boundary`, `src/geometry.cpp:361`).
+
+A [`Geometry`] owns the flat arrays every index refers to: `surfaces`,
+`cells`, `universes`, `lattices`, plus the `root_universe`. It is read-only
+after construction, so transport threads share it as `Arc<Geometry>`.
+
+```rust
+pub mod geometry { /* ... */ }
+```
+
+### Types
+
+#### Struct `Coord`
+
+One coordinate level in a located particle's nesting chain.
+
+Mirrors an OpenMC `LocalCoord`: the universe searched at this level, the cell
+found there, and the particle's position/direction expressed in that level's
+local frame. `lattice` is `Some` when this level's universe was reached by
+descending into a lattice (so a lattice-tile crossing is possible here).
+
+```rust
+pub struct Coord {
+    pub universe: usize,
+    pub cell: usize,
+    pub r: super::position::Position,
+    pub u: super::position::Direction,
+    pub lattice: Option<usize>,
+    pub lattice_index: [i32; 3],
+    pub offset: super::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `universe` | `usize` | Universe index searched at this level. |
+| `cell` | `usize` | Cell index (global) found containing the particle at this level. |
+| `r` | `super::position::Position` | Position \[cm\] in this level's local frame. |
+| `u` | `super::position::Direction` | Direction (unit) in this level's local frame. |
+| `lattice` | `Option<usize>` | Lattice index if this level was entered via a lattice, else `None`. |
+| `lattice_index` | `[i32; 3]` | Lattice tile index `[ix, iy, iz]` for this level (only meaningful if<br>`lattice` is `Some`). |
+| `offset` | `super::position::Position` | **Exact global -> local frame offset for this level**: `r` here equals<br>the global position minus this, and a direction needs no transformation<br>because every nested frame in this crate is a pure translation.<br><br>Accumulated on the way down (`parent.offset + cell.translation`, plus the<br>lattice tile centre for a lattice level) rather than recovered afterwards<br>as `levels[0].r - levels[k].r`. That subtraction is catastrophic<br>cancellation — with a probe at `y = -9` and a translation of `0.2` it<br>returns `0.19999999999999929` — and the ~1e-16 error it leaves in the<br>local coordinate is enough to put a crossing point exactly on<br>`dot == 0.0` in `nudge_across`, flipping that branch and displacing the<br>particle by `1e-9`, a 10^6 amplification. Carrying the offset removes the<br>cancellation entirely. Found by `tests/cell_translation.rs`; it affects<br>lattice tile centres too, not only non-zero cell translations. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Coord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GeometryPath`
+
+A fully located particle: its coordinate-level chain plus the leaf material.
+
+```rust
+pub struct GeometryPath {
+    pub levels: Vec<Coord>,
+    pub material: Option<usize>,
+    pub on_surface: super::cell::SurfaceToken,
+    pub tracking: crate::csg::cell::TrackingMethod,
+    pub tracking_level: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `levels` | `Vec<Coord>` | Coordinate levels from root (index 0) down to the material leaf. |
+| `material` | `Option<usize>` | Leaf material index, or `None` for a void cell. |
+| `on_surface` | `super::cell::SurfaceToken` | The surface the particle currently sits on and which side of it it is on<br>([`SurfaceToken::NONE`] if it is on none). Used for coincident-distance<br>handling and for unambiguous cell membership after a crossing. |
+| `tracking` | `crate::csg::cell::TrackingMethod` | **How this point is to be transported** — the deepest<br>[`TrackingMethod`] declared on the path from root to leaf.<br><br>A region's method is inherited by everything nested inside it, so a<br>delta-tracked bed makes its pebble and TRISO universes delta-tracked<br>too, without each of them restating it. A deeper cell may override,<br>which is how a surface-tracked control-rod channel is carved out of a<br>delta-tracked bed.<br><br>NEW WORK, no OpenMC counterpart — see [`TrackingMethod`] (`bn:op-867c.1`). |
+| `tracking_level` | `usize` | Index into [`Self::levels`] of the cell that **declared** [`Self::tracking`],<br>or `0` when nothing on the path declared anything (the default,<br>surface-tracked case).<br><br>This is what makes a delta region's *extent* knowable. Delta tracking<br>must stop at the edge of the region that chose it, and<br>[`Geometry::distance_to_boundary`] cannot answer that: it returns the<br>nearest boundary at **any** level, which inside a finely divided bed is<br>usually a pebble or TRISO surface far inside the region. Pair this with<br>outram-mc-libs' `GeometryExt::distance_out_of_level`.<br><br>NEW WORK, no OpenMC counterpart (`bn:op-867c.4`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn leaf(self: &Self) -> &Coord { /* ... */ }
+  ```
+  The leaf (lowest) coordinate level — where the material fill lives.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Crossing`
+
+What the nearest boundary along a flight is.
+
+```rust
+pub enum Crossing {
+    Surface(usize),
+    Lattice,
+    None,
+}
+```
+
+##### Variants
+
+###### `Surface`
+
+A CSG surface with this global index is crossed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Lattice`
+
+A lattice-tile boundary is crossed (re-locate into the neighbouring tile).
+
+###### `None`
+
+No boundary within a finite distance (particle streams to infinity).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Crossing { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Crossing) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoundaryHit`
+
+Result of a [`Geometry::distance_to_boundary`] query.
+
+```rust
+pub struct BoundaryHit {
+    pub distance: f64,
+    pub crossing: Crossing,
+    pub coord_level: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance` | `f64` | Distance \[cm\] to the nearest boundary (`INFINITY` if none). |
+| `crossing` | `Crossing` | What is crossed at that distance. |
+| `coord_level` | `usize` | Coordinate level (index into [`GeometryPath::levels`]) of the crossing. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundaryHit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Geometry`
+
+The whole CSG model — the flat arrays every geometry index refers to.
+
+Read-only after construction; share across threads as `Arc<Geometry>`.
+Maps to OpenMC's `model::{surfaces,cells,universes,lattices}` globals plus
+`model::root_universe`.
+
+```rust
+pub struct Geometry {
+    pub surfaces: Vec<super::surface::SurfaceKind>,
+    pub cells: Vec<crate::csg::cell::Cell>,
+    pub universes: Vec<super::universe::Universe>,
+    pub lattices: Vec<super::lattice::Lattice>,
+    pub root_universe: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<super::surface::SurfaceKind>` | Global surface array; region tokens and `on_surface` index into it. |
+| `cells` | `Vec<crate::csg::cell::Cell>` | Global cell array; universes and paths index into it. |
+| `universes` | `Vec<super::universe::Universe>` | Global universe array; the root and every fill index into it. |
+| `lattices` | `Vec<super::lattice::Lattice>` | Global lattice array; lattice-fill cells index into it. Each entry is a<br>[`Lattice`] enum ([`Lattice::Rect`] or [`Lattice::Hex`]). |
+| `root_universe` | `usize` | Index of the root universe tracking starts in. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn locate(self: &Self, r: Position, u: Direction, on_surface: SurfaceToken) -> Option<GeometryPath> { /* ... */ }
+  ```
+  Locate the particle at global position `r` moving along `u`.
+
+- ```rust
+  pub fn distance_to_boundary(self: &Self, path: &GeometryPath) -> BoundaryHit { /* ... */ }
+  ```
+  Distance to the nearest boundary — surface or lattice tile — over all
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Geometry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `lattice`
+
+Rectangular and hexagonal lattices.
+
+C++ source: `src/lattice.cpp` (1219 LOC), `include/openmc/lattice.h`.
+
+A lattice tiles space with identical universes on a periodic grid. OpenMC
+supports two types:
+  - `RectLattice` — 3-D rectangular grid (nx × ny × nz pitches)
+  - `HexLattice`  — 2-D hexagonal grid (axial rings + axial levels)
+
+Each lattice element maps to a universe index. The lattice is itself a
+special kind of universe fill: [`crate::csg::geometry::Geometry`]
+descends into it exactly as it would a nested universe.
+
+```rust
+pub mod lattice { /* ... */ }
+```
+
+### Types
+
+#### Enum `LatticeType`
+
+Lattice type tag. Maps to `openmc::LatticeType`.
+
+```rust
+pub enum LatticeType {
+    Rect,
+    Hex,
+}
+```
+
+##### Variants
+
+###### `Rect`
+
+###### `Hex`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LatticeType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LatticeType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Lattice`
+
+A lattice fill — dispatched by enum, not a trait object (per the workspace
+"enums over `dyn`" rule). [`crate::csg::geometry::Geometry`] holds a
+`Vec<Lattice>` and matches on the variant during descent.
+
+```rust
+pub enum Lattice {
+    Rect(RectLattice),
+    Hex(HexLattice),
+}
+```
+
+##### Variants
+
+###### `Rect`
+
+A rectangular lattice.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RectLattice` |  |
+
+###### `Hex`
+
+A hexagonal lattice.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `HexLattice` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn id(self: &Self) -> i32 { /* ... */ }
+  ```
+  The user-facing lattice id.
+
+- ```rust
+  pub fn get_indices(self: &Self, r: Position, u: Direction) -> [i32; 3] { /* ... */ }
+  ```
+  Skewed/signed tile index for `(r, u)` in this lattice's local frame.
+
+- ```rust
+  pub fn universe_at(self: &Self, i: [i32; 3]) -> Option<usize> { /* ... */ }
+  ```
+  Universe index at tile `i` (tile universe, else `outer`, else `None`).
+
+- ```rust
+  pub fn get_local_position(self: &Self, r: Position, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  Position `r` recentred into tile `i`'s local frame (tile centre at origin).
+
+- ```rust
+  pub fn tile_center(self: &Self, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  The centre of tile `i`, exactly as [`Self::get_local_position`]
+
+- ```rust
+  pub fn distance(self: &Self, r: Position, u: Direction, i_xyz: [i32; 3]) -> (f64, [i32; 3]) { /* ... */ }
+  ```
+  Distance to the next tile boundary along `(r, u)` from tile `i_xyz`, with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Lattice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `surface_in_tile_frame`
+
+**Translate a surface into a lattice tile's local frame** — the mechanism for
+clipping tile contents against a boundary defined in world coordinates
+(`bn:op-867c.10`, gh #214).
+
+NEW WORK, no OpenMC counterpart.
+
+# Why this is needed
+
+A cell region inside a tile universe is evaluated in the **tile-local**
+frame, because `Geometry::locate` recentres the position into the tile before
+testing the region. Measured 2026-09-17 in
+`tests/lattice_tile_clipping.rs`, which was written specifically to find out.
+
+So a single world-frame surface — HTR-10's conus, or its discharge tube —
+does **not** clip every boundary tile at the right place. Each boundary tile
+needs its own copy of that surface, translated by minus its tile centre.
+
+# Why not the alternatives
+
+Two other routes were considered and are recorded on the bead. Real per-tile
+omission in [`HexLattice`] is the cleanest answer but the largest change —
+`universe_at` returns a plain index and `HEX_NONE` marks only the skewed
+array's unused corners. Doing the rejection in the delta path's `material_at`
+closure is cheaper at run time and became possible only once hybrid tracking
+landed, but needs the transport dispatch to accept a caller-supplied query,
+which it does not.
+
+This route needs nothing new, and its cost is bounded: one surface per
+BOUNDARY tile, generated once at model-build time, not per history.
+
+# What is supported
+
+Planes and quadrics translate exactly. A sphere or cylinder translates by
+moving its centre; a cone likewise. Surfaces whose definition is not
+translation-covariant are returned unchanged and **that is a defect the
+caller must not paper over** — check the returned surface if in doubt.
+
+# Parameters
+- `surface` — the world-frame surface to translate.
+- `tile_center` — the tile's centre in the parent frame, from
+  [`RectLattice::tile_center`] or [`HexLattice::tile_center`].
+
+```rust
+pub fn surface_in_tile_frame(surface: &crate::csg::surface::SurfaceKind, tile_center: super::position::Position) -> crate::csg::surface::SurfaceKind { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `HexLattice`
+
+```rust
+pub use hex::HexLattice;
+```
+
+#### Re-export `HexOrientation`
+
+```rust
+pub use hex::HexOrientation;
+```
+
+#### Re-export `HEX_NONE`
+
+```rust
+pub use hex::HEX_NONE;
+```
+
+#### Re-export `RectLattice`
+
+```rust
+pub use rect::RectLattice;
+```
+
+## Module `plot`
+
+**Geometry plotting** — OpenMC's plotter (`src/plot.cpp`), ported, writing
+PNG natively from Rust. GitHub #268.
+
+# What changed, and why this module is shaped the way it is
+
+~~"The native rasteriser is NOT ported ... emits a matplotlib script"~~ —
+**REVERSED 2026-09-25 by maintainer direction**: *"make sure the plotting
+capabilities of openmc are properly ported over (to jpg or PNG)"*. The
+earlier decision (2026-09-22) kept this crate free of an image encoder and
+emitted a Python script instead; that path still exists, unchanged in
+behaviour, in [`script`] (re-exported here as [`sample_slice`],
+[`emit_python`], [`ColourBy`], [`Slice`]).
+
+# What is ported (OpenMC d7d3284a1)
+
+| Here | Upstream | Lines |
+|---|---|---|
+| [`colour::random_colour`], [`colour::default_colours`] | `random_color`, `set_default_colors` | `plot.cpp:1179-1183`, `:580-596` |
+| [`colour::ColourScheme`] builders | `set_user_colors`, `set_mask`, `set_bg_color`, `set_overlap_color` | `plot.cpp:598-633`, `:743-827`, `:466-477` |
+| [`slice::SlicePlot::id_map`] | `SlicePlotBase::get_map<IdData>`, `IdData::set_value` | `plot.h:222-293`, `plot.cpp:47-79` |
+| [`slice::SlicePlot::create_image`] | `Plot::create_image` | `plot.cpp:317-358` |
+| [`slice::check_cell_overlap`] | `check_cell_overlap` | `geometry.cpp:38-90` |
+| mesh lines (private) | `Plot::draw_mesh_lines`, `RegularMesh::plot` | `plot.cpp:941-1053`, `mesh.cpp:1628-1667` |
+| [`raytrace::Camera`] | `RayTracePlot::update_view`, `get_pixel_ray` | `plot.cpp:1200-1219`, `:1326-1367` |
+| ray tracer (private) | `Ray::trace`, `advance_to_boundary_from_void` | `ray.cpp:14-143`, `particle_data.cpp:59-84` |
+| [`raytrace::WireframeRayTracePlot`] | `WireframeRayTracePlot::create_image`, `trackstack_equivalent`, `ProjectionRay` | `plot.cpp:1369-1529`, `:1265-1324`, `:1750-1763` |
+| [`raytrace::SolidRayTracePlot`] | `SolidRayTracePlot::create_image`, `PhongRay` | `plot.cpp:1683-1701`, `:1765-1891` |
+| [`image::ImageData::write_png`] / [`image::ImageData::write_ppm`] | `output_png` / `output_ppm` | `plot.cpp:887-935` / `:857-881` |
+
+Every function above carries its own upstream line range in its doc
+comment.
+
+# What is NOT ported, and why
+
+- **Voxel plots** (`Plot::create_voxel`, `plot.cpp:1065-1177`). They write
+  an HDF5 volume, not an image; HDF5 output belongs to
+  `njoy-outram-park-fork` (gh:#270), and nothing here needs it.
+- **`plots.xml` parsing** — the crate reads no XML (see its `CLAUDE.md`).
+  Plots are built with Rust constructors whose fields name the XML elements.
+- **`openmc_*` C API** entry points (`plot.cpp:1893-2621`) — the Python
+  binding layer; this crate's API *is* the Rust types.
+- **Property maps** (temperature/density, `PropertyData`) and **tally-filter
+  bins** in `RasterData` — used by the interactive plotter, not by image
+  output.
+- **JPEG.** Lossy compression blurs the boundaries a geometry plot exists
+  to show, and OpenMC itself writes only PNG/PPM; PNG is sufficient and
+  smaller for flat-colour images. See [`image`].
+- **Non-regular meshes for mesh lines** — the crate has only
+  [`crate::spatial_mesh::RegularMesh`].
+- **Cell rotations** in the Phong normal (`plot.cpp:1828-1833`) — this
+  crate's nested frames are pure translations, so there is nothing to undo.
+
+Known behavioural differences of the ray tracer are listed in
+[`raytrace`]; measured agreement with `openmc --plot` is in
+`verification_and_validation/geometry_plotting/README.md`.
+
+# Drawing a reactor model (the geometry-drawing HARD RULE)
+
+[`render_material_slice`] is the one-call path: slice the **assembled**
+geometry, colour by material with a caller-chosen palette, and frame it
+with a legend and dimensioned axes ([`annotate::annotate_slice`]).
+`crates/nee_soon/examples/htr10_geometry_images.rs` uses it on the HTR-10
+core.
+
+```rust
+pub mod plot { /* ... */ }
+```
+
+### Modules
+
+## Module `annotate`
+
+**Legend, title and dimensioned axes for a plot image** — NEW WORK, no
+OpenMC counterpart.
+
+OpenMC's images are bare rasters: no legend, no axes. The crate's
+geometry-drawing HARD RULE (`crates/outram-mc-libs/CLAUDE.md`) asks for
+images a human can check *without* the input deck beside them — "colour by
+material, with a legend and the key dimensions marked". This module frames
+an already-rendered image with:
+
+- a title line;
+- tick marks and coordinate labels in cm along the bottom and left edges of
+  a slice ([`annotate_slice`]), derived from the slice's own origin, width
+  and basis — so the numbers are the geometry's, not a caption typed by hand;
+- a legend panel mapping each colour to a label.
+
+The raster inside the frame is copied unchanged, so an annotated image
+still carries the exact OpenMC-parity pixels; parity tests compare the
+*unannotated* image.
+
+Text is drawn with a built-in 5x7 bitmap font (upper-case letters, digits
+and common punctuation; lower case is drawn as upper case) so no font file
+or text-rendering dependency is needed.
+
+```rust
+pub mod annotate { /* ... */ }
+```
+
+### Types
+
+#### Struct `LegendEntry`
+
+One legend row.
+
+```rust
+pub struct LegendEntry {
+    pub colour: super::colour::Rgb,
+    pub label: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `colour` | `super::colour::Rgb` | Swatch colour. |
+| `label` | `String` | Label text. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>>(colour: Rgb, label: impl Into<String>) -> Self { /* ... */ }
+  ```
+  A legend row.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LegendEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LegendEntry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `text_width`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Width in pixels of `text` drawn with [`draw_text`].
+
+```rust
+pub fn text_width(text: &str) -> usize { /* ... */ }
+```
+
+#### Function `draw_text`
+
+Draw `text` with its top-left corner at `(x, y)`; pixels off the image are
+dropped.
+
+```rust
+pub fn draw_text(img: &mut super::image::ImageData, x: i64, y: i64, text: &str, colour: super::colour::Rgb) { /* ... */ }
+```
+
+#### Function `annotate_image`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Frame `image` with a title and a legend (no axes) — for ray-traced views.
+
+```rust
+pub fn annotate_image(image: &super::image::ImageData, title: &str, legend: &[LegendEntry]) -> super::image::ImageData { /* ... */ }
+```
+
+#### Function `annotate_slice`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Frame a slice image with a title, a legend, and tick marks labelled in cm
+along the bottom (horizontal axis) and left (vertical axis) edges.
+
+The tick values come from `plot`'s origin, width and basis, using the same
+pixel-to-coordinate map as [`SlicePlot::pixel_centre`], so a tick marks the
+pixel whose centre is nearest that coordinate. Axis names follow the basis
+(`X`, `Y` or `Z`). `image` must be `plot`'s own image (same pixel size).
+
+```rust
+pub fn annotate_slice(image: &super::image::ImageData, plot: &super::slice::SlicePlot, title: &str, legend: &[LegendEntry]) -> super::image::ImageData { /* ... */ }
+```
+
+## Module `colour`
+
+**Plot colours** — OpenMC's default colour stream, user colours, masks.
+
+The one thing that decides whether a plot here and a plot from
+`openmc --plot` come out the *same colour* is [`random_colour`]: three
+draws of the crate's PCG `prn` on a dedicated plotter seed, truncated to a
+byte. It is ported bit-for-bit, so with the same seed and the same cell (or
+material) ordering the two codes agree on every default colour — verified
+pixel-for-pixel in `verification_and_validation/geometry_plotting/`.
+
+```rust
+pub mod colour { /* ... */ }
+```
+
+### Types
+
+#### Struct `Rgb`
+
+One 8-bit RGB colour. Maps to `openmc::RGBColor` (`include/openmc/plot.h:48-79`).
+
+```rust
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `u8` | Red channel. |
+| `g` | `u8` | Green channel. |
+| `b` | `u8` | Blue channel. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn new(r: u8, g: u8, b: u8) -> Self { /* ... */ }
+  ```
+  A colour from its three channels.
+
+- ```rust
+  pub fn scaled(self: Self, x: f64) -> Self { /* ... */ }
+  ```
+  Scale every channel by `x`, truncating back to a byte exactly as
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rgb { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rgb) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PlotColourBy`
+
+What a plot colours by. Maps to `PlottableInterface::PlotColorBy`
+(`include/openmc/plot.h:120`) — upstream offers exactly these two for image
+output. (The matplotlib-script path's [`super::ColourBy`] additionally has a
+universe mode; OpenMC's image plots do not.)
+
+```rust
+pub enum PlotColourBy {
+    Cell,
+    Material,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+By leaf cell (or the cell at the plot's universe level).
+
+###### `Material`
+
+By leaf material; a void cell draws [`WHITE`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ColourScheme`
+
+The colour state every image plot carries: the per-cell or per-material
+table plus the background and overlap colours.
+
+Maps to the colour members of `PlottableInterface`
+(`include/openmc/plot.h:144-149`): `color_by_`, `not_found_`,
+`overlap_color_`, `colors_`. Build it with [`ColourScheme::new`] (which draws
+the default colours) and then apply user colours and masks **in upstream's
+order**, which is the order of the `PlottableInterface` constructor
+(`src/plot.cpp:829-839`): background, default colours, user colours, mask,
+overlap colour. The builder methods are order-independent except that
+[`Self::with_mask`] must follow [`Self::with_colour`], as upstream's does,
+because a mask overwrites whatever colour the component had.
+
+```rust
+pub struct ColourScheme {
+    pub colour_by: PlotColourBy,
+    pub colours: Vec<Rgb>,
+    pub background: Rgb,
+    pub overlap_colour: Rgb,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `colour_by` | `PlotColourBy` | Cell or material colouring. |
+| `colours` | `Vec<Rgb>` | One colour per cell index (in [`crate::csg::geometry::Geometry::cells`]<br>order) or per material index, as `colour_by` says. |
+| `background` | `Rgb` | Background: pixels in no cell, and pixels whose cell level is deeper than<br>the geometry at that point. `not_found_`, default [`WHITE`]. |
+| `overlap_colour` | `Rgb` | Colour of an overlap when overlaps are shown. `overlap_color_`, default [`RED`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(colour_by: PlotColourBy, n_domains: usize, seed: &mut u64) -> Self { /* ... */ }
+  ```
+  Default colours for `n_domains` cells or materials, drawn from `seed`.
+
+- ```rust
+  pub fn with_colour(self: Self, index: usize, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Set one cell's or material's colour, by index. `set_user_colors`
+
+- ```rust
+  pub fn with_mask(self: Self, components: &[usize], mask_background: Option<Rgb>) -> Self { /* ... */ }
+  ```
+  Mask: every listed component draws `mask_background`, or [`WHITE`] when
+
+- ```rust
+  pub fn with_background(self: Self, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Background colour. `set_bg_color` (`src/plot.cpp:466-477`).
+
+- ```rust
+  pub fn with_overlap_colour(self: Self, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Overlap colour. `set_overlap_color` (`src/plot.cpp:800-827`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColourScheme { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColourScheme) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `random_colour`
+
+One random colour from the plotter stream. Port of `random_color`
+(`src/plot.cpp:1179-1183`): `int(prn(&seed) * 255)` per channel, red first.
+
+```rust
+pub fn random_colour(seed: &mut u64) -> Rgb { /* ... */ }
+```
+
+#### Function `default_colours`
+
+`n` default colours drawn from `seed`, rejecting [`RED`] and [`WHITE`].
+Port of `PlottableInterface::set_default_colors` (`src/plot.cpp:580-596`).
+
+# The seed is shared across plots
+
+Upstream's `model::plotter_seed` is a single global that every plot in a
+`plots.xml` draws from in turn, starting at [`DEFAULT_PLOTTER_SEED`]. So the
+*second* plot's colours depend on how many cells or materials the first one
+coloured. Pass the same `&mut u64` through a sequence of plots to reproduce
+a multi-plot `openmc --plot` run; start a fresh one at
+[`DEFAULT_PLOTTER_SEED`] to reproduce a single-plot run.
+
+```rust
+pub fn default_colours(n: usize, seed: &mut u64) -> Vec<Rgb> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `WHITE`
+
+`WHITE` (`include/openmc/plot.h:82`) — the default background, the colour of a
+void material, and of a masked component with no mask background.
+
+```rust
+pub const WHITE: Rgb = _;
+```
+
+#### Constant `RED`
+
+`RED` (`include/openmc/plot.h:83`) — the default overlap colour.
+
+```rust
+pub const RED: Rgb = _;
+```
+
+#### Constant `BLACK`
+
+`BLACK` (`include/openmc/plot.h:84`) — the default wireframe colour.
+
+```rust
+pub const BLACK: Rgb = _;
+```
+
+#### Constant `DEFAULT_PLOTTER_SEED`
+
+Initial value of OpenMC's `model::plotter_seed` (`src/plot.cpp:174`). The
+`<plot_seed>` element of `settings.xml` overrides it (`src/settings.cpp:581-585`).
+
+```rust
+pub const DEFAULT_PLOTTER_SEED: u64 = 1;
+```
+
+## Module `image`
+
+**Image buffer and the PNG / PPM codecs.**
+
+# Why this writes its own PNG container
+
+Upstream calls libpng. A PNG is a signature, three chunk types and one
+zlib stream, and the only non-trivial part — DEFLATE — is already in this
+crate's dependency tree: `miniz_oxide` (pure Rust, MIT/Zlib/Apache-2.0) is a
+non-optional dependency of `njoy-outram-park-fork`, which this crate depends
+on, so naming it directly adds **no new crate to the build**, and it builds
+for Android/Termux and `wasm32-unknown-unknown` already (it is the WMPB
+codec there). The rest — chunk framing, CRC-32, row filters — is ~150 lines
+below. The `image` crate was considered and rejected: it is a far larger
+tree, and in this workspace it is only ever a dev/GUI dependency.
+
+# Why no JPEG
+
+JPEG is lossy. A geometry plot is a *classification* — every pixel says
+which cell or material is there — and JPEG's block DCT blurs exactly the
+boundaries a plot exists to show, and makes a pixel-for-pixel comparison
+against OpenMC meaningless. OpenMC itself writes only PNG or PPM
+(`PlottableInterface::write_image`, `src/plot.cpp:193-200`). PNG is also
+smaller than JPEG for flat-colour images like these.
+
+The decoder ([`decode_png`]) exists so the parity tests can read OpenMC's
+own PNGs; it handles what libpng writes for an 8-bit RGB/RGBA
+non-interlaced image — all five row filters — and refuses anything else.
+
+```rust
+pub mod image { /* ... */ }
+```
+
+### Types
+
+#### Struct `ImageData`
+
+A rectangular RGB image, row-major with row 0 at the **top** — the order
+both PNG and PPM store rows, and the order upstream's `data(x, y)` writes
+them (`y` = 0 is the first row written by `output_png`).
+
+Maps to `ImageData` = `tensor::Tensor<RGBColor>` of shape `{width, height}`
+(`include/openmc/plot.h:97`), indexed `data(x, y)`.
+
+```rust
+pub struct ImageData {
+    pub width: usize,
+    pub height: usize,
+    pub pixels: Vec<super::colour::Rgb>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `usize` | Pixels across. |
+| `height` | `usize` | Pixels down. |
+| `pixels` | `Vec<super::colour::Rgb>` | `width * height` pixels, `pixels[y * width + x]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn filled(width: usize, height: usize, colour: Rgb) -> Self { /* ... */ }
+  ```
+  An image filled with one colour — upstream constructs every image
+
+- ```rust
+  pub fn get(self: &Self, x: usize, y: usize) -> Rgb { /* ... */ }
+  ```
+  Pixel at column `x`, row `y` (row 0 at the top).
+
+- ```rust
+  pub fn set(self: &mut Self, x: usize, y: usize, c: Rgb) { /* ... */ }
+  ```
+  Set the pixel at column `x`, row `y`.
+
+- ```rust
+  pub fn to_png_bytes(self: &Self) -> Vec<u8> { /* ... */ }
+  ```
+  Encode as PNG: 8-bit RGB, non-interlaced — the same `IHDR` upstream's
+
+- ```rust
+  pub fn write_png</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>) -> io::Result<()> { /* ... */ }
+  ```
+  Write a PNG file. Port of `output_png` (`src/plot.cpp:887-935`).
+
+- ```rust
+  pub fn to_ppm_bytes(self: &Self) -> Vec<u8> { /* ... */ }
+  ```
+  Encode as binary PPM (`P6`), byte-for-byte what `output_ppm` writes
+
+- ```rust
+  pub fn write_ppm</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>) -> io::Result<()> { /* ... */ }
+  ```
+  Write a PPM file. Port of `output_ppm`.
+
+- ```rust
+  pub fn count_differences(self: &Self, other: &Self) -> Option<usize> { /* ... */ }
+  ```
+  Count of pixels that differ between two images of the same size;
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ImageData { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ImageData) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PngDecodeError`
+
+Why a PNG could not be decoded.
+
+```rust
+pub enum PngDecodeError {
+    Malformed(&'static str),
+    BadCrc,
+    Unsupported(&'static str),
+    Inflate,
+}
+```
+
+##### Variants
+
+###### `Malformed`
+
+Not a PNG, or truncated.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `BadCrc`
+
+A chunk's CRC did not match.
+
+###### `Unsupported`
+
+A valid PNG this minimal decoder does not handle (palette, 16-bit,
+greyscale, interlaced).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `Inflate`
+
+The zlib stream did not inflate.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PngDecodeError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PngDecodeError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `decode_png`
+
+Decode an 8-bit RGB or RGBA non-interlaced PNG (alpha is dropped) — the
+format libpng writes for OpenMC's plots and [`ImageData::to_png_bytes`]
+writes here. All five row filters are supported and every chunk CRC is
+checked.
+
+# Errors
+See [`PngDecodeError`].
+
+```rust
+pub fn decode_png(bytes: &[u8]) -> Result<ImageData, PngDecodeError> { /* ... */ }
+```
+
+## Module `model_plot`
+
+**OpenMC's Python slice plot (`openmc.Model.plot`), as an emitted
+matplotlib script.**
+
+`openmc.Model.plot` — and `Universe.plot`, `Cell.plot`, `Geometry.plot`
+and `Region.plot`, which all build a throw-away model and call it — asks
+the C++ library for an **id map** (cell id, cell instance, material id per
+pixel), turns it into an RGB image in numpy (`_id_map_to_rgb`), and draws
+it with `imshow` on a figure sized so the axes are exactly `pixels` big,
+optionally with an outline (`contour`), a legend and sampled source points.
+
+Here the id map comes from this crate's own ported point location
+([`SlicePlot::id_map`], verified pixel-for-pixel against `openmc --plot`),
+and **everything after it is emitted as Python** that is a line-for-line
+transcription of upstream's: the same numpy calls in the same order, the
+same `RandomState(1)` default colours, the same figure sizing, the same
+legend and contour arguments. Running the script therefore draws the
+picture upstream draws. Verified pixel for pixel against OpenMC 0.16.1.dev25
+running `Model.plot` itself: see
+`verification_and_validation/python_plotting_parity/README.md`.
+
+The script is standalone (`numpy` + `matplotlib`, no OpenMC, no Rust
+binary): the id map is embedded as base64 of zlib-compressed
+little-endian `int32`.
+
+# Mapping of the Python keyword arguments
+
+| `Model.plot(...)` | [`ModelPlot`] |
+|---|---|
+| `origin`, `width` (default: bounding box) | [`ModelPlot::origin`], [`ModelPlot::width`] |
+| `pixels` (int total, or `(h, v)`) | [`Pixels`] |
+| `basis` | [`ModelPlot::basis`] |
+| `color_by` | [`ModelPlot::color_by`] |
+| `colors` (dict of Cell/Material → RGB or SVG name) | [`ModelPlot::colors`] |
+| `seed` (→ `SlicePlot.colorize`) | [`ModelPlot::seed`] |
+| `legend`, `legend_kwargs` | [`ModelPlot::legend`], [`ModelPlot::legend_kwargs`] |
+| `axis_units` | [`AxisUnits`] |
+| `outline` (`False`/`True`/`'only'`), `contour_kwargs` | [`Outline`], [`ModelPlot::contour_kwargs`] |
+| `show_overlaps`, `overlap_color` | [`ModelPlot::show_overlaps`], [`ModelPlot::overlap_color`] |
+| `n_samples`, `plane_tolerance`, `source_kwargs` | [`ModelPlot::source_points`], [`ModelPlot::plane_tolerance`], [`ModelPlot::source_kwargs`] |
+| `**kwargs` (to `imshow`) | [`ModelPlot::imshow_kwargs`] |
+| `axes` (draw into existing axes) | not ported: the script owns its figure |
+
+`*_kwargs` entries are `(name, python_expression)` pairs written verbatim
+into the call, so anything matplotlib accepts can be passed.
+
+# One input differs, by necessity: `n_samples`
+
+Upstream samples `n_samples` source particles through `openmc.lib` with
+OpenMC's own random stream. This crate's source sampling is its own, so the
+caller passes the sampled positions ([`ModelPlot::source_points`]); the
+slab selection (`slice_value - tol < r[z] < slice_value + tol`), the unit
+scaling and the `scatter` call are upstream's.
+
+# IDs
+
+Upstream's id map holds **ids**, not indices: `Cell::id` here, and
+[`MaterialIdentity::material_id`] of the material the cell's index points to — which is why
+[`ModelPlot::emit`] takes the material table. Void reads `-1`
+(`MATERIAL_VOID`), "not found" `-2`, an overlap `-3` in every channel
+(`src/plot.cpp:43-79`).
+
+```rust
+pub mod model_plot { /* ... */ }
+```
+
+### Types
+
+#### Enum `Pixels`
+
+`pixels`: a total count split by aspect ratio, or `(horizontal, vertical)`.
+
+```rust
+pub enum Pixels {
+    Total(usize),
+    Exact([usize; 2]),
+}
+```
+
+##### Variants
+
+###### `Total`
+
+`pixels=int` (upstream default `40000`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Exact`
+
+`pixels=(h, v)`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `[usize; 2]` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Pixels { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Pixels) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `AxisUnits`
+
+`axis_units`, with upstream's scale factors (`model.py:1392`) — note
+`'km': 0.00001`, which is upstream's number (1 cm = 1e-5 km), kept.
+
+```rust
+pub enum AxisUnits {
+    Km,
+    M,
+    Cm,
+    Mm,
+}
+```
+
+##### Variants
+
+###### `Km`
+
+Kilometres.
+
+###### `M`
+
+Metres.
+
+###### `Cm`
+
+Centimetres (default).
+
+###### `Mm`
+
+Millimetres.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AxisUnits { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AxisUnits) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Outline`
+
+`outline`: `False`, `True` or `'only'`.
+
+```rust
+pub enum Outline {
+    Off,
+    On,
+    Only,
+}
+```
+
+##### Variants
+
+###### `Off`
+
+No outline (default).
+
+###### `On`
+
+Contour lines over the image.
+
+###### `Only`
+
+Contour lines only, no image.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Outline { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Outline) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ColorBy`
+
+`color_by`.
+
+```rust
+pub enum ColorBy {
+    Cell,
+    Material,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+By cell id (id-map channel 0). Upstream default.
+
+###### `Material`
+
+By material id (channel 2).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColorBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColorBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PlotColour`
+
+One colour value as upstream accepts it: an RGB triple (0-255) or an SVG
+colour name (looked up in `_SVG_COLORS` for the image, passed to
+matplotlib as the name for the legend patch, exactly as upstream does).
+
+```rust
+pub enum PlotColour {
+    Rgb([u8; 3]),
+    Named(String),
+}
+```
+
+##### Variants
+
+###### `Rgb`
+
+`(r, g, b)`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `[u8; 3]` |  |
+
+###### `Named`
+
+An SVG name, e.g. `"red"`. Must be a key of [`SVG_COLOURS`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotColour { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotColour) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DomainColour`
+
+A `colors` dict entry: the domain's **id** (cell id or material id, per
+[`ModelPlot::color_by`]), its legend label (`key.name`, or the id when the
+name is empty — upstream's rule), and its colour.
+
+```rust
+pub struct DomainColour {
+    pub id: i32,
+    pub name: String,
+    pub colour: PlotColour,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | Cell or material id. |
+| `name` | `String` | `name`; empty means "label with the id". |
+| `colour` | `PlotColour` | The colour. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DomainColour { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DomainColour) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ModelPlotError`
+
+Errors `Model.plot` raises before drawing, surfaced before emitting.
+
+```rust
+pub enum ModelPlotError {
+    Pixels,
+    PlaneTolerance,
+    LegendWithoutColours,
+    UnknownColourName(String),
+    MaterialIndex(usize),
+}
+```
+
+##### Variants
+
+###### `Pixels`
+
+`_check_pixels`: a zero pixel count.
+
+###### `PlaneTolerance`
+
+`plane_tolerance` must be > 0.
+
+###### `LegendWithoutColours`
+
+`legend=True` with no colours (`model.py:1478-1480`).
+
+###### `UnknownColourName`
+
+A named colour that is not in `_SVG_COLORS` (upstream: `KeyError`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `MaterialIndex`
+
+A cell fills a material index the material table does not have.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModelPlotError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ModelPlotError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ModelPlot`
+
+**`openmc.Model.plot`, ported.** Build with [`ModelPlot::new`] (upstream's
+defaults), set fields, then [`ModelPlot::emit`] the script.
+
+```rust
+pub struct ModelPlot {
+    pub origin: Option<crate::csg::position::Position>,
+    pub width: Option<[f64; 2]>,
+    pub pixels: Pixels,
+    pub basis: super::slice::PlotBasis,
+    pub color_by: ColorBy,
+    pub colors: Option<Vec<DomainColour>>,
+    pub seed: Option<u32>,
+    pub cell_names: Vec<(i32, String)>,
+    pub legend: bool,
+    pub legend_kwargs: Vec<(String, String)>,
+    pub axis_units: AxisUnits,
+    pub outline: Outline,
+    pub contour_kwargs: Vec<(String, String)>,
+    pub show_overlaps: bool,
+    pub overlap_color: PlotColour,
+    pub source_points: Option<Vec<crate::csg::position::Position>>,
+    pub plane_tolerance: f64,
+    pub source_kwargs: Vec<(String, String)>,
+    pub imshow_kwargs: Vec<(String, String)>,
+    pub title: Option<String>,
+    pub default_output: String,
+    pub savefig_kwargs: Vec<(String, String)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `Option<crate::csg::position::Position>` | `origin`; `None` = bounding-box centre (`_set_plot_defaults`). |
+| `width` | `Option<[f64; 2]>` | `width`; `None` = bounding-box width along the basis. |
+| `pixels` | `Pixels` | `pixels`, default `Total(40000)`. |
+| `basis` | `super::slice::PlotBasis` | `basis`, default `xy`. |
+| `color_by` | `ColorBy` | `color_by`, default cell. |
+| `colors` | `Option<Vec<DomainColour>>` | `colors`, in dict order; `None` = upstream's `None`. |
+| `seed` | `Option<u32>` | `seed`: when `colors` is `None`, `SlicePlot.colorize(geometry, seed)`<br>assigns every cell (or material) of the geometry a colour. |
+| `cell_names` | `Vec<(i32, String)>` | Legend labels for cells, by cell id, used by `seed` colouring (this<br>crate's cells carry no name). Missing = label with the id. |
+| `legend` | `bool` | `legend`. |
+| `legend_kwargs` | `Vec<(String, String)>` | Extra `legend_kwargs`, `(name, python expression)`, applied after<br>upstream's `setdefault`s (so they override them). |
+| `axis_units` | `AxisUnits` | `axis_units`. |
+| `outline` | `Outline` | `outline`. |
+| `contour_kwargs` | `Vec<(String, String)>` | `contour_kwargs`, overriding upstream's defaults. |
+| `show_overlaps` | `bool` | `show_overlaps`. |
+| `overlap_color` | `PlotColour` | `overlap_color`, default `(255, 0, 0)`. |
+| `source_points` | `Option<Vec<crate::csg::position::Position>>` | Sampled source positions — see the module docs on `n_samples`.<br>`None` (or empty) draws no scatter. |
+| `plane_tolerance` | `f64` | `plane_tolerance` \[cm\], default 1. |
+| `source_kwargs` | `Vec<(String, String)>` | `source_kwargs`, overriding upstream's `marker='x'`. |
+| `imshow_kwargs` | `Vec<(String, String)>` | `**kwargs` passed to `imshow`. |
+| `title` | `Option<String>` | Title set on the axes after upstream's drawing (`None` = no title,<br>as upstream). An addition for annotated figures; not in `Model.plot`. |
+| `default_output` | `String` | PNG the script writes when run with no argument. |
+| `savefig_kwargs` | `Vec<(String, String)>` | Keyword arguments for the final `plt.savefig` — the caller's call, not<br>part of `Model.plot`. Empty (matplotlib defaults) for the parity cases;<br>`bbox_inches='tight'` keeps upstream's outside-the-axes legend<br>(`bbox_to_anchor=(1.05, 1)`) in the file. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  Upstream's defaults (`model.py:1345-1366`).
+
+- ```rust
+  pub fn resolved(self: &Self, geom: &Geometry) -> ([f64; 3], [f64; 2], [usize; 2]) { /* ... */ }
+  ```
+  `_set_plot_defaults` (`model.py:1114-1148`): origin, width and pixel
+
+- ```rust
+  pub fn id_map<M: MaterialIdentity>(self: &Self, geom: &Geometry, materials: &[M]) -> Result<(Vec<i32>, Vec<i32>, [usize; 2]), ModelPlotError> { /* ... */ }
+  ```
+  The id map upstream's `Model.slice_data` returns — shape
+
+- ```rust
+  pub fn emit<M: MaterialIdentity>(self: &Self, geom: &Geometry, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  Emit the standalone matplotlib script.
+
+- ```rust
+  pub fn emit_with_id_map<M: MaterialIdentity>(self: &Self, geom: &Geometry, materials: &[M], cells: &[i32], mats: &[i32]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  [`Self::emit`] with an id map the caller already has from
+
+- ```rust
+  pub fn emit_universe<M: MaterialIdentity>(self: &Self, geom: &Geometry, u: usize, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  `Universe.plot` (`universe.py:335-341`): the same plot of a model
+
+- ```rust
+  pub fn emit_cell<M: MaterialIdentity>(self: &Self, geom: &Geometry, c: usize, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  `Cell.plot` (`cell.py:596-606`): a throw-away universe holding only
+
+- ```rust
+  pub fn emit_region<M: MaterialIdentity>(self: &Self, geom: &Geometry, region: Vec<RegionToken>, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  `Region.plot` (`region.py:348-362`): a void cell with this region
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModelPlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Traits
+
+#### Trait `MaterialIdentity`
+
+What the plotter needs to know about a material: the user-facing
+id (OpenMC's `Material.id`, which the id map and the colour keys
+carry) and its name.
+
+Added 2026-10-02 (GitHub #486) when the plotter moved here from
+`outram-mc-libs`, which implements it for its `Material`. Static
+dispatch: every function taking materials is generic over it.
+
+```rust
+pub trait MaterialIdentity {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `material_id`: User-facing material id (`openmc.Material.id`).
+- `material_name`: Material name (`openmc.Material.name`).
+
+### Re-exports
+
+#### Re-export `bounds::*`
+
+```rust
+pub use bounds::*;
+```
+
+#### Re-export `svg::*`
+
+```rust
+pub use svg::*;
+```
+
+## Module `raytrace`
+
+**Ray-traced plots** — OpenMC's `wireframe_raytrace` and `solid_raytrace`.
+
+Rays are traced through the crate's own CSG machinery —
+[`Geometry::locate`], [`Geometry::distance_to_boundary`] and
+[`Cell::distance_to_boundary`](crate::csg::cell::Cell::distance_to_boundary)
+— so a ray-traced plot shows the geometry transport sees. There is no
+second geometry engine here.
+
+# Where this can differ from OpenMC, and why
+
+1. **Complex (union / complement) regions.** Upstream's
+   `Region::distance_complex` walks along the ray until the region is
+   actually left. This crate's cell distance takes the nearest bounding
+   surface of *any* half-space, so a ray in a union region stops at an
+   internal surface, re-locates into the same cell and records an extra
+   segment. Colour is unaffected (consecutive segments of one domain compose
+   to the same attenuation) but the wireframe can show an edge upstream
+   does not. Intersection-only regions — every case in the V&V — are exact.
+2. **Relocation after a crossing.** Upstream re-searches from the crossed
+   level down (`neighbor_list_find_cell`, `cross_lattice`); this re-locates
+   from the root at the advanced position. Without overlaps the two find
+   the same cell.
+3. **Void material under material colouring.** Upstream indexes its colour
+   and opacity tables with `MATERIAL_VOID = -1` — out of bounds. Here a void
+   segment is fully transparent and never opaque.
+
+```rust
+pub mod raytrace { /* ... */ }
+```
+
+### Types
+
+#### Enum `Projection`
+
+Camera projection.
+
+```rust
+pub enum Projection {
+    Perspective {
+        horizontal_fov_deg: f64,
+    },
+    Orthographic {
+        width: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Perspective`
+
+Perspective with this horizontal field of view in degrees, `(0, 180)`.
+Upstream default: 70 (`include/openmc/plot.h:397`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `horizontal_fov_deg` | `f64` | Horizontal field of view \[degrees\]. |
+
+###### `Orthographic`
+
+Orthographic with this horizontal extent \[cm\] (`orthographic_width_`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `f64` | Width of the view \[cm\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Projection { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Projection) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Camera`
+
+The camera of a ray-traced plot. `RayTracePlot`'s members
+(`include/openmc/plot.h:397-414`).
+
+```rust
+pub struct Camera {
+    pub position: crate::csg::position::Position,
+    pub look_at: crate::csg::position::Position,
+    pub up: crate::csg::position::Direction,
+    pub pixels: [usize; 2],
+    pub projection: Projection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::csg::position::Position` | Eye position \[cm\]. |
+| `look_at` | `crate::csg::position::Position` | Point at the centre of the view \[cm\]. |
+| `up` | `crate::csg::position::Direction` | Which way is up. Upstream default `(0, 0, 1)`; it is not settable from<br>`plots.xml`, only through the C API. |
+| `pixels` | `[usize; 2]` | Pixels across and down. |
+| `projection` | `Projection` | Projection. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn perspective(position: Position, look_at: Position, pixels: [usize; 2]) -> Self { /* ... */ }
+  ```
+  A perspective camera with upstream's defaults (70 degrees, up = +z).
+
+- ```rust
+  pub fn camera_to_model(self: &Self) -> [f64; 9] { /* ... */ }
+  ```
+  Camera-to-model matrix, row-major with the camera axes as columns.
+
+- ```rust
+  pub fn pixel_ray(self: &Self, m: &[f64; 9], horiz: usize, vert: usize) -> (Position, Direction) { /* ... */ }
+  ```
+  Start point and direction of the ray through pixel `(horiz, vert)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Camera { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Camera) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WireframeRayTracePlot`
+
+A wireframe ("x-ray") plot. `WireframeRayTracePlot`.
+
+```rust
+pub struct WireframeRayTracePlot {
+    pub camera: Camera,
+    pub xs: Vec<f64>,
+    pub wireframe_thickness: i32,
+    pub wireframe_colour: super::colour::Rgb,
+    pub wireframe_ids: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `camera` | `Camera` | The camera. |
+| `xs` | `Vec<f64>` | Attenuation per colour index \[1/cm\]; upstream default `1e6` = opaque<br>(`set_opacities`, `src/plot.cpp:1555`). Same length as the scheme's colours. |
+| `wireframe_thickness` | `i32` | Line thickness in pixels; 0 = no wireframe. Default 1. |
+| `wireframe_colour` | `super::colour::Rgb` | Line colour. Default [`BLACK`]. |
+| `wireframe_ids` | `Vec<usize>` | Colour indices to outline; empty = every boundary (`wireframe_ids_`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
+  ```
+  Defaults: everything opaque, thickness 1, black lines on every boundary.
+
+- ```rust
+  pub fn with_xs(self: Self, index: usize, xs: f64) -> Self { /* ... */ }
+  ```
+  Set one domain's attenuation (`<color id=.. xs=..>`).
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render. Port of `WireframeRayTracePlot::create_image`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WireframeRayTracePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SolidRayTracePlot`
+
+A solid, lit plot. `SolidRayTracePlot`.
+
+```rust
+pub struct SolidRayTracePlot {
+    pub camera: Camera,
+    pub opaque: Vec<bool>,
+    pub light_position: Option<crate::csg::position::Position>,
+    pub diffuse_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `camera` | `Camera` | The camera. |
+| `opaque` | `Vec<bool>` | Which colour indices are opaque (`opaque_ids_`); everything else is<br>invisible. |
+| `light_position` | `Option<crate::csg::position::Position>` | Light position; `None` = at the camera (upstream default,<br>`src/plot.cpp:1735-1737`). |
+| `diffuse_fraction` | `f64` | Share of ambient light, `[0, 1]`. Default 0.1. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
+  ```
+  Defaults: nothing opaque, light at the camera, diffuse fraction 0.1.
+
+- ```rust
+  pub fn with_opaque(self: Self, index: usize) -> Self { /* ... */ }
+  ```
+  Make one domain opaque (`<opaque_ids>`).
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render. Port of `SolidRayTracePlot::create_image` (`src/plot.cpp:1683-1701`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SolidRayTracePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `TINY_BIT`
+
+`TINY_BIT` (`include/openmc/constants.h:50`) — how far past a boundary a
+ray is pushed.
+
+```rust
+pub const TINY_BIT: f64 = 1e-8;
+```
+
+## Module `script`
+
+**Geometry slice plotting, by emitting a standalone matplotlib script.**
+GitHub #268.
+
+This is the *script* path. The native OpenMC-parity rasteriser now lives
+beside it in [`super::slice`] and [`super::raytrace`] and writes PNG
+directly; see the module docs of [`super`].
+
+# Why this shape
+
+~~Upstream `src/plot.cpp` is 2597 lines of PPM/PNG rasterisation, voxel
+output and a colour-mapping layer. **None of it is ported**, by maintainer
+direction.~~ **CORRECTED 2026-09-25 (maintainer direction reversed,
+gh:#268):** "make sure the plotting capabilities of openmc are properly
+ported over (to jpg or PNG)". The slice and ray-trace rasterisers, the
+default colour stream and a PNG writer are now ported in the sibling
+modules; only voxel output (HDF5, not an image) is still left out. This
+script emitter is kept because it is still useful: what it emits is a
+self-contained `.py` file that draws the slice when run.
+
+That choice buys three things:
+
+- the script is **inspectable and editable**: change the colour map, the
+  slice plane or the figure size without rebuilding, and `diff` two scripts
+  to see what changed in a model;
+- it sits naturally beside the OpenMC decks already committed under
+  `verification_and_validation/<topic>/openmc_inputs/`, so it can be
+  compared against `openmc.Plot` output of the same model;
+- matplotlib draws axes, ticks and a colour bar for free.
+
+# How the data gets into the script
+
+The index array is **embedded in the script itself** as a nested list, so
+the `.py` is standalone and reproducible with no Rust binary and no side
+files. It runs on a bare `python3` with only `matplotlib` and `numpy`.
+
+```rust
+pub mod script { /* ... */ }
+```
+
+### Types
+
+#### Enum `ColourBy`
+
+What the slice is coloured by.
+
+~~The three upstream offers.~~ **CORRECTED 2026-09-25:** upstream image
+plots colour by cell or material only (`PlotColorBy`, `include/openmc/plot.h:120`);
+`Universe` is this script path's own addition.
+
+```rust
+pub enum ColourBy {
+    Cell,
+    Material,
+    Universe,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+Leaf cell index.
+
+###### `Material`
+
+Leaf material index; void reads as -1.
+
+###### `Universe`
+
+Leaf universe index.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Slice`
+
+A slice plane: an origin and two in-plane basis vectors, with a width along
+each and a pixel count along each.
+
+```rust
+pub struct Slice {
+    pub origin: crate::csg::position::Position,
+    pub basis_u: crate::csg::position::Direction,
+    pub basis_v: crate::csg::position::Direction,
+    pub width_u: f64,
+    pub width_v: f64,
+    pub pixels_u: usize,
+    pub pixels_v: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::csg::position::Position` | Centre of the slice \[cm\]. |
+| `basis_u` | `crate::csg::position::Direction` | In-plane basis vector for the horizontal axis (need not be unit; it is<br>normalised here). |
+| `basis_v` | `crate::csg::position::Direction` | In-plane basis vector for the vertical axis. |
+| `width_u` | `f64` | Full width along `basis_u` \[cm\]. |
+| `width_v` | `f64` | Full width along `basis_v` \[cm\]. |
+| `pixels_u` | `usize` | Pixels along `basis_u`. |
+| `pixels_v` | `usize` | Pixels along `basis_v`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Slice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `sample_slice`
+
+Sample the slice, returning a `pixels_v` x `pixels_u` array of indices.
+
+`-1` marks a point that is in no cell at all — outside the geometry — and is
+deliberately distinct from a void cell inside it, which under
+[`ColourBy::Material`] also reads `-1`. Under [`ColourBy::Cell`] the two are
+distinguishable, which is why a geometry that looks wrong should be checked
+cell-coloured first.
+
+```rust
+pub fn sample_slice(geom: &crate::csg::geometry::Geometry, slice: &Slice, colour_by: ColourBy) -> Vec<Vec<i64>> { /* ... */ }
+```
+
+#### Function `emit_python`
+
+Emit a standalone matplotlib script that draws this slice.
+
+`title` names the model; `provenance` is free text written into the header
+comment — the commit, the date, whatever makes the plot traceable later.
+
+```rust
+pub fn emit_python(geom: &crate::csg::geometry::Geometry, slice: &Slice, colour_by: ColourBy, title: &str, provenance: &str) -> String { /* ... */ }
+```
+
+## Module `slice`
+
+**Slice plots** — OpenMC's `<plot type="slice">`, rasterised in Rust.
+
+```rust
+pub mod slice { /* ... */ }
+```
+
+### Types
+
+#### Enum `PlotBasis`
+
+Slice orientation. `SlicePlotBase::PlotBasis` (`include/openmc/plot.h:204`).
+
+```rust
+pub enum PlotBasis {
+    Xy,
+    Xz,
+    Yz,
+}
+```
+
+##### Variants
+
+###### `Xy`
+
+Horizontal axis +x, vertical axis +y.
+
+###### `Xz`
+
+Horizontal axis +x, vertical axis +z — an R-Z view of an axisymmetric core.
+
+###### `Yz`
+
+Horizontal axis +y, vertical axis +z.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn axes(self: Self) -> (usize, usize) { /* ... */ }
+  ```
+  Global axis indices `(horizontal, vertical)` — `ax1`, `ax2` in
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short name, as OpenMC spells it.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotBasis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotBasis) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshLines`
+
+Mesh-line overlay. `<meshlines>` (`Plot::set_meshlines`, `src/plot.cpp:635-741`).
+
+Upstream draws any structured mesh that implements `Mesh::plot` (regular,
+rectilinear, cylindrical, spherical). This crate has **one** mesh type,
+[`RegularMesh`], so that is the only one supported — which also means
+`meshtype` (`ufs` / `entropy` / `tally`) has nothing to choose between here:
+the caller hands over the mesh itself.
+
+```rust
+pub struct MeshLines {
+    pub mesh: crate::spatial_mesh::RegularMesh,
+    pub width: i32,
+    pub colour: super::colour::Rgb,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::spatial_mesh::RegularMesh` | The mesh to overlay. |
+| `width` | `i32` | `linewidth`: a line covers `2 * width + 1` pixels (`src/plot.cpp:1015`). |
+| `colour` | `super::colour::Rgb` | Line colour. Upstream's default is a value-initialised `RGBColor`, i.e.<br>[`BLACK`] (`include/openmc/plot.h:50`, `:324`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshLines { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SlicePlot`
+
+A slice plot: the geometry-side parameters of OpenMC's `Plot` with
+`PlotType::slice`. Colours live separately in a [`ColourScheme`] so one
+geometry pass ([`SlicePlot::id_map`]) can be coloured several ways.
+
+```rust
+pub struct SlicePlot {
+    pub origin: crate::csg::position::Position,
+    pub basis: PlotBasis,
+    pub width: [f64; 2],
+    pub pixels: [usize; 2],
+    pub level: Option<usize>,
+    pub show_overlaps: bool,
+    pub meshlines: Option<MeshLines>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::csg::position::Position` | Centre of the slice \[cm\]. `origin_`. |
+| `basis` | `PlotBasis` | Orientation. `basis_`. |
+| `width` | `[f64; 2]` | Full widths along the horizontal and vertical axes \[cm\]. `width_`. |
+| `pixels` | `[usize; 2]` | Pixels across and down. `pixels_`. |
+| `level` | `Option<usize>` | Universe level whose cell is coloured under cell colouring; `None` is<br>upstream's `PLOT_LEVEL_LOWEST` (the leaf cell). `level_` / `slice_level_`.<br>Level 0 is the root universe. Ignored under material colouring, where<br>the leaf material is always used — as upstream. |
+| `show_overlaps` | `bool` | Paint overlapping cells in the scheme's overlap colour. `show_overlaps_`. |
+| `meshlines` | `Option<MeshLines>` | Optional mesh-line overlay. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(basis: PlotBasis, origin: Position, width: [f64; 2], pixels: [usize; 2]) -> Self { /* ... */ }
+  ```
+  A slice with upstream's defaults: leaf level, no overlaps, no mesh lines.
+
+- ```rust
+  pub fn at_level(self: Self, level: usize) -> Self { /* ... */ }
+  ```
+  Plot a specific universe level (0 = root). `<level>`.
+
+- ```rust
+  pub fn showing_overlaps(self: Self) -> Self { /* ... */ }
+  ```
+  Show overlapping cells. `<show_overlaps>`.
+
+- ```rust
+  pub fn with_meshlines(self: Self, mesh: RegularMesh, width: i32, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Overlay a regular mesh's lines. `<meshlines>`.
+
+- ```rust
+  pub fn pixel_centre(self: &Self, x: usize, y: usize) -> Position { /* ... */ }
+  ```
+  Global position of the centre of pixel `(x, y)`, with exactly the
+
+- ```rust
+  pub fn id_map(self: &Self, geom: &Geometry) -> IdMap { /* ... */ }
+  ```
+  Locate every pixel. Port of `SlicePlotBase::get_map<IdData>`
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render the slice. Port of `Plot::create_image` (`src/plot.cpp:317-358`),
+
+- ```rust
+  pub fn colour_id_map(self: &Self, ids: &IdMap, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Colour an already-computed [`IdMap`] — the colouring half of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SlicePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SliceHit`
+
+What one pixel of a slice found. The information of one `IdData` entry
+(`src/plot.cpp:47-79`) in a type rather than in magic negative integers
+(`NOT_FOUND = -2`, `OVERLAP = -3`, `MATERIAL_VOID = -1`).
+
+```rust
+pub enum SliceHit {
+    NotFound,
+    Overlap,
+    Found {
+        cell: Option<usize>,
+        material: Option<usize>,
+    },
+}
+```
+
+##### Variants
+
+###### `NotFound`
+
+The point is in no cell (outside the model, or in a hole at some level).
+
+###### `Overlap`
+
+The point is claimed by two or more cells of one universe
+(only reported when [`SlicePlot::show_overlaps`] is set).
+
+###### `Found`
+
+A cell was found.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `Option<usize>` | Cell index at the plot's level, or `None` when that level is deeper<br>than the geometry here (upstream writes `NOT_FOUND`, drawn as background). |
+| `material` | `Option<usize>` | Leaf material index, or `None` for a void cell (`MATERIAL_VOID`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SliceHit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SliceHit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IdMap`
+
+The per-pixel result of a slice — `get_map<IdData>`. Row 0 is the top of
+the image; `hits[y * width + x]`.
+
+```rust
+pub struct IdMap {
+    pub width: usize,
+    pub height: usize,
+    pub hits: Vec<SliceHit>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `usize` | Pixels across. |
+| `height` | `usize` | Pixels down. |
+| `hits` | `Vec<SliceHit>` | One entry per pixel. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn get(self: &Self, x: usize, y: usize) -> SliceHit { /* ... */ }
+  ```
+  The hit at column `x`, row `y`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IdMap { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IdMap) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `check_cell_overlap`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Whether any cell other than the one found claims the point, at any level.
+Port of `check_cell_overlap` (`src/geometry.cpp:38-90`) with `error =
+false`, minus its bookkeeping of which pair overlaps (the image only needs
+to know that one does).
+
+```rust
+pub fn check_cell_overlap(geom: &crate::csg::geometry::Geometry, path: &crate::csg::geometry::GeometryPath) -> bool { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_MESHLINE_COLOUR`
+
+Default mesh-line colour, spelled out: upstream's `meshlines_color_` is a
+default-constructed `RGBColor`, which is black.
+
+```rust
+pub const DEFAULT_MESHLINE_COLOUR: super::colour::Rgb = BLACK;
+```
+
+### Functions
+
+#### Function `material_count`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Highest material index any cell fills with, plus one — the smallest
+material table a [`ColourScheme`] for this geometry can use. (OpenMC sizes
+its table to the full materials list, which may be longer; pass that
+length instead when reproducing an OpenMC run's colours.)
+
+```rust
+pub fn material_count(geom: &crate::csg::geometry::Geometry) -> usize { /* ... */ }
+```
+
+#### Function `render_material_slice`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Draw a slice of an assembled geometry by material, with a legend and
+dimensioned axes** — the geometry-drawing rule's minimum, in one call.
+
+`palette[i]` is `(colour, label)` for material index `i`; materials past
+the end of `palette` get OpenMC's default colours (seed
+[`DEFAULT_PLOTTER_SEED`]), labelled `MATERIAL <i>`. Only materials that
+actually appear in the slice are listed in the legend, plus `VOID` and
+`OUTSIDE MODEL` when present. Returns `(raw, annotated)`: the raw image is
+OpenMC-parity pixels, the annotated one is for a human.
+
+```rust
+pub fn render_material_slice(geom: &crate::csg::geometry::Geometry, plot: &SlicePlot, palette: &[(Rgb, &str)], title: &str) -> (ImageData, ImageData) { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `annotate_image`
+
+```rust
+pub use annotate::annotate_image;
+```
+
+#### Re-export `annotate_slice`
+
+```rust
+pub use annotate::annotate_slice;
+```
+
+#### Re-export `LegendEntry`
+
+```rust
+pub use annotate::LegendEntry;
+```
+
+#### Re-export `default_colours`
+
+```rust
+pub use colour::default_colours;
+```
+
+#### Re-export `random_colour`
+
+```rust
+pub use colour::random_colour;
+```
+
+#### Re-export `ColourScheme`
+
+```rust
+pub use colour::ColourScheme;
+```
+
+#### Re-export `PlotColourBy`
+
+```rust
+pub use colour::PlotColourBy;
+```
+
+#### Re-export `Rgb`
+
+```rust
+pub use colour::Rgb;
+```
+
+#### Re-export `BLACK`
+
+```rust
+pub use colour::BLACK;
+```
+
+#### Re-export `DEFAULT_PLOTTER_SEED`
+
+```rust
+pub use colour::DEFAULT_PLOTTER_SEED;
+```
+
+#### Re-export `RED`
+
+```rust
+pub use colour::RED;
+```
+
+#### Re-export `WHITE`
+
+```rust
+pub use colour::WHITE;
+```
+
+#### Re-export `decode_png`
+
+```rust
+pub use image::decode_png;
+```
+
+#### Re-export `ImageData`
+
+```rust
+pub use image::ImageData;
+```
+
+#### Re-export `PngDecodeError`
+
+```rust
+pub use image::PngDecodeError;
+```
+
+#### Re-export `AxisUnits`
+
+```rust
+pub use model_plot::AxisUnits;
+```
+
+#### Re-export `BoundingBox`
+
+```rust
+pub use model_plot::BoundingBox;
+```
+
+#### Re-export `ColorBy`
+
+```rust
+pub use model_plot::ColorBy;
+```
+
+#### Re-export `DomainColour`
+
+```rust
+pub use model_plot::DomainColour;
+```
+
+#### Re-export `MaterialIdentity`
+
+```rust
+pub use model_plot::MaterialIdentity;
+```
+
+#### Re-export `ModelPlot`
+
+```rust
+pub use model_plot::ModelPlot;
+```
+
+#### Re-export `ModelPlotError`
+
+```rust
+pub use model_plot::ModelPlotError;
+```
+
+#### Re-export `Outline`
+
+```rust
+pub use model_plot::Outline;
+```
+
+#### Re-export `Pixels`
+
+```rust
+pub use model_plot::Pixels;
+```
+
+#### Re-export `PlotColour`
+
+```rust
+pub use model_plot::PlotColour;
+```
+
+#### Re-export `Camera`
+
+```rust
+pub use raytrace::Camera;
+```
+
+#### Re-export `Projection`
+
+```rust
+pub use raytrace::Projection;
+```
+
+#### Re-export `SolidRayTracePlot`
+
+```rust
+pub use raytrace::SolidRayTracePlot;
+```
+
+#### Re-export `WireframeRayTracePlot`
+
+```rust
+pub use raytrace::WireframeRayTracePlot;
+```
+
+#### Re-export `emit_python`
+
+```rust
+pub use script::emit_python;
+```
+
+#### Re-export `sample_slice`
+
+```rust
+pub use script::sample_slice;
+```
+
+#### Re-export `ColourBy`
+
+```rust
+pub use script::ColourBy;
+```
+
+#### Re-export `Slice`
+
+```rust
+pub use script::Slice;
+```
+
+#### Re-export `IdMap`
+
+```rust
+pub use slice::IdMap;
+```
+
+#### Re-export `MeshLines`
+
+```rust
+pub use slice::MeshLines;
+```
+
+#### Re-export `PlotBasis`
+
+```rust
+pub use slice::PlotBasis;
+```
+
+#### Re-export `SliceHit`
+
+```rust
+pub use slice::SliceHit;
+```
+
+#### Re-export `SlicePlot`
+
+```rust
+pub use slice::SlicePlot;
+```
+
+## Module `position`
+
+3D position and direction vectors.
+
+C++ source: `include/openmc/position.h`, `src/position.cpp`.
+
+Units: OpenMC uses **centimetres (cm)** throughout. All `Position` values
+are in cm; this is not enforced by the type system (raw f64) because the
+particle tracking inner loop is performance-critical.
+
+```rust
+pub mod position { /* ... */ }
+```
+
+### Types
+
+#### Struct `Position`
+
+Cartesian position in cm.  Maps to `openmc::Position`.
+
+```rust
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `f64` |  |
+| `y` | `f64` |  |
+| `z` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(x: f64, y: f64, z: f64) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn dot(self: Self, other: Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn norm_sqr(self: Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn norm(self: Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn distance(self: Self, other: Self) -> f64 { /* ... */ }
+  ```
+  Distance to another position.
+
+###### Trait Implementations
+
+- **Add**
+  - ```rust
+    fn add(self: Self, r: Self) -> Self { /* ... */ }
+    ```
+
+- **AddAssign**
+  - ```rust
+    fn add_assign(self: &mut Self, r: Self) { /* ... */ }
+    ```
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Position { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Position { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Div**
+  - ```rust
+    fn div(self: Self, s: f64) -> Self { /* ... */ }
+    ```
+
+- **DivAssign**
+  - ```rust
+    fn div_assign(self: &mut Self, s: f64) { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Mul**
+  - ```rust
+    fn mul(self: Self, s: f64) -> Self { /* ... */ }
+    ```
+
+  - ```rust
+    fn mul(self: Self, p: Position) -> Position { /* ... */ }
+    ```
+
+- **MulAssign**
+  - ```rust
+    fn mul_assign(self: &mut Self, s: f64) { /* ... */ }
+    ```
+
+- **Neg**
+  - ```rust
+    fn neg(self: Self) -> Self { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Position) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sub**
+  - ```rust
+    fn sub(self: Self, r: Self) -> Self { /* ... */ }
+    ```
+
+- **SubAssign**
+  - ```rust
+    fn sub_assign(self: &mut Self, r: Self) { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Direction`
+
+Unit direction vector (direction cosines u, v, w).  Always |d| = 1.
+Maps to `openmc::Direction` (which is a typedef for `Position` in OpenMC).
+
+```rust
+pub struct Direction {
+    pub u: f64,
+    pub v: f64,
+    pub w: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u` | `f64` |  |
+| `v` | `f64` |  |
+| `w` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(u: f64, v: f64, w: f64) -> Self { /* ... */ }
+  ```
+  Construct a Direction from raw components — caller must ensure |d| ≈ 1.
+
+- ```rust
+  pub fn from_unnormalised(x: f64, y: f64, z: f64) -> Self { /* ... */ }
+  ```
+  Normalise an arbitrary vector to obtain a unit direction.
+
+- ```rust
+  pub fn dot_pos(self: Self, p: Position) -> f64 { /* ... */ }
+  ```
+  Dot product with a `Position` (used for projecting displacement onto direction).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Direction { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Direction) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `stream`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Advance a position by `distance` along `direction`.
+
+Equivalent to `r + d * distance` — the core operation in particle streaming.
+
+```rust
+pub fn stream(pos: Position, dir: Direction, distance: f64) -> Position { /* ... */ }
+```
+
+## Module `surface`
+
+Quadric surfaces for CSG geometry.
+
+C++ source: `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` (419 LOC).
+
+OpenMC supports: XPlane, YPlane, ZPlane, Plane (general), XCylinder,
+YCylinder, ZCylinder, Sphere, XCone, YCone, ZCone, Quadric, Torus{X,Y,Z}.
+
+Each surface implements two core methods:
+  - `evaluate(r)` — signed "sense" function; negative = inside, positive = outside
+  - `distance(r, u, coincident)` — distance to surface intersection along ray
+
+Boundary conditions: Transmissive, Vacuum, Reflective, Periodic, White.
+
+```rust
+pub mod surface { /* ... */ }
+```
+
+### Types
+
+#### Enum `BoundaryType`
+
+Surface boundary condition type.  Maps to `openmc::BoundaryType`.
+
+```rust
+pub enum BoundaryType {
+    Transmissive,
+    Vacuum,
+    Reflective,
+    Periodic,
+    White,
+}
+```
+
+##### Variants
+
+###### `Transmissive`
+
+###### `Vacuum`
+
+###### `Reflective`
+
+###### `Periodic`
+
+###### `White`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundaryType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoundaryType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SurfaceKind`
+
+A CSG quadric surface — the closed set the geometry navigator dispatches over.
+
+Wraps each concrete surface struct. Maps to the OpenMC `Surface` polymorphic
+hierarchy (`src/surface.cpp`), realised here as an enum so `match` gives
+exhaustiveness and rust-analyzer go-to-definition on every variant.
+
+```rust
+pub enum SurfaceKind {
+    XPlane(XPlane),
+    YPlane(YPlane),
+    ZPlane(ZPlane),
+    Plane(Plane),
+    Sphere(Sphere),
+    XCylinder(XCylinder),
+    YCylinder(YCylinder),
+    ZCylinder(ZCylinder),
+    XCone(XCone),
+    YCone(YCone),
+    ZCone(ZCone),
+    Quadric(Quadric),
+    XTorus(XTorus),
+    YTorus(YTorus),
+    ZTorus(ZTorus),
+}
+```
+
+##### Variants
+
+###### `XPlane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XPlane` |  |
+
+###### `YPlane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YPlane` |  |
+
+###### `ZPlane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZPlane` |  |
+
+###### `Plane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Plane` |  |
+
+###### `Sphere`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Sphere` |  |
+
+###### `XCylinder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XCylinder` |  |
+
+###### `YCylinder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YCylinder` |  |
+
+###### `ZCylinder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZCylinder` |  |
+
+###### `XCone`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XCone` |  |
+
+###### `YCone`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YCone` |  |
+
+###### `ZCone`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZCone` |  |
+
+###### `Quadric`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Quadric` |  |
+
+###### `XTorus`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XTorus` |  |
+
+###### `YTorus`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YTorus` |  |
+
+###### `ZTorus`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZTorus` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn evaluate(self: &Self, r: Position) -> f64 { /* ... */ }
+  ```
+  Signed surface sense at `r`: negative inside, positive outside.
+
+- ```rust
+  pub fn sense(self: &Self, r: Position, u: Direction) -> bool { /* ... */ }
+  ```
+  Boolean sense used by cell membership: `true` = positive (outside) half-space.
+
+- ```rust
+  pub fn distance(self: &Self, r: Position, u: Direction, coincident: bool) -> f64 { /* ... */ }
+  ```
+  Smallest positive distance along ray `(r, u)` to this surface, or
+
+- ```rust
+  pub fn normal(self: &Self, r: Position) -> Direction { /* ... */ }
+  ```
+  Outward unit normal at `r` (assumes `r` lies on the surface).
+
+- ```rust
+  pub fn reflect(self: &Self, r: Position, u: Direction) -> Direction { /* ... */ }
+  ```
+  Specular reflection of direction `u` off this surface at `r`.
+
+- ```rust
+  pub fn bc(self: &Self) -> BoundaryType { /* ... */ }
+  ```
+  This surface's boundary condition.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Traits
+
+#### Trait `Surface`
+
+Trait all surfaces must implement.  Maps to the virtual `Surface` base class.
+
+```rust
+pub trait Surface: Send + Sync {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `evaluate`: Evaluate the surface equation at `r`. Negative = inside the surface.
+- `distance`: Smallest positive distance along ray `(r, u)` to this surface.
+- `normal`: Outward unit normal at point `r` (assumes `r` is on the surface).
+
+##### Provided Methods
+
+- ```rust
+  fn reflect(self: &Self, r: Position, u: Direction) -> Direction { /* ... */ }
+  ```
+  Reflect direction `u` off this surface at position `r`.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `XPlane`
+- `YPlane`
+- `ZPlane`
+- `Sphere`
+- `ZCylinder`
+- `Plane`
+- `XCylinder`
+- `YCylinder`
+- `ZCone`
+- `XCone`
+- `YCone`
+- `Quadric`
+- `ZTorus`
+- `XTorus`
+- `YTorus`
+
+### Constants and Statics
+
+#### Constant `FP_COINCIDENT`
+
+Tolerance \[dimensionless, in the units of `evaluate`\] within which a point
+counts as sitting **on** a surface rather than to one side of it.
+
+`FP_COINCIDENT` in `include/openmc/constants.h:55`. Inside this band the sign
+of `evaluate` is decided by floating-point round-off rather than by geometry,
+so [`SurfaceKind::sense`] switches to the direction of travel instead.
+
+```rust
+pub const FP_COINCIDENT: f64 = 1.0e-12;
+```
+
+### Re-exports
+
+#### Re-export `Plane`
+
+```rust
+pub use quadric::Plane;
+```
+
+#### Re-export `Quadric`
+
+```rust
+pub use quadric::Quadric;
+```
+
+#### Re-export `Sphere`
+
+```rust
+pub use quadric::Sphere;
+```
+
+#### Re-export `XCone`
+
+```rust
+pub use quadric::XCone;
+```
+
+#### Re-export `XCylinder`
+
+```rust
+pub use quadric::XCylinder;
+```
+
+#### Re-export `XPlane`
+
+```rust
+pub use quadric::XPlane;
+```
+
+#### Re-export `YCone`
+
+```rust
+pub use quadric::YCone;
+```
+
+#### Re-export `YCylinder`
+
+```rust
+pub use quadric::YCylinder;
+```
+
+#### Re-export `YPlane`
+
+```rust
+pub use quadric::YPlane;
+```
+
+#### Re-export `ZCone`
+
+```rust
+pub use quadric::ZCone;
+```
+
+#### Re-export `ZCylinder`
+
+```rust
+pub use quadric::ZCylinder;
+```
+
+#### Re-export `ZPlane`
+
+```rust
+pub use quadric::ZPlane;
+```
+
+#### Re-export `XTorus`
+
+```rust
+pub use torus::XTorus;
+```
+
+#### Re-export `YTorus`
+
+```rust
+pub use torus::YTorus;
+```
+
+#### Re-export `ZTorus`
+
+```rust
+pub use torus::ZTorus;
+```
+
+## Module `triso_particle`
+
+Full nested-shell TRISO fuel-particle geometry (kernel + 4 coatings).
+
+A real TRISO (TRi-structural ISOtropic) fuel particle is **five concentric
+regions**, not the single fuel sphere the `triso` notebook verification test
+collapses into the matrix. From the centre outward:
+
+1. **fuel kernel** — the fissile ceramic microsphere (UO2 for HTR-10),
+2. **buffer** — a low-density porous pyrolytic-carbon layer that gives fission
+   gases somewhere to go and absorbs fuel-kernel swelling / recoils,
+3. **IPyC** — inner (dense) pyrolytic carbon, the inner seal coat,
+4. **SiC** — silicon carbide, the primary pressure boundary / metallic-fission-
+   product barrier (the structural "miniature pressure vessel"),
+5. **OPyC** — outer pyrolytic carbon, the outer bonding / protective coat,
+
+all embedded in a graphite **matrix** (the compact / pebble binder) that fills
+the rest of the particle's universe.
+
+This module **assembles existing CSG primitives** — it is not an OpenMC port.
+It places five concentric [`Sphere`] surfaces at the cumulative outer radii of
+each region and builds one [`Cell`] per shell as the half-space region between
+consecutive spheres (`+sense` of the inner sphere ∧ `−sense` of the outer),
+with the kernel as the innermost `−sense` ball and the matrix as the outermost
+`+sense` exterior. The result is a [`Universe`] a lattice tile or a bounding
+cell can be filled with, exactly like the single-kernel universe the existing
+`triso` test builds — only now with the real coating stack resolved.
+
+# Reference dimensions (typical HTR-10 / reference TRISO — NOT an authoritative spec)
+
+The [`TrisoRadii::HTR10`] preset uses IAEA-TECDOC-1382's HTR-10 pebble-bed TRISO
+geometry (UO2 kernel + the standard four coatings). These are **typical /
+reference** values drawn from open pebble-bed-HTGR literature, provided as a
+convenience default — they are not a controlled design specification and must
+not be treated as one:
+
+| Region | Layer size | Cumulative outer radius |
+|---|---|---|
+| UO2 kernel   | 250 µm radius   | 0.0250 cm |
+| buffer (PyC) | 90 µm thick     | 0.0340 cm |
+| IPyC         | 40 µm thick     | 0.0380 cm |
+| SiC          | 35 µm thick     | 0.0415 cm |
+| OPyC         | 40 µm thick     | 0.0455 cm |
+
+(1 µm = 1e-4 cm; the kernel figure is a *radius*, the four coatings are
+*thicknesses* accumulated onto it.) The builder itself is fully general — it
+takes whatever five cumulative radii the caller supplies; the preset only
+encodes the table above.
+
+# Scope: geometry + material assignment only
+
+Nothing here loads or asserts any thermal data; the material ids are opaque
+indices the caller maps to real materials. That is deliberate and stays that
+way — deck loading in a CSG module would break the crate's data/transport
+boundary (`outram-mc-libs` parses no ENDF; it consumes the njoy surface).
+
+**S(α,β) thermal scattering is therefore attached caller-side**, to the
+`Nuclide`s (outram-mc-libs) that make up the materials
+passed in here, via `Nuclide::with_thermal_scattering`. It is no longer
+blocked on data availability: as of 2026-08-14 the ENDF/B-VIII.0 LEAPR decks
+are embedded in `njoy-outram-park-fork` and regenerate offline. See
+`tests/triso_shell_thermal_scattering.rs` for the worked, checked
+composition, and note its finding:
+
+- **PyC coatings and matrix (carbon in graphite) — available and verified.**
+- **SiC layer — available as of 2026-08-19, not yet fully verified.** Stock
+  LEAPR could not generate SiC's coherent-elastic channel (card 4
+  `iel = 0`); a generalized coherent-elastic implementation (bead
+  `op-jw4a`, mirrors GitHub issue #24) now produces a real MF=7/MT=2
+  channel for both `tsl-CinSiC` and `tsl-SiinSiC`, measured within ~3% of
+  the official ENDF/B-VIII.0 tape oracle at 0.0253 eV
+  (`crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs`).
+  **Still do not substitute the graphite law for the SiC layer** — it
+  remains a different lattice. **Still do not sum both SiC materials'
+  elastic channels for one region** — coherent elastic is a property of
+  the 3C-SiC compound as a whole and both materials carry the identical
+  value; a caller must attribute MT=2 to the compound once. Remaining
+  follow-up (tracked in `op-jw4a`, not yet done): a tighter-tolerance
+  edge-by-edge validation, and root-causing the residual ~3% gap.
+
+```rust
+pub mod triso_particle { /* ... */ }
+```
+
+### Types
+
+#### Struct `TrisoRadii`
+
+The five cumulative **outer radii** \[cm\] of a TRISO particle's regions.
+
+Each field is the radius of the *outer* boundary of that region (measured from
+the particle centre), so they must be **strictly increasing**:
+`kernel < buffer < ipyc < sic < opyc`. A region's radial thickness is the
+difference between its outer radius and the previous one (the kernel's
+"thickness" is just its radius).
+
+```rust
+pub struct TrisoRadii {
+    pub kernel: f64,
+    pub buffer: f64,
+    pub ipyc: f64,
+    pub sic: f64,
+    pub opyc: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `f64` | Fuel-kernel outer radius \[cm\]. |
+| `buffer` | `f64` | Buffer outer radius \[cm\] (kernel radius + buffer thickness). |
+| `ipyc` | `f64` | IPyC outer radius \[cm\]. |
+| `sic` | `f64` | SiC outer radius \[cm\]. |
+| `opyc` | `f64` | OPyC outer radius \[cm\] — the overall particle radius. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_array(self: Self) -> [f64; 5] { /* ... */ }
+  ```
+  The five outer radii as an array, kernel-first (outermost = index 4).
+
+- ```rust
+  pub fn is_strictly_increasing(self: Self) -> bool { /* ... */ }
+  ```
+  Whether the radii are strictly increasing and positive (a physically valid
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoRadii { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrisoRadii) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoMaterials`
+
+Material indices for the five shells plus the surrounding matrix.
+
+Each field is an opaque index into the caller's global material array (the
+same convention as [`CellFill::Material`](super::cell::CellFill::Material)).
+The shells are filled in nesting order; `matrix` fills the rest of the
+particle's universe outside the OPyC.
+
+```rust
+pub struct TrisoMaterials {
+    pub kernel: usize,
+    pub buffer: usize,
+    pub ipyc: usize,
+    pub sic: usize,
+    pub opyc: usize,
+    pub matrix: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `usize` | Fuel-kernel material index. |
+| `buffer` | `usize` | Buffer (porous PyC) material index. |
+| `ipyc` | `usize` | IPyC (inner pyrolytic carbon) material index. |
+| `sic` | `usize` | SiC (silicon carbide) material index. |
+| `opyc` | `usize` | OPyC (outer pyrolytic carbon) material index. |
+| `matrix` | `usize` | Surrounding matrix (graphite compact / pebble binder) material index. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoMaterials { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrisoMaterials) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoParticle`
+
+One assembled TRISO particle: the concentric surfaces, the per-shell cells,
+and the universe that searches them.
+
+The [`Universe::cell_indices`] point at `cells` offset by the `cell_base`
+passed to [`build_triso_particle`]; each cell's region tokens index `surfaces`
+offset by `surface_base`. With both bases `0` (the [`triso_particle`]
+convenience) the vectors are self-contained and can be dropped straight into a
+[`Geometry`] via [`TrisoParticle::into_geometry`].
+
+```rust
+pub struct TrisoParticle {
+    pub surfaces: Vec<super::surface::SurfaceKind>,
+    pub cells: Vec<super::cell::Cell>,
+    pub universe: super::universe::Universe,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<super::surface::SurfaceKind>` | The five concentric sphere surfaces, kernel-first. |
+| `cells` | `Vec<super::cell::Cell>` | The six cells: kernel, buffer, IPyC, SiC, OPyC, matrix (in that order). |
+| `universe` | `super::universe::Universe` | The universe searching the six cells in nesting order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn into_geometry(self: Self) -> Geometry { /* ... */ }
+  ```
+  Wrap this self-contained particle (built with `surface_base = cell_base =
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoParticle { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `build_triso_particle`
+
+Build a full nested-shell TRISO particle universe from five radii and six
+material ids.
+
+Places five concentric [`Sphere`] surfaces (all [`BoundaryType::Transmissive`]
+— these are internal material interfaces, not model boundaries) at `center`
+with the cumulative outer radii in `radii`, then one [`Cell`] per region:
+
+- **kernel** — `−sense` of sphere 0 (the innermost ball),
+- **buffer / IPyC / SiC / OPyC** — `+sense` of the previous sphere ∧ `−sense`
+  of this shell's sphere (the annular gap between consecutive spheres),
+- **matrix** — `+sense` of sphere 4 (everything outside the OPyC), filling the
+  rest of the universe.
+
+`surface_base` / `cell_base` are the global offsets at which these surfaces /
+cells will live in the enclosing [`Geometry`]'s flat arrays, so the region
+tokens and the universe's `cell_indices` refer to the right global slots when
+this universe is spliced into a larger model (a lattice of particles, a
+pebble, …). For a standalone particle pass `0` for both (see
+[`triso_particle`]). `temperature` \[K\] is stamped on every cell.
+
+# Panics (debug only)
+
+Debug-asserts that `radii` is strictly increasing; in release, non-increasing
+radii silently produce empty (unreachable) shells rather than aborting.
+
+```rust
+pub fn build_triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64, universe_id: i32, surface_base: usize, cell_base: usize) -> TrisoParticle { /* ... */ }
+```
+
+#### Function `triso_particle`
+
+Convenience: a self-contained TRISO particle centred at `center`
+(`surface_base = cell_base = 0`, universe id `1`).
+
+The returned [`TrisoParticle`]'s vectors are internally consistent and can be
+turned into a standalone [`Geometry`] with [`TrisoParticle::into_geometry`].
+
+```rust
+pub fn triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64) -> TrisoParticle { /* ... */ }
+```
+
+## Module `universe`
+
+Universe hierarchy — the nesting mechanism for CSG geometry.
+
+C++ source: `src/universe.cpp` (217 LOC), `include/openmc/universe.h`.
+
+A `Universe` is a collection of `Cell`s. Particle tracking starts in the root
+universe and recursively descends into fill universes/lattices to locate the
+leaf cell a particle inhabits (see [`crate::csg::geometry::Geometry`]).
+
+Key operation: [`Universe::find_cell`] — given a local position, return the
+first cell in this universe that contains it.
+
+```rust
+pub mod universe { /* ... */ }
+```
+
+### Types
+
+#### Struct `Universe`
+
+A universe — an ordered list of cells searched top-to-bottom.
+Maps to `openmc::Universe`.
+
+```rust
+pub struct Universe {
+    pub id: i32,
+    pub cell_indices: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | User-facing universe id. |
+| `cell_indices` | `Vec<usize>` | Indices into the global cell array, in search order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn find_cell(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], cells: &[Cell], on_surface: SurfaceToken) -> Option<usize> { /* ... */ }
+  ```
+  Find the first cell in this universe that contains a particle at `r`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Universe { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `spatial_mesh`
+
+**Spatial (tally) mesh description**: regular, rectilinear, cylindrical and
+spherical meshes and [`spatial_mesh::MeshKind`]. Moved here from
+`outram-mc-libs` (`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin
+lookup and scoring stay in outram-mc-libs. Core: no feature, no dependency.
+**Spatial mesh description** — the structured meshes a Monte Carlo tally
+(and, later, the deterministic MGXS path) bins space on.
+
+Moved here from `outram-mc-libs` (`src/tally/mesh.rs`) on 2026-10-02,
+GitHub issue #486 (maintainer scope addition): the **description** —
+bounds, edges, dimensions, bin counts, per-bin volumes and the flat-index
+convention ([`unflatten`]) — lives here; **bin lookup and scoring** (which
+bin a point falls in, fission-site counting, Shannon entropy, mesh-surface
+crossings) stay in outram-mc-libs on `*Ext` traits, and outram-mc-libs
+re-exports everything here as `outram_mc_libs::tally::mesh::*`.
+
+Units: cm and radians, raw `f64`, as in OpenMC.
+
+The unstructured mesh family is not here yet; it is GitHub #492, which
+will add it as a [`MeshKind`] variant.
+
+```rust
+pub mod spatial_mesh { /* ... */ }
+```
+
+### Types
+
+#### Struct `RegularMesh`
+
+Axis-aligned regular (equal-spacing) Cartesian mesh.
+
+Maps to `openmc::RegularMesh` (`src/mesh.cpp`). The mesh spans the box
+`[lower_left, upper_right]` \[cm\] and is divided into `dimension[i]` equal
+cells along each axis `i ∈ {x, y, z}`. A point is binned into the grid cell
+containing it; points outside the box are unbinned (`None`).
+
+# Fields (all lengths in cm)
+- `lower_left` — the low corner `[x0, y0, z0]` of the meshed box.
+- `upper_right` — the high corner `[x1, y1, z1]`; each `upper_right[i]` must
+  exceed `lower_left[i]`.
+- `dimension` — number of cells `[nx, ny, nz]` along each axis (each ≥ 1). A
+  flat 2-D mesh sets one dimension to 1 (e.g. `[4, 4, 1]`).
+
+```rust
+pub struct RegularMesh {
+    pub lower_left: [f64; 3],
+    pub upper_right: [f64; 3],
+    pub dimension: [usize; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower_left` | `[f64; 3]` | Low corner `[x0, y0, z0]` of the meshed box \[cm\]. |
+| `upper_right` | `[f64; 3]` | High corner `[x1, y1, z1]` of the meshed box \[cm\]. |
+| `dimension` | `[usize; 3]` | Number of equal cells `[nx, ny, nz]` along each axis. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn width(self: &Self) -> [f64; 3] { /* ... */ }
+  ```
+  Cell width `[wx, wy, wz]` \[cm\] along each axis
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total number of mesh cells = `nx · ny · nz`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RegularMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RegularMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RectilinearMesh`
+
+**Rectilinear** mesh: explicit, non-uniform bin edges on each axis.
+
+`openmc::RectilinearMesh`. This is the cheap one, and it is what a radial
+power profile with finer edge binning actually needs.
+
+```rust
+pub struct RectilinearMesh {
+    pub grid: [Vec<f64>; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `grid` | `[Vec<f64>; 3]` | Ascending bin edges along x, y, z. Each needs at least two entries. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Number of bins along each axis.
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total bins.
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:1867`, the product of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RectilinearMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RectilinearMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CylindricalMesh`
+
+**Cylindrical** `(r, phi, z)` mesh about `origin`.
+
+`openmc::CylindricalMesh`. This is the natural tally geometry for every core
+model in this repository — the workspace's standing correction is that
+reactor cores are R-Z, not slabs.
+
+`phi` is measured from the +x axis and is mapped into `[0, 2 pi)`, matching
+`src/mesh.cpp:1932`. `z` is absolute (relative to `origin.z`).
+
+```rust
+pub struct CylindricalMesh {
+    pub r_grid: Vec<f64>,
+    pub phi_grid: Vec<f64>,
+    pub z_grid: Vec<f64>,
+    pub origin: crate::csg::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_grid` | `Vec<f64>` | Ascending radial edges \[cm\]. |
+| `phi_grid` | `Vec<f64>` | Ascending azimuthal edges \[rad\], within `[0, 2 pi]`. |
+| `z_grid` | `Vec<f64>` | Ascending axial edges \[cm\], relative to `origin`. |
+| `origin` | `crate::csg::position::Position` | Mesh origin \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2159`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CylindricalMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CylindricalMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SphericalMesh`
+
+**Spherical** `(r, theta, phi)` mesh about `origin`.
+
+`openmc::SphericalMesh`. `theta` is the **polar** angle from +z in
+`[0, pi]`; `phi` the azimuth from +x in `[0, 2 pi)`. That ordering is
+upstream's (`src/mesh.cpp:2230`) and is the opposite of the physics
+convention some texts use, which is exactly the kind of thing that produces
+a mesh that looks right and bins wrong.
+
+```rust
+pub struct SphericalMesh {
+    pub r_grid: Vec<f64>,
+    pub theta_grid: Vec<f64>,
+    pub phi_grid: Vec<f64>,
+    pub origin: crate::csg::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_grid` | `Vec<f64>` | Ascending radial edges \[cm\]. |
+| `theta_grid` | `Vec<f64>` | Ascending polar edges \[rad\], within `[0, pi]`. |
+| `phi_grid` | `Vec<f64>` | Ascending azimuthal edges \[rad\], within `[0, 2 pi]`. |
+| `origin` | `crate::csg::position::Position` | Mesh origin \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2493`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SphericalMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SphericalMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MeshKind`
+
+**Enum dispatch over every structured mesh type** — the form a
+outram-mc-libs' `tally::filter::MeshFilter` holds so one filter serves all four.
+
+Enum rather than a trait object, per the workspace Rust design rule
+(`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
+Upstream uses virtual dispatch off a `Mesh` base class; the enum is the
+faithful equivalent here and costs no indirection.
+
+**Not `#[non_exhaustive]`, deliberately** (GitHub #486 / #492). An
+`Unstructured(Arc<..>)` variant is planned (#492): MC tally meshes will be
+the same mesh objects the deterministic solver uses for MGXS. When it lands,
+every `match` on this enum must fail to compile until it decides what to do
+with an unstructured mesh, which is what the absence of a wildcard-forcing
+attribute guarantees inside this workspace.
+
+```rust
+pub enum MeshKind {
+    Regular(RegularMesh),
+    Rectilinear(RectilinearMesh),
+    Cylindrical(CylindricalMesh),
+    Spherical(SphericalMesh),
+}
+```
+
+##### Variants
+
+###### `Regular`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RegularMesh` |  |
+
+###### `Rectilinear`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RectilinearMesh` |  |
+
+###### `Cylindrical`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CylindricalMesh` |  |
+
+###### `Spherical`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SphericalMesh` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total bins.
+
+- ```rust
+  pub fn bin_volume(self: &Self, bin: usize) -> Option<f64> { /* ... */ }
+  ```
+  Volume of flat bin `bin` \[cm^3\], or `None` if out of range.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `unflatten`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Flat bin index back to `(i, j, k)`, first axis fastest — the inverse of
+`i + d0 (j + d1 k)`, which every mesh here uses.
+
+```rust
+pub fn unflatten(bin: usize, d: [usize; 3]) -> [usize; 3] { /* ... */ }
+```
+
 ## Module `array_patterns`
 
 **Array patterns** (`op-hzs.54.48`, GH issue #37 §J).
@@ -8074,6 +18344,7 @@ pub struct ArrayCaps {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8328,6 +18599,7 @@ separate piece (see [`BoolStack::slice_pieces`]).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -8473,6 +18745,7 @@ pub struct BoolBrush {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8643,6 +18916,7 @@ pub struct BoolStack {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8854,6 +19128,7 @@ pub struct WorkPlane {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9022,6 +19297,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9178,6 +19454,7 @@ Complete — [`DrawGesture::resolve`] will succeed.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9346,6 +19623,7 @@ pub struct DrawGesture {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -10058,6 +20336,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10199,6 +20478,7 @@ pub struct Chord {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -10334,6 +20614,7 @@ pub struct KnifeResult {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -10556,6 +20837,7 @@ bare operator is only positive semidefinite for a Delaunay-ish mesh.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10701,6 +20983,7 @@ with the [`LaplacianWeighting::Cotangent`] weighting on a very obtuse
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -11096,6 +21379,7 @@ pub struct LoopCutResult {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -11494,6 +21778,7 @@ pub struct Vec3 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -11657,6 +21942,7 @@ pub struct Ruler {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -11803,6 +22089,7 @@ pub struct Protractor {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -12117,6 +22404,7 @@ The position of the last vertex in the set (ascending id).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12372,6 +22660,7 @@ pub struct VertexId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12542,6 +22831,7 @@ pub struct EdgeId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12712,6 +23002,7 @@ pub struct LoopId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12882,6 +23173,7 @@ pub struct FaceId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13019,6 +23311,7 @@ pub struct Vertex {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -13153,6 +23446,7 @@ pub struct Edge {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -13299,6 +23593,7 @@ pub struct Loop {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -13435,6 +23730,7 @@ pub struct Face {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -13669,6 +23965,7 @@ pub struct Mesh {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -13875,6 +24172,7 @@ The unit square `[0, 1]^2`, one quarter of the boundary length per side.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14036,6 +24334,7 @@ obtuse mesh, or a disconnected interior). Try the uniform weighting.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -14303,6 +24602,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14594,6 +24894,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -14752,6 +25053,7 @@ pub struct MirrorAxes {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -15196,6 +25498,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -15400,6 +25703,7 @@ pub struct ModifierStack {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -15548,6 +25852,7 @@ pub struct ModifierEntry {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -15729,6 +26034,7 @@ Angle" — the default).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -15876,6 +26182,7 @@ pub struct SplitNormals {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16143,6 +26450,7 @@ pub struct NurbsSurface {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16351,6 +26659,7 @@ pub struct SceneObject {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -16514,6 +26823,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -16665,6 +26975,7 @@ Match the maximum (positive) side.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -16841,6 +27152,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -17142,6 +27454,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -17298,6 +27611,7 @@ Keep the volume common to both (A ∩ B).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -17696,6 +28010,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -18258,6 +28573,7 @@ the upstream rule is the one that avoids folding the pair.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -18432,6 +28748,7 @@ The centre of the face's axis-aligned bounding box. Upstream
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -19095,6 +29412,7 @@ pub struct AddMeshOptions {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -19378,6 +29696,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -19527,6 +29846,7 @@ pub struct NodeId(pub usize);
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -19714,6 +30034,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -19939,6 +30260,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -20113,6 +30435,7 @@ pub struct GeometryGraph {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -20158,7 +30481,8 @@ Domain generators that compose the crate's primitive / [`revolve`](crate::revolv
 / boolean operators into whole-reactor **surfaces**, ready to hand to the
 solver bridges: the volume-meshing bridge ([`crate::foam_mesh`], feature
 `foam-mesh`, for CFD / thermal-hydraulics) and the Monte-Carlo bridge
-([`crate::sim`], feature `mc-export`, for neutronics). Nothing here meshes or
+(~~`crate::sim`, feature `mc-export`~~ `nee_soon::sim` since 2026-10-02,
+GitHub #486, for neutronics). Nothing here meshes or
 simulates — it only *authors* a closed, watertight, outward-wound
 [`Mesh`](crate::mesh::Mesh) that those bridges then consume.
 
@@ -20327,6 +30651,7 @@ pub struct Htr10Conus {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -20498,6 +30823,7 @@ pub struct Htr10CoreDimensions {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -20765,6 +31091,7 @@ pub enum Falloff {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -21099,6 +31426,7 @@ pub struct VoxelGrid {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -21428,6 +31756,7 @@ Whole faces (every corner).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -21614,6 +31943,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -21781,6 +32111,7 @@ The X-Y plane (mirror negates Z).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -21949,6 +32280,7 @@ Select the element only if **all** its vertices are inside the region
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -22157,6 +32489,7 @@ units).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -22331,6 +32664,7 @@ pub struct NonManifoldKinds {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -22503,6 +32837,7 @@ Side count `> n`.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -22875,6 +33210,7 @@ pub struct Selection {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -23108,6 +33444,7 @@ The nearest point lying on any static face.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -23270,6 +33607,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -23407,6 +33745,7 @@ pub struct SnapHit {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -23579,6 +33918,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -23783,6 +34123,7 @@ pub struct LinePoint {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -23984,6 +34325,7 @@ pub struct LineTool {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -24310,6 +34652,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -24586,6 +34929,7 @@ pub struct SubdivideOptions {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -24914,6 +35258,7 @@ pub struct Glyph {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -25066,6 +35411,7 @@ pub struct Font {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -25211,6 +35557,7 @@ pub struct TextGeometry {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -25463,6 +35810,7 @@ pub struct MeshTopology {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -25751,6 +36099,7 @@ pub struct Affine3 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -25949,6 +36298,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -26100,6 +36450,7 @@ pub struct TransformBasis {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -26251,6 +36602,7 @@ pub struct NumericEntry {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -26461,6 +36813,7 @@ pub enum Axis {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -26792,6 +37145,7 @@ Split along the **longer** diagonal. Upstream
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -26964,6 +37318,7 @@ Ear-clip only. Upstream `MOD_TRIANGULATE_NGON_EARCLIP`, via
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -27134,7 +37489,7 @@ pub fn weld(mesh: &crate::mesh::Mesh, distance: f64) -> crate::mesh::Mesh { /* .
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gpu\"), span: crates/outram-blender/src/lib.rs:316:11: 316:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:316:32: 316:53 (#0) }, crates/outram-blender/src/lib.rs:316:31: 316:54 (#0))], crates/outram-blender/src/lib.rs:316:10: 316:55 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gpu\"), span: crates/outram-blender/src/lib.rs:338:11: 338:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:338:32: 338:53 (#0) }, crates/outram-blender/src/lib.rs:338:31: 338:54 (#0))], crates/outram-blender/src/lib.rs:338:10: 338:55 (#0))])]")`
 
 Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
 (~~compiled unconditionally on every desktop target, no cargo feature~~
@@ -27318,6 +37673,7 @@ The buffer-map callback never fired despite a wait-indefinitely poll.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -27444,6 +37800,7 @@ pub struct GpuContext {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **TryFrom**

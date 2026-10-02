@@ -10,23 +10,39 @@
 > [Licensing & provenance](#licensing--provenance). "Blender" identifies only
 > the upstream project it derives from.
 
-A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
-multiphysics suite, inspired by the **architecture** of
-[Blender](https://github.com/blender/blender). It authors and procedurally
-generates geometry, then bridges it into two OUTRAM PARK solver workflows, each
-with its own egui studio app:
+**Geometry description + meshing** for the OUTRAM PARK multiphysics suite
+(scope widened 2026-10-02, GitHub issue #486):
 
-- **MC Studio** (`--features mc-export`) — author a surface, fit it to an
+- **CSG geometry description and its navigation kernel** (`csg`) — surfaces,
+  cells, universes, rectangular and hexagonal lattices, `Geometry::locate` /
+  `distance_to_boundary`, a TRISO particle builder. An OpenMC port (MIT; see
+  `NOTICE`), moved here from `outram-mc-libs`, which re-exports it and keeps the
+  transport-state work (surface crossing, reflections, scoring).
+- **Geometry plotter** (`csg::plot`) — OpenMC's slice and ray-trace plotters,
+  writing PNG, pixel-for-pixel against `openmc --plot` (V&V in
+  `crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+- **Tally-mesh description** (`spatial_mesh`) — regular, rectilinear,
+  cylindrical and spherical meshes; an unstructured variant is planned (#492).
+- **A pure-Rust, headless mesh-authoring frontend**, inspired by the
+  **architecture** of [Blender](https://github.com/blender/blender). It authors
+  and procedurally generates geometry, then bridges it into OUTRAM PARK solver
+  workflows:
+
+- ~~**MC Studio** (`--features mc-export`) — author a surface, fit it to an
   `outram-mc-libs` CSG universe, attach materials, and run a k-eigenvalue
   (criticality) Monte Carlo calculation returning `k_eff ± σ`. Backed by the
-  `sim` module.
+  `sim` module.~~ **MOVED 2026-10-02 (#486):** `export::to_csg_geometry` fits a
+  surface to a native CSG `Geometry` here; the run driver (`nee_soon::sim`) and
+  the MC Studio GUI (`dhoby-ghaut`) live outside this crate, which no longer
+  depends on `outram-mc-libs`.
 - **Mesh Studio** (`--features foam-mesh`) — hand a closed surface to the
   `outram-park-fork-cfmesh` **tet → dual → boundary-layers** pipeline and export
   an OpenFOAM `polyMesh` for CFD / thermal-hydraulics. Backed by the `foam_mesh`
   module.
 
-The base authoring library pulls in neither solver — both bridges are opt-in
-cargo features, so the default build stays light and Android-buildable.
+The base authoring library pulls in no solver — the CFD bridges are opt-in
+cargo features, so the default build stays light and Android- and
+wasm-buildable.
 
 > **GPU compute (default-on `gpu` feature, never on Android): `f32` for speed,
 > CPU `f64` is the trusted path.** ~~The headless GPU kernels (`wgpu`) are built
@@ -60,9 +76,10 @@ cargo features, so the default build stays light and Android-buildable.
 > rejected honestly (`Unsupported`), not guessed. The CSG export bridge fits a
 > box / sphere / Z-cylinder / any convex polyhedron to analytic surfaces and
 > falls back to a DAGMC-style faceted solid (winding inside-test) for non-convex
-> results, and — behind opt-in cargo features (`foam-export`, `mc-export`) —
-> emits the **real** `outram-foam-basic-lib` polyMesh and `outram-mc-libs` CSG
-> types, not just local mirrors. The vertex bevel now rounds (a multi-segment
+> results, and — behind the opt-in `foam-export` feature (~~and `mc-export`~~,
+> retired 2026-10-02) — emits the **real** `outram-foam-basic-lib` polyMesh
+> types, not just local mirrors; since 2026-10-02 `export::to_csg_geometry`
+> emits a native `csg::geometry::Geometry` with no feature. The vertex bevel now rounds (a multi-segment
 > spherical cap) as well as single-chamfers. A family of **sparse-solve
 > geometry-processing operators** (built on `faer` sparse Cholesky) has landed:
 > the cotangent/uniform discrete **Laplacian** with implicit and Taubin
@@ -82,9 +99,10 @@ cargo features, so the default build stays light and Android-buildable.
 > fill-holes / solidify / recalc-normals / triangulate / inset / bisect /
 > revolve workstreams (`op-hzs.6`, `op-hzs.7`, `op-hzs.11`–`op-hzs.13`,
 > `op-hzs.15`–`op-hzs.29`) are landed. Beyond authoring, two **end-to-end solver
-> paths** have landed, each with an egui **studio** app: **MC Studio** (feature
-> `mc-export`) authors geometry and runs a basic `outram-mc-libs` Monte Carlo
-> **k-eigenvalue** criticality calculation (`k_eff ± σ`) via the `sim` module,
+> paths** have landed, each with an egui **studio** app: **MC Studio** (~~feature
+> `mc-export`~~ since 2026-10-02 in `dhoby-ghaut`, driving `nee_soon::sim`)
+> authors geometry and runs a basic `outram-mc-libs` Monte Carlo
+> **k-eigenvalue** criticality calculation (`k_eff ± σ`),
 > and **Mesh Studio** (feature `foam-mesh`) volume-meshes an authored surface
 > through the `outram-park-fork-cfmesh` **tet → dual → boundary-layers** pipeline
 > and exports an OpenFOAM `polyMesh` via the `foam_mesh` module.
@@ -176,10 +194,12 @@ included.
 | `boolean_classify` | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number |
 | `modifiers` | `modifiers/intern/MOD_*` | **real** — mirror / array / subsurf |
 | `procedural` | Geometry Nodes | **real** — node-graph evaluator (primitive / transform / join / subdivide / boolean / output) |
-| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh **write** (text / disk) + **read** (`from_poly_mesh`, feature `foam-export`, full `constant/polyMesh` round-trip), CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes (with a closed-2-manifold gate — `FacetedSolid::check_closed_manifold` / `to_faceted_solid_checked` — since the winding inside-test is only defined on a closed surface), plus **feature-gated real-type bridges** to `outram-foam-basic-lib` (`foam-export`) and `outram-mc-libs` (`mc-export`) |
+| `export` | I/O exporters | **real** — `triangulate`, OpenFOAM polyMesh **write** (text / disk) + **read** (`from_poly_mesh`, feature `foam-export`, full `constant/polyMesh` round-trip), CSG fitting (box / sphere / Z-cylinder / any convex polyhedron faceted), a DAGMC-style faceted-solid route for non-convex meshes (with a closed-2-manifold gate — `FacetedSolid::check_closed_manifold` / `to_faceted_solid_checked` — since the winding inside-test is only defined on a closed surface), plus a **feature-gated real-type bridge** to `outram-foam-basic-lib` (`foam-export`), and `to_csg_geometry` (native CSG `Geometry`, no feature, 2026-10-02; ~~`mc-export` bridge to `outram-mc-libs`~~ retired) |
 | `stl` | STL I/O | **real** — ASCII + binary STL read/write (auto-detect on read); the surface-mesh interchange / DAGMC / Monte-Carlo feed. Import is a triangle soup — `weld` it to recover topology |
-| `gnn_graph` *(feature `gnn-graph`)* | — (no Blender analogue) | **real** — `cell_adjacency_graph`: `outram-mc-libs` CSG cells → a RAFFLES message-passing graph (cells joined when they share a surface with opposite senses; a documented **superset** of true adjacency). **Moved here 2026-10-02** from `raffles::gnn::mc_geometry`: this crate owns geometry description (issue #486) |
-| `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials from nuclide/density specs, bundle geometry + source + settings, run a k-eigenvalue criticality calc (`k_eff ± σ`, optional cell/flux tally) via `outram-mc-libs`. The **MC Studio** backend |
+| `gnn_graph` *(feature `gnn-graph`)* | — (no Blender analogue) | **real** — `cell_adjacency_graph`: CSG cells (`csg::cell::Cell`; ~~`outram-mc-libs`~~ since 2026-10-02) → a RAFFLES message-passing graph (cells joined when they share a surface with opposite senses; a documented **superset** of true adjacency). **Moved here 2026-10-02** from `raffles::gnn::mc_geometry`: this crate owns geometry description (issue #486) |
+| ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (#486) |
+| `csg` | — (OpenMC port) | **real** — CSG description + pure navigation kernel, moved from `outram-mc-libs` 2026-10-02 (#486); `csg::plot` is the OpenMC plotter |
+| `spatial_mesh` | — (OpenMC port) | **real** — tally-mesh description (Regular / Rectilinear / Cylindrical / Spherical, `MeshKind`), moved from `outram-mc-libs` 2026-10-02 (#486) |
 | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet → dual → boundary-layers pipeline → OpenFOAM `polyMesh` (with a quality report). Gated by a **closed, consistently-wound 2-manifold check** on the input surface (`check_closed_manifold`), because the backend's carve classifies cells by ray parity and would silently mis-mesh a leaky surface. The **Mesh Studio** backend |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
@@ -199,11 +219,12 @@ included.
 cargo run -p outram-blender --example authoring_primitives --release
 
 # MC Studio — author geometry, set up + run a basic Monte Carlo criticality calc.
-cargo run -p outram-blender --example mc_studio --features mc-export --release
+# (Moved to dhoby-ghaut; was `-p outram-blender --features mc-export`.)
+cargo run -p dhoby-ghaut --example mc_studio --release
 
 # Mesh Studio — author a surface, volume-mesh it (tet → dual → boundary layers),
-# export an OpenFOAM polyMesh.
-cargo run -p outram-blender --example mesh_studio --features foam-mesh --release
+# export an OpenFOAM polyMesh. (Moved to dhoby-ghaut.)
+cargo run -p dhoby-ghaut --example mesh_studio --release
 ```
 
 ```rust
@@ -224,12 +245,14 @@ An authored mesh is a **boundary surface**. The two solver targets consume
 geometry differently, so each bridge has real work beyond a format copy. Both
 are now end-to-end runnable, each with a studio app (see **Quick start**):
 
-- **Monte Carlo (`outram-mc-libs`, feature `mc-export`).** `export` fits the
-  authored surface to an analytic CSG universe (`SurfaceKind` primitives combined
-  by a signed-half-space region, with a DAGMC faceted-solid fallback for
-  non-convex bodies); the `sim` module then attaches materials and runs a
-  **k-eigenvalue criticality** calculation (`k_eff ± σ`, optional cell/flux
-  tally). **MC Studio** drives this path.
+- **Monte Carlo (`outram-mc-libs`; ~~feature `mc-export`~~ no feature since
+  2026-10-02).** `export::to_csg_geometry` fits the authored surface to a
+  native CSG `Geometry` (`SurfaceKind` primitives combined by a
+  signed-half-space region, with a DAGMC faceted-solid fallback for non-convex
+  bodies), which is outram-mc's own geometry type (it re-exports `csg`);
+  `nee_soon::sim` then attaches materials and runs a **k-eigenvalue
+  criticality** calculation (`k_eff ± σ`, optional cell/flux tally). **MC
+  Studio** (`dhoby-ghaut`) drives this path.
 - **CFD volume mesh (`outram-park-fork-cfmesh` → OpenFOAM `polyMesh`, feature
   `foam-mesh`).** A finite-volume solve needs a *volume* mesh (cells, not just a
   boundary surface). The `foam_mesh` bridge hands the authored surface to
@@ -255,8 +278,10 @@ behind the opt-in `foam-export` feature, `export::from_poly_mesh` reads a real
 `constant/polyMesh` directory (verified by a write→read→convert round-trip on a
 cube: V/E/F/χ = 8/12/6/2). By default the crate emits standalone text and local
 mirror types and takes **no** hard path dependency on `outram-foam-*` /
-`outram-mc-libs`; the real-type read/write bridges live behind `foam-export` /
-`mc-export` (tracked in `op-hzs.6` / `op-hzs.7`; polyMesh read in `op-hzs.30`).
+`outram-mc-libs` (and since 2026-10-02 may not depend on outram-mc-libs at
+all: outram-mc depends on this crate); the real-type polyMesh read/write bridge
+lives behind `foam-export` (~~and `mc-export`~~, retired) (tracked in
+`op-hzs.6` / `op-hzs.7`; polyMesh read in `op-hzs.30`).
 See `export`'s module docs.
 
 ## Dependency map

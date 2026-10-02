@@ -212,6 +212,11 @@ pub struct Mk1DesignPoint {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -229,6 +234,7 @@ pub struct Mk1DesignPoint {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -241,6 +247,7 @@ pub struct Mk1DesignPoint {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -295,6 +302,11 @@ pub struct Mk1DesignPoint {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -349,6 +361,11 @@ pub struct ControlRodRemovalTransient {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -366,6 +383,7 @@ pub struct ControlRodRemovalTransient {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -378,6 +396,7 @@ pub struct ControlRodRemovalTransient {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -432,6 +451,11 @@ pub struct ControlRodRemovalTransient {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -474,6 +498,11 @@ pub struct Fig429Point {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -491,6 +520,7 @@ pub struct Fig429Point {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -503,6 +533,7 @@ pub struct Fig429Point {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -557,6 +588,11 @@ pub struct Fig429Point {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -696,6 +732,11 @@ pub struct Mk1CoreGeometry {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -713,6 +754,7 @@ pub struct Mk1CoreGeometry {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -725,6 +767,7 @@ pub struct Mk1CoreGeometry {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -779,6 +822,11 @@ pub struct Mk1CoreGeometry {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -846,6 +894,11 @@ pub struct MeshMonteCarloStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -867,6 +920,7 @@ pub struct MeshMonteCarloStage {
     fn default() -> Self { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -879,6 +933,7 @@ pub struct MeshMonteCarloStage {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -933,6 +988,11 @@ pub struct MeshMonteCarloStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1033,6 +1093,7 @@ Flibe coolant channels.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1041,6 +1102,11 @@ Flibe coolant channels.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -1060,6 +1126,7 @@ Flibe coolant channels.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1082,6 +1149,7 @@ Flibe coolant channels.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1144,6 +1212,11 @@ Flibe coolant channels.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -1199,6 +1272,11 @@ pub struct MgxsGenerationStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1220,6 +1298,7 @@ pub struct MgxsGenerationStage {
     fn default() -> Self { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1232,6 +1311,7 @@ pub struct MgxsGenerationStage {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1286,6 +1366,11 @@ pub struct MgxsGenerationStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1389,6 +1474,11 @@ pub struct PorousMediaClosures {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1406,6 +1496,7 @@ pub struct PorousMediaClosures {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1418,6 +1509,7 @@ pub struct PorousMediaClosures {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1472,6 +1564,11 @@ pub struct PorousMediaClosures {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1549,6 +1646,11 @@ pub struct Sp3MultiphysicsStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1570,6 +1672,7 @@ pub struct Sp3MultiphysicsStage {
     fn default() -> Self { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1582,6 +1685,7 @@ pub struct Sp3MultiphysicsStage {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1636,6 +1740,11 @@ pub struct Sp3MultiphysicsStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1739,6 +1848,11 @@ pub struct Fig429Target {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1756,6 +1870,7 @@ pub struct Fig429Target {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1768,6 +1883,7 @@ pub struct Fig429Target {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1822,6 +1938,11 @@ pub struct Fig429Target {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -1884,6 +2005,11 @@ pub struct Fig429ValidationStage {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -1905,6 +2031,7 @@ pub struct Fig429ValidationStage {
     fn default() -> Self { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1917,6 +2044,7 @@ pub struct Fig429ValidationStage {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1971,6 +2099,11 @@ pub struct Fig429ValidationStage {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2029,6 +2162,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2037,6 +2171,11 @@ Stage 4 — Figure-4.29 comparison (validation target).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -2056,6 +2195,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2078,6 +2218,7 @@ Stage 4 — Figure-4.29 comparison (validation target).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2140,6 +2281,11 @@ Stage 4 — Figure-4.29 comparison (validation target).
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -2189,6 +2335,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -2200,6 +2351,7 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2213,6 +2365,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2263,6 +2416,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2360,6 +2518,11 @@ pub struct XinWangSp3Workflow {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -2381,6 +2544,7 @@ pub struct XinWangSp3Workflow {
     fn default() -> XinWangSp3Workflow { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2393,6 +2557,7 @@ pub struct XinWangSp3Workflow {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2447,6 +2612,11 @@ pub struct XinWangSp3Workflow {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -2933,6 +3103,7 @@ pub struct HexBedCell {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2941,6 +3112,11 @@ pub struct HexBedCell {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -2960,6 +3136,7 @@ pub struct HexBedCell {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2972,6 +3149,7 @@ pub struct HexBedCell {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3034,6 +3212,11 @@ pub struct HexBedCell {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -3071,6 +3254,7 @@ A moderator / dummy pebble (graphite only).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3079,6 +3263,11 @@ A moderator / dummy pebble (graphite only).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -3098,6 +3287,7 @@ A moderator / dummy pebble (graphite only).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3120,6 +3310,7 @@ A moderator / dummy pebble (graphite only).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3180,6 +3371,11 @@ A moderator / dummy pebble (graphite only).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3249,6 +3445,7 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3257,6 +3454,11 @@ B-layer ball at the 240 degree vertex, mid-height.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -3281,6 +3483,7 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3308,6 +3511,7 @@ B-layer ball at the 240 degree vertex, mid-height.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3349,6 +3553,7 @@ B-layer ball at the 240 degree vertex, mid-height.
 
 - **Read**
 - **RefUnwindSafe**
+- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -3378,6 +3583,11 @@ B-layer ball at the 240 degree vertex, mid-height.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3446,6 +3656,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3454,6 +3665,11 @@ Fields:
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -3478,6 +3694,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3505,6 +3722,7 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3546,6 +3764,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -3575,6 +3794,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3617,6 +3841,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3625,6 +3850,11 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -3644,6 +3874,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3666,6 +3897,7 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3726,6 +3958,11 @@ ABLATION: every ball is fuelled (`OUTRAM_HTR10_ALLFUEL`).
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -3911,6 +4148,11 @@ pub struct TwoBallBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -3927,6 +4169,7 @@ pub struct TwoBallBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3939,6 +4182,7 @@ pub struct TwoBallBed {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3993,6 +4237,11 @@ pub struct TwoBallBed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4057,6 +4306,7 @@ pub struct DischargeTube {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4065,6 +4315,11 @@ pub struct DischargeTube {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4084,6 +4339,7 @@ pub struct DischargeTube {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4096,6 +4352,7 @@ pub struct DischargeTube {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4156,6 +4413,11 @@ pub struct DischargeTube {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4267,6 +4529,7 @@ pub struct SekerCell {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4275,6 +4538,11 @@ pub struct SekerCell {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4294,6 +4562,7 @@ pub struct SekerCell {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4306,6 +4575,7 @@ pub struct SekerCell {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4366,6 +4636,11 @@ pub struct SekerCell {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4459,6 +4734,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4467,6 +4743,11 @@ Fields:
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4491,6 +4772,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4518,6 +4800,7 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4559,6 +4842,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -4588,6 +4872,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4654,6 +4943,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4662,6 +4952,11 @@ Fields:
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -4686,6 +4981,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4713,6 +5009,7 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4754,6 +5051,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -4783,6 +5081,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -4952,6 +5255,11 @@ pub struct SekerBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -4968,6 +5276,7 @@ pub struct SekerBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4980,6 +5289,7 @@ pub struct SekerBed {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5034,6 +5344,11 @@ pub struct SekerBed {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5198,6 +5513,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -5214,6 +5534,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5226,6 +5547,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5280,6 +5602,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5327,6 +5654,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5335,6 +5663,11 @@ Fields:
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -5359,6 +5692,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5386,6 +5720,7 @@ Fields:
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5427,6 +5762,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **RuleType**
 - **Same**
 - **Send**
 - **StructuralPartialEq**
@@ -5456,6 +5792,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5673,6 +6014,7 @@ pub struct ZoneComposition {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5681,6 +6023,11 @@ pub struct ZoneComposition {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -5700,6 +6047,7 @@ pub struct ZoneComposition {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5712,6 +6060,7 @@ pub struct ZoneComposition {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5772,6 +6121,11 @@ pub struct ZoneComposition {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -5978,6 +6332,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5986,6 +6341,11 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -6005,6 +6365,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6027,6 +6388,7 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6089,6 +6451,11 @@ Small-absorber-ball (KLAK) channel: empty (reserve shutdown system).
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -6141,6 +6508,7 @@ pub struct ReflectorChannel {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6149,6 +6517,11 @@ pub struct ReflectorChannel {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -6168,6 +6541,7 @@ pub struct ReflectorChannel {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6180,6 +6554,7 @@ pub struct ReflectorChannel {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6242,6 +6617,11 @@ pub struct ReflectorChannel {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -6278,6 +6658,7 @@ pub struct Fig410Box {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6286,6 +6667,11 @@ pub struct Fig410Box {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -6305,6 +6691,7 @@ pub struct Fig410Box {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6317,6 +6704,7 @@ pub struct Fig410Box {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6377,6 +6765,11 @@ pub struct Fig410Box {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -6989,7 +7382,13 @@ pub struct AssembledCore {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7002,6 +7401,7 @@ pub struct AssembledCore {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7049,6 +7449,11 @@ pub struct AssembledCore {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -7094,6 +7499,7 @@ Helium between pebbles.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7102,6 +7508,11 @@ Helium between pebbles.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -7121,6 +7532,7 @@ Helium between pebbles.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7143,6 +7555,7 @@ Helium between pebbles.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7203,6 +7616,11 @@ Helium between pebbles.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -7829,6 +8247,7 @@ pub struct SmearedRodComposition {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7837,6 +8256,11 @@ pub struct SmearedRodComposition {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -7856,6 +8280,7 @@ pub struct SmearedRodComposition {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7868,6 +8293,7 @@ pub struct SmearedRodComposition {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7928,6 +8354,11 @@ pub struct SmearedRodComposition {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -8104,8 +8535,8 @@ asks for it.
 - **natural carbon**, C-12 / C-13 at 98.93 / 1.07 at.% (gh:#425);
 - **helium coolant** at 300.15 K and 101.33 kPa (gh:#426);
 - **real nickel and iron** in the rod steel, Ni-58/60/61/62/64 and
-  Fe-54/56/57/58 (gh:#329), which cannot be loaded until gh:#339 is fixed
-  (see [`FE57_RECONSTRUCTION_FIXED`]);
+  Fe-54/56/57/58 (gh:#329). ~~which cannot be loaded until gh:#339 is
+  fixed~~ #339 is fixed (2026-10-01; see [`FE57_RECONSTRUCTION_FIXED`]);
 - every bound thermal law: graphite (30P), C-in-SiC, Si-in-SiC, U-in-UO2,
   O-in-UO2.
 
@@ -8152,6 +8583,7 @@ diagnostics).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8160,6 +8592,11 @@ diagnostics).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -8184,6 +8621,7 @@ diagnostics).
     fn default() -> NuclearDataLibrary { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8206,6 +8644,7 @@ diagnostics).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8268,6 +8707,11 @@ diagnostics).
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -8308,6 +8752,7 @@ the natural-carbon atom density. This was the VIII.0 model until
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8316,6 +8761,11 @@ the natural-carbon atom density. This was the VIII.0 model until
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -8340,6 +8790,7 @@ the natural-carbon atom density. This was the VIII.0 model until
     fn default() -> CarbonTreatment { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8362,6 +8813,7 @@ the natural-carbon atom density. This was the VIII.0 model until
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8424,6 +8876,11 @@ the natural-carbon atom density. This was the VIII.0 model until
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -8464,6 +8921,7 @@ performed for vacuum and helium"*, and this was the model until
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8472,6 +8930,11 @@ performed for vacuum and helium"*, and this was the model until
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -8496,6 +8959,7 @@ performed for vacuum and helium"*, and this was the model until
     fn default() -> Coolant { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8518,6 +8982,7 @@ performed for vacuum and helium"*, and this was the model until
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8578,6 +9043,11 @@ performed for vacuum and helium"*, and this was the model until
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -8666,6 +9136,7 @@ caller strips their unloaded components and proves no cell uses them.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8674,6 +9145,11 @@ caller strips their unloaded components and proves no cell uses them.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -8698,6 +9174,7 @@ caller strips their unloaded components and proves no cell uses them.
     fn default() -> RodMetalTreatment { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8720,6 +9197,7 @@ caller strips their unloaded components and proves no cell uses them.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8782,6 +9260,11 @@ caller strips their unloaded components and proves no cell uses them.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -8818,6 +9301,7 @@ resolved amount.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8826,6 +9310,11 @@ resolved amount.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -8850,6 +9339,7 @@ resolved amount.
     fn default() -> ThermalScatteringTreatment { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8872,6 +9362,7 @@ resolved amount.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8934,6 +9425,11 @@ resolved amount.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -8968,6 +9464,7 @@ bound on the dominant absorber, never the VII.0 offset.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8976,6 +9473,11 @@ bound on the dominant absorber, never the VII.0 offset.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -9000,6 +9502,7 @@ bound on the dominant absorber, never the VII.0 offset.
     fn default() -> U238Evaluation { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9022,6 +9525,7 @@ bound on the dominant absorber, never the VII.0 offset.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9084,6 +9588,11 @@ bound on the dominant absorber, never the VII.0 offset.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -9136,6 +9645,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -9157,6 +9671,7 @@ Fields:
     fn default() -> Uo2Laws { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9179,6 +9694,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9241,6 +9757,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -9295,6 +9816,11 @@ pub struct Htr10DataConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -9317,6 +9843,7 @@ pub struct Htr10DataConfig {
     ```
     The correct-physics default: see the module docs.
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9329,6 +9856,7 @@ pub struct Htr10DataConfig {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9391,6 +9919,11 @@ pub struct Htr10DataConfig {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -9433,6 +9966,7 @@ up). `git submodule update --init reference-data/ace`.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9441,6 +9975,11 @@ up). `git submodule update --init reference-data/ace`.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -9460,6 +9999,7 @@ up). `git submodule update --init reference-data/ace`.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9482,6 +10022,7 @@ up). `git submodule update --init reference-data/ace`.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9544,6 +10085,11 @@ up). `git submodule update --init reference-data/ace`.
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -9586,6 +10132,7 @@ pub struct Tape {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9594,6 +10141,11 @@ pub struct Tape {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -9613,6 +10165,7 @@ pub struct Tape {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9635,6 +10188,7 @@ pub struct Tape {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9695,6 +10249,11 @@ pub struct Tape {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -9763,6 +10322,7 @@ O-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9771,6 +10331,11 @@ O-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -9790,6 +10355,7 @@ O-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9812,6 +10378,7 @@ O-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9874,6 +10441,11 @@ O-in-UO2 (LEAPR deck or tape, see [`Uo2Laws`]).
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -9923,6 +10495,11 @@ pub struct NuclideSlot {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -9939,6 +10516,7 @@ pub struct NuclideSlot {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9951,6 +10529,7 @@ pub struct NuclideSlot {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10013,6 +10592,11 @@ pub struct NuclideSlot {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -10056,6 +10640,7 @@ The vacuum ablation: no coolant nuclides.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10064,6 +10649,11 @@ The vacuum ablation: no coolant nuclides.
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -10083,6 +10673,7 @@ The vacuum ablation: no coolant nuclides.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10105,6 +10696,7 @@ The vacuum ablation: no coolant nuclides.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10165,6 +10757,11 @@ The vacuum ablation: no coolant nuclides.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10243,6 +10840,11 @@ pub struct Htr10NuclideLayout {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -10259,6 +10861,7 @@ pub struct Htr10NuclideLayout {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10271,6 +10874,7 @@ pub struct Htr10NuclideLayout {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10325,6 +10929,11 @@ pub struct Htr10NuclideLayout {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -10407,6 +11016,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -10418,6 +11032,7 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10431,6 +11046,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10483,6 +11099,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -10529,8 +11150,16 @@ by name.
 Whoever fixes gh:#339 flips this to `true` in the same change, after
 measuring the reconstruction's peak memory.
 
+**FLIPPED to `true` 2026-10-01 (gh:#339 fixed in `njoy-outram-park-fork`).**
+The cause was a wrong operand in the ported LINPACK `xdot` (upstream
+`samm.f90:6189, 6201-6204`), which mis-inverted every spin group with four
+or more coupled channels, plus the missing non-negativity guard of upstream
+`reconr.f90:2641-2645`. Fe-57 now reconstructs in 0.10 s at 24 MB peak RSS,
+word for word NJOY2016's PENDF
+(`njoy-outram-park-fork/tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`).
+
 ```rust
-pub const FE57_RECONSTRUCTION_FIXED: bool = false;
+pub const FE57_RECONSTRUCTION_FIXED: bool = true;
 ```
 
 ## Module `materials`
@@ -10793,6 +11422,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10801,6 +11431,11 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -10825,6 +11460,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     fn default() -> GraphiteLaw { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10847,6 +11483,7 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10909,6 +11546,11 @@ Hawari reactor graphite, 30 % porosity, VIII.0 MAT 32. **Default.**
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -10961,6 +11603,11 @@ pub struct Htr10MaterialConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -10978,6 +11625,7 @@ pub struct Htr10MaterialConfig {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10990,6 +11638,7 @@ pub struct Htr10MaterialConfig {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11044,6 +11693,11 @@ pub struct Htr10MaterialConfig {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11138,6 +11792,7 @@ pub struct RodMetalNuclides {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11146,6 +11801,11 @@ pub struct RodMetalNuclides {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
     ```
 
 - **CastableFrom**
@@ -11165,6 +11825,7 @@ pub struct RodMetalNuclides {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11187,6 +11848,7 @@ pub struct RodMetalNuclides {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11247,6 +11909,11 @@ pub struct RodMetalNuclides {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11481,6 +12148,11 @@ pub struct PlotJob {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -11497,6 +12169,7 @@ pub struct PlotJob {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11509,6 +12182,7 @@ pub struct PlotJob {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11563,6 +12237,11 @@ pub struct PlotJob {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11670,7 +12349,13 @@ pub struct Htr10Plotter {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11683,6 +12368,7 @@ pub struct Htr10Plotter {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11728,6 +12414,11 @@ pub struct Htr10Plotter {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -11882,6 +12573,11 @@ pub struct GeometryClosure {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -11899,6 +12595,7 @@ pub struct GeometryClosure {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11911,6 +12608,7 @@ pub struct GeometryClosure {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11965,6 +12663,11 @@ pub struct GeometryClosure {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12317,6 +13020,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -12328,6 +13036,7 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12345,6 +13054,7 @@ Fields:
     fn from(source: MgxsError) -> Self { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12395,6 +13105,11 @@ Fields:
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12465,6 +13180,11 @@ pub struct GroupStructure {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -12481,6 +13201,7 @@ pub struct GroupStructure {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12493,6 +13214,7 @@ pub struct GroupStructure {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12547,6 +13269,11 @@ pub struct GroupStructure {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12637,6 +13364,11 @@ pub struct ZoneMgxs {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -12653,6 +13385,7 @@ pub struct ZoneMgxs {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12665,6 +13398,7 @@ pub struct ZoneMgxs {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12719,6 +13453,11 @@ pub struct ZoneMgxs {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -12813,6 +13552,11 @@ pub struct MgxsLibrary {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -12829,6 +13573,7 @@ pub struct MgxsLibrary {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12841,6 +13586,7 @@ pub struct MgxsLibrary {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12895,6 +13641,11 @@ pub struct MgxsLibrary {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13138,6 +13889,11 @@ the geometry, or the tallies were filtered to the wrong materials.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -13149,6 +13905,7 @@ the geometry, or the tallies were filtered to the wrong materials.
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13166,6 +13923,7 @@ the geometry, or the tallies were filtered to the wrong materials.
     fn from(source: GenfoamXsError) -> Self { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13216,6 +13974,11 @@ the geometry, or the tallies were filtered to the wrong materials.
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13373,6 +14136,11 @@ pub struct BandRates {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -13394,6 +14162,7 @@ pub struct BandRates {
     fn default() -> BandRates { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13406,6 +14175,7 @@ pub struct BandRates {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13460,6 +14230,11 @@ pub struct BandRates {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -13808,6 +14583,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -13819,6 +14599,7 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13844,6 +14625,7 @@ Fields:
     fn from(source: GenfoamXsError) -> Self { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13896,6 +14678,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -13938,6 +14725,11 @@ pub struct MgxsRun {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -13954,6 +14746,7 @@ pub struct MgxsRun {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13966,6 +14759,7 @@ pub struct MgxsRun {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14020,6 +14814,11 @@ pub struct MgxsRun {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14111,7 +14910,13 @@ pub struct McToGenFoam {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14124,6 +14929,7 @@ pub struct McToGenFoam {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14169,6 +14975,11 @@ pub struct McToGenFoam {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14296,6 +15107,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -14307,6 +15123,7 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14320,6 +15137,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14372,6 +15190,11 @@ Fields:
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
@@ -14414,6 +15237,11 @@ pub struct Convergence {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -14437,6 +15265,7 @@ pub struct Convergence {
     ```
     1 K and 1e-3 in `k`, capped at 20 outer iterations.
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14449,6 +15278,7 @@ pub struct Convergence {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14503,6 +15333,11 @@ pub struct Convergence {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14552,6 +15387,11 @@ pub struct CoupledIteration {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -14569,6 +15409,7 @@ pub struct CoupledIteration {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14581,6 +15422,7 @@ pub struct CoupledIteration {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14635,6 +15477,11 @@ pub struct CoupledIteration {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14688,6 +15535,11 @@ pub struct CoupledSteadyState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -14704,6 +15556,7 @@ pub struct CoupledSteadyState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14716,6 +15569,7 @@ pub struct CoupledSteadyState {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14770,6 +15624,11 @@ pub struct CoupledSteadyState {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**
@@ -14844,7 +15703,13 @@ pub struct McGenFoamDirect {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -14857,6 +15722,7 @@ pub struct McGenFoamDirect {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -14904,9 +15770,805 @@ pub struct McGenFoamDirect {
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
     ```
 
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `blender_bridge`
+
+outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
+outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).
+**outram-blender -> outram-mc geometry bridge.**
+
+[`to_mc_geometry`] fits an authored surface [`Mesh`] to analytic CSG and
+returns it as outram-mc-libs' CSG geometry. ~~It maps the fit onto
+outram-mc-libs' CSG types~~ Since #486 stage 6 (2026-10-02) the types are
+the same (outram-blender's `csg`, re-exported by outram-mc-libs) and it
+delegates to `outram_blender::export::to_csg_geometry`. It lived in outram-blender behind the
+`mc-export` feature until 2026-10-02, when GitHub issue #486 made
+outram-mc-libs depend on outram-blender for its geometry description: a
+blender -> outram-mc edge, even an optional one, would then be a cycle, so
+the bridge moved up to this coupling crate, which depends on both.
+
+```rust
+pub mod blender_bridge { /* ... */ }
+```
+
+### Functions
+
+#### Function `to_mc_geometry`
+
+Convert `mesh` to an `outram-mc-libs` CSG `Geometry` — the Monte Carlo
+export bridge.
+
+**Since 2026-10-02 (GitHub #486, plan stage 6) a thin wrapper over
+[`outram_blender::export::to_csg_geometry`]**: the CSG types moved into
+outram-blender, and outram-mc-libs' `Geometry` *is*
+`outram_blender::csg::geometry::Geometry` (re-exported), so no mapping is
+left to do here. Kept so existing callers (`nee_soon::sim`, MC Studio)
+keep their name. See that function for the surface and region mapping,
+the `Void` placeholder fill and the error case.
+
+# Errors
+
+[`ExportError::NotImplemented`] for a mesh that is not a fittable convex
+primitive (propagated from [`outram_blender::export::to_csg_primitive`]).
+
+```rust
+pub fn to_mc_geometry(mesh: &outram_blender::mesh::Mesh) -> Result<outram_mc_libs::prelude::Geometry, outram_blender::export::ExportError> { /* ... */ }
+```
+
+## Module `sim`
+
+Monte Carlo setup + run driver behind the MC Studio GUI. Moved here from
+`outram_blender::sim` on 2026-10-02 (GitHub #486).
+Monte Carlo **simulation setup + run** — the backend the **MC Studio** egui
+app (`dhoby-ghaut`'s `examples/mc_studio`) drives.
+
+~~outram-blender `sim` (feature `mc-export`)~~ **MOVED here 2026-10-02**
+(GitHub #486): outram-mc-libs takes its CSG description from
+outram-blender, so outram-blender may not depend on outram-mc-libs, and
+this driver, which needs both, sits in the coupling crate.
+
+[`crate::blender_bridge`] turns authored geometry into an `outram-mc-libs`
+[`Geometry`]. This module is the rest of "set up and run a *basic* Monte
+Carlo simulation": build **materials** from a friendly nuclide-name + density
+spec, bundle geometry + materials + source + run settings into an
+[`McSimSetup`], and [`McSimSetup::run`] a **k-eigenvalue** (criticality)
+calculation, returning `k_eff ± σ`.
+
+Scope is deliberately "basic": `outram-mc-libs` implements a **k-eigenvalue**
+solver only (no fixed-source), so this backend targets criticality problems —
+a bare homogeneous sphere (the validated `run_keff` driver) or a general CSG
+model authored in outram-blender (`run_keff_csg`, with an optional cell/flux
+tally). Cross sections come from the embedded offline data
+([`Nuclide::from_core`]) — no downloads, no HDF5.
+
+> Offline demonstration / education / research / V&V only, per the workspace
+> `RESPONSIBLE_USE.md` — **not** for reactor operation, licensing, or
+> safety-critical decisions.
+
+# Recipe
+
+```no_run
+use outram_blender::primitives::uv_sphere;
+use nee_soon::sim::{MaterialSpec, McSimSetup, SimGeometry, atom_density};
+use nee_soon::sim::KeffSettings;
+
+// 1. A material: Godiva HEU by atom density [atoms/barn·cm].
+let heu = MaterialSpec {
+    name: "Godiva HEU".into(),
+    temperature_k: 293.6,
+    nuclides: vec![
+        ("U234".into(), 4.9184e-4),
+        ("U235".into(), 4.4994e-2),
+        ("U238".into(), 2.4984e-3),
+    ],
+};
+
+// 2. Set up and run a bare-sphere criticality at the Godiva radius.
+let sim = McSimSetup {
+    geometry: SimGeometry::BareSphere { radius_cm: 8.7407 },
+    materials: vec![heu],
+    settings: KeffSettings { n_particles: 2000, n_inactive: 20, n_active: 50, ..Default::default() },
+};
+let result = sim.run().unwrap();
+println!("k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
+```
+
+```rust
+pub mod sim { /* ... */ }
+```
+
+### Types
+
+#### Struct `MaterialSpec`
+
+A material specification in friendly terms: a name, a temperature, and its
+nuclides as `(name, atom density)` pairs.
+
+`atom density` is in **atoms/barn·cm** (the unit `outram-mc-libs` materials
+use). Use [`atom_density`] to convert from a mass density if that is what you
+have. Nuclide names are the `njoy-outram-park-fork` CORE-library keys, e.g.
+`"U235"`, `"U238"`, `"H1"`, `"O16"`.
+
+```rust
+pub struct MaterialSpec {
+    pub name: String,
+    pub temperature_k: f64,
+    pub nuclides: Vec<(String, f64)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Human-readable material name (e.g. `"Godiva HEU"`, `"UO2 fuel"`). |
+| `temperature_k` | `f64` | Temperature [K], fed to the Doppler-broadened cross-section lookup. |
+| `nuclides` | `Vec<(String, f64)>` | `(nuclide name, atom density [atoms/barn·cm])` pairs. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MaterialSpec { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MaterialSpec) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SimError`
+
+Errors from building or running a [`McSimSetup`].
+
+```rust
+pub enum SimError {
+    Nuclide(String),
+    NoMaterial,
+    BadMaterialIndex(usize),
+    Export(outram_blender::export::ExportError),
+}
+```
+
+##### Variants
+
+###### `Nuclide`
+
+A nuclide name was not found in the embedded CORE data library.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NoMaterial`
+
+The setup has no materials (need at least one).
+
+###### `BadMaterialIndex`
+
+A `material_idx` referenced a material that does not exist.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Export`
+
+The mesh could not be exported to `outram-mc-libs` geometry.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `outram_blender::export::ExportError` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(e: ExportError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SimGeometry`
+
+What geometry a [`McSimSetup`] runs on.
+
+```rust
+pub enum SimGeometry {
+    BareSphere {
+        radius_cm: f64,
+    },
+    Csg {
+        geometry: outram_mc_libs::prelude::Geometry,
+        source: SourceBox,
+    },
+}
+```
+
+##### Variants
+
+###### `BareSphere`
+
+A bare homogeneous sphere of radius `radius_cm` [cm], vacuum outside — the
+validated `run_keff` driver. Uses the setup's **first** material.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius_cm` | `f64` | Sphere radius [cm]. |
+
+###### `Csg`
+
+A general CSG model (authored geometry via [`csg_from_mesh`], or built by
+hand) run with `run_keff_csg`. `source` bounds the initial fission-source
+sampling box and must overlap the fissile region.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `geometry` | `outram_mc_libs::prelude::Geometry` | The `outram-mc-libs` CSG geometry (cells reference material indices). |
+| `source` | `SourceBox` | Initial source sampling box [cm]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `McSimSetup`
+
+A complete **k-eigenvalue** simulation: geometry + materials + run settings.
+The GUI (or any caller) builds one of these and calls [`McSimSetup::run`].
+
+```rust
+pub struct McSimSetup {
+    pub geometry: SimGeometry,
+    pub materials: Vec<MaterialSpec>,
+    pub settings: KeffSettings,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `geometry` | `SimGeometry` | What to run on. |
+| `materials` | `Vec<MaterialSpec>` | Material specs. For [`SimGeometry::BareSphere`], the first is used; for<br>[`SimGeometry::Csg`], cells index into this list (spec order = index). |
+| `settings` | `KeffSettings` | Power-iteration settings (histories/generation, inactive/active counts,<br>seed, compute backend). [`KeffSettings::default`] is a sensible start. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn run(self: &Self) -> Result<KeffResult, SimError> { /* ... */ }
+  ```
+  Run the criticality calculation, returning `k_eff` (mean ± standard error)
+
+- ```rust
+  pub fn run_with_tally(self: &Self, tally: &mut Tally) -> Result<KeffResult, SimError> { /* ... */ }
+  ```
+  Run with a track-length [`Tally`] attached (CSG geometry only; the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `atom_density`
+
+Number density of a nuclide from a **mass density**.
+
+`N = ρ · w · N_A / M`, converted to **atoms/barn·cm** (the `1e-24` barn
+factor). `mass_density_g_cc` is ρ [g/cm³], `molar_mass_g_mol` is the nuclide's
+molar mass M [g/mol], `weight_fraction` is its mass fraction `w` in the
+material (`1.0` for a pure element/isotope). `outram-mc-libs` has no such
+helper, so this fills the gap for GUI/user input given in g/cm³.
+
+# Example
+```
+use nee_soon::sim::atom_density;
+// Pure U-235 metal at 18.74 g/cm³, M ≈ 235.04 g/mol → ~4.8e-2 atoms/b·cm.
+let n = atom_density(18.74, 235.04, 1.0);
+assert!((n - 4.8e-2).abs() < 2e-3);
+```
+
+```rust
+pub fn atom_density(mass_density_g_cc: f64, molar_mass_g_mol: f64, weight_fraction: f64) -> f64 { /* ... */ }
+```
+
+#### Function `build_materials`
+
+Build the `(nuclides, materials)` arrays `outram-mc-libs` needs from a list of
+[`MaterialSpec`]s.
+
+Nuclide names are deduplicated into one shared `Vec<Nuclide>` (cross sections
+loaded once from the embedded CORE library); each returned [`Material`]
+references them by index, matching the `outram-mc-libs` convention. Material
+ids are assigned `1, 2, …` in spec order.
+
+```rust
+pub fn build_materials(specs: &[MaterialSpec]) -> Result<(Vec<outram_mc_libs::material::nuclide::Nuclide>, Vec<outram_mc_libs::material::material::Material>), SimError> { /* ... */ }
+```
+
+#### Function `csg_from_mesh`
+
+Build a [`SimGeometry::Csg`] from an authored [`Mesh`], assigning
+`material_idx` (an index into a [`McSimSetup::materials`] list) to its cell.
+
+The mesh is exported via [`to_mc_geometry`] (box / sphere / Z-cylinder /
+convex-faceted), the single placeholder `Void` cell is filled with the chosen
+material, and an initial source box is fitted to the mesh's vertex bounds
+(inflated slightly so it overlaps the body). Returns [`SimError::Export`] for
+a mesh that is not a fittable primitive (e.g. a non-convex solid).
+
+```rust
+pub fn csg_from_mesh(mesh: &outram_blender::mesh::Mesh, material_idx: usize) -> Result<SimGeometry, SimError> { /* ... */ }
+```
+
+#### Function `cell_flux_tally`
+
+Build a track-length **cell tally** scoring flux and ν-fission over the given
+cell indices, ready to attach via [`McSimSetup::run_with_tally`]. Bins are
+pre-sized to `cell_indices.len() × 2` and laid out `[cell * 2 + score]`
+(score 0 = flux, 1 = ν-fission). After the run, read a bin with
+[`tally_value`].
+
+```rust
+pub fn cell_flux_tally(cell_indices: Vec<usize>) -> outram_mc_libs::prelude::Tally { /* ... */ }
+```
+
+#### Function `tally_value`
+
+Read one bin of a tally built by [`cell_flux_tally`] as `(mean, rel_std_dev)`
+over `n_active` generations. `cell` indexes the tally's cell list; `score` is
+`0` (flux) or `1` (ν-fission). Returns `None` if the bin index is out of range.
+
+```rust
+pub fn tally_value(tally: &outram_mc_libs::prelude::Tally, cell: usize, score: usize, n_active: u64) -> Option<(f64, f64)> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `ComputeType`
+
+```rust
+pub use outram_mc_libs::physics::compute::ComputeType;
+```
+
+#### Re-export `ThreadCount`
+
+```rust
+pub use outram_mc_libs::physics::compute::ThreadCount;
+```
+
+#### Re-export `KeffResult`
+
+```rust
+pub use outram_mc_libs::physics::keff::KeffResult;
+```
+
+#### Re-export `KeffSettings`
+
+```rust
+pub use outram_mc_libs::physics::keff::KeffSettings;
+```
+
+#### Re-export `SourceBox`
+
+```rust
+pub use outram_mc_libs::physics::transport_csg::SourceBox;
+```
+
 ## Types
 
 ### Struct `NeeSoon`
@@ -14977,6 +16639,11 @@ pub struct NeeSoon {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
@@ -14998,6 +16665,7 @@ pub struct NeeSoon {
     fn default() -> NeeSoon { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -15010,6 +16678,7 @@ pub struct NeeSoon {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -15064,6 +16733,11 @@ pub struct NeeSoon {
 - **Upcast**
   - ```rust
     fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
     ```
 
 - **WasmNotSend**

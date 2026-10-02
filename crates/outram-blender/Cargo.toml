@@ -12,7 +12,7 @@ license.workspace = true
 # Foundation. No Blender source tree is bundled; exactly one file,
 # src/boolean_predicates.rs, is a literal attributed port (GPL-2.0-or-later,
 # GPL-3.0-compatible). See README.md "Naming & trademark" and NOTICE.
-description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics, with opt-in OpenFOAM volume-meshing (foam-mesh) solver bridges. Not affiliated with the Blender Foundation."
+description = "Geometry description and meshing for OUTRAM PARK: the CSG geometry description and navigation kernel, plotter and tally-mesh description ported from OpenMC, plus a GPL-licensed fork of Blender's mesh-authoring architecture with opt-in OpenFOAM volume-meshing (foam-mesh) bridges. Not affiliated with the Blender Foundation or OpenMC."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
