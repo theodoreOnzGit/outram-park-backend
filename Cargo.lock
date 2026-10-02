@@ -6830,6 +6830,7 @@ name = "outram-park-fork-coolprop"
 version = "0.1.2"
 dependencies = [
  "approx",
+ "outram-foam-basic-lib",
  "petir",
  "uom",
 ]
@@ -8875,6 +8876,7 @@ dependencies = [
  "image",
  "local-ip-address",
  "ndarray",
+ "outram-foam-basic-lib",
  "petir",
  "roots",
  "serde",

@@ -26,6 +26,12 @@ the existing internal modules — do not attempt to fetch, copy, or
 reorganise them. If a primitive is missing for the task, ask before
 adding.
 
+**Partly deduped 2026-10-03 (GitHub #492, maintainer default).** `mesh::fv_mesh`,
+`mesh::error`, `interface::one_dimensional_meshing` and the five
+`primitives` modules are now re-exports of `outram-foam-basic-lib` (they
+were code-identical, or a strict subset, of it). Import paths are unchanged.
+The rest of `openfoam_source/` is still a vendored copy.
+
 ## Known port debt — `pub use` → `pub(crate) use`
 
 The initial verbatim copy of outram-foam-basic-lib into this crate uses

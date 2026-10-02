@@ -23,10 +23,18 @@
 //! multi-region coupling ([`region_interface::RegionInterface`], e.g. for
 //! conjugate heat transfer between a fluid and a solid region).
 
-pub(crate) mod error;
+// DEDUPED 2026-10-03 (GitHub #492): this module's `fv_mesh` and `error` modules were a copy of
+// `outram-foam-basic-lib`'s, code-identical apart from doc comments (or, for
+// `FvMesh`/`MeshError`, a strict subset of it: foam-basic-lib adds the
+// cyclic/AMI fields and checks, which this crate never sets, so every mesh
+// built here behaves identically). foam-basic-lib is the one copy; these are
+// re-exports. Merging `FvMesh` alone was not possible: its fields are
+// foam-basic-lib `Vector3`s, so the primitives had to come with it.
+pub(crate) use outram_foam_basic_lib::mesh::error;
 /// Mesh topology (owner/neighbour, boundary patches) and geometry (cell
-/// volumes, centres, face areas/normals) — see [`fv_mesh::FvMesh`].
-pub mod fv_mesh;
+/// volumes, centres, face areas/normals) — see [`fv_mesh::FvMesh`]. A
+/// re-export of `outram_foam_basic_lib::mesh::fv_mesh`.
+pub use outram_foam_basic_lib::mesh::fv_mesh;
 /// Region-to-region coupling (e.g. CHT fluid/solid interfaces) — see
 /// [`region_interface::RegionInterface`].
 pub mod region_interface;

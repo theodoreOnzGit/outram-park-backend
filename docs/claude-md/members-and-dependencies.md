@@ -107,7 +107,11 @@ that `outram-foam-basic-lib` stays publishable independently.
 worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
 `{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
 `outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set);
-`dover → outram-park-fork-dwsim-libs` (2026-09-30); `tampines` dev-deps →
+`dover → outram-park-fork-dwsim-libs` (2026-09-30);
+`{tampines-steam-tables, outram-park-fork-coolprop} → outram-foam-basic-lib`
+(2026-10-03, GitHub #492: their `FvMesh`, `MeshError`, 1-D mesher and tensor
+primitives were code-identical copies and are now re-exports; the rest of
+their vendored `openfoam_source/` is unchanged); `tampines` dev-deps →
 `{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
 `outram-mc-libs → {njoy-outram-park-fork (cross sections), petir (maths and,
 since 2026-10-02, the RNG), outram-park-fork-liggghts (DEM pebble beds,
@@ -130,7 +134,10 @@ outram-park-fork-cfmesh, raffles}`, all optional (features `mc-export`,
 `foam-export`, `foam-mesh`, `gnn-graph`).~~ **CORRECTED 2026-10-02 (#486):**
 `outram-blender → {petir (plot colour stream), outram-foam-basic-lib,
 outram-park-fork-cfmesh, raffles}`, the last three optional (features
-`foam-export`, `foam-mesh`, `gnn-graph`). **`outram-blender` must never depend
+`foam-export`, `foam-mesh`, `gnn-graph`); **since 2026-10-03 (#492)** also
+`outram-foam-mesh` (feature `block-mesh`) and `farrer-park` (feature
+`fem-export`), optional, for the meshing nexus. The FV/FE solver crates must
+never depend on `outram-blender` (it exports into them). **`outram-blender` must never depend
 on `outram-mc-libs`, not even optionally** (Cargo counts optional deps for
 cycles); `mc-export` is retired. `nee_soon → outram-blender` and
 `dhoby-ghaut (dev) → {outram-blender, nee_soon}` carry the MC bridge instead.
