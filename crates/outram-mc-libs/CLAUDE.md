@@ -859,6 +859,11 @@ the maintainer, 2026-10-03; protocols in
   seeds, disjoint-group `1/√N` check). `examples/godiva_keff_ensemble.rs` uses
   it; the remaining per-example ensembles (`OUTRAM_BENCH_SEEDS`) are not
   migrated yet.
+- `stats::correlated_sigma` (#495) — `KeffUncertainty::from_result`: batch
+  means and `τ_int`/ESS over the active generations, reported **beside** the
+  run's own `k_std`, which is carried bit for bit and never replaced.
+  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; no
+  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 

@@ -51,6 +51,9 @@
 /// Seed-ensemble consistency: `χ²/dof` of seed values against their internal
 /// `σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).
 pub mod seed_consistency;
+/// Autocorrelation-corrected standard errors for a correlated sequence: batch
+/// means, integrated autocorrelation time, effective sample size (GitHub #495).
+pub mod autocorrelation;
 
 /// Sample mean and **standard error of the mean** (1σ) of `x`.
 ///

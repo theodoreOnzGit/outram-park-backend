@@ -713,6 +713,11 @@ bit-identity contract above is untouched.
   against their internal `σ` with a fixed two-sided 95 % band, leave-one-out
   Bonferroni outlier flags, disjoint-group-mean scatter (the measured `1/√N`
   check).
+- `src/estimators/autocorrelation.rs` (#495) — lag autocorrelations, integrated
+  autocorrelation time with Sokal's automatic window (`c = 5`, fixed),
+  non-overlapping batch means (default batch `⌊√n⌋`, fixed; leading remainder
+  dropped), and `CorrelatedMean`, which always carries the naive `s/√n`
+  beside the corrected estimates.
 
 `outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
 which is exactly why RAFFLES must stay free of physics and geometry
