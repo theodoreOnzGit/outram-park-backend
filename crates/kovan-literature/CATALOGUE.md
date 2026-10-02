@@ -37,6 +37,12 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 
 ## Open tier
 
+> **2026-10-02 — NJOY2016 manual (`2022laur1720093`) logged with its licence
+> basis.** It had been in `reactor-literature/theodore-open-corpus/` without a
+> README row. Basis: LANS BSD-3-Clause-style licence of
+> <https://github.com/njoy/NJOY2016-manual> (checked at `9a2951f`), also
+> printed on PDF page 2. README ground 6 added (reactor-literature `f5e8292`).
+
 > **2026-10-02 — `conlin2017njoy21` added to the public open corpus.** J.L.
 > Conlin, A.C. Kahler, A.P. McCartney, D.A. Rehn, *NJOY21: Next generation
 > nuclear data processing capabilities*, EPJ Web of Conferences 146, 09040
