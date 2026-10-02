@@ -877,6 +877,12 @@ the maintainer, 2026-10-03; protocols in
   it only builds a `WeightWindows`; transport changes only if a caller
   attaches it to a `VarianceReduction`, whose default stays analog. Source
   biasing is not implemented.
+- `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
+  `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
+  own MC-noise variance separated out, quantiles, Pearson / Spearman /
+  marginal least-squares slope per input, or Sobol indices), and
+  `DirectPerturbation` for the #498 gate. Quantification only — no
+  calibration.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 
