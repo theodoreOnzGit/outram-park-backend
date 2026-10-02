@@ -22,113 +22,38 @@
 
 //! **outram-blender -> outram-mc geometry bridge.**
 //!
-//! [`to_mc_geometry`] fits an authored surface [`Mesh`] to analytic CSG with
-//! outram-blender's [`to_csg_primitive`] and maps the result onto
-//! outram-mc-libs' CSG types. It lived in outram-blender behind the
+//! [`to_mc_geometry`] fits an authored surface [`Mesh`] to analytic CSG and
+//! returns it as outram-mc-libs' CSG geometry. ~~It maps the fit onto
+//! outram-mc-libs' CSG types~~ Since #486 stage 6 (2026-10-02) the types are
+//! the same (outram-blender's `csg`, re-exported by outram-mc-libs) and it
+//! delegates to `outram_blender::export::to_csg_geometry`. It lived in outram-blender behind the
 //! `mc-export` feature until 2026-10-02, when GitHub issue #486 made
 //! outram-mc-libs depend on outram-blender for its geometry description: a
 //! blender -> outram-mc edge, even an optional one, would then be a cycle, so
 //! the bridge moved up to this coupling crate, which depends on both.
 
-use outram_blender::export::{to_csg_primitive, CsgSurface, ExportError, RegionToken, Sense};
+use outram_blender::export::ExportError;
+#[cfg(test)]
+use outram_blender::export::{to_csg_primitive, CsgSurface};
 use outram_blender::mesh::Mesh;
 
-/// Convert `mesh` to a real `outram-mc-libs` CSG `Geometry` — the Monte Carlo
+/// Convert `mesh` to an `outram-mc-libs` CSG `Geometry` — the Monte Carlo
 /// export bridge.
 ///
-/// (Formerly outram-blender's `mc-export` feature; moved here 2026-10-02,
-/// GitHub #486.) Fits `mesh` to analytic CSG via [`to_csg_primitive`],
-/// then maps the local-mirror surfaces/region onto `outram-mc-libs`'s real
-/// `SurfaceKind` / `RegionToken` and wraps them in a single-cell `Geometry`:
-///
-/// - each [`CsgSurface`] → the matching `SurfaceKind` variant, tagged
-///   `BoundaryType::Transmissive` (an interior surface);
-/// - [`Sense::Negative`] → `HalfSpaceSense::Inside` (evaluate `< 0`),
-///   [`Sense::Positive`] → `HalfSpaceSense::Outside` (evaluate `> 0`);
-/// - the region RPN maps 1:1 onto `outram-mc-libs`'s `RegionToken`;
-/// - the region becomes one `Cell` (id `1`) filled `CellFill::Void`, in a single
-///   root `Universe`. **The `Void` fill is a placeholder** — the caller assigns
-///   the real material/fill and temperature; this bridge exports *geometry*
-///   only.
-///
-/// All fitted surfaces map exactly: box, sphere, and Z-cylinder primitives, plus
-/// the **convex-faceted** route — a general [`CsgSurface::Plane`] maps to
-/// `outram-mc-libs`' `Plane { a, b, c, d }` (`a·x + b·y + c·z = d`), so an
-/// arbitrary convex polyhedron exports as one half-space per face.
+/// **Since 2026-10-02 (GitHub #486, plan stage 6) a thin wrapper over
+/// [`outram_blender::export::to_csg_geometry`]**: the CSG types moved into
+/// outram-blender, and outram-mc-libs' `Geometry` *is*
+/// `outram_blender::csg::geometry::Geometry` (re-exported), so no mapping is
+/// left to do here. Kept so existing callers (`nee_soon::sim`, MC Studio)
+/// keep their name. See that function for the surface and region mapping,
+/// the `Void` placeholder fill and the error case.
 ///
 /// # Errors
 ///
-/// Returns [`ExportError::NotImplemented`] only if `mesh` is not a fittable
-/// primitive at all (propagated from [`to_csg_primitive`] — i.e. a non-convex
-/// mesh, which has no half-space-intersection CSG; use [`to_faceted_solid`](outram_blender::export::to_faceted_solid) for
-/// that boundary representation).
+/// [`ExportError::NotImplemented`] for a mesh that is not a fittable convex
+/// primitive (propagated from [`outram_blender::export::to_csg_primitive`]).
 pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, ExportError> {
-    use outram_mc_libs::geometry::position::Position;
-    use outram_mc_libs::geometry::surface::{Plane, Sphere, XPlane, YPlane, ZCylinder, ZPlane};
-    use outram_mc_libs::prelude::{
-        BoundaryType, Cell, CellFill, Geometry, HalfSpaceSense, SurfaceKind, Universe,
-    };
-    use outram_mc_libs::prelude::RegionToken as McToken;
-
-    let desc = to_csg_primitive(mesh)?;
-
-    let bc = BoundaryType::Transmissive;
-    let mut surfaces: Vec<SurfaceKind> = Vec::with_capacity(desc.surfaces.len());
-    for s in &desc.surfaces {
-        let kind = match *s {
-            CsgSurface::XPlane { x0 } => SurfaceKind::XPlane(XPlane { x0, bc }),
-            CsgSurface::YPlane { y0 } => SurfaceKind::YPlane(YPlane { y0, bc }),
-            CsgSurface::ZPlane { z0 } => SurfaceKind::ZPlane(ZPlane { z0, bc }),
-            CsgSurface::Sphere { x0, y0, z0, r } => {
-                SurfaceKind::Sphere(Sphere { x0, y0, z0, r, bc })
-            }
-            CsgSurface::ZCylinder { x0, y0, r } => {
-                SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
-            }
-            // General plane `a·x + b·y + c·z = d` — the convex-faceted route (one
-            // plane per face of a convex polyhedron). outram-mc-libs `Plane`
-            // matches [`CsgSurface::Plane`] field-for-field, so this maps exactly.
-            CsgSurface::Plane { a, b, c, d } => SurfaceKind::Plane(Plane { a, b, c, d, bc }),
-        };
-        surfaces.push(kind);
-    }
-
-    let region: Vec<McToken> = desc
-        .region
-        .iter()
-        .map(|t| match *t {
-            RegionToken::Halfspace { surface, sense } => McToken::HalfSpace {
-                surface_idx: surface,
-                sense: match sense {
-                    Sense::Negative => HalfSpaceSense::Inside,
-                    Sense::Positive => HalfSpaceSense::Outside,
-                },
-            },
-            RegionToken::Intersection => McToken::Intersection,
-            RegionToken::Union => McToken::Union,
-            RegionToken::Complement => McToken::Complement,
-        })
-        .collect();
-
-    // One geometry-only cell; the caller reassigns the fill/material/temperature.
-    let cell = Cell {
-        id: 1,
-        region,
-        fill: CellFill::Void,
-        temperature: 293.6,
-        translation: Position::ZERO,
-        tracking: None,
-    };
-    Ok(Geometry {
-        surfaces,
-        cells: vec![cell],
-        universes: vec![Universe {
-            id: 0,
-            cell_indices: vec![0],
-        }],
-        lattices: vec![],
-        root_universe: 0,
-    })
+    outram_blender::export::to_csg_geometry(mesh)
 }
 
 #[cfg(test)]

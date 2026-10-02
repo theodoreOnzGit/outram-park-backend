@@ -1330,6 +1330,108 @@ pub fn from_poly_mesh(poly: &outram_foam_basic_lib::io::poly_mesh::PolyMesh) -> 
     Mesh::from_polygons(&positions, &faces)
 }
 
+/// Convert `mesh` to a native CSG [`crate::csg::geometry::Geometry`] — the
+/// geometry a Monte Carlo code tracks through.
+///
+/// Added 2026-10-02 (GitHub #486, plan stage 6): since the CSG description
+/// lives in [`crate::csg`], the export needs no solver crate. It is the
+/// former `mc-export` bridge (`to_mc_geometry`, now a thin wrapper over this
+/// in `nee_soon::blender_bridge`), producing the same type: outram-mc-libs
+/// re-exports [`crate::csg::geometry::Geometry`] as its own `Geometry`. Fits `mesh` to analytic CSG via [`to_csg_primitive`],
+/// then maps the local-mirror surfaces/region onto the real
+/// [`crate::csg`] `SurfaceKind` / `RegionToken` and wraps them in a single-cell `Geometry`:
+///
+/// - each [`CsgSurface`] → the matching `SurfaceKind` variant, tagged
+///   `BoundaryType::Transmissive` (an interior surface);
+/// - [`Sense::Negative`] → `HalfSpaceSense::Inside` (evaluate `< 0`),
+///   [`Sense::Positive`] → `HalfSpaceSense::Outside` (evaluate `> 0`);
+/// - the region RPN maps 1:1 onto [`crate::csg::cell::RegionToken`];
+/// - the region becomes one `Cell` (id `1`) filled `CellFill::Void`, in a single
+///   root `Universe`. **The `Void` fill is a placeholder** — the caller assigns
+///   the real material/fill and temperature; this bridge exports *geometry*
+///   only.
+///
+/// All fitted surfaces map exactly: box, sphere, and Z-cylinder primitives, plus
+/// the **convex-faceted** route — a general [`CsgSurface::Plane`] maps to
+/// [`crate::csg::surface::Plane`] `{ a, b, c, d }` (`a·x + b·y + c·z = d`), so an
+/// arbitrary convex polyhedron exports as one half-space per face.
+///
+/// # Errors
+///
+/// Returns [`ExportError::NotImplemented`] only if `mesh` is not a fittable
+/// primitive at all (propagated from [`to_csg_primitive`] — i.e. a non-convex
+/// mesh, which has no half-space-intersection CSG; use [`to_faceted_solid`] for
+/// that boundary representation).
+pub fn to_csg_geometry(mesh: &Mesh) -> Result<crate::csg::geometry::Geometry, ExportError> {
+    use crate::csg::cell::{Cell, CellFill, HalfSpaceSense, RegionToken as McToken};
+    use crate::csg::geometry::Geometry;
+    use crate::csg::position::Position;
+    use crate::csg::surface::{
+        BoundaryType, Plane, Sphere, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane,
+    };
+    use crate::csg::universe::Universe;
+
+    let desc = to_csg_primitive(mesh)?;
+
+    let bc = BoundaryType::Transmissive;
+    let mut surfaces: Vec<SurfaceKind> = Vec::with_capacity(desc.surfaces.len());
+    for s in &desc.surfaces {
+        let kind = match *s {
+            CsgSurface::XPlane { x0 } => SurfaceKind::XPlane(XPlane { x0, bc }),
+            CsgSurface::YPlane { y0 } => SurfaceKind::YPlane(YPlane { y0, bc }),
+            CsgSurface::ZPlane { z0 } => SurfaceKind::ZPlane(ZPlane { z0, bc }),
+            CsgSurface::Sphere { x0, y0, z0, r } => {
+                SurfaceKind::Sphere(Sphere { x0, y0, z0, r, bc })
+            }
+            CsgSurface::ZCylinder { x0, y0, r } => {
+                SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
+            }
+            // General plane `a·x + b·y + c·z = d` — the convex-faceted route (one
+            // plane per face of a convex polyhedron). The CSG `Plane`
+            // matches [`CsgSurface::Plane`] field-for-field, so this maps exactly.
+            CsgSurface::Plane { a, b, c, d } => SurfaceKind::Plane(Plane { a, b, c, d, bc }),
+        };
+        surfaces.push(kind);
+    }
+
+    let region: Vec<McToken> = desc
+        .region
+        .iter()
+        .map(|t| match *t {
+            RegionToken::Halfspace { surface, sense } => McToken::HalfSpace {
+                surface_idx: surface,
+                sense: match sense {
+                    Sense::Negative => HalfSpaceSense::Inside,
+                    Sense::Positive => HalfSpaceSense::Outside,
+                },
+            },
+            RegionToken::Intersection => McToken::Intersection,
+            RegionToken::Union => McToken::Union,
+            RegionToken::Complement => McToken::Complement,
+        })
+        .collect();
+
+    // One geometry-only cell; the caller reassigns the fill/material/temperature.
+    let cell = Cell {
+        id: 1,
+        region,
+        fill: CellFill::Void,
+        temperature: 293.6,
+        translation: Position::ZERO,
+        tracking: None,
+    };
+    Ok(Geometry {
+        surfaces,
+        cells: vec![cell],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
+        lattices: vec![],
+        root_universe: 0,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1816,6 +1918,68 @@ mod tests {
         // Clean up the temp tree (best effort).
         if let Some(root) = dir.parent().and_then(|p| p.parent()) {
             let _ = std::fs::remove_dir_all(root);
+        }
+    }
+
+    /// Native CSG export (#486 stage 6): a fitted box becomes six axis planes
+    /// intersected in one Void cell, a uv-sphere a single `Sphere`, and a
+    /// convex octahedron eight general `Plane`s carrying exactly the fitted
+    /// coefficients. The same checks `nee_soon::blender_bridge` runs on
+    /// `to_mc_geometry`, which now delegates here.
+    #[test]
+    fn csg_geometry_export_box_sphere_and_faceted() {
+        use crate::csg::cell::{CellFill, RegionToken as Tok};
+        use crate::csg::surface::SurfaceKind;
+
+        let geom = to_csg_geometry(&primitives::cube(2.0)).expect("cube exports to CSG");
+        assert_eq!(geom.surfaces.len(), 6, "box = six planes");
+        assert!(geom.surfaces.iter().all(|s| matches!(
+            s,
+            SurfaceKind::XPlane(_) | SurfaceKind::YPlane(_) | SurfaceKind::ZPlane(_)
+        )));
+        assert_eq!(geom.cells.len(), 1);
+        assert!(matches!(geom.cells[0].fill, CellFill::Void));
+        let n_half = geom.cells[0]
+            .region
+            .iter()
+            .filter(|t| matches!(t, Tok::HalfSpace { .. }))
+            .count();
+        assert_eq!(n_half, 6);
+
+        let sph = to_csg_geometry(&primitives::uv_sphere(16, 8, 3.0)).expect("sphere exports");
+        assert_eq!(sph.surfaces.len(), 1);
+        assert!(matches!(sph.surfaces[0], SurfaceKind::Sphere(_)));
+
+        let positions = [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, -1.0, 0.0),
+            Vec3::new(0.0, 0.0, 2.0),
+            Vec3::new(0.0, 0.0, -2.0),
+        ];
+        let faces = vec![
+            vec![0, 2, 4],
+            vec![2, 1, 4],
+            vec![1, 3, 4],
+            vec![3, 0, 4],
+            vec![2, 0, 5],
+            vec![1, 2, 5],
+            vec![3, 1, 5],
+            vec![0, 3, 5],
+        ];
+        let octa = Mesh::from_polygons(&positions, &faces);
+        let desc = to_csg_primitive(&octa).expect("convex octahedron must fit");
+        let geom = to_csg_geometry(&octa).expect("the general-plane route must map");
+        assert_eq!(geom.surfaces.len(), 8);
+        for (i, (ours, theirs)) in desc.surfaces.iter().zip(geom.surfaces.iter()).enumerate() {
+            let CsgSurface::Plane { a, b, c, d } = *ours else {
+                panic!("surface {i} is not a general plane: {ours:?}");
+            };
+            match theirs {
+                SurfaceKind::Plane(p) => assert_eq!((p.a, p.b, p.c, p.d), (a, b, c, d)),
+                other => panic!("surface {i} mapped to {other:?}, not a Plane"),
+            }
         }
     }
 
