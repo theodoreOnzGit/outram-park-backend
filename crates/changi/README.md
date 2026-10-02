@@ -125,9 +125,10 @@ verified, above). ~~Not yet ported: the particle advection loop (`advance.f90`),
 the meteorological interpolation, wet scavenging, the GRIB/NetCDF readers, the
 output grids and the OH reaction.~~ **CORRECTED 2026-10-02**: all of those
 except the readers are now ported and verified, above. Not yet ported: the
-GRIB/NetCDF readers and file writers, `verttransform_*`, particle release and
-domain filling, the output-grid set-up and `concoutput*` conversion, and
-`timemanager`. This is a verified set of kernels, not "FLEXPART in Rust".
+GRIB/NetCDF readers and the file writers (I/O, not numerics). The rest was
+**CORRECTED 2026-10-02**: `verttransform_*`, particle release and domain
+filling, the output-grid set-up, the `concoutput*` conversion and
+`timemanager` are ported and verified (gh:#410). This is a verified set of kernels, not "FLEXPART in Rust".
 
 ### 2. `puff` — the Gaussian puff forward model
 

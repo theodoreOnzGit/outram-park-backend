@@ -54,6 +54,15 @@
 //! | [`particle_average`] | `partpos_average.f90` | Particle-position averages |
 //! | [`convection`] | `convect43c.f90` | Emanuel convection |
 //! | [`convmix`] | `calcmatrix.f90`, `redist.f90`, `convmix.f90` | Convective redistribution |
+//! | [`verttransform`] | `verttransform_ecmwf.f90`, `_gfs.f90`, `_nests.f90` | Model levels to FLEXPART's z grid |
+//! | [`shift_field`] | `shift_field.f90`, `shift_field_0.f90` | Global-grid shifts |
+//! | [`release`] | `releaseparticles.f90` | Particle release |
+//! | [`domainfill`] | `init_domainfill.f90`, `boundcond_domainfill.f90` | Domain filling |
+//! | [`outgrid`] | `outgrid_init*.f90` | Output-grid areas and volumes |
+//! | [`fluxes`] | `calcfluxes.f90`, `fluxoutput.f90` | Mass fluxes |
+//! | [`initial_condition`] | `initial_cond_calc.f90` | Backward initial conditions |
+//! | [`concoutput`] | `concoutput*.f90` | Concentration output conversion |
+//! | [`timemanager`] | `timemanager.f90` (inline blocks) | Per-step bookkeeping, output clock |
 //!
 //! ## What is NOT ported
 //!
@@ -61,9 +70,11 @@
 //! interpolation, wet scavenging, the output grids, and the OH reaction.~~
 //! **CORRECTED 2026-10-02**: all of those, and the Hanna turbulence, `cbl.f90`
 //! and the Richardson mixing height, are ported and verified (gh:#410). Still
-//! not ported: the GRIB/NetCDF readers and file writers, `verttransform_*`,
-//! particle release and domain filling, the output-grid set-up and
-//! `concoutput*` conversion, and `timemanager`.
+//! not ported: the GRIB/NetCDF readers and the file writers, which are I/O
+//! rather than numerics. (**CORRECTED 2026-10-02**: `verttransform_*`,
+//! particle release and domain filling, the output-grid set-up, the
+//! `concoutput*` conversion and `timemanager`'s bookkeeping were listed here;
+//! they are ported and verified, gh:#410.)
 //! Do not read this module as "FLEXPART in Rust": it is a verified set of its
 //! kernels.
 //!
