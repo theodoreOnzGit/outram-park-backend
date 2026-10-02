@@ -7,6 +7,10 @@
 // Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
 // Argonne LLC, and OpenMC contributors. MIT notice in
 // verification_and_validation/geometry_plotting/openmc_inputs/LICENSE.openmc.
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Plot colours** — OpenMC's default colour stream, user colours, masks.
 //!
@@ -17,7 +21,7 @@
 //! material) ordering the two codes agree on every default colour — verified
 //! pixel-for-pixel in `verification_and_validation/geometry_plotting/`.
 
-use crate::rng::lcg::prn;
+use petir::rng::lcg::prn;
 
 /// One 8-bit RGB colour. Maps to `openmc::RGBColor` (`include/openmc/plot.h:48-79`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -125,7 +129,7 @@ pub enum PlotColourBy {
 pub struct ColourScheme {
     /// Cell or material colouring.
     pub colour_by: PlotColourBy,
-    /// One colour per cell index (in [`crate::geometry::geometry::Geometry::cells`]
+    /// One colour per cell index (in [`crate::csg::geometry::Geometry::cells`]
     /// order) or per material index, as `colour_by` says.
     pub colours: Vec<Rgb>,
     /// Background: pixels in no cell, and pixels whose cell level is deeper than

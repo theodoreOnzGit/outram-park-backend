@@ -528,7 +528,7 @@ fn upstream_errors_are_raised() {
         Err(ModelPlotError::UnknownColourName(_))
     ));
     assert_eq!(
-        ModelPlot::new().emit(&g, &[]),
+        ModelPlot::new().emit::<Material>(&g, &[]),
         Err(ModelPlotError::MaterialIndex(0))
     );
 }

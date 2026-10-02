@@ -12,6 +12,10 @@
 // Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
 // Argonne LLC, and OpenMC contributors. MIT notice in
 // verification_and_validation/geometry_plotting/openmc_inputs/LICENSE.openmc.
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Slice plots** — OpenMC's `<plot type="slice">`, rasterised in Rust.
 
@@ -23,10 +27,10 @@ use crate::wasm_par::prelude::*;
 
 use super::colour::{ColourScheme, PlotColourBy, Rgb, BLACK, WHITE};
 use super::image::ImageData;
-use crate::geometry::cell::SurfaceToken;
-use crate::geometry::geometry::{Geometry, GeometryPath};
-use crate::geometry::position::{Direction, Position};
-use crate::tally::mesh::RegularMesh;
+use crate::csg::cell::SurfaceToken;
+use crate::csg::geometry::{Geometry, GeometryPath};
+use crate::csg::position::{Direction, Position};
+use crate::spatial_mesh::RegularMesh;
 
 /// Slice orientation. `SlicePlotBase::PlotBasis` (`include/openmc/plot.h:204`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -433,9 +437,9 @@ pub const DEFAULT_MESHLINE_COLOUR: Rgb = BLACK;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
-    use crate::geometry::surface::{BoundaryType, SurfaceKind, XPlane};
-    use crate::geometry::universe::Universe;
+    use crate::csg::cell::{Cell, HalfSpaceSense, RegionToken};
+    use crate::csg::surface::{BoundaryType, SurfaceKind, XPlane};
+    use crate::csg::universe::Universe;
 
     /// Split at x = 0.5: cell 0 (material 0) for x < 0.5, cell 1 (void) for
     /// 0.5 < x < 2, nothing beyond x = 2.
@@ -456,7 +460,7 @@ mod tests {
                         hs(1, HalfSpaceSense::Inside),
                         RegionToken::Intersection,
                     ],
-                    crate::geometry::cell::CellFill::Void,
+                    crate::csg::cell::CellFill::Void,
                     Position::ZERO,
                 ),
             ],

@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Geometry slice plotting, by emitting a standalone matplotlib script.**
 //! GitHub #268.
@@ -35,9 +39,9 @@
 //! the `.py` is standalone and reproducible with no Rust binary and no side
 //! files. It runs on a bare `python3` with only `matplotlib` and `numpy`.
 
-use crate::geometry::cell::SurfaceToken;
-use crate::geometry::geometry::Geometry;
-use crate::geometry::position::{Direction, Position};
+use crate::csg::cell::SurfaceToken;
+use crate::csg::geometry::Geometry;
+use crate::csg::position::{Direction, Position};
 
 /// What the slice is coloured by.
 ///

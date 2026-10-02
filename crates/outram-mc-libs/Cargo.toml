@@ -93,8 +93,10 @@ fission-yields-data = { workspace = true }
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
 # rayon / ratatui: see the wasm target table at the end of this manifest.
 log = { workspace = true }
-# Pure-Rust DEFLATE for the geometry plotter's PNG writer
-# (`src/geometry/plot/image.rs`, gh:#268). NOT a new crate in the build: it is
+# Pure-Rust DEFLATE, used by `src/plotter/script.rs`. ~~for the geometry
+# plotter's PNG writer (`src/geometry/plot/image.rs`, gh:#268)~~ -- that writer
+# moved to `outram_blender::csg::plot::image` on 2026-10-02 (GitHub #486),
+# which names miniz_oxide itself. NOT a new crate in the build: it is
 # already a non-optional dependency of `njoy-outram-park-fork` above, and builds
 # for Android/Termux and wasm32 there. Named here only so the plot module can
 # call it directly instead of re-exporting it through the data crate.

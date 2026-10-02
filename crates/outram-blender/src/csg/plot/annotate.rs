@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Legend, title and dimensioned axes for a plot image** — NEW WORK, no
 //! OpenMC counterpart.
@@ -361,8 +365,8 @@ mod tests {
     /// The annotated image carries the raster unchanged.
     #[test]
     fn annotation_preserves_the_raster() {
-        use crate::geometry::plot::slice::PlotBasis;
-        use crate::geometry::position::Position;
+        use crate::csg::plot::slice::PlotBasis;
+        use crate::csg::position::Position;
         let mut img = ImageData::filled(50, 40, Rgb::new(1, 2, 3));
         img.set(7, 9, Rgb::new(9, 9, 9));
         let plot = SlicePlot::new(PlotBasis::Xz, Position::ZERO, [5.0, 4.0], [50, 40]);

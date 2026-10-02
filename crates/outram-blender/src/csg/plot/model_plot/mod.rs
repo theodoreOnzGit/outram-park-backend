@@ -19,6 +19,10 @@
 // Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
 // Argonne LLC, and OpenMC contributors. MIT notice in
 // verification_and_validation/geometry_plotting/openmc_inputs/LICENSE.openmc.
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **OpenMC's Python slice plot (`openmc.Model.plot`), as an emitted
 //! matplotlib script.**
@@ -76,402 +80,38 @@
 //! # IDs
 //!
 //! Upstream's id map holds **ids**, not indices: `Cell::id` here, and
-//! [`Material::id`] of the material the cell's index points to — which is why
+//! [`MaterialIdentity::material_id`] of the material the cell's index points to — which is why
 //! [`ModelPlot::emit`] takes the material table. Void reads `-1`
 //! (`MATERIAL_VOID`), "not found" `-2`, an overlap `-3` in every channel
 //! (`src/plot.cpp:43-79`).
 
 use std::fmt::Write as _;
 
-use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
-use crate::geometry::geometry::Geometry;
-use crate::geometry::lattice::Lattice;
-use crate::geometry::position::Position;
-use crate::geometry::surface::SurfaceKind;
-use crate::geometry::universe::Universe;
-use crate::material::material::Material;
+use crate::csg::cell::{CellFill, RegionToken};
+use crate::csg::position::Position;
+use crate::csg::universe::Universe;
+use crate::csg::geometry::Geometry;
 
 use super::slice::{PlotBasis, SliceHit, SlicePlot};
 
-// ---------------------------------------------------------------------------
-// Bounding boxes (openmc/bounding_box.py, surface.py, region.py)
-// ---------------------------------------------------------------------------
+mod bounds;
+mod svg;
 
-/// Axis-aligned bounding box. Port of `openmc.BoundingBox`
-/// (`openmc/bounding_box.py`); infinite extents are `±f64::INFINITY`.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BoundingBox {
-    /// Lower-left corner \[cm\].
-    pub lower_left: [f64; 3],
-    /// Upper-right corner \[cm\].
-    pub upper_right: [f64; 3],
-}
+pub use bounds::*;
+pub use svg::*;
 
-impl BoundingBox {
-    /// `BoundingBox.infinite()` (`bounding_box.py:193-202`).
-    #[must_use]
-    pub const fn infinite() -> Self {
-        Self {
-            lower_left: [f64::NEG_INFINITY; 3],
-            upper_right: [f64::INFINITY; 3],
-        }
-    }
-
-    /// The empty box a `Union` starts from (`region.py:543-544`).
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            lower_left: [f64::INFINITY; 3],
-            upper_right: [f64::NEG_INFINITY; 3],
-        }
-    }
-
-    /// `self & other` (`bounding_box.py:57-76`): element-wise max / min.
-    /// `np.maximum`/`np.minimum` propagate NaN; so does this.
-    #[must_use]
-    pub fn and(self, other: Self) -> Self {
-        let mut b = self;
-        for k in 0..3 {
-            b.lower_left[k] = np_max(self.lower_left[k], other.lower_left[k]);
-            b.upper_right[k] = np_min(self.upper_right[k], other.upper_right[k]);
-        }
-        b
-    }
-
-    /// `self | other` (`bounding_box.py:78-97`).
-    #[must_use]
-    pub fn or(self, other: Self) -> Self {
-        let mut b = self;
-        for k in 0..3 {
-            b.lower_left[k] = np_min(self.lower_left[k], other.lower_left[k]);
-            b.upper_right[k] = np_max(self.upper_right[k], other.upper_right[k]);
-        }
-        b
-    }
-
-    /// `BoundingBox.center` (`bounding_box.py:118-119`), `(ll + ur) / 2`.
-    #[must_use]
-    pub fn center(&self) -> [f64; 3] {
-        [0, 1, 2].map(|k| (self.lower_left[k] + self.upper_right[k]) / 2.0)
-    }
-
-    /// `BoundingBox.width` (`bounding_box.py:167-168`).
-    #[must_use]
-    pub fn width(&self) -> [f64; 3] {
-        [0, 1, 2].map(|k| self.upper_right[k] - self.lower_left[k])
-    }
-}
-
-fn np_max(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.max(b)
-    }
-}
-
-fn np_min(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.min(b)
-    }
-}
-
-/// `np.isclose(a, b, rtol=0, atol=1e-12)` — `Surface._atol` (`surface.py:162`).
-fn close(a: f64, b: f64) -> bool {
-    (a - b).abs() <= 1.0e-12
-}
-
-/// Axis-aligned-plane half-space box (`PlaneMixin.bounding_box`,
-/// `surface.py:537-581`) for base coefficients `a x + b y + c z = d`.
-fn plane_box(a: f64, b: f64, c: f64, d: f64, negative: bool) -> BoundingBox {
-    let norm = (a * a + b * b + c * c).sqrt();
-    let nhat = [a / norm, b / norm, c / norm];
-    let mut bb = BoundingBox::infinite();
-    if nhat.iter().any(|n| close(n.abs(), 1.0)) {
-        let sign = nhat[0] + nhat[1] + nhat[2];
-        let vals = [a, b, c].map(|v| if close(v, 0.0) { f64::NAN } else { d / v });
-        let fill = |inf: f64| vals.map(|v| if v.is_nan() { inf } else { v });
-        if negative == (sign > 0.0) {
-            bb.upper_right = fill(f64::INFINITY);
-        } else {
-            bb.lower_left = fill(f64::NEG_INFINITY);
-        }
-    }
-    bb
-}
-
-/// `Surface.bounding_box(side)` for every surface kind of this crate.
-/// `negative` is `side == '-'` (the [`HalfSpaceSense::Inside`] half-space).
+/// What the plotter needs to know about a material: the user-facing
+/// id (OpenMC's `Material.id`, which the id map and the colour keys
+/// carry) and its name.
 ///
-/// Cones, general quadrics and the `+` side of every closed surface are
-/// infinite, as upstream (`surface.py:243-266`).
-#[must_use]
-pub fn surface_bounding_box(s: &SurfaceKind, negative: bool) -> BoundingBox {
-    let bbox = |ll: [f64; 3], ur: [f64; 3]| {
-        if negative {
-            BoundingBox {
-                lower_left: ll,
-                upper_right: ur,
-            }
-        } else {
-            BoundingBox::infinite()
-        }
-    };
-    let (ni, pi) = (f64::NEG_INFINITY, f64::INFINITY);
-    match s {
-        SurfaceKind::XPlane(p) => plane_box(1.0, 0.0, 0.0, p.x0, negative),
-        SurfaceKind::YPlane(p) => plane_box(0.0, 1.0, 0.0, p.y0, negative),
-        SurfaceKind::ZPlane(p) => plane_box(0.0, 0.0, 1.0, p.z0, negative),
-        SurfaceKind::Plane(p) => plane_box(p.a, p.b, p.c, p.d, negative),
-        SurfaceKind::Sphere(s) => bbox(
-            [s.x0 - s.r, s.y0 - s.r, s.z0 - s.r],
-            [s.x0 + s.r, s.y0 + s.r, s.z0 + s.r],
-        ),
-        SurfaceKind::XCylinder(c) => bbox([ni, c.y0 - c.r, c.z0 - c.r], [pi, c.y0 + c.r, c.z0 + c.r]),
-        SurfaceKind::YCylinder(c) => bbox([c.x0 - c.r, ni, c.z0 - c.r], [c.x0 + c.r, pi, c.z0 + c.r]),
-        SurfaceKind::ZCylinder(c) => bbox([c.x0 - c.r, c.y0 - c.r, ni], [c.x0 + c.r, c.y0 + c.r, pi]),
-        SurfaceKind::XTorus(t) => bbox(
-            [t.x0 - t.b, t.y0 - t.a - t.c, t.z0 - t.a - t.c],
-            [t.x0 + t.b, t.y0 + t.a + t.c, t.z0 + t.a + t.c],
-        ),
-        SurfaceKind::YTorus(t) => bbox(
-            [t.x0 - t.a - t.c, t.y0 - t.b, t.z0 - t.a - t.c],
-            [t.x0 + t.a + t.c, t.y0 + t.b, t.z0 + t.a + t.c],
-        ),
-        SurfaceKind::ZTorus(t) => bbox(
-            [t.x0 - t.a - t.c, t.y0 - t.a - t.c, t.z0 - t.b],
-            [t.x0 + t.a + t.c, t.y0 + t.a + t.c, t.z0 + t.b],
-        ),
-        SurfaceKind::XCone(_)
-        | SurfaceKind::YCone(_)
-        | SurfaceKind::ZCone(_)
-        | SurfaceKind::Quadric(_) => BoundingBox::infinite(),
-    }
-}
-
-/// A region's RPN, rebuilt as a flat expression tree (indices, no `Box`).
-enum Node {
-    Half(usize, HalfSpaceSense),
-    And(usize, usize),
-    Or(usize, usize),
-    Not(usize),
-}
-
-fn region_tree(region: &[RegionToken]) -> Option<(Vec<Node>, usize)> {
-    let mut nodes = Vec::new();
-    let mut stack: Vec<usize> = Vec::new();
-    for t in region {
-        let n = match *t {
-            RegionToken::HalfSpace { surface_idx, sense } => Node::Half(surface_idx, sense),
-            RegionToken::Intersection => {
-                let b = stack.pop()?;
-                Node::And(stack.pop()?, b)
-            }
-            RegionToken::Union => {
-                let b = stack.pop()?;
-                Node::Or(stack.pop()?, b)
-            }
-            RegionToken::Complement => Node::Not(stack.pop()?),
-        };
-        nodes.push(n);
-        stack.push(nodes.len() - 1);
-    }
-    let root = stack.pop()?;
-    Some((nodes, root))
-}
-
-/// `Region.bounding_box`. `Complement` is `(~node).bounding_box` (De Morgan,
-/// `region.py:412-413,503-504,598-599,615-616`), carried here as `negate`.
-fn node_box(geom: &Geometry, nodes: &[Node], i: usize, negate: bool) -> BoundingBox {
-    match nodes[i] {
-        Node::Half(s, sense) => {
-            let negative = matches!(sense, HalfSpaceSense::Inside) != negate;
-            surface_bounding_box(&geom.surfaces[s], negative)
-        }
-        Node::And(a, b) | Node::Or(a, b) => {
-            let intersect = matches!(nodes[i], Node::And(..)) != negate;
-            let (ba, bb) = (node_box(geom, nodes, a, negate), node_box(geom, nodes, b, negate));
-            // Intersection starts from infinite and `&=`s each node; Union
-            // starts from the empty box and `|=`s (region.py:451-455,542-547).
-            if intersect {
-                BoundingBox::infinite().and(ba).and(bb)
-            } else {
-                BoundingBox::empty().or(ba).or(bb)
-            }
-        }
-        Node::Not(a) => node_box(geom, nodes, a, !negate),
-    }
-}
-
-/// `Cell.bounding_box` (`cell.py:373-377`): the region's box, or infinite for
-/// a cell with no region.
-#[must_use]
-pub fn cell_bounding_box(geom: &Geometry, cell: &Cell) -> BoundingBox {
-    match region_tree(&cell.region) {
-        Some((nodes, root)) => node_box(geom, &nodes, root, false),
-        None => BoundingBox::infinite(),
-    }
-}
-
-/// `Universe.bounding_box` (`universe.py:435-441`): the `Union` of its cells'
-/// regions, or infinite when no cell has one.
-#[must_use]
-pub fn universe_bounding_box(geom: &Geometry, universe: usize) -> BoundingBox {
-    let boxes: Vec<BoundingBox> = geom.universes[universe]
-        .cell_indices
-        .iter()
-        .map(|&c| &geom.cells[c])
-        .filter(|c| !c.region.is_empty())
-        .map(|c| cell_bounding_box(geom, c))
-        .collect();
-    if boxes.is_empty() {
-        BoundingBox::infinite()
-    } else {
-        boxes.into_iter().fold(BoundingBox::empty(), BoundingBox::or)
-    }
-}
-
-/// `Geometry.bounding_box` = the root universe's (`geometry.py:70-71`).
-#[must_use]
-pub fn geometry_bounding_box(geom: &Geometry) -> BoundingBox {
-    universe_bounding_box(geom, geom.root_universe)
-}
-
-// ---------------------------------------------------------------------------
-// Domain order (get_all_cells / get_all_materials)
-// ---------------------------------------------------------------------------
-
-/// Universes a lattice holds, in `Lattice.get_unique_universes` order
-/// (`lattice.py:110-136`): the Python `universes` nesting walked outer to
-/// inner, first occurrence kept, then `outer`.
-///
-/// For a rectangular lattice the Python nesting is `[z][row][col]` with rows
-/// listed **top first** (`lattice.py` `RectLattice.universes`); this crate
-/// stores `ix + nx*iy + nx*ny*iz` with `iy = 0` at the bottom, so rows are
-/// walked downwards. For a hex lattice the nesting is `[z][ring][position]`,
-/// outermost ring first, positions clockwise from the top; the skewed index
-/// of each (ring, position) is recovered by filling a probe array through the
-/// same `fill_level` walk `HexLattice::from_rings` uses.
-fn lattice_unique_universes(lat: &Lattice) -> Vec<usize> {
-    let mut out: Vec<usize> = Vec::new();
-    let add = |u: usize, out: &mut Vec<usize>| {
-        if !out.contains(&u) {
-            out.push(u);
-        }
-    };
-    match lat {
-        Lattice::Rect(r) => {
-            let [nx, ny, nz] = r.n;
-            for iz in 0..nz {
-                for iy in (0..ny).rev() {
-                    for ix in 0..nx {
-                        add(r.universes[nx * ny * iz + nx * iy + ix], &mut out);
-                    }
-                }
-            }
-            if let Some(o) = r.outer {
-                add(o, &mut out);
-            }
-        }
-        Lattice::Hex(h) => {
-            let order = h.ring_order_flat_indices();
-            let n2 = h.n_side() * h.n_side();
-            // Python's `universes[z]` is written to XML for z = 0, 1, ... and
-            // the C++ reads the first level as the bottom (`fill_lattice_*`'s
-            // `m` loop), so z = 0 is the bottom level, as `iz` is here.
-            for iz in 0..h.n_axial {
-                for &flat in &order {
-                    let u = h.universes[n2 * iz + flat];
-                    if u >= 0 {
-                        add(u as usize, &mut out);
-                    }
-                }
-            }
-            if let Some(o) = h.outer {
-                add(o, &mut out);
-            }
-        }
-    }
-    out
-}
-
-/// Cell indices in `Universe.get_all_cells` order (`universe.py:207-232`,
-/// `cell.py:448-469`, `lattice.py:161-184`): the universe's own cells first,
-/// then, cell by cell, everything nested in each fill; one shared memo so a
-/// universe or lattice is expanded once. Dict insertion semantics: a key
-/// already present keeps its first position.
-#[must_use]
-pub fn all_cells_order(geom: &Geometry, universe: usize) -> Vec<usize> {
-    #[derive(Default)]
-    struct Memo {
-        universes: Vec<usize>,
-        lattices: Vec<usize>,
-        cells: Vec<usize>,
-    }
-    fn push_unique(v: &mut Vec<usize>, x: usize) {
-        if !v.contains(&x) {
-            v.push(x);
-        }
-    }
-    fn universe_cells(geom: &Geometry, u: usize, memo: &mut Memo, first: bool) -> Vec<usize> {
-        if !first && memo.universes.contains(&u) {
-            return Vec::new();
-        }
-        memo.universes.push(u);
-        let own = &geom.universes[u].cell_indices;
-        let mut cells: Vec<usize> = Vec::new();
-        for &c in own {
-            push_unique(&mut cells, c);
-        }
-        for &c in own {
-            for n in cell_cells(geom, c, memo) {
-                push_unique(&mut cells, n);
-            }
-        }
-        cells
-    }
-    fn cell_cells(geom: &Geometry, c: usize, memo: &mut Memo) -> Vec<usize> {
-        if memo.cells.contains(&c) {
-            return Vec::new();
-        }
-        memo.cells.push(c);
-        match geom.cells[c].fill {
-            CellFill::Universe(u) => universe_cells(geom, u, memo, false),
-            CellFill::Lattice(l) => {
-                if memo.lattices.contains(&l) {
-                    return Vec::new();
-                }
-                memo.lattices.push(l);
-                let mut cells = Vec::new();
-                for u in lattice_unique_universes(&geom.lattices[l]) {
-                    for n in universe_cells(geom, u, memo, false) {
-                        push_unique(&mut cells, n);
-                    }
-                }
-                cells
-            }
-            CellFill::Material(_) | CellFill::Void => Vec::new(),
-        }
-    }
-    universe_cells(geom, universe, &mut Memo::default(), true)
-}
-
-/// Material indices in `Universe.get_all_materials` order
-/// (`universe.py:234-255`): the materials of [`all_cells_order`]'s cells, in
-/// that order, first occurrence kept.
-#[must_use]
-pub fn all_materials_order(geom: &Geometry, universe: usize) -> Vec<usize> {
-    let mut out = Vec::new();
-    for c in all_cells_order(geom, universe) {
-        if let CellFill::Material(m) = geom.cells[c].fill {
-            if !out.contains(&m) {
-                out.push(m);
-            }
-        }
-    }
-    out
+/// Added 2026-10-02 (GitHub #486) when the plotter moved here from
+/// `outram-mc-libs`, which implements it for its `Material`. Static
+/// dispatch: every function taking materials is generic over it.
+pub trait MaterialIdentity {
+    /// User-facing material id (`openmc.Material.id`).
+    fn material_id(&self) -> i32;
+    /// Material name (`openmc.Material.name`).
+    fn material_name(&self) -> &str;
 }
 
 // ---------------------------------------------------------------------------
@@ -691,9 +331,14 @@ impl ModelPlot {
     pub fn resolved(&self, geom: &Geometry) -> ([f64; 3], [f64; 2], [usize; 2]) {
         let (x, y) = self.basis.axes();
         let bb = geometry_bounding_box(geom);
-        let inf = [bb.lower_left[x], bb.upper_right[x], bb.lower_left[y], bb.upper_right[y]]
-            .iter()
-            .any(|v| v.is_infinite());
+        let inf = [
+            bb.lower_left[x],
+            bb.upper_right[x],
+            bb.lower_left[y],
+            bb.upper_right[y],
+        ]
+        .iter()
+        .any(|v| v.is_infinite());
         let (origin, width) = if inf {
             (
                 self.origin.map_or([0.0; 3], |o| [o.x, o.y, o.z]),
@@ -736,10 +381,10 @@ impl ModelPlot {
     /// # Errors
     /// [`ModelPlotError::MaterialIndex`] if a cell's material index is not in
     /// `materials`.
-    pub fn id_map(
+    pub fn id_map<M: MaterialIdentity>(
         &self,
         geom: &Geometry,
-        materials: &[Material],
+        materials: &[M],
     ) -> Result<(Vec<i32>, Vec<i32>, [usize; 2]), ModelPlotError> {
         let (origin, width, pixels) = self.resolved(geom);
         let sp = SlicePlot::new(
@@ -782,7 +427,11 @@ impl ModelPlot {
     ///
     /// # Errors
     /// The checks `Model.plot` makes before it draws ([`ModelPlotError`]).
-    pub fn emit(&self, geom: &Geometry, materials: &[Material]) -> Result<String, ModelPlotError> {
+    pub fn emit<M: MaterialIdentity>(
+        &self,
+        geom: &Geometry,
+        materials: &[M],
+    ) -> Result<String, ModelPlotError> {
         self.validate()?;
         let (cells, mats, _) = self.id_map(geom, materials)?;
         self.emit_with_id_map(geom, materials, &cells, &mats)
@@ -811,16 +460,20 @@ impl ModelPlot {
     ///
     /// # Errors
     /// As [`Self::emit`].
-    pub fn emit_with_id_map(
+    pub fn emit_with_id_map<M: MaterialIdentity>(
         &self,
         geom: &Geometry,
-        materials: &[Material],
+        materials: &[M],
         cells: &[i32],
         mats: &[i32],
     ) -> Result<String, ModelPlotError> {
         self.validate()?;
         let (origin, width, pixels) = self.resolved(geom);
-        assert_eq!(cells.len(), pixels[0] * pixels[1], "id map does not match the plot settings");
+        assert_eq!(
+            cells.len(),
+            pixels[0] * pixels[1],
+            "id map does not match the plot settings"
+        );
 
         // `colorize` domains, in get_all_cells / get_all_materials order.
         let seeded: Option<Vec<(i32, String)>> = match (&self.colors, self.seed) {
@@ -842,7 +495,7 @@ impl ModelPlot {
                     .map(|m| {
                         materials
                             .get(m)
-                            .map(|mt| (mt.id, mt.name.clone()))
+                            .map(|mt| (mt.material_id(), mt.material_name().to_string()))
                             .ok_or(ModelPlotError::MaterialIndex(m))
                     })
                     .collect::<Result<_, _>>()?,
@@ -898,10 +551,23 @@ impl ModelPlot {
         );
         let _ = writeln!(w, "basis = '{basis}'");
         let _ = writeln!(w, "x, y, z = {xi}, {yi}, {zi}");
-        let _ = writeln!(w, "origin = ({}, {}, {})", py_f(origin[0]), py_f(origin[1]), py_f(origin[2]));
+        let _ = writeln!(
+            w,
+            "origin = ({}, {}, {})",
+            py_f(origin[0]),
+            py_f(origin[1]),
+            py_f(origin[2])
+        );
         let _ = writeln!(w, "width = ({}, {})", py_f(width[0]), py_f(width[1]));
         let _ = writeln!(w, "pixels = ({}, {})", pixels[0], pixels[1]);
-        let _ = writeln!(w, "color_by = '{}'", match self.color_by { ColorBy::Cell => "cell", ColorBy::Material => "material" });
+        let _ = writeln!(
+            w,
+            "color_by = '{}'",
+            match self.color_by {
+                ColorBy::Cell => "cell",
+                ColorBy::Material => "material",
+            }
+        );
         let _ = writeln!(w, "axis_units = '{}'", self.axis_units.name());
         let _ = writeln!(w, "legend = {}", py_bool(self.legend));
         let _ = writeln!(
@@ -994,11 +660,11 @@ impl ModelPlot {
     ///
     /// # Errors
     /// As [`Self::emit`].
-    pub fn emit_universe(
+    pub fn emit_universe<M: MaterialIdentity>(
         &self,
         geom: &Geometry,
         u: usize,
-        materials: &[Material],
+        materials: &[M],
     ) -> Result<String, ModelPlotError> {
         let mut g = geom.clone();
         g.root_universe = u;
@@ -1010,11 +676,11 @@ impl ModelPlot {
     ///
     /// # Errors
     /// As [`Self::emit`].
-    pub fn emit_cell(
+    pub fn emit_cell<M: MaterialIdentity>(
         &self,
         geom: &Geometry,
         c: usize,
-        materials: &[Material],
+        materials: &[M],
     ) -> Result<String, ModelPlotError> {
         let mut g = geom.clone();
         g.universes.push(Universe {
@@ -1032,11 +698,11 @@ impl ModelPlot {
     ///
     /// # Errors
     /// As [`Self::emit`].
-    pub fn emit_region(
+    pub fn emit_region<M: MaterialIdentity>(
         &self,
         geom: &Geometry,
         region: Vec<RegionToken>,
-        materials: &[Material],
+        materials: &[M],
     ) -> Result<String, ModelPlotError> {
         let mut g = geom.clone();
         let id = g.cells.iter().map(|c| c.id).max().unwrap_or(0) + 1;
@@ -1061,10 +727,16 @@ impl Default for ModelPlot {
     }
 }
 
-fn material_id(material: Option<usize>, materials: &[Material]) -> Result<i32, ModelPlotError> {
+fn material_id<M: MaterialIdentity>(
+    material: Option<usize>,
+    materials: &[M],
+) -> Result<i32, ModelPlotError> {
     match material {
         None => Ok(-1),
-        Some(m) => Ok(materials.get(m).ok_or(ModelPlotError::MaterialIndex(m))?.id),
+        Some(m) => Ok(materials
+            .get(m)
+            .ok_or(ModelPlotError::MaterialIndex(m))?
+            .material_id()),
     }
 }
 
@@ -1075,7 +747,7 @@ fn material_id(material: Option<usize>, materials: &[Material]) -> Result<i32, M
 /// level overwrites `overlap_index`).
 fn overlap_key(
     geom: &Geometry,
-    path: &crate::geometry::geometry::GeometryPath,
+    path: &crate::csg::geometry::GeometryPath,
 ) -> Option<(i32, i32, i32)> {
     let mut key = None;
     for coord in &path.levels {
@@ -1106,16 +778,16 @@ fn overlap_key(
 /// A consequence of upstream's own code, kept: `_id_map_to_rgb` colours only
 /// `-3`, so with `color_by='cell'` an overlap is drawn **white**, not in
 /// `overlap_color`; with `color_by='material'` it gets `overlap_color`.
-fn overlap_id_map(
+fn overlap_id_map<M: MaterialIdentity>(
     geom: &Geometry,
     sp: &SlicePlot,
-    materials: &[Material],
+    materials: &[M],
 ) -> Result<(Vec<i32>, Vec<i32>), ModelPlotError> {
     #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par::prelude::*;
-    use crate::geometry::cell::SurfaceToken;
+    use crate::csg::cell::SurfaceToken;
 
     let (w, h) = (sp.pixels[0], sp.pixels[1]);
     let dir = super::slice::plot_direction();
@@ -1334,171 +1006,24 @@ fn base64(data: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
-        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
         let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
         out.push(T[(n >> 18) as usize & 63] as char);
         out.push(T[(n >> 12) as usize & 63] as char);
-        out.push(if chunk.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
-        out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            T[(n >> 6) as usize & 63] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            T[n as usize & 63] as char
+        } else {
+            '='
+        });
     }
     out
 }
-
-/// Look up an SVG colour name as upstream does (`_SVG_COLORS[name.lower()]`).
-#[must_use]
-pub fn svg_colour(name: &str) -> Option<[u8; 3]> {
-    let l = name.to_lowercase();
-    SVG_COLOURS.iter().find(|(n, _)| *n == l).map(|(_, c)| *c)
-}
-
-/// OpenMC's `_SVG_COLORS` (`openmc/plots.py:24-172`), verbatim, 147 entries,
-/// in upstream order.
-pub const SVG_COLOURS: [(&str, [u8; 3]); 147] = [
-    ("aliceblue", [240, 248, 255]),
-    ("antiquewhite", [250, 235, 215]),
-    ("aqua", [0, 255, 255]),
-    ("aquamarine", [127, 255, 212]),
-    ("azure", [240, 255, 255]),
-    ("beige", [245, 245, 220]),
-    ("bisque", [255, 228, 196]),
-    ("black", [0, 0, 0]),
-    ("blanchedalmond", [255, 235, 205]),
-    ("blue", [0, 0, 255]),
-    ("blueviolet", [138, 43, 226]),
-    ("brown", [165, 42, 42]),
-    ("burlywood", [222, 184, 135]),
-    ("cadetblue", [95, 158, 160]),
-    ("chartreuse", [127, 255, 0]),
-    ("chocolate", [210, 105, 30]),
-    ("coral", [255, 127, 80]),
-    ("cornflowerblue", [100, 149, 237]),
-    ("cornsilk", [255, 248, 220]),
-    ("crimson", [220, 20, 60]),
-    ("cyan", [0, 255, 255]),
-    ("darkblue", [0, 0, 139]),
-    ("darkcyan", [0, 139, 139]),
-    ("darkgoldenrod", [184, 134, 11]),
-    ("darkgray", [169, 169, 169]),
-    ("darkgreen", [0, 100, 0]),
-    ("darkgrey", [169, 169, 169]),
-    ("darkkhaki", [189, 183, 107]),
-    ("darkmagenta", [139, 0, 139]),
-    ("darkolivegreen", [85, 107, 47]),
-    ("darkorange", [255, 140, 0]),
-    ("darkorchid", [153, 50, 204]),
-    ("darkred", [139, 0, 0]),
-    ("darksalmon", [233, 150, 122]),
-    ("darkseagreen", [143, 188, 143]),
-    ("darkslateblue", [72, 61, 139]),
-    ("darkslategray", [47, 79, 79]),
-    ("darkslategrey", [47, 79, 79]),
-    ("darkturquoise", [0, 206, 209]),
-    ("darkviolet", [148, 0, 211]),
-    ("deeppink", [255, 20, 147]),
-    ("deepskyblue", [0, 191, 255]),
-    ("dimgray", [105, 105, 105]),
-    ("dimgrey", [105, 105, 105]),
-    ("dodgerblue", [30, 144, 255]),
-    ("firebrick", [178, 34, 34]),
-    ("floralwhite", [255, 250, 240]),
-    ("forestgreen", [34, 139, 34]),
-    ("fuchsia", [255, 0, 255]),
-    ("gainsboro", [220, 220, 220]),
-    ("ghostwhite", [248, 248, 255]),
-    ("gold", [255, 215, 0]),
-    ("goldenrod", [218, 165, 32]),
-    ("gray", [128, 128, 128]),
-    ("green", [0, 128, 0]),
-    ("greenyellow", [173, 255, 47]),
-    ("grey", [128, 128, 128]),
-    ("honeydew", [240, 255, 240]),
-    ("hotpink", [255, 105, 180]),
-    ("indianred", [205, 92, 92]),
-    ("indigo", [75, 0, 130]),
-    ("ivory", [255, 255, 240]),
-    ("khaki", [240, 230, 140]),
-    ("lavender", [230, 230, 250]),
-    ("lavenderblush", [255, 240, 245]),
-    ("lawngreen", [124, 252, 0]),
-    ("lemonchiffon", [255, 250, 205]),
-    ("lightblue", [173, 216, 230]),
-    ("lightcoral", [240, 128, 128]),
-    ("lightcyan", [224, 255, 255]),
-    ("lightgoldenrodyellow", [250, 250, 210]),
-    ("lightgray", [211, 211, 211]),
-    ("lightgreen", [144, 238, 144]),
-    ("lightgrey", [211, 211, 211]),
-    ("lightpink", [255, 182, 193]),
-    ("lightsalmon", [255, 160, 122]),
-    ("lightseagreen", [32, 178, 170]),
-    ("lightskyblue", [135, 206, 250]),
-    ("lightslategray", [119, 136, 153]),
-    ("lightslategrey", [119, 136, 153]),
-    ("lightsteelblue", [176, 196, 222]),
-    ("lightyellow", [255, 255, 224]),
-    ("lime", [0, 255, 0]),
-    ("limegreen", [50, 205, 50]),
-    ("linen", [250, 240, 230]),
-    ("magenta", [255, 0, 255]),
-    ("maroon", [128, 0, 0]),
-    ("mediumaquamarine", [102, 205, 170]),
-    ("mediumblue", [0, 0, 205]),
-    ("mediumorchid", [186, 85, 211]),
-    ("mediumpurple", [147, 112, 219]),
-    ("mediumseagreen", [60, 179, 113]),
-    ("mediumslateblue", [123, 104, 238]),
-    ("mediumspringgreen", [0, 250, 154]),
-    ("mediumturquoise", [72, 209, 204]),
-    ("mediumvioletred", [199, 21, 133]),
-    ("midnightblue", [25, 25, 112]),
-    ("mintcream", [245, 255, 250]),
-    ("mistyrose", [255, 228, 225]),
-    ("moccasin", [255, 228, 181]),
-    ("navajowhite", [255, 222, 173]),
-    ("navy", [0, 0, 128]),
-    ("oldlace", [253, 245, 230]),
-    ("olive", [128, 128, 0]),
-    ("olivedrab", [107, 142, 35]),
-    ("orange", [255, 165, 0]),
-    ("orangered", [255, 69, 0]),
-    ("orchid", [218, 112, 214]),
-    ("palegoldenrod", [238, 232, 170]),
-    ("palegreen", [152, 251, 152]),
-    ("paleturquoise", [175, 238, 238]),
-    ("palevioletred", [219, 112, 147]),
-    ("papayawhip", [255, 239, 213]),
-    ("peachpuff", [255, 218, 185]),
-    ("peru", [205, 133, 63]),
-    ("pink", [255, 192, 203]),
-    ("plum", [221, 160, 221]),
-    ("powderblue", [176, 224, 230]),
-    ("purple", [128, 0, 128]),
-    ("red", [255, 0, 0]),
-    ("rosybrown", [188, 143, 143]),
-    ("royalblue", [65, 105, 225]),
-    ("saddlebrown", [139, 69, 19]),
-    ("salmon", [250, 128, 114]),
-    ("sandybrown", [244, 164, 96]),
-    ("seagreen", [46, 139, 87]),
-    ("seashell", [255, 245, 238]),
-    ("sienna", [160, 82, 45]),
-    ("silver", [192, 192, 192]),
-    ("skyblue", [135, 206, 235]),
-    ("slateblue", [106, 90, 205]),
-    ("slategray", [112, 128, 144]),
-    ("slategrey", [112, 128, 144]),
-    ("snow", [255, 250, 250]),
-    ("springgreen", [0, 255, 127]),
-    ("steelblue", [70, 130, 180]),
-    ("tan", [210, 180, 140]),
-    ("teal", [0, 128, 128]),
-    ("thistle", [216, 191, 216]),
-    ("tomato", [255, 99, 71]),
-    ("turquoise", [64, 224, 208]),
-    ("violet", [238, 130, 238]),
-    ("wheat", [245, 222, 179]),
-    ("white", [255, 255, 255]),
-    ("whitesmoke", [245, 245, 245]),
-    ("yellow", [255, 255, 0]),
-    ("yellowgreen", [154, 205, 50]),
-];

@@ -16,12 +16,16 @@
 // Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
 // Argonne LLC, and OpenMC contributors. MIT notice in
 // verification_and_validation/geometry_plotting/openmc_inputs/LICENSE.openmc.
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Ray-traced plots** — OpenMC's `wireframe_raytrace` and `solid_raytrace`.
 //!
 //! Rays are traced through the crate's own CSG machinery —
 //! [`Geometry::locate`], [`Geometry::distance_to_boundary`] and
-//! [`Cell::distance_to_boundary`](crate::geometry::cell::Cell::distance_to_boundary)
+//! [`Cell::distance_to_boundary`](crate::csg::cell::Cell::distance_to_boundary)
 //! — so a ray-traced plot shows the geometry transport sees. There is no
 //! second geometry engine here.
 //!
@@ -51,9 +55,9 @@ use crate::wasm_par::prelude::*;
 
 use super::colour::{ColourScheme, PlotColourBy, Rgb, BLACK};
 use super::image::ImageData;
-use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
-use crate::geometry::geometry::{Crossing, Geometry, GeometryPath};
-use crate::geometry::position::{Direction, Position};
+use crate::csg::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
+use crate::csg::geometry::{Crossing, Geometry, GeometryPath};
+use crate::csg::position::{Direction, Position};
 
 /// `TINY_BIT` (`include/openmc/constants.h:50`) — how far past a boundary a
 /// ray is pushed.

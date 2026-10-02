@@ -32,6 +32,7 @@
 pub mod cell;
 pub mod geometry;
 pub mod lattice;
+pub mod plot;
 pub mod position;
 pub mod surface;
 pub mod triso_particle;

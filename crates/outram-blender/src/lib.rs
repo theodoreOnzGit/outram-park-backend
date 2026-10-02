@@ -223,6 +223,10 @@ pub mod csg;
 /// lookup and scoring stay in outram-mc-libs. Core: no feature, no dependency.
 pub mod spatial_mesh;
 
+/// Serial `rayon` stand-in for wasm32 (the plotter's `into_par_iter`).
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;
+
 /// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
 /// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
 /// `pipeline`, get back a polyhedral `VolumeMesh` + quality report, and export an

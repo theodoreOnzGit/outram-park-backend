@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Geometry plotting** — OpenMC's plotter (`src/plot.cpp`), ported, writing
 //! PNG natively from Rust. GitHub #268.
@@ -48,7 +52,7 @@
 //!   to show, and OpenMC itself writes only PNG/PPM; PNG is sufficient and
 //!   smaller for flat-colour images. See [`image`].
 //! - **Non-regular meshes for mesh lines** — the crate has only
-//!   [`crate::tally::mesh::RegularMesh`].
+//!   [`crate::spatial_mesh::RegularMesh`].
 //! - **Cell rotations** in the Phong normal (`plot.cpp:1828-1833`) — this
 //!   crate's nested frames are pure translations, so there is nothing to undo.
 //!
@@ -79,14 +83,14 @@ pub use colour::{
 };
 pub use image::{decode_png, ImageData, PngDecodeError};
 pub use model_plot::{
-    AxisUnits, BoundingBox, ColorBy, DomainColour, ModelPlot, ModelPlotError, Outline, Pixels,
-    PlotColour,
+    AxisUnits, BoundingBox, ColorBy, DomainColour, MaterialIdentity, ModelPlot, ModelPlotError,
+    Outline, Pixels, PlotColour,
 };
 pub use raytrace::{Camera, Projection, SolidRayTracePlot, WireframeRayTracePlot};
 pub use script::{emit_python, sample_slice, ColourBy, Slice};
 pub use slice::{IdMap, MeshLines, PlotBasis, SliceHit, SlicePlot};
 
-use crate::geometry::geometry::Geometry;
+use crate::csg::geometry::Geometry;
 
 /// Highest material index any cell fills with, plus one — the smallest
 /// material table a [`ColourScheme`] for this geometry can use. (OpenMC sizes
@@ -97,7 +101,7 @@ pub fn material_count(geom: &Geometry) -> usize {
     geom.cells
         .iter()
         .filter_map(|c| match c.fill {
-            crate::geometry::cell::CellFill::Material(m) => Some(m + 1),
+            crate::csg::cell::CellFill::Material(m) => Some(m + 1),
             _ => None,
         })
         .max()

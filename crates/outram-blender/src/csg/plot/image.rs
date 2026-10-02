@@ -5,6 +5,10 @@
 // Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
 // Argonne LLC, and OpenMC contributors. MIT notice in
 // verification_and_validation/geometry_plotting/openmc_inputs/LICENSE.openmc.
+// Moved here from outram-mc-libs (src/geometry/plot/) on 2026-10-02,
+// GitHub issue #486: the plotter draws the CSG description this crate owns,
+// through the same locator transport uses. outram-mc-libs re-exports it as
+// `outram_mc_libs::geometry::plot`.
 
 //! **Image buffer and the PNG / PPM codecs.**
 //!
