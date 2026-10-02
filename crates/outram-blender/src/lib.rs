@@ -74,7 +74,7 @@
 //! |---|---|---|
 //! | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
 //! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
-//! | `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. Compiled unconditionally on desktop, absent on Android |
+//! | `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. ~~Compiled unconditionally on desktop~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; absent on Android, or with `--no-default-features` |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 //! | [`selection`] | `editmesh_select.cc` / `BM_select_*` | **real** — select modes + flush; all/none/invert; box/sphere/lasso region; linked; mirror; edge/face loop, ring, boundary loop, shortest path; more/less; select similar; checker deselect; non-manifold / loose / interior-faces / faces-by-sides (GH issue #37 §A — `op-hzs.54.1`–`.4`) |
 //! | [`topology`] | `bmesh_queries.cc` / `bmesh_walkers_impl.cc` | **real** — precomputed radial (edge→faces) + disk (vertex→edges) adjacency; edge-loop / edge-ring / face-loop walkers; Dijkstra + BFS path helpers |
@@ -301,15 +301,17 @@ pub mod weld;
 /// same path.
 pub use faer;
 
-/// Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
-/// target** (no cargo feature to opt in) so the GPU path is used as far as
-/// possible; **absent only on Android** (`target_os = "android"`), which has no
-/// system Vulkan/Metal loader and where the workspace Android rule forbids GPU
-/// deps in the library build. Whether or not this module is present, callers get
-/// a graceful CPU fallback: on Android the GPU attempt is compiled out entirely,
-/// and on desktop [`gpu::probe`] returning `None` or a recoverable
-/// [`gpu::GpuError`] routes to the CPU reference path. See
+/// Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
+/// (~~compiled unconditionally on every desktop target, no cargo feature~~
+/// **CORRECTED 2026-10-02**, GitHub issue #486) and **absent on Android**
+/// (`target_os = "android"`) whatever the feature says, since Android has no
+/// system Vulkan/Metal loader and the workspace Android rule forbids GPU deps
+/// in the library build. Whether or not this module is present, callers get
+/// a graceful CPU fallback: with the feature off or on Android the GPU attempt
+/// is compiled out entirely, and otherwise `gpu::probe` returning `None` or a
+/// recoverable `gpu::GpuError` routes to the CPU reference path. See
 /// [`transform::Affine3::transform_points_best_effort`] for the unified
-/// try-GPU-then-CPU entry point, and [`gpu`] for the fallback contract.
-#[cfg(not(target_os = "android"))]
+/// try-GPU-then-CPU entry point, and the `gpu` module for the fallback
+/// contract.
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
 pub mod gpu;

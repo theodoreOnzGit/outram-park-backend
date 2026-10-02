@@ -3,7 +3,8 @@
 //
 // Headless GPU compute via the `wgpu` crate (Apache-2.0/MIT, GPL-3.0-compatible).
 // No published algorithm — a WGSL compute-shader dispatch harness with a CPU
-// reference fallback. Target-gated off Android per the workspace portability rule.
+// reference fallback. Target-gated off Android per the workspace portability rule,
+// and behind the default-on `gpu` feature (2026-10-02).
 //
 // This file is part of OUTRAM PARK.
 //
@@ -20,7 +21,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-//! GPU compute (headless, target-gated OFF Android; no cargo feature).
+//! GPU compute (headless, target-gated OFF Android; behind the default-on `gpu`
+//! feature since 2026-10-02 — ~~no cargo feature~~).
 //!
 //! Headless GPU acceleration via [`wgpu`] for the *embarrassingly parallel*
 //! parts of mesh authoring — per-vertex / per-face kernels, subdivision
@@ -41,13 +43,15 @@
 //!
 //! ## Non-negotiable contract for using this module
 //!
-//! 1. **Target-gated, not feature-gated.** This module is compiled
+//! 1. **Target-gated AND feature-gated.** ~~This module is compiled
 //!    **unconditionally on every desktop target** — there is no `gpu` cargo
-//!    feature to enable — so the GPU path is always available and used as far as
-//!    possible. It is present on all targets **except Android**
-//!    (`target_os = "android"`), where the workspace Android rule forbids GPU
-//!    deps in the library build; there the GPU attempt is compiled out and the
-//!    CPU path runs.
+//!    feature to enable~~ **CORRECTED 2026-10-02** (GitHub issue #486): it is
+//!    behind the **default-on `gpu` feature**, so a default build still has the
+//!    GPU path and uses it as far as possible, and a dependent that does not
+//!    want wgpu takes the crate with `default-features = false`. It is never
+//!    present on **Android** (`target_os = "android"`), where the workspace
+//!    Android rule forbids GPU deps in the library build. With the feature off
+//!    or on Android the GPU attempt is compiled out and the CPU path runs.
 //! 2. **Runtime CPU fallback is mandatory.** Even where wgpu is compiled, at
 //!    runtime there may be **no usable GPU adapter** (headless servers, VMs) or
 //!    a submission may fail mid-flight. Callers MUST treat [`crate::gpu::probe`] returning
@@ -66,8 +70,8 @@ use core::task::{Context, Poll, Waker};
 use std::sync::{Arc, Mutex};
 
 /// Re-export of the GPU backend so callers can build pipelines without adding
-/// their own `wgpu` dependency. Present on every desktop target (absent only on
-/// Android, where this whole module is compiled out).
+/// their own `wgpu` dependency. Present wherever this module is: a non-Android
+/// target with the default-on `gpu` feature.
 pub use wgpu;
 
 /// A **recoverable** GPU execution failure from [`try_transform_vertices_gpu`].
