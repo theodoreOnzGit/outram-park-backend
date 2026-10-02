@@ -194,7 +194,10 @@ dependency up so that work can start behind a flag. GPU backends (`wgpu`,
 ## Android / Termux
 
 The crate is **Android-clean by construction** and must stay that way. Its
-dependencies are `thiserror`, `outram-mc-libs` (the RNG), and — only when the
+dependencies are `thiserror`, `petir` (the RNG; ~~`outram-mc-libs`~~
+**CORRECTED 2026-10-02** — the generator moved from `outram-mc-libs` into
+`petir`, and RAFFLES no longer depends on any physics crate), `xml-rs` (the
+MEF reader, previously omitted from this list), and — only when the
 optional `burn` feature is turned on — `burn` with its `ndarray` backend. Every
 one of them is pure Rust: there is no `ndarray-linalg`, no BLAS/LAPACK, no C or
 Fortran toolchain, no GUI.

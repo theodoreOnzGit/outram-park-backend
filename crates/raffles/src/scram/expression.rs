@@ -30,7 +30,7 @@
 // **CORRECTED 2026-09-22** — both landed, together with the uncertainty
 // analysis that is their only consumer and their only oracle. The random
 // STREAM differs (upstream: one static `std::mt19937`; here:
-// `outram_mc_libs::rng::lcg`), so a draw here is not the draw upstream would
+// `petir::rng::lcg`), so a draw here is not the draw upstream would
 // have made and the verification is statistical; `scram_uncertainty` says at
 // what confidence. Not ported: `extern.{h,cc}`, which loads shared libraries (barred by
 // the workspace's "no autonomous access" rule), `Switch`, and the
@@ -1573,7 +1573,7 @@ impl Expression {
 
     /// Draws one value — upstream's `Expression::Sample`.
     ///
-    /// `seed` is the state of `outram_mc_libs::rng::lcg`, the workspace's
+    /// `seed` is the state of `petir::rng::lcg`, the workspace's
     /// generator; upstream uses a single static `std::mt19937`. **The streams
     /// therefore differ**, so a sample from this port is not the sample
     /// upstream would have drawn — only the distribution is the same. That is
@@ -1606,7 +1606,7 @@ impl Expression {
         seed: &mut u64,
     ) -> Result<f64> {
         use crate::distributions::{Beta, ContinuousDistribution1D, Gamma, LogNormal, Normal, Uniform};
-        use outram_mc_libs::rng::lcg::prn;
+        use petir::rng::lcg::prn;
 
         if !self.is_deviate() {
             return self.evaluate(parameters, mission_time);

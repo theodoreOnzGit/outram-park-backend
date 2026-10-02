@@ -50,6 +50,16 @@ mc-export = ["dep:outram-mc-libs"]
 # so the base authoring frontend pulls nothing. Drives the `mesh_studio` example.
 foam-mesh = ["dep:outram-park-fork-cfmesh"]
 
+# gnn-graph → `gnn_graph::cell_adjacency_graph`: an `outram-mc-libs` CSG cell
+# list as a RAFFLES message-passing graph (`raffles::gnn::Graph`). OFF by
+# default. MOVED here 2026-10-02 from `raffles::gnn::mc_geometry` by maintainer
+# decision: under GitHub issue #486 this crate owns geometry description (CSG
+# cells included), and RAFFLES had to stop depending on outram-mc-libs to break
+# the cycle outram-mc-libs -> outram-park-fork-liggghts -> raffles ->
+# outram-mc-libs. It still needs outram-mc-libs only because `Cell` lives there
+# until #486 moves it here; then that half of the feature goes.
+gnn-graph = ["dep:raffles", "dep:outram-mc-libs"]
+
 [dependencies]
 # Pure-Rust error type (Android-safe, in workspace deps). No BLAS, no C, no GUI.
 thiserror = { workspace = true }
@@ -59,6 +69,10 @@ thiserror = { workspace = true }
 # build depends on neither.
 outram-foam-basic-lib = { workspace = true, optional = true }
 outram-mc-libs = { workspace = true, optional = true }
+# RAFFLES's graph type, for the `gnn-graph` feature only. RAFFLES depends on no
+# geometry or physics crate (petir only), so this edge cannot form a cycle; it
+# pulls no tensor library (raffles' `burn` feature stays off).
+raffles = { workspace = true, optional = true }
 
 # Volume-meshing bridge (feature `foam-mesh`). cfmesh is pulled WITH its
 # `foam-export` feature so the polyMesh writer (`foam::write_polymesh`) is

@@ -23,6 +23,12 @@ an automated test".
 
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
+> **Note, 2026-10-02.** This crate took the rule below on through its
+> dependency on `outram-mc-libs`, which it no longer has (see "RNG" below). The
+> rule is left in force here — RAFFLES' graph work still consumes reactor
+> geometry through `outram_blender::gnn_graph` and liggghts' `gnn_bridge` —
+> and whether to drop it is the maintainer's call, not an assistant's.
+
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
 `CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
 every crate downstream of them; a crate that newly depends on one of those
@@ -223,7 +229,8 @@ both models read. ~~Only their deterministic `value()` is ported~~ **CORRECTED 2
 `Expression::sample` and `src/scram/uncertainty.rs` landed together, which is
 the order that made the sampling checkable at all.
 **The random stream differs from upstream's** (one static `std::mt19937`
-there, `outram_mc_libs::rng::lcg` here, reused per the
+there, `petir::rng::lcg` here (~~`outram_mc_libs::rng::lcg`~~, the same
+generator before it moved on 2026-10-02), reused per the
 search-before-building rule), so this is the **one part of the SCRAM port
 whose verification is statistical rather than exact**. Do not tighten
 `scram_uncertainty`'s tolerances into exact comparisons: they are set by the
@@ -501,7 +508,8 @@ enough?") is a separate question and is not answered by any of the above.
 ## Android / Termux
 
 The crate is Android-clean, and stays that way. Its dependencies are
-`thiserror`, `outram-mc-libs` (the RNG — see below), and the optional `burn`
+`thiserror`, `petir` (the RNG — see below; ~~`outram-mc-libs`~~ **CORRECTED
+2026-10-02**), `xml-rs` (the MEF reader), and the optional `burn`
 (see "Machine learning" below); all three build for `aarch64-linux-android` —
 `cargo check -p raffles --all-targets --features burn --target
 aarch64-linux-android` was clean on 2026-09-16 (burn 0.21.0, rustc 1.94.1).
@@ -536,7 +544,21 @@ Note the workspace rule while you are here: Android's `target_os` is
 
 ### RNG — reuse, do not add or hand-roll one
 
-**Sampling draws from `outram_mc_libs::rng::lcg`** (OpenMC's 64-bit LCG port),
+**RAFFLES must never depend on `outram-mc-libs` (or any crate that depends on
+RAFFLES) again (2026-10-02).** It used to, for this generator and for a CSG
+graph adapter (`gnn::mc_geometry`). Once `outram-mc-libs` took on
+`outram-park-fork-liggghts` for DEM pebble beds, that edge closed the cycle
+`outram-mc-libs -> liggghts -> raffles -> outram-mc-libs`. The generator moved
+to `petir::rng::lcg`; the adapter moved to `outram_blender::gnn_graph` (feature
+`gnn-graph`, GitHub issue #486). Adapters from a physics or geometry crate INTO
+RAFFLES' types live in that crate, never here. The reverse edge
+`outram-mc-libs -> raffles` is explicitly allowed (maintainer, 2026-10-02:
+RAFFLES' statistics can speed up Monte Carlo), which is exactly why RAFFLES
+must stay free of physics and geometry dependencies.
+
+**Sampling draws from `petir::rng::lcg`** (OpenMC's 64-bit LCG port;
+~~`outram_mc_libs::rng::lcg`~~ **CORRECTED 2026-10-02** — the generator moved
+to `petir` unchanged, at the maintainer's direction),
 not from a `rand` crate and not from a PRNG written inside RAFFLES. Whether the
 workspace should take a general `rand` dependency is an open maintainer
 question (`docs/raven-port-scoping.md` section 10, question 1) and is not a
@@ -545,7 +567,7 @@ port agent's call. Seeding stays **explicit** — every `generate` takes a
 streams via `future_seed` jump-ahead. See `src/samplers.rs`.
 
 **Resolved upstream defect — the warning that used to sit here is obsolete.**
-`outram_mc_libs::rng::lcg::init_seed` was wrong: it added where OpenMC
+`init_seed` (then `outram_mc_libs::rng::lcg::init_seed`) was wrong: it added where OpenMC
 multiplies, so consecutive `id`s landed one LCG *step* apart instead of one
 *stride*, making per-stream derivation produce near-perfectly correlated
 streams. **Fixed in `op-rbo`** — it now matches

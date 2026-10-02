@@ -56,7 +56,7 @@
 //! Independent implementations from those papers — see the provenance note in
 //! [`super`].
 
-use outram_mc_libs::rng::lcg::prn;
+use petir::rng::lcg::prn;
 
 use super::mcmc::{ChainState, EnsembleMove, MetropolisHastings};
 use super::{clamp_open_unit, eval_ln_likelihood, IndependentPrior, SamplerDiagnostics};

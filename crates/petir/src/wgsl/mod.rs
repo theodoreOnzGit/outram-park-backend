@@ -152,6 +152,10 @@ pub mod mirror_gegenbauer;
 /// `f32` mirror of the associated-Legendre shader.
 pub mod mirror_legendre_plm;
 
+/// CPU mirror of the LCG shader: the `u64` reference and a line-for-line
+/// transcription of its 32-bit emulated multiply.
+pub mod mirror_lcg;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -430,6 +434,25 @@ pub const GEGENBAUER: &str = include_str!("shaders/gegenbauer.wgsl");
 /// `l == m`**, both deliberately. See [`mirror_legendre_plm`].
 pub const LEGENDRE_PLM: &str = include_str!("shaders/legendre_plm.wgsl");
 
+/// OpenMC's 64-bit LCG state advance, emulated in `u32` pairs, transcribed
+/// from [`crate::rng::lcg`] (itself ported from OpenMC `src/random_lcg.cpp`).
+///
+/// Provides `petir_lcg_next(seed: vec2<u32>) -> vec3<u32>` — the new state in
+/// `.xy` (lo, hi) and a top-24-bit `f32` uniform bitcast into `.z` — plus the
+/// helpers `petir_lcg_mul_u32_full` and `petir_lcg_mul64_low`.
+///
+/// **The integer state is bit-exact against [`crate::rng::lcg::future_seed`]
+/// `(1, seed)`; the uniform is NOT [`crate::rng::lcg::prn`]** — it carries no
+/// PCG output permutation, a structural difference the shader header measures
+/// and justifies. See [`mirror_lcg`].
+///
+/// **Not a GSL port, and declares no binding**: it reads no buffer, so it can
+/// be concatenated into any kernel. It is the one copy of this arithmetic in
+/// the workspace — `outram-mc-libs`' `batched_flight.wgsl` and
+/// `batched_event.wgsl` are composed with it rather than carrying their own
+/// (moved here 2026-10-02).
+pub const LCG: &str = include_str!("shaders/lcg.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
@@ -453,7 +476,7 @@ pub const LEGENDRE_PLM: &str = include_str!("shaders/legendre_plm.wgsl");
 /// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
 /// means adding it to both arrays**; the directory is the authority, not
 /// anyone's count.
-pub const ALL: [&str; 25] = [
+pub const ALL: [&str; 26] = [
     POLY,
     CHEB,
     LEGENDRE,
@@ -479,6 +502,7 @@ pub const ALL: [&str; 25] = [
     ELLJAC,
     GEGENBAUER,
     LEGENDRE_PLM,
+    LCG,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -489,7 +513,7 @@ pub const ALL: [&str; 25] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 25] = [
+pub const ALL_NAMES: [&str; 26] = [
     "poly",
     "cheb",
     "legendre",
@@ -515,6 +539,7 @@ pub const ALL_NAMES: [&str; 25] = [
     "elljac",
     "gegenbauer",
     "legendre_plm",
+    "lcg",
 ];
 
 pub use kernel_builder::test_kernel;

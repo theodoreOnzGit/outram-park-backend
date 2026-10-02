@@ -20,6 +20,10 @@
 //!   itself. Random Sequential Addition (RSA) is implemented
 //!   ([`sphere_packing::pack_spheres`]); the RSA–DEM/ODR–DEM high-density hybrids
 //!   are future work. See the [`references`] bibliography.
+//! - **[`dem_bed`]** — a pebble bed **settled by granular DEM**
+//!   (`outram-park-fork-liggghts`, a dependency since 2026-10-02) converted to
+//!   pebble centres in cm, with monodispersity enforced and the soft-sphere
+//!   overlap measured and reported. It does not yet build a CSG geometry.
 //! - **[`keff_delta`]** — the assembly: a fission-source k-eigenvalue power
 //!   iteration over a reflective cube of packed kernels, with every history
 //!   streamed by delta tracking ([`keff_delta::run_keff_delta`]). This is the
@@ -50,6 +54,7 @@
 
 pub mod crp_packing;
 pub mod delta_tracking;
+pub mod dem_bed;
 pub mod fhr_pebble;
 pub mod htr10;
 pub mod keff_delta;

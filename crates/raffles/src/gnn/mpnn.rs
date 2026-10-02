@@ -72,7 +72,7 @@ use burn::module::{Module, Param};
 use burn::nn::{LayerNorm, LayerNormConfig, Linear, LinearConfig, Relu};
 use burn::prelude::Backend;
 use burn::tensor::{IndexingUpdateOp, Int, Tensor, TensorData};
-use outram_mc_libs::rng::lcg::prn;
+use petir::rng::lcg::prn;
 
 use super::graph::Graph;
 

@@ -745,12 +745,15 @@ differs, and the difference matters — do not overstate either.
 **CORRECTED 2026-09-17 — both are fixed and committed, not open.** Verified in
 the current tree, not merely claimed:
 
-- **`op-rbo`** — `init_seed` (now `crates/outram-mc-libs/src/rng/lcg.rs:233`)
+- **`op-rbo`** — `init_seed` (now ~~`crates/outram-mc-libs/src/rng/lcg.rs:233`~~
+  **CORRECTED 2026-10-02**: the module moved unchanged to
+  `crates/petir/src/rng/lcg.rs:249`; `outram_mc_libs::rng::lcg` re-exports it)
   reads `future_seed((id as u64).wrapping_mul(DEFAULT_STRIDE), ...)`, matching
   upstream's `id * prn_stride`. Committed as `9f4ff6d470` ("rng: fix init_seed
   to match OpenMC (op-rbo)"); working tree is clean at this file
   (`git diff` empty, `git status --porcelain` empty).
-- **`op-jis`** — `prn` (now `crates/outram-mc-libs/src/rng/lcg.rs:111-122`)
+- **`op-jis`** — `prn` (now ~~`crates/outram-mc-libs/src/rng/lcg.rs:111-122`~~
+  **CORRECTED 2026-10-02**: `crates/petir/src/rng/lcg.rs:127-138`)
   applies the PCG-RXS-M-XS permutation (`PCG_PERM_MULT`, the `>> 43 ^` step)
   before scaling by `2^-64`, matching upstream's `random_lcg.cpp:32-44`.
   Committed as `e71f1f97fa` ("rng: port OpenMC's PCG output permutation

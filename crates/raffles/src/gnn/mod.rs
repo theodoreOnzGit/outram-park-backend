@@ -23,10 +23,16 @@
 //!
 //! [`graph`] holds the topology that bound is computed from — radius and
 //! contact graphs, hop distances, diameters, receptive fields, disjoint-union
-//! batching — and is likewise `burn`-free. [`mc_geometry`] builds that topology
-//! from an `outram-mc-libs` CSG geometry; the matching bridge for granular DEM
-//! lives in `outram-park-fork-liggghts` behind its `gnn` feature, because the
-//! dependency only runs one way.
+//! batching — and is likewise `burn`-free. ~~`mc_geometry` builds that
+//! topology from an `outram-mc-libs` CSG geometry~~ **CORRECTED 2026-10-02**:
+//! the CSG adapter (`cell_adjacency_graph`) moved to
+//! `outram_blender::gnn_graph`, behind that crate's `gnn-graph` feature, by
+//! maintainer decision (GitHub issue #486: `outram-blender` owns geometry
+//! description). RAFFLES no longer depends on `outram-mc-libs` at all. The
+//! matching bridge for granular DEM lives in `outram-park-fork-liggghts`
+//! behind its `gnn` feature. Both adapters live with the geometry because
+//! the dependency only runs one way: geometry crates depend on RAFFLES, never
+//! the reverse.
 //!
 //! [`mpnn`] is the network itself and [`training`] is its training loop and
 //! autoregressive rollout; both are behind the crate's `burn` feature.
@@ -72,7 +78,6 @@
 pub mod bound;
 pub mod dataset;
 pub mod graph;
-pub mod mc_geometry;
 
 #[cfg(feature = "burn")]
 pub mod mpnn;
@@ -83,7 +88,6 @@ pub mod training;
 pub use bound::{physics_guided_lower_bound, IterationBound, PdeClass};
 pub use dataset::TorchArchive;
 pub use graph::Graph;
-pub use mc_geometry::cell_adjacency_graph;
 
 #[cfg(feature = "burn")]
 pub use mpnn::{MessagePassingNet, Mlp, Processor};

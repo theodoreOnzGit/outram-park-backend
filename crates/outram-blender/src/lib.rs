@@ -217,6 +217,13 @@ pub mod sim;
 /// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
+
+/// CSG cell-adjacency graph for RAFFLES' graph networks (feature `gnn-graph`)
+/// — turns `outram-mc-libs` CSG [`Cell`](outram_mc_libs::geometry::cell::Cell)s
+/// into a [`raffles::gnn::Graph`]. Moved here from `raffles::gnn::mc_geometry`
+/// on 2026-10-02: this crate owns geometry description (GitHub issue #486).
+#[cfg(feature = "gnn-graph")]
+pub mod gnn_graph;
 pub mod array_patterns;
 pub mod bool_tool;
 pub mod draw_tool;

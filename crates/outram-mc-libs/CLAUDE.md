@@ -545,7 +545,7 @@ a translation of it.
 ### In scope
 | Module | C++ source | What it does |
 |---|---|---|
-| RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting |
+| RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting. **Moved 2026-10-02 to `petir::rng::lcg`** (Rust) and `petir::wgsl::LCG` (WGSL), re-exported here as `rng::lcg`; see "The RNG lives in PETIR" below |
 | Distributions | `src/random_dist.cpp` | Maxwell, Watt, tabulated samplers |
 | Geometry / position | `include/openmc/position.h` | 3-D position and direction vectors (cm) |
 | Geometry / surfaces | `src/surface.cpp` | Quadric CSG surfaces + distance/sense |
@@ -745,7 +745,48 @@ OpenMC's reproducibility guarantee relies on each particle having a completely
 independent LCG stream obtained by jump-ahead.  This Rust port preserves that
 design: `init_seed(id, offset, master)` derives a unique starting seed for each
 particle.  The jump-ahead in `future_seed(n, seed)` is O(log n), implemented in
-`src/rng/lcg.rs`.
+~~`src/rng/lcg.rs`~~ `crates/petir/src/rng/lcg.rs` (**CORRECTED 2026-10-02**,
+see below).
+
+### The RNG lives in PETIR (2026-10-02, maintainer direction)
+
+The LCG this crate ported (`random_lcg.cpp`) now lives in `petir`:
+`petir::rng::lcg` for the Rust and `petir::wgsl::LCG` (`lcg.wgsl`) for the
+WGSL state advance, with its CPU mirror in `petir::wgsl::mirror_lcg`. **Keep
+using `crate::rng::lcg`** — it is a `pub use` of PETIR's module, so every call
+site here, in `boon-lay` and in `nee_soon` is unchanged.
+
+- **Why.** `raffles` used this crate only for the RNG and a CSG graph adapter.
+  That edge closed a cycle once this crate depended on
+  `outram-park-fork-liggghts` (whose default `gnn` feature depends on
+  `raffles`). The RNG went to PETIR; the adapter went to
+  `outram_blender::gnn_graph` (GitHub issue #486). **`raffles` must never
+  depend on this crate again.** The reverse edge, this crate -> `raffles`, is
+  **allowed** (maintainer, 2026-10-02: RAFFLES is a statistics crate that can
+  speed up Monte Carlo) now that `raffles` depends only on `petir` — add it
+  when something here actually uses RAFFLES, not before (no orphaned
+  dependencies).
+- **No random number moved.** `petir::rng::lcg`'s `moved_stream_is_pinned`
+  pins values printed by the pre-move file compiled standalone.
+- **The GPU kernels compose, they do not copy.** `batched_flight.wgsl` and
+  `batched_event.wgsl` no longer define the LCG; `gpu::batched_flight::shader_source()`
+  and `gpu::batched_event::shader_source()` prepend `petir::wgsl::LCG` and the
+  kernels call `petir_lcg_next`. Test probes must use `shader_source()`, not
+  `include_str!` of the kernel file, which no longer compiles on its own.
+- **`rng::distributions` stays here**: it calls `cos`/`sin` through this
+  crate's `mathf` route (platform libm by default), which a `no_std` PETIR copy
+  could not reproduce bit for bit.
+
+### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
+
+`outram-park-fork-liggghts` is a dependency (with none of its default
+features) so a bed settled by granular DEM can be handed to transport.
+`DemBed::from_granular_system` / `from_dem_simulation` / `from_particles`
+convert to pebble centres in **cm**, refuse a polydisperse bed, and **report**
+the soft-sphere overlap rather than hiding it. It does **not** build a CSG
+geometry; whoever does must draw it (rule at the top of this file). Use
+liggghts' `GranularSystem` to settle — it is the engine verified against
+LIGGGHTS.
 
 ### RNG goal: statistical correctness, NOT particle-for-particle parity
 

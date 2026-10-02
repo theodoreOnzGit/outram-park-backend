@@ -566,7 +566,7 @@ mod tests {
     use super::*;
     use crate::distributions::{ContinuousDistribution1D, Normal};
     use crate::samplers::stream_seed;
-    use outram_mc_libs::rng::lcg::prn;
+    use petir::rng::lcg::prn;
 
     /// Draws `n` one-dimensional samples from `N(mu, sigma^2)`.
     fn normal_sample(n: usize, mu: f64, sigma: f64, seed: &mut u64) -> Vec<Vec<f64>> {

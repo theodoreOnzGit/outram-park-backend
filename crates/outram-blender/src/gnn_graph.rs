@@ -1,13 +1,43 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Written for this workspace (not a port). Moved here 2026-10-02 from
+// `crates/raffles/src/gnn/mc_geometry.rs`, unchanged apart from its imports and
+// this header; see "Where this lives, and why" below.
+
 //! Building a message-passing graph from a Monte Carlo CSG geometry.
+//!
+//! **Feature `gnn-graph`** (off by default): pulls `raffles` (for
+//! [`raffles::gnn::Graph`]) and `outram-mc-libs` (for the CSG [`Cell`] type).
 //!
 //! # Where this lives, and why
 //!
-//! In `raffles`, not in `outram-mc-libs`. RAFFLES already depends on
-//! `outram-mc-libs` for its random-number generator, so an adapter in the other
-//! direction would make the two crates mutually dependent and neither would
-//! compile. The DEM bridge went the other way — it lives in
-//! `outram-park-fork-liggghts`, which nothing here depends on — and the
-//! asymmetry is the dependency graph's, not a design preference.
+//! ~~In `raffles`, not in `outram-mc-libs`. RAFFLES already depends on
+//! `outram-mc-libs` for its random-number generator, so an adapter in the
+//! other direction would make the two crates mutually dependent and neither
+//! would compile.~~ **CORRECTED 2026-10-02.** It now lives in
+//! `outram-blender`, by maintainer decision: under GitHub issue #486 this crate
+//! owns **geometry description** (CSG cells included) and meshing, while
+//! `outram-mc-libs` keeps only geometry *queries*. An adapter from a geometry
+//! description to a graph belongs with the description.
+//!
+//! The move was also forced. RAFFLES used to depend on `outram-mc-libs` for
+//! two things, its random-number generator and this adapter. The generator
+//! moved to `petir::rng::lcg`; this adapter moved here. With both gone,
+//! RAFFLES depends on no physics crate, which is what lets `outram-mc-libs`
+//! depend on `outram-park-fork-liggghts` (and through its default `gnn`
+//! feature, on RAFFLES) without a cycle.
+//!
+//! **Interim state, stated plainly.** The cell types are still
+//! `outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken}`, so
+//! this module needs `outram-mc-libs` as well as `raffles`. When #486 moves
+//! `Cell` into this crate the adapter will need only blender-native types plus
+//! RAFFLES, and the `outram-mc-libs` half of the feature can go. The matching
+//! adapter for granular DEM contact graphs lives in
+//! `outram-park-fork-liggghts` behind its `gnn` feature.
+//!
+//! Errors are RAFFLES' own ([`raffles::Result`]), because the only failure
+//! paths are RAFFLES' graph constructor and the empty-input refusal below.
 //!
 //! # The graph
 //!
@@ -54,9 +84,8 @@
 //! before it goes anywhere near a k-eff.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
-
-use super::graph::Graph;
-use crate::{RafflesError, Result};
+use raffles::gnn::Graph;
+use raffles::{RafflesError, Result};
 
 /// Builds the cell-adjacency graph of a CSG geometry.
 ///

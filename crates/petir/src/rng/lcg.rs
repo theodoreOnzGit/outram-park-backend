@@ -1,25 +1,39 @@
-/// PCG-RXS-M-XS generator over a 64-bit LCG — port of OpenMC's `random_lcg`.
-///
-/// C++ source: `src/random_lcg.cpp`, `include/openmc/random_lcg.h`
-/// (canonical tree: `/home/teddy0/Documents/research/openmc/`).
-///
-/// The **state** is a 64-bit LCG with modulus 2^64 (implicit wrapping):
-///   x_{n+1} = MULT * x_n + INC  (mod 2^64)
-///
-/// The **output** is not that state. [`prn`] applies the PCG-RXS-M-XS output
-/// permutation before converting to a double, because the raw LCG state carries
-/// Marsaglia lattice structure that Monte Carlo transport is directly exposed
-/// to (a history draws distance, direction, and energy from consecutive draws).
-/// See [`prn`] for the derivation and the measured before/after statistics.
-///
-/// Keeping the two apart matters when reading this module: the permutation
-/// touches the *output only*. The recurrence, and therefore [`future_seed`],
-/// [`init_seed`], the jump-ahead identity, and the GPU shaders' bit-exact
-/// integer-state mirror, are all independent of it.
-///
-/// The jump-ahead feature lets each particle own a completely independent
-/// stream by skipping ahead by a per-particle stride (default 152917).
-/// This is the key technique enabling reproducible parallel Monte Carlo.
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// PORTED from OpenMC `src/random_lcg.cpp` and `include/openmc/random_lcg.h`
+// (read at commit d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b, 2026-09-05).
+// OpenMC is Copyright (c) 2011-2026 Massachusetts Institute of Technology,
+// UChicago Argonne LLC, and OpenMC contributors, under the MIT licence, which
+// flows ONE-WAY into this GPL-3.0-only crate. See NOTICE.
+//
+// MOVED 2026-10-02 from `outram-mc-libs/src/rng/lcg.rs` (maintainer
+// direction), unchanged in every executable line, so that `raffles` can draw
+// from it without depending on the Monte Carlo transport crate.
+// `outram_mc_libs::rng::lcg` re-exports this module, so its call sites did not
+// change. Not a single random number moved: see `tests::moved_stream_is_pinned`.
+
+//! PCG-RXS-M-XS generator over a 64-bit LCG — port of OpenMC's `random_lcg`.
+//!
+//! C++ source: `src/random_lcg.cpp`, `include/openmc/random_lcg.h`
+//! (canonical tree: `/home/teddy0/Documents/research/openmc/`).
+//!
+//! The **state** is a 64-bit LCG with modulus 2^64 (implicit wrapping):
+//!   x_{n+1} = MULT * x_n + INC  (mod 2^64)
+//!
+//! The **output** is not that state. [`prn`] applies the PCG-RXS-M-XS output
+//! permutation before converting to a double, because the raw LCG state carries
+//! Marsaglia lattice structure that Monte Carlo transport is directly exposed
+//! to (a history draws distance, direction, and energy from consecutive draws).
+//! See [`prn`] for the derivation and the measured before/after statistics.
+//!
+//! Keeping the two apart matters when reading this module: the permutation
+//! touches the *output only*. The recurrence, and therefore [`future_seed`],
+//! [`init_seed`], the jump-ahead identity, and the GPU shaders' bit-exact
+//! integer-state mirror, are all independent of it.
+//!
+//! The jump-ahead feature lets each particle own a completely independent
+//! stream by skipping ahead by a per-particle stride (default 152917).
+//! This is the key technique enabling reproducible parallel Monte Carlo.
 
 /// LCG multiplier — Knuth's choice (identical to PCG-64).
 pub const MULT: u64 = 6364136223846793005;
@@ -55,8 +69,8 @@ const PCG_PERM_MULT: u64 = 12_605_985_483_714_917_081;
 /// 1. **State advance** — `x <- MULT * x + INC (mod 2^64)`, the plain 64-bit
 ///    LCG recurrence. This is **unchanged** by the output permutation, so
 ///    [`future_seed`], [`init_seed`], the jump-ahead identity, and every
-///    integer-state guarantee in this crate (including the GPU shaders'
-///    bit-exact state mirror) are untouched.
+///    integer-state guarantee built on it (including the GPU shaders'
+///    bit-exact state mirror, [`crate::wgsl::LCG`]) are untouched.
 /// 2. **Output permutation** — `PCG-RXS-M-XS` (O'Neill 2014, HMC-CS-2014-0905;
 ///    upstream adapts <https://github.com/imneme/pcg-c>): a **r**andom-length
 ///    **x**or-**s**hift whose shift amount `(x >> 59) + 5` is drawn from the
@@ -81,7 +95,9 @@ const PCG_PERM_MULT: u64 = 12_605_985_483_714_917_081;
 ///
 /// Reproducing OpenMC's stream bit-for-bit is a **side effect** of this port,
 /// not its purpose; see the "RNG goal: statistical correctness, NOT
-/// particle-for-particle parity" section of this crate's `CLAUDE.md`.
+/// particle-for-particle parity" section of `outram-mc-libs`' `CLAUDE.md`
+/// (this module was moved here from that crate on 2026-10-02; the decision
+/// recorded there still governs it).
 ///
 /// # Range
 ///
@@ -93,8 +109,8 @@ const PCG_PERM_MULT: u64 = 12_605_985_483_714_917_081;
 /// `1.0`. The probability is `1024 / 2^64 = 2^-54 ~ 5.6e-17` per draw. Measured
 /// 2026-08-06: **zero** occurrences in 5.0e7 consecutive draws from `seed = 1`
 /// (expected count 2.8e-9), and the observed maximum was
-/// `0.99999998925400047`. This is safe for every consumer in this crate — all
-/// six index-by-uniform sites clamp with `.min(len - 1)`, and `-ln(1.0) = 0`
+/// `0.99999998925400047`. This is safe for every consumer in `outram-mc-libs`
+/// (where this module originated) — all six index-by-uniform sites clamp with `.min(len - 1)`, and `-ln(1.0) = 0`
 /// merely yields a zero-length flight — but it is recorded here rather than
 /// silently "fixed", because clamping would be an undocumented divergence from
 /// the reference implementation.
@@ -102,7 +118,7 @@ const PCG_PERM_MULT: u64 = 12_605_985_483_714_917_081;
 /// # Example
 ///
 /// ```
-/// use outram_mc_libs::rng::lcg::prn;
+/// use petir::rng::lcg::prn;
 /// let mut seed = 1u64;
 /// let x = prn(&mut seed);
 /// assert!((0.0..1.0).contains(&x));
@@ -146,7 +162,7 @@ pub fn future_seed(mut n: u64, seed: u64) -> u64 {
 /// Stateful 64-bit LCG — drop-in replacement for `oorandom::Rand64`.
 ///
 /// Provides the same interface (`new`, `rand_float`, `rand_u64`) so boon-lay
-/// code can substitute `use outram_mc_libs::rng::lcg::Lcg64 as Rand64` with no
+/// code can substitute `use petir::rng::lcg::Lcg64 as Rand64` with no
 /// other changes to call sites.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Lcg64 {
@@ -200,7 +216,7 @@ impl Lcg64 {
 /// **Signature deviation (deliberate, not a porting error).** OpenMC reads
 /// `master_seed` from a mutable global (`random_lcg.cpp:8`, set via
 /// `openmc_set_seed`). This port takes it as an explicit third parameter —
-/// there is no global RNG state in this crate, so the caller passes it in. The
+/// there is no global RNG state in this port, so the caller passes it in. The
 /// *semantics* are identical to upstream; only the plumbing of `master_seed`
 /// differs. Likewise the stride is pinned to the compile-time
 /// [`DEFAULT_STRIDE`] because this port has no `openmc_set_stride` equivalent
@@ -223,7 +239,7 @@ impl Lcg64 {
 /// # Example
 ///
 /// ```
-/// use outram_mc_libs::rng::lcg::{init_seed, future_seed, DEFAULT_STRIDE};
+/// use petir::rng::lcg::{init_seed, future_seed, DEFAULT_STRIDE};
 /// // Consecutive ids are one full stride apart in the sequence.
 /// assert_eq!(
 ///     init_seed(4, 0, 1),
@@ -240,12 +256,50 @@ pub fn init_seed(id: i64, offset: i64, master_seed: i64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // petir is `no_std`; the test harness links `std` (see `lib.rs`), and
+    // these gates collect draws into vectors.
+    use std::vec;
+    use std::vec::Vec;
+
+    /// **The move to PETIR changed no random number.**
+    ///
+    /// **Methodology.** On 2026-10-02 this module moved here from
+    /// `outram-mc-libs/src/rng/lcg.rs`. Before the move, the PRE-MOVE file
+    /// (`git show bcac8b58a0:crates/outram-mc-libs/src/rng/lcg.rs`, its test
+    /// module stripped) was compiled standalone with `rustc -O` and run; the
+    /// values below are what it printed. They are pinned here bit for bit,
+    /// with no tolerance: the output permutation, the jump-ahead, the stream
+    /// derivation and the `oorandom`-compatible wrapper each get one probe.
+    ///
+    /// **Result (2026-10-02).** Identical, so every k_eff pinned to a seed in
+    /// `outram-mc-libs`, `boon-lay` and `nee_soon`, and every RAFFLES sample,
+    /// sees exactly the stream it saw before.
+    #[test]
+    fn moved_stream_is_pinned() {
+        let mut s = 1u64;
+        let got: Vec<u64> = (0..4).map(|_| prn(&mut s).to_bits()).collect();
+        assert_eq!(
+            got,
+            [
+                0x3fe6_bf04_0c43_dded,
+                0x3fe8_188b_145e_9089,
+                0x3fd5_20ab_6528_f072,
+                0x3fdd_e663_8ab3_1967
+            ]
+        );
+        assert_eq!(s, 0x6203_55cd_1193_57c5);
+        assert_eq!(future_seed(1_000_000, 42), 0xe9e8_eead_b5d2_156a);
+        assert_eq!(init_seed(7, 3, 12345), 0xda85_a4b0_30a7_a755);
+        let mut g = Lcg64::new(0xdead_beef_u128);
+        assert_eq!(g.rand_float().to_bits(), 0x3fe7_d7a5_2206_af7c);
+        assert_eq!(g.rand_u64(), 0x95b9_1286_f71a_93d4);
+    }
 
     // =======================================================================
     // Statistical gates for the PCG-RXS-M-XS output permutation (bead op-jis,
     // added 2026-08-06).
     //
-    // These are gates, not golden values. Per this crate's CLAUDE.md ("RNG
+    // These are gates, not golden values. Per outram-mc-libs' CLAUDE.md ("RNG
     // goal: statistical correctness, NOT particle-for-particle parity") the
     // permutation is justified by the *statistical* defect it removes, so every
     // gate below is run against BOTH the pre-op-jis output function

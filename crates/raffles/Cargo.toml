@@ -40,20 +40,34 @@ exclude = ["docs", "upstream_source/raven"]
 # Versions come from the root [workspace.dependencies] — never pin here.
 thiserror.workspace = true
 # RANDOM NUMBER GENERATOR (src/samplers.rs). RAFFLES does NOT ship its own
-# generator: it reuses `outram_mc_libs::rng::lcg` — the OpenMC 64-bit LCG port,
-# with the O(log n) `future_seed` jump-ahead that gives each sampled dimension a
-# provably non-overlapping stream. That is OpenMC's reproducible-parallel-MC
-# design, it is already tested, and duplicating a PRNG in one workspace is the
-# thing to avoid. The workspace has no `rand` crate; whether to add one is the
+# generator: it reuses `petir::rng::lcg` — the OpenMC 64-bit LCG port, with the
+# O(log n) `future_seed` jump-ahead that gives each sampled dimension a provably
+# non-overlapping stream. That is OpenMC's reproducible-parallel-MC design, it
+# is already tested, and duplicating a PRNG in one workspace is the thing to
+# avoid. The workspace has no `rand` crate; whether to add one is the
 # maintainer's call (docs/raven-port-scoping.md section 10, question 1).
 #
-# ANDROID: this dependency is Android-clean. outram-mc-libs target-gates its
-# wgpu/GPU paths (and its `naga` dev-dependency) off Android with
-# `[target.'cfg(not(target_os = "android"))'.dependencies]`, so
-# `cargo check -p raffles --all-targets --target aarch64-linux-android` passes.
-# RAFFLES follows the same gating convention if it ever needs something
-# Android-hostile — see this crate's CLAUDE.md.
-outram-mc-libs.workspace = true
+# ~~It reuses `outram_mc_libs::rng::lcg` (dependency: outram-mc-libs).~~
+# CORRECTED 2026-10-02: the LCG moved, bit-identical, from outram-mc-libs into
+# petir (maintainer direction), and this dependency moved with it. The old edge
+# raffles -> outram-mc-libs closed a cycle once outram-mc-libs took on
+# outram-park-fork-liggghts (whose default `gnn` feature depends on raffles).
+# The other thing raffles used outram-mc-libs for — the CSG cell-adjacency
+# adapter, `gnn::mc_geometry` — moved to `outram_blender::gnn_graph` (GitHub
+# issue #486). RAFFLES now depends on no physics crate. Never add
+# outram-mc-libs (or anything that depends on raffles) back here.
+#
+# Default features, i.e. petir's `transfer-fn` and the no_std `uom` it pulls,
+# are inherited because the root entry carries them and workspace inheritance
+# cannot remove a default feature. raffles does not use `uom`; it costs one
+# small pure-Rust crate already in every workspace build.
+#
+# ANDROID: petir is `no_std` and has no GPU dependency unless its off-by-default
+# `wgpu` feature is enabled, so `cargo check -p raffles --all-targets --target
+# aarch64-linux-android` stays clean. RAFFLES follows `outram-mc-libs`'
+# gating convention if it ever needs something Android-hostile — see this
+# crate's CLAUDE.md.
+petir.workspace = true
 # SURROGATE MODELS (src/surrogate.rs) — OPTIONAL, off by default. burn is this
 # workspace's replacement for PyTorch (maintainer direction, 2026-09-16):
 # upstream RAVEN's machine-learning surrogates are PyTorch-backed, so the port
@@ -83,8 +97,10 @@ outram-mc-libs.workspace = true
 #   cargo check -p raffles --lib         --features burn --target wasm32-unknown-unknown
 # `cargo tree -e features` confirms burn resolves with only `ndarray`/
 # `burn-ndarray` — no `std` — and that the `wgpu` in the tree comes from
-# outram-mc-libs/njoy, not from burn.
-burn = { workspace = true, optional = true }
+# outram-mc-libs/njoy, not from burn. (That record is kept as run. Since
+# 2026-10-02 raffles no longer depends on outram-mc-libs, so neither njoy nor
+# that wgpu is in its tree any more.)
+burn ={ workspace = true, optional = true }
 # MODEL EXCHANGE FORMAT INPUT (src/scram/mef.rs). A pull parser, driven
 # directly: MEF's expression elements are an open set and the same element
 # name means different things by arity, so a serde-derived deserialiser does

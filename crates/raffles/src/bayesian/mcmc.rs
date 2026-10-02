@@ -50,7 +50,7 @@
 //! These are independent implementations from the published algorithms. See
 //! the provenance note in [`super`] for why that matters here.
 
-use outram_mc_libs::rng::lcg::prn;
+use petir::rng::lcg::prn;
 
 use super::{clamp_open_unit, standard_normal};
 use crate::{RafflesError, Result};

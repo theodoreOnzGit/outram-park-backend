@@ -27,7 +27,7 @@
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
     ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, GEGENBAUER, LEGENDRE_PLM, FERMI_DIRAC, GAMMA, LAMBERT,
-    LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
+    LCG, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -93,6 +93,12 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "legendre_plm" => (
             vec![LEGENDRE_PLM],
             "petir_legendre_plm(params.k, 3u, x) + petir_legendre_pmm(2u, x)",
+        ),
+        // Integer in, integer out: the probe's bits seed the low word and
+        // `params.k` the high word; the uniform comes back through `.z`.
+        "lcg" => (
+            vec![LCG],
+            "bitcast<f32>(petir_lcg_next(vec2<u32>(bitcast<u32>(x), params.k)).z)",
         ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
@@ -224,7 +230,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 25] = [
+    let expected: [(&str, &[&str]); 26] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -487,6 +493,14 @@ fn every_documented_function_is_defined() {
             ],
         ),
         (LEGENDRE_PLM, &["petir_legendre_pmm", "petir_legendre_plm"]),
+        (
+            LCG,
+            &[
+                "petir_lcg_next",
+                "petir_lcg_mul64_low",
+                "petir_lcg_mul_u32_full",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -647,6 +661,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "elljac" => LEDGER.contains("Jacobi elliptic functions"),
             "gegenbauer" => LEDGER.contains("Gegenbauer"),
             "legendre_plm" => LEDGER.contains("associated Legendre"),
+            "lcg" => LEDGER.contains("OpenMC 64-bit LCG"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

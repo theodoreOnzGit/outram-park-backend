@@ -7,7 +7,8 @@
 //! `batched_event.wgsl` is checked today through whole transported histories
 //! and through `gpu_kinematics_invariants.rs`, which pins the elastic
 //! kinematics against closed forms. Neither reaches the helpers *underneath*
-//! that: `rng_next`, `locate`, `interp_channel`, `langevin_inverse`,
+//! that: `rng_next` (since 2026-10-02 PETIR's `petir_lcg_next`, which the
+//! kernel is composed with), `locate`, `interp_channel`, `langevin_inverse`,
 //! `exponential_mu` and `continuum_inelastic` are exercised only in
 //! composition, where a helper that is subtly wrong still produces a
 //! plausible history and the statistics absorb it. A biased sampler is
@@ -78,8 +79,11 @@
 
 use outram_mc_libs::gpu::{probe, GpuContext};
 
-/// The shader under test, included verbatim.
-const BATCHED_EVENT_WGSL: &str = include_str!("../src/gpu/shaders/batched_event.wgsl");
+/// The shader under test is exactly what the pipeline compiles:
+/// `outram_mc_libs::gpu::batched_event::shader_source()`, i.e. PETIR's
+/// `lcg.wgsl` composed ahead of `batched_event.wgsl` (since 2026-10-02, when
+/// the kernel's own `rng_next` copy was replaced by PETIR's `petir_lcg_next`).
+use outram_mc_libs::gpu::batched_event::shader_source;
 
 /// Entry points appended to it, reusing the module's existing bindings.
 ///
@@ -95,7 +99,7 @@ fn probe_rng_next(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (i >= arrayLength(&fstate)) { return; }
     let s = vec2<u32>(istate[2u * i], istate[2u * i + 1u]);
-    let r = rng_next(s);
+    let r = petir_lcg_next(s);
     istate[2u * i] = r.x;
     istate[2u * i + 1u] = r.y;
     fstate[i] = bitcast<f32>(r.z);
@@ -236,7 +240,7 @@ fn run(
 ) -> ProbeIo {
     use wgpu::util::DeviceExt;
 
-    let mut source = String::from(BATCHED_EVENT_WGSL);
+    let mut source = shader_source();
     source.push_str(PROBE_ENTRIES);
 
     let module = gpu
@@ -454,6 +458,10 @@ fn the_references_are_sound_without_a_gpu() {
 }
 
 /// `rng_next` on the GPU is **bit-identical** to a `u64` LCG.
+///
+/// Since 2026-10-02 the function under test is PETIR's `petir_lcg_next`
+/// (`petir::wgsl::LCG`), which replaced this kernel's own `rng_next`; the
+/// test name is kept so its history stays findable.
 ///
 /// # Why exact and not approximate
 ///

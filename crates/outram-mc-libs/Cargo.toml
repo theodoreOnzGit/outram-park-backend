@@ -33,6 +33,24 @@ ndarray = { workspace = true }
 # microscopic cross sections from this crate's provider surface. See
 # docs/architecture.md.
 njoy-outram-park-fork = { workspace = true }
+# Granular DEM (LIGGGHTS port), so a pebble bed can be SETTLED physically and
+# handed to transport: `pebble_beds::dem_bed` converts a settled
+# `GranularSystem` / `DemSimulation` into pebble centres in this crate's cm
+# convention (maintainer direction, 2026-10-02: "so it is easier to model
+# pebble beds"). Before 2026-10-02 this edge was impossible -- liggghts' default
+# `gnn` feature depends on `raffles`, which depended on this crate for its RNG
+# and a CSG adapter; both moved out (to `petir::rng` and
+# `outram_blender::gnn_graph`) so the graph is acyclic.
+#
+# FEATURES: NONE of liggghts' defaults, deliberately (the root entry sets
+# `default-features = false`). `long-tests` gates liggghts' OWN slow tests and
+# means nothing to a dependent; `gnn` pulls `raffles` (a UQ / graph-network
+# crate) that nothing here uses -- the bridge needs only particle positions and
+# radii. What does come in unconditionally: `rayon` (already a dependency
+# here) and, on desktop only, `wgpu` (target-gated off Android and wasm by
+# liggghts exactly as this crate gates its own; already in this tree). Pure
+# Rust, no BLAS, Android- and wasm-clean.
+outram-park-fork-liggghts = { workspace = true }
 # Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
 # `material::thermal`), which speaks dimensioned `uom` types. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.

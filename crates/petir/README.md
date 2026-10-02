@@ -18,8 +18,11 @@ library of iterative routines better than it has any right to.
 ## What it is
 
 A `no_std` port of parts of the [GNU Scientific Library](https://www.gnu.org/software/gsl/),
-together with numerical kernels lifted from elsewhere in this workspace and
-transfer-function blocks derived from the GNU Octave control package.
+together with numerical kernels lifted from elsewhere in this workspace,
+transfer-function blocks derived from the GNU Octave control package, and —
+since 2026-10-02 — the workspace's **random-number generator**, OpenMC's 64-bit
+LCG (`rng::lcg`, with its WGSL twin `wgsl::LCG`), moved here from
+`outram-mc-libs` so that `raffles` and other non-transport crates can use it.
 
 It exists because there was no core maths crate. `outram-foam-basic-lib` had
 become one by accretion — roughly 27k lines of general numerics under an
@@ -67,6 +70,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
 | `fast_exp`, `fast_log`, `fast_pow` | ported | ARM optimized-routines `exp`, `log` and `pow` — bit-identical to upstream |
 | `real` | — | The `no_std` float-math shim |
+| `rng` | ported (OpenMC, not GSL) | OpenMC's 64-bit LCG with its PCG-RXS-M-XS output permutation, O(log n) `future_seed` jump-ahead and `init_seed` stream derivation (`random_lcg.cpp`, MIT). **Moved here from `outram-mc-libs` 2026-10-02**, bit-identical (pinned by a test); `outram_mc_libs::rng::lcg` re-exports it. Its WGSL state advance is `wgsl::LCG` (`lcg.wgsl`), the one copy that `outram-mc-libs`' batched GPU kernels compose |
 | `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
 **Deliberate subsets rather than gaps**, each named where it matters and

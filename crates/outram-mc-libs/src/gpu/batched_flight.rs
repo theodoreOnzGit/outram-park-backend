@@ -36,8 +36,6 @@
 // GPU-vs-CPU-mirror flight-agreement test on real hardware), but still requires
 // human review before it is promoted past the "Unit Tested" V&V stage.
 
-use crate::rng::lcg::{INC, MULT};
-
 /// Structure-of-Arrays batch of live neutrons resident for the GPU flight kernel.
 ///
 /// All vectors are `f32`/`u32` acceleration state (the trusted transport loop is
@@ -137,6 +135,32 @@ const BIG: f32 = 1e30;
 // Coincident-surface epsilon (cm), f32 — identical to the shader's `EPS`.
 const EPS: f32 = 1e-7;
 
+/// This kernel's own WGSL, which is **not a complete shader on its own**: it
+/// calls `petir_lcg_next`, defined in [`petir::wgsl::LCG`]. Compile
+/// [`shader_source`] instead. Exposed so tests can append probe entry points
+/// to exactly what the pipeline compiles.
+pub const KERNEL_WGSL: &str = include_str!("shaders/batched_flight.wgsl");
+
+/// The complete shader the pipeline compiles: PETIR's LCG
+/// ([`petir::wgsl::LCG`], the workspace's one WGSL copy of OpenMC's 64-bit
+/// LCG state advance) concatenated ahead of [`KERNEL_WGSL`].
+///
+/// **Why composition and not a copy (2026-10-02).** This kernel used to carry
+/// its own transcription of the LCG, and so did the other batched kernel; the
+/// maintainer directed that the LCG live once, in PETIR, beside its Rust
+/// original [`petir::rng::lcg`]. WGSL has no `#include`, so composing is
+/// string concatenation at pipeline creation. The arithmetic is unchanged
+/// byte for byte, and `tests/gpu_lcg_advance_directly.rs` pins the composed
+/// source bit-exact against the CPU LCG on a device.
+pub fn shader_source() -> String {
+    let lcg = petir::wgsl::LCG;
+    let mut s = String::with_capacity(lcg.len() + KERNEL_WGSL.len() + 1);
+    s.push_str(lcg);
+    s.push('\n');
+    s.push_str(KERNEL_WGSL);
+    s
+}
+
 /// Advance a split 64-bit LCG seed `(hi, lo)` by **one** step and derive the f32
 /// uniform, using the **same arithmetic the GPU shader uses**.
 ///
@@ -144,15 +168,14 @@ const EPS: f32 = 1e-7;
 /// CPU LCG (`(seed * MULT + INC) mod 2^64`, i.e. `future_seed(1, seed)`), and
 /// `xi in [0, 1)` is `f32(state_hi >> 8) * 2^-24` — the top-24-bit uniform that
 /// intentionally diverges from the CPU `f64` `prn` value.
+///
+/// **One copy (2026-10-02).** The arithmetic is
+/// [`petir::wgsl::mirror_lcg::lcg_next`], the CPU mirror of the PETIR shader
+/// this kernel is composed with; this wrapper only keeps this file's
+/// `(hi, lo)` argument order.
 #[inline]
 fn lcg_advance(hi: u32, lo: u32) -> (u32, u32, f32) {
-    let seed = ((hi as u64) << 32) | (lo as u64);
-    let new = seed.wrapping_mul(MULT).wrapping_add(INC);
-    let new_hi = (new >> 32) as u32;
-    let new_lo = new as u32;
-    // Top 24 bits of the 64-bit state = new_hi >> 8 = new >> 40.
-    let top24 = (new >> 40) as u32;
-    let xi = (top24 as f32) * (1.0f32 / 16_777_216.0f32);
+    let (new_lo, new_hi, xi) = petir::wgsl::mirror_lcg::lcg_next(lo, hi);
     (new_hi, new_lo, xi)
 }
 
@@ -479,7 +502,7 @@ pub fn advance_flight_gpu(
     // --- Pipeline ------------------------------------------------------------
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("batched_flight.shader"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("shaders/batched_flight.wgsl").into()),
+        source: wgpu::ShaderSource::Wgsl(shader_source().into()),
     });
 
     let storage_ro = wgpu::BindingType::Buffer {

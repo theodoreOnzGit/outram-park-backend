@@ -441,6 +441,13 @@ outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       v
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.4" }
+# Granular DEM. `default-features = false` HERE, at the root, because workspace
+# inheritance can only ADD features: a member writing `default-features = false`
+# against a default-on root entry is silently ignored. Its defaults are
+# `long-tests` (its own slow tests -- meaningless to a dependent) and `gnn`
+# (pulls `raffles`); a member that wants either names it. First consumer:
+# outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
+outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.0", default-features = false }
 outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.3" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.3" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
