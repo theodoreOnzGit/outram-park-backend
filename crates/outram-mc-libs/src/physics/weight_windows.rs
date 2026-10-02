@@ -32,6 +32,7 @@
 use crate::geometry::position::Position;
 use crate::physics::variance_reduction::russian_roulette;
 use crate::tally::mesh::RegularMesh;
+use crate::tally::mesh::RegularMeshExt;
 
 /// `WEIGHT_WINDOW_REL_TOL` (`include/openmc/constants.h:80`).
 ///

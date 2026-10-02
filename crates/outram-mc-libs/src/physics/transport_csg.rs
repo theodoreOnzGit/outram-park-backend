@@ -59,6 +59,7 @@
 use crate::geometry::cell::{SurfaceToken, TrackingMethod};
 use crate::pebble_beds::delta_tracking::{bounded_delta_flight_urr, DeltaStep, Majorant};
 use crate::geometry::crossing::GeometryExt;
+use crate::tally::mesh::RegularMeshExt;
 
 /// Virtual-collision budget for a delta-tracked region before the history is
 /// declared lost. Matches `keff_delta.rs`'s `MAX_VIRTUAL` so the two paths

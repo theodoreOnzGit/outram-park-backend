@@ -22,6 +22,7 @@
 use super::mesh::MeshKind;
 use crate::geometry::position::{Direction, Position};
 use crate::particle::particle::ParticleType;
+use crate::tally::mesh::MeshKindExt;
 
 /// Base trait for all filters.  Maps to `openmc::Filter`.
 pub trait Filter: Send + Sync {

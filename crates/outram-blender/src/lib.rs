@@ -217,6 +217,12 @@ pub mod export;
 /// feature, no dependency, Android- and wasm-clean.
 pub mod csg;
 
+/// **Spatial (tally) mesh description**: regular, rectilinear, cylindrical and
+/// spherical meshes and [`spatial_mesh::MeshKind`]. Moved here from
+/// `outram-mc-libs` (`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin
+/// lookup and scoring stay in outram-mc-libs. Core: no feature, no dependency.
+pub mod spatial_mesh;
+
 /// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
 /// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
 /// `pipeline`, get back a polyhedral `VolumeMesh` + quality report, and export an

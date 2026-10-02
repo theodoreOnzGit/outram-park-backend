@@ -56,6 +56,10 @@
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::tally::mesh::{CylindricalMesh, RectilinearMesh, SphericalMesh};
+use outram_mc_libs::tally::mesh::CylindricalMeshExt;
+use outram_mc_libs::tally::mesh::MeshKindExt;
+use outram_mc_libs::tally::mesh::RectilinearMeshExt;
+use outram_mc_libs::tally::mesh::SphericalMeshExt;
 
 const TAU: f64 = std::f64::consts::TAU;
 const PI: f64 = std::f64::consts::PI;

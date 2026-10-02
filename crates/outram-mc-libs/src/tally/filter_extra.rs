@@ -24,6 +24,8 @@
 //! distribcell offset tables upstream builds in `src/geometry_aux.cpp`.
 
 use super::filter::{Filter, FilterEvent};
+use crate::tally::mesh::MeshKindExt;
+use crate::tally::mesh::RegularMeshExt;
 
 // ── MT summation rules (src/endf.cpp) ───────────────────────────────────────
 

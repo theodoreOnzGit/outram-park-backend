@@ -41,6 +41,7 @@
 
 use crate::geometry::position::Position;
 use crate::tally::mesh::RegularMesh;
+use crate::tally::mesh::RegularMeshExt;
 
 /// Per-element source fractions, and the weights they imply.
 #[derive(Debug, Clone, PartialEq)]
