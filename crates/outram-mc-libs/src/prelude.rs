@@ -142,3 +142,7 @@ pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
 // The error type the ENDF entry points return, so `use outram_mc_libs::prelude::*`
 // is enough to write a signature that propagates it.
 pub use crate::NjoyError;
+
+// Statistics on top of RAFFLES (epic GitHub #493). Report-only or opt-in;
+// nothing here is on any driver's default path.
+pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};

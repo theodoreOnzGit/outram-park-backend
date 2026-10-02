@@ -55,6 +55,11 @@ pub mod perf_report;
 /// local-perf directory. See [`run_diagnostics`].
 pub mod run_diagnostics;
 pub mod vv;
+/// Statistics for Monte Carlo results on top of RAFFLES (epic GitHub #493):
+/// seed ensembles, correlated-sample `σ`, source-convergence diagnostics,
+/// learned weight windows, UQ and surrogate sweeps. Report-only or opt-in;
+/// no driver calls it. See [`stats`].
+pub mod stats;
 pub mod prelude;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where

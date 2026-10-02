@@ -834,12 +834,31 @@ here.** Moved, byte for byte, and re-exported at the old paths:
   `sqrt(var / n)` and `sqrt(var) / sqrt(n)` differ in the last bit.
 - **`deterministic-math` forwards to `raffles/deterministic-math`**, so
   `sample_normal`'s `cos` keeps this crate's routing.
-- **Not moved, because it does not exist:** a χ²/dof consistency check of
+- ~~**Not moved, because it does not exist:** a χ²/dof consistency check of
   seed values against their internal σ. `vv.rs` has no such function; it
-  belongs with #494 when that lands.
+  belongs with #494 when that lands.~~ **CORRECTED 2026-10-03** — #494 added
+  it: `raffles::estimators::seed_consistency` (the maths) and
+  `stats::ensemble` here (the seed runner, `EnsembleReport`). `vv.rs` still
+  has no such function and keeps only the bench knobs.
 - RAFFLES is Adolphus Lye's crate; the move was the workspace maintainer's
   direction and is recorded in `crates/raffles/CLAUDE.md` with their review
   outstanding.
+
+### Statistics on top of RAFFLES: `stats` (2026-10-03, epic GitHub #493)
+
+`src/stats/` holds the **drivers and adapters**; the maths is in
+`raffles::estimators` / `raffles::surrogate`. **No driver calls anything in
+`stats`**, so a default run is bit-identical with or without it. What is
+there, and its V&V state (every gate **NOT YET MEASURED** — testing deferred by
+the maintainer, 2026-10-03; protocols in
+`verification_and_validation/stats_epic_493/`):
+
+- `stats::ensemble` (#494) — `run_seeds` / `run_seeds_with_progress` (seeds
+  chunked in order, worker-count independent), `EnsembleReport` (pooled
+  mean/sd/sem exactly as `vv::pooled`, `χ²/dof` seed consistency, outlier
+  seeds, disjoint-group `1/√N` check). `examples/godiva_keff_ensemble.rs` uses
+  it; the remaining per-example ensembles (`OUTRAM_BENCH_SEEDS`) are not
+  migrated yet.
 
 ### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
 

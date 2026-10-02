@@ -686,7 +686,9 @@ counted stays in the physics crate. #493's ownership comment classes a new
 basic-estimators module as **needing Adolphus Lye's OK**; the maintainer
 directed it to land now, so, as with `scram/`, it is recorded here as a
 direction call that is **theirs to confirm or reverse**, with their review
-outstanding. Until they decide, two constraints bind anyone editing these
+outstanding. (`src/estimators.rs` moved, content unchanged, to
+`src/estimators/mod.rs` on 2026-10-03 so the submodules below could sit
+beside it.) Until they decide, two constraints bind anyone editing these
 files:
 
 - **Bit-identity is the contract.** `outram-mc-libs` pins k-eff results to the
@@ -695,6 +697,22 @@ files:
   place of `sqrt(a/b)` moves recorded results.
 - **They are not RAVEN ports** and carry no RAVEN header; each function names
   the outram-mc file (and, through it, the OpenMC routine) it came from.
+
+**Estimator submodules added 2026-10-03 under epic #493, at the workspace
+maintainer's direction, not the crate owner's.** #493's ownership comment
+classes each of these as **needing Adolphus Lye's OK**; the maintainer directed
+them to land now, so they are recorded here like `estimators` itself — a
+direction call that is **theirs to confirm or reverse**, with their review
+outstanding. They are generic statistics on arrays of numbers; the simulation
+drivers that call them (the seed-ensemble runner, the learned weight windows,
+the UQ and sweep loops) stay in `outram-mc-libs::stats`, outside this crate's
+scope. None of them changes any function that existed before, so the
+bit-identity contract above is untouched.
+
+- `src/estimators/seed_consistency.rs` (#494) — `χ²/dof` of seed values
+  against their internal `σ` with a fixed two-sided 95 % band, leave-one-out
+  Bonferroni outlier flags, disjoint-group-mean scatter (the measured `1/√N`
+  check).
 
 `outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
 which is exactly why RAFFLES must stay free of physics and geometry

@@ -41,6 +41,17 @@
 //! No human V&V, like the rest of this crate. The formulas are the textbook
 //! ones and each carries a unit test against a hand-computed value.
 
+// ---------------------------------------------------------------------------
+// Submodules added 2026-10-03 under epic #493 (GitHub #494, #495, #496), at the
+// workspace maintainer's direction; the crate owner's review is outstanding
+// (CLAUDE.md, "Scope boundaries"). They ADD functions and change nothing above,
+// so the bit-identity contract on the moved functions is untouched.
+// ---------------------------------------------------------------------------
+
+/// Seed-ensemble consistency: `χ²/dof` of seed values against their internal
+/// `σ`, a fixed 95 % band, leave-one-out outlier flags (GitHub #494).
+pub mod seed_consistency;
+
 /// Sample mean and **standard error of the mean** (1σ) of `x`.
 ///
 /// ```text
