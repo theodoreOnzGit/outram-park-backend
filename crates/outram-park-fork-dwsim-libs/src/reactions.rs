@@ -440,9 +440,19 @@ pub struct Reaction {
     /// by the conversion reactor; DWSIM stores this as a percentage 0–100 and
     /// divides by 100 — here it is already the fraction).
     pub conversion: f64,
-    /// Standard reaction enthalpy `ΔH°` [J/mol of reaction extent], DWSIM
-    /// `ReactionHeat`. Positive = endothermic (absorbs heat). Used for the
-    /// energy balance / heat-duty accounting.
+    /// Standard reaction enthalpy `ΔH°` [J/mol of reaction extent]. Positive =
+    /// endothermic (absorbs heat). Used for the energy balance / heat-duty
+    /// accounting.
+    ///
+    /// ~~DWSIM `ReactionHeat`.~~ **CORRECTED 2026-10-02** — not the same
+    /// quantity when `|ν_BC| ≠ 1`. Upstream's `ReactionHeat` is per mol of
+    /// **base reactant**, `(H_products − H_reactants)/|ν_BC|`
+    /// (`FlowsheetBase.vb:4368`, pinned `1abf72d1`), and its reactors multiply
+    /// it by `|Δn_BC|` (`Conversion.vb:704`). The two agree on heat released
+    /// only if this field is set to upstream's `ReactionHeat × |ν_BC|`.
+    /// Checked against compiled upstream: `CH4 + 2 O2` with O2 as base gives
+    /// `ReactionHeat = −401 309` J/mol, i.e. `ΔH° = −802 618` J/mol per extent
+    /// (`tests/upstream_conversion_parity.rs`).
     pub reaction_heat: f64,
     /// Lower temperature bound `T_min` [K] of kinetic validity (DWSIM `Tmin`).
     /// Below it the rate constants are forced to zero, per DWSIM.
