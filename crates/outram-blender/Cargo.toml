@@ -25,6 +25,17 @@ categories.workspace = true
 exclude = ["docs", "upstream_source/*", "!upstream_source/README.md"]
 
 [features]
+# `gpu` — headless wgpu compute (src/gpu.rs). **ON BY DEFAULT** (maintainer
+# direction, 2026-10-02, GitHub issue #486), so a plain build behaves exactly as
+# before. It is a feature now so a dependent that has its own GPU path (e.g.
+# outram-mc-libs, once #486 moves geometry description here) can take this crate
+# with `default-features = false` and skip wgpu's ~60-crate subtree. With it
+# off, `gpu` is not compiled and `Affine3::transform_points_best_effort` runs
+# the CPU reference path. On Android the feature is a no-op: `wgpu` stays
+# target-gated off there, so `gpu` on Android still compiles to the CPU path.
+default = ["gpu"]
+gpu = ["dep:wgpu"]
+
 # Optional export bridges to the real OUTRAM PARK solver crates. OFF by default
 # so the authoring frontend stays light and trivially Android-buildable; enable
 # a bridge only when you actually hand geometry to that solver.
@@ -90,15 +101,17 @@ faer = { workspace = true }
 # GPU compute (headless, no window) — see src/gpu.rs. wgpu is **target-gated OFF
 # Android** (no system Vulkan/Metal loader there, and the workspace Android rule
 # forbids GPU deps in the library build), so the crate still builds headless for
-# `aarch64-linux-android` via the CPU-only path. On every desktop target wgpu is
-# built **unconditionally** — no cargo feature to opt in — so the GPU path is
-# used as far as possible, with a mandatory runtime CPU fallback (probe → None,
+# `aarch64-linux-android` via the CPU-only path. ~~On every desktop target wgpu
+# is built **unconditionally** — no cargo feature to opt in~~ **CORRECTED
+# 2026-10-02**: it is now OPTIONAL, enabled by the default-on `gpu` feature
+# (see [features]); both gates apply, so wgpu is built only on a non-Android
+# target AND with `gpu` on. The runtime CPU fallback is unchanged (probe → None,
 # or a recoverable GPU error → CPU). GPU is acceleration only; CPU (faer + math)
 # stays the trusted/deterministic path. Version inherited from the root
 # `[workspace.dependencies]` (matched to the eframe/egui 0.34 wgpu, so no
 # duplicate wgpu in the tree).
 [target.'cfg(not(target_os = "android"))'.dependencies]
-wgpu = { workspace = true }
+wgpu = { workspace = true, optional = true }
 
 # NOTE: no OpenGL/Vulkan/GUI dependency here. The library is headless and
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a

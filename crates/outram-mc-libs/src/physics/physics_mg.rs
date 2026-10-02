@@ -727,19 +727,14 @@ fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
         .collect()
 }
 
-/// Mean and standard error of the mean (1σ) of the active-generation eigenvalues.
-fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
-    let n = k.len();
-    if n == 0 {
-        return (0.0, 0.0);
-    }
-    let mean = k.iter().sum::<f64>() / n as f64;
-    if n < 2 {
-        return (mean, 0.0);
-    }
-    let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
-    (mean, (var / n as f64).sqrt())
-}
+/// Mean and standard error of the mean (1σ) of the active-generation
+/// eigenvalues — [`raffles::estimators::mean_and_stderr`]. ~~Four identical
+/// private copies of this function lived in `physics::keff`,
+/// `physics::transport_csg`, `physics::physics_mg` and
+/// `pebble_beds::keff_delta`.~~ **MOVED 2026-10-02** (GitHub #500) after the
+/// four were diffed and found character-identical; this driver still decides
+/// which generations are active.
+use raffles::estimators::mean_and_stderr;
 
 #[cfg(test)]
 mod tests {

@@ -145,7 +145,9 @@ impl Affine3 {
     /// [`crate::gpu::try_transform_vertices_gpu`] rather than calling this per
     /// batch.
     pub fn transform_points_best_effort(self, positions: &[Vec3]) -> Vec<Vec3> {
-        #[cfg(not(target_os = "android"))]
+        // Compiled out (CPU path only) on Android and when the default-on
+        // `gpu` feature is off — the same gate as `crate::gpu` itself.
+        #[cfg(all(feature = "gpu", not(target_os = "android")))]
         {
             if let Some(ctx) = crate::gpu::probe() {
                 if let Ok(out) = crate::gpu::try_transform_vertices_gpu(&ctx, self, positions) {

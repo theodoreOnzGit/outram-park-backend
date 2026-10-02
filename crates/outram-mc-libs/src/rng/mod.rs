@@ -8,11 +8,13 @@
 //!   `outram_mc_libs::rng::lcg` is kept on purpose so no call site had to
 //!   change, and the move changed no random number
 //!   (`petir::rng::lcg`'s `moved_stream_is_pinned` test).
-//! - [`distributions`] — OpenMC's `random_dist.cpp` samplers. These stay
-//!   here: they call `cos`/`sin` through this crate's [`crate::mathf`]
-//!   route (platform libm by default, `petir::real` under
-//!   `deterministic-math`), which a `no_std` copy in PETIR could not
-//!   reproduce bit for bit.
+//! - [`distributions`] — OpenMC's `random_dist.cpp` samplers. The physics
+//!   samplers (`maxwell`, `watt`, `isotropic_direction`) stay here; the
+//!   generic ones (`uniform`, `sample_normal`, `sample_normal_3d`,
+//!   `sample_exp`) are re-exported from `raffles::distributions::seeded`
+//!   since 2026-10-02 (GitHub #500). None went to PETIR: they call `cos`/`sin`
+//!   through a platform-or-`petir::real` route (`deterministic-math`) that a
+//!   `no_std` copy could not reproduce bit for bit.
 
 pub use petir::rng::lcg;
 pub mod distributions;

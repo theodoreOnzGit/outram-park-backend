@@ -56,19 +56,10 @@ pub use njoy_outram_park_fork::vv::{
 /// assert!((sd - 100.0).abs() < 1e-9);
 /// assert!((sem - 100.0 / 3.0_f64.sqrt()).abs() < 1e-9);
 /// ```
-pub fn pooled(x: &[f64]) -> (f64, f64, f64) {
-    let n = x.len();
-    if n == 0 {
-        return (f64::NAN, 0.0, 0.0);
-    }
-    let mean = x.iter().sum::<f64>() / n as f64;
-    if n == 1 {
-        return (mean, 0.0, 0.0);
-    }
-    let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
-    let sd = var.sqrt();
-    (mean, sd, sd / (n as f64).sqrt())
-}
+///
+/// **Moved 2026-10-02** to [`raffles::estimators::pooled`] (GitHub #500), byte
+/// for byte; this path re-exports it, and the bench knobs below stay here.
+pub use raffles::estimators::pooled;
 
 /// How many seeds a benchmark example should run, from `OUTRAM_BENCH_SEEDS`.
 ///

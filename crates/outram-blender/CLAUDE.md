@@ -51,12 +51,22 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 | feature | default | pulls | what it gates |
 |---|---|---|---|
+| `gpu` | **on** | `wgpu` (never on Android) | `src/gpu.rs` and the GPU attempt in `Affine3::transform_points_best_effort` |
 | `mc-export` | off | `outram-mc-libs` | `export` CSG bridge, `sim` |
 | `foam-export` | off | `outram-foam-basic-lib` | polyMesh read/write bridge |
 | `foam-mesh` | off | `outram-park-fork-cfmesh` | `foam_mesh` volume-meshing bridge |
 | `gnn-graph` | off | `raffles`, `outram-mc-libs` | `gnn_graph::cell_adjacency_graph` (CSG cells -> RAFFLES graph) |
 
+- **`gpu` is a feature so dependents can drop `wgpu`** (GitHub issue #486):
+  `default-features = false` gives the CPU path only. Every use of `crate::gpu`
+  must sit under `#[cfg(all(feature = "gpu", not(target_os = "android")))]`,
+  the module's own gate. Both gates are needed: the feature alone would try to
+  compile wgpu code on Android, where `wgpu` is target-gated out.
+- **Check both feature sets** before calling a change done:
+  `cargo test --release -p outram-blender --lib --tests` and the same with
+  `--no-default-features`.
 - **`gnn-graph` lives here by maintainer decision** (2026-10-02): this crate
   owns geometry description under #486. It needs `outram-mc-libs` only because
   `Cell` lives there today. **`raffles` must not depend on this crate** (or on
   `outram-mc-libs`); the edge runs geometry -> RAFFLES only.
+

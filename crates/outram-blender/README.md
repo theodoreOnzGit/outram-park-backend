@@ -28,11 +28,14 @@ with its own egui studio app:
 The base authoring library pulls in neither solver — both bridges are opt-in
 cargo features, so the default build stays light and Android-buildable.
 
-> **GPU compute (always compiled on desktop, off Android): `f32` for speed, CPU
-> `f64` is the trusted path.** The headless GPU kernels (`wgpu`) are built
-> **unconditionally on every desktop target** — no cargo feature to opt in — so
-> the GPU path is used as far as possible; wgpu is target-gated off Android only
-> (no system Vulkan/Metal loader there). They accelerate per-vertex work in
+> **GPU compute (default-on `gpu` feature, never on Android): `f32` for speed,
+> CPU `f64` is the trusted path.** ~~The headless GPU kernels (`wgpu`) are built
+> **unconditionally on every desktop target** — no cargo feature to opt in~~
+> **CORRECTED 2026-10-02** (GitHub issue #486): they are behind the `gpu` cargo
+> feature, which is **on by default**, so a default build uses the GPU path as
+> far as possible exactly as before, and `--no-default-features` drops `wgpu`
+> (and its ~60-crate subtree) for a CPU-only build. wgpu is also target-gated
+> off Android whatever the feature says (no system Vulkan/Metal loader there). They accelerate per-vertex work in
 > single precision, while the CPU ([`math`]/[`faer`]) path stays the
 > deterministic reference. Fallback to CPU is **graceful and automatic**: no
 > adapter, or a recoverable GPU error, routes to the CPU path
@@ -147,7 +150,7 @@ included.
 |---|---|---|
 | `math` | `blenlib` `BLI_math` vectors | **real** — a minimal `Vec3` |
 | `transform` | `Object.matrix_world` affine placement | **real** — `Affine3` per-vertex transform; the CPU reference the GPU kernel is validated against |
-| `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform), probe + graceful CPU fallback. Compiled on every desktop target, target-gated off Android |
+| `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform), probe + graceful CPU fallback. ~~Compiled on every desktop target~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; target-gated off Android |
 | `mesh` | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | `primitives` | Add-Mesh primitive operators | **real** — cube / UV-sphere / cylinder / grid, unit-tested |
 | `revolve` | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cone frusta) |

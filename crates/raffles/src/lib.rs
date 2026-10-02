@@ -158,6 +158,7 @@ pub mod abc;
 pub mod bayesian;
 pub mod distance;
 pub mod distributions;
+pub mod estimators;
 pub mod gnn;
 pub mod imprecise;
 pub mod model_selection;

@@ -6757,6 +6757,7 @@ dependencies = [
  "openmc-endf-8-depletion-lib-b",
  "outram-park-fork-liggghts",
  "petir",
+ "raffles",
  "ratatui",
  "rayon",
  "thiserror 2.0.18",
