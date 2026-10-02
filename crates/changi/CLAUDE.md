@@ -167,6 +167,34 @@ When adding a ported routine, extend `dev/flexpart_reference.f90` to call the
 upstream routine over a branch-covering grid, regenerate both fixtures, and add
 the group to the test. Never hand-write an expected value.
 
+**Since 2026-10-02 (gh:#410) each stage has its own driver**
+(`dev/flexpart_reference_<stage>.f90`), build script
+(`dev/build_reference_<stage>.sh`, all run by `dev/build_reference.sh`),
+fixtures and test, and they share one harness, `tests/common/mod.rs`. Five
+rules carry over from what those stages found:
+
+- **Real(4) misses need a diagnosis, not a tolerance.** Use
+  `Real4Rule::PrecisionSpreadOn(columns)` only on columns shown to be
+  ill-conditioned in `f32`, or take rows out of real(4) scope on a criterion
+  derived outside the comparison, and document which. Feeding both builds
+  inputs that are exact in `f32` (dyadic literals, or double values rounded
+  once) makes the real(4)-vs-real(8) spread a clean measure of upstream's
+  arithmetic.
+- **Only configuration may be edited.** `par_mod.f90` copies (nest
+  dimensions, output switches) are FLEXPART's user configuration; each build
+  checks the diff. Never edit another upstream file.
+- **No Numerical Recipes code.** `random_mod.f90` is replaced in the
+  deterministic drivers by shims returning driver-chosen draws. The port takes
+  draws as inputs. Only the stochastic driver compiles the real `random_mod`,
+  as a reference.
+- **Fortran precedence is part of the translation.** `a*b**2` is `a*(b*b)`. A
+  one-ulp residual against real(8) is a translation defect until shown
+  otherwise. `obukhov`'s was, and it had been written off as upstream
+  rounding.
+- **The stochastic test** (`tests/flexpart_stochastic_advance.rs`) compares
+  against FLEXPART's own generators in replicates. Its seed is fixed: never
+  change it to make a comparison pass.
+
 Results and analysis: [`docs/flexpart-code-to-code.md`](docs/flexpart-code-to-code.md).
 
 ## Verification: `puff` runs the upstream R

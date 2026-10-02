@@ -80,7 +80,7 @@ all passing**.
 | `psih` (MO heat) | 72 | **0 (bit-exact)** | 5.00e-8 |
 | `scalev` (friction velocity) | 108 | **0 (bit-exact)** | 1.25e-7 |
 | `obukhov` NCEP path | 28 | **0 (bit-exact)** | 1.63e-7 |
-| `obukhov` ECMWF path | 28 | 1.86e-16 (1 ulp) | 1.42e-7 |
+| `obukhov` ECMWF path | 28 | ~~1.86e-16 (1 ulp)~~ **0 (bit-exact), CORRECTED 2026-10-02** | 1.42e-7 |
 | `raerod` (aerodynamic resistance) | 160 | **0 (bit-exact)** | 1.44e-6 |
 | `part0.fract` (mass fractions) | 396 | **0 (bit-exact)** | 3.36e-6 |
 | `part0.schmi` (Schmidt factor) | 396 | **0 (bit-exact)** | 5.51e-7 |
@@ -90,10 +90,17 @@ all passing**.
 | `decay.surviving` (`exp(-lambda dt)`, `timemanager.f90:275`) | 49 | **0 (bit-exact)** | 9.90e-7 |
 
 **Interpretation.** Against the double-precision build of the same Fortran,
-**13 of 14 groups are bit-exact** and the fourteenth differs by a single ulp,
+~~**13 of 14 groups are bit-exact** and the fourteenth differs by a single ulp,
 in the ECMWF branch of `obukhov` where the hybrid-coefficient average
-introduces one extra rounding. The translation is therefore not merely close
-but, on this input grid, identical. Against FLEXPART as it actually ships, the
+introduces one extra rounding.~~ **CORRECTED 2026-10-02: all 14 groups are
+bit-exact.** The one-ulp residual was a translation defect, not upstream's
+rounding. The port evaluated `theta*ustar**2` as `(theta*ustar)*ustar`, but in
+Fortran the power binds first, giving `theta*(ustar*ustar)`. The stage-3
+`calcpar` verification exposed it: 52 of 978 outputs were off by 1 ulp. With
+the association fixed, `obukhov.ecmwf` and `calcpar` are both bit-exact. The
+"hybrid-coefficient average" explanation had never been tested, and it was
+wrong. The translation is therefore not merely close but, on this input grid,
+identical. Against FLEXPART as it actually ships, the
 spread of 5.0e-8 to 3.4e-6 is the `real(4)` precision band and nothing else.
 
 The `decay.surviving` grid deliberately includes the region where
@@ -356,6 +363,149 @@ time-of-day arithmetic. The fixture shows the two agree exactly from
 1582-10-15 onwards. `random_mod.f90` (NR `ran3`/`gasdev`) is not ported and
 not reimplemented (maintainer decision, #410).
 
+## Stages 2–7 (2026-10-02): interpolation, met fields, the particle step, output, convection, and the stochastic comparison
+
+Each stage has its own driver, fixtures and test, built by `dev/build_reference.sh`
+(which calls `dev/build_reference_<stage>.sh`) and replayed through the shared
+harness `tests/common/mod.rs`. The method is the one above: upstream compiled
+verbatim at real(4) and at `-fdefault-real-8 -fdefault-double-8`, synthetic
+fields written into `com_mod`, every input echoed as setup rows.
+
+Local stand-ins, none of which changes a routine under test:
+
+- **`par_mod.f90` copies.** It is FLEXPART's user-edited configuration file.
+  Nests need `maxnests=1, nxmaxn=12, nymaxn=12` instead of the shipped zeros
+  (stages 2, 3, 4, 6). The output stage also needs `maxspec`, `maxageclass`,
+  `nclassunc` and the kernel / particle-count switches. Each build checks the
+  diff line count of its copy.
+- **`random_mod.f90` shims** (`dev/random_mod_shim*.f90`). They return the
+  draws the driver chooses, so both codes consume the same numbers. The
+  Numerical Recipes generators are neither ported nor re-implemented (gh:#410).
+- **A generated copy of `cmapf_mod`** with its `private` statement removed, so
+  the driver can reach the 13 routines the module hides. The build checks that
+  this is the whole diff, and every public routine is called through both
+  copies.
+
+### Results against the real(8) build (the translation check)
+
+| Stage | Routines | Rows | vs real(8) |
+|---|---|---:|---|
+| 2 interpolation | `interpol_all`, `_misslev`, `_wind`, `_wind_short`, `_vdep` (each + `_nests`) | 1 944 | **bit-exact**, 20 304 outputs |
+| 3 met | `calcpar`(+nests), `calcpv`(+nests), `interpol_rain`(+nests), `get_wetscav`, `wetdepo`, `wetdepokernel`(+nest), `gethourlyOH`, `ohreaction`, `assignland` | 2 144 | **bit-exact** |
+| 4 particle step | `advance`, `initialize`, `initialize_cbl_vel`, `re_initialize_particle`, `get_vdep_prob` | 751 | 7 315 of 7 320 bit-exact; 5 at ≤ 3.0e-15 (`erf` substitution in `cbl`) |
+| `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | **bit-exact** |
+| 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | **bit-exact**; `plumetraj` only to its print format |
+| 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
+
+The one translation defect these stages found was in an **earlier** stage. It
+was `obukhov`'s `theta*ustar**2`, worked out above under Results, and stage 3's
+`calcpar` exposed it.
+
+### Real(4): what the shipped build cannot carry
+
+Where the shipped build departs from its own real(8) self, each case was
+diagnosed before any rule was applied. The tests either attribute it with
+`Real4Rule::PrecisionSpreadOn(columns)`, limited to the measured columns, or
+take it out of real(4) scope on a criterion derived outside the comparison.
+Real(8) covers every excluded row bit for bit.
+
+- **Sub-grid wind sigmas (stage 2).** The one-pass formula
+  `sum x^2 - (sum x)^2/n` cancels in `f32`. For a uniform `ww = 0.01 m/s`, the
+  shipped build reports `wsig = 5.0e-6` instead of 0.
+- **Polar steps poleward of 89° (stage 4, `cmapf`).** `cxy2ll`/`cg2cxy` cannot
+  be carried in `f32` there; 89° is upstream's own polar switch, and longitude
+  errors reach 180°. Particle steps on the polar grid inherit up to `5e-4` in
+  `xt`.
+- **The Petterssen half-differences `(u_new - u_old)/2` (stage 4).** These are
+  `1e-6` m/s out of `1`.
+- **Convective mass fluxes (stage 6).** They scale with `0.0025*DTMA`, a 0.1 K
+  difference of 300 K temperatures. For a near-zero cloud-base flux
+  (`4.5e-10`), the shipped build clamps to 0 and reports a different cloud top.
+- **Stages 3 and 5** have the same kinds of cases: cancellation in `calcpv`,
+  near-horizon photolysis in `gethourlyOH`, the `f32`-stored output-cell
+  coordinates in `conccalc`, and the near-pole longitude in `centerofmass`.
+  The stage reports list them row by row.
+
+### Upstream defects and quirks found (selected; every one is documented in the module that ports it)
+
+- **`get_vdep_prob` interpolates with stale weights.** It sets the cell
+  indices but never the bilinear or time weights, so it uses the previous
+  particle's weights.
+- **`getvdep_nests` and the season.** It computes the latitude for season
+  selection as `jy*dy + ylat0`, with the nest's row index and the mother
+  grid's spacing. A nest at 30–32°N gets southern-hemisphere seasons.
+- **The pole crossing in `advance`.** It applies `mod(xt + 180, 360)` to a grid
+  coordinate.
+- **`nrand` after the vertical sub-step loop.** `advance` adds the loop
+  variable's exit value, `ifine + 1`, to `nrand`.
+- **`initialize` reuses its draws.** It feeds the same draws to the turbulent
+  velocities and to the mesoscale ones.
+- **The polar Petterssen step.** It writes the module winds back divided by the
+  grid size.
+- **`interpol_mod` relies on zeroed static storage.** Levels above `nmixz` keep
+  whatever profile `interpol_all` left, possibly from another particle.
+- **`calcmatrix` never lets a column's cloud-base flux relax to 0.** It restores
+  the old flux whenever `convect` reports no convection.
+- **Count mode with the kernel mixes units in `conccalc`.** Particle counts and
+  masses land in the same grid.
+- **`plumetraj` writes cluster values it never assigned.** This happens when
+  there are fewer particles than clusters.
+- **`calcpar_nests` has no NCEP branch.** It reads a never-assigned level
+  pressure.
+- **`ohreaction` indexes the wrong `tt`.** It uses `n` rather than
+  `memind(n)`.
+- **The shipped `real(4)` `caldate` and the 1600 leap day.** It returns
+  `16010231` for 1600-02-29.
+
+### Stage 7: the stochastic comparison
+
+**Methodology.** `dev/flexpart_stochastic_advance.f90` compiles upstream
+**including its own `random_mod.f90`**. It fills `rannumb` as `FLEXPART.f90`
+does (`gasdev1`, `idummy = -320`), and each call draws its starting index from
+`ran3`. There are five scenarios:
+
+- Gaussian turbulence;
+- the well-mixed scheme;
+- the skewed CBL;
+- the free troposphere;
+- the stratosphere.
+
+Each releases 20 000 particles and advances them 2 h, and the whole run is
+repeated in 16 replicates with different `gasdev1` seeds. The port runs the
+same scenarios in 16 replicates. Its `rannumb` comes from RAFFLES'
+`sample_normal` on `petir`'s LCG, sub-streams `2^40` apart, and its starting
+indices come from `petir`'s `prn`. The seed was fixed before the first run.
+
+**Criterion** (gh:#410): for the mean and variance of the displacement in x, y
+and z, the port's replicate mean must lie within **1σ of FLEXPART's**. Here σ
+is FLEXPART's run-to-run standard deviation of that statistic: the
+uncertainty of one FLEXPART result. The strict z of the difference of the two
+replicate means and its χ² are reported too.
+
+**Results.** Against real(4), **30/30** statistics are within 1σ, with χ² = 19.7
+on 30 degrees of freedom. Against real(8), also **30/30**, with χ² = 20.6. Each
+test runs in 5 s.
+
+**How it got there, recorded because it changed the port.**
+
+1. The first run used one replicate and the 1/√N standard error. It had
+   22/30 within 1σ, and the mean-y deviations shared a sign. Diagnosis: every
+   particle in a run shares one finite `rannumb` array, whose own sample mean
+   shifts the whole ensemble coherently. FLEXPART's array had mean `+1.11e-3`,
+   the port's `-1.63e-3`. The 1/√N error ignores that, so it was the wrong
+   σ. Replicates measure it.
+2. With replicates, all 30 were within 1σ, but χ² was 47.8 on 30 degrees of
+   freedom, and the port's horizontal variances were 0.5–1 % high in four
+   scenarios. Diagnosis: FLEXPART's `rannumb` has a mean square of `0.99534`
+   (16 seeds), not 1. **`gasdev1` clips every deviate to [-3, 3]**, which gives
+   `0.99501` for a normal. That clip is FLEXPART's own code, not the Numerical
+   Recipes generator around it, and it narrows every turbulent velocity
+   distribution by 0.5 %. The port now applies it (`advance::limit_rannumb`),
+   and χ² fell to 19.7.
+
+The stochastic comparison was capable of failing, and it found a real piece of
+FLEXPART's model that the deterministic comparison could not see.
+
 ## What this does NOT establish
 
 **Verification, not validation.** It establishes that the Rust computes what the
@@ -370,22 +520,28 @@ both the V&V and the interface is still outstanding.
 
 Not covered, and tracked in GitHub issue #410:
 
-- the particle advection loop (`advance.f90`) — the heart of the Lagrangian
-  model, and the point at which the RNG becomes relevant;
+- ~~the particle advection loop (`advance.f90`)~~ **CORRECTED 2026-10-02** —
+  ported, verified deterministically (stage 4) and statistically (stage 7);
 - ~~the Hanna turbulence parameterisation~~ **CORRECTED 2026-10-02** — ported
   and verified, see "Stage 1" below;
 - ~~the convective boundary-layer scheme (`cbl.f90`)~~ **CORRECTED 2026-10-02**
   — ported and verified;
-- wet scavenging (`wetdepo.f90`, `get_wetscav.f90`); ~~and the dry-deposition
+- ~~wet scavenging (`wetdepo.f90`, `get_wetscav.f90`)~~ **CORRECTED
+  2026-10-02** — ported and verified (stage 3); ~~and the dry-deposition
   velocity assembly (`getvdep.f90`)~~ **CORRECTED 2026-10-02** — `getvdep`
   is ported and verified;
 - ~~the Richardson-number mixing-height diagnostic (`richardson.f90`)~~
   **CORRECTED 2026-10-02** — ported and verified;
 - ~~`get_settling.f90`'s ambient rescaling of the reference-state settling
   velocities `part0` returns~~ **CORRECTED 2026-10-02** — ported and verified;
-- the meteorological interpolation, the GRIB/NetCDF readers, the output grids,
-  and the OH chemistry (`photo_O1D` and `zenithangle` are ported; the reaction
-  itself is not).
+- ~~the meteorological interpolation, the output grids, and the OH chemistry~~
+  **CORRECTED 2026-10-02** — ported and verified (stages 2, 3, 5);
+- still not ported: the GRIB/NetCDF readers and file writers (I/O, not
+  numerics), `verttransform_*`, release and domain filling
+  (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`),
+  `outgrid_init*`, `initial_cond_calc`, `calcfluxes`/`fluxoutput`, the
+  `concoutput*` unit conversion and `timemanager`'s per-step bookkeeping
+  (gh:#410 wave 2).
 
 **Radioactive decay's fixture gap is closed (2026-09-15).** It was the one
 ported module checked only against hand-copied upstream *expressions* rather

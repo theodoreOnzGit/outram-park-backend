@@ -122,3 +122,14 @@ build_and_run_physics real8 -fdefault-real-8 -fdefault-double-8 \
 for f in "$OUT"/flexpart_physics_real4.csv "$OUT"/flexpart_physics_real8.csv; do
   echo "$(basename "$f"): $(($(grep -c '' "$f") - 4)) rows" >&2
 done
+
+# ---------------------------------------------------------------------------
+# Later stages, each with its own script (see the script headers for what is
+# compiled verbatim and what configuration copy or shim each needs).
+for stage in interp met advance cmapf output convection stochastic; do
+  script="$CRATE_DIR/dev/build_reference_$stage.sh"
+  if [ -f "$script" ]; then
+    echo "stage $stage..." >&2
+    bash "$script"
+  fi
+done

@@ -69,65 +69,14 @@ use changi::flexpart::dry_deposition::{
 };
 use changi::flexpart::turbulence::{hanna, hanna1, hanna_short, windalign, HannaState};
 
+mod common;
+
+use std::sync::OnceLock;
+
+use common::{check_group, Bounds, Fixtures, Precision, Real4Rule, Row};
+
 const FIXTURE_REAL4: &str = include_str!("data/flexpart_physics_real4.csv");
 const FIXTURE_REAL8: &str = include_str!("data/flexpart_physics_real8.csv");
-
-#[derive(Clone, Copy, PartialEq)]
-enum Precision {
-    Real4,
-    Real8,
-}
-
-struct Row {
-    function: String,
-    args: Vec<f64>,
-    outs: Vec<f64>,
-}
-
-fn parse_num(s: &str, p: Precision) -> f64 {
-    let s = s.trim();
-    match p {
-        // f32 first: the printed 9 digits identify the stored f32 exactly.
-        Precision::Real4 => s.parse::<f32>().unwrap_or_else(|_| panic!("f32 `{s}`")) as f64,
-        Precision::Real8 => s.parse::<f64>().unwrap_or_else(|_| panic!("f64 `{s}`")),
-    }
-}
-
-/// Like [`parse_num`] but always `f64`: for the Julian dates, which are
-/// `real(kind=dp)` in upstream at both precisions.
-fn parse_f64(s: &str) -> f64 {
-    s.trim()
-        .parse::<f64>()
-        .unwrap_or_else(|_| panic!("f64 `{s}`"))
-}
-
-fn parse(fixture: &str, p: Precision) -> Vec<Row> {
-    fixture
-        .lines()
-        .filter(|l| !l.starts_with('#') && !l.is_empty() && !l.starts_with("function,"))
-        .map(|l| {
-            let mut f = l.splitn(3, ',');
-            let function = f.next().expect("function").trim().to_string();
-            // Calendar and zenith rows are written in double precision at both
-            // precisions (`rowvd` in the driver).
-            let dp = matches!(function.as_str(), "juldate" | "caldate" | "zenithangle");
-            let num = |s: &str| if dp { parse_f64(s) } else { parse_num(s, p) };
-            let args = f.next().expect("args").split(';').map(num).collect();
-            let outs = f
-                .next()
-                .unwrap_or("")
-                .split(';')
-                .filter(|s| !s.trim().is_empty())
-                .map(num)
-                .collect();
-            Row {
-                function,
-                args,
-                outs,
-            }
-        })
-        .collect()
-}
 
 /// Synthetic `com_mod` tables recorded by the driver's setup rows, plus the
 /// precision the driver ran at (for the few literals the driver uses that are
@@ -429,125 +378,27 @@ fn in_scope(name: &str, a: &[f64], p: Precision) -> bool {
     }
 }
 
-fn agrees(got: f64, want: f64, tol: f64, floor: f64) -> bool {
-    if want.is_nan() || got.is_nan() {
-        return want.is_nan() && got.is_nan();
-    }
-    if got == want {
-        return true;
-    }
-    let abs = (got - want).abs();
-    abs <= floor || abs / want.abs() <= tol
+/// Both fixtures, parsed once, and the setup tables each one carries.
+struct Ctx {
+    fx: Fixtures,
+    s4: Setup,
+    s8: Setup,
 }
 
-/// How the real4 fixture is judged for one group.
-#[derive(Clone, Copy)]
-enum Real4Rule {
-    /// Plain `tol4` / `floor4` bound on every output.
-    Strict,
-    /// As `Strict`, OR the port lies within `SPREAD_FACTOR` x upstream's own
-    /// real4-vs-real8 distance for that output. Opt-in per group, only where
-    /// the group's doc shows the routine is ill-conditioned in `f32`: it states
-    /// that the shipped-build residual is FLEXPART's single precision, which
-    /// the real8 check then proves is not a translation error. Rows explained
-    /// this way are counted and printed, never hidden.
-    PrecisionSpread,
-}
-
-/// See [`Real4Rule::PrecisionSpread`]. A factor, not a tuning knob: the two
-/// builds see inputs that differ by f32 rounding, so their distance is an
-/// order-of-magnitude scale for single-precision error, nothing finer.
-const SPREAD_FACTOR: f64 = 4.0;
-
-/// Check one group against one fixture; returns the worst relative deviation
-/// among outputs outside the absolute floor.
-///
-/// `reference8` is the real8 parse of the same driver, used only by
-/// [`Real4Rule::PrecisionSpread`] (rows align because both builds run the same
-/// driver over the same loops).
-#[allow(clippy::too_many_arguments)]
-fn check(
-    fixture: &str,
-    p: Precision,
-    name: &str,
-    tol: f64,
-    floor: f64,
-    rule: Real4Rule,
-    reference8: &[Row],
-) -> f64 {
-    let label = if p == Precision::Real4 {
-        "real4"
-    } else {
-        "real8"
-    };
-    let rows = parse(fixture, p);
-    let setup = build_setup(&rows, p);
-    let group: Vec<&Row> = rows
-        .iter()
-        .filter(|r| r.function == name && in_scope(name, &r.args, p))
-        .collect();
-    let group8: Vec<&Row> = reference8
-        .iter()
-        .filter(|r| r.function == name && in_scope(name, &r.args, p))
-        .collect();
-    assert!(
-        !group.is_empty(),
-        "no `{name}` rows in the {label} fixture — regenerate with dev/build_reference.sh"
-    );
-    let mut worst = 0.0_f64;
-    let mut worst_at = String::new();
-    let mut failures = Vec::new();
-    let mut spread_explained = 0usize;
-    for (i, r) in group.iter().enumerate() {
-        let got = evaluate(&setup, name, &r.args)
-            .unwrap_or_else(|| panic!("no evaluator wired for `{name}`"));
-        assert_eq!(got.len(), r.outs.len(), "{name}: output count");
-        for (k, (&g, &w)) in got.iter().zip(&r.outs).enumerate() {
-            let mut ok = agrees(g, w, tol, floor);
-            if !ok && matches!(rule, Real4Rule::PrecisionSpread) && p == Precision::Real4 {
-                let r8 = group8.get(i).expect("real8 row aligned with real4 row");
-                let spread = (r8.outs[k] - w).abs();
-                if (g - w).abs() <= SPREAD_FACTOR * spread {
-                    ok = true;
-                    spread_explained += 1;
-                }
-            }
-            if !ok {
-                failures.push(format!(
-                    "{name}{:?} out[{k}]: port {g:e} vs FLEXPART {w:e}",
-                    r.args
-                ));
-            }
-            if g.is_finite() && w.is_finite() && w != 0.0 && (g - w).abs() > floor {
-                let d = (g - w).abs() / w.abs();
-                if d > worst {
-                    worst = d;
-                    worst_at = format!("{:?} out[{k}]", r.args);
-                }
-            }
-        }
-    }
-    let spread_note = if spread_explained > 0 {
-        format!(", {spread_explained} outputs explained by upstream's real4-vs-real8 spread")
-    } else {
-        String::new()
-    };
-    println!(
-        "{label} {name:<14} {:>4} rows, max_rel_dev = {worst:.3e} (tol {tol:e}, floor {floor:e}){spread_note} {worst_at}",
-        group.len()
-    );
-    assert!(
-        failures.is_empty(),
-        "{label}/{name}: {} disagreements (tol {tol:e}, floor {floor:e}); first: \n{}",
-        failures.len(),
-        failures
-            .iter()
-            .take(8)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
-    worst
+fn ctx() -> &'static Ctx {
+    static C: OnceLock<Ctx> = OnceLock::new();
+    C.get_or_init(|| {
+        // Julian dates are real(kind=dp) at both precisions upstream, and the
+        // driver writes these rows in double precision (`rowvd`).
+        let fx = Fixtures::new(
+            FIXTURE_REAL4,
+            FIXTURE_REAL8,
+            &["juldate", "caldate", "zenithangle"],
+        );
+        let s4 = build_setup(&fx.real4, Precision::Real4);
+        let s8 = build_setup(&fx.real8, Precision::Real8);
+        Ctx { fx, s4, s8 }
+    })
 }
 
 fn check_both(name: &str, tol8: f64, floor8: f64, tol4: f64, floor4: f64) {
@@ -555,24 +406,23 @@ fn check_both(name: &str, tol8: f64, floor8: f64, tol4: f64, floor4: f64) {
 }
 
 fn check_both_rule(name: &str, tol8: f64, floor8: f64, tol4: f64, floor4: f64, rule: Real4Rule) {
-    let r8 = parse(FIXTURE_REAL8, Precision::Real8);
-    check(
-        FIXTURE_REAL8,
-        Precision::Real8,
-        name,
+    let c = ctx();
+    let b = Bounds {
         tol8,
         floor8,
-        Real4Rule::Strict,
-        &r8,
-    );
-    check(
-        FIXTURE_REAL4,
-        Precision::Real4,
-        name,
         tol4,
         floor4,
         rule,
-        &r8,
+    };
+    check_group(
+        &c.fx,
+        name,
+        b,
+        |r: &Row, p| in_scope(name, &r.args, p),
+        |r: &Row, p| {
+            let setup = if p == Precision::Real4 { &c.s4 } else { &c.s8 };
+            evaluate(setup, name, &r.args)
+        },
     );
 }
 
@@ -803,15 +653,15 @@ fn caldate_matches_flexpart() {
 /// noticed, and so the exclusion above can be removed if it does.
 #[test]
 fn caldate_real4_century_leap_day_defect_is_upstreams() {
-    let rows4 = parse(FIXTURE_REAL4, Precision::Real4);
-    let rows8 = parse(FIXTURE_REAL8, Precision::Real8);
+    let rows4 = &ctx().fx.real4;
+    let rows8 = &ctx().fx.real8;
     let pick = |rows: &[Row]| -> f64 {
         rows.iter()
             .find(|r| r.function == "caldate" && r.args[0] == 2_305_507.0)
             .expect("1600-02-29 caldate row")
             .outs[0]
     };
-    assert_eq!(pick(&rows4), 16_010_231.0, "upstream real4 defect changed");
-    assert_eq!(pick(&rows8), 16_000_229.0);
+    assert_eq!(pick(rows4), 16_010_231.0, "upstream real4 defect changed");
+    assert_eq!(pick(rows8), 16_000_229.0);
     assert_eq!(caldate(2_305_507.0).0, 16_000_229);
 }

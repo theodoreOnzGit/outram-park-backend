@@ -20,6 +20,11 @@ petir = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
+# The stochastic FLEXPART comparison (tests/flexpart_stochastic_advance.rs)
+# draws its Gaussian deviates from RAFFLES' seeded Box-Muller sampler on
+# petir's LCG -- the workspace's random source -- instead of any port of
+# FLEXPART's Numerical Recipes generators (gh:#410).
+raffles = { workspace = true }
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # The Gaussian puff field's own thread pool (see `puff::wgsl::pool`) --

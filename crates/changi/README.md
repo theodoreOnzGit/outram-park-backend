@@ -109,14 +109,25 @@ scales and aerosol deposition properties.
 | Profile fluxes, Richardson mixing height, saturation humidity | `pbl_profile.f90`, `richardson.f90`, `qvsat.f90` | yes (2026-10-02) |
 | Solar zenith angle, O(¹D) photolysis, great-circle distance | `zenithangle.f90`, `photo_O1D.f90`, `distance*.f90` | yes (2026-10-02) |
 | Calendar | `juldate.f90`, `caldate.f90` (day count re-derived, not translated: NR provenance) | yes (2026-10-02) |
+| Met interpolation (+ nests, polar grids) | `interpol_*.f90` | yes (2026-10-02) |
+| The particle step: Langevin, CBL, reflection, Petterssen, mesoscale | `advance.f90`, `initialize.f90`, `initialize_cbl_vel.f90`, `re_initialize_particle.f90`, `get_vdep_prob.f90` | yes (2026-10-02); also checked statistically against FLEXPART's own random numbers |
+| Map projections, release coordinates | `cmapf_mod.f90`, `coordtrafo.f90` | yes (2026-10-02) |
+| Surface/PBL parameters, potential vorticity | `calcpar*.f90`, `calcpv*.f90` | yes (2026-10-02) |
+| Wet scavenging and deposition | `interpol_rain*.f90`, `get_wetscav.f90`, `wetdepo.f90`, `wetdepokernel*.f90` | yes (2026-10-02) |
+| OH chemistry, landuse | `gethourlyOH.f90`, `ohreaction.f90`, `assignland.f90` | yes (2026-10-02) |
+| Concentration/deposition gridding, plume statistics | `conccalc.f90`, `drydepokernel*.f90`, `centerofmass.f90`, `clustering.f90`, `plumetraj.f90`, `mean_mod.f90`, `partpos_average.f90` | yes (2026-10-02) |
+| Emanuel convection and convective mixing | `convect43c.f90`, `calcmatrix.f90`, `redist.f90`, `convmix.f90` | yes (2026-10-02) |
 
 **Not ported**, which is still most of the *model*: ~~the Hanna turbulence
 parameterisation, the convective boundary-layer scheme, the Richardson
 mixing-height diagnostic~~ (**CORRECTED 2026-10-02**: those are ported and
-verified, above). Not yet ported: the particle advection loop (`advance.f90`),
+verified, above). ~~Not yet ported: the particle advection loop (`advance.f90`),
 the meteorological interpolation, wet scavenging, the GRIB/NetCDF readers, the
-output grids and the OH reaction. This is a verified set of kernels, not
-"FLEXPART in Rust".
+output grids and the OH reaction.~~ **CORRECTED 2026-10-02**: all of those
+except the readers are now ported and verified, above. Not yet ported: the
+GRIB/NetCDF readers and file writers, `verttransform_*`, particle release and
+domain filling, the output-grid set-up and `concoutput*` conversion, and
+`timemanager`. This is a verified set of kernels, not "FLEXPART in Rust".
 
 ### 2. `puff` — the Gaussian puff forward model
 
@@ -208,8 +219,10 @@ Every reference value comes from **compiling and running the upstream FLEXPART
 Fortran itself**, at two precisions. Full methodology, results and analysis:
 [`docs/flexpart-code-to-code.md`](docs/flexpart-code-to-code.md).
 
-Headline: against a `-fdefault-real-8` build of the same routines, **13 of 14
-function groups agree bit-exactly** (the fourteenth by one ulp). Against
+Headline: against a `-fdefault-real-8` build of the same routines, ~~**13 of 14
+function groups agree bit-exactly** (the fourteenth by one ulp)~~ **all 14
+function groups agree bit-exactly** (**CORRECTED 2026-10-02**: the one-ulp
+group was an operator-association defect in the port's `obukhov`, now fixed). Against
 FLEXPART as it actually ships — which is single precision, since its makefile
 passes no `-fdefault-real-8` — agreement is 5e-8 to 3.4e-6, which is upstream's
 own precision rather than any translation error. Every currently-ported

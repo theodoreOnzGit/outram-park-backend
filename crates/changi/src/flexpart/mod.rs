@@ -41,14 +41,29 @@
 //! | [`solar`] | `zenithangle.f90`, `photo_O1D.f90` | Solar zenith angle, O(¹D) photolysis |
 //! | [`geodesy`] | `distance.f90`, `distance2.f90` | Great-circle distance |
 //! | [`calendar`] | `juldate.f90`, `caldate.f90` | Julian date (day count re-derived; NR provenance) |
+//! | [`interpolation`] | `interpol_*.f90` (+ `_nests`) | Met fields at a particle |
+//! | [`advance`] | `advance.f90`, `initialize.f90`, `get_vdep_prob.f90` | The Lagrangian particle step |
+//! | [`cmapf`] | `cmapf_mod.f90` | Map projections (polar stereographic, Lambert) |
+//! | [`coordtrafo`] | `coordtrafo.f90` | Release-point coordinates |
+//! | [`met_fields`] | `calcpar*.f90`, `calcpv*.f90` | Surface/PBL parameters, potential vorticity |
+//! | [`wet_deposition`] | `interpol_rain*.f90`, `get_wetscav.f90`, `wetdepo.f90`, `wetdepokernel*.f90` | Wet scavenging |
+//! | [`oh_chemistry`] | `gethourlyOH.f90`, `ohreaction.f90` | OH reaction |
+//! | [`landuse`] | `assignland.f90` | Landuse assignment |
+//! | [`concentration`] | `conccalc.f90`, `drydepokernel*.f90` | Concentration and deposition gridding |
+//! | [`plume_trajectory`] | `centerofmass.f90`, `clustering.f90`, `plumetraj.f90`, `mean_mod.f90` | Plume statistics |
+//! | [`particle_average`] | `partpos_average.f90` | Particle-position averages |
+//! | [`convection`] | `convect43c.f90` | Emanuel convection |
+//! | [`convmix`] | `calcmatrix.f90`, `redist.f90`, `convmix.f90` | Convective redistribution |
 //!
 //! ## What is NOT ported
 //!
-//! The particle advection loop (`advance.f90`), the meteorological
-//! interpolation, wet scavenging (`wetdepo.f90`, `get_wetscav.f90`), the
-//! GRIB/NetCDF meteorological readers, the output grids, and the OH reaction.
-//! (**CORRECTED 2026-10-02**: the Hanna turbulence, `cbl.f90` and the
-//! Richardson mixing height were listed here and are now ported and verified.)
+//! ~~The particle advection loop (`advance.f90`), the meteorological
+//! interpolation, wet scavenging, the output grids, and the OH reaction.~~
+//! **CORRECTED 2026-10-02**: all of those, and the Hanna turbulence, `cbl.f90`
+//! and the Richardson mixing height, are ported and verified (gh:#410). Still
+//! not ported: the GRIB/NetCDF readers and file writers, `verttransform_*`,
+//! particle release and domain filling, the output-grid set-up and
+//! `concoutput*` conversion, and `timemanager`.
 //! Do not read this module as "FLEXPART in Rust": it is a verified set of its
 //! kernels.
 //!
@@ -67,15 +82,28 @@
 //! Research, education and verification/validation only. See the crate-level
 //! documentation for the scope limits, which are binding.
 
+pub mod advance;
 pub mod aerosol;
 pub mod boundary_layer;
 pub mod calendar;
 pub mod cbl;
+pub mod cmapf;
+pub mod concentration;
 pub mod constants;
+pub mod convection;
+pub mod convmix;
+pub mod coordtrafo;
 pub mod decay;
 pub mod dry_deposition;
 pub mod geodesy;
-pub mod surface_layer;
+pub mod interpolation;
+pub mod landuse;
+pub mod met_fields;
+pub mod oh_chemistry;
+pub mod particle_average;
+pub mod plume_trajectory;
 pub mod solar;
+pub mod surface_layer;
 pub mod thermo;
 pub mod turbulence;
+pub mod wet_deposition;

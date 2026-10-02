@@ -4,7 +4,8 @@
 // --------------------------
 // Upstream project : FLEXPART (NILU) — https://github.com/flexpart/flexpart
 // Upstream version : 10.4 (2019-11-12), commit 3d7eebf
-// Upstream source  : src/cbl.f90 (subroutine cbl, function cuberoot)
+// Upstream source  : src/cbl.f90 (subroutine cbl, function cuberoot),
+//                    src/re_initialize_particle.f90, src/initialize_cbl_vel.f90
 // Original licence : GPL-3.0-or-later — SPDX-FileCopyrightText: FLEXPART 1998-2019
 //                    (cbl.f90: Luca Mortarini, Massimo Cassiani)
 // Ported into this GPL-3.0 work; see LICENSE.flexpart and NOTICE.flexpart.
@@ -248,4 +249,118 @@ pub fn cbl(
         bth,
         reinitialise,
     }
+}
+
+/// The bi-Gaussian closure shared verbatim by `re_initialize_particle.f90`
+/// and `initialize_cbl_vel.f90`: `(aluarw, sigmawa, sigmawb, wa, wb)`.
+///
+/// Unlike [`cbl`], these two routines take the cube root as
+/// `skew**0.333333333333333` (a real power, NaN for negative skewness, which
+/// the `+eps` term prevents) and `xluarw` as `rluarw**0.5`.
+fn bigaussian(zp: f64, wst: f64, h: f64, sigmaw: f64, ol: f64) -> (f64, f64, f64, f64, f64) {
+    let z = zp / h;
+    let mut transition = 1.0;
+    if -h / ol < 15.0 {
+        transition = ((-h / ol + 10.0) / 10.0 * PI).sin() / 2.0 + 0.5;
+    }
+    let w2 = sigmaw * sigmaw;
+    let w3 = (1.2 * z * (1.0 - z).powf(1.5) + EPS) * (wst * wst * wst) * transition;
+    let skew = w3 / w2.powf(1.5);
+    let skew2 = skew * skew;
+    let radw2 = w2.sqrt();
+    #[allow(clippy::excessive_precision)]
+    let fluarw = COSTLUAR4 * skew.powf(0.333_333_333_333_333);
+    let fluarw2 = fluarw * fluarw;
+    let p3 = 3.0 + fluarw2;
+    let rluarw = (1.0 + fluarw2).powf(3.0) * skew2 / (p3 * p3 * fluarw2);
+    let xluarw = rluarw.powf(0.5);
+    let aluarw = 0.5 * (1.0 - xluarw / (4.0 + rluarw).powf(0.5));
+    let bluarw = 1.0 - aluarw;
+    let sigmawa = radw2 * (bluarw / (aluarw * (1.0 + fluarw2))).powf(0.5);
+    let sigmawb = radw2 * (aluarw / (bluarw * (1.0 + fluarw2))).powf(0.5);
+    let wa = fluarw * sigmawa;
+    let wb = fluarw * sigmawb;
+    (aluarw, sigmawa, sigmawb, wa, wb)
+}
+
+/// `initialize_cbl_vel.f90`: initial vertical velocity of a particle in the
+/// skewed CBL, m/s.
+///
+/// Upstream draws `dcas = ran3(idum)` (uniform) to pick the updraft or
+/// downdraft mode and `dcas1 = gasdev(idum)` (Gaussian) within it; both are
+/// Numerical Recipes and are taken here as inputs.
+#[allow(clippy::too_many_arguments)]
+#[must_use]
+pub fn initialize_cbl_vel(
+    zp: f64,
+    _ust: f64,
+    wst: f64,
+    h: f64,
+    sigmaw: f64,
+    ol: f64,
+    time_direction: f64,
+    dcas: f64,
+    dcas1: f64,
+) -> f64 {
+    let (aluarw, sigmawa, sigmawb, wa, wb) = bigaussian(zp, wst, h, sigmaw, ol);
+    if dcas <= aluarw {
+        time_direction * (dcas1 * sigmawa + wa)
+    } else {
+        time_direction * (dcas1 * sigmawb - wb)
+    }
+}
+
+/// `re_initialize_particle.f90`: redraw the vertical velocity of a particle
+/// that [`cbl`] flagged as too far in the tails, keeping its direction.
+///
+/// Draws `rannumb(nrand+1)`, `rannumb(nrand+2)`, ... until the velocity has the
+/// sign of the particle's mode, advancing `nrand` (1-based) past every draw it
+/// consumes, exactly as upstream does.
+///
+/// # Returns
+/// `None` if it runs off the end of `rannumb`; upstream would read out of
+/// bounds.
+#[allow(clippy::too_many_arguments)]
+pub fn re_initialize_particle(
+    zp: f64,
+    _ust: f64,
+    wst: f64,
+    h: f64,
+    sigmaw: f64,
+    wp: &mut f64,
+    nrand: &mut usize,
+    ol: f64,
+    time_direction: f64,
+    rannumb: &[f64],
+) -> Option<()> {
+    let draw = |n: usize| rannumb.get(n.checked_sub(1)?).copied();
+    *nrand += 1;
+    let mut dcas1 = draw(*nrand)?;
+    let timedir = time_direction;
+    let (_, sigmawa, sigmawb, wa, wb) = bigaussian(zp, wst, h, sigmaw, ol);
+    let s = 1.0_f64.copysign(*wp) * timedir;
+    if s > 0.0 {
+        loop {
+            *wp = dcas1 * sigmawa + wa;
+            if *wp < 0.0 {
+                *nrand += 1;
+                dcas1 = draw(*nrand)?;
+            } else {
+                break;
+            }
+        }
+        *wp *= timedir;
+    } else if s < 0.0 {
+        loop {
+            *wp = dcas1 * sigmawb - wb;
+            if *wp > 0.0 {
+                *nrand += 1;
+                dcas1 = draw(*nrand)?;
+            } else {
+                break;
+            }
+        }
+        *wp *= timedir;
+    }
+    Some(())
 }
