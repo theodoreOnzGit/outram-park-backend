@@ -292,7 +292,11 @@ pub fn output_orography(
                     let (xs, ys, field) = match ngrid {
                         Some(j) => {
                             let f = &nests[j].frame;
-                            ((xl - f.xl) * f.xresol, (yl - f.yl) * f.yresol, &nests[j].oron)
+                            (
+                                (xl - f.xl) * f.xresol,
+                                (yl - f.yl) * f.yresol,
+                                &nests[j].oron,
+                            )
                         }
                         None => (xl, yl, oro),
                     };

@@ -396,6 +396,7 @@ Local stand-ins, none of which changes a routine under test:
 | `cmapf` | all 18 routines of `cmapf_mod`, `coordtrafo` | 10 491 | **bit-exact** |
 | 5 output | `conccalc`, `drydepokernel`(+nest), `centerofmass`, `clustering`, `mean`, `plumetraj`, `partpos_average` | 3 063 | **bit-exact**; `plumetraj` only to its print format |
 | 6 convection | `convect43c` (CONVECT, TLIFT), `calcmatrix`, `redist`, `convmix` | 2 234 | **bit-exact**, 22 788 outputs |
+| outgrid | `outgrid_init`(+nest), `calcfluxes`, `fluxoutput` (numbers read back from the file upstream writes), `initial_cond_calc` | 4 896 | **bit-exact** (tolerance 0) |
 
 The one translation defect these stages found was in an **earlier** stage. It
 was `obukhov`'s `theta*ustar**2`, worked out above under Results, and stage 3's
@@ -454,6 +455,11 @@ Real(8) covers every excluded row bit for bit.
   pressure.
 - **`ohreaction` indexes the wrong `tt`.** It uses `n` rather than
   `memind(n)`.
+- **`calcfluxes` drops every flux across the cyclic boundary.** It writes
+  `(real(nxmin1)-1.e5)` where `1.e-5` is evidently meant, so `ixs` always lies
+  off the grid. Upstream records none of the 21 wrapping steps in the fixture.
+- **`outgrid_init` zeroes only `flux(1:5,...)`**, so the downward component
+  starts uninitialised.
 - **The shipped `real(4)` `caldate` and the 1600 leap day.** It returns
   `16010231` for 1600-02-29.
 
@@ -555,10 +561,11 @@ Not covered, and tracked in GitHub issue #410:
   **CORRECTED 2026-10-02** — ported and verified (stages 2, 3, 5);
 - still not ported: the GRIB/NetCDF readers and file writers (I/O, not
   numerics), `verttransform_*`, release and domain filling
-  (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`),
-  `outgrid_init*`, `initial_cond_calc`, `calcfluxes`/`fluxoutput`, the
+  (`releaseparticles`, `init_domainfill`, `boundcond_domainfill`), the
   `concoutput*` unit conversion and `timemanager`'s per-step bookkeeping
-  (gh:#410 wave 2).
+  (gh:#410 wave 2). (`outgrid_init*`, `initial_cond_calc` and
+  `calcfluxes`/`fluxoutput` were listed here; **CORRECTED 2026-10-02**: they
+  are ported and verified, see the stages table.)
 
 **Radioactive decay's fixture gap is closed (2026-09-15).** It was the one
 ported module checked only against hand-copied upstream *expressions* rather

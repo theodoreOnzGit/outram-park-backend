@@ -454,8 +454,9 @@ contains
   ! The synthetic flux field of fluxoutput call 2 (rebuilt by the Rust test).
   ! (k=1, nage=1): all cells positive -> dense; (k=2, nage=1): 30 positive
   ! cells in each release point -> 60 >= 48 summed -> dense although each
-  ! release point alone would be sparse; (k=1, nage=2): 20 cells in release
-  ! point 1 only -> sparse; (k=2, nage=2): about half the cells, some
+  ! release point alone would be sparse; (k=1, nage=2): 44 cells in release
+  ! point 1 only -> sparse, but only just (4*44 = 176 < 192 <= 5*44);
+  ! (k=2, nage=2): about half the cells, some
   ! negative (sparse lists skip them, dense dumps keep them) -> dense.
   subroutine synth_flux(i, ix, jy, kz, k, kp, na)
     integer, intent(in) :: i, ix, jy, kz, k, kp, na
@@ -466,7 +467,7 @@ contains
     else if (k == 2 .and. na == 1) then
       if (mod(lin*5 + i, 192) < 30) flux(i,ix,jy,kz,k,kp,na) = 0.5*real(1 + mod(lin + i, 5))
     else if (k == 1 .and. na == 2) then
-      if (kp == 1 .and. mod(lin*11 + i, 192) < 20) flux(i,ix,jy,kz,k,kp,na) = 2.*real(1 + mod(lin, 3))
+      if (kp == 1 .and. mod(lin*11 + i, 192) < 44) flux(i,ix,jy,kz,k,kp,na) = 2.*real(1 + mod(lin, 3))
     else
       if (mod(lin + i, 2) == 0) flux(i,ix,jy,kz,k,kp,na) = 0.125*real(mod(lin*3 + i, 9) - 2)
     end if
@@ -598,12 +599,12 @@ contains
   ! linit_cond 1 (density) and 2 (rhoi = 1); memind(2) = 2 and 1; the
   ! ioutputforeachrelease / mdomainfill combinations; the half-cell edge
   ! strips on all four sides; -1 < xl < 0 and xl = -1 exactly (the int()-1
-  ! floor correction); ddx, ddy above, below and exactly at 0.5; kernel
+  ! floor correction); ddx, ddy exactly at 0.5 and at 0.5 -+ 1/64; kernel
   ! corners falling off the grid; heights in every level and between the top
   ! output level (6000 m) and the top model level (8000 m), which the density
   ! branch accepts but the output grid does not.
   subroutine emit_initial_cond()
-    integer, parameter :: nhand = 12, ngen = 120
+    integer, parameter :: nhand = 14, ngen = 120
     double precision :: pt(12, nhand + ngen), pa(14), po(1)
     integer :: ix, jy, k, m, c, ncall, nnz, itime
     real :: o(1)
@@ -652,6 +653,9 @@ contains
     pt(:,10) = (/ 11.25d0, 2.125d0, 450.d0, 1.d0, 1.d0, 1.d0, 2.d0, 2.d0, 2.d0, 900.d0, 0.d0, 0.d0 /) ! not at itime
     pt(:,11) = (/ 6.25d0, 1.875d0, 1600.d0, 3.d0, 0.25d0, 1.d0, 2.d0, 2.d0, 2.d0, 0.d0, 0.d0, 0.d0 /)
     pt(:,12) = (/ 12.75d0, 2.625d0, 5999.d0, 0.5d0, 4.d0, 1.d0, 1.d0, 3.d0, 1.d0, 0.d0, 0.d0, 0.d0 /)
+    ! just either side of the kernel switch: ddx = 31/64, ddy = 33/64 and the reverse
+    pt(:,13) = (/ 8.96875d0, 1.7578125d0, 700.d0, 1.d0, 2.d0, 1.d0, 2.d0, 1.d0, 1.d0, 0.d0, 0.d0, 0.d0 /)
+    pt(:,14) = (/ 10.03125d0, 2.2421875d0, 200.d0, 2.d0, 1.d0, 2.d0, 1.d0, 2.d0, 2.d0, 0.d0, 0.d0, 0.d0 /)
     do c = nhand + 1, nhand + ngen
       pt(1, c) = 1.5d0 + dble(draw(481))/32.d0      ! xl in -1.25 .. 6.25
       pt(2, c) = 0.375d0 + dble(draw(113))/32.d0    ! yl in -1.25 .. 5.75

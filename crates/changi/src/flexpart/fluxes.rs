@@ -217,7 +217,10 @@ pub enum FluxError {
 /// First 1-based `kz` with `levels(kz) > z`, or `levels.len() + 1` (the
 /// Fortran loop variable on exit).
 fn level_above(levels: &[f64], z: f64) -> usize {
-    levels.iter().position(|&h| h > z).map_or(levels.len() + 1, |k| k + 1)
+    levels
+        .iter()
+        .position(|&h| h > z)
+        .map_or(levels.len() + 1, |k| k + 1)
 }
 
 /// `calcfluxes.f90`: add one particle step's mass `xmass` (kg per species,
@@ -226,6 +229,8 @@ fn level_above(levels: &[f64], z: f64) -> usize {
 /// # Errors
 ///
 /// [`FluxError::IndexOutsideGrid`] before anything is modified.
+// `x <= n - 1` mirrors upstream's `x.le.numxgrid-1`.
+#[allow(clippy::int_plus_one)]
 pub fn calcfluxes(
     step: &ParticleStep,
     xmass: &[f64],
@@ -258,14 +263,22 @@ pub fn calcfluxes(
     if ixave >= 0 && jyave >= 0 && ixave <= nxg - 1 && jyave <= nyg - 1 {
         let k1 = nzg.min(level_above(&set.outheighthalf, zold));
         let k2 = nzg.min(level_above(&set.outheighthalf, znew));
-        for k in 0..nspec {
+        for (k, &m) in xmass.iter().enumerate() {
             for kz in k1..k2 {
                 let i = flux.index(UPWARD, ixave as usize, jyave as usize, kz - 1, k, kp, nage);
-                flux.values[i] += xmass[k];
+                flux.values[i] += m;
             }
             for kz in k2..k1 {
-                let i = flux.index(DOWNWARD, ixave as usize, jyave as usize, kz - 1, k, kp, nage);
-                flux.values[i] += xmass[k];
+                let i = flux.index(
+                    DOWNWARD,
+                    ixave as usize,
+                    jyave as usize,
+                    kz - 1,
+                    k,
+                    kp,
+                    nage,
+                );
+                flux.values[i] += m;
             }
         }
     }
@@ -404,7 +417,9 @@ pub fn fluxoutput(
     flux: &mut FluxGrid,
 ) -> FluxOutput {
     assert!(
-        geometry.numxgrid == flux.nx && geometry.numygrid == flux.ny && geometry.numzgrid == flux.nz,
+        geometry.numxgrid == flux.nx
+            && geometry.numygrid == flux.ny
+            && geometry.numzgrid == flux.nz,
         "flux grid and cell geometry differ in size"
     );
     let jul = bdate + itime as f64 / 86400.0;
@@ -551,7 +566,10 @@ mod tests {
         // ix1 = int(1.75) = 1, ix2 = int(4.25) = 4: columns 1, 2, 3.
         assert_eq!(total, 6.0);
         for ix in 1..4 {
-            assert_eq!(flux.values[flux.index(WEST_TO_EAST, ix, 3, 0, 0, 0, 0)], 2.0);
+            assert_eq!(
+                flux.values[flux.index(WEST_TO_EAST, ix, 3, 0, 0, 0, 0)],
+                2.0
+            );
         }
     }
 }

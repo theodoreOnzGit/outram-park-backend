@@ -50,6 +50,9 @@
 //! * Any `linit_cond` other than 1 or 2 leaves `rhoi` undefined; it cannot be
 //!   expressed through [`InitCondUnit`].
 //! * A tie `ddx = 0.5` takes the `else` side (`ixp = ix - 1`, `wx = 1`).
+//!   The neighbour's weight `1 - wx` is then 0 on either side of the switch,
+//!   so the tie cannot be seen in the result (a mutation moving it is an
+//!   equivalent mutant); it is reproduced for fidelity only.
 //! * The kernel branch tests the `ix` column before the `ixp` column and adds
 //!   the corners in the order `(ix,jy)`, `(ix,jyp)`, `(ixp,jyp)`, `(ixp,jy)`.
 //!   They are distinct cells, so the order does not change any sum.
@@ -132,6 +135,8 @@ pub enum InitCondError {
 /// # Errors
 ///
 /// See [`InitCondError`].
+// `x <= n - 1` mirrors upstream's `x.le.numxgrid-1`.
+#[allow(clippy::int_plus_one)]
 pub fn initial_cond_calc(
     itime: i64,
     particle: &InitCondParticle,
