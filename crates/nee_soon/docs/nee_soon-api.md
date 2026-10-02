@@ -12435,6 +12435,752 @@ warm-to-cool sequence from the kernel out and the graphites stay grey/brown.
 pub fn palette() -> Vec<(outram_mc_libs::geometry::plot::Rgb, &'static str)> { /* ... */ }
 ```
 
+## Module `keff_vs_height`
+
+**HTR-10 `k_eff` against loading height: the shared run machinery and
+the record it writes** (gh:#501, 2026-10-02).
+
+Orchestration only — no physics is implemented here. One HTR-10 core
+(Şeker & Çolak 2003's 13-ball bed, `N` layers, gh:#472) is transported
+with `outram_mc_libs`' hybrid delta/surface tracker, and the result is
+compared with Li, Yu & Wei (2014)'s RMC curve and the paper's two MCNP
+columns, each read at the height where Şeker's model holds as many balls
+as the built bed ([`super::seker_height_for_balls`]).
+
+Before this module, every HTR-10 example carried its own copy of the
+majorant grid, the fissile source box, the entropy mesh and the reference
+interpolation. Those copies now call:
+
+- [`bed_majorant`] — the region-local majorant over the bed's materials;
+- [`fissile_source_box`] / [`fissile_entropy_mesh`] — both span the WHOLE
+  fissile region, conus floor included (a mesh blind to part of the core
+  reports convergence of the part it can see);
+- [`run_core`] — one k-eigenvalue run with a pinned thread count, returned
+  as a [`HeightPoint`] plus the raw [`KeffResult`];
+- [`script`] — the deterministic standalone matplotlib script, the
+  markdown results table and the reconstruction parameters.
+
+The reference curves are taken from [`super::RMC_KEFF_VS_HEIGHT`],
+[`super::MCNP_TABLE3_KEFF_VS_HEIGHT`] and
+[`super::MCNP_TABLE4_KEFF_VS_HEIGHT`] directly, never retyped.
+
+Heights cross the public API as `uom` [`Length`]s; `k_eff` and its
+standard deviation are dimensionless `f64`.
+
+```rust
+pub mod keff_vs_height { /* ... */ }
+```
+
+### Modules
+
+## Module `script`
+
+**The k-vs-height record: a standalone matplotlib script, a markdown
+results table, and a reconstruction block** (gh:#501).
+
+Like `outram_mc_libs::geometry::plot::ModelPlot` and
+[`Htr10Plotter::script`](crate::htr10_rmc::plots::Htr10Plotter::script),
+the figure is not drawn in Rust: [`plot_script`] writes a Python script
+that needs only matplotlib, with **every number embedded**, so the figure
+can be redrawn or restyled years later without the run.
+
+**Deterministic.** [`plot_script`] is a pure function of the points and
+the [`SweepProvenance`]; every float is printed at a fixed precision, and
+no timing goes into it. The same run gives a byte-identical script.
+Timings live in [`results_table_md`], next to the hardware they were
+measured on.
+
+**Style** (maintainer convention, 2026-10-01): published curves are THICK
+SOLID lines; this project's calculation is markers with ±1σ bars joined by
+a thin dotted line ("guesses"); horizontal guides (k = 1, 0 pcm, the
+±500/±1000 pcm band edges) are dashed. Every series names its source in
+the legend, and the footer carries the key.
+
+```rust
+pub mod script { /* ... */ }
+```
+
+### Types
+
+#### Struct `SweepProvenance`
+
+Who ran what, where: everything the footer and the parameters block need
+that is not a result. Supplied by the caller (an example reads the git
+commit and the host); kept here as plain strings so the emitters stay
+pure.
+
+```rust
+pub struct SweepProvenance {
+    pub example: String,
+    pub library: String,
+    pub statistics: super::SweepStatistics,
+    pub threads: usize,
+    pub commit: String,
+    pub ace_commit: String,
+    pub host: String,
+    pub cpu_affinity: String,
+    pub model_notes: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `example` | `String` | The example that produced the run, e.g. `htr10_endf8_kvsh_quick`. |
+| `library` | `String` | Library label, e.g. `ENDF/B-VIII.0`. |
+| `statistics` | `super::SweepStatistics` | The transport statistics. |
+| `threads` | `usize` | Pinned transport threads per run. |
+| `commit` | `String` | Workspace commit the binary was built from (`-dirty` if the tracked<br>tree differed from it). |
+| `ace_commit` | `String` | Commit of the `reference-data/ace` submodule. |
+| `host` | `String` | Hardware headline (CPU model, cores, RAM, OS). |
+| `cpu_affinity` | `String` | CPUs the process was allowed to run on (`Cpus_allowed_list`). |
+| `model_notes` | `Vec<String>` | Model and data configuration, one line each, as the run printed it. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SweepProvenance { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SweepProvenance) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `plot_script`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The standalone matplotlib script. Usage of the result:
+`python3 <script> [out.png]` (default: the script's own name with `.png`).
+
+Draws three panels sharing the height axis: `k_eff` with RMC and both MCNP
+columns; `k − RMC` \[pcm\]; `k − MCNP T3` and `k − MCNP T4` \[pcm\]; each
+residual with this model's within-run 1σ (the references quote none).
+
+```rust
+pub fn plot_script(points: &[super::HeightPoint], prov: &SweepProvenance) -> String { /* ... */ }
+```
+
+#### Function `results_table_md`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The markdown results table: one row per height, then a summary of the
+residuals against each reference, then a timing table with the hardware.
+
+```rust
+pub fn results_table_md(points: &[super::HeightPoint], prov: &SweepProvenance) -> String { /* ... */ }
+```
+
+#### Function `run_parameters_md`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The reconstruction block: everything needed to rebuild the run.
+
+```rust
+pub fn run_parameters_md(prov: &SweepProvenance, layers: &[usize]) -> String { /* ... */ }
+```
+
+### Types
+
+#### Struct `SweepStatistics`
+
+Particles per cycle, cycles and seed of one sweep. Fixed per example: the
+committed source is the specification of the run.
+
+```rust
+pub struct SweepStatistics {
+    pub name: &'static str,
+    pub particles: usize,
+    pub inactive: usize,
+    pub active: usize,
+    pub seed: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` | Short name, used in file names and the plot title. |
+| `particles` | `usize` | Particles per cycle. |
+| `inactive` | `usize` | Inactive (discarded) cycles. |
+| `active` | `usize` | Active cycles. |
+| `seed` | `u64` | RNG seed (one seed per point). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cycles(self: &Self) -> usize { /* ... */ }
+  ```
+  Total cycles.
+
+- ```rust
+  pub fn planned_histories(self: &Self) -> u64 { /* ... */ }
+  ```
+  Histories the run should simulate, inactive cycles included.
+
+- ```rust
+  pub fn keff_settings(self: &Self, threads: usize) -> KeffSettings { /* ... */ }
+  ```
+  The transport settings for this sweep on `threads` pinned threads.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SweepStatistics { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SweepStatistics) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HeightPoint`
+
+One height of a sweep: the built core, its result, and the three
+reference values at equal ball count.
+
+```rust
+pub struct HeightPoint {
+    pub layers: usize,
+    pub balls: Option<usize>,
+    pub built_height: uom::si::f64::Length,
+    pub reference_height: uom::si::f64::Length,
+    pub k: f64,
+    pub sigma: f64,
+    pub rmc: Option<f64>,
+    pub mcnp_t3: Option<f64>,
+    pub mcnp_t4: Option<f64>,
+    pub histories: u64,
+    pub lost_locate: u64,
+    pub entropy_first_last: Option<(f64, f64)>,
+    pub transport_time: uom::si::f64::Time,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `layers` | `usize` | Şeker layers N. |
+| `balls` | `Option<usize>` | Balls in the built bed (`None` only for a bed that does not count them;<br>Şeker's bed always does). |
+| `built_height` | `uom::si::f64::Length` | Built bed height, `2 × bed_half_height` (`9.798 N + 6` cm). |
+| `reference_height` | `uom::si::f64::Length` | Height at which Şeker's model holds `balls` balls; every reference is<br>read here (gh:#472). Equal to `built_height` if `balls` is `None`. |
+| `k` | `f64` | `k_eff`, mean over active cycles. |
+| `sigma` | `f64` | Within-run 1σ of `k` (single seed; seed-to-seed scatter is not in it). |
+| `rmc` | `Option<f64>` | RMC (Li, Yu & Wei 2014) at `reference_height`; `None` outside its table. |
+| `mcnp_t3` | `Option<f64>` | MCNP Table 3 (Şeker vacuum column) at `reference_height`; gauge only. |
+| `mcnp_t4` | `Option<f64>` | MCNP Table 4 (Şeker helium column) at `reference_height`; gauge only. |
+| `histories` | `u64` | Histories simulated, inactive cycles included. |
+| `lost_locate` | `u64` | Histories whose position could not be located in any cell. |
+| `entropy_first_last` | `Option<(f64, f64)>` | Shannon entropy \[bits\] of the first and last cycle's source. |
+| `transport_time` | `uom::si::f64::Time` | Wall-clock time of the transport call alone. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn built_height_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Built height in cm.
+
+- ```rust
+  pub fn reference_height_cm(self: &Self) -> f64 { /* ... */ }
+  ```
+  Reference height in cm.
+
+- ```rust
+  pub fn residual_pcm(self: &Self, reference: Option<f64>) -> Option<f64> { /* ... */ }
+  ```
+  `(k − reference) × 1e5` \[pcm\], or `None` when there is no reference.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HeightPoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HeightPoint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `majorant_energy_grid`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The 4096-point log energy grid, 1e-4 eV to 20 MeV, on which the bed
+majorant is tabulated.
+
+```rust
+pub fn majorant_energy_grid() -> Vec<f64> { /* ... */ }
+```
+
+#### Function `bed_majorant`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The region-local majorant over the BED's materials (pebble layers and
+coolant, `0..=mat::HELIUM`), with a 0.3 safety margin. The reflector is
+surface-tracked, so it must not raise the bed's tracking cost. It depends
+on the materials only, so a sweep builds it once for every height.
+
+```rust
+pub fn bed_majorant(mats: &[outram_mc_libs::material::material::Material], nucs: &[outram_mc_libs::material::nuclide::Nuclide]) -> outram_mc_libs::pebble_beds::delta_tracking::Majorant { /* ... */ }
+```
+
+#### Function `fissile_source_box`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The initial-source box: the whole fissile region, from the conus floor
+to the bed top, full bed radius.
+
+```rust
+pub fn fissile_source_box(core: &super::core_model::AssembledCore) -> outram_mc_libs::physics::transport_csg::SourceBox { /* ... */ }
+```
+
+#### Function `fissile_entropy_mesh`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The 4 × 4 × 4 Shannon-entropy mesh over the same region as
+[`fissile_source_box`]. Its ceiling is 6 bits.
+
+```rust
+pub fn fissile_entropy_mesh(core: &super::core_model::AssembledCore) -> outram_mc_libs::tally::mesh::RegularMesh { /* ... */ }
+```
+
+#### Function `run_core`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Transport one assembled core and compare it with the references.
+
+`layers` is the Şeker layer count the core was built with (it is
+recorded, not used to build). The majorant is the caller's, built once by
+[`bed_majorant`]; the source box and entropy mesh come from the core.
+
+```rust
+pub fn run_core(layers: usize, core: &super::core_model::AssembledCore, mats: &[outram_mc_libs::material::material::Material], nucs: &[outram_mc_libs::material::nuclide::Nuclide], majorant: &outram_mc_libs::pebble_beds::delta_tracking::Majorant, stats: &SweepStatistics, threads: usize) -> (HeightPoint, outram_mc_libs::physics::keff::KeffResult) { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `TEMPERATURE_K`
+
+Temperature \[K\] of every material, 27 °C, as Li, Yu & Wei (2014) and
+Şeker & Çolak (2003) state.
+
+```rust
+pub const TEMPERATURE_K: f64 = 300.15;
+```
+
+#### Constant `RINGS`
+
+Radial ring count of the full-radius bed (the bed radius is always the
+physical 90 cm; the ring count is a floor on the tiling).
+
+```rust
+pub const RINGS: usize = 14;
+```
+
+#### Constant `SWEEP_LAYERS`
+
+The Şeker layer counts a k-vs-height sweep runs: N = 10 … 20.
+
+N = 9 (94.182 cm) is not run: at equal ball count it reads the reference
+at 92.9 cm, below RMC's lowest tabulated point, so there is nothing to
+compare with short of extrapolating.
+
+```rust
+pub const SWEEP_LAYERS: [usize; 11] = _;
+```
+
 ## Module `table1`
 
 ```rust
@@ -12720,6 +13466,27 @@ extrapolation). This is the comparison point for a whole-ball model; see
 
 ```rust
 pub fn rmc_keff_at_ball_count(balls: usize) -> Option<f64> { /* ... */ }
+```
+
+#### Function `keff_curve_at_height`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+A tabulated `(height_cm, k_eff)` curve — [`RMC_KEFF_VS_HEIGHT`],
+[`MCNP_TABLE3_KEFF_VS_HEIGHT`] or [`MCNP_TABLE4_KEFF_VS_HEIGHT`] — read at
+`h_cm`, linear between rows. `None` outside the tabulated range (1e-6 cm
+tolerance at the ends): past the ends the curves flatten and a linear
+extension would invent reactivity, so nothing is extrapolated.
+
+The one interpolation every HTR-10 comparison uses (added 2026-10-02,
+gh:#501, replacing per-example copies). Read a curve at the height where
+Şeker's model holds the built bed's ball count
+([`seker_height_for_balls`]), not at the built height (gh:#472).
+
+```rust
+pub fn keff_curve_at_height(curve: &[(f64, f64)], h_cm: f64) -> Option<f64> { /* ... */ }
 ```
 
 #### Function `geometry_closures`

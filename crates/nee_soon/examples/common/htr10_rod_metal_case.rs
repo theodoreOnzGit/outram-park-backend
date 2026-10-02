@@ -21,18 +21,16 @@ use std::time::Instant;
 
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
+use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
+use nee_soon::htr10_rmc::keff_vs_height::{bed_majorant, fissile_entropy_mesh, fissile_source_box};
 use nee_soon::htr10_rmc::data::{
     load_htr10_nuclides, Htr10DataConfig, Htr10DataError, Htr10NuclideLayout, RodMetalTreatment,
 };
 use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
 use nee_soon::htr10_rmc::rmc_keff_at_ball_count;
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
-use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
+use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
-use outram_mc_libs::tally::mesh::RegularMesh;
 
 /// 27 °C, the temperature Li, Yu & Wei (2014) and Şeker & Çolak (2003) state.
 pub const TEMP_K: f64 = 300.15;
@@ -103,11 +101,7 @@ pub fn run(name: &str, rod_metal: RodMetalTreatment) {
 
     // Region-local majorant over the bed's materials (coolant included); the
     // reflector is surface-tracked.
-    let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
-        .collect();
-    let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
-    let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
+    let maj = bed_majorant(&mats, &nucs);
 
     let settings = KeffSettings {
         n_particles: PARTICLES,
@@ -118,16 +112,8 @@ pub fn run(name: &str, rod_metal: RodMetalTreatment) {
         compute: ComputeType::CpuMultiThread(ThreadCount::Auto),
         ..KeffSettings::default()
     };
-    let (zl, zu, rb) = (core.conus_floor, core.bed_half_height, core.bed_radius);
-    let src = SourceBox {
-        lower: Position::new(-rb, -rb, zl),
-        upper: Position::new(rb, rb, zu),
-    };
-    let entropy_mesh = RegularMesh {
-        lower_left: [-rb, -rb, zl],
-        upper_right: [rb, rb, zu],
-        dimension: [4, 4, 4],
-    };
+    let src = fissile_source_box(&core);
+    let entropy_mesh = fissile_entropy_mesh(&core);
     println!(
         "  nuclear data processed in {:.1} s ({} items)",
         diag.data_seconds(),

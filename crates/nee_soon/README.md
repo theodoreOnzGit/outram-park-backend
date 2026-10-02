@@ -28,10 +28,15 @@ pieces they want without wiring the crates together by hand.
 **Mostly scaffold; the prompt-excursion path is real.**
 `NeeSoon::new_prompt_excursion_model` is real, wired code — a thin pass-through
 to `teh-o-prke`'s `NordheimFuchsExactTimestepper`, backed by an integration
-test. The nuclear-data (`njoy-outram-park-fork`) and Monte Carlo
+test. ~~The nuclear-data (`njoy-outram-park-fork`) and Monte Carlo
 (`outram-mc-libs`) integration points are declared as dependencies but the
 coupling logic for them is future work, deliberately out of scope for this
-pass. The `xin_wang_sp3_workflow` is a documented four-stage scaffold whose
+pass.~~ **CORRECTED 2026-10-02:** both are wired for the HTR-10 benchmark.
+`htr10_rmc::data::load_htr10_nuclides` processes the ENDF tapes through
+`njoy-outram-park-fork`, and `htr10_rmc::keff_vs_height::run_core` transports
+the assembled core with `outram-mc-libs`' hybrid tracker (examples
+`htr10_rmc_keff`, `htr10_endf8_kvsh_quick`, `htr10_endf8_kvsh_heavy`). They
+are not yet reached through the `NeeSoon` facade. The `xin_wang_sp3_workflow` is a documented four-stage scaffold whose
 stage `run()` methods return `WorkflowError::NotYetImplemented` (each naming its
 tracking bead), while carrying real Mk1 case data.
 
@@ -141,6 +146,28 @@ assert!(matches!(
 ));
 ```
 
+## HTR-10 k against loading height (gh:#501)
+
+Two examples run the whole HTR-10 loading sweep (Şeker & Çolak 2003's bed,
+N = 10 to 20 layers, ENDF/B-VIII.0) in one process and write their own
+record: per-height logs, a standalone matplotlib script with the data
+embedded (`keff_vs_height.py`, byte-identical for the same run), a markdown
+results table and a parameters block. Each height is compared with Li, Yu &
+Wei (2014)'s RMC curve (the reference) and the paper's MCNP Tables 3 and 4
+(gauges) at equal ball count (gh:#472).
+
+| Example | Statistics | Record |
+|---|---|---|
+| `htr10_endf8_kvsh_quick` | 2000 × [30 inactive + 70 active] | `verification_and_validation/htr10_endf8_kvsh_quick_2026-10-02/` |
+| `htr10_endf8_kvsh_heavy` | 10 000 × [5 inactive + 135 active] (the paper's) | `verification_and_validation/htr10_endf8_kvsh_heavy_<date>/` |
+
+```bash
+taskset -c 0-9 cargo build --release -j 8 -p nee_soon --example htr10_endf8_kvsh_quick
+taskset -c 0-9 ./target/release/examples/htr10_endf8_kvsh_quick --threads 8 --out <dir>
+```
+
+Research, education and V&V only: one seed per point, not validated.
+
 ## What belongs here / what does not
 
 - **Belongs here:** orchestration, the object-oriented facade, cross-crate glue
@@ -155,8 +182,11 @@ All public physical quantities exchanged across the API are dimensioned via
 
 ## Build & test
 
-Always `--release` (workspace rule). System OpenBLAS is required (pulled in via
-`outram-mc-libs`); on Debian/Ubuntu `sudo apt install libopenblas-dev`.
+Always `--release` (workspace rule). ~~System OpenBLAS is required (pulled in via
+`outram-mc-libs`); on Debian/Ubuntu `sudo apt install libopenblas-dev`.~~
+**CORRECTED 2026-10-02:** no BLAS is needed. Neither `nee_soon`'s nor
+`outram-mc-libs`' `Cargo.toml` has a BLAS dependency (the crate `CLAUDE.md`
+made the same correction on 2026-09-17).
 
 ```bash
 cargo build --release -p nee_soon

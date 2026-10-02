@@ -156,7 +156,7 @@ use std::time::Instant;
 
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
+use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
 use nee_soon::htr10_rmc::data::{
     load_htr10_nuclides, CarbonTreatment, Coolant, Htr10DataConfig, Htr10DataError,
     Htr10NuclideLayout, NuclearDataLibrary, RodMetalTreatment, ThermalScatteringTreatment,
@@ -165,12 +165,9 @@ use nee_soon::htr10_rmc::data::{
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::htr10_rmc::materials::GraphiteLaw;
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::htr10::BoronReading;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
-use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
 
 const TEMP_K: f64 = 300.15;
 /// RMC's value at the **123.576 cm** loading height.
@@ -240,18 +237,11 @@ fn paper_height(bed_height_cm: f64) -> f64 {
 /// **Since 2026-10-01 (gh:#472)** `main` calls it at the height where Şeker's
 /// model holds as many balls as the built bed
 /// (`htr10_rmc::seker_height_for_balls`), not at the built height.
+///
+/// Since 2026-10-02 (gh:#501) a call to the shared
+/// [`keff_curve_at_height`](nee_soon::htr10_rmc::keff_curve_at_height).
 fn rmc_at_height(h_cm: f64) -> Option<f64> {
-    let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
-    if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
-        return None;
-    }
-    for w in c.windows(2) {
-        let ((h0, k0), (h1, k1)) = (w[0], w[1]);
-        if (h0..=h1).contains(&h_cm) {
-            return Some(k0 + (h_cm - h0) / (h1 - h0) * (k1 - k0));
-        }
-    }
-    None
+    nee_soon::htr10_rmc::keff_curve_at_height(nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT, h_cm)
 }
 fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k)
@@ -512,11 +502,7 @@ fn main() {
 
     // Region-local majorant: the BED's materials only. The reflector is
     // surface-tracked, so it must NOT raise the bed's tracking cost.
-    let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
-        .collect();
-    let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
-    let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
+    let maj = nee_soon::htr10_rmc::keff_vs_height::bed_majorant(&mats, &nucs);
 
     let settings = KeffSettings {
         n_particles: histories,
@@ -568,18 +554,10 @@ fn main() {
     // is recoverable given enough inactive generations; an entropy mesh that
     // is blind to part of the core is NOT -- it reports convergence of the
     // region it can see, which is exactly the diagnostic one must not trust.
-    let zl = core.conus_floor;
-    let zu = core.bed_half_height;
-    let rb = core.bed_radius;
-    let src = SourceBox {
-        lower: Position::new(-rb, -rb, zl),
-        upper: Position::new(rb, rb, zu),
-    };
-    let entropy_mesh = RegularMesh {
-        lower_left: [-rb, -rb, zl],
-        upper_right: [rb, rb, zu],
-        dimension: [4, 4, 4],
-    };
+    // Both are `nee_soon::htr10_rmc::keff_vs_height`'s since 2026-10-02
+    // (gh:#501), shared with every HTR-10 example.
+    let src = nee_soon::htr10_rmc::keff_vs_height::fissile_source_box(&core);
+    let entropy_mesh = nee_soon::htr10_rmc::keff_vs_height::fissile_entropy_mesh(&core);
 
     println!(
         "  {histories} histories x [{} inactive + {} active], seed {}\n",
@@ -702,14 +680,7 @@ fn main() {
 
     // A rough gauge only (maintainer direction 2026-09-27): the paper's MCNP
     // columns, from an independently built model. RMC stays the reference.
-    let at = |c: &[(f64, f64)]| -> Option<f64> {
-        c.windows(2).find_map(|w| {
-            let ((h0, k0), (h1, k1)) = (w[0], w[1]);
-            (h0..=h1)
-                .contains(&bed_height_cm)
-                .then(|| k0 + (bed_height_cm - h0) / (h1 - h0) * (k1 - k0))
-        })
-    };
+    let at = |c: &[(f64, f64)]| nee_soon::htr10_rmc::keff_curve_at_height(c, bed_height_cm);
     if let (Some(m3), Some(m4)) = (
         at(nee_soon::htr10_rmc::MCNP_TABLE3_KEFF_VS_HEIGHT),
         at(nee_soon::htr10_rmc::MCNP_TABLE4_KEFF_VS_HEIGHT),

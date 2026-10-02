@@ -53,11 +53,23 @@
 //! environment, so the two cannot drift: with no knobs set, `htr10_rmc_keff`
 //! builds the identical set.
 //!
-//! **Blocked on gh:#339 as of 2026-10-01.** The default rod metal is the FULL
+//! ~~**Blocked on gh:#339 as of 2026-10-01.** The default rod metal is the FULL
 //! case (real Ni and Fe-57), and Fe-57 cannot yet be reconstructed, so every
 //! case here prints `REFUSED` until #339 is fixed. (Before 2026-10-01 it
 //! printed `SKIP`: the Ni tapes were not in the checkout.) Use
-//! `htr10_rod_metal_simplified` for a runnable case meanwhile.
+//! `htr10_rod_metal_simplified` for a runnable case meanwhile.~~
+//! **CORRECTED 2026-10-02:** no longer blocked. `data::FE57_RECONSTRUCTION_FIXED`
+//! was flipped to `true` on 2026-10-01 (the LRF=7 `xdot` operand fix), and the
+//! FULL rod metal ran in all 22 runs of
+//! `verification_and_validation/htr10_seker_2026_10_01_10k/` (each log prints
+//! `rod metal: FULL`).
+//!
+//! **For a whole-sweep record use `htr10_endf8_kvsh_quick` / `_heavy`
+//! (gh:#501)**: they run every height in one process (the nuclear data are
+//! processed once), and write the figure script, the results table and the
+//! parameters block. This example and those share the run machinery in
+//! [`nee_soon::htr10_rmc::keff_vs_height`] (majorant, source box, entropy mesh,
+//! reference interpolation; since 2026-10-02).
 //!
 //! ## What every case holds fixed
 //!
@@ -122,26 +134,26 @@
 //! physics until it has been looked at**. Record the table here once measured.
 //!
 //! **Single seed.** Seed-to-seed scatter on this problem is `sd ~ 179-211 pcm`
-//! (`verification_and_validation/htr10_rmc/README.md`). A single draw is not a
+//! (~~`verification_and_validation/htr10_rmc/README.md`~~ **CORRECTED
+//! 2026-10-02:** no such file exists; the figure is recorded in
+//! `docs/software_engineering/htr10-run-log.md`). A single draw is not a
 //! mean and the within-run sigma does not contain that scatter.
 
 use std::time::Instant;
 
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat, HTR10_CORE_CAVITY_CM};
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, HTR10_CORE_CAVITY_CM};
 use nee_soon::htr10_rmc::data::{
     load_htr10_nuclides, Htr10DataConfig, Htr10DataError, Htr10NuclideLayout,
 };
 use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+use nee_soon::htr10_rmc::keff_vs_height::{bed_majorant, fissile_entropy_mesh, fissile_source_box};
 use nee_soon::htr10_rmc::reflector::zone_composition;
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::htr10::BoronReading;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
-use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
+use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
-use outram_mc_libs::tally::mesh::RegularMesh;
 
 const TEMP_K: f64 = 300.15;
 
@@ -257,18 +269,11 @@ fn all_cases() -> Vec<fn() -> CaseSpec> {
 ///
 /// Returns `None` outside the tabulated range rather than extrapolating: past
 /// the ends the curve flattens and a linear extension would invent reactivity.
+///
+/// Since 2026-10-02 (gh:#501) a call to the shared
+/// [`keff_curve_at_height`](nee_soon::htr10_rmc::keff_curve_at_height).
 fn rmc_at_height(h_cm: f64) -> Option<f64> {
-    let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
-    if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
-        return None;
-    }
-    for w in c.windows(2) {
-        let ((h0, k0), (h1, k1)) = (w[0], w[1]);
-        if (h0..=h1).contains(&h_cm) {
-            return Some(k0 + (h_cm - h0) / (h1 - h0) * (k1 - k0));
-        }
-    }
-    None
+    nee_soon::htr10_rmc::keff_curve_at_height(nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT, h_cm)
 }
 
 /// The ENDF/B-VIII.0 data configuration: the correct-physics default, every
@@ -337,11 +342,7 @@ fn run_case(spec: &CaseSpec) {
         core.tiles, core.cells, core.universes
     );
 
-    let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
-        .collect();
-    let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
-    let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
+    let maj = bed_majorant(&mats, &nucs);
 
     let settings = KeffSettings {
         n_particles: spec.particles,
@@ -359,16 +360,8 @@ fn run_case(spec: &CaseSpec) {
     // Source box and entropy mesh span the WHOLE fissile region, conus floor
     // included. A mesh blind to part of the core reports convergence of the
     // part it can see, which is the one diagnostic that must not be trusted.
-    let (zl, zu, rb) = (core.conus_floor, core.bed_half_height, core.bed_radius);
-    let src = SourceBox {
-        lower: Position::new(-rb, -rb, zl),
-        upper: Position::new(rb, rb, zu),
-    };
-    let entropy_mesh = RegularMesh {
-        lower_left: [-rb, -rb, zl],
-        upper_right: [rb, rb, zu],
-        dimension: [4, 4, 4],
-    };
+    let src = fissile_source_box(&core);
+    let entropy_mesh = fissile_entropy_mesh(&core);
 
     println!(
         "  nuclear data processed in {:.1} s ({} items)",

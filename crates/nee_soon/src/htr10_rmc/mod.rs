@@ -263,6 +263,7 @@ pub mod control_rod;
 pub mod data;
 pub mod materials;
 pub mod plots;
+pub mod keff_vs_height;
 
 /// The paper's single RMC `k_eff` curve against fuel-loading height, Tables 3
 /// and 4 (`(height_cm, k_eff)`).
@@ -411,16 +412,30 @@ pub fn seker_height_for_balls(balls: usize) -> f64 {
 /// [`seker_height_for_balls`] for why.
 #[must_use]
 pub fn rmc_keff_at_ball_count(balls: usize) -> Option<f64> {
-    let h = seker_height_for_balls(balls);
-    let c = RMC_KEFF_VS_HEIGHT;
-    if h < c[0].0 - 1e-6 || h > c[c.len() - 1].0 + 1e-6 {
+    keff_curve_at_height(RMC_KEFF_VS_HEIGHT, seker_height_for_balls(balls))
+}
+
+/// A tabulated `(height_cm, k_eff)` curve — [`RMC_KEFF_VS_HEIGHT`],
+/// [`MCNP_TABLE3_KEFF_VS_HEIGHT`] or [`MCNP_TABLE4_KEFF_VS_HEIGHT`] — read at
+/// `h_cm`, linear between rows. `None` outside the tabulated range (1e-6 cm
+/// tolerance at the ends): past the ends the curves flatten and a linear
+/// extension would invent reactivity, so nothing is extrapolated.
+///
+/// The one interpolation every HTR-10 comparison uses (added 2026-10-02,
+/// gh:#501, replacing per-example copies). Read a curve at the height where
+/// Şeker's model holds the built bed's ball count
+/// ([`seker_height_for_balls`]), not at the built height (gh:#472).
+#[must_use]
+pub fn keff_curve_at_height(curve: &[(f64, f64)], h_cm: f64) -> Option<f64> {
+    let (first, last) = (curve.first()?.0, curve.last()?.0);
+    if h_cm < first - 1e-6 || h_cm > last + 1e-6 {
         return None;
     }
-    c.windows(2).find_map(|w| {
+    curve.windows(2).find_map(|w| {
         let ((h0, k0), (h1, k1)) = (w[0], w[1]);
         (h0 - 1e-6..=h1 + 1e-6)
-            .contains(&h)
-            .then(|| k0 + (h - h0) / (h1 - h0) * (k1 - k0))
+            .contains(&h_cm)
+            .then(|| k0 + (h_cm - h0) / (h1 - h0) * (k1 - k0))
     })
 }
 
