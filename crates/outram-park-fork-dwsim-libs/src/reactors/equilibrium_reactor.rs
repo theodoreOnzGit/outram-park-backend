@@ -23,10 +23,32 @@
 //!
 //! The activity basis is evaluated **ideally** (activity/fugacity coefficients
 //! = 1): [`ReactionBasis::MolarFraction`] uses `xᵢ`,
-//! [`ReactionBasis::PartialPressure`] uses `xᵢ·P` [Pa], and
+//! [`ReactionBasis::PartialPressure`] uses `xᵢ·P` [Pa],
+//! [`ReactionBasis::Fugacity`] uses `xᵢ·P/P0` with `P0 = 101325 Pa`, and
 //! [`ReactionBasis::Activity`] is treated as `xᵢ`. This is an honest
 //! simplification — DWSIM calls the property package for real fugacity
 //! coefficients.
+//!
+//! ~~[`ReactionBasis::Fugacity`] (no arm; fell through to `xᵢ`).~~ **CORRECTED
+//! 2026-10-02** — the code returned the mole fraction for the fugacity basis,
+//! contradicting `ReactionBasis::Fugacity`'s own `fᵢ = φᵢ yᵢ P` doc; it now
+//! follows upstream's vapour basis `φᵢ·yᵢ·P/P0` (`Equilibrium.vb:322, :338-339`)
+//! with `φᵢ = 1`.
+//!
+//! ## Measured against compiled upstream (`tests/upstream_equilibrium_parity.rs`)
+//!
+//! Upstream solves with **real Peng-Robinson fugacity coefficients**
+//! (`ideal = False` on its final pass, `Equilibrium.vb:1378-1383`, `:313`);
+//! [`ReactionBasis::MolarFraction`] is the one basis it evaluates without them
+//! (`:343`), and there the two codes agree to round-off. What the ideal
+//! simplification costs elsewhere, steam reforming at 900 K: **+0.32 %** extent
+//! at 10 bar and **+1.1 %** at 30 bar (partial-pressure basis). For a **vapour
+//! reaction**, upstream's [`ReactionBasis::Activity`] is the same as its
+//! fugacity basis, `φᵢ·yᵢ·P/P0` (`:338`), while this port uses `xᵢ` (ideal
+//! liquid): the two differ by `(P/P0)^Δν`, which for reforming (`Δν = +2`) at
+//! 10 bar is **+129 %** in extent. Use [`ReactionBasis::Fugacity`] or
+//! [`ReactionBasis::PartialPressure`] for gas-phase reactions here; this port
+//! carries no `ReactionPhase` to choose the basis by phase as upstream does.
 //!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
@@ -50,6 +72,10 @@ pub struct EquilibriumReactor {
 /// Lower floor on a mole amount when forming the activity basis, so `ln` stays
 /// finite as a species is driven toward zero. Scaled by the total feed below.
 const AMOUNT_FLOOR_FRACTION: f64 = 1e-14;
+
+/// Standard-state pressure `P0` [Pa] of the fugacity basis — upstream's
+/// hard-coded `P0 = 101325` (`Equilibrium.vb:1076`).
+const REFERENCE_PRESSURE_PA: f64 = 101_325.0;
 
 impl EquilibriumReactor {
     /// Construct an equilibrium reactor with default solver settings.
@@ -79,8 +105,11 @@ impl EquilibriumReactor {
         let x = n_i / n_tot;
         match basis {
             ReactionBasis::PartialPressure => x * pressure,
-            // MolarFraction, Activity (ideal γ=1), and anything else fall back
-            // to the mole fraction (documented simplification).
+            // Upstream's vapour fugacity basis is φᵢ·yᵢ·P/P0 with P0 = 101325 Pa
+            // (Equilibrium.vb:322, :338-339, P0 set at :1076); ideal φᵢ = 1 here.
+            ReactionBasis::Fugacity => x * pressure / REFERENCE_PRESSURE_PA,
+            // MolarFraction, Activity (ideal-liquid γ=1), and anything else fall
+            // back to the mole fraction (documented simplification).
             _ => x,
         }
     }
