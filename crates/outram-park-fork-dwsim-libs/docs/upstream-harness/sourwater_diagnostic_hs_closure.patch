@@ -1,0 +1,12 @@
+--- a/DWSIM.Thermodynamics/FlashAlgorithms/SourWater.vb
++++ b/DWSIM.Thermodynamics/FlashAlgorithms/SourWater.vb
+@@ -472,7 +472,8 @@
+ 
+                     k5 = Exp(Log(kr(4)) + 0.427 * conc("CO2"))
+ 
+-                    conc("HS-") = k5 * conc("H2S") / (conc("H+") + k5 + 2 * k5 * kr(5) / conc("H+"))
++                    ' OUTRAM-DIAGNOSTIC (build copy only, not upstream): HS- from TOTAL sulfide, K6 not doubled.
++                    conc("HS-") = k5 * conc0("H2S") / (conc("H+") + k5 + k5 * kr(5) / conc("H+"))
+ 
+                     conc("S-2") = kr(5) * conc("HS-") / conc("H+")
+ 

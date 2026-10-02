@@ -149,6 +149,7 @@ pinned by `tests/upstream_<reactor>_parity.rs` with a driver in
 | equilibrium | ≤ 3.9e-12 | port: fugacity basis was `x`, +129 % (fixed, #482); ideal φ +1.1 % at 30 bar (#483); upstream default tolerance stops short / NaN (#484) |
 | Gibbs | ≤ 8.5e-6 (GibbsMin), ≤ 3.5e-7 (Lagrange) | upstream: Lagrange `ln(P/P0)/(RT)` slip, fails ≤ 2 bar (#485); port `p_ref = 1e5` default costs +1.3–2.7 % CH4 |
 | PFR | 1.4e-10 / 2.6e-9 / 2.0e-10 | upstream: 99 % of each segment integrated when `ΔV/(0.01ΔV)` truncates, +1.9 % (#480); constant `Q` costs 6.0 % on SMR (#483) |
+| sour water (T19) | K(T) 2.3e-13, speciation 1.8e-7 vs upstream with its `:475` patched | upstream: HS⁻ closure +0.11–0.59 pH (#487), carbon closure fails every CO2 case (#488), flash discards speciation (#489), asymmetric PR k_ij (#490); port: no sour-water VLE flash, no k_ij table / H2S preset — k_ij = 0 costs K_CH4 −99.5 % (#491) |
 | CSTR (+LH case) | 2.4e-13 | port: heterogeneous catalytic rate ignored LH denominator and catalyst mass, −99.1 % (fixed in CSTR and PFR, #481) |
 
 ## Running upstream DWSIM headless (for code-to-code verification)
