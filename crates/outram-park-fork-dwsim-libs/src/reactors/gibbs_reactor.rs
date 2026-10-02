@@ -12,8 +12,31 @@
 //! `Σ_i a_ki n_i = b_k`). Upstream delegates the constrained optimisation to an
 //! external solver (IPOPT / DotNumerics); this port reuses the crate's pure-Rust
 //! RAND / element-potential minimiser [`crate::thermo::gibbs::GibbsSystem`],
-//! which encodes the identical objective and constraints (see that module's
+//! ~~which encodes the identical objective and constraints~~ (see that module's
 //! provenance for the `GibbsMinimization*.vb` line citations).
+//!
+//! **CORRECTED 2026-10-02** — same objective, *not* the same constraint
+//! handling. Checked against compiled upstream (pinned
+//! `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766`, `tests/upstream_gibbs_parity.rs`):
+//!
+//! - upstream's **default** path, `Calculate_GibbsMin` (`Gibbs.vb:1059`),
+//!   minimises `exp(G) + 100·Σ_k((b_k − Σ_i a_ki n_i)/b_k)² + 100·(mass)²`
+//!   (`Gibbs.vb:1405-1449`): element balance is a **penalty**, and its outlets
+//!   carry a ~2.05e-6 relative element imbalance. This port enforces
+//!   `A n = b` exactly (residual ≤ 2e-14); the two agree to ≤ 8.5e-6 per species
+//!   on steam reforming at 1100 K, 1–20 bar;
+//! - upstream's **alternate** path, `Calculate_Lagrange` (`Gibbs.vb:1743`), is
+//!   the element-potential formulation this port's RAND minimiser implements.
+//!   It adds `ln(P/P0)/(8.314·T)` to every `g°/RT` (`Gibbs.vb:1998`, `:2132`,
+//!   `:2246`) on top of the `ln(φP/P0)` term (`Gibbs.vb:559`) — a dimensional
+//!   slip of 2.5e-4 to 3.3e-4 at 10–20 bar. With that term added this port
+//!   reproduces it to ≤ 3.5e-7; without it the two differ by 3.2e-4 to 3.6e-4.
+//!
+//! **Standard pressure.** Upstream uses `P0 = 101 325` Pa (`Gibbs.vb:386`,
+//! `:1922`); [`GibbsReactor::new`] defaults to `1e5` Pa. With upstream's `g°`
+//! data, leaving the default moves methane by +1.3 % (20 bar) to +2.7 % (1 bar)
+//! on that case — set [`GibbsReactor::with_p_ref`] to the standard state the
+//! caller's `g°` data were tabulated at.
 //!
 //! ## Model
 //!
@@ -62,7 +85,12 @@
 //! - **Caller-supplied `g°_i(T)`.** DWSIM pulls `AUX_DELGF_T` from the property
 //!   package; this port takes the standard Gibbs energy of formation from a
 //!   simple [`GibbsFormation`] model (constant, or a two-parameter
-//!   `g° = ΔH_f − T·ΔS_f`). No property-package coupling.
+//!   `g° = ΔH_f − T·ΔS_f`). No property-package coupling. **Measured
+//!   2026-10-02:** the two-parameter form fed 25 °C formation data omits the
+//!   heat-capacity integral upstream applies (`PropertyPackage.vb:8098-8116`)
+//!   and puts steam-reforming methane at 1100 K off by +132 % (20 bar) to
+//!   +1022 % (1 bar). At high temperature, supply `g°(T)` itself via
+//!   [`GibbsFormation::Constant`] evaluated at the reactor temperature.
 //! - **Ideal-gas / frozen fugacity.** Uses the [`FugacityModel`] passed through
 //!   to [`GibbsSystem::minimize`]; a self-consistent EOS coupling is not wired.
 //! - **Isothermal.** Solves at the feed temperature. The heat of reaction is
