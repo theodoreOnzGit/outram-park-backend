@@ -18,7 +18,7 @@ pub use crate::geometry::plot::{
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
 pub use crate::geometry::geometry::{
-    BoundaryHit, Coord, Crossing, Geometry, GeometryPath, SurfaceCrossing,
+    BoundaryHit, Coord, Crossing, Geometry, GeometryExt, GeometryPath, SurfaceCrossing,
 };
 pub use crate::geometry::triso_particle::{
     build_triso_particle, triso_particle, TrisoMaterials, TrisoParticle, TrisoRadii,
@@ -48,8 +48,7 @@ pub use crate::physics::search::{
 pub use crate::physics::transport_csg::{run_keff_csg, run_keff_csg_reactor_physics, SourceBox};
 pub use crate::physics::reactor_physics::{
     assemble_six_factors, run_keff_reactor_physics, Estimate, Group, LethargySpectrum,
-    ReactorPhysicsConfig,
-    ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
+    ReactorPhysicsConfig, ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
 };
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,

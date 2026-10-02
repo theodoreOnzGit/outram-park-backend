@@ -111,6 +111,7 @@ use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlan
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::physics::physics_mg::{run_keff_mg, MgSettings, Mgxs, MgxsLibrary};
 use outram_mc_libs::physics::transport_csg::SourceBox;
+use outram_mc_libs::geometry::crossing::GeometryExt;
 
 /// The one-group set above, identical to the `mgxs.h5` handed to OpenMC.
 fn one_group() -> Mgxs {

@@ -98,6 +98,7 @@ use crate::physics::scattdata::LegendreKernel;
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
+use crate::geometry::crossing::GeometryExt;
 
 /// Multigroup macroscopic cross sections for **one material**, over `G` groups.
 ///

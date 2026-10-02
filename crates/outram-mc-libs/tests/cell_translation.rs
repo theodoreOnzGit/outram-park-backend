@@ -68,6 +68,7 @@ use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use outram_mc_libs::geometry::universe::Universe;
+use outram_mc_libs::geometry::crossing::GeometryExt;
 
 /// Inner sphere radius \[cm\] of the nested universe used throughout.
 const R_INNER: f64 = 1.0;

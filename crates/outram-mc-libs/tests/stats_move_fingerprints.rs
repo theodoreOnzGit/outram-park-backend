@@ -72,6 +72,7 @@ use outram_mc_libs::physics::keff::{run_keff, KeffResult, KeffSettings};
 use outram_mc_libs::physics::physics_mg::{run_keff_mg, MgSettings, Mgxs, MgxsLibrary};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
 use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::geometry::crossing::GeometryExt;
 
 /// FNV-1a over a stream of `f64` bit patterns.
 struct Fp(u64);

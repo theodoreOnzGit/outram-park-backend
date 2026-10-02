@@ -590,6 +590,7 @@ pub fn homogeneous_cube(h: f64, material_idx: usize, temperature: f64) -> Geomet
 
 #[cfg(test)]
 mod tests {
+    use crate::geometry::crossing::GeometryExt;
     use super::*;
     use crate::material::material::Material;
 

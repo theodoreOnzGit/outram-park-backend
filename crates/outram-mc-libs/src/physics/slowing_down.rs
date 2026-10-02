@@ -141,6 +141,7 @@ use crate::material::nuclide::Nuclide;
 use crate::physics::scatter::{free_gas_elastic_scatter_dbrc, two_body_scatter_with_mu};
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
+use crate::geometry::crossing::GeometryExt;
 
 /// One nuclide of an infinite homogeneous mixture: which nuclide, and how much.
 #[derive(Debug, Clone, Copy)]

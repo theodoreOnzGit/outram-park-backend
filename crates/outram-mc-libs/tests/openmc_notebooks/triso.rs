@@ -131,6 +131,7 @@ use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::geometry::crossing::GeometryExt;
 
 // ── Regular-lattice geometry (for the nested-navigation test) ──────────────────
 const R_KERNEL: f64 = 0.18;
