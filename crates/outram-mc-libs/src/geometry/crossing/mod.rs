@@ -355,8 +355,11 @@ pub trait GeometryExt {
     /// re-hit the same point. See `nudge_across`.
     ///
     /// Mirrors the boundary-condition dispatch in `Particle::cross_surface`
-    /// (`src/particle.cpp:659`), reduced to the vacuum/reflective/transmissive
-    /// cases this crate implements.
+    /// (`src/particle.cpp:659`), reduced to the ~~vacuum/reflective/transmissive
+    /// cases this crate implements~~ **CORRECTED 2026-10-03:** cases this crate
+    /// implements, which are vacuum, reflective, transmissive and **white**
+    /// (diffuse re-emission, since GitHub #259); a **periodic** surface panics
+    /// here, and [`Self::validate_boundary_conditions`] refuses it before a run.
     fn cross_surface(
         &self,
         i_surf: usize,

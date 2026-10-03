@@ -8,6 +8,11 @@ Cargo workspace for **OUTRAM PARK** — Open-source Unified TRAnsient Multi-Phys
 
 A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.
 
+**Code deep dives and API reference:** <https://theodoreonzgit.github.io/outram-park-backend/>
+(how each crate is built and why, beside its code; rebuilt from `develop` on
+every push by `.github/workflows/pages.yml`, gh:#518). The concept lessons for
+students will live on the [OUTRAM PARK teaching site](https://theodoreonzgit.github.io/outram-park/) (not live yet; outram-park#5).
+
 > *"Best open-source nuclear simulator suite in Singapore, JB — and some say Batam!"* 🇸🇬
 > — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
 > status, see the ⚠️ banner above: everything here is unverified until validated,

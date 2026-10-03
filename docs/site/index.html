@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OUTRAM PARK deep dives</title>
+<meta name="description" content="Code deep dives into the OUTRAM PARK backend crates: how each is built and why, beside its API reference.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>OUTRAM PARK — code deep dives</h1>
+  <p class="lede">How the <a href="https://github.com/theodoreOnzGit/outram-park-backend">outram-park-backend</a> crates are built, and why, read beside their code and API reference. The concept lessons for students will live on the <a href="https://theodoreonzgit.github.io/outram-park/">OUTRAM PARK teaching site</a> (not live yet).</p>
+  <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. These pages are AI-assisted drafts until a human has reviewed them; each page states its review status.</p>
+</header>
+
+<main>
+  <nav class="tabs" aria-label="Deep dives">
+    <!-- One radio + label + panel per deep dive. CSS-only: no script. -->
+    <input type="radio" name="dive" id="t-mc" checked>
+    <label for="t-mc">Monte Carlo</label>
+    <input type="radio" name="dive" id="t-nd">
+    <label for="t-nd">Nuclear data</label>
+    <input type="radio" name="dive" id="t-plume">
+    <label for="t-plume">Gaussian plume &amp; puff</label>
+    <input type="radio" name="dive" id="t-triso">
+    <label for="t-triso">TRISO-ATOPS &amp; fuel failure</label>
+
+    <section class="panel" id="p-mc">
+      <h2>Monte Carlo — inside <code>outram-mc-libs</code></h2>
+      <p>A Rust port of selected OpenMC kernels: CSG geometry and nested lattices, surface and delta tracking, collisions, k-eigenvalue power iteration, tallies, variance reduction and multigroup mode. Each lesson sits beside the code it describes.</p>
+      <p class="actions">
+        <a class="btn" href="deep-dives/monte-carlo/">Open the deep dive</a>
+        <a class="btn ghost" href="api/outram_mc_libs/">API reference</a>
+      </p>
+      <p class="status">Status: first draft (2026-10-03), not yet human-reviewed. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/514">#514</a>.</p>
+    </section>
+
+    <section class="panel" id="p-nd">
+      <h2>Nuclear data — inside <code>njoy-outram-park-fork</code></h2>
+      <p>ENDF tapes to ACE: RECONR, BROADR, THERMR, ACER, and the Fe-57 bug case study.</p>
+      <p class="status planned">Planned, not written yet. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/515">#515</a>.</p>
+    </section>
+
+    <section class="panel" id="p-plume">
+      <h2>Gaussian plume &amp; puff — <code>buangkok</code>, <code>changi</code>, <code>sembawang</code></h2>
+      <p>From advection and diffusion to dose at distance.</p>
+      <p class="status planned">Planned, not written yet. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/516">#516</a>.</p>
+    </section>
+
+    <section class="panel" id="p-triso">
+      <h2>TRISO-ATOPS &amp; fuel failure — <code>boon-lay</code></h2>
+      <p>TRISO structure, fuel failure, diffusion and accident release, into the source term.</p>
+      <p class="status planned">Planned, not written yet. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/517">#517</a>.</p>
+    </section>
+  </nav>
+</main>
+
+<footer>
+  <p>Found something that doesn't tally between a lesson and its code? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>).</p>
+  <p>Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a> on <code>develop</code>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance (see <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/AI_USAGE.md">AI_USAGE.md</a>).</p>
+</footer>
+</body>
+</html>

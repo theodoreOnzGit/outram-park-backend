@@ -1,0 +1,14 @@
+# Deep dive: inside outram-mc-libs (teaching site, gh:#509 / #518).
+# Built by scripts/build-pages.sh into the backend's GitHub Pages site under
+# deep-dives/monte-carlo/. Lessons live here, beside the code (#510).
+[book]
+title = "Monte Carlo deep dive — inside outram-mc-libs"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-mc-libs"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/outram-mc-libs/docs/lessons/{path}"
+site-url = "/outram-park-backend/deep-dives/monte-carlo/"
+mathjax-support = false

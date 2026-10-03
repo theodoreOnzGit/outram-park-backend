@@ -1,0 +1,3 @@
+# Deep-dive books built into the backend Pages site (gh:#518).
+# <url-name> <mdBook directory>
+monte-carlo crates/outram-mc-libs/docs/lessons

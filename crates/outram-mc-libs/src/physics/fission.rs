@@ -4,13 +4,29 @@
 //!
 //! For a k-eigenvalue calculation each fission collision banks an integer number
 //! of secondary neutrons for the *next* generation. This module ports the
-//! neutron-count sampler; the fission-site energy/direction come from the source
+//! neutron-count sampler ~~; the fission-site energy/direction come from the source
 //! samplers ([`crate::rng::distributions::watt`],
 //! [`crate::rng::distributions::isotropic_direction`]) and the banking itself is
-//! driven by the eigenvalue loop ([`crate::physics::keff`]).
+//! driven by the eigenvalue loop ([`crate::physics::keff`]).~~
+//! and the fission-bank resampler ([`comb_resample`]).
 //!
-//! **Delayed neutrons** are folded into the total ν̄ and treated as prompt — the
+//! **CORRECTED 2026-10-03.** In the continuous-energy kernels a fission site's
+//! direction is [`crate::rng::distributions::isotropic_direction`], but its
+//! energy is drawn by
+//! [`Nuclide::sample_fission_energy_below`](crate::material::nuclide::Nuclide::sample_fission_energy_below)
+//! from the nuclide's own χ (ENDF MF=5, or the Watt stand-in only where no law
+//! is carried). [`crate::rng::distributions::watt`] seeds only the *initial*
+//! source of the [`crate::physics::keff`] and
+//! [`crate::pebble_beds::keff_delta`] drivers. The banking is done in
+//! [`crate::physics::keff`] and in
+//! [`crate::physics::transport_csg`]'s history loop.
+//!
+//! **Delayed neutrons** are folded into the total ν̄ — the
 //! standard eigenvalue approximation (prompt + delayed born at the same instant).
+//! ~~and treated as prompt~~ **CORRECTED 2026-10-03:** they are *counted* in ν̄
+//! and born at the same instant, but where the nuclide carries delayed-neutron
+//! spectra a delayed neutron's energy is drawn from its group's spectrum, not
+//! the prompt χ (`Nuclide::sample_fission_energy_below`, GitHub #365).
 
 use crate::rng::lcg::prn;
 

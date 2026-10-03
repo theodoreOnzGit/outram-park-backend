@@ -25,8 +25,16 @@
 //! geometry (lattices of TRISO universes, stochastic packings) plugs in.
 //!
 //! Reference: E. R. Woodcock et al., "Techniques used in the GEM code…", ANL-7050
-//! (1965); the method is standard in modern MC codes (OpenMC `delta_tracking`,
+//! (1965); the method is standard in modern MC codes (~~OpenMC `delta_tracking`,~~
 //! Serpent, RMC). See also [`super::references`] for the pebble-bed geometry work.
+//!
+//! **CORRECTED 2026-10-03:** OpenMC is struck from that list. The OpenMC source
+//! this crate ports (`/home/teddy0/Documents/research/openmc/`, checkout
+//! `608a1c338`) has no delta tracking: a case-insensitive search of its `src/`,
+//! `include/` and `openmc/` trees for "delta tracking", "woodcock" and
+//! "majorant" finds nothing. That agrees with
+//! [`crate::geometry::cell::TrackingMethod`], which calls this NEW WORK because
+//! "OpenMC is pure surface tracking".
 
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;

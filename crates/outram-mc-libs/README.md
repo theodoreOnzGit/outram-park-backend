@@ -3,6 +3,11 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
+**Monte Carlo deep dive:** <https://theodoreonzgit.github.io/outram-park-backend/deep-dives/monte-carlo/>,
+how this crate is built and why, lesson beside code (sources in
+[`docs/lessons/`](./docs/lessons/); [API reference](https://theodoreonzgit.github.io/outram-park-backend/api/outram_mc_libs/)).
+First draft 2026-10-03, not yet human-reviewed.
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.

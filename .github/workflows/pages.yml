@@ -1,0 +1,72 @@
+# Backend GitHub Pages: the code deep dives and their API reference
+# (gh:#509 epic, #518). Published at
+# https://theodoreonzgit.github.io/outram-park-backend/
+#
+# Every push to `develop` rebuilds and redeploys, so the deep dives always
+# match the code they describe (maintainer decision 2026-10-03: continuous
+# publishing, no snapshots). A failed build leaves the last good site live.
+#
+# What it builds: `scripts/build-pages.sh`, the tabbed main menu
+# (docs/site/), each deep-dive mdBook listed in docs/site/deep-dives.txt, and
+# rustdoc (release, no source pages) for the crates in
+# docs/site/lesson-crates.txt, i.e. only crates that have lessons.
+#
+# Separate from `fast tests`: a broken page fails this workflow only.
+
+name: pages
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+      - name: Build the site
+        run: scripts/build-pages.sh target/pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      # The site must actually serve this commit, not a stale copy.
+      - name: Check the live site serves this build
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "${{ steps.deployment.outputs.page_url }}" | grep -q "${GITHUB_SHA:0:10}"; then
+              echo "live site shows ${GITHUB_SHA:0:10}"; exit 0
+            fi
+            sleep 20
+          done
+          echo "live site does not show ${GITHUB_SHA:0:10}" >&2; exit 1

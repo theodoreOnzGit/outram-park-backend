@@ -20,6 +20,10 @@
 //! Laboratory.** See `TRADEMARKS.md` (this crate's directory, mirrored from
 //! the workspace root) for the full attribution and non-affiliation notice.
 
+// Rustdoc without source pages (teaching site, gh:#518): lessons show
+// anchored snippets and link to GitHub at the build commit instead.
+#![doc(html_no_source)]
+
 /// The error type every ENDF-reading entry point in this crate returns
 /// (`Nuclide::from_endf_file`, `from_tape`, `from_endf`).
 ///
