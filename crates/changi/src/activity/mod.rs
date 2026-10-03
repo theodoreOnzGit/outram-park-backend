@@ -70,9 +70,11 @@
 //! Pasquill-Gifford sigmas, written for **methane** leak detection, fitted over
 //! roughly 0.1-10 km and carrying no turbulence closure.
 //!
-//! It is **not FLEXPART**. `changi::flexpart` is four scalar-kernel modules that
+//! It is **not FLEXPART**. ~~`changi::flexpart` is four scalar-kernel modules that
 //! its own documentation calls *"the first verified slice of a port"*; it cannot
-//! transport a plume and is not used for transport here. Say which model ran
+//! transport a plume~~ **CORRECTED 2026-10-03:** `changi::flexpart` is a port in
+//! progress (34 modules declared in `flexpart/mod.rs`, including `advance`), but
+//! it is not used for transport here. Say which model ran
 //! when reporting a number from this module.
 //!
 //! ## Scope limit — binding, do not soften

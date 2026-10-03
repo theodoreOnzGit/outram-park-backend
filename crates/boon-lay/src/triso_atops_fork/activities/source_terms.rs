@@ -90,7 +90,11 @@ impl FailureFractions {
     /// below a typical as-manufactured
     /// `f_inc`: for HTR-10 it is `10⁻¹⁵`–`10⁻⁶` across the plausible fuel
     /// temperature band against a 3·10⁻⁵ placeholder
-    /// (`crate::fuel_failure::htr10`). Using it there would not improve the
+    /// (`crate::fuel_failure::htr10`). (**CORRECTED 2026-10-03:** that
+    /// placeholder was `htgr_sim_v1`'s `TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS`,
+    /// deleted 2026-09-29 for false provenance, gh:#399; `htgr_sim_v1` now uses
+    /// Liu & Cao's `5·10⁻⁴` design value and adds `φ₁` on top, #469.) Using it
+    /// there would not improve the
     /// number, it would silently answer a different question and divide every
     /// reported activity by ~10⁷. Use it for a transient; for steady state,
     /// supply fuel-qualification data.

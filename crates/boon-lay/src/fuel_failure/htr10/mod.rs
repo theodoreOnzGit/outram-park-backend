@@ -56,9 +56,20 @@
 //!
 //! # Result 1 — normal operation: boon-lay fuel failure must NOT replace the `f_inc` placeholder
 //!
-//! `htgr_sim_v1`'s `TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS` carries
+//! ~~`htgr_sim_v1`'s `TRISO_ATOPS_REFERENCE_FAILURE_FRACTIONS` carries
 //! `f_inc = 3·10⁻⁵`, documented there as a TRISO-ATOPS reference value rather
-//! than HTR-10 data, and release scales linearly in it. The obvious move is to
+//! than HTR-10 data, and release scales linearly in it.~~
+//!
+//! **CORRECTED 2026-10-03.** That constant was **deleted on 2026-09-29
+//! (gh:#399)** because its stated provenance was false (see the struck note in
+//! `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs`,
+//! above `fractions_at`). `htgr_sim_v1`'s `f_inc` is now
+//! `5·10⁻⁴ + φ₁(T_B) + chemical_attack`: Liu & Cao 2002's design irradiation
+//! failure, plus this crate's `φ₁` on top (#469 item 1). The `3·10⁻⁵` below
+//! is kept as the placeholder these 2026-09-24 measurements were compared
+//! against; the conclusion holds with more margin against `5·10⁻⁴`, and
+//! `htgr_sim_v1` follows it: `φ₁` is added, it does not replace the
+//! in-service value. Release scales linearly in `f_inc`. The obvious move is to
 //! compute `f_inc` with boon-lay fuel failure instead. **That would be wrong, and by a very
 //! large margin.**
 //!

@@ -61,8 +61,10 @@ const STEP_S: f64 = 10.0;
 const RELEASE_S: f64 = 3600.0;
 const N_RELEASE_WINDOWS: usize = 6;
 
-/// Puffs are dropped at this age. At 4 m/s the reach is 10 km, beyond the
-/// farthest receptor.
+/// Puffs are dropped at this age. ~~At 4 m/s the reach is 10 km, beyond the
+/// farthest receptor.~~ **CORRECTED 2026-10-03:** the wind is now the 2 m/s
+/// climatological mean, so the reach is ~5 km and the 8 km receptor is beyond
+/// it (it reads zero) — the lifetime was not rescaled when the wind changed.
 const PUFF_LIFETIME_S: f64 = 2500.0;
 
 /// Activity released per nuclide over the hour. **Illustrative, not a plant

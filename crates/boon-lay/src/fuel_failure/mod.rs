@@ -92,7 +92,13 @@
 //! table in the report to check them against, and Eq (4) has none either
 //! (only the exact identity `F_d(τ_i, 0) = f(τ_i)`). Against Fig. 6 the chain
 //! reproduces the eight-variety ordering 8/8 but carries a residual of
-//! −0.37 … +0.39 decades that runs systematically with `m`; against Fig. 7 it
+//! −0.37 … +0.39 decades that runs systematically with `m` (**CORRECTED
+//! 2026-10-03:** that is the residual *as digitised*.
+//! `docs/panama-i-units-and-open-questions.md` attributes the `m`-trend to
+//! digitisation: under a seven-decade (`6/7`) axis reading the eight varieties
+//! collapse to 1.4 % with ±2 % residuals. Since 2026-09-28 Fig. 6's frame
+//! extent is **unverified**, so neither reading is settled and Fig. 6 does
+//! not count as a verified check); against Fig. 7 it
 //! holds to ~~4.9 %~~ **4.7 %** through all three temperature stages for 300 h and then
 //! drifts to a factor ~~1.90~~ **1.87** by 977 h (**CORRECTED 2026-09-28**
 //! on the re-digitised Fig. 7, whose true seven-decade scale put the old

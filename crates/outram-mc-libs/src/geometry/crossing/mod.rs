@@ -517,10 +517,13 @@ impl GeometryExt for Geometry {
                 // is no honest behaviour available here: reflecting is a
                 // different problem and so is vacuum.
                 //
-                // [`Geometry::validate_boundary_conditions`] rejects these at
-                // construction so a run cannot reach this point. This arm is the
-                // backstop for a `Geometry` assembled by hand from its public
-                // fields, which the struct's layout allows.
+                // ~~[`Geometry::validate_boundary_conditions`] rejects these at
+                // construction so a run cannot reach this point.~~ **CORRECTED
+                // 2026-10-03:** nothing calls `validate_boundary_conditions` at
+                // construction or in a driver (only
+                // `tests/white_boundary_vs_openmc.rs` does), so a run CAN reach
+                // this point unless its caller validates first. This arm is the
+                // backstop that turns that into a loud failure.
                 panic!(
                     "surface {i_surf} declares a Periodic boundary condition, which is not \
                      implemented (GitHub #259). Until 2026-09-22 it was silently aliased to \

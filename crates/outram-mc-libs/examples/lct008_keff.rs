@@ -274,7 +274,11 @@
 //! is worth more than the number that finally came out right.
 //!
 //! **Does not:** say anything about DBRC or URR probability tables, both landed
-//! 2026-09-16 and both **opt-in and not enabled here**. This run uses neither.
+//! 2026-09-16 and both ~~**opt-in and not enabled here**. This run uses neither.~~
+//! **CORRECTED 2026-10-03:** this paragraph is the 2026-09-16 state. Since the
+//! correct-physics-default change (root `CLAUDE.md`, 2026-09-20) `load()`'s
+//! `from_endf_file_with_speed` path applies both by default
+//! (`Nuclide::from_tape_with_broadr_tolerance`); see the section below.
 //! Pricing them on this case is the obvious next measurement now that it has
 //! headroom — at ±120 pcm it can resolve an effect of a few hundred pcm.
 //!
@@ -283,9 +287,12 @@
 //!
 //! With the residual gone this case finally had the headroom to price the two
 //! resonance treatments that landed the same day, and which a bare fast sphere
-//! cannot see at all. Both are opt-in (`--dbrc`, `--urr`) and both default off,
+//! cannot see at all. ~~Both are opt-in (`--dbrc`, `--urr`) and both default off,
 //! so the no-flag arm reproduces the baseline above and the difference is
-//! attributable to the flag alone.
+//! attributable to the flag alone.~~ **CORRECTED 2026-10-03:** that was true when
+//! this table was measured (2026-09-16). Both are now applied by default on the
+//! ENDF load path, so the `--dbrc`/`--urr` flags only rebuild tables the nuclide
+//! already carries, and a no-flag run today is NOT the baseline arm below.
 //!
 //! | arm | `Δk` | worth against the baseline |
 //! |---|---|---|
@@ -530,8 +537,8 @@ fn main() {
     };
     if res_opts.dbrc || res_opts.urr {
         eprintln!(
-            "Resonance treatments requested: dbrc={} urr={} (both default OFF; a run without \
-             them reproduces the recorded baseline)",
+            "Resonance treatments requested: dbrc={} urr={} (both are already applied by \
+             default on the ENDF load path since 2026-09-20; the flags only rebuild them)",
             res_opts.dbrc, res_opts.urr
         );
     }

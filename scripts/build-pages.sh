@@ -51,7 +51,27 @@ grep -rlZ -e '@@COMMIT@@' -e '@@COMMIT_SHORT@@' -e '@@BUILD_DATE@@' "$OUT" \
   | xargs -0 -r sed -i -e "s/@@COMMIT@@/$COMMIT/g" -e "s/@@COMMIT_SHORT@@/$SHORT/g" -e "s/@@BUILD_DATE@@/$DATE/g"
 
 # Every page must exist where the main menu points.
-for f in index.html deep-dives/monte-carlo/index.html api/outram_mc_libs/index.html; do
+for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
+  api/buangkok/index.html api/boon_lay/index.html \
+  deep-dives/{monte-carlo,dispersion,triso-atops}/index.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
+
+# Every relative link from the main menu and the deep dives must land on a
+# page in the site (a lesson link into the API 404s silently otherwise).
+# Anchors are not checked.
+bad=0
+while IFS= read -r -d '' page; do
+  dir="$(dirname "$page")"
+  while IFS= read -r href; do
+    target="${href%%#*}"
+    [[ -z "$target" ]] && continue
+    p="$dir/$target"
+    [[ -d "$p" ]] && p="$p/index.html"
+    [[ -e "$p" ]] || { echo "broken link in ${page#"$OUT"/}: $href" >&2; bad=1; }
+  done < <(grep -oE 'href="[^"]+"' "$page" | sed -E 's/^href="(.*)"$/\1/' \
+             | grep -vE '^([a-z]+:|/|#)')
+done < <(find "$OUT/index.html" "$OUT/deep-dives" -name '*.html' -print0)
+(( bad == 0 )) || exit 1
+
 echo "site built in $OUT ($(du -sh "$OUT" | cut -f1)), commit $SHORT"

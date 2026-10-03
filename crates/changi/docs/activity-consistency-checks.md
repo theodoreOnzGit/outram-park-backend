@@ -53,3 +53,10 @@ Briggs-rural class-D sigmas (σy ≈ 68 m, σz ≈ 32 m at 1 km),
 ≈ `8.7e5 Bq·s/m³`. That is an order-of-magnitude sanity check by hand, not a
 verification: the sigmas were read from memory of the standard curves, not
 from a cited table.
+
+**Not re-checked at the current wind (2026-10-03).** The example's description
+and the hand check above are of the **4 m/s** run of 2026-09-21. The example now
+uses the 2 m/s climatological mean (`puff::climatology::MEAN_WIND_SPEED_M_PER_S`)
+with the puff lifetime unchanged, so its reach is ~5 km and its 8 km row reads
+zero; the 1 km value it prints today has not been re-checked against a hand
+estimate.

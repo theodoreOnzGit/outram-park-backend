@@ -14,7 +14,9 @@
 //!   iteration; the second canonical MC mode (shielding / detector response).
 //!   Reuses [`transport_csg::transport_history_vr`] for the per-history physics.
 //! - [`physics_mg`] — multigroup transport (group-averaged cross sections;
-//!   pending / partial).
+//!   ~~pending / partial~~ **CORRECTED 2026-10-03:** implemented as
+//!   [`physics_mg::run_keff_mg`], verified against OpenMC MG on GitHub #265; no
+//!   variance reduction or delayed-neutron separation yet).
 //! - [`reactor_physics::run_keff_reactor_physics`] — k-eigenvalue **plus**
 //!   auto-captured 3-group six-factor decomposition (η, f, p, ε, P_FNL, P_TNL)
 //!   and lethargy-normalised flux spectrum, from one combined tally + explicit

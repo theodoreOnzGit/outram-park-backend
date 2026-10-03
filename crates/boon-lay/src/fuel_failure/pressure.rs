@@ -48,13 +48,18 @@ pub const STABLE_FISSION_GAS_YIELD: f64 = 0.31;
 /// ```
 ///
 /// - `released_gas_fraction` — `F_d`, the relevant fraction of fission gas
-///   released from the kernel (Eq (4), Allelein 1983 — **not** implemented
-///   here; supply it).
+///   released from the kernel (Eq (4), Allelein 1983 — ~~**not** implemented
+///   here; supply it~~ **CORRECTED 2026-10-03:** an input to this function,
+///   computed by [`super::booth::released_gas_fraction`]).
 /// - `stable_gas_yield` — `F_f`, atoms of stable fission gas per fission;
 ///   [`STABLE_FISSION_GAS_YIELD`] is the report's 0.31.
 /// - `oxygen_per_fission` — `OPF`, CO-forming oxygen atoms per fission
-///   (Eqs (5a)–(5f) — **not** implemented here; supply it, and see the module
-///   docs on why).
+///   (Eqs (5a)–(5f) — ~~**not** implemented here; supply it, and see the module
+///   docs on why~~ **CORRECTED 2026-10-03:** an input to this function,
+///   computed by [`super::oxygen::oxygen_per_fission_uo2`],
+///   [`super::oxygen::oxygen_per_fission_thoria`] or
+///   [`super::oxygen::oxygen_per_fission_uco`]; see the module docs'
+///   CORRECTED 2026-09-24 note).
 /// - `burnup` — `F_b`, heavy-metal burnup in FIMA.
 /// - `free_volume` / `kernel_volume` — `V_f` (buffer void) and `V_k`.
 /// - `molar_volume` — `V_m`, the molar volume of the kernel compound

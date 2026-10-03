@@ -198,6 +198,15 @@ cargo test -p boon-lay --lib --tests --release
 
 ### `lagrangian_transmutation_and_fission_simulator`
 
+~~Planned.~~ **CORRECTED 2026-10-03:** partly implemented, in
+`src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs`
+(re-exported from `src/lagrangian_transmutation_and_fission_simulator/mod.rs`,
+as the module map above says). Verified in the code: decay against the
+crate's `DecayLibrary`, and **one** explicit `(n,gamma)` channel through
+`Transmutation`. Still planned: `(n,2n)`, fission with yield sampling, and
+per-nuclide cross sections or flux maps from `njoy-outram-park-fork` /
+`outram-mc-libs`. The sketch below is the design that code follows.
+
 **No burnup matrix needed.** The whole point of the Lagrangian MC approach is
 that you track individual atoms stochastically, so the Bateman ODE system
 (`dN/dt = A·N`) and its large, stiff matrix `A` never appear.  Each simulated

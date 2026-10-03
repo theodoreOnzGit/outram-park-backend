@@ -60,6 +60,9 @@
 //! They are stored reference data; nothing in this crate computes a dose
 //! from them.
 #![forbid(unsafe_code)]
+// Rustdoc without source pages (teaching site, gh:#518): lessons show
+// anchored snippets and link to GitHub at the build commit instead.
+#![doc(html_no_source)]
 
 /// Published dose tables (Liu and Cao 2002, Tables 7 and 9), stored as cited
 /// reference data. See the module docs.

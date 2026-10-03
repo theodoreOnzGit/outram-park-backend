@@ -1,0 +1,15 @@
+# Deep dive: TRISO-ATOPS & fuel failure, inside boon-lay (teaching site,
+# gh:#509 / #517 / #518). Built by scripts/build-pages.sh into the backend's
+# GitHub Pages site under deep-dives/triso-atops/. Lessons live here, beside
+# the code (#510).
+[book]
+title = "TRISO-ATOPS & fuel failure deep dive — inside boon-lay"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/boon-lay"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/boon-lay/docs/lessons/{path}"
+site-url = "/outram-park-backend/deep-dives/triso-atops/"
+mathjax-support = false

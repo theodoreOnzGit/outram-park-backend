@@ -65,9 +65,11 @@
 //! | [`puff`] | Analytic Gaussian puff | `puff` 0.1.1 (MIT) | a single wind series |
 //!
 //! [`flexpart`] is built for synoptic scales and needs meteorological files;
-//! only its surface-layer and deposition scalar kernels are ported so far, so
-//! read it as the first verified slice of a port rather than "FLEXPART in
-//! Rust". [`puff`] is complete for upstream's physics, needs no meteorological
+//! ~~only its surface-layer and deposition scalar kernels are ported so far~~
+//! **CORRECTED 2026-10-03:** `flexpart/mod.rs` now declares 34 ported modules
+//! (among them `advance`, `turbulence`, `convection`, `wet_deposition`,
+//! `concentration`); see that module for which are verified, and read it as a
+//! port in progress rather than "FLEXPART in Rust". [`puff`] is complete for upstream's physics, needs no meteorological
 //! input, and is cheap enough to run interactively over a site-sized domain —
 //! but its dispersion fits are empirical over roughly 0.1–10 km and its unit
 //! conversion is methane-specific. See each module for what it does and does
@@ -78,9 +80,11 @@
 //! - [`petir`] — the workspace's core numerics crate, for `erf` and (in later
 //!   phases) interpolation, quadrature and ODE integration. FLEXPART's own
 //!   `erf.f90` is deliberately not ported.
-//! - `outram-mc-libs`' LCG, for the pseudo-random numbers the Langevin
+//! - ~~`outram-mc-libs`' LCG, for the pseudo-random numbers the Langevin
 //!   turbulence scheme will need. Not yet wired in — no stochastic code has
-//!   landed.
+//!   landed.~~ **CORRECTED 2026-10-03:** `petir`'s LCG (`petir::rng::lcg`) is
+//!   the random source, and it is wired in: the stochastic `advance` mode and
+//!   `tests/flexpart_stochastic_advance.rs` draw from it.
 //! - `outram-foam-basic-lib`, for the gridded field and interpolation layer when
 //!   the concentration-grid phase arrives. Not yet a dependency: the scalar
 //!   kernels ported so far need nothing from it, and adding a finite-volume CFD
@@ -102,6 +106,9 @@
 //! fork; not affiliated with or endorsed by NILU or the FLEXPART developers.
 
 #![forbid(unsafe_code)]
+// Rustdoc without source pages (teaching site, gh:#518): lessons show
+// anchored snippets and link to GitHub at the build commit instead.
+#![doc(html_no_source)]
 
 pub mod activity;
 pub mod flexpart;

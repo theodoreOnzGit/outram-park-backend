@@ -717,7 +717,10 @@ fn transport_history(
 }
 
 /// Resample `n` sites uniformly with replacement — crude fixed-size population
-/// control for the fission bank each generation (mirrors the CE drivers).
+/// control for the fission bank each generation. ~~(mirrors the CE drivers)~~
+/// **CORRECTED 2026-10-03:** the CE drivers (`keff`, `transport_csg`,
+/// `keff_delta`) use [`super::fission::comb_resample`] since GitHub #460; this
+/// multigroup path still draws with replacement.
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
     let len = bank.len();
     (0..n)

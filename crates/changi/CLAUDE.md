@@ -66,7 +66,7 @@ flip the README's `Bookkeeping status` axes — those record *human* review.
 and `puff` at `upstream_source/puff` (both gitignored, reference-only, never
 compiled into the crate). Read the upstream source before proposing any change
 to ported code — the workspace "read upstream first" rule applies with full
-force, and on this crate it has already paid: every one of the four upstream
+force, and on this crate it has already paid: every one of the ~~four~~ five (CORRECTED 2026-10-03) upstream
 `puff` defects in `docs/puff-code-to-code.md` came from reading or running
 upstream, not from reasoning about the physics.
 

@@ -804,7 +804,8 @@ mod tests {
     ///
     /// Both match the prediction exactly. Note the dispersion distance agrees
     /// by coincidence at this particular geometry — the legs are equal — while
-    /// the *positions* are 500 m apart. A test written on the distance alone
+    /// the *positions* are ~~500 m~~ **707.1 m apart** (CORRECTED 2026-10-03:
+    /// `hypot(1000 - 500, 0 - 500)`; the test asserts only `> 490 m`). A test written on the distance alone
     /// would have passed against the bug.
     ///
     /// **Interpretation.** The Lagrangian puff turns and keeps the position it

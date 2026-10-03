@@ -19,9 +19,10 @@
 //! ```
 //!
 //! with `(a, b)` selected from a per-class table of distance bins and `(c, d)`
-//! constant per class. The `465.11628` is `1000 / (2 * 2.15)` — the metres-per-
-//! kilometre conversion folded into the half-width-to-sigma factor 2.15 that
-//! the original nomograms were drawn with.
+//! constant per class. The `465.11628` is ~~`1000 / (2 * 2.15)`~~ **CORRECTED
+//! 2026-10-03:** `1000 / 2.15` (= 465.116; `1000 / (2 * 2.15)` is 232.56) — the
+//! metres-per-kilometre conversion divided by the half-width-to-sigma factor
+//! 2.15 that the original nomograms were drawn with.
 //!
 //! **These fits are only defined over roughly 0.1–10 km.** Upstream applies
 //! them at any positive distance; see [`pasquill_gifford_sigmas`] for what that
@@ -53,8 +54,10 @@ pub struct DispersionSigmas {
 pub const SIGMA_Z_CAP_METERS: f64 = 5000.0;
 
 /// `1000 m/km` divided by the 2.15 half-width-to-sigma factor of the original
-/// Pasquill–Gifford nomograms, doubled: `1000 / (2 * 2.15) = 232.558…`, which
-/// upstream writes as `465.11628` for the full width.
+/// Pasquill–Gifford nomograms: `1000 / 2.15 = 465.116…`, which upstream writes
+/// as `465.11628`. (~~"doubled: `1000 / (2 * 2.15) = 232.558…`, which upstream
+/// writes as `465.11628` for the full width"~~ **CORRECTED 2026-10-03:** the
+/// constant is `1000 / 2.15`; the old arithmetic did not reproduce it.)
 const SIGMA_Y_PREFACTOR: f64 = 465.11628;
 
 /// Degrees-to-radians, as upstream spells it: `0.017453293`.

@@ -7,6 +7,10 @@
 //! the TRISO-ATOPS fork (`triso_atops_fork`), which supplies the fission-product
 //! release physics that `sembawang` orchestrates.
 
+// Rustdoc without source pages (teaching site, gh:#518): lessons show
+// anchored snippets and link to GitHub at the build commit instead.
+#![doc(html_no_source)]
+
 /// prelude is here for easy imports
 pub mod prelude;
 

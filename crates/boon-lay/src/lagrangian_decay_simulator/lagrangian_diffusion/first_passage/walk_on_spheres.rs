@@ -10,10 +10,19 @@
 //! layer the way the single-Gaussian step does (see
 //! `docs/buffer_clt_failure_analysis.md`).
 //!
-//! This Phase-0 scaffold defines the walker type and the geometry helper
+//! ~~This Phase-0 scaffold defines the walker type and the geometry helper
 //! [`nearest_interface_distance`], which turns the concentric-sphere `TrisoCell`
 //! into the hop radius `R`. The stochastic `hop` itself, the outer-surface
-//! escape test, and the interface handling are added in the CPU-engine phases.
+//! escape test, and the interface handling are added in the CPU-engine phases.~~
+//!
+//! **CORRECTED 2026-10-03:** no longer a scaffold. Besides the walker type and
+//! [`nearest_interface_distance`], this file carries the stochastic hop
+//! ([`WoSWalker::hop`]), the walk to an absorbing sphere
+//! ([`WoSWalker::walk_to_absorbing_sphere`]), the multilayer step with interface
+//! handling ([`WoSWalker::step_multilayer`], which calls
+//! [`super::interface::does_transmit`]), and the walk to release
+//! ([`WoSWalker::walk_until_released`]); see the test
+//! `multilayer_walk_transmits_across_interfaces`.
 
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;

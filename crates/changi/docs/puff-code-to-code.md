@@ -176,7 +176,8 @@ for 100 s** (`simulate::tests::a_veering_wind_bends_a_lagrangian_puff_and_telepo
 | dispersion distance | **1000.0 m** (path) | 1000.0 m (chord) |
 | net displacement | 707.1 m | 1000.0 m |
 
-The two puffs are **500 m apart**. Note that the dispersion *distance* happens
+The two puffs are ~~**500 m apart**~~ **707.1 m apart** (CORRECTED 2026-10-03:
+`hypot(1000 − 500, 0 − 500)`; the test asserts only `> 490 m`). Note that the dispersion *distance* happens
 to agree here because the two legs are equal — a test written on the distance
 alone would have passed against the defect.
 

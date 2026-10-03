@@ -1,2 +1,5 @@
 # Crates whose rustdoc is published (only crates that have lessons, gh:#518).
 outram-mc-libs
+changi
+buangkok
+boon-lay
