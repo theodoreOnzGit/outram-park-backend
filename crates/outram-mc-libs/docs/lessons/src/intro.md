@@ -1,5 +1,11 @@
 # How to read this deep dive
 
+> **This site always tracks the `develop` branch, never `main`.** It is rebuilt
+> on every push to `develop`, and every code link points at the exact `develop`
+> commit it was built from,
+> [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
+> A released version on `main` may differ from what you read here.
+
 > **Research, education and V&V only.** Not for reactor operation, licensing,
 > safety decisions or emergency response. See
 > [`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md).

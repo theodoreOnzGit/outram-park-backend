@@ -1,5 +1,11 @@
 # How to read this
 
+> **This site always tracks the `develop` branch, never `main`.** It is rebuilt
+> on every push to `develop`, and every code link points at the exact `develop`
+> commit it was built from,
+> [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
+> A released version on `main` may differ from what you read here.
+
 > **Research, education and V&V only.** Nothing in this deep dive, or in the
 > code it describes, is for emergency planning, emergency response, dose
 > assessment for real populations, Level 3 PSA, reactor operation or any
